@@ -18,6 +18,45 @@ export type Lab = Schemas["Lab"];
 export type Membership = Schemas["Membership"];
 export type Invite = Schemas["Invite"];
 export type InvitePreview = Schemas["InvitePreview"];
+export type Project = Schemas["Project"];
+export type ProjectInput = Schemas["ProjectInput"];
+export type ProjectStatus = Schemas["ProjectStatusEnum"];
+export type ProjectRole = Schemas["ProjectRoleEnum"];
+export type ProjectMembership = Schemas["ProjectMembership"];
+export type Deadline = Schemas["Deadline"];
+export type DeadlineInput = Schemas["DeadlineInput"];
+export type Task = Schemas["Task"];
+export type TaskInput = Schemas["TaskInput"];
+export type Attachment = Schemas["Attachment"];
+export type TaskStatus = Schemas["TaskStatusEnum"];
+export type DocumentRow = Schemas["DocumentList"];
+export type DocumentFull = Schemas["Document"];
+export type DocumentSaveInput = Schemas["DocumentSave"];
+export type DocumentConflict = Schemas["Conflict"];
+export type RevisionRow = Schemas["RevisionList"];
+export type Revision = Schemas["Revision"];
+
+export const PROJECT_STATUSES: { value: ProjectStatus; label: string }[] = [
+  { value: "planning", label: "Planning" },
+  { value: "active", label: "Active" },
+  { value: "paused", label: "Paused" },
+  { value: "completed", label: "Completed" },
+  { value: "archived", label: "Archived" },
+];
+export const PROJECT_ROLES: { value: ProjectRole; label: string }[] = [
+  { value: "lead", label: "Lead" },
+  { value: "contributor", label: "Contributor" },
+  { value: "viewer", label: "Viewer" },
+];
+export const TASK_STATUSES: { value: TaskStatus; label: string }[] = [
+  { value: "todo", label: "To do" },
+  { value: "in_progress", label: "In progress" },
+  { value: "done", label: "Done" },
+];
+export const taskStatusLabel = (s: string) => TASK_STATUSES.find((x) => x.value === s)?.label ?? s;
+export const personName = (u: { display_name?: string; email: string }) =>
+  u.display_name || u.email;
+
 export type AuditEvent = Schemas["AuditEvent"];
 export type AuditPage = Schemas["PaginatedAuditEventList"];
 

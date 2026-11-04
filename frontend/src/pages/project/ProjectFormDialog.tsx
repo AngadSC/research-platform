@@ -1,0 +1,121 @@
+import { useState, type FormEvent } from "react";
+import { toast } from "sonner";
+import { FormError } from "@/components/shared/FormError";
+import { FormField } from "@/components/shared/FormField";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  PROJECT_STATUSES,
+  type Project,
+  type ProjectInput,
+  type ProjectStatus,
+} from "@/lib/api-types";
+import { formErrors, type FormErrors } from "@/lib/forms";
+
+interface Props {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Present when editing. */
+  project?: Project;
+  onSave: (v: ProjectInput) => Promise<unknown>;
+}
+
+/** Create or edit a project. Throws from onSave are shown inline. */
+export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Props) {
+  const [status, setStatus] = useState<ProjectStatus>(project?.status ?? "planning");
+  const [errors, setErrors] = useState<FormErrors>({ fields: {} });
+
+  async function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    const name = String(f.get("name") ?? "").trim();
+    if (!name) return setErrors({ fields: { name: "Enter a project name" } });
+    setErrors({ fields: {} });
+    try {
+      await onSave({
+        name,
+        description: String(f.get("description") ?? ""),
+        status,
+        start_date: String(f.get("start_date") ?? "") || null,
+        retain_until: String(f.get("retain_until") ?? "") || null,
+      });
+      toast.success("Saved");
+      onOpenChange(false);
+    } catch (err) {
+      setErrors(formErrors(err, ["name", "description", "start_date", "retain_until"]));
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogTitle className="text-base font-semibold">
+          {project ? "Edit project" : "New project"}
+        </DialogTitle>
+        <DialogDescription className="sr-only">Project details</DialogDescription>
+        <form onSubmit={submit} noValidate className="grid gap-4">
+          <FormField label="Name" error={errors.fields.name}>
+            {(p) => <Input {...p} name="name" defaultValue={project?.name} autoComplete="off" />}
+          </FormField>
+          <FormField label="Description" error={errors.fields.description}>
+            {(p) => <Textarea {...p} name="description" defaultValue={project?.description} />}
+          </FormField>
+          <FormField label="Status">
+            {(p) => (
+              <Select value={status} onValueChange={(v) => setStatus(v as ProjectStatus)}>
+                <SelectTrigger {...p}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROJECT_STATUSES.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </FormField>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Start date" error={errors.fields.start_date}>
+              {(p) => (
+                <Input
+                  {...p}
+                  type="date"
+                  name="start_date"
+                  defaultValue={project?.start_date ?? ""}
+                />
+              )}
+            </FormField>
+            <FormField label="Keep until" error={errors.fields.retain_until}>
+              {(p) => (
+                <Input
+                  {...p}
+                  type="date"
+                  name="retain_until"
+                  defaultValue={project?.retain_until ?? ""}
+                />
+              )}
+            </FormField>
+          </div>
+          <FormError message={errors.form} />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit">Save</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

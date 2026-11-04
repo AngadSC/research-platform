@@ -6,8 +6,15 @@ import { AcceptInvitePage } from "@/pages/AcceptInvitePage";
 import { CheckEmailPage, LoginPage, SignupPage, VerifyEmailPage } from "@/pages/AuthPages";
 import { CreateLabPage } from "@/pages/CreateLabPage";
 import { HomePage, NotBuiltPage } from "@/pages/HomePage";
+import { DocumentPage } from "@/pages/LazyDocumentPage";
 import { LabHomePage } from "@/pages/LabHomePage";
 import { MembersPage } from "@/pages/MembersPage";
+import { ProjectPage, ProjectTab } from "@/pages/ProjectPage";
+import DocumentsTab from "@/pages/project/DocumentsTab";
+import FilesTab from "@/pages/project/FilesTab";
+import PdfViewerRoute from "@/pages/project/PdfViewerRoute";
+import OverviewTab from "@/pages/project/OverviewTab";
+import TasksTab from "@/pages/project/TasksTab";
 import { SecurityPage } from "@/pages/SecurityPage";
 
 export const routes: RouteObject[] = [
@@ -44,6 +51,55 @@ export const routes: RouteObject[] = [
             children: [
               { index: true, element: <LabHomePage /> },
               { path: "members", element: <MembersPage />, handle: { crumb: "Members" } },
+              {
+                path: "projects",
+                handle: { crumb: "Projects" },
+                children: [
+                  { index: true, element: <LabHomePage /> },
+                  {
+                    path: ":projectId",
+                    element: <ProjectPage />,
+                    handle: { crumb: "@project" },
+                    children: [
+                      { index: true, element: <Navigate to="overview" replace /> },
+                      {
+                        path: "overview",
+                        element: <ProjectTab as={OverviewTab} />,
+                        handle: { crumb: "Overview" },
+                      },
+                      {
+                        path: "tasks",
+                        element: <ProjectTab as={TasksTab} />,
+                        handle: { crumb: "Tasks" },
+                      },
+                      {
+                        path: "documents",
+                        handle: { crumb: "Documents" },
+                        children: [
+                          { index: true, element: <ProjectTab as={DocumentsTab} /> },
+                          {
+                            path: ":documentId",
+                            element: <DocumentPage />,
+                            handle: { crumb: "@document" },
+                          },
+                        ],
+                      },
+                      {
+                        path: "files",
+                        handle: { crumb: "Files" },
+                        children: [
+                          { index: true, element: <ProjectTab as={FilesTab} /> },
+                          {
+                            path: ":attachmentId",
+                            element: <PdfViewerRoute />,
+                            handle: { crumb: "View file" },
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
               { path: "audit-log", element: <AuditLogPage />, handle: { crumb: "Audit log" } },
             ],
           },

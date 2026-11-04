@@ -50,3 +50,4 @@ One line each. **[H]** marks decisions a human should confirm.
 - D39. Soft-deleted projects and their children are invisible to every permission check (`project_role`, `can`, `require`, `users_with`), not only to listings. From review #1.
 - D40. Accepting an invite re-checks that the inviter can still `manage_members` and grant that role. Removing or demoting a member revokes the open invites they sent. From review #2.
 - D41. Settings fail closed: DEBUG defaults to False, and startup refuses a missing or placeholder SECRET_KEY when DEBUG is off. `/admin/` is mounted only when DEBUG is on. CACHES uses Valkey (Django's built-in RedisCache). Invite creation is throttled. From review #3, #6, #8.
+- D42. Documents use explicit save (Save button, Ctrl/Cmd+S), not autosave, so revisions stay meaningful. A stale save shows a conflict dialog and never overwrites silently.

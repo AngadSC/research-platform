@@ -109,3 +109,34 @@ export async function api<T = unknown>(path: string, opts: Options = {}): Promis
   if (status < 200 || status >= 300) throw toApiError(status, body);
   return body as T;
 }
+
+/** Multipart POST with upload progress (fetch can't report it). Still sends CSRF. Throws ApiError on non-2xx. */
+export async function upload<T = unknown>(
+  path: string,
+  form: FormData,
+  onProgress?: (fraction: number) => void,
+): Promise<T> {
+  if (!getCookie("csrftoken"))
+    await fetch(SESSION_URL, { headers: { Accept: "application/json" } });
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", path);
+    xhr.setRequestHeader("Accept", "application/json");
+    xhr.setRequestHeader("X-CSRFToken", getCookie("csrftoken") ?? "");
+    xhr.withCredentials = true;
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total);
+    xhr.onerror = () =>
+      reject(new ApiError(0, "We couldn't reach the server. Check your connection and try again."));
+    xhr.onload = () => {
+      let body: unknown = null;
+      try {
+        body = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        /* non-JSON error page */
+      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(body as T);
+      else reject(toApiError(xhr.status, body));
+    };
+    xhr.send(form);
+  });
+}

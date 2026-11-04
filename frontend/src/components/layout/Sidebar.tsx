@@ -1,4 +1,4 @@
-import { ChevronsUpDown, LogOut } from "lucide-react";
+import { ChevronsUpDown, LogOut, Plus } from "lucide-react";
 import { NavLink, useNavigate } from "react-router";
 import {
   DropdownMenu,
@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { useLogout } from "@/hooks/auth";
 import { useCurrentLabId } from "@/hooks/crumbs";
+import { useProjects } from "@/hooks/projects";
 import { useLabs } from "@/hooks/workspace";
 import type { Lab } from "@/lib/api-types";
 import { navItems } from "@/lib/nav";
@@ -57,6 +58,8 @@ export function Sidebar() {
   const { data: labs = [] } = useLabs();
   const labId = useCurrentLabId();
   const logout = useLogout();
+  const { data: projects = [] } = useProjects(labId);
+  const navigate = useNavigate();
   const current = labs.find((l) => l.id === labId);
   return (
     <aside className="flex w-64 shrink-0 flex-col gap-4 border-r bg-sidebar p-3">
@@ -65,6 +68,28 @@ export function Sidebar() {
         <LabSwitcher labs={labs} current={current} />
       </div>
       <Separator />
+      {labId && (
+        <nav aria-label="Projects" className="grid gap-0.5">
+          <div className="flex items-center justify-between px-2 pb-1">
+            <span className="text-xs text-muted-foreground">Projects</span>
+            {current?.my_permissions.includes("create_project") && (
+              <button
+                type="button"
+                aria-label="New project"
+                onClick={() => void navigate(`/labs/${labId}?new=project`)}
+                className="rounded-md p-1 text-muted-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4"
+              >
+                <Plus aria-hidden />
+              </button>
+            )}
+          </div>
+          {projects.map((p) => (
+            <NavLink key={p.id} to={`/labs/${labId}/projects/${p.id}`} className={linkClass}>
+              <span className="truncate">{p.name}</span>
+            </NavLink>
+          ))}
+        </nav>
+      )}
       <nav aria-label="Main" className="grid gap-0.5">
         {navItems(labId, current?.my_permissions).map(({ to, label, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end} className={linkClass}>

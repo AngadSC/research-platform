@@ -4,6 +4,7 @@ import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { useCrumbs, useCurrentLabId } from "@/hooks/crumbs";
+import { useProjects } from "@/hooks/projects";
 import { useLabs } from "@/hooks/workspace";
 import { useRegisterCommands, type Command } from "@/lib/commands";
 import { CommandPalette } from "./CommandPalette";
@@ -15,6 +16,7 @@ export function AppShell() {
   const crumbs = useCrumbs();
   const labId = useCurrentLabId();
   const { data: labs } = useLabs();
+  const { data: projects } = useProjects(labId);
 
   const commands = useMemo<Command[]>(
     () => [
@@ -24,6 +26,12 @@ export function AppShell() {
         group: "Navigate",
         icon: n.icon,
         onSelect: () => void navigate(n.to),
+      })),
+      ...(projects ?? []).map((p) => ({
+        id: `project:${p.id}`,
+        label: `Go to project ${p.name}`,
+        group: "Projects",
+        onSelect: () => void navigate(`/labs/${labId}/projects/${p.id}`),
       })),
       ...(labs ?? []).map((l) => ({
         id: `lab:${l.id}`,
@@ -38,7 +46,7 @@ export function AppShell() {
         onSelect: () => void navigate("/labs/new"),
       },
     ],
-    [navigate, labId, labs],
+    [navigate, labId, labs, projects],
   );
   useRegisterCommands(commands);
 

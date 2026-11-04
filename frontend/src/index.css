@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@source "../node_modules/@blocknote/shadcn/dist";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

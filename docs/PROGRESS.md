@@ -18,3 +18,6 @@
 - Phase 2 committed. Phase 3 started: P3.1 (sonnet) and P3.2+P3.3 combined (sonnet, same app) in parallel.
 - P3.2+P3.3 done (sonnet): documents/revisions/409/restore, attachments with lab-prefix storage, authenticated download, notice ack audit. 13 matrix rows. Enum name collision (from projects) relayed to P3.1 agent.
 - P3.1 done (sonnet): projects, members, deadlines, tasks, reorder; enum overrides. ~47 matrix rows. Known issue: task assignee not re-checked after losing project access. Checkpoint commit.
+- P3.4 done (sonnet): project list/page/tabs, members, deadlines, task list+board (native DnD + keyboard Move to). 33 frontend tests. P3.5 and P3.6 started in parallel.
+- P3.5 done (sonnet): BlockNote editor (core/react/shadcn only, no xl), explicit save, 409 dialog, revisions + restore. 45 frontend tests. BlockNote not yet exercised in a real browser.
+- P3.6 done (sonnet): files tab, upload notice every time, XHR progress, PDF.js viewer, task delete. Phase 3 accepted: orchestrator smoke (13/13) for doc create/edit/409/revisions/restore, PDF upload+ack, inline download headers, audit, outsider 404, anon 401. make test green (45 FE tests). Browser check of BlockNote/PDF.js deferred to W.1.
