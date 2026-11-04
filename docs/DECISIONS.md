@@ -1,0 +1,38 @@
+# Decisions
+
+One line each. **[H]** marks decisions a human should confirm.
+
+- D1. `make` comes from winget `ezwinports.make` (approved by user). It's a local dev tool, not a shipped dependency.
+- D2. **[H]** Licenses: LGPL is allowed for unmodified, dynamically linked backend Python packages (for example psycopg). Added to the allowlist: 0BSD, CC0-1.0, Unlicense, BlueOak-1.0.0, CC-BY-4.0 (data only, for example caniuse-lite), HPND (Pillow), Python-2.0. Frontend bundles stay strict. GPL, AGPL, SSPL and BUSL stay banned (approved by user).
+- D3. Dev runs in Docker (user keeps Docker Desktop running). Containers use Python 3.12. The host's Python 3.13 is not used for the app.
+- D4. Django project package is `backend/config/`. Apps sit at `backend/<app>/`: core, labs, projects, documents, provenance, ethics, audit.
+- D5. Python dependencies are pinned in `backend/requirements.txt` and `requirements-dev.txt` (plain pip, no extra tooling).
+- D6. The SPA uses allauth headless with session cookies and CSRF. The Vite dev server proxies `/api` and `/_allauth` to the backend so it all stays same-origin.
+- D7. Primary keys are UUIDs, so object IDs can't be enumerated across labs.
+- D8. Passwords use Argon2 (argon2-cffi), with Django defaults as the fallback.
+- D9. Background jobs: Celery worker plus Celery beat, both on Valkey.
+- D10. BlockNote UI package: `@blocknote/shadcn`, to match shadcn/ui.
+- D11. Edit conflicts: a Document has an integer `version`. A save must send its base version, and a stale save gets HTTP 409.
+- D12. **[H]** Placeholder product name "Research Workspace", kept in one constant. Accent colour indigo.
+- D13. Lineage graph layout uses fixed columns by type (dataset, analysis, result, manuscript), with no layout library.
+- D14. Dev email goes to the console backend.
+- D15. Settings fall back to SQLite when `POSTGRES_HOST` is unset, so agents can check quickly on the host. `make test` always runs against Postgres in Docker.
+- D16. Custom user model `core.User` (AbstractUser, UUID pk, unique email, no username, `USERNAME_FIELD="email"`), created in Phase 0 so migrations never need rebasing.
+- D17. Celery talks to Valkey through the `redis` Python client (MIT) with `redis://valkey:6379/0` URLs. Valkey is the server.
+- D18. Lab-scoped default manager raises `UnscopedQueryError` on evaluation unless scoped via `.for_lab()` or `.visible_to()`. `Model.unscoped` is allowed only in tenancy, permissions, admin and migrations, and a grep test enforces that.
+- D19. Project access requires a ProjectMembership. pi and lab_admin are implicit leads of every project, and a lab viewer's project role is capped at viewer.
+- D20. Provenance objects belong to exactly one project and links can't cross projects. A new dataset version is a new DatasetRecord row.
+- D21. Anonymous gets 401. Another lab or an invisible object gets 404, so existence doesn't leak. A visible object with a forbidden action gets 403.
+- D22. URLs: `/api/labs/<lab_id>/projects/<project_id>/<collection>/` for list and create, flat `/api/labs/<lab_id>/<collection>/<model>_id/` for items, so each URL has at most one parent to check.
+- D23. AuditEvent is append-only: model and queryset guards, a Postgres trigger that rejects UPDATE, DELETE and TRUNCATE, and INSERT/SELECT-only DB grants in prod.
+- D24. Users are deactivated, never deleted, and user FKs PROTECT. Projects and documents soft-delete via `deleted_at`, and nothing is purged automatically.
+- D25. **[H]** Email verification is mandatory, and accepting an invite requires the logged-in user's verified email to match the invite email, so a forwarded link can't be used by someone else.
+- D26. Downloads stream through Django, with no presigned or public URLs this run. Storage key: `labs/<lab_id>/attachments/<attachment_id>`.
+- D27. **[H]** Ethics approvals are lab-level: every lab role can read them, and pi, lab_admin and member can edit them.
+- D28. **[H]** delete_project is pi and lab_admin only, and is a soft delete. export is pi, lab_admin or project lead.
+- D29. Ethics reminders send only the tightest threshold crossed (60, 30 or 7 days), deduped per approval, threshold and expiry date, so a missed job run still catches up.
+- D30. Notifications are lab-scoped (`/api/labs/<lab_id>/notifications/`), so they reuse the same tenancy path.
+- D31. Each child's lab must match its parent's, enforced in `save()`, an `m2m_changed` receiver and services. Composite DB FKs are deferred.
+- D32. The permission matrix holds hand-written expected status codes per persona, never derived from the role tables, so it independently checks them.
+- D33. Lab model serializers drop DRF auto-unique validators, which would run unscoped queries. DB constraints enforce uniqueness and an IntegrityError becomes a 400.
+- D34. **[H]** MIT-0 is not on the allowlist. To avoid it, Vitest uses happy-dom (MIT) instead of jsdom, and cffi is pinned to 2.0.0. Adding MIT-0, which is more permissive than MIT, would remove both workarounds.
