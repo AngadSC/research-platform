@@ -98,3 +98,9 @@
 .lineage-flow .react-flow__attribution a {
   color: var(--muted-foreground);
 }
+
+/* Blend the editor into the page in dark mode: BlockNote's own dark surface is a different grey. */
+.bn-container .bn-editor {
+  background-color: var(--background) !important; /* beats BlockNote's scheme-scoped rule */
+  color: var(--foreground) !important;
+}

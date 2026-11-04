@@ -117,10 +117,19 @@ export const routes: RouteObject[] = [
                           { index: true, element: <ResearchIndex /> },
                           {
                             path: ":kind",
+                            handle: { crumb: "@kind" },
                             children: [
                               { index: true, element: <ProjectTab as={ResearchList} /> },
-                              { path: "new", element: <ProjectTab as={ResearchNew} /> },
-                              { path: ":id", element: <ProjectTab as={ResearchDetail} /> },
+                              {
+                                path: "new",
+                                element: <ProjectTab as={ResearchNew} />,
+                                handle: { crumb: "New" },
+                              },
+                              {
+                                path: ":id",
+                                element: <ProjectTab as={ResearchDetail} />,
+                                handle: { crumb: "@record" },
+                              },
                             ],
                           },
                         ],

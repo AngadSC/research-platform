@@ -32,7 +32,7 @@ class KindMixin(ProjectScopedMixin):
         return OUTPUT[self.kind]
 
     def fresh(self, obj):
-        return get_object_or_404(queryset(self.kind, self.project), pk=obj.pk)
+        return get_object_or_404(queryset(self.kind, self.project, self.request.user), pk=obj.pk)
 
     def body(self, *, partial=False):
         return super().body(INPUT[self.kind], partial=partial)
@@ -43,7 +43,11 @@ class KindListCreate(KindMixin, generics.GenericAPIView):
     perms = {"GET": Perm.VIEW_PROJECT, "POST": Perm.EDIT_CONTENT}
 
     def get(self, request, lab_id, project_id):
-        return Response(self.get_serializer(queryset(self.kind, self.project), many=True).data)
+        return Response(
+            self.get_serializer(
+                queryset(self.kind, self.project, self.request.user), many=True
+            ).data
+        )
 
     def post(self, request, lab_id, project_id):
         obj = services.create(
@@ -61,7 +65,8 @@ class KindDetail(KindMixin, generics.GenericAPIView):
 
     def get_object(self):
         obj = get_object_or_404(
-            queryset(self.kind, self.project), pk=self.kwargs[self.lookup_url_kwarg]
+            queryset(self.kind, self.project, self.request.user),
+            pk=self.kwargs[self.lookup_url_kwarg],
         )
         self.check_object_permissions(self.request, obj)
         return obj

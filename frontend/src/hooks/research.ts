@@ -15,6 +15,7 @@ export function useRecord<T>(labId: string, kind: Kind, id: string) {
   return useQuery({
     queryKey: [...root(labId), "one", kind, id],
     queryFn: () => api<T>(`${lab(labId)}/${kind}/${id}/`),
+    enabled: !!id,
   });
 }
 /** Create when `id` is absent, otherwise PATCH. */

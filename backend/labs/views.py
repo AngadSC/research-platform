@@ -21,6 +21,11 @@ from labs.serializers import (
 class LabListCreateView(generics.GenericAPIView):
     serializer_class = LabSerializer
     perms = {"GET": Perm.AUTHENTICATED, "POST": Perm.AUTHENTICATED}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "lab_create"
+
+    def get_throttles(self):  # creation only; listing is not rate limited
+        return super().get_throttles() if self.request.method == "POST" else []
 
     @extend_schema(responses=LabSerializer(many=True))
     def get(self, request):

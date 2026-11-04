@@ -1,4 +1,4 @@
-﻿import { fileURLToPath, URL } from "node:url";
+import { fileURLToPath, URL } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
@@ -14,12 +14,14 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173,
     proxy: {
-      "/api": apiProxyTarget,
-      "/_allauth": apiProxyTarget,
+      // Keep the browser's Host so Django's CSRF Origin check matches (Vite defaults to the target's host).
+      "/api": { target: apiProxyTarget, changeOrigin: false },
+      "/_allauth": { target: apiProxyTarget, changeOrigin: false },
     },
   },
   test: {
     environment: "happy-dom",
     setupFiles: ["./src/test/setup.ts"],
+    exclude: ["e2e/**", "node_modules/**"],
   },
 });

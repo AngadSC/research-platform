@@ -5,3 +5,5 @@ __pycache__
 db.sqlite3
 media/
 dist/
+backend/celerybeat-schedule*
+backend/.dev_secret_key

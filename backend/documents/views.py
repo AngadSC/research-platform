@@ -5,6 +5,7 @@ from rest_framework import generics, status
 from rest_framework.generics import get_object_or_404
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from audit.models import AuditAction
 from audit.services import record
@@ -189,6 +190,11 @@ class AttachmentListCreateView(AttachmentMixin, generics.GenericAPIView):
     pagination_class = None
     parser_classes = [MultiPartParser, FormParser]
     perms = {"GET": Perm.VIEW_PROJECT, "POST": Perm.EDIT_CONTENT}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "uploads"
+
+    def get_throttles(self):  # uploads only; listing is not rate limited
+        return super().get_throttles() if self.request.method == "POST" else []
 
     @extend_schema(responses=AttachmentSerializer(many=True))
     def get(self, request, lab_id, project_id):

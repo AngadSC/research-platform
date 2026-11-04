@@ -245,14 +245,17 @@ PREFETCH = {  # plain names, or (name, model) for soft-deletable targets (hidden
 }
 
 
-def queryset(kind, project):
+def queryset(kind, project, user):
     """The project's rows of `kind` with every nested read prefetched: no per-row queries."""
     from provenance.services import SPECS
 
     prefetch = [
         (
             Prefetch(
-                p[0], queryset=p[1].objects.for_lab(project.lab_id).filter(deleted_at__isnull=True)
+                p[0],
+                queryset=p[1]
+                .objects.visible_to(user, project.lab_id)
+                .filter(deleted_at__isnull=True),
             )
             if isinstance(p, tuple)
             else p
@@ -261,7 +264,7 @@ def queryset(kind, project):
     ]
     return (
         SPECS[kind]
-        .model.objects.for_lab(project.lab_id)
+        .model.objects.visible_to(user, project.lab_id)
         .filter(project=project)
         .select_related(*SELECT[kind])
         .prefetch_related(*prefetch)

@@ -1,7 +1,7 @@
 # Every recipe line is a `docker compose` command, so this works under cmd.exe or sh.
 # One-off commands use `run --rm --no-deps` unless they need Postgres/Valkey.
 
-.PHONY: dev down lint types types-check test-backend test-frontend licenses test seed
+.PHONY: e2e dev down lint types types-check test-backend test-frontend licenses test seed
 
 dev:
 	docker compose up --build
@@ -39,3 +39,7 @@ licenses:
 	docker compose run --rm --no-deps frontend node scripts/check-licenses.mjs
 
 test: lint test-backend test-frontend licenses
+
+# Needs the dev stack up and seeded (`make dev` in one terminal, `make seed`); runs from the host, not in a container.
+e2e:
+	cd frontend && npx playwright test

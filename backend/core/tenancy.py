@@ -108,7 +108,7 @@ class LabScopedQuerySet(models.QuerySet):
             return qs.none()
         path = self.model.project_path
         domain = self.model.permission_domain
-        if domain not in ("project", "lab") or (domain == "lab") != (path is None):
+        if domain not in ("project", "lab", "ethics") or (domain == "project") == (path is None):
             raise ImproperlyConfigured(
                 f"{self.model.__name__}: permission_domain {domain!r} does not match "
                 f"project_path {path!r}"

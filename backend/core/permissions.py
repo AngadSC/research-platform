@@ -9,6 +9,10 @@ re-checks permissions when it runs, never at enqueue time, and per recipient:
 
 Use `can(user, perm, obj)` for each recipient before sending anything about `obj`; use
 `users_with(perm, target)` only to find candidates. Never compare roles in a job.
+
+Role lookups are cached on the user object. A job must re-fetch each user per item (never reuse
+a user across items), or call `forget(user)` after anything that changes their memberships.
+`forget` also works on a lazy `request.user`.
 """
 
 from enum import StrEnum
@@ -16,6 +20,7 @@ from enum import StrEnum
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
 from django.http import Http404
+from django.utils.functional import empty
 from rest_framework.permissions import BasePermission
 
 from core.models import User
@@ -91,6 +96,21 @@ _IMPLICIT_LEADS = (LabRole.PI, LabRole.LAB_ADMIN)
 
 def _lab_id(lab):
     return getattr(lab, "pk", lab)
+
+
+def forget(user) -> None:
+    """Drop the cached roles on the real user object, wrapped (`request.user`) or not."""
+    real = getattr(user, "_wrapped", user)  # SimpleLazyObject keeps the real user here
+    if real is not empty:
+        real.__dict__.pop("_perm_cache", None)
+
+
+def _ethics_mapped(perm, target):
+    """Only an ethics-domain object maps project perms onto the ethics perms (D27, D38);
+    on any other lab-level object project perms are denied."""
+    if getattr(target, "permission_domain", None) == "ethics":
+        return _ETHICS_MAP.get(perm, perm)
+    return perm
 
 
 def _cache(user) -> dict:
@@ -169,6 +189,8 @@ def _resolve(target):
         if domain == "lab" and target.project_path is None:
             return target.lab_id, None
         project = project_of(target) if domain == "project" else None
+        if domain == "ethics" and target.project_path is None:
+            return target.lab_id, None
         if project is None or project.deleted_at is not None or project.lab_id != target.lab_id:
             return None, None
         return target.lab_id, project
@@ -186,8 +208,10 @@ def can(user, perm: Perm, target=None) -> bool:
         return False
     if project is not None and perm in PROJECT_PERMS:
         return perm in PROJECT_ROLE_PERMS.get(project_role(user, project), ())
-    if project is None and not isinstance(target, Lab):
-        perm = _ETHICS_MAP.get(perm, perm)  # lab-level object (ethics, D27)
+    if project is None:
+        perm = _ethics_mapped(perm, target)
+    elif project_role(user, project) is None:  # lab perm on a project's object needs visibility
+        return False
     if perm in PROJECT_PERMS:
         return False
     return perm in LAB_ROLE_PERMS.get(lab_role(user, lab_id), ())
@@ -258,10 +282,15 @@ def users_with(perm: Perm, target):
                 ).values("user")
             )
     else:
-        if project is None and not isinstance(target, Lab):
-            perm = _ETHICS_MAP.get(perm, perm)
+        if project is None:
+            perm = _ethics_mapped(perm, target)
         roles = [r for r, perms in LAB_ROLE_PERMS.items() if perm in perms]
         q = Q(pk__in=lm.filter(role__in=roles).values("user"))
+        if project is not None:  # must also see the project
+            seen = ProjectMembership.unscoped.filter(
+                project=project, user__in=lm.values("user")
+            ).values("user")
+            q &= Q(pk__in=lm.filter(role__in=_IMPLICIT_LEADS).values("user")) | Q(pk__in=seen)
     return User.objects.filter(q, is_active=True)
 
 

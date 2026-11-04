@@ -8,7 +8,7 @@ from rest_framework.exceptions import ValidationError
 from audit.models import AuditAction
 from audit.services import record
 from core.models import User
-from core.permissions import Perm, can
+from core.permissions import Perm, can, forget
 from labs.models import LabMembership
 from projects.models import (
     Project,
@@ -26,7 +26,7 @@ from projects.models import (
 def create_project(*, lab, user, data, request=None) -> Project:
     project = Project.objects.create(lab=lab, created_by=user, **data)
     ProjectMembership.objects.create(lab=lab, project=project, user=user, role=ProjectRole.LEAD)
-    user.__dict__.pop("_perm_cache", None)
+    forget(user)
     record(AuditAction.PROJECT_CREATED, actor=user, lab=lab, target=project, request=request)
     return project
 

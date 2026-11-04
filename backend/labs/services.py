@@ -1,26 +1,24 @@
 """Lab business logic (ARCHITECTURE section 0). Views validate and call these;
 write actions record their audit event in the same transaction."""
 
+import datetime
+
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from django.http import Http404
 from django.utils import timezone
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import Throttled, ValidationError
 
 from audit.models import AuditAction
 from audit.services import record
 from core.auth import has_verified_email
 from core.models import PLACEHOLDER_INSTITUTION, Institution
-from core.permissions import LAB_ROLE_PERMS, Perm, lab_role
+from core.permissions import LAB_ROLE_PERMS, Perm, forget, lab_role
 from core.tenancy import by_secret
 from labs.models import Invite, Lab, LabMembership, LabRole, hash_token
 from projects.models import ProjectMembership
-
-
-def _forget_roles(user):
-    user.__dict__.pop("_perm_cache", None)
 
 
 def _require_pi_for_pi_role(actor, lab, *roles):
@@ -56,7 +54,7 @@ def create_lab(*, user, name, request=None) -> Lab:
     lab = Lab.objects.create(institution=institution, name=name, created_by=user)
     LabMembership.objects.create(lab=lab, user=user, role=LabRole.PI)
     record(AuditAction.LAB_CREATED, actor=user, lab=lab, request=request)
-    _forget_roles(user)
+    forget(user)
     return lab
 
 
@@ -70,6 +68,11 @@ def update_lab(*, lab, user, name, request=None) -> Lab:
 
 def create_invite(*, lab, by, email, role, request=None) -> Invite:
     _require_pi_for_pi_role(by, lab, role)
+    since = timezone.now() - datetime.timedelta(days=1)  # D50; revoked invites count too
+    if Invite.objects.for_lab(lab).filter(created_at__gte=since).count() >= (
+        settings.INVITES_PER_LAB_PER_DAY
+    ):
+        raise Throttled(detail="This lab has sent too many invites today. Try again tomorrow.")
     if LabMembership.objects.for_lab(lab).filter(user__email__iexact=email).exists():
         raise ValidationError({"email": "This person is already a member of the lab."})
     try:
@@ -149,7 +152,7 @@ def accept_invite(*, user, token, request=None) -> Lab:
         request=request,
         metadata={"role": invite.role},
     )
-    _forget_roles(user)
+    forget(user)
     return lab
 
 

@@ -12,7 +12,7 @@ from rest_framework.exceptions import ValidationError
 from audit.models import AuditAction
 from audit.services import record
 from core.models import User
-from core.permissions import Perm, can
+from core.permissions import Perm, can, require
 from documents.models import Attachment, Document
 from documents.services import Conflict
 from projects.models import ProjectDeadline, Task
@@ -128,7 +128,11 @@ def _resolve(spec, project, data, *, actor, creating):
         if data.get(field) is not None:
             data[field] = _one(project, field, model, live, data[field])
     for field in spec.users:
-        if data.get(field) is not None:
+        if creating and data.get(field) is None:
+            data[field] = actor  # D50: the person recording it, unless a lead says otherwise
+        elif data.get(field) is not None:
+            if str(data[field]) != str(actor.pk):
+                require(actor, Perm.EDIT_PROJECT, project)  # D50: naming someone else
             data[field] = _user(project, field, data[field])
     if creating and data.get(spec.owner) is None:
         data[spec.owner] = actor
@@ -222,7 +226,7 @@ def export_project(*, project, user, context, request=None) -> dict:
         .select_related("created_by", "updated_by")
         .order_by("created_at", "id"),
         "attachments": mine(Attachment).filter(**live).select_related("uploaded_by"),
-        **{PLURAL[kind]: queryset(kind, project) for kind in SPECS},
+        **{PLURAL[kind]: queryset(kind, project, user) for kind in SPECS},
     }
     record(
         AuditAction.PROJECT_EXPORTED,

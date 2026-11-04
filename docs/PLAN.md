@@ -47,7 +47,7 @@ Status: `todo` | `doing` | `done` | `failed` | `escalated`. Model/effort per orc
 | P4.2 | Pilot seed data (obviously fake) | haiku / low | done |
 | P4.3 | Lineage graph view (React Flow) + detail panel | sonnet / high | done |
 | P4.4 | Frontend: provenance list/detail/forms, command palette | sonnet / medium | done |
-| P4.5 | Security review gate + fixes | opus / high, sonnet / medium | doing |
+| P4.5 | Security review gate + fixes | opus / high, sonnet / medium | done |
 
 ## Phase 5. Ethics and retention
 | ID | Task | Model / effort | Status |

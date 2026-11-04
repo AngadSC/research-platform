@@ -1,4 +1,5 @@
 import os
+import secrets
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -16,12 +17,33 @@ def env_list(name, default=""):
 
 DEBUG = env_bool("DEBUG", False)  # D41: fail closed
 
-if DEBUG:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-dev-only")
-else:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "")
-    if not SECRET_KEY or SECRET_KEY.startswith(("replace-with", "django-insecure")):
+
+def _dev_secret_key(path: Path) -> str:
+    """D49: one random key per checkout, shared by backend, worker and beat. The key is written
+    to a temp file and hard-linked into place, so a reader never sees a half-written key and
+    the first writer wins."""
+    if not path.exists():
+        tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+        tmp.write_text(secrets.token_urlsafe(64), encoding="utf-8")
+        try:
+            os.link(tmp, path)
+        except FileExistsError:
+            pass
+        except OSError:  # file system without hard links (some bind mounts)
+            if not path.exists():
+                os.replace(tmp, path)
+        finally:
+            tmp.unlink(missing_ok=True)
+    return path.read_text(encoding="utf-8").strip()
+
+
+SECRET_KEY = os.environ.get("SECRET_KEY", "")
+if not SECRET_KEY or SECRET_KEY.startswith(("replace-with", "django-insecure")):
+    if not DEBUG:
         raise ImproperlyConfigured("SECRET_KEY must be a real secret when DEBUG is false.")
+    SECRET_KEY = _dev_secret_key(
+        Path(os.environ.get("DEV_SECRET_KEY_FILE", BASE_DIR / ".dev_secret_key"))
+    )
 
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 
@@ -49,6 +71,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "core.middleware.UploadSizeLimitMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -147,6 +170,7 @@ STORAGES = {
     "lab_files": _lab_files,
 }
 ATTACHMENT_MAX_BYTES = 50 * 1024 * 1024
+INVITES_PER_LAB_PER_DAY = 100  # D50
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # D9/D17: Celery with Valkey, via the redis client.
@@ -200,7 +224,11 @@ CACHES = {
 }
 
 REST_FRAMEWORK = {
-    "DEFAULT_THROTTLE_RATES": {"invites": "30/hour"},
+    "DEFAULT_THROTTLE_RATES": {
+        "invites": "30/hour",
+        "uploads": "60/hour",
+        "lab_create": "5/day",
+    },
     "DEFAULT_PERMISSION_CLASSES": ["core.permissions.HasPerm"],
     "DEFAULT_AUTHENTICATION_CLASSES": ["core.auth.SessionAuthentication"],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",

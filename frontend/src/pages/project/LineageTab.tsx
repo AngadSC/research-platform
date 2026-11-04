@@ -1,6 +1,6 @@
 import { List, Network } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { LineageDetail } from "@/components/lineage/LineageDetail";
 import { LineageGraph } from "@/components/lineage/LineageGraph";
 import { LineageList } from "@/components/lineage/LineageList";
@@ -15,7 +15,8 @@ import type { ProjectTabProps } from "@/pages/ProjectPage";
 
 export default function LineageTab({ labId, projectId }: ProjectTabProps) {
   const { data, error, isLoading, refetch } = useLineage(labId, projectId);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [params] = useSearchParams();
+  const [selectedId, setSelectedId] = useState<string | null>(() => params.get("focus"));
   const [listView, setListView] = useState(false);
   const ix = useMemo(() => (data ? indexLineage(data) : null), [data]);
   const select = useCallback((id: string) => setSelectedId(id), []);

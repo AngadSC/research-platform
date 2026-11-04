@@ -25,3 +25,6 @@
 - P4.4 done (sonnet): Research tab, record pages/forms, export, palette. 52 FE tests. Gaps for a later fix batch: breadcrumbs missing for research/:kind/:id; decision references not editable.
 - P4.3 done (sonnet high): React Flow lineage, column layout + barycenter, upstream-chain panel, list view. 65 FE tests. Not browser-verified yet; ?focus param handling unconfirmed.
 - P4.2 done (haiku): seed_pilot + make seed. Orchestrator fixed prettier and a container-only async timeout (asyncUtilTimeout 5s). make test green. Checkpoint commit. Started e2e/acceptance agent (sonnet) and Phase 4 security review (opus) in parallel.
+- P4.5 security review (opus): no critical/high; 4 medium (design hardening), 5 low. D48-D50. #3 folded into Phase 5. Fixes sent to sonnet.
+- E2E agent done (sonnet): make e2e 7 tests / 4 specs green. Phase 4 trace = 2 clicks from project page. Real-browser bugs fixed: login 403 (Vite proxy Host/CSRF, changeOrigin:false), BlockNote dark surface. Breadcrumbs + ?focus done. Follow-ups: seed viewer@ has no project membership; e2e should log in once (allauth 429 on reruns).
+- Phase 4 review fixes done (sonnet): 8 fixes, 15 regression cases, no matrix changes. Watch: test_audit_api flaked once locally. make test + make e2e green. Phase 4 accepted.
