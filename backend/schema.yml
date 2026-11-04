@@ -170,6 +170,104 @@ paths:
               schema:
                 $ref: '#/components/schemas/Lab'
           description: ''
+  /api/labs/{lab_id}/analyses/{analysis_id}/:
+    get:
+      operationId: labs_analyses_retrieve
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: analysis_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Analysis'
+          description: ''
+    patch:
+      operationId: labs_analyses_partial_update
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: analysis_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAnalysisInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAnalysisInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAnalysisInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Analysis'
+          description: ''
+    delete:
+      operationId: labs_analyses_destroy
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: analysis_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/attachments/{attachment_id}/:
     get:
       operationId: labs_attachments_retrieve
@@ -295,10 +393,20 @@ paths:
           - attachment.deleted
           - task.deleted
           - deadline.deleted
+          - dataset.created
+          - dataset.updated
           - dataset.deleted
+          - analysis.created
+          - analysis.updated
           - analysis.deleted
+          - result.created
+          - result.updated
           - result.deleted
+          - decision.created
+          - decision.updated
           - decision.deleted
+          - manuscript.created
+          - manuscript.updated
           - manuscript.deleted
           - ethics_approval.deleted
           - audit_log.viewed
@@ -334,10 +442,20 @@ paths:
           * `attachment.deleted` - Attachment Deleted
           * `task.deleted` - Task Deleted
           * `deadline.deleted` - Deadline Deleted
+          * `dataset.created` - Dataset Created
+          * `dataset.updated` - Dataset Updated
           * `dataset.deleted` - Dataset Deleted
+          * `analysis.created` - Analysis Created
+          * `analysis.updated` - Analysis Updated
           * `analysis.deleted` - Analysis Deleted
+          * `result.created` - Result Created
+          * `result.updated` - Result Updated
           * `result.deleted` - Result Deleted
+          * `decision.created` - Decision Created
+          * `decision.updated` - Decision Updated
           * `decision.deleted` - Decision Deleted
+          * `manuscript.created` - Manuscript Created
+          * `manuscript.updated` - Manuscript Updated
           * `manuscript.deleted` - Manuscript Deleted
           * `ethics_approval.deleted` - Ethics Approval Deleted
           * `audit_log.viewed` - Audit Log Viewed
@@ -389,6 +507,104 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedAuditEventList'
           description: ''
+  /api/labs/{lab_id}/datasets/{datasetrecord_id}/:
+    get:
+      operationId: labs_datasets_retrieve
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: datasetrecord_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dataset'
+          description: ''
+    patch:
+      operationId: labs_datasets_partial_update
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: datasetrecord_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDatasetInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDatasetInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDatasetInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dataset'
+          description: ''
+    delete:
+      operationId: labs_datasets_destroy
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: datasetrecord_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/deadlines/{projectdeadline_id}/:
     patch:
       operationId: labs_deadlines_partial_update
@@ -450,6 +666,104 @@ paths:
         required: true
       - in: path
         name: projectdeadline_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/decisions/{decision_id}/:
+    get:
+      operationId: labs_decisions_retrieve
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: decision_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Decision'
+          description: ''
+    patch:
+      operationId: labs_decisions_partial_update
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: decision_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDecisionInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDecisionInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDecisionInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Decision'
+          description: ''
+    delete:
+      operationId: labs_decisions_destroy
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: decision_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
         schema:
           type: string
           format: uuid
@@ -735,6 +1049,104 @@ paths:
         required: true
       - in: path
         name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/manuscripts/{manuscriptlink_id}/:
+    get:
+      operationId: labs_manuscripts_retrieve
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: manuscriptlink_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Manuscript'
+          description: ''
+    patch:
+      operationId: labs_manuscripts_partial_update
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: manuscriptlink_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedManuscriptInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedManuscriptInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedManuscriptInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Manuscript'
+          description: ''
+    delete:
+      operationId: labs_manuscripts_destroy
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: manuscriptlink_id
         schema:
           type: string
           format: uuid
@@ -1081,6 +1493,81 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/projects/{project_id}/analyses/:
+    get:
+      operationId: labs_projects_analyses_list
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Analysis'
+          description: ''
+    post:
+      operationId: labs_projects_analyses_create
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalysisInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AnalysisInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AnalysisInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Analysis'
+          description: ''
   /api/labs/{lab_id}/projects/{project_id}/attachments/:
     get:
       operationId: labs_projects_attachments_list
@@ -1152,6 +1639,81 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Attachment'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/datasets/:
+    get:
+      operationId: labs_projects_datasets_list
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Dataset'
+          description: ''
+    post:
+      operationId: labs_projects_datasets_create
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DatasetInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DatasetInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DatasetInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dataset'
           description: ''
   /api/labs/{lab_id}/projects/{project_id}/deadlines/:
     get:
@@ -1232,6 +1794,81 @@ paths:
               schema:
                 $ref: '#/components/schemas/Deadline'
           description: ''
+  /api/labs/{lab_id}/projects/{project_id}/decisions/:
+    get:
+      operationId: labs_projects_decisions_list
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Decision'
+          description: ''
+    post:
+      operationId: labs_projects_decisions_create
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecisionInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DecisionInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DecisionInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Decision'
+          description: ''
   /api/labs/{lab_id}/projects/{project_id}/documents/:
     get:
       operationId: labs_projects_documents_list
@@ -1302,6 +1939,147 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Document'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/export/:
+    post:
+      operationId: labs_projects_export_create
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Export'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/lineage/:
+    get:
+      operationId: labs_projects_lineage_retrieve
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lineage'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/manuscripts/:
+    get:
+      operationId: labs_projects_manuscripts_list
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Manuscript'
+          description: ''
+    post:
+      operationId: labs_projects_manuscripts_create
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManuscriptInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ManuscriptInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ManuscriptInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Manuscript'
           description: ''
   /api/labs/{lab_id}/projects/{project_id}/members/:
     get:
@@ -1381,6 +2159,81 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProjectMembership'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/results/:
+    get:
+      operationId: labs_projects_results_list
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Result'
+          description: ''
+    post:
+      operationId: labs_projects_results_create
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResultInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ResultInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ResultInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
           description: ''
   /api/labs/{lab_id}/projects/{project_id}/tasks/:
     get:
@@ -1479,6 +2332,104 @@ paths:
               schema:
                 $ref: '#/components/schemas/Task'
           description: ''
+  /api/labs/{lab_id}/results/{result_id}/:
+    get:
+      operationId: labs_results_retrieve
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: result_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+          description: ''
+    patch:
+      operationId: labs_results_partial_update
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: result_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedResultInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedResultInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedResultInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+          description: ''
+    delete:
+      operationId: labs_results_destroy
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: result_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/tasks/{task_id}/:
     get:
       operationId: labs_tasks_retrieve
@@ -1798,10 +2749,20 @@ components:
       - attachment.deleted
       - task.deleted
       - deadline.deleted
+      - dataset.created
+      - dataset.updated
       - dataset.deleted
+      - analysis.created
+      - analysis.updated
       - analysis.deleted
+      - result.created
+      - result.updated
       - result.deleted
+      - decision.created
+      - decision.updated
       - decision.deleted
+      - manuscript.created
+      - manuscript.updated
       - manuscript.deleted
       - ethics_approval.deleted
       - audit_log.viewed
@@ -1836,14 +2797,141 @@ components:
         * `attachment.deleted` - Attachment Deleted
         * `task.deleted` - Task Deleted
         * `deadline.deleted` - Deadline Deleted
+        * `dataset.created` - Dataset Created
+        * `dataset.updated` - Dataset Updated
         * `dataset.deleted` - Dataset Deleted
+        * `analysis.created` - Analysis Created
+        * `analysis.updated` - Analysis Updated
         * `analysis.deleted` - Analysis Deleted
+        * `result.created` - Result Created
+        * `result.updated` - Result Updated
         * `result.deleted` - Result Deleted
+        * `decision.created` - Decision Created
+        * `decision.updated` - Decision Updated
         * `decision.deleted` - Decision Deleted
+        * `manuscript.created` - Manuscript Created
+        * `manuscript.updated` - Manuscript Updated
         * `manuscript.deleted` - Manuscript Deleted
         * `ethics_approval.deleted` - Ethics Approval Deleted
         * `audit_log.viewed` - Audit Log Viewed
         * `handover.generated` - Handover Generated
+    Analysis:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        project:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        code_repo_url:
+          type: string
+          format: uri
+          readOnly: true
+        code_commit:
+          type: string
+          readOnly: true
+        code_attachment:
+          allOf:
+          - $ref: '#/components/schemas/AttachmentRef'
+          readOnly: true
+        datasets:
+          type: array
+          items:
+            $ref: '#/components/schemas/DatasetRef'
+          readOnly: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResultRef'
+          readOnly: true
+        ran_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        ran_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - code_attachment
+      - code_commit
+      - code_repo_url
+      - created_at
+      - datasets
+      - description
+      - id
+      - project
+      - ran_at
+      - ran_by
+      - results
+      - title
+      - updated_at
+    AnalysisInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        description:
+          type: string
+        code_repo_url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 200
+          - type: string
+            maxLength: 0
+        code_commit:
+          type: string
+          maxLength: 40
+        code_attachment:
+          type: string
+          format: uuid
+          nullable: true
+        datasets:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
+        ran_by:
+          type: string
+          format: uuid
+        ran_at:
+          type: string
+          format: date-time
+      required:
+      - title
+    AnalysisRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+      required:
+      - id
+      - title
     Attachment:
       type: object
       properties:
@@ -1890,6 +2978,27 @@ components:
       - sha256
       - size_bytes
       - uploaded_by
+    AttachmentRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        original_filename:
+          type: string
+          readOnly: true
+        content_type:
+          type: string
+          readOnly: true
+        size_bytes:
+          type: integer
+          readOnly: true
+      required:
+      - content_type
+      - id
+      - original_filename
+      - size_bytes
     AttachmentUpload:
       type: object
       properties:
@@ -1967,6 +3076,127 @@ components:
       - detail
       - updated_at
       - updated_by
+    Dataset:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        project:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        location_text:
+          type: string
+          readOnly: true
+        location_url:
+          type: string
+          format: uri
+          readOnly: true
+        controlled_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        access_notes:
+          type: string
+          readOnly: true
+        version_label:
+          type: string
+          readOnly: true
+        checksum:
+          type: string
+          readOnly: true
+        previous_version:
+          allOf:
+          - $ref: '#/components/schemas/DatasetRef'
+          readOnly: true
+        analyses:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalysisRef'
+          readOnly: true
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - access_notes
+      - analyses
+      - checksum
+      - controlled_by
+      - created_at
+      - created_by
+      - id
+      - location_text
+      - location_url
+      - name
+      - previous_version
+      - project
+      - updated_at
+      - version_label
+    DatasetInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        version_label:
+          type: string
+          maxLength: 100
+        location_text:
+          type: string
+        location_url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 200
+          - type: string
+            maxLength: 0
+        controlled_by:
+          type: string
+          format: uuid
+          nullable: true
+        access_notes:
+          type: string
+        checksum:
+          type: string
+          maxLength: 140
+        previous_version:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - name
+      - version_label
+    DatasetRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        version_label:
+          type: string
+          readOnly: true
+      required:
+      - id
+      - name
+      - version_label
     Deadline:
       type: object
       properties:
@@ -2017,6 +3247,134 @@ components:
           type: boolean
       required:
       - due_date
+      - title
+    Decision:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        project:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        rationale:
+          type: string
+          readOnly: true
+        decided_on:
+          type: string
+          format: date
+          readOnly: true
+        decided_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        supporting_documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentRef'
+          readOnly: true
+        supporting_attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttachmentRef'
+          readOnly: true
+        references:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reference'
+          readOnly: true
+        analyses:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalysisRef'
+          readOnly: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResultRef'
+          readOnly: true
+        datasets:
+          type: array
+          items:
+            $ref: '#/components/schemas/DatasetRef'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - analyses
+      - created_at
+      - datasets
+      - decided_by
+      - decided_on
+      - id
+      - project
+      - rationale
+      - references
+      - results
+      - supporting_attachments
+      - supporting_documents
+      - title
+      - updated_at
+    DecisionInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        rationale:
+          type: string
+        decided_on:
+          type: string
+          format: date
+        decided_by:
+          type: string
+          format: uuid
+        supporting_documents:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
+        supporting_attachments:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
+        references:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reference'
+        analyses:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
+        results:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
+        datasets:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
+      required:
       - title
     Document:
       type: object
@@ -2109,6 +3467,19 @@ components:
       - updated_at
       - updated_by
       - version
+    DocumentRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+      required:
+      - id
+      - title
     DocumentSave:
       type: object
       properties:
@@ -2123,6 +3494,62 @@ components:
       - base_version
       - content
       - title
+    Export:
+      type: object
+      properties:
+        exported_at:
+          type: string
+          format: date-time
+        project:
+          $ref: '#/components/schemas/Project'
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+        deadlines:
+          type: array
+          items:
+            $ref: '#/components/schemas/Deadline'
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Document'
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attachment'
+        datasets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Dataset'
+        analyses:
+          type: array
+          items:
+            $ref: '#/components/schemas/Analysis'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Result'
+        decisions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Decision'
+        manuscripts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Manuscript'
+      required:
+      - analyses
+      - attachments
+      - datasets
+      - deadlines
+      - decisions
+      - documents
+      - exported_at
+      - manuscripts
+      - project
+      - results
+      - tasks
     Institution:
       type: object
       properties:
@@ -2236,6 +3663,176 @@ components:
         * `lab_admin` - Lab Admin
         * `member` - Member
         * `viewer` - Viewer
+    Lineage:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineageNode'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineageEdge'
+      required:
+      - edges
+      - nodes
+    LineageEdge:
+      type: object
+      properties:
+        id:
+          type: string
+        source:
+          type: string
+        target:
+          type: string
+        kind:
+          $ref: '#/components/schemas/LineageKindEnum'
+      required:
+      - id
+      - kind
+      - source
+      - target
+    LineageKindEnum:
+      enum:
+      - dataset
+      - analysis
+      - result
+      - manuscript
+      - decision
+      type: string
+      description: |-
+        * `dataset` - Dataset
+        * `analysis` - Analysis
+        * `result` - Result
+        * `manuscript` - Manuscript
+        * `decision` - Decision
+    LineageNode:
+      type: object
+      properties:
+        id:
+          type: string
+        kind:
+          $ref: '#/components/schemas/LineageKindEnum'
+        label:
+          type: string
+        subtitle:
+          type: string
+        href_id:
+          type: string
+          format: uuid
+        meta:
+          type: object
+          additionalProperties: {}
+      required:
+      - href_id
+      - id
+      - kind
+      - label
+      - meta
+      - subtitle
+    Manuscript:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        project:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        url:
+          type: string
+          format: uri
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ManuscriptStatusEnum'
+          readOnly: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResultRef'
+          readOnly: true
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - created_by
+      - id
+      - project
+      - results
+      - status
+      - title
+      - updated_at
+      - url
+    ManuscriptInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        url:
+          type: string
+          format: uri
+          maxLength: 200
+        status:
+          $ref: '#/components/schemas/ManuscriptStatusEnum'
+        results:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
+      required:
+      - title
+      - url
+    ManuscriptRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ManuscriptStatusEnum'
+          readOnly: true
+      required:
+      - id
+      - status
+      - title
+    ManuscriptStatusEnum:
+      enum:
+      - drafting
+      - submitted
+      - in_review
+      - accepted
+      - published
+      type: string
+      description: |-
+        * `drafting` - Drafting
+        * `submitted` - Submitted
+        * `in_review` - In Review
+        * `accepted` - Accepted
+        * `published` - Published
     Membership:
       type: object
       properties:
@@ -2277,6 +3874,71 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AuditEvent'
+    PatchedAnalysisInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        description:
+          type: string
+        code_repo_url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 200
+          - type: string
+            maxLength: 0
+        code_commit:
+          type: string
+          maxLength: 40
+        code_attachment:
+          type: string
+          format: uuid
+          nullable: true
+        datasets:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
+        ran_by:
+          type: string
+          format: uuid
+        ran_at:
+          type: string
+          format: date-time
+    PatchedDatasetInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        version_label:
+          type: string
+          maxLength: 100
+        location_text:
+          type: string
+        location_url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 200
+          - type: string
+            maxLength: 0
+        controlled_by:
+          type: string
+          format: uuid
+          nullable: true
+        access_notes:
+          type: string
+        checksum:
+          type: string
+          maxLength: 140
+        previous_version:
+          type: string
+          format: uuid
+          nullable: true
     PatchedDeadlineInput:
       type: object
       properties:
@@ -2288,6 +3950,54 @@ components:
           format: date
         done:
           type: boolean
+    PatchedDecisionInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        rationale:
+          type: string
+        decided_on:
+          type: string
+          format: date
+        decided_by:
+          type: string
+          format: uuid
+        supporting_documents:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
+        supporting_attachments:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
+        references:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reference'
+        analyses:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
+        results:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
+        datasets:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
     PatchedLab:
       type: object
       properties:
@@ -2311,6 +4021,24 @@ components:
           items:
             type: string
           readOnly: true
+    PatchedManuscriptInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        url:
+          type: string
+          format: uri
+          maxLength: 200
+        status:
+          $ref: '#/components/schemas/ManuscriptStatusEnum'
+        results:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
     PatchedProjectInput:
       type: object
       properties:
@@ -2336,6 +4064,23 @@ components:
       properties:
         role:
           $ref: '#/components/schemas/ProjectRoleEnum'
+    PatchedResultInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        summary:
+          type: string
+        analysis:
+          type: string
+          format: uuid
+        attachments:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
     PatchedRole:
       type: object
       properties:
@@ -2528,6 +4273,109 @@ components:
         * `paused` - Paused
         * `completed` - Completed
         * `archived` - Archived
+    Reference:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 500
+          - type: string
+            maxLength: 0
+        doi:
+          type: string
+          maxLength: 200
+    Result:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        project:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        summary:
+          type: string
+          readOnly: true
+        analysis:
+          allOf:
+          - $ref: '#/components/schemas/AnalysisRef'
+          readOnly: true
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttachmentRef'
+          readOnly: true
+        manuscripts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManuscriptRef'
+          readOnly: true
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - analysis
+      - attachments
+      - created_at
+      - created_by
+      - id
+      - manuscripts
+      - project
+      - summary
+      - title
+      - updated_at
+    ResultInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        summary:
+          type: string
+        analysis:
+          type: string
+          format: uuid
+        attachments:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
+      required:
+      - analysis
+      - title
+    ResultRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+      required:
+      - id
+      - title
     Revision:
       type: object
       properties:

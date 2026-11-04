@@ -7,6 +7,7 @@ import { CheckEmailPage, LoginPage, SignupPage, VerifyEmailPage } from "@/pages/
 import { CreateLabPage } from "@/pages/CreateLabPage";
 import { HomePage, NotBuiltPage } from "@/pages/HomePage";
 import { DocumentPage } from "@/pages/LazyDocumentPage";
+import { LazyLineageTab } from "@/pages/project/LazyLineageTab";
 import { LabHomePage } from "@/pages/LabHomePage";
 import { MembersPage } from "@/pages/MembersPage";
 import { ProjectPage, ProjectTab } from "@/pages/ProjectPage";
@@ -14,6 +15,13 @@ import DocumentsTab from "@/pages/project/DocumentsTab";
 import FilesTab from "@/pages/project/FilesTab";
 import PdfViewerRoute from "@/pages/project/PdfViewerRoute";
 import OverviewTab from "@/pages/project/OverviewTab";
+import {
+  ResearchDetail,
+  ResearchIndex,
+  ResearchLayout,
+  ResearchList,
+  ResearchNew,
+} from "@/pages/project/ResearchTab";
 import TasksTab from "@/pages/project/TasksTab";
 import { SecurityPage } from "@/pages/SecurityPage";
 
@@ -93,6 +101,27 @@ export const routes: RouteObject[] = [
                             path: ":attachmentId",
                             element: <PdfViewerRoute />,
                             handle: { crumb: "View file" },
+                          },
+                        ],
+                      },
+                      {
+                        path: "lineage",
+                        handle: { crumb: "Lineage" },
+                        element: <ProjectTab as={LazyLineageTab} />,
+                      },
+                      {
+                        path: "research",
+                        handle: { crumb: "Research" },
+                        element: <ProjectTab as={ResearchLayout} />,
+                        children: [
+                          { index: true, element: <ResearchIndex /> },
+                          {
+                            path: ":kind",
+                            children: [
+                              { index: true, element: <ProjectTab as={ResearchList} /> },
+                              { path: "new", element: <ProjectTab as={ResearchNew} /> },
+                              { path: ":id", element: <ProjectTab as={ResearchDetail} /> },
+                            ],
                           },
                         ],
                       },

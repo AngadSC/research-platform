@@ -21,3 +21,7 @@
 - P3.4 done (sonnet): project list/page/tabs, members, deadlines, task list+board (native DnD + keyboard Move to). 33 frontend tests. P3.5 and P3.6 started in parallel.
 - P3.5 done (sonnet): BlockNote editor (core/react/shadcn only, no xl), explicit save, 409 dialog, revisions + restore. 45 frontend tests. BlockNote not yet exercised in a real browser.
 - P3.6 done (sonnet): files tab, upload notice every time, XHR progress, PDF.js viewer, task delete. Phase 3 accepted: orchestrator smoke (13/13) for doc create/edit/409/revisions/restore, PDF upload+ack, inline download headers, audit, outsider 404, anon 401. make test green (45 FE tests). Browser check of BlockNote/PDF.js deferred to W.1.
+- P4.1 done (sonnet): provenance models/CRUD, lineage, export; 74 matrix rows. Started P4.2 (haiku), P4.3 (sonnet high), P4.4 (sonnet) in parallel per D43-D46.
+- P4.4 done (sonnet): Research tab, record pages/forms, export, palette. 52 FE tests. Gaps for a later fix batch: breadcrumbs missing for research/:kind/:id; decision references not editable.
+- P4.3 done (sonnet high): React Flow lineage, column layout + barycenter, upstream-chain panel, list view. 65 FE tests. Not browser-verified yet; ?focus param handling unconfirmed.
+- P4.2 done (haiku): seed_pilot + make seed. Orchestrator fixed prettier and a container-only async timeout (asyncUtilTimeout 5s). make test green. Checkpoint commit. Started e2e/acceptance agent (sonnet) and Phase 4 security review (opus) in parallel.

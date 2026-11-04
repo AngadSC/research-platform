@@ -84,3 +84,17 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 }
+
+/* React Flow follows the app's theme tokens (light and dark). */
+.lineage-flow .react-flow {
+  --xy-controls-button-background-color: var(--card);
+  --xy-controls-button-background-color-hover: var(--accent);
+  --xy-controls-button-color: var(--foreground);
+  --xy-controls-button-color-hover: var(--foreground);
+  --xy-controls-button-border-color: var(--border);
+  --xy-controls-box-shadow: none;
+  --xy-attribution-background-color: transparent;
+}
+.lineage-flow .react-flow__attribution a {
+  color: var(--muted-foreground);
+}

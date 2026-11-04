@@ -23,6 +23,13 @@ from projects.models import (  # projects/tasks (Phase 3)
     ProjectRole,
     Task,
 )
+from provenance.models import (  # provenance (Phase 4)
+    Analysis,
+    DatasetRecord,
+    Decision,
+    ManuscriptLink,
+    Result,
+)
 
 # Fixed order. Lab roles: outsider is the PI of Lab B and not in Lab A; pi, admin (lab_admin),
 # lead, contrib, pviewer and nonproj (members); lviewer is a lab viewer. Project roles on P1:
@@ -98,6 +105,41 @@ MATRIX: dict[tuple[str, str], str] = {
     ("DELETE", "documents:attachment-detail"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:attachment-download"): "401 404 2 2 2 2 2 404 2",
     # --- end documents/attachments (Phase 3) ---
+    # --- provenance (Phase 4) ---
+    # Same shape as documents: reads need view_project (everyone on P1, the capped lab viewer
+    # included); create, edit and delete need edit_content (lead, contrib, implicit leads
+    # pi/admin; pviewer and lviewer 403). nonproj is not on P1, so its objects are invisible:
+    # 404 (D21); outsider is in no Lab A role: 404. Lineage is a read: view_project. Export
+    # needs `export` (D28): only leads, so contrib is 403 even though contrib may edit; pi and
+    # admin are implicit leads.
+    ("GET",    "provenance:dataset-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "provenance:dataset-list"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:dataset-detail"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "provenance:dataset-detail"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "provenance:dataset-detail"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:analysis-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "provenance:analysis-list"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:analysis-detail"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "provenance:analysis-detail"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "provenance:analysis-detail"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:result-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "provenance:result-list"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:result-detail"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "provenance:result-detail"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "provenance:result-detail"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:decision-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "provenance:decision-list"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:decision-detail"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "provenance:decision-detail"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "provenance:decision-detail"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:manuscript-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "provenance:manuscript-list"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:manuscript-detail"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "provenance:manuscript-detail"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "provenance:manuscript-detail"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:lineage"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "provenance:export"): "401 404 2 2 2 403 403 404 403",
+    # --- end provenance (Phase 4) ---
 }
 # fmt: on
 
@@ -130,6 +172,50 @@ def _doc_fixtures(lab, project, user, tag):
 
 
 # --- end documents/attachments (Phase 3) ---
+
+
+# --- provenance (Phase 4) ---
+def _prov_fixtures(lab, project, user, doc, attachment, tag):
+    """One of each provenance model in `project`, linked together. The dataset and analysis
+    the URLs name (`ds_free`, `an_free`) are not blocked from deletion (a dataset used by an
+    analysis, and an analysis with results, both give 409), so DELETE can succeed."""
+    kw = {"lab": lab, "project": project}
+    ran = {"ran_by": user, "ran_at": "2030-01-01T00:00:00Z"}
+    code = {"code_repo_url": f"https://example.com/{tag}.git", "code_commit": "abc1234"}
+    ds_used = DatasetRecord.objects.create(
+        name=f"Dataset {tag}", version_label="v1", created_by=user, **kw
+    )
+    ds_free = DatasetRecord.objects.create(
+        name=f"Dataset {tag}", version_label="v2", previous_version=ds_used, created_by=user, **kw
+    )
+    an_main = Analysis.objects.create(title=f"Analysis {tag}", **ran, **code, **kw)
+    an_main.datasets.add(ds_used)
+    an_free = Analysis.objects.create(title=f"Analysis free {tag}", **ran, **code, **kw)
+    an_free.datasets.add(ds_used)
+    result = Result.objects.create(title=f"Result {tag}", analysis=an_main, created_by=user, **kw)
+    result.attachments.add(attachment)
+    manuscript = ManuscriptLink.objects.create(
+        title=f"Manuscript {tag}", url="https://example.com/ms", created_by=user, **kw
+    )
+    manuscript.results.add(result)
+    decision = Decision.objects.create(
+        title=f"Decision {tag}", decided_on="2030-01-01", decided_by=user, **kw
+    )
+    decision.analyses.add(an_main)
+    decision.results.add(result)
+    decision.datasets.add(ds_free)
+    decision.supporting_documents.add(doc)
+    decision.supporting_attachments.add(attachment)
+    return {
+        "datasetrecord_id": ds_free.pk,
+        "analysis_id": an_free.pk,
+        "result_id": result.pk,
+        "decision_id": decision.pk,
+        "manuscriptlink_id": manuscript.pk,
+    }
+
+
+# --- end provenance (Phase 4) ---
 
 
 def build_world():
@@ -169,6 +255,7 @@ def build_world():
     # --- documents/attachments (Phase 3): Lab A fixtures ---
     doc_a, attachment_a = _doc_fixtures(lab_a, p1, users["pi"], "lab-a")
     # --- end documents/attachments (Phase 3) ---
+    prov_a = _prov_fixtures(lab_a, p1, users["pi"], doc_a, attachment_a, "lab-a")  # Phase 4
     invite_a, _ = Invite.issue(
         lab=lab_a, email="invitee-a@example.com", role=LabRole.MEMBER, invited_by=users["pi"]
     )
@@ -191,6 +278,7 @@ def build_world():
     # --- documents/attachments (Phase 3): Lab B mirror ---
     doc_b, attachment_b = _doc_fixtures(lab_b, p1_b, secret_pi, "LAB-B-SECRET")
     # --- end documents/attachments (Phase 3) ---
+    prov_b = _prov_fixtures(lab_b, p1_b, secret_pi, doc_b, attachment_b, "LAB-B-SECRET")  # Ph. 4
     invite_b, _ = Invite.issue(
         lab=lab_b,
         email="invitee-b-secret@example.com",
@@ -214,6 +302,7 @@ def build_world():
             "document_id": doc_a.pk,
             "version": 1,
             "attachment_id": attachment_a.pk,
+            **prov_a,  # provenance (Phase 4)
         },
         b={
             "lab_id": lab_b.pk,
@@ -228,6 +317,7 @@ def build_world():
             "document_id": doc_b.pk,
             "version": 1,
             "attachment_id": attachment_b.pk,
+            **prov_b,  # provenance (Phase 4)
         },
         b_names=[
             "Lab B Secret",
@@ -239,6 +329,14 @@ def build_world():
             "Doc LAB-B-SECRET",
             "file-LAB-B-SECRET.pdf",
             "bytes of LAB-B-SECRET",
+            # --- provenance (Phase 4): every title and the repo URL carry the tag ---
+            "Dataset LAB-B-SECRET",
+            "Analysis LAB-B-SECRET",
+            "Analysis free LAB-B-SECRET",
+            "Result LAB-B-SECRET",
+            "Decision LAB-B-SECRET",
+            "Manuscript LAB-B-SECRET",
+            "LAB-B-SECRET.git",
         ],
     )
 
@@ -337,6 +435,40 @@ PAYLOADS = {
         "acknowledged_notice": "true",
     },
     # --- end documents/attachments (Phase 3) ---
+    # --- provenance (Phase 4): links point at Lab A / P1 fixtures, so allowed calls return 2xx ---
+    ("POST", "provenance:dataset-list"): lambda user, w: {
+        "name": "New dataset",
+        "version_label": "v9",
+        "location_url": "https://example.com/data",
+        "checksum": "sha256:" + "ab" * 32,
+    },
+    ("PATCH", "provenance:dataset-detail"): lambda user, w: {"access_notes": "Edited"},
+    ("POST", "provenance:analysis-list"): lambda user, w: {
+        "title": "New analysis",
+        "code_repo_url": "https://example.com/repo.git",
+        "code_commit": "abc1234",
+        "datasets": [str(w.a["datasetrecord_id"])],
+    },
+    ("PATCH", "provenance:analysis-detail"): lambda user, w: {"description": "Edited"},
+    ("POST", "provenance:result-list"): lambda user, w: {
+        "title": "New result",
+        "analysis": str(w.a["analysis_id"]),
+    },
+    ("PATCH", "provenance:result-detail"): lambda user, w: {"summary": "Edited"},
+    ("POST", "provenance:decision-list"): lambda user, w: {
+        "title": "New decision",
+        "analyses": [str(w.a["analysis_id"])],
+        "supporting_documents": [str(w.a["document_id"])],
+    },
+    ("PATCH", "provenance:decision-detail"): lambda user, w: {"rationale": "Edited"},
+    ("POST", "provenance:manuscript-list"): lambda user, w: {
+        "title": "New manuscript",
+        "url": "https://www.overleaf.com/project/abc",
+        "results": [str(w.a["result_id"])],
+    },
+    ("PATCH", "provenance:manuscript-detail"): lambda user, w: {"status": "submitted"},
+    ("POST", "provenance:export"): lambda user, w: {},
+    # --- end provenance (Phase 4) ---
 }
 
 

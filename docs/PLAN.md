@@ -43,11 +43,11 @@ Status: `todo` | `doing` | `done` | `failed` | `escalated`. Model/effort per orc
 ## Phase 4. Provenance
 | ID | Task | Model / effort | Status |
 |---|---|---|---|
-| P4.1 | Backend: DatasetRecord, Analysis, Result, Decision, ManuscriptLink + lineage endpoint | sonnet / medium | todo |
-| P4.2 | Pilot seed data (obviously fake) | haiku / low | todo |
-| P4.3 | Lineage graph view (React Flow) + detail panel | sonnet / high | todo |
-| P4.4 | Frontend: provenance list/detail/forms, command palette | sonnet / medium | todo |
-| P4.5 | Security review gate + fixes | opus / high, sonnet / medium | todo |
+| P4.1 | Backend: DatasetRecord, Analysis, Result, Decision, ManuscriptLink + lineage endpoint | sonnet / medium | done |
+| P4.2 | Pilot seed data (obviously fake) | haiku / low | done |
+| P4.3 | Lineage graph view (React Flow) + detail panel | sonnet / high | done |
+| P4.4 | Frontend: provenance list/detail/forms, command palette | sonnet / medium | done |
+| P4.5 | Security review gate + fixes | opus / high, sonnet / medium | doing |
 
 ## Phase 5. Ethics and retention
 | ID | Task | Model / effort | Status |

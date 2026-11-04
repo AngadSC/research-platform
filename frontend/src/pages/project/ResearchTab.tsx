@@ -1,0 +1,477 @@
+import { FlaskConical, Plus } from "lucide-react";
+import type { ReactNode } from "react";
+import { useState } from "react";
+import { Link, NavLink, Navigate, Outlet, useNavigate, useParams } from "react-router";
+import { toast } from "sonner";
+import { DataTable, type Column } from "@/components/shared/DataTable";
+import { DetailPanel } from "@/components/shared/DetailPanel";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { FormError } from "@/components/shared/FormError";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { downloadUrl } from "@/hooks/projects";
+import { useDeleteRecord, useRecord, useRecords } from "@/hooks/research";
+import { ApiError } from "@/lib/api";
+import {
+  personName,
+  type Analysis,
+  type AttachmentRef,
+  type Dataset,
+  type Decision,
+  type Manuscript,
+  type ResearchResult,
+} from "@/lib/api-types";
+import { formErrors } from "@/lib/forms";
+import { isKind, KIND_LIST, KINDS, recordTitle, type AnyRecord, type Kind } from "@/lib/research";
+import { cn } from "@/lib/utils";
+import type { ProjectTabProps } from "@/pages/ProjectPage";
+import { ResearchForm } from "@/pages/project/ResearchForm";
+
+const short = (c: string) => c.slice(0, 7) || "None";
+const date = (s: string) => new Date(s).toLocaleDateString(undefined, { dateStyle: "medium" });
+const rootPath = (p: ProjectTabProps) => `/labs/${p.labId}/projects/${p.projectId}/research`;
+
+export function ResearchLayout(props: ProjectTabProps) {
+  return (
+    <div className="grid gap-6">
+      <nav aria-label="Research records" className="flex gap-1">
+        {KIND_LIST.map((k) => (
+          <NavLink
+            key={k}
+            to={k}
+            className={({ isActive }) =>
+              cn(
+                "rounded-md px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                isActive
+                  ? "bg-muted font-medium"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )
+            }
+          >
+            {KINDS[k].label}
+          </NavLink>
+        ))}
+      </nav>
+      <Outlet context={props} />
+    </div>
+  );
+}
+
+export const ResearchIndex = () => <Navigate to="datasets" replace />;
+
+function useKind(): Kind | undefined {
+  const { kind } = useParams();
+  return isKind(kind) ? kind : undefined;
+}
+const NotFound = () => <FormError message="We couldn't find that page." />;
+
+const COLUMNS: { [K in Kind]: Column<AnyRecord>[] } = {
+  datasets: [
+    { key: "n", header: "Name", cell: (r) => (r as Dataset).name },
+    { key: "v", header: "Version", cell: (r) => (r as Dataset).version_label },
+    {
+      key: "c",
+      header: "Access controlled by",
+      cell: (r) => ((r as Dataset).controlled_by ? personName((r as Dataset).controlled_by) : ""),
+    },
+  ],
+  analyses: [
+    { key: "t", header: "Title", cell: (r) => (r as Analysis).title },
+    { key: "c", header: "Commit", cell: (r) => short((r as Analysis).code_commit) },
+    {
+      key: "b",
+      header: "Run by",
+      cell: (r) => ((r as Analysis).ran_by ? personName((r as Analysis).ran_by) : ""),
+    },
+  ],
+  results: [
+    { key: "t", header: "Title", cell: (r) => (r as ResearchResult).title },
+    { key: "a", header: "Analysis", cell: (r) => (r as ResearchResult).analysis?.title },
+  ],
+  decisions: [
+    { key: "t", header: "Title", cell: (r) => (r as Decision).title },
+    { key: "d", header: "Date", cell: (r) => date((r as Decision).decided_on) },
+  ],
+  manuscripts: [
+    { key: "t", header: "Title", cell: (r) => (r as Manuscript).title },
+    { key: "s", header: "Status", cell: (r) => <StatusBadge status={(r as Manuscript).status} /> },
+    { key: "r", header: "Results", cell: (r) => (r as Manuscript).results?.length ?? 0 },
+  ],
+};
+
+export function ResearchList(props: ProjectTabProps) {
+  const { labId, projectId, project } = props;
+  const kind = useKind();
+  const navigate = useNavigate();
+  if (!kind) return <NotFound />;
+  return (
+    <List
+      {...{ labId, projectId, kind, navigate }}
+      canEdit={project.my_permissions.includes("edit_content")}
+      base={rootPath(props)}
+    />
+  );
+}
+
+function List({
+  labId,
+  projectId,
+  kind,
+  canEdit,
+  base,
+  navigate,
+}: {
+  labId: string;
+  projectId: string;
+  kind: Kind;
+  canEdit: boolean;
+  base: string;
+  navigate: (to: string) => void | Promise<void>;
+}) {
+  const list = useRecords<AnyRecord>(labId, projectId, kind);
+  const k = KINDS[kind];
+  const add = canEdit ? (
+    <Button asChild>
+      <Link to={`${base}/${kind}/new`}>
+        <Plus aria-hidden /> New {k.one}
+      </Link>
+    </Button>
+  ) : undefined;
+  return (
+    <div className="grid gap-4">
+      {(list.data?.length ?? 0) > 0 && <div className="flex justify-end">{add}</div>}
+      <DataTable
+        columns={COLUMNS[kind]}
+        rows={list.data ?? []}
+        getRowKey={(r) => r.id}
+        loading={list.isLoading}
+        onRowClick={(r) => void navigate(`${base}/${kind}/${r.id}`)}
+        empty={
+          <EmptyState
+            icon={FlaskConical}
+            title={`No ${k.label.toLowerCase()} yet`}
+            description={k.blurb}
+            action={add}
+          />
+        }
+      />
+    </div>
+  );
+}
+
+export function ResearchNew(props: ProjectTabProps) {
+  const kind = useKind();
+  const navigate = useNavigate();
+  if (!kind) return <NotFound />;
+  if (!props.project.my_permissions.includes("edit_content"))
+    return <FormError message="You don't have permission to add records here." />;
+  const back = `${rootPath(props)}/${kind}`;
+  return (
+    <div className="grid max-w-xl gap-4">
+      <PageHeader title={`New ${KINDS[kind].one}`} />
+      <ResearchForm
+        labId={props.labId}
+        projectId={props.projectId}
+        kind={kind}
+        onSaved={(r) => void navigate(`${back}/${r.id}`)}
+        onCancel={() => void navigate(back)}
+      />
+    </div>
+  );
+}
+
+function Refs({
+  base,
+  kind,
+  items,
+}: {
+  base: string;
+  kind: Kind | "documents";
+  items?: { id: string; label: string }[];
+}) {
+  if (!items?.length) return <span className="text-muted-foreground">None</span>;
+  return (
+    <ul className="grid gap-1">
+      {items.map((i) => (
+        <li key={i.id}>
+          <Link
+            className="text-primary underline-offset-2 hover:underline"
+            to={`${base}/${kind}/${i.id}`}
+          >
+            {i.label}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Files({ labId, base, items }: { labId: string; base: string; items?: AttachmentRef[] }) {
+  if (!items?.length) return <span className="text-muted-foreground">None</span>;
+  const files = base.replace(/\/research$/, "/files");
+  return (
+    <ul className="grid gap-1">
+      {items.map((a) => (
+        <li key={a.id} className="flex items-center gap-3">
+          <span>{a.original_filename}</span>
+          {(a.content_type === "application/pdf" || a.original_filename.endsWith(".pdf")) && (
+            <Link className="text-primary hover:underline" to={`${files}/${a.id}`}>
+              Open
+            </Link>
+          )}
+          <a className="text-primary hover:underline" href={downloadUrl(labId, a.id)} download>
+            Download
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const Ext = ({ url }: { url: string }) =>
+  url ? (
+    <a
+      className="text-primary hover:underline"
+      href={url}
+      target="_blank"
+      rel="noreferrer noopener"
+    >
+      {url}
+    </a>
+  ) : (
+    <span className="text-muted-foreground">None</span>
+  );
+
+function fields(kind: Kind, r: AnyRecord, labId: string, base: string): [string, ReactNode][] {
+  const ds = (x: { id: string; name: string; version_label: string }[]) =>
+    x.map((d) => ({ id: d.id, label: `${d.name} (${d.version_label})` }));
+  const t = (x: { id: string; title: string }[]) => x.map((i) => ({ id: i.id, label: i.title }));
+  const who = (u?: { email: string; display_name?: string }) => (u ? personName(u) : "None");
+  switch (kind) {
+    case "datasets": {
+      const d = r as Dataset;
+      return [
+        ["Version", d.version_label],
+        ["Where it lives", d.location_text || "None"],
+        ["Link to the data", <Ext key="u" url={d.location_url} />],
+        ["Access controlled by", who(d.controlled_by)],
+        ["How to get access", d.access_notes || "None"],
+        ["Checksum", d.checksum || "None"],
+        [
+          "New version of",
+          <Refs
+            key="p"
+            base={base}
+            kind="datasets"
+            items={d.previous_version ? ds([d.previous_version]) : []}
+          />,
+        ],
+        ["Used by analyses", <Refs key="a" base={base} kind="analyses" items={t(d.analyses)} />],
+      ];
+    }
+    case "analyses": {
+      const a = r as Analysis;
+      return [
+        ["Description", a.description || "None"],
+        ["Code repository", <Ext key="r" url={a.code_repo_url} />],
+        ["Commit", a.code_commit || "None"],
+        [
+          "Attached code",
+          <Files
+            key="f"
+            labId={labId}
+            base={base}
+            items={a.code_attachment ? [a.code_attachment] : []}
+          />,
+        ],
+        ["Datasets used", <Refs key="d" base={base} kind="datasets" items={ds(a.datasets)} />],
+        ["Results", <Refs key="s" base={base} kind="results" items={t(a.results)} />],
+        ["Run by", who(a.ran_by)],
+        ["Run on", date(a.ran_at)],
+      ];
+    }
+    case "results": {
+      const x = r as ResearchResult;
+      return [
+        ["Summary", x.summary || "None"],
+        [
+          "Analysis",
+          <Refs key="a" base={base} kind="analyses" items={x.analysis ? t([x.analysis]) : []} />,
+        ],
+        ["Figures and tables", <Files key="f" labId={labId} base={base} items={x.attachments} />],
+        [
+          "Used in manuscripts",
+          <Refs key="m" base={base} kind="manuscripts" items={t(x.manuscripts)} />,
+        ],
+      ];
+    }
+    case "decisions": {
+      const d = r as Decision;
+      return [
+        ["Why", d.rationale || "None"],
+        ["Decided on", date(d.decided_on)],
+        ["Decided by", who(d.decided_by)],
+        [
+          "Supporting documents",
+          <ul key="sd">
+            {d.supporting_documents.map((x) => (
+              <li key={x.id}>
+                <Link
+                  className="text-primary hover:underline"
+                  to={`${base.replace(/\/research$/, "/documents")}/${x.id}`}
+                >
+                  {x.title}
+                </Link>
+              </li>
+            ))}
+          </ul>,
+        ],
+        [
+          "Supporting files",
+          <Files key="sf" labId={labId} base={base} items={d.supporting_attachments} />,
+        ],
+        [
+          "References",
+          <ul key="rf">
+            {d.references.map((x, i) => (
+              <li key={i}>{[x.title, x.doi, x.url].filter(Boolean).join(" ")}</li>
+            ))}
+          </ul>,
+        ],
+        ["Datasets", <Refs key="d" base={base} kind="datasets" items={ds(d.datasets)} />],
+        ["Analyses", <Refs key="a" base={base} kind="analyses" items={t(d.analyses)} />],
+        ["Results", <Refs key="r" base={base} kind="results" items={t(d.results)} />],
+      ];
+    }
+    case "manuscripts": {
+      const m = r as Manuscript;
+      return [
+        ["Link", <Ext key="u" url={m.url} />],
+        ["Status", <StatusBadge key="s" status={m.status} />],
+        ["Results used", <Refs key="r" base={base} kind="results" items={t(m.results)} />],
+        ["Created by", who(m.created_by)],
+      ];
+    }
+  }
+}
+
+export function ResearchDetail(props: ProjectTabProps) {
+  const { id = "" } = useParams();
+  const kind = useKind();
+  if (!kind) return <NotFound />;
+  return <Detail key={id} {...props} kind={kind} id={id} />;
+}
+
+function Detail({
+  labId,
+  projectId,
+  project,
+  kind,
+  id,
+}: ProjectTabProps & { kind: Kind; id: string }) {
+  const navigate = useNavigate();
+  const rec = useRecord<AnyRecord>(labId, kind, id);
+  const del = useDeleteRecord(labId, kind);
+  const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string>();
+  const canEdit = project.my_permissions.includes("edit_content");
+  const base = `/labs/${labId}/projects/${projectId}/research`;
+
+  if (rec.error) return <FormError message={formErrors(rec.error, []).form} />;
+  if (!rec.data) return <Skeleton aria-busy="true" aria-label="Loading" className="h-40 w-full" />;
+  const r = rec.data;
+  const title = recordTitle(r);
+
+  return (
+    <div className="grid gap-6">
+      <PageHeader
+        title={title}
+        actions={
+          <>
+            <Button variant="outline" asChild>
+              <Link
+                to={`/labs/${labId}/projects/${projectId}/lineage?focus=${KINDS[kind].one}:${id}`}
+              >
+                View in lineage
+              </Link>
+            </Button>
+            {canEdit && (
+              <>
+                <Button variant="outline" onClick={() => setEditing(true)}>
+                  Edit
+                </Button>
+                <Button variant="outline" onClick={() => setDeleting(true)}>
+                  Delete
+                </Button>
+              </>
+            )}
+          </>
+        }
+      />
+      <dl className="grid max-w-3xl gap-4 text-sm">
+        {fields(kind, r, labId, base).map(([k, v]) => (
+          <div key={k} className="grid gap-1 sm:grid-cols-[12rem_1fr]">
+            <dt className="text-muted-foreground">{k}</dt>
+            <dd className="whitespace-pre-wrap">{v}</dd>
+          </div>
+        ))}
+      </dl>
+      <DetailPanel open={editing} onOpenChange={setEditing} title={`Edit ${KINDS[kind].one}`}>
+        {editing && (
+          <ResearchForm
+            labId={labId}
+            projectId={projectId}
+            kind={kind}
+            record={r}
+            onSaved={() => setEditing(false)}
+            onCancel={() => setEditing(false)}
+          />
+        )}
+      </DetailPanel>
+      <Dialog open={deleting} onOpenChange={setDeleting}>
+        <DialogContent>
+          <DialogTitle className="text-base font-semibold">Delete {title}?</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            This removes the record. It does not touch any files.
+          </DialogDescription>
+          <FormError message={error} />
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              disabled={del.isPending}
+              onClick={() =>
+                del.mutate(id, {
+                  onSuccess: () => {
+                    toast.success("Deleted");
+                    void navigate(`${base}/${kind}`);
+                  },
+                  onError: (e) =>
+                    setError(
+                      e instanceof ApiError && e.status === 409
+                        ? "Other records depend on this one, so it can't be deleted yet. Remove those links first."
+                        : formErrors(e, []).form,
+                    ),
+                })
+              }
+            >
+              Delete {KINDS[kind].one}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

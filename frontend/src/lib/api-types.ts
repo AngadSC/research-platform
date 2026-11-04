@@ -28,6 +28,7 @@ export type DeadlineInput = Schemas["DeadlineInput"];
 export type Task = Schemas["Task"];
 export type TaskInput = Schemas["TaskInput"];
 export type Attachment = Schemas["Attachment"];
+export type AttachmentRef = Schemas["AttachmentRef"];
 export type TaskStatus = Schemas["TaskStatusEnum"];
 export type DocumentRow = Schemas["DocumentList"];
 export type DocumentFull = Schemas["Document"];
@@ -35,6 +36,17 @@ export type DocumentSaveInput = Schemas["DocumentSave"];
 export type DocumentConflict = Schemas["Conflict"];
 export type RevisionRow = Schemas["RevisionList"];
 export type Revision = Schemas["Revision"];
+export type Lineage = Schemas["Lineage"];
+export type LineageNode = Schemas["LineageNode"];
+export type LineageEdge = Schemas["LineageEdge"];
+export type LineageKind = Schemas["LineageKindEnum"];
+export type Dataset = Schemas["Dataset"];
+export type DatasetRef = Schemas["DatasetRef"];
+export type Analysis = Schemas["Analysis"];
+export type ResearchResult = Schemas["Result"];
+export type Decision = Schemas["Decision"];
+export type Manuscript = Schemas["Manuscript"];
+export type ManuscriptStatus = Schemas["ManuscriptStatusEnum"];
 
 export const PROJECT_STATUSES: { value: ProjectStatus; label: string }[] = [
   { value: "planning", label: "Planning" },

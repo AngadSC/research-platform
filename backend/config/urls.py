@@ -13,6 +13,9 @@ urlpatterns = [
     # --- documents/attachments (Phase 3) ---
     path("api/", include("documents.urls")),
     # --- end documents/attachments (Phase 3) ---
+    # --- provenance (Phase 4) ---
+    path("api/", include("provenance.urls")),
+    # --- end provenance (Phase 4) ---
 ]
 
 if settings.DEBUG:  # ARCHITECTURE section 6 / D41: schema and Django admin only in dev

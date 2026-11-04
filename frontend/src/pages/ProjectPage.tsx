@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCreateDocument } from "@/hooks/documents";
+import { useProjectCommands } from "@/hooks/researchCommands";
+import { saveJson, useExportProject } from "@/hooks/research";
 import { useDeleteProject, useProject, useUpdateProject } from "@/hooks/projects";
 import type { Project } from "@/lib/api-types";
 import { useRegisterCommands } from "@/lib/commands";
@@ -38,6 +40,8 @@ const TABS = [
   ["tasks", "Tasks"],
   ["documents", "Documents"],
   ["files", "Files"],
+  ["research", "Research"],
+  ["lineage", "Lineage"],
 ] as const;
 
 export function ProjectPage() {
@@ -51,6 +55,8 @@ export function ProjectPage() {
   const [deleting, setDeleting] = useState(false);
 
   const canEditContent = project?.my_permissions.includes("edit_content");
+  const exportProject = useExportProject(labId, projectId);
+  useProjectCommands(labId, projectId, !!canEditContent);
   useRegisterCommands(
     useMemo(
       () =>
@@ -99,6 +105,23 @@ export function ProjectPage() {
         actions={
           <>
             <StatusBadge status={project.status} />
+            {can("export") && (
+              <Button
+                variant="outline"
+                disabled={exportProject.isPending}
+                onClick={() =>
+                  exportProject.mutate(undefined, {
+                    onSuccess: (d) => {
+                      saveJson(d, `${project.name.replace(/[^\w-]+/g, "-")}-export.json`);
+                      toast.success("Project exported");
+                    },
+                    onError: (e) => toast.error(formErrors(e, []).form ?? "Export failed."),
+                  })
+                }
+              >
+                Export project
+              </Button>
+            )}
             {can("edit_project") && (
               <Button variant="outline" onClick={() => setEditing(true)}>
                 Edit

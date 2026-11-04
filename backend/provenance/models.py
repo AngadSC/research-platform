@@ -1,0 +1,172 @@
+"""Provenance models (ARCHITECTURE section 1, D20). Every row belongs to one project; every
+link stays inside it (D31: `lab_parents` in save(), the m2m_changed receiver, and services)."""
+
+import re
+
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
+from django.db import models
+from django.db.models import Q
+
+from core.tenancy import LabScopedModel
+
+COMMIT_RE = re.compile(r"^[0-9a-fA-F]{7,40}$")
+CHECKSUM_RE = re.compile(r"^[a-z0-9-]+:[0-9a-fA-F]{8,128}$")  # e.g. sha256:<hex>
+
+# URLField's default validator also accepts ftp; provenance links are web pages only, and
+# javascript: must never be storable (it would run when a UI renders the link).
+validate_web_url = URLValidator(schemes=["http", "https"])
+
+
+def validate_commit(value):
+    if value and not COMMIT_RE.match(value):
+        raise ValidationError("Enter a commit hash (7 to 40 hex characters).")
+
+
+def validate_checksum(value):
+    if value and not CHECKSUM_RE.match(value):
+        raise ValidationError("Use the form algorithm:hex, for example sha256:ab12...")
+
+
+class ManuscriptStatus(models.TextChoices):
+    DRAFTING = "drafting"
+    SUBMITTED = "submitted"
+    IN_REVIEW = "in_review"
+    ACCEPTED = "accepted"
+    PUBLISHED = "published"
+
+
+class LineageKind(models.TextChoices):
+    DATASET = "dataset"
+    ANALYSIS = "analysis"
+    RESULT = "result"
+    MANUSCRIPT = "manuscript"
+    DECISION = "decision"
+
+
+class ProvenanceModel(LabScopedModel):
+    project = models.ForeignKey(
+        "projects.Project", on_delete=models.CASCADE, related_name="%(class)s_set"
+    )
+
+    permission_domain = "project"
+    project_path = "project"
+
+    class Meta(LabScopedModel.Meta):
+        abstract = True
+
+
+class DatasetRecord(ProvenanceModel):
+    """A pointer to where a dataset lives. No data is stored. A new version is a new row."""
+
+    name = models.CharField(max_length=200)
+    location_text = models.TextField(blank=True)
+    location_url = models.URLField(blank=True, validators=[validate_web_url])
+    controlled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    access_notes = models.TextField(blank=True)  # free-text access controller
+    version_label = models.CharField(max_length=100)
+    checksum = models.CharField(max_length=140, blank=True, validators=[validate_checksum])
+    previous_version = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="next_versions"
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+
+    lab_parents = ("project", "previous_version")
+
+    class Meta(ProvenanceModel.Meta):
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "name", "version_label"], name="dataset_unique_version"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.name} {self.version_label}"
+
+
+class Analysis(ProvenanceModel):
+    title = models.CharField(max_length=300)
+    description = models.TextField(blank=True)
+    code_repo_url = models.URLField(blank=True, validators=[validate_web_url])
+    code_commit = models.CharField(max_length=40, blank=True, validators=[validate_commit])
+    code_attachment = models.ForeignKey(
+        "documents.Attachment", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    datasets = models.ManyToManyField(DatasetRecord, blank=True, related_name="analyses")
+    ran_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    ran_at = models.DateTimeField()
+
+    lab_parents = ("project", "code_attachment")
+
+    class Meta(ProvenanceModel.Meta):
+        constraints = [
+            models.CheckConstraint(
+                condition=(~Q(code_repo_url="") & ~Q(code_commit=""))
+                | Q(code_attachment__isnull=False),
+                name="analysis_has_code_reference",
+            )
+        ]
+
+    def __str__(self):
+        return self.title
+
+
+class Result(ProvenanceModel):
+    title = models.CharField(max_length=300)
+    summary = models.TextField(blank=True)
+    analysis = models.ForeignKey(Analysis, on_delete=models.PROTECT, related_name="results")
+    attachments = models.ManyToManyField("documents.Attachment", blank=True, related_name="+")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+
+    lab_parents = ("project", "analysis")
+
+    def __str__(self):
+        return self.title
+
+
+class Decision(ProvenanceModel):
+    title = models.CharField(max_length=300)
+    rationale = models.TextField(blank=True)
+    decided_on = models.DateField()
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    supporting_documents = models.ManyToManyField(
+        "documents.Document", blank=True, related_name="+"
+    )
+    supporting_attachments = models.ManyToManyField(
+        "documents.Attachment", blank=True, related_name="+"
+    )
+    references = models.JSONField(default=list, blank=True)  # [{title, url, doi}]
+    analyses = models.ManyToManyField(Analysis, blank=True, related_name="decisions")
+    results = models.ManyToManyField(Result, blank=True, related_name="decisions")
+    datasets = models.ManyToManyField(DatasetRecord, blank=True, related_name="decisions")
+
+    lab_parents = ("project",)
+
+    def __str__(self):
+        return self.title
+
+
+class ManuscriptLink(ProvenanceModel):
+    title = models.CharField(max_length=300)
+    url = models.URLField(validators=[validate_web_url])
+    status = models.CharField(
+        max_length=16, choices=ManuscriptStatus.choices, default=ManuscriptStatus.DRAFTING
+    )
+    results = models.ManyToManyField(Result, blank=True, related_name="manuscripts")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+
+    lab_parents = ("project",)
+
+    def __str__(self):
+        return self.title

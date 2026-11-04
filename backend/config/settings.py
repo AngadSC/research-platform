@@ -215,6 +215,8 @@ SPECTACULAR_SETTINGS = {
         "ProjectRoleEnum": "projects.models.ProjectRole",
         "ProjectStatusEnum": "projects.models.ProjectStatus",
         "TaskStatusEnum": "projects.models.TaskStatus",
+        "ManuscriptStatusEnum": "provenance.models.ManuscriptStatus",
+        "LineageKindEnum": "provenance.models.LineageKind",
     },
 }
 
