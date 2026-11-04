@@ -31,6 +31,7 @@ services:
     command: ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
     volumes:
       - ./backend:/app
+      - labfiles:/data/lab_files  # lab attachments; never served by a static route
     ports:
       - "8000:8000"
     depends_on:
@@ -76,3 +77,4 @@ services:
 
 volumes:
   pgdata:
+  labfiles:

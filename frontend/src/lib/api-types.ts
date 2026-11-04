@@ -4,7 +4,7 @@ import type { components } from "@/lib/api-schema";
 
 type Schemas = components["schemas"];
 
-export type Role = Schemas["RoleEnum"];
+export type Role = Schemas["LabRoleEnum"];
 export const ROLES: { value: Role; label: string }[] = [
   { value: "pi", label: "PI" },
   { value: "lab_admin", label: "Lab admin" },

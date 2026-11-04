@@ -121,6 +121,32 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+
+# ARCHITECTURE section 8 / D26: lab files get their own storage alias. It is never served under
+# MEDIA_URL or static(); downloads go through the authenticated endpoint only.
+LAB_FILES_BUCKET = os.environ.get("LAB_FILES_BUCKET", "")
+if LAB_FILES_BUCKET:
+    _lab_files = {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": LAB_FILES_BUCKET,
+            "default_acl": "private",
+            "querystring_auth": False,
+            "endpoint_url": os.environ.get("LAB_FILES_ENDPOINT_URL") or None,
+            "region_name": os.environ.get("LAB_FILES_REGION") or None,
+        },
+    }
+else:
+    _lab_files = {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {"location": os.environ.get("LAB_FILES_ROOT", "/data/lab_files")},
+    }
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    "lab_files": _lab_files,
+}
+ATTACHMENT_MAX_BYTES = 50 * 1024 * 1024
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # D9/D17: Celery with Valkey, via the redis client.
@@ -183,6 +209,13 @@ REST_FRAMEWORK = {
 SPECTACULAR_SETTINGS = {
     "TITLE": "Research Workspace API",
     "VERSION": "0.1.0",
+    # Stable enum names: same-named choice fields would otherwise get hash-suffixed names.
+    "ENUM_NAME_OVERRIDES": {
+        "LabRoleEnum": "labs.models.LabRole",
+        "ProjectRoleEnum": "projects.models.ProjectRole",
+        "ProjectStatusEnum": "projects.models.ProjectStatus",
+        "TaskStatusEnum": "projects.models.TaskStatus",
+    },
 }
 
 # ARCHITECTURE §4: X-Forwarded-For is trusted only behind this many proxies.

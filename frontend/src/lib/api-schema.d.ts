@@ -92,6 +92,49 @@ export interface paths {
         patch: operations["labs_partial_update"];
         trace?: never;
     };
+    "/api/labs/{lab_id}/attachments/{attachment_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description HasPerm reads `view.project`. Collection routes take the project from the URL (404 if
+         *     not visible); item routes take it from the visible object the URL names, so an invisible
+         *     object is a 404 before any 403 (D21).
+         */
+        get: operations["labs_attachments_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description HasPerm reads `view.project`. Collection routes take the project from the URL (404 if
+         *     not visible); item routes take it from the visible object the URL names, so an invisible
+         *     object is a 404 before any 403 (D21).
+         */
+        delete: operations["labs_attachments_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/attachments/{attachment_id}/download/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description ARCHITECTURE section 8: scoped lookup, permission, audit, then stream. */
+        get: operations["labs_attachments_download_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/audit-events/": {
         parameters: {
             query?: never;
@@ -103,6 +146,106 @@ export interface paths {
         get: operations["labs_audit_events_list"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/deadlines/{projectdeadline_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        delete: operations["labs_deadlines_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        patch: operations["labs_deadlines_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/documents/{document_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Routes under `documents/<document_id>/`, and the project's document collection. */
+        get: operations["labs_documents_retrieve"];
+        /** @description Routes under `documents/<document_id>/`, and the project's document collection. */
+        put: operations["labs_documents_update"];
+        post?: never;
+        /** @description Routes under `documents/<document_id>/`, and the project's document collection. */
+        delete: operations["labs_documents_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/documents/{document_id}/revisions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Routes under `documents/<document_id>/`, and the project's document collection. */
+        get: operations["labs_documents_revisions_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/documents/{document_id}/revisions/{version}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Routes under `documents/<document_id>/`, and the project's document collection. */
+        get: operations["labs_documents_revisions_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/documents/{document_id}/revisions/{version}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Routes under `documents/<document_id>/`, and the project's document collection. */
+        post: operations["labs_documents_revisions_restore_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -197,6 +340,274 @@ export interface paths {
         patch: operations["labs_members_partial_update"];
         trace?: never;
     };
+    "/api/labs/{lab_id}/project-members/{projectmembership_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        delete: operations["labs_project_members_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        patch: operations["labs_project_members_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        get: operations["labs_projects_list"];
+        put?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        post: operations["labs_projects_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        get: operations["labs_projects_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        delete: operations["labs_projects_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        patch: operations["labs_projects_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/attachments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description HasPerm reads `view.project`. Collection routes take the project from the URL (404 if
+         *     not visible); item routes take it from the visible object the URL names, so an invisible
+         *     object is a 404 before any 403 (D21).
+         */
+        get: operations["labs_projects_attachments_list"];
+        put?: never;
+        /**
+         * @description HasPerm reads `view.project`. Collection routes take the project from the URL (404 if
+         *     not visible); item routes take it from the visible object the URL names, so an invisible
+         *     object is a 404 before any 403 (D21).
+         */
+        post: operations["labs_projects_attachments_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/deadlines/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        get: operations["labs_projects_deadlines_list"];
+        put?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        post: operations["labs_projects_deadlines_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/documents/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Routes under `documents/<document_id>/`, and the project's document collection. */
+        get: operations["labs_projects_documents_list"];
+        put?: never;
+        /** @description Routes under `documents/<document_id>/`, and the project's document collection. */
+        post: operations["labs_projects_documents_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/members/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        get: operations["labs_projects_members_list"];
+        put?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        post: operations["labs_projects_members_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/tasks/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        get: operations["labs_projects_tasks_list"];
+        put?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        post: operations["labs_projects_tasks_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/tasks/{task_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        get: operations["labs_tasks_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        delete: operations["labs_tasks_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        patch: operations["labs_tasks_partial_update"];
+        trace?: never;
+    };
     "/api/me/": {
         parameters: {
             query?: never;
@@ -279,6 +690,27 @@ export interface components {
          * @enum {string}
          */
         ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.deleted" | "analysis.deleted" | "result.deleted" | "decision.deleted" | "manuscript.deleted" | "ethics_approval.deleted" | "audit_log.viewed" | "handover.generated";
+        Attachment: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly project: string | null;
+            readonly original_filename: string;
+            readonly content_type: string;
+            readonly size_bytes: number;
+            readonly sha256: string;
+            readonly uploaded_by: components["schemas"]["User"];
+            /** Format: date-time */
+            readonly notice_acknowledged_at: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        AttachmentUpload: {
+            /** Format: uri */
+            file: string;
+            /** @default false */
+            acknowledged_notice: boolean;
+        };
         AuditEvent: {
             /** Format: uuid */
             readonly id: string;
@@ -293,6 +725,71 @@ export interface components {
             readonly created_at: string;
             readonly metadata: unknown;
         };
+        Conflict: {
+            detail: string;
+            code: string;
+            current_version: number;
+            updated_by: components["schemas"]["User"];
+            /** Format: date-time */
+            updated_at: string;
+        };
+        Deadline: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly project: string;
+            readonly title: string;
+            /** Format: date */
+            readonly due_date: string;
+            readonly done: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        DeadlineInput: {
+            title: string;
+            /** Format: date */
+            due_date: string;
+            done?: boolean;
+        };
+        Document: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly project: string;
+            readonly title: string;
+            readonly version: number;
+            readonly updated_by: components["schemas"]["User"];
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+            readonly content: unknown;
+            readonly created_by: components["schemas"]["User"];
+        };
+        DocumentCreate: {
+            title: string;
+            content?: unknown;
+        };
+        DocumentList: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly project: string;
+            readonly title: string;
+            readonly version: number;
+            readonly updated_by: components["schemas"]["User"];
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        DocumentSave: {
+            title: string;
+            content: unknown;
+            base_version: number;
+        };
         Institution: {
             /** Format: uuid */
             readonly id: string;
@@ -303,7 +800,7 @@ export interface components {
             readonly id: string;
             /** Format: email */
             readonly email: string;
-            readonly role: components["schemas"]["RoleEnum"];
+            readonly role: components["schemas"]["LabRoleEnum"];
             /** Format: date-time */
             readonly expires_at: string;
             /** Format: date-time */
@@ -311,7 +808,7 @@ export interface components {
             readonly invited_by: components["schemas"]["User"];
         };
         InviteCreate: {
-            role: components["schemas"]["RoleEnum"];
+            role: components["schemas"]["LabRoleEnum"];
             /** Format: email */
             email: string;
         };
@@ -329,11 +826,19 @@ export interface components {
             readonly my_role: string | null;
             readonly my_permissions: string[];
         };
+        /**
+         * @description * `pi` - Pi
+         *     * `lab_admin` - Lab Admin
+         *     * `member` - Member
+         *     * `viewer` - Viewer
+         * @enum {string}
+         */
+        LabRoleEnum: "pi" | "lab_admin" | "member" | "viewer";
         Membership: {
             /** Format: uuid */
             readonly id: string;
             readonly user: components["schemas"]["User"];
-            role: components["schemas"]["RoleEnum"];
+            role: components["schemas"]["LabRoleEnum"];
             /** Format: date-time */
             readonly created_at: string;
         };
@@ -350,6 +855,12 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["AuditEvent"][];
         };
+        PatchedDeadlineInput: {
+            title?: string;
+            /** Format: date */
+            due_date?: string;
+            done?: boolean;
+        };
         PatchedLab: {
             /** Format: uuid */
             readonly id?: string;
@@ -358,8 +869,32 @@ export interface components {
             readonly my_role?: string | null;
             readonly my_permissions?: string[];
         };
+        PatchedProjectInput: {
+            name?: string;
+            description?: string;
+            status?: components["schemas"]["ProjectStatusEnum"];
+            /** Format: date */
+            start_date?: string | null;
+            /** Format: date */
+            retain_until?: string | null;
+            retention_note?: string;
+        };
+        PatchedProjectMembershipRole: {
+            role?: components["schemas"]["ProjectRoleEnum"];
+        };
         PatchedRole: {
-            role?: components["schemas"]["RoleEnum"];
+            role?: components["schemas"]["LabRoleEnum"];
+        };
+        /** @description `status` + `position` also reorder: the task lands at that index of that column. */
+        PatchedTaskInput: {
+            title?: string;
+            description?: string;
+            /** Format: uuid */
+            assignee?: string | null;
+            /** Format: date */
+            due_date?: string | null;
+            status?: components["schemas"]["TaskStatusEnum"];
+            position?: number;
         };
         PatchedUser: {
             /** Format: uuid */
@@ -368,14 +903,123 @@ export interface components {
             readonly email?: string;
             display_name?: string;
         };
+        Project: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly description: string;
+            readonly status: components["schemas"]["ProjectStatusEnum"];
+            /** Format: date */
+            readonly start_date: string | null;
+            /** Format: date */
+            readonly retain_until: string | null;
+            readonly retention_note: string;
+            readonly created_by: components["schemas"]["User"];
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+            readonly my_project_role: string | null;
+            readonly my_permissions: string[];
+        };
+        ProjectInput: {
+            name: string;
+            description?: string;
+            status?: components["schemas"]["ProjectStatusEnum"];
+            /** Format: date */
+            start_date?: string | null;
+            /** Format: date */
+            retain_until?: string | null;
+            retention_note?: string;
+        };
+        ProjectMembership: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly project: string;
+            readonly user: components["schemas"]["User"];
+            readonly role: components["schemas"]["ProjectRoleEnum"];
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        ProjectMembershipCreate: {
+            /** Format: uuid */
+            user: string;
+            role: components["schemas"]["ProjectRoleEnum"];
+        };
         /**
-         * @description * `pi` - Pi
-         *     * `lab_admin` - Lab Admin
-         *     * `member` - Member
+         * @description * `lead` - Lead
+         *     * `contributor` - Contributor
          *     * `viewer` - Viewer
          * @enum {string}
          */
-        RoleEnum: "pi" | "lab_admin" | "member" | "viewer";
+        ProjectRoleEnum: "lead" | "contributor" | "viewer";
+        /**
+         * @description * `planning` - Planning
+         *     * `active` - Active
+         *     * `paused` - Paused
+         *     * `completed` - Completed
+         *     * `archived` - Archived
+         * @enum {string}
+         */
+        ProjectStatusEnum: "planning" | "active" | "paused" | "completed" | "archived";
+        Revision: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly version: number;
+            readonly title: string;
+            readonly created_by: components["schemas"]["User"];
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly restored_from_version: number;
+            readonly content: unknown;
+        };
+        RevisionList: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly version: number;
+            readonly title: string;
+            readonly created_by: components["schemas"]["User"];
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly restored_from_version: number;
+        };
+        Task: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly project: string;
+            readonly title: string;
+            readonly description: string;
+            readonly assignee: components["schemas"]["User"];
+            /** Format: date */
+            readonly due_date: string | null;
+            readonly status: components["schemas"]["TaskStatusEnum"];
+            readonly position: number;
+            readonly created_by: components["schemas"]["User"];
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /** @description `status` + `position` also reorder: the task lands at that index of that column. */
+        TaskInput: {
+            title: string;
+            description?: string;
+            /** Format: uuid */
+            assignee?: string | null;
+            /** Format: date */
+            due_date?: string | null;
+            status?: components["schemas"]["TaskStatusEnum"];
+            position?: number;
+        };
+        /**
+         * @description * `todo` - Todo
+         *     * `in_progress` - In Progress
+         *     * `done` - Done
+         * @enum {string}
+         */
+        TaskStatusEnum: "todo" | "in_progress" | "done";
         Token: {
             token: string;
         };
@@ -558,6 +1202,71 @@ export interface operations {
             };
         };
     };
+    labs_attachments_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"];
+                };
+            };
+        };
+    };
+    labs_attachments_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_attachments_download_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+        };
+    };
     labs_audit_events_list: {
         parameters: {
             query?: {
@@ -622,6 +1331,202 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedAuditEventList"];
+                };
+            };
+        };
+    };
+    labs_deadlines_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                projectdeadline_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_deadlines_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                projectdeadline_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedDeadlineInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedDeadlineInput"];
+                "multipart/form-data": components["schemas"]["PatchedDeadlineInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deadline"];
+                };
+            };
+        };
+    };
+    labs_documents_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+        };
+    };
+    labs_documents_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentSave"];
+                "application/x-www-form-urlencoded": components["schemas"]["DocumentSave"];
+                "multipart/form-data": components["schemas"]["DocumentSave"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conflict"];
+                };
+            };
+        };
+    };
+    labs_documents_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_documents_revisions_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevisionList"][];
+                };
+            };
+        };
+    };
+    labs_documents_revisions_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                lab_id: string;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Revision"];
+                };
+            };
+        };
+    };
+    labs_documents_revisions_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                lab_id: string;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
                 };
             };
         };
@@ -761,6 +1666,502 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Membership"];
+                };
+            };
+        };
+    };
+    labs_project_members_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                projectmembership_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_project_members_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                projectmembership_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedProjectMembershipRole"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedProjectMembershipRole"];
+                "multipart/form-data": components["schemas"]["PatchedProjectMembershipRole"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectMembership"];
+                };
+            };
+        };
+    };
+    labs_projects_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"][];
+                };
+            };
+        };
+    };
+    labs_projects_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ProjectInput"];
+                "multipart/form-data": components["schemas"]["ProjectInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+        };
+    };
+    labs_projects_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+        };
+    };
+    labs_projects_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_projects_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedProjectInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedProjectInput"];
+                "multipart/form-data": components["schemas"]["PatchedProjectInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+        };
+    };
+    labs_projects_attachments_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"][];
+                };
+            };
+        };
+    };
+    labs_projects_attachments_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["AttachmentUpload"];
+                "application/x-www-form-urlencoded": components["schemas"]["AttachmentUpload"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"];
+                };
+            };
+        };
+    };
+    labs_projects_deadlines_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deadline"][];
+                };
+            };
+        };
+    };
+    labs_projects_deadlines_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeadlineInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["DeadlineInput"];
+                "multipart/form-data": components["schemas"]["DeadlineInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deadline"];
+                };
+            };
+        };
+    };
+    labs_projects_documents_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentList"][];
+                };
+            };
+        };
+    };
+    labs_projects_documents_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["DocumentCreate"];
+                "multipart/form-data": components["schemas"]["DocumentCreate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+        };
+    };
+    labs_projects_members_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectMembership"][];
+                };
+            };
+        };
+    };
+    labs_projects_members_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectMembershipCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["ProjectMembershipCreate"];
+                "multipart/form-data": components["schemas"]["ProjectMembershipCreate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectMembership"];
+                };
+            };
+        };
+    };
+    labs_projects_tasks_list: {
+        parameters: {
+            query?: {
+                assignee?: string;
+                /**
+                 * @description * `todo` - Todo
+                 *     * `in_progress` - In Progress
+                 *     * `done` - Done
+                 */
+                status?: "todo" | "in_progress" | "done";
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"][];
+                };
+            };
+        };
+    };
+    labs_projects_tasks_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["TaskInput"];
+                "multipart/form-data": components["schemas"]["TaskInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+        };
+    };
+    labs_tasks_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+        };
+    };
+    labs_tasks_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_tasks_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedTaskInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedTaskInput"];
+                "multipart/form-data": components["schemas"]["PatchedTaskInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
                 };
             };
         };

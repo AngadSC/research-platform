@@ -60,3 +60,54 @@ class ProjectMembership(LabScopedModel):
 
     def __str__(self):
         return f"{self.user_id} is {self.role}"
+
+
+class ProjectDeadline(LabScopedModel):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="deadlines")
+    title = models.CharField(max_length=200)
+    due_date = models.DateField()
+    done = models.BooleanField(default=False)
+
+    lab_parents = ("project",)
+    permission_domain = "project"
+    project_path = "project"
+
+    class Meta(LabScopedModel.Meta):
+        indexes = [models.Index(fields=["project", "due_date"], name="deadline_project_due_idx")]
+
+    def __str__(self):
+        return self.title
+
+
+class TaskStatus(models.TextChoices):
+    TODO = "todo"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
+
+
+class Task(LabScopedModel):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="tasks")
+    title = models.CharField(max_length=300)
+    description = models.TextField(blank=True)
+    assignee = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    due_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=16, choices=TaskStatus.choices, default=TaskStatus.TODO)
+    position = models.IntegerField(default=0)  # board order within a status column
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+
+    lab_parents = ("project",)
+    permission_domain = "project"
+    project_path = "project"
+
+    class Meta(LabScopedModel.Meta):
+        indexes = [
+            models.Index(fields=["project", "status", "position"], name="task_board_idx"),
+            models.Index(fields=["lab", "assignee"], name="task_lab_assignee_idx"),
+        ]
+
+    def __str__(self):
+        return self.title

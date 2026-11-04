@@ -33,10 +33,10 @@ Status: `todo` | `doing` | `done` | `failed` | `escalated`. Model/effort per orc
 ## Phase 3. Projects, tasks, documents
 | ID | Task | Model / effort | Status |
 |---|---|---|---|
-| P3.1 | Backend: project fields, tasks API | sonnet / medium | todo |
-| P3.2 | Backend: documents (BlockNote JSON), revisions, restore, version conflict (409) | sonnet / medium | todo |
-| P3.3 | Backend: attachments, per-lab storage prefix, authenticated download, upload acknowledgment audit | sonnet / medium | todo |
-| P3.4 | Frontend: project page, task list + board | sonnet / medium | todo |
+| P3.1 | Backend: project fields, tasks API | sonnet / medium | done |
+| P3.2 | Backend: documents (BlockNote JSON), revisions, restore, version conflict (409) | sonnet / medium | done |
+| P3.3 | Backend: attachments, per-lab storage prefix, authenticated download, upload acknowledgment audit | sonnet / medium | done |
+| P3.4 | Frontend: project page, task list + board | sonnet / medium | doing |
 | P3.5 | Frontend: document editor, revisions, restore, conflict warning | sonnet / medium | todo |
 | P3.6 | Frontend: attachments, upload notice, PDF.js viewer | sonnet / medium | todo |
 

@@ -9,12 +9,20 @@ from types import SimpleNamespace
 
 import pytest
 from allauth.account.models import EmailAddress
+from django.core.files.uploadedfile import SimpleUploadedFile  # documents/attachments (Phase 3)
 from django.urls import URLPattern, URLResolver, get_resolver, reverse
 from rest_framework.test import APIClient
 
 from core.models import Institution, User
+from documents import services as document_services  # documents/attachments (Phase 3)
 from labs.models import Invite, Lab, LabMembership, LabRole
-from projects.models import Project, ProjectMembership, ProjectRole
+from projects.models import (  # projects/tasks (Phase 3)
+    Project,
+    ProjectDeadline,
+    ProjectMembership,
+    ProjectRole,
+    Task,
+)
 
 # Fixed order. Lab roles: outsider is the PI of Lab B and not in Lab A; pi, admin (lab_admin),
 # lead, contrib, pviewer and nonproj (members); lviewer is a lab viewer. Project roles on P1:
@@ -46,6 +54,50 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "audit:audit-event-list"): "401 404      2  2     403  403     403     403     403",
     ("POST",   "labs:invite-preview"):   "2   2        2  2     2    2       2       2       2",
     ("POST",   "labs:invite-accept"):    "401 2        2  2     2    2       2       2       2",
+    # --- projects/tasks (Phase 3) ---
+    # Reasoned from SPEC and ARCHITECTURE section 3, per persona on P1 (lead, contrib, pviewer
+    # are P1's lead/contributor/viewer; nonproj is not on P1 so P1 is invisible: 404; lviewer is
+    # capped to viewer, D19; pi and admin are implicit leads). Delete needs delete_project:
+    # pi and lab_admin only (D28), so even P1's lead gets 403.
+    ("GET", "projects:project-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST", "projects:project-list"): "401 404 2 2 2 2 2 2 403",
+    ("GET", "projects:project-detail"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH", "projects:project-detail"): "401 404 2 2 2 403 403 404 403",
+    ("DELETE", "projects:project-detail"): "401 404 2 2 403 403 403 404 403",
+    ("GET", "projects:projectmember-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST", "projects:projectmember-list"): "401 404 2 2 2 403 403 404 403",
+    ("PATCH", "projects:projectmember-detail"): "401 404 2 2 2 403 403 404 403",
+    ("DELETE", "projects:projectmember-detail"): "401 404 2 2 2 403 403 404 403",
+    ("GET", "projects:deadline-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST", "projects:deadline-list"): "401 404 2 2 2 403 403 404 403",
+    ("PATCH", "projects:deadline-detail"): "401 404 2 2 2 403 403 404 403",
+    ("DELETE", "projects:deadline-detail"): "401 404 2 2 2 403 403 404 403",
+    ("GET", "projects:task-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST", "projects:task-list"): "401 404 2 2 2 2 403 404 403",
+    ("GET", "projects:task-detail"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH", "projects:task-detail"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "projects:task-detail"): "401 404 2 2 2 2 403 404 403",
+    # --- end projects/tasks (Phase 3) ---
+    # --- documents/attachments (Phase 3) ---
+    # Reasoned per persona on P1: reads need view_project (everyone on P1, including the
+    # lab viewer capped to viewer, D19); writes need edit_content (lead, contrib, and the implicit
+    # leads pi/admin; pviewer and lviewer get 403). nonproj is not on P1, so every P1 object is
+    # invisible to them: 404 (D21). outsider is in no Lab A role: 404. Attachment delete is
+    # edit_content, not edit_project, so contrib may delete. Download needs only view_project.
+    ("GET",    "documents:document-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "documents:document-list"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "documents:document-detail"): "401 404 2 2 2 2 2 404 2",
+    ("PUT",    "documents:document-detail"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "documents:document-detail"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "documents:revision-list"): "401 404 2 2 2 2 2 404 2",
+    ("GET",    "documents:revision-detail"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "documents:revision-restore"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "documents:attachment-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "documents:attachment-list"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "documents:attachment-detail"): "401 404 2 2 2 2 2 404 2",
+    ("DELETE", "documents:attachment-detail"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "documents:attachment-download"): "401 404 2 2 2 2 2 404 2",
+    # --- end documents/attachments (Phase 3) ---
 }
 # fmt: on
 
@@ -59,6 +111,25 @@ def _user(name):
     user = User.objects.create(email=f"{name}@example.com", display_name=name)
     EmailAddress.objects.create(user=user, email=user.email, verified=True, primary=True)
     return user
+
+
+# --- documents/attachments (Phase 3) ---
+def _doc_fixtures(lab, project, user, tag):
+    """A document with 2 revisions and a small PDF, in `lab`'s P1. Bytes carry `tag`."""
+    doc = document_services.create_document(
+        project=project, user=user, title=f"Doc {tag}", content=[{"type": "paragraph"}]
+    )
+    doc = document_services.save_document(
+        doc, title=f"Doc {tag}", content=[{"type": "paragraph", "n": 2}], base_version=1, user=user
+    )
+    pdf = SimpleUploadedFile(
+        f"file-{tag}.pdf", f"%PDF-1.4 bytes of {tag}".encode(), content_type="application/pdf"
+    )
+    attachment = document_services.upload_attachment(project=project, user=user, file=pdf)
+    return doc, attachment
+
+
+# --- end documents/attachments (Phase 3) ---
 
 
 def build_world():
@@ -89,6 +160,15 @@ def build_world():
         ("lviewer", ProjectRole.CONTRIBUTOR),
     ]:
         ProjectMembership.objects.create(lab=lab_a, project=p1, user=users[name], role=role)
+    # --- projects/tasks (Phase 3): Lab A fixtures ---
+    task_a = Task.objects.create(lab=lab_a, project=p1, title="Task A", created_by=users["pi"])
+    deadline_a = ProjectDeadline.objects.create(
+        lab=lab_a, project=p1, title="Deadline A", due_date="2030-01-01"
+    )
+    # --- end projects/tasks (Phase 3) ---
+    # --- documents/attachments (Phase 3): Lab A fixtures ---
+    doc_a, attachment_a = _doc_fixtures(lab_a, p1, users["pi"], "lab-a")
+    # --- end documents/attachments (Phase 3) ---
     invite_a, _ = Invite.issue(
         lab=lab_a, email="invitee-a@example.com", role=LabRole.MEMBER, invited_by=users["pi"]
     )
@@ -96,7 +176,21 @@ def build_world():
     secret_pi = users["outsider"]
     lab_b = Lab.objects.create(institution=inst, name="Lab B Secret", created_by=secret_pi)
     membership_b = LabMembership.objects.create(lab=lab_b, user=secret_pi, role=LabRole.PI)
-    Project.objects.create(lab=lab_b, name="P1 Secret", created_by=secret_pi)
+    p1_b = Project.objects.create(lab=lab_b, name="P1 Secret", created_by=secret_pi)
+    # --- projects/tasks (Phase 3): Lab B mirror ---
+    pm_b = ProjectMembership.objects.create(
+        lab=lab_b, project=p1_b, user=secret_pi, role=ProjectRole.LEAD
+    )
+    task_b = Task.objects.create(
+        lab=lab_b, project=p1_b, title="Task B Secret", created_by=secret_pi
+    )
+    deadline_b = ProjectDeadline.objects.create(
+        lab=lab_b, project=p1_b, title="Deadline B Secret", due_date="2030-01-01"
+    )
+    # --- end projects/tasks (Phase 3) ---
+    # --- documents/attachments (Phase 3): Lab B mirror ---
+    doc_b, attachment_b = _doc_fixtures(lab_b, p1_b, secret_pi, "LAB-B-SECRET")
+    # --- end documents/attachments (Phase 3) ---
     invite_b, _ = Invite.issue(
         lab=lab_b,
         email="invitee-b-secret@example.com",
@@ -109,14 +203,67 @@ def build_world():
             "lab_id": lab_a.pk,
             "membership_id": memberships["contrib"].pk,
             "invite_id": invite_a.pk,
+            # --- projects/tasks (Phase 3) ---
+            "project_id": p1.pk,
+            "projectmembership_id": ProjectMembership.objects.for_lab(lab_a)
+            .get(project=p1, user=users["contrib"])
+            .pk,
+            "projectdeadline_id": deadline_a.pk,
+            "task_id": task_a.pk,
+            # --- documents/attachments (Phase 3) ---
+            "document_id": doc_a.pk,
+            "version": 1,
+            "attachment_id": attachment_a.pk,
         },
-        b={"lab_id": lab_b.pk, "membership_id": membership_b.pk, "invite_id": invite_b.pk},
-        b_names=["Lab B Secret", "P1 Secret", "invitee-b-secret@example.com"],
+        b={
+            "lab_id": lab_b.pk,
+            "membership_id": membership_b.pk,
+            "invite_id": invite_b.pk,
+            # --- projects/tasks (Phase 3) ---
+            "project_id": p1_b.pk,
+            "projectmembership_id": pm_b.pk,
+            "projectdeadline_id": deadline_b.pk,
+            "task_id": task_b.pk,
+            # --- documents/attachments (Phase 3) ---
+            "document_id": doc_b.pk,
+            "version": 1,
+            "attachment_id": attachment_b.pk,
+        },
+        b_names=[
+            "Lab B Secret",
+            "P1 Secret",
+            "invitee-b-secret@example.com",
+            "Task B Secret",  # projects/tasks (Phase 3)
+            "Deadline B Secret",
+            # --- documents/attachments (Phase 3): titles, filename and the file's bytes ---
+            "Doc LAB-B-SECRET",
+            "file-LAB-B-SECRET.pdf",
+            "bytes of LAB-B-SECRET",
+        ],
     )
 
 
+# --- documents/attachments (Phase 3) ---
 @pytest.fixture(scope="session")
-def world(django_db_setup, django_db_blocker):
+def matrix_lab_files(tmp_path_factory):
+    """Fixture files go to a temp dir, never the real lab_files volume."""
+    from django.test import override_settings
+
+    storage = {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {"location": str(tmp_path_factory.mktemp("lab_files"))},
+    }
+    from django.conf import settings
+
+    with override_settings(STORAGES={**settings.STORAGES, "lab_files": storage}):
+        yield
+
+
+# --- end documents/attachments (Phase 3) ---
+
+
+@pytest.fixture(scope="session")
+def world(django_db_setup, django_db_blocker, matrix_lab_files):
     """Built once per session; each test runs in a rolled-back transaction on top of it."""
     with django_db_blocker.unblock():
         yield build_world()
@@ -157,6 +304,39 @@ PAYLOADS = {
     ("POST", "labs:invite-accept"): lambda user, w: _fresh_invite_for(
         user.email if user else "nobody@example.com", w
     ),
+    # --- projects/tasks (Phase 3) ---
+    ("POST", "projects:project-list"): lambda user, w: {"name": "New Project"},
+    ("PATCH", "projects:project-detail"): lambda user, w: {"description": "Edited"},
+    ("POST", "projects:projectmember-list"): lambda user, w: {
+        "user": str(w.user_ids["nonproj"]),  # a lab member not yet on P1
+        "role": "viewer",
+    },
+    ("PATCH", "projects:projectmember-detail"): lambda user, w: {"role": "viewer"},
+    ("POST", "projects:deadline-list"): lambda user, w: {"title": "New", "due_date": "2031-02-03"},
+    ("PATCH", "projects:deadline-detail"): lambda user, w: {"done": True},
+    ("POST", "projects:task-list"): lambda user, w: {
+        "title": "New task",
+        "assignee": str(w.user_ids["contrib"]),  # on P1, so allowed
+    },
+    ("PATCH", "projects:task-detail"): lambda user, w: {"status": "in_progress", "position": 0},
+    # --- end projects/tasks (Phase 3) ---
+    # --- documents/attachments (Phase 3) ---
+    ("POST", "documents:document-list"): lambda user, w: {
+        "title": "New doc",
+        "content": [{"type": "paragraph"}],
+    },
+    # fixture document is at version 2 (created, then saved once); each case is rolled back
+    ("PUT", "documents:document-detail"): lambda user, w: {
+        "title": "Edited",
+        "content": [{"type": "paragraph"}],
+        "base_version": 2,
+    },
+    ("POST", "documents:revision-restore"): lambda user, w: {},
+    ("POST", "documents:attachment-list"): lambda user, w: {
+        "file": SimpleUploadedFile("up.pdf", b"%PDF-1.4 upload", content_type="application/pdf"),
+        "acknowledged_notice": "true",
+    },
+    # --- end documents/attachments (Phase 3) ---
 }
 
 
@@ -228,7 +408,16 @@ CASES = [
 
 def _request(client, method, url, payload):
     if method in {"POST", "PATCH", "PUT"}:
-        return getattr(client, method.lower())(url, payload or {}, format="json")
+        payload = payload or {}
+        # --- documents/attachments (Phase 3): an upload payload makes the request multipart ---
+        has_file = any(hasattr(v, "read") for v in payload.values())
+        for v in payload.values():
+            if hasattr(v, "seek"):
+                v.seek(0)  # the same payload is sent twice by the swap test
+        if has_file:
+            return getattr(client, method.lower())(url, payload, format="multipart")
+        # --- end documents/attachments (Phase 3) ---
+        return getattr(client, method.lower())(url, payload, format="json")
     return getattr(client, method.lower())(url)
 
 

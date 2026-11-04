@@ -7,6 +7,12 @@ urlpatterns = [
     path("api/", include("core.urls")),
     path("api/", include("labs.urls")),
     path("api/", include("audit.urls")),
+    # --- projects/tasks (Phase 3) ---
+    path("api/", include("projects.urls")),
+    # --- end projects/tasks (Phase 3) ---
+    # --- documents/attachments (Phase 3) ---
+    path("api/", include("documents.urls")),
+    # --- end documents/attachments (Phase 3) ---
 ]
 
 if settings.DEBUG:  # ARCHITECTURE section 6 / D41: schema and Django admin only in dev

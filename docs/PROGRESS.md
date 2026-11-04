@@ -15,3 +15,6 @@
 - Audit log page done (sonnet): 25 frontend tests. Follow-up: audit-events filter params missing from OpenAPI schema (needs extend_schema). Untracked tsbuildinfo.
 - P2.6 security review (opus): 0 cross-lab leaks today; 8 issues (1 high-latent, 4 medium, 3 low). Decisions D38-D41. Sent to sonnet for fixes.
 - P2.7 done (sonnet): all 8 review issues fixed with regression tests (verified failing pre-fix). make test green, smoke test green. Phase 2 accepted.
+- Phase 2 committed. Phase 3 started: P3.1 (sonnet) and P3.2+P3.3 combined (sonnet, same app) in parallel.
+- P3.2+P3.3 done (sonnet): documents/revisions/409/restore, attachments with lab-prefix storage, authenticated download, notice ack audit. 13 matrix rows. Enum name collision (from projects) relayed to P3.1 agent.
+- P3.1 done (sonnet): projects, members, deadlines, tasks, reorder; enum overrides. ~47 matrix rows. Known issue: task assignee not re-checked after losing project access. Checkpoint commit.
