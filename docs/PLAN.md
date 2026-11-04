@@ -22,12 +22,12 @@ Status: `todo` | `doing` | `done` | `failed` | `escalated`. Model/effort per orc
 ## Phase 2. Permissions and audit
 | ID | Task | Model / effort | Status |
 |---|---|---|---|
-| P2.1 | (core built in P1.1) wire sensitive permissions + audit into every endpoint | sonnet / medium | todo |
-| P2.2 | AuditEvent (append-only) + logging for listed actions | sonnet / medium | todo |
-| P2.3 | (started in P1.2) extend matrix to Phase 2 endpoints Permission matrix test (enumerates URL resolver, fails on unlisted endpoints) | sonnet / medium | todo |
+| P2.1 | (core built in P1.1) wire sensitive permissions + audit into every endpoint | sonnet / medium | done |
+| P2.2 | AuditEvent (append-only) + logging for listed actions | sonnet / medium | done |
+| P2.3 | (started in P1.2) extend matrix to Phase 2 endpoints Permission matrix test (enumerates URL resolver, fails on unlisted endpoints) | sonnet / medium | done |
 | P2.4 | Shared UI components, app shell (sidebar, lab switcher, breadcrumbs, detail panel), `docs/UI.md` | sonnet / medium | done |
-| P2.5 | OpenAPI schema + generated TS types (`make types`) | haiku / low | todo |
-| P2.6 | Security review gate | opus / high | todo |
+| P2.5 | OpenAPI schema + generated TS types (`make types`) | haiku / low | done |
+| P2.6 | Security review gate | opus / high | doing |
 | P2.7 | Fix review findings | sonnet / medium | todo |
 
 ## Phase 3. Projects, tasks, documents

@@ -70,6 +70,7 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+      - ./backend/schema.yml:/schema/schema.yml:ro
     ports:
       - "5173:5173"
 

@@ -43,6 +43,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "labs:invite-list"):      "401 404      2  2     403  403     403     403     403",
     ("POST",   "labs:invite-list"):      "401 404      2  2     403  403     403     403     403",
     ("DELETE", "labs:invite-detail"):    "401 404      2  2     403  403     403     403     403",
+    ("GET",    "audit:audit-event-list"): "401 404      2  2     403  403     403     403     403",
     ("POST",   "labs:invite-preview"):   "2   2        2  2     2    2       2       2       2",
     ("POST",   "labs:invite-accept"):    "401 2        2  2     2    2       2       2       2",
 }

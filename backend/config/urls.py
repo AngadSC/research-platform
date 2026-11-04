@@ -7,6 +7,7 @@ urlpatterns = [
     path("_allauth/", include("allauth.headless.urls")),
     path("api/", include("core.urls")),
     path("api/", include("labs.urls")),
+    path("api/", include("audit.urls")),
 ]
 
 if settings.DEBUG:  # ARCHITECTURE section 6: schema only in dev

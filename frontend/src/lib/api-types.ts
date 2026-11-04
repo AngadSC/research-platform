@@ -1,6 +1,10 @@
-// Hand-written from DECISIONS D35 and the allauth headless spec. Replace with generated OpenAPI types later.
+// Aliases over the backend OpenAPI types (regenerate with `make types`).
+// allauth headless types are not in the DRF schema, so they stay hand-written below.
+import type { components } from "@/lib/api-schema";
 
-export type Role = "pi" | "lab_admin" | "member" | "viewer";
+type Schemas = components["schemas"];
+
+export type Role = Schemas["RoleEnum"];
 export const ROLES: { value: Role; label: string }[] = [
   { value: "pi", label: "PI" },
   { value: "lab_admin", label: "Lab admin" },
@@ -9,37 +13,11 @@ export const ROLES: { value: Role; label: string }[] = [
 ];
 export const roleLabel = (r: string) => ROLES.find((x) => x.value === r)?.label ?? r;
 
-export interface User {
-  id: string;
-  email: string;
-  display_name: string;
-}
-export interface Lab {
-  id: string;
-  name: string;
-  institution: { id: string; name: string };
-  my_role: Role;
-  my_permissions: string[];
-}
-export interface Membership {
-  id: string;
-  user: User;
-  role: Role;
-  created_at: string;
-}
-export interface Invite {
-  id: string;
-  email: string;
-  role: Role;
-  expires_at: string;
-  created_at: string;
-  invited_by: User;
-}
-export interface InvitePreview {
-  lab_name: string;
-  role: Role;
-  email: string;
-}
+export type User = Schemas["User"];
+export type Lab = Schemas["Lab"];
+export type Membership = Schemas["Membership"];
+export type Invite = Schemas["Invite"];
+export type InvitePreview = Schemas["InvitePreview"];
 
 // allauth headless envelope
 export interface AuthFlow {

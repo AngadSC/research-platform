@@ -1,7 +1,7 @@
 # Every recipe line is a `docker compose` command, so this works under cmd.exe or sh.
 # One-off commands use `run --rm --no-deps` unless they need Postgres/Valkey.
 
-.PHONY: dev down lint test-backend test-frontend licenses test
+.PHONY: dev down lint types types-check test-backend test-frontend licenses test
 
 dev:
 	docker compose up --build
@@ -15,7 +15,16 @@ lint:
 	docker compose run --rm --no-deps frontend npm run lint
 	docker compose run --rm --no-deps frontend npm run format:check
 	docker compose run --rm --no-deps frontend npm run typecheck
+	$(MAKE) types-check
 
+types:
+	docker compose run --rm --no-deps backend python manage.py spectacular --file /app/schema.yml --validate
+	docker compose run --rm --no-deps frontend npx openapi-typescript /schema/schema.yml -o src/lib/api-schema.d.ts
+
+# Fails if the committed schema or generated types are stale (compares against regenerated output in temp files).
+types-check:
+	docker compose run --rm --no-deps backend sh -c "python manage.py spectacular --file /tmp/schema.yml && diff /app/schema.yml /tmp/schema.yml"
+	docker compose run --rm --no-deps frontend sh -c "npx openapi-typescript /schema/schema.yml -o /tmp/api-schema.d.ts && diff src/lib/api-schema.d.ts /tmp/api-schema.d.ts"
 test-backend:
 	docker compose run --rm backend pytest -q
 

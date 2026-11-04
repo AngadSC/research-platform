@@ -1,4 +1,15 @@
-"""Permission module (ARCHITECTURE section 3, D19, D21). `.unscoped` is allowed here."""
+"""Permission module (ARCHITECTURE section 3, D19, D21). `.unscoped` is allowed here.
+
+Background jobs (digests, reminders, notifications) must not re-implement role logic. A job
+re-checks permissions when it runs, never at enqueue time, and per recipient:
+
+    for user in users_with(Perm.VIEW_PROJECT, project):   # or candidates from the job payload
+        if can(user, Perm.VIEW_PROJECT, obj):             # obj: the Project or lab-data object
+            notify(user, obj)
+
+Use `can(user, perm, obj)` for each recipient before sending anything about `obj`; use
+`users_with(perm, target)` only to find candidates. Never compare roles in a job.
+"""
 
 from enum import StrEnum
 

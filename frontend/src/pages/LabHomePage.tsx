@@ -76,7 +76,7 @@ export function LabHomePage() {
     <>
       <PageHeader
         title={lab.name}
-        description={`${lab.institution.name} · You are ${roleLabel(lab.my_role)}`}
+        description={`${lab.institution.name} · You are ${roleLabel(lab.my_role ?? "")}`}
         actions={
           <Button asChild variant="outline">
             <Link to={`/labs/${lab.id}/members`}>Members</Link>

@@ -10,3 +10,5 @@
 - P1.1 done (sonnet): tenancy, permissions.py, audit service, Phase 1 models; 98 backend tests pass.
 - P1.4 done (sonnet): auth pages, TOTP, create lab, members/invites, accept invite; 21 frontend tests. Added qrcode (MIT). Reauth prompt not built. Integration check pending P1.2.
 - P1.2 done (sonnet): allauth headless + MFA, Phase 1 API, matrix (135 cases + cross-lab swap). ~280 backend tests. Orchestrator smoke test through Vite proxy passed end to end; set ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION=True. Phase 1 accepted.
+- P2.5 done (haiku): make types / types-check, openapi-typescript (MIT); api-types.ts aliases generated schema.
+- P2.1-P2.3 done (sonnet): audit-events API (cursor, filters), coverage tests for 11 actions, ad hoc permission lint test, matrix row. make test green. Checkpoint commit before security review.
