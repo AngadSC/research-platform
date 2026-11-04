@@ -53,7 +53,11 @@ class AuditAction(models.TextChoices):
     MANUSCRIPT_CREATED = "manuscript.created"
     MANUSCRIPT_UPDATED = "manuscript.updated"
     MANUSCRIPT_DELETED = "manuscript.deleted"
+    ETHICS_APPROVAL_CREATED = "ethics_approval.created"
+    ETHICS_APPROVAL_UPDATED = "ethics_approval.updated"
+    ETHICS_APPROVAL_LINKS_CHANGED = "ethics_approval.links_changed"
     ETHICS_APPROVAL_DELETED = "ethics_approval.deleted"
+    RETENTION_CHANGED = "retention.changed"
     AUDIT_LOG_VIEWED = "audit_log.viewed"
     HANDOVER_GENERATED = "handover.generated"
 

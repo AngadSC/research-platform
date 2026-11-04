@@ -408,7 +408,11 @@ paths:
           - manuscript.created
           - manuscript.updated
           - manuscript.deleted
+          - ethics_approval.created
+          - ethics_approval.updated
+          - ethics_approval.links_changed
           - ethics_approval.deleted
+          - retention.changed
           - audit_log.viewed
           - handover.generated
           type: string
@@ -457,7 +461,11 @@ paths:
           * `manuscript.created` - Manuscript Created
           * `manuscript.updated` - Manuscript Updated
           * `manuscript.deleted` - Manuscript Deleted
+          * `ethics_approval.created` - Ethics Approval Created
+          * `ethics_approval.updated` - Ethics Approval Updated
+          * `ethics_approval.links_changed` - Ethics Approval Links Changed
           * `ethics_approval.deleted` - Ethics Approval Deleted
+          * `retention.changed` - Retention Changed
           * `audit_log.viewed` - Audit Log Viewed
           * `handover.generated` - Handover Generated
       - in: query
@@ -973,6 +981,201 @@ paths:
               schema:
                 $ref: '#/components/schemas/Document'
           description: ''
+  /api/labs/{lab_id}/ethics-approvals/:
+    get:
+      operationId: labs_ethics_approvals_list
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EthicsApproval'
+          description: ''
+    post:
+      operationId: labs_ethics_approvals_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EthicsApprovalInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EthicsApprovalInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EthicsApprovalInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EthicsApproval'
+          description: ''
+  /api/labs/{lab_id}/ethics-approvals/{ethicsapproval_id}/:
+    get:
+      operationId: labs_ethics_approvals_retrieve
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: ethicsapproval_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EthicsApproval'
+          description: ''
+    patch:
+      operationId: labs_ethics_approvals_partial_update
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: ethicsapproval_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedEthicsApprovalInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedEthicsApprovalInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedEthicsApprovalInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EthicsApproval'
+          description: ''
+    delete:
+      operationId: labs_ethics_approvals_destroy
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: ethicsapproval_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/ethics-approvals/{ethicsapproval_id}/attachments/:
+    post:
+      operationId: labs_ethics_approvals_attachments_create
+      description: |-
+        Same notice, size limit, throttle and 413 middleware as project uploads. Uploading is file
+        access, so D48 applies on top of edit_ethics.
+      parameters:
+      - in: path
+        name: ethicsapproval_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AttachmentUpload'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AttachmentUpload'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attachment'
+          description: ''
   /api/labs/{lab_id}/invites/:
     get:
       operationId: labs_invites_list
@@ -1250,6 +1453,86 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/notifications/:
+    get:
+      operationId: labs_notifications_list
+      description: |-
+        Lab-scoped like everything else; additionally limited to the requester's own rows, so
+        another user's notification is a 404.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/labs/{lab_id}/notifications/{notification_id}/read/:
+    post:
+      operationId: labs_notifications_read_create
+      description: |-
+        Lab-scoped like everything else; additionally limited to the requester's own rows, so
+        another user's notification is a 404.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: notification_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/labs/{lab_id}/notifications/read-all/:
+    post:
+      operationId: labs_notifications_read_all_create
+      description: |-
+        Lab-scoped like everything else; additionally limited to the requester's own rows, so
+        another user's notification is a 404.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadAllResult'
+          description: ''
   /api/labs/{lab_id}/project-members/{projectmembership_id}/:
     patch:
       operationId: labs_project_members_partial_update
@@ -2430,6 +2713,31 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/retention/due/:
+    get:
+      operationId: labs_retention_due_list
+      description: 'The PI review list: items past `retain_until`, soft-deleted ones
+        flagged. Read only.'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RetentionItem'
+          description: ''
   /api/labs/{lab_id}/tasks/{task_id}/:
     get:
       operationId: labs_tasks_retrieve
@@ -2764,7 +3072,11 @@ components:
       - manuscript.created
       - manuscript.updated
       - manuscript.deleted
+      - ethics_approval.created
+      - ethics_approval.updated
+      - ethics_approval.links_changed
       - ethics_approval.deleted
+      - retention.changed
       - audit_log.viewed
       - handover.generated
       type: string
@@ -2812,7 +3124,11 @@ components:
         * `manuscript.created` - Manuscript Created
         * `manuscript.updated` - Manuscript Updated
         * `manuscript.deleted` - Manuscript Deleted
+        * `ethics_approval.created` - Ethics Approval Created
+        * `ethics_approval.updated` - Ethics Approval Updated
+        * `ethics_approval.links_changed` - Ethics Approval Links Changed
         * `ethics_approval.deleted` - Ethics Approval Deleted
+        * `retention.changed` - Retention Changed
         * `audit_log.viewed` - Audit Log Viewed
         * `handover.generated` - Handover Generated
     Analysis:
@@ -2932,6 +3248,18 @@ components:
       required:
       - id
       - title
+    ApprovalStatusEnum:
+      enum:
+      - pending
+      - active
+      - expired
+      - withdrawn
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `active` - Active
+        * `expired` - Expired
+        * `withdrawn` - Withdrawn
     Attachment:
       type: object
       properties:
@@ -2940,6 +3268,11 @@ components:
           format: uuid
           readOnly: true
         project:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        ethics_approval:
           type: string
           format: uuid
           readOnly: true
@@ -2971,6 +3304,7 @@ components:
       required:
       - content_type
       - created_at
+      - ethics_approval
       - id
       - notice_acknowledged_at
       - original_filename
@@ -3397,6 +3731,14 @@ components:
           allOf:
           - $ref: '#/components/schemas/User'
           readOnly: true
+        retain_until:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        retention_note:
+          type: string
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -3417,6 +3759,8 @@ components:
       - created_by
       - id
       - project
+      - retain_until
+      - retention_note
       - title
       - updated_at
       - updated_by
@@ -3451,6 +3795,14 @@ components:
           allOf:
           - $ref: '#/components/schemas/User'
           readOnly: true
+        retain_until:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        retention_note:
+          type: string
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -3463,6 +3815,8 @@ components:
       - created_at
       - id
       - project
+      - retain_until
+      - retention_note
       - title
       - updated_at
       - updated_by
@@ -3490,9 +3844,122 @@ components:
         base_version:
           type: integer
           minimum: 1
+        retain_until:
+          type: string
+          format: date
+          nullable: true
+        retention_note:
+          type: string
       required:
       - base_version
       - content
+      - title
+    EthicsApproval:
+      type: object
+      description: |-
+        D48: `projects` lists only the projects the requester can see, and `attachments` is empty
+        unless the requester may open the files.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        approval_number:
+          type: string
+          readOnly: true
+        board:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        approval_date:
+          type: string
+          format: date
+          readOnly: true
+        expiry_date:
+          type: string
+          format: date
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ApprovalStatusEnum'
+          readOnly: true
+        restricted:
+          type: boolean
+          readOnly: true
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectRef'
+          readOnly: true
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attachment'
+          readOnly: true
+        can_view_files:
+          type: boolean
+          readOnly: true
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - approval_date
+      - approval_number
+      - attachments
+      - board
+      - can_view_files
+      - created_at
+      - created_by
+      - expiry_date
+      - id
+      - projects
+      - restricted
+      - status
+      - title
+      - updated_at
+    EthicsApprovalInput:
+      type: object
+      properties:
+        approval_number:
+          type: string
+          maxLength: 100
+        board:
+          type: string
+          maxLength: 200
+        title:
+          type: string
+          maxLength: 300
+        projects:
+          type: array
+          items:
+            type: string
+            format: uuid
+        approval_date:
+          type: string
+          format: date
+        expiry_date:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/ApprovalStatusEnum'
+        restricted:
+          type: boolean
+      required:
+      - approval_date
+      - approval_number
+      - board
+      - expiry_date
       - title
     Export:
       type: object
@@ -3855,6 +4322,61 @@ components:
       - id
       - role
       - user
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/NotificationKindEnum'
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        body:
+          type: string
+          readOnly: true
+        target_type:
+          type: string
+          readOnly: true
+        target_id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        read_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - body
+      - created_at
+      - id
+      - kind
+      - read_at
+      - target_id
+      - target_type
+      - title
+    NotificationKindEnum:
+      enum:
+      - ethics_expiry
+      - retention_due
+      - invite_accepted
+      - task_assigned
+      type: string
+      description: |-
+        * `ethics_expiry` - Ethics Expiry
+        * `retention_due` - Retention Due
+        * `invite_accepted` - Invite Accepted
+        * `task_assigned` - Task Assigned
     PaginatedAuditEventList:
       type: object
       required:
@@ -3998,6 +4520,33 @@ components:
             type: string
             format: uuid
           maxItems: 200
+    PatchedEthicsApprovalInput:
+      type: object
+      properties:
+        approval_number:
+          type: string
+          maxLength: 100
+        board:
+          type: string
+          maxLength: 200
+        title:
+          type: string
+          maxLength: 300
+        projects:
+          type: array
+          items:
+            type: string
+            format: uuid
+        approval_date:
+          type: string
+          format: date
+        expiry_date:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/ApprovalStatusEnum'
+        restricted:
+          type: boolean
     PatchedLab:
       type: object
       properties:
@@ -4249,6 +4798,17 @@ components:
       required:
       - role
       - user
+    ProjectRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
     ProjectRoleEnum:
       enum:
       - lead
@@ -4273,6 +4833,13 @@ components:
         * `paused` - Paused
         * `completed` - Completed
         * `archived` - Archived
+    ReadAllResult:
+      type: object
+      properties:
+        updated:
+          type: integer
+      required:
+      - updated
     Reference:
       type: object
       properties:
@@ -4376,6 +4943,47 @@ components:
       required:
       - id
       - title
+    RetentionItem:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/RetentionItemKindEnum'
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        project_id:
+          type: string
+          format: uuid
+        project_name:
+          type: string
+        retain_until:
+          type: string
+          format: date
+        retention_note:
+          type: string
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - deleted_at
+      - id
+      - kind
+      - name
+      - project_id
+      - project_name
+      - retain_until
+      - retention_note
+    RetentionItemKindEnum:
+      enum:
+      - project
+      - document
+      type: string
+      description: |-
+        * `project` - project
+        * `document` - document
     Revision:
       type: object
       properties:

@@ -21,6 +21,11 @@ urlpatterns = [
         views.DeadlineDetailView.as_view(),
         name="deadline-detail",
     ),
+    path(
+        "labs/<uuid:lab_id>/retention/due/",
+        views.RetentionDueView.as_view(),
+        name="retention-due",
+    ),
     path(_P + "tasks/", views.TaskListCreateView.as_view(), name="task-list"),
     path(
         "labs/<uuid:lab_id>/tasks/<uuid:task_id>/",

@@ -44,3 +44,26 @@ def test_refuses_without_debug(settings):
     settings.DEBUG = False
     with pytest.raises(CommandError):
         call_command("seed_pilot")
+
+
+def test_ethics_approval_expires_in_25_days_and_viewer_sees_the_pilot_project(debug_on):
+    import datetime
+
+    from django.utils import timezone
+
+    from documents.models import Document
+    from ethics.models import EthicsApproval
+
+    call_command("seed_pilot")
+    lab = Lab.objects.get(name=LAB_NAME)
+    project = Project.objects.for_lab(lab).get(name="Pilot Attention Study (FAKE)")
+    approval = EthicsApproval.objects.for_lab(lab).get(approval_number="FAKE-IRB-2026-001")
+    assert approval.expiry_date == timezone.localdate() + datetime.timedelta(days=25)
+    assert list(approval.projects.all()) == [project]
+    viewer = ProjectMembership.objects.for_lab(lab).get(user__email="viewer@example.test")
+    assert (viewer.project, viewer.role) == (project, ProjectRole.VIEWER)
+    today = timezone.localdate()
+    archived = Project.objects.for_lab(lab).get(name="Archived Survey (FAKE)")
+    assert archived.retain_until < today
+    overdue_docs = Document.objects.for_lab(lab).filter(project=project, retain_until__lt=today)
+    assert overdue_docs.count() == 1

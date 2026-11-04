@@ -44,7 +44,7 @@ class ProjectSerializer(serializers.ModelSerializer):
 
     def get_my_permissions(self, project) -> list[str]:
         user = self.context["request"].user
-        perms = PROJECT_PERMS | {Perm.DELETE_PROJECT}
+        perms = PROJECT_PERMS | {Perm.DELETE_PROJECT, Perm.VIEW_RETENTION}
         return sorted(p.value for p in perms if can(user, p, project))
 
 
@@ -124,3 +124,14 @@ class TaskInputSerializer(serializers.Serializer):
 class TaskFilterSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=TaskStatus.choices, required=False)
     assignee = serializers.UUIDField(required=False)
+
+
+class RetentionItemSerializer(serializers.Serializer):
+    kind = serializers.ChoiceField(choices=["project", "document"])
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    project_id = serializers.UUIDField()
+    project_name = serializers.CharField()
+    retain_until = serializers.DateField()
+    retention_note = serializers.CharField(allow_blank=True)
+    deleted_at = serializers.DateTimeField(allow_null=True)

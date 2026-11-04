@@ -16,6 +16,7 @@ from rest_framework.exceptions import APIException, ValidationError
 
 from audit.models import AuditAction
 from audit.services import record
+from core.retention import audit_retention, guard_retention, retention_changes
 from core.serializers import UserSerializer
 from documents.models import Attachment, Document, DocumentRevision
 
@@ -45,8 +46,10 @@ def lab_files():
 # ---------------------------------------------------------------- documents
 
 
-def _revise(doc, *, title, content, user, restored_from=None):
+def _revise(doc, *, title, content, user, restored_from=None, retention=None):
     doc.title, doc.content, doc.updated_by = title, content, user
+    for key, value in (retention or {}).items():
+        setattr(doc, key, value)
     doc.version += 1
     doc.save()
     return DocumentRevision.objects.create(
@@ -101,12 +104,18 @@ def _conflict(doc):
 
 
 @transaction.atomic
-def save_document(doc, *, title, content, base_version, user) -> Document:
+def save_document(
+    doc, *, title, content, base_version, user, request=None, **retention
+) -> Document:
+    """`retention` may carry `retain_until` and `retention_note` (D55: view_retention to change)."""
     validate_content(content)
     doc = _lock(doc)
     if base_version != doc.version:
         raise _conflict(doc)
-    _revise(doc, title=title, content=content, user=user)
+    changes = retention_changes(doc, retention)
+    guard_retention(user, doc.lab, changes)
+    _revise(doc, title=title, content=content, user=user, retention=retention)
+    audit_retention(user, doc.lab, doc, changes, request)
     return doc
 
 
@@ -148,9 +157,13 @@ def _safe_content_type(declared) -> str:
     )
 
 
-def upload_attachment(*, project, user, file, request=None) -> Attachment:
-    """The caller has already checked `acknowledged_notice` (the serializer). The key is
-    built here and never taken from the client (D26)."""
+def upload_attachment(*, user, file, project=None, approval=None, request=None) -> Attachment:
+    """The caller has already checked `acknowledged_notice` (the serializer) and access to the
+    owner: exactly one of `project` or an ethics `approval` (D38). The key is built here and
+    never taken from the client (D26)."""
+    if (project is None) == (approval is None):
+        raise ValueError("an attachment has exactly one owner")
+    owner = project or approval
     if file.size > settings.ATTACHMENT_MAX_BYTES:
         raise ValidationError({"file": "File is too large (50 MB maximum)."})
     digest = hashlib.sha256()
@@ -158,7 +171,7 @@ def upload_attachment(*, project, user, file, request=None) -> Attachment:
         digest.update(chunk)
     file.seek(0)
     attachment_id = uuid.uuid4()
-    key = f"labs/{project.lab_id}/attachments/{attachment_id}"
+    key = f"labs/{owner.lab_id}/attachments/{attachment_id}"
     saved = lab_files().save(key, file)
     now = timezone.now()
     try:
@@ -166,6 +179,7 @@ def upload_attachment(*, project, user, file, request=None) -> Attachment:
             attachment = Attachment.objects.create(
                 id=attachment_id,
                 project=project,
+                ethics_approval=approval,
                 storage_key=saved,
                 original_filename="".join(c for c in file.name if c.isprintable())[:255] or "file",
                 content_type=_safe_content_type(file.content_type),
@@ -177,10 +191,11 @@ def upload_attachment(*, project, user, file, request=None) -> Attachment:
             record(
                 AuditAction.ATTACHMENT_UPLOADED,
                 actor=user,
-                lab=project.lab,
+                lab=owner.lab,
                 target=attachment,
                 request=request,
                 metadata={
+                    "ethics_approval": str(approval.pk) if approval else None,
                     "notice_acknowledged_at": now.isoformat(),
                     "size_bytes": attachment.size_bytes,
                     "sha256": attachment.sha256,

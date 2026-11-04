@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { useLogout } from "@/hooks/auth";
 import { useCurrentLabId } from "@/hooks/crumbs";
@@ -65,7 +66,12 @@ export function Sidebar() {
     <aside className="flex w-64 shrink-0 flex-col gap-4 border-r bg-sidebar p-3">
       <div>
         <p className="px-2 pb-1 text-xs text-muted-foreground">{APP_NAME}</p>
-        <LabSwitcher labs={labs} current={current} />
+        <div className="flex items-center gap-1">
+          <div className="min-w-0 flex-1">
+            <LabSwitcher labs={labs} current={current} />
+          </div>
+          {labId && <NotificationBell labId={labId} />}
+        </div>
       </div>
       <Separator />
       {labId && (

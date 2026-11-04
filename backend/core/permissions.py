@@ -167,6 +167,29 @@ def project_role(user, project) -> str | None:
     return _effective_project_role(lab_r, cache[key])
 
 
+def can_view_ethics_files(user, approval, visible=None) -> bool:
+    """D48: an approval's files need view_ethics plus visibility of at least one linked project,
+    or the pi/lab_admin role. `visible` is an optional precomputed set of visible project ids."""
+    if not can(user, Perm.VIEW_ETHICS, approval):
+        return False
+    if lab_role(user, approval.lab_id) in _IMPLICIT_LEADS:
+        return True
+    if visible is None:
+        visible = set(visible_projects(user, approval.lab_id).values_list("pk", flat=True))
+    return any(p.pk in visible for p in approval.projects.all())
+
+
+def can_edit_ethics(user, approval) -> bool:
+    """D52: editing or deleting an approval needs edit_ethics plus visibility of every linked
+    project, unless the user is a pi or lab_admin."""
+    if approval.deleted_at is not None or not can(user, Perm.EDIT_ETHICS, approval):
+        return False
+    if lab_role(user, approval.lab_id) in _IMPLICIT_LEADS:
+        return True
+    visible = set(visible_projects(user, approval.lab_id).values_list("pk", flat=True))
+    return all(p.pk in visible for p in approval.projects.all())
+
+
 def get_lab_or_404(user, lab_id) -> Lab:
     try:
         if lab_role(user, lab_id) is None:
@@ -197,6 +220,14 @@ def _resolve(target):
     raise TypeError(f"cannot check permissions on {type(target).__name__}")
 
 
+def _sees_restricted(user, approval) -> bool:
+    """D56: a restricted approval is seen by pi, lab_admin and anyone who sees a linked project."""
+    if lab_role(user, approval.lab_id) in _IMPLICIT_LEADS:
+        return True
+    ids = [p.pk for p in approval.projects.all()]
+    return visible_projects(user, approval.lab_id).filter(pk__in=ids).exists()
+
+
 def can(user, perm: Perm, target=None) -> bool:
     perm = Perm(perm)
     if perm == Perm.PUBLIC:
@@ -205,6 +236,8 @@ def can(user, perm: Perm, target=None) -> bool:
         return _active(user)
     lab_id, project = _resolve(target)
     if lab_id is None:
+        return False
+    if getattr(target, "restricted", False) and not _sees_restricted(user, target):
         return False
     if project is not None and perm in PROJECT_PERMS:
         return perm in PROJECT_ROLE_PERMS.get(project_role(user, project), ())
@@ -291,6 +324,11 @@ def users_with(perm: Perm, target):
                 project=project, user__in=lm.values("user")
             ).values("user")
             q &= Q(pk__in=lm.filter(role__in=_IMPLICIT_LEADS).values("user")) | Q(pk__in=seen)
+    if getattr(target, "restricted", False):  # D56
+        seen = ProjectMembership.unscoped.filter(
+            project__in=target.projects.filter(deleted_at__isnull=True)
+        ).values("user")
+        q &= Q(pk__in=lm.filter(role__in=_IMPLICIT_LEADS).values("user")) | Q(pk__in=seen)
     return User.objects.filter(q, is_active=True)
 
 

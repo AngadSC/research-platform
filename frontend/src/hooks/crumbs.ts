@@ -1,5 +1,6 @@
 import { useMatches } from "react-router";
 import type { Crumb } from "@/components/shared/Breadcrumbs";
+import { useApproval } from "@/hooks/ethics";
 import { useDocument } from "@/hooks/documents";
 import { useProject } from "@/hooks/projects";
 import { useRecord } from "@/hooks/research";
@@ -14,6 +15,11 @@ export function useCrumbs(): Crumb[] {
   const { data: project } = useProject(projectParam?.labId, projectParam?.projectId);
   const docId = matches.find((m) => m.params.documentId)?.params.documentId ?? "";
   const { data: doc } = useDocument(projectParam?.labId ?? "", docId);
+  const approvalId = matches.find((m) => m.params.approvalId)?.params.approvalId;
+  const { data: approval } = useApproval(
+    matches.find((m) => m.params.labId)?.params.labId,
+    approvalId,
+  );
   const { kind, id } = matches.find((m) => m.params.id)?.params ?? {};
   const validKind = isKind(kind) ? kind : undefined;
   const { data: rec } = useRecord<AnyRecord>(
@@ -27,6 +33,7 @@ export function useCrumbs(): Crumb[] {
     if (crumb === "@project") crumb = project?.name ?? "Project";
     if (crumb === "@kind") crumb = isKind(m.params.kind) ? KINDS[m.params.kind].label : "Records";
     if (crumb === "@record") crumb = rec ? recordTitle(rec) : "Record";
+    if (crumb === "@approval") crumb = approval?.approval_number ?? "Approval";
     if (crumb === "@document") crumb = doc?.title ?? "Document";
     return crumb ? [{ label: crumb, to: m.pathname }] : [];
   });

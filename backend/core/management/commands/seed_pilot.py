@@ -14,6 +14,8 @@ from django.utils import timezone
 
 from core.models import User
 from documents.services import create_document, save_document, upload_attachment
+from ethics import services as ethics_services
+from ethics.models import EthicsApproval
 from labs.models import Lab, LabMembership, LabRole
 from labs.services import create_lab
 from projects import services as project_services
@@ -23,6 +25,7 @@ from provenance import services as prov
 LAB_NAME = "Example Cognition Lab (FAKE)"
 PASSWORD = "seed-password-not-secret"  # noqa: S105 (dev-only, printed on purpose)
 FRONTEND_URL = "http://localhost:5173"
+APPROVAL_NUMBER = "FAKE-IRB-2026-001"
 FAKE_COMMIT = "3f2c9a1e7b4d" + "0" * 28  # 40 hex characters, visibly padded
 
 # Smallest valid 1x1 PNG.
@@ -88,7 +91,7 @@ class Command(BaseCommand):
         self.make_user("admin@example.test", "Alex Admin (FAKE)", lab, LabRole.LAB_ADMIN)
         lead = self.make_user("lead@example.test", "Lee Lead (FAKE)", lab, LabRole.MEMBER)
         student = self.make_user("student@example.test", "Sam Student (FAKE)", lab, LabRole.MEMBER)
-        self.make_user("viewer@example.test", "Vic Viewer (FAKE)", lab, LabRole.VIEWER)
+        viewer = self.make_user("viewer@example.test", "Vic Viewer (FAKE)", lab, LabRole.VIEWER)
 
         project = project_services.create_project(
             lab=lab,
@@ -101,6 +104,10 @@ class Command(BaseCommand):
         )
         project_services.add_member(
             project=project, by=pi, user_id=student.pk, role=ProjectRole.CONTRIBUTOR
+        )
+        # So a demo login as the lab viewer sees the pilot project (read only).
+        project_services.add_member(
+            project=project, by=pi, user_id=viewer.pk, role=ProjectRole.VIEWER
         )
         for title, status, assignee, days in [
             ("Draft consent wording (FAKE)", TaskStatus.DONE, lead, -10),
@@ -147,7 +154,7 @@ class Command(BaseCommand):
                 base_version=protocol.version,
                 user=lead,
             )
-        create_document(
+        notes = create_document(
             project=project,
             user=student,
             title="Meeting notes (FAKE)",
@@ -155,6 +162,16 @@ class Command(BaseCommand):
                 block("heading", "Meeting notes (FAKE)", level=2),
                 block("paragraph", "Fake notes: nothing happened here."),
             ],
+        )
+        # Past its retention date, so the PI review list and the retention job have an item.
+        save_document(
+            notes,
+            title=notes.title,
+            content=notes.content,
+            base_version=notes.version,
+            user=pi,
+            retain_until=today - datetime.timedelta(days=30),
+            retention_note="Fake policy: keep 5 years after study close (FAKE).",
         )
         upload_attachment(
             project=project,
@@ -242,6 +259,21 @@ class Command(BaseCommand):
             },
         )
 
+        # Expires in 25 days, so the 30-day reminder is due (reminders: run the job, see summary).
+        ethics_services.create_approval(
+            lab=lab,
+            user=lead,
+            data={
+                "approval_number": APPROVAL_NUMBER,
+                "board": "Example IRB (FAKE)",
+                "title": "Pilot attention study approval (FAKE)",
+                "approval_date": today - datetime.timedelta(days=340),
+                "expiry_date": today + datetime.timedelta(days=25),
+                "status": "active",
+                "projects": [project.pk],
+            },
+        )
+
         # Archived project with the student as its only lead (the handover "no other owner" case).
         archived = project_services.create_project(
             lab=lab,
@@ -250,6 +282,14 @@ class Command(BaseCommand):
                 "name": "Archived Survey (FAKE)",
                 "description": "Fake archived survey.",
                 "status": "archived",
+            },
+        )
+        project_services.update_project(  # D55: only the PI sets retention
+            project=archived,
+            user=pi,
+            data={
+                "retain_until": today - datetime.timedelta(days=60),
+                "retention_note": "Fake policy: review after archive (FAKE).",
             },
         )
         create_document(
@@ -268,6 +308,17 @@ class Command(BaseCommand):
             ("admin@example.test", "lab_admin"),
             ("lead@example.test", "member, project lead"),
             ("student@example.test", "member, departing student"),
-            ("viewer@example.test", "viewer"),
+            ("viewer@example.test", "viewer, read-only on the pilot project"),
         ]:
             self.stdout.write(f"  {email}  ({role})")
+        lab = Lab.objects.filter(name=LAB_NAME).first()
+        approval = (
+            lab
+            and EthicsApproval.objects.for_lab(lab).filter(approval_number=APPROVAL_NUMBER).first()
+        )
+        if approval:
+            self.stdout.write(
+                f"Ethics approval: {approval.approval_number} ({approval.board}), "
+                f"expires {approval.expiry_date} "
+                f"({(approval.expiry_date - timezone.localdate()).days} days)"
+            )

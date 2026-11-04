@@ -2,6 +2,7 @@ from django.core.files.storage import storages
 from django.http import FileResponse, Http404
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import get_object_or_404
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
@@ -9,7 +10,7 @@ from rest_framework.throttling import ScopedRateThrottle
 
 from audit.models import AuditAction
 from audit.services import record
-from core.permissions import Perm, visible_projects
+from core.permissions import Perm, can_view_ethics_files, visible_projects
 from core.tenancy import project_of
 from core.views import LabScopedViewMixin
 from documents import services
@@ -25,6 +26,7 @@ from documents.serializers import (
     RevisionListSerializer,
     RevisionSerializer,
 )
+from ethics.models import EthicsApproval
 
 
 class ProjectPermMixin(LabScopedViewMixin):
@@ -114,7 +116,7 @@ class DocumentDetailView(DocumentMixin, generics.GenericAPIView):
         doc = self.get_object()
         ser = DocumentSaveSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
-        doc = services.save_document(doc, user=request.user, **ser.validated_data)
+        doc = services.save_document(doc, user=request.user, request=request, **ser.validated_data)
         return Response(self.get_serializer(doc).data)
 
     @extend_schema(responses={204: None})
@@ -233,11 +235,31 @@ class AttachmentDownloadView(AttachmentMixin, generics.GenericAPIView):
     serializer_class = AttachmentSerializer
     lookup_url_kwarg = "attachment_id"
     perms = {"GET": Perm.VIEW_PROJECT}
+    ethics_approval = None
+
+    def check_permissions(self, request):
+        """Ethics-owned files (D38) are checked through their approval (D48): view_ethics plus
+        a visible linked project, or pi/lab_admin. Anything else is a project file."""
+        approvals = EthicsApproval.objects.visible_to(request.user, request.lab).filter(
+            deleted_at__isnull=True
+        )
+        self.ethics_approval = approvals.filter(
+            attachments__pk=self.kwargs["attachment_id"], attachments__deleted_at__isnull=True
+        ).first()
+        if self.ethics_approval is None:
+            return super().check_permissions(request)
+        if not can_view_ethics_files(request.user, self.ethics_approval):
+            raise PermissionDenied
 
     @extend_schema(responses={(200, "application/octet-stream"): bytes})
     def get(self, request, lab_id, attachment_id):
         """ARCHITECTURE section 8: scoped lookup, permission, audit, then stream."""
-        attachment = self.get_object()
+        if self.ethics_approval is not None:
+            attachment = get_object_or_404(
+                self.ethics_approval.attachments.filter(deleted_at__isnull=True), pk=attachment_id
+            )
+        else:
+            attachment = self.get_object()
         record(
             AuditAction.ATTACHMENT_DOWNLOADED,
             actor=request.user,

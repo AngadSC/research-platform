@@ -4,7 +4,7 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.urls import Resolver404, resolve
 
-UPLOAD_URL_NAMES = {"documents:attachment-list"}
+UPLOAD_URL_NAMES = {"documents:attachment-list", "ethics:approval-attachments"}
 MULTIPART_ALLOWANCE = 64 * 1024  # boundaries and form fields around the file
 
 

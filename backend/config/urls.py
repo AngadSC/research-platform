@@ -16,6 +16,9 @@ urlpatterns = [
     # --- provenance (Phase 4) ---
     path("api/", include("provenance.urls")),
     # --- end provenance (Phase 4) ---
+    # --- ethics (Phase 5) ---
+    path("api/", include("ethics.urls")),
+    # --- end ethics (Phase 5) ---
 ]
 
 if settings.DEBUG:  # ARCHITECTURE section 6 / D41: schema and Django admin only in dev

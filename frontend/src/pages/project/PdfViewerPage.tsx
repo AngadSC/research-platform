@@ -13,7 +13,10 @@ GlobalWorkerOptions.workerSrc = workerUrl;
 type Zoom = number | "fit";
 
 export default function PdfViewerPage() {
-  const { labId = "", projectId = "", attachmentId = "" } = useParams();
+  const { labId = "", projectId = "", approvalId = "", attachmentId = "" } = useParams();
+  const back = approvalId
+    ? { to: `/labs/${labId}/ethics/${approvalId}`, label: "Back to approval" }
+    : { to: `/labs/${labId}/projects/${projectId}/files`, label: "Back to files" };
   const url = downloadUrl(labId, attachmentId);
   const { data: att } = useAttachment(labId, attachmentId);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
@@ -88,7 +91,7 @@ export default function PdfViewerPage() {
         actions={
           <>
             <Button variant="outline" asChild>
-              <Link to={`/labs/${labId}/projects/${projectId}/files`}>Back to files</Link>
+              <Link to={back.to}>{back.label}</Link>
             </Button>
             <Button variant="outline" asChild>
               <a href={url} download>

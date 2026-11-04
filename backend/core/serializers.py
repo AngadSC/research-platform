@@ -2,7 +2,7 @@ import unicodedata
 
 from rest_framework import serializers
 
-from core.models import User
+from core.models import Notification, User
 
 
 def no_control_chars(value):
@@ -18,3 +18,19 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ["id", "email", "display_name"]
         read_only_fields = ["id", "email"]
         extra_kwargs = {"display_name": {"validators": [no_control_chars]}}
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = [
+            "id",
+            "kind",
+            "title",
+            "body",
+            "target_type",
+            "target_id",
+            "read_at",
+            "created_at",
+        ]
+        read_only_fields = fields

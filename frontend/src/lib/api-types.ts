@@ -98,3 +98,9 @@ export interface RecoveryCodes {
   unused_code_count: number;
   unused_codes?: string[];
 }
+
+export type EthicsApproval = Schemas["EthicsApproval"];
+export type EthicsApprovalInput = Schemas["EthicsApprovalInput"];
+export type ApprovalStatus = Schemas["ApprovalStatusEnum"];
+export type AppNotification = Schemas["Notification"];
+export type RetentionItem = Schemas["RetentionItem"];

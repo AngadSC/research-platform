@@ -1,9 +1,24 @@
-import { expect, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { expect, type BrowserContext, type Page } from "@playwright/test";
 
 export const PASSWORD = "seed-password-not-secret";
 export const PROJECT = "Pilot Attention Study (FAKE)";
 
+export const PERSONAS = ["lead", "viewer", "pi"] as const;
+export const authFile = (who: string) => `e2e/.auth/${who}.json`;
+
+/** Sign in as a seed persona by loading the session saved once in global-setup (no login request). */
 export async function login(page: Page, who: string) {
+  const state = JSON.parse(readFileSync(authFile(who), "utf8")) as {
+    cookies: Parameters<BrowserContext["addCookies"]>[0];
+  };
+  await page.context().addCookies(state.cookies);
+  await page.goto("/");
+  await expect(page).not.toHaveURL(/login/);
+}
+
+/** Sign in through the form (for users created during a test). */
+export async function loginForm(page: Page, who: string) {
   await page.goto("/login");
   await page.getByLabel("Email").fill(`${who}@example.test`);
   await page.getByLabel("Password").fill(PASSWORD);

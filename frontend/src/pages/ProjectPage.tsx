@@ -158,6 +158,7 @@ export function ProjectPage() {
         <ProjectFormDialog
           open
           project={project}
+          canRetention={project.my_permissions.includes("view_retention")}
           onOpenChange={setEditing}
           onSave={(v) => update.mutateAsync(v)}
         />

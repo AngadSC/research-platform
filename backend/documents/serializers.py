@@ -12,7 +12,17 @@ class DocumentListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Document
-        fields = ["id", "project", "title", "version", "updated_by", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "project",
+            "title",
+            "version",
+            "updated_by",
+            "retain_until",
+            "retention_note",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = fields
 
 
@@ -32,6 +42,9 @@ class DocumentCreateSerializer(serializers.Serializer):
 class DocumentSaveSerializer(DocumentCreateSerializer):
     content = serializers.JSONField(validators=[services.validate_content])
     base_version = serializers.IntegerField(min_value=1)
+    # Changing retention needs view_retention (D55); the service checks it.
+    retain_until = serializers.DateField(allow_null=True, required=False)
+    retention_note = serializers.CharField(allow_blank=True, required=False)
 
 
 class ConflictSerializer(serializers.Serializer):
@@ -68,6 +81,7 @@ class AttachmentSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "project",
+            "ethics_approval",
             "original_filename",
             "content_type",
             "size_bytes",

@@ -3,10 +3,12 @@ import { useBlocker, useParams } from "react-router";
 import { toast } from "sonner";
 import { ConflictDialog } from "@/components/documents/ConflictDialog";
 import { RevisionsPanel } from "@/components/documents/RevisionsPanel";
+import { FormField } from "@/components/shared/FormField";
 import { FormError } from "@/components/shared/FormError";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDocument, useSaveDocument } from "@/hooks/documents";
 import { useProject } from "@/hooks/projects";
@@ -21,11 +23,14 @@ function DocumentEditor({
   doc,
   labId,
   canEdit,
+  canRetention,
   onReload,
 }: {
   doc: DocumentFull;
   labId: string;
   canEdit: boolean;
+  /** view_retention: without it the retention fields are read-only and never sent (D55). */
+  canRetention: boolean;
   onReload: () => Promise<void>;
 }) {
   const save = useSaveDocument(labId, doc.id);
@@ -33,6 +38,8 @@ function DocumentEditor({
   const [dirty, setDirty] = useState(false);
   const [conflict, setConflict] = useState<DocumentConflict | null>(null);
   const [history, setHistory] = useState(false);
+  const [retainUntil, setRetainUntil] = useState(doc.retain_until ?? "");
+  const [retentionNote, setRetentionNote] = useState(doc.retention_note);
   const [initial] = useState<unknown[]>(() => (Array.isArray(doc.content) ? doc.content : []));
   const content = useRef<unknown[]>(initial);
   const version = useRef(doc.version);
@@ -44,6 +51,10 @@ function DocumentEditor({
           title: title.trim() || "Untitled document",
           content: content.current,
           base_version: baseVersion,
+          ...(canRetention && {
+            retain_until: retainUntil || null,
+            retention_note: retentionNote,
+          }),
         },
         {
           onSuccess: (d) => {
@@ -58,7 +69,7 @@ function DocumentEditor({
           },
         },
       ),
-    [save, title],
+    [save, title, retainUntil, retentionNote, canRetention],
   );
   const doSave = useCallback(() => {
     if (canEdit) send(version.current);
@@ -132,6 +143,38 @@ function DocumentEditor({
       {!canEdit && (
         <p className="text-xs text-muted-foreground">You have read-only access to this document.</p>
       )}
+      <details className="rounded-md border px-3 py-2 text-sm">
+        <summary className="cursor-pointer font-medium">Retention</summary>
+        <div className="mt-3 grid max-w-md gap-3">
+          <FormField label="Keep until">
+            {(p) => (
+              <Input
+                {...p}
+                type="date"
+                value={retainUntil}
+                readOnly={!canEdit || !canRetention}
+                onChange={(e) => {
+                  setRetainUntil(e.target.value);
+                  setDirty(true);
+                }}
+              />
+            )}
+          </FormField>
+          <FormField label="Retention note">
+            {(p) => (
+              <Textarea
+                {...p}
+                value={retentionNote}
+                readOnly={!canEdit || !canRetention}
+                onChange={(e) => {
+                  setRetentionNote(e.target.value);
+                  setDirty(true);
+                }}
+              />
+            )}
+          </FormField>
+        </div>
+      </details>
       <Suspense fallback={<Skeleton className="h-64 w-full" />}>
         <RichEditor
           initialContent={initial}
@@ -209,6 +252,7 @@ export default function DocumentPage() {
       doc={doc}
       labId={labId}
       canEdit={project.my_permissions.includes("edit_content")}
+      canRetention={project.my_permissions.includes("view_retention")}
       onReload={reload}
     />
   );

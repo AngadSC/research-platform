@@ -214,7 +214,7 @@ def test_oversize_upload_rejected(setup, settings):
     lab, _, project, client = setup
     settings.ATTACHMENT_MAX_BYTES = 10
     resp = upload(client, lab, project, data=b"x" * 11)
-    assert resp.status_code == 400
+    assert resp.status_code == 413  # D53: rejected while streaming, same status as the middleware
     assert not Attachment.objects.for_lab(lab).exists()
 
 

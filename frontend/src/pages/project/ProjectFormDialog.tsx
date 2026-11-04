@@ -26,11 +26,13 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   /** Present when editing. */
   project?: Project;
+  /** view_retention (pi, lab_admin): without it the retention fields are hidden (D55). */
+  canRetention: boolean;
   onSave: (v: ProjectInput) => Promise<unknown>;
 }
 
 /** Create or edit a project. Throws from onSave are shown inline. */
-export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Props) {
+export function ProjectFormDialog({ open, onOpenChange, project, canRetention, onSave }: Props) {
   const [status, setStatus] = useState<ProjectStatus>(project?.status ?? "planning");
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
 
@@ -46,12 +48,17 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Props
         description: String(f.get("description") ?? ""),
         status,
         start_date: String(f.get("start_date") ?? "") || null,
-        retain_until: String(f.get("retain_until") ?? "") || null,
+        ...(canRetention && {
+          retain_until: String(f.get("retain_until") ?? "") || null,
+          retention_note: String(f.get("retention_note") ?? ""),
+        }),
       });
       toast.success("Saved");
       onOpenChange(false);
     } catch (err) {
-      setErrors(formErrors(err, ["name", "description", "start_date", "retain_until"]));
+      setErrors(
+        formErrors(err, ["name", "description", "start_date", "retain_until", "retention_note"]),
+      );
     }
   }
 
@@ -96,17 +103,26 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Props
                 />
               )}
             </FormField>
-            <FormField label="Keep until" error={errors.fields.retain_until}>
+            {canRetention && (
+              <FormField label="Keep until" error={errors.fields.retain_until}>
+                {(p) => (
+                  <Input
+                    {...p}
+                    type="date"
+                    name="retain_until"
+                    defaultValue={project?.retain_until ?? ""}
+                  />
+                )}
+              </FormField>
+            )}
+          </div>
+          {canRetention && (
+            <FormField label="Retention note" error={errors.fields.retention_note}>
               {(p) => (
-                <Input
-                  {...p}
-                  type="date"
-                  name="retain_until"
-                  defaultValue={project?.retain_until ?? ""}
-                />
+                <Textarea {...p} name="retention_note" defaultValue={project?.retention_note} />
               )}
             </FormField>
-          </div>
+          )}
           <FormError message={errors.form} />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

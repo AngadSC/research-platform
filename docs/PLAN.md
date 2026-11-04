@@ -52,15 +52,15 @@ Status: `todo` | `doing` | `done` | `failed` | `escalated`. Model/effort per orc
 ## Phase 5. Ethics and retention
 | ID | Task | Model / effort | Status |
 |---|---|---|---|
-| P5.1 | Backend: EthicsApproval, reminders (60/30/7), notifications, beat schedule | sonnet / medium | todo |
-| P5.2 | Backend: retention fields, daily review job (never deletes) | sonnet / medium | todo |
-| P5.3 | Frontend: ethics pages, notifications, retention review | sonnet / medium | todo |
-| P5.4 | Security review gate + fixes | opus / high, sonnet / medium | todo |
+| P5.1 | Backend: EthicsApproval, reminders (60/30/7), notifications, beat schedule | sonnet / medium | done |
+| P5.2 | Backend: retention fields, daily review job (never deletes) | sonnet / medium | done |
+| P5.3 | Frontend: ethics pages, notifications, retention review | sonnet / medium | done |
+| P5.4 | Security review gate + fixes | opus / high, sonnet / medium | done |
 
 ## Phase 6. Handover (stretch)
 | ID | Task | Model / effort | Status |
 |---|---|---|---|
-| P6.1 | Handover report backend + frontend | sonnet / medium | todo |
+| P6.1 | Handover report backend + frontend | sonnet / medium | doing |
 
 ## Wrap-up
 | ID | Task | Model / effort | Status |

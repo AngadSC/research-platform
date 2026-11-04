@@ -114,7 +114,7 @@ class LabScopedQuerySet(models.QuerySet):
                 f"project_path {path!r}"
             )
         if path is None:
-            return qs
+            return self.model.visible_rows(qs, user, lab)
         key = "pk__in" if path == "" else f"{path}__in"
         return qs.filter(**{key: permissions.visible_projects(user, lab)})
 
@@ -157,6 +157,11 @@ class LabScopedModel(models.Model):
         self._check_lab()
         super().save(*args, **kwargs)
 
+    @classmethod
+    def visible_rows(cls, qs, user, lab):
+        """D54: per-model row filter for lab-wide models. Default: every row of the lab."""
+        return qs
+
     def _check_lab(self):
         for name in self.lab_parents:
             parent = getattr(self, name)
@@ -166,10 +171,17 @@ class LabScopedModel(models.Model):
                 self.lab_id = parent.lab_id
             elif self.lab_id != parent.lab_id:
                 raise CrossLabError(f"{name} belongs to a different lab")
-            if getattr(parent, "project_path", None) is not None and self.project_path:
-                mine, theirs = project_of(self), project_of(parent)
-                if mine is not None and theirs is not None and mine.pk != theirs.pk:
-                    raise CrossLabError(f"{name} belongs to a different project")
+            if not _same_project(self, parent):
+                raise CrossLabError(f"{name} belongs to a different project")
+
+
+def _same_project(a, b) -> bool:
+    """Two project-domain rows must resolve to the same project. One whose project cannot be
+    resolved (an ethics-owned attachment) fails instead of being skipped (D54)."""
+    if a.permission_domain != "project" or b.permission_domain != "project":
+        return True
+    pa, pb = project_of(a), project_of(b)
+    return pa is not None and pb is not None and pa.pk == pb.pk
 
 
 def check_m2m_same_lab(sender, instance, action, model, pk_set, **kwargs):
@@ -179,8 +191,7 @@ def check_m2m_same_lab(sender, instance, action, model, pk_set, **kwargs):
     for other in model._base_manager.filter(pk__in=pk_set):
         if other.lab_id != instance.lab_id:
             raise CrossLabError("M2M link across labs")
-        a, b = project_of(instance), project_of(other)
-        if a is not None and b is not None and a.pk != b.pk:
+        if not _same_project(instance, other):
             raise CrossLabError("M2M link across projects")
 
 

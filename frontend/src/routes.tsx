@@ -23,6 +23,8 @@ import {
   ResearchNew,
 } from "@/pages/project/ResearchTab";
 import TasksTab from "@/pages/project/TasksTab";
+import { EthicsDetailPage, EthicsFormPage, EthicsListPage } from "@/pages/ethics/EthicsPages";
+import { NotificationsPage, RetentionPage } from "@/pages/ethics/LabPages";
 import { SecurityPage } from "@/pages/SecurityPage";
 
 export const routes: RouteObject[] = [
@@ -137,6 +139,37 @@ export const routes: RouteObject[] = [
                     ],
                   },
                 ],
+              },
+              {
+                path: "ethics",
+                handle: { crumb: "Ethics approvals" },
+                children: [
+                  { index: true, element: <EthicsListPage /> },
+                  { path: "new", element: <EthicsFormPage />, handle: { crumb: "New" } },
+                  {
+                    path: ":approvalId",
+                    handle: { crumb: "@approval" },
+                    children: [
+                      { index: true, element: <EthicsDetailPage /> },
+                      { path: "edit", element: <EthicsFormPage />, handle: { crumb: "Edit" } },
+                      {
+                        path: "files/:attachmentId",
+                        element: <PdfViewerRoute />,
+                        handle: { crumb: "View file" },
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                path: "notifications",
+                element: <NotificationsPage />,
+                handle: { crumb: "Notifications" },
+              },
+              {
+                path: "retention",
+                element: <RetentionPage />,
+                handle: { crumb: "Retention review" },
               },
               { path: "audit-log", element: <AuditLogPage />, handle: { crumb: "Audit log" } },
             ],

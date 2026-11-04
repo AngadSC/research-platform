@@ -1,8 +1,11 @@
 import uuid
 
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.db.models.functions import Lower
+
+from core.tenancy import LabScopedModel
 
 
 class UserManager(BaseUserManager):
@@ -57,3 +60,45 @@ class Institution(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class NotificationKind(models.TextChoices):
+    ETHICS_EXPIRY = "ethics_expiry"
+    RETENTION_DUE = "retention_due"
+    INVITE_ACCEPTED = "invite_accepted"
+    TASK_ASSIGNED = "task_assigned"
+
+
+class Notification(LabScopedModel):
+    """In-app notification (D30). Lab-scoped, but only its recipient may read or change it."""
+
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    kind = models.CharField(max_length=24, choices=NotificationKind.choices)
+    title = models.CharField(max_length=200)
+    body = models.TextField(blank=True)
+    target_type = models.CharField(max_length=64, blank=True)
+    target_id = models.UUIDField(null=True, blank=True)
+    dedupe_key = models.CharField(max_length=200)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    permission_domain = "lab"
+    project_path = None
+
+    @classmethod
+    def visible_rows(cls, qs, user, lab):
+        return qs.filter(recipient=user)
+
+    class Meta(LabScopedModel.Meta):
+        constraints = [
+            models.UniqueConstraint(fields=["recipient", "dedupe_key"], name="notification_dedupe")
+        ]
+        indexes = [
+            models.Index(
+                fields=["lab", "recipient", "read_at", "created_at"], name="notification_inbox_idx"
+            )
+        ]
+
+    def __str__(self):
+        return self.title

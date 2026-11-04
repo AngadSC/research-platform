@@ -59,6 +59,13 @@ class LabMembership(LabScopedModel):
 
 class Invite(LabScopedModel):
     permission_domain = "lab"
+
+    @classmethod
+    def visible_rows(cls, qs, user, lab):
+        from core.permissions import Perm, can
+
+        return qs if can(user, Perm.MANAGE_MEMBERS, lab) else qs.none()
+
     email = models.EmailField()  # stored lower-cased
     role = models.CharField(max_length=16, choices=LabRole.choices)
     token_hash = models.CharField(max_length=64, unique=True)

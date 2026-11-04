@@ -345,6 +345,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/ethics-approvals/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        get: operations["labs_ethics_approvals_list"];
+        put?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        post: operations["labs_ethics_approvals_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/ethics-approvals/{ethicsapproval_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        get: operations["labs_ethics_approvals_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        delete: operations["labs_ethics_approvals_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        patch: operations["labs_ethics_approvals_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/ethics-approvals/{ethicsapproval_id}/attachments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Same notice, size limit, throttle and 413 middleware as project uploads. Uploading is file
+         *     access, so D48 applies on top of edit_ethics.
+         */
+        post: operations["labs_ethics_approvals_attachments_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/invites/": {
         parameters: {
             query?: never;
@@ -462,6 +534,66 @@ export interface paths {
          *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
          */
         patch: operations["labs_members_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/notifications/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Lab-scoped like everything else; additionally limited to the requester's own rows, so
+         *     another user's notification is a 404.
+         */
+        get: operations["labs_notifications_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/notifications/{notification_id}/read/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Lab-scoped like everything else; additionally limited to the requester's own rows, so
+         *     another user's notification is a 404.
+         */
+        post: operations["labs_notifications_read_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/notifications/read-all/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Lab-scoped like everything else; additionally limited to the requester's own rows, so
+         *     another user's notification is a 404.
+         */
+        post: operations["labs_notifications_read_all_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/labs/{lab_id}/project-members/{projectmembership_id}/": {
@@ -902,6 +1034,23 @@ export interface paths {
         patch: operations["labs_results_partial_update"];
         trace?: never;
     };
+    "/api/labs/{lab_id}/retention/due/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The PI review list: items past `retain_until`, soft-deleted ones flagged. Read only. */
+        get: operations["labs_retention_due_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/tasks/{task_id}/": {
         parameters: {
             query?: never;
@@ -1025,12 +1174,16 @@ export interface components {
          *     * `manuscript.created` - Manuscript Created
          *     * `manuscript.updated` - Manuscript Updated
          *     * `manuscript.deleted` - Manuscript Deleted
+         *     * `ethics_approval.created` - Ethics Approval Created
+         *     * `ethics_approval.updated` - Ethics Approval Updated
+         *     * `ethics_approval.links_changed` - Ethics Approval Links Changed
          *     * `ethics_approval.deleted` - Ethics Approval Deleted
+         *     * `retention.changed` - Retention Changed
          *     * `audit_log.viewed` - Audit Log Viewed
          *     * `handover.generated` - Handover Generated
          * @enum {string}
          */
-        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.deleted" | "audit_log.viewed" | "handover.generated";
+        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated";
         Analysis: {
             /** Format: uuid */
             readonly id: string;
@@ -1070,11 +1223,21 @@ export interface components {
             readonly id: string;
             readonly title: string;
         };
+        /**
+         * @description * `pending` - Pending
+         *     * `active` - Active
+         *     * `expired` - Expired
+         *     * `withdrawn` - Withdrawn
+         * @enum {string}
+         */
+        ApprovalStatusEnum: "pending" | "active" | "expired" | "withdrawn";
         Attachment: {
             /** Format: uuid */
             readonly id: string;
             /** Format: uuid */
             readonly project: string | null;
+            /** Format: uuid */
+            readonly ethics_approval: string | null;
             readonly original_filename: string;
             readonly content_type: string;
             readonly size_bytes: number;
@@ -1222,6 +1385,9 @@ export interface components {
             readonly title: string;
             readonly version: number;
             readonly updated_by: components["schemas"]["User"];
+            /** Format: date */
+            readonly retain_until: string | null;
+            readonly retention_note: string;
             /** Format: date-time */
             readonly created_at: string;
             /** Format: date-time */
@@ -1241,6 +1407,9 @@ export interface components {
             readonly title: string;
             readonly version: number;
             readonly updated_by: components["schemas"]["User"];
+            /** Format: date */
+            readonly retain_until: string | null;
+            readonly retention_note: string;
             /** Format: date-time */
             readonly created_at: string;
             /** Format: date-time */
@@ -1255,6 +1424,46 @@ export interface components {
             title: string;
             content: unknown;
             base_version: number;
+            /** Format: date */
+            retain_until?: string | null;
+            retention_note?: string;
+        };
+        /**
+         * @description D48: `projects` lists only the projects the requester can see, and `attachments` is empty
+         *     unless the requester may open the files.
+         */
+        EthicsApproval: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly approval_number: string;
+            readonly board: string;
+            readonly title: string;
+            /** Format: date */
+            readonly approval_date: string;
+            /** Format: date */
+            readonly expiry_date: string;
+            readonly status: components["schemas"]["ApprovalStatusEnum"];
+            readonly restricted: boolean;
+            readonly projects: components["schemas"]["ProjectRef"][];
+            readonly attachments: components["schemas"]["Attachment"][];
+            readonly can_view_files: boolean;
+            readonly created_by: components["schemas"]["User"];
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        EthicsApprovalInput: {
+            approval_number: string;
+            board: string;
+            title: string;
+            projects?: string[];
+            /** Format: date */
+            approval_date: string;
+            /** Format: date */
+            expiry_date: string;
+            status?: components["schemas"]["ApprovalStatusEnum"];
+            restricted?: boolean;
         };
         Export: {
             /** Format: date-time */
@@ -1390,6 +1599,28 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        Notification: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly kind: components["schemas"]["NotificationKindEnum"];
+            readonly title: string;
+            readonly body: string;
+            readonly target_type: string;
+            /** Format: uuid */
+            readonly target_id: string | null;
+            /** Format: date-time */
+            readonly read_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `ethics_expiry` - Ethics Expiry
+         *     * `retention_due` - Retention Due
+         *     * `invite_accepted` - Invite Accepted
+         *     * `task_assigned` - Task Assigned
+         * @enum {string}
+         */
+        NotificationKindEnum: "ethics_expiry" | "retention_due" | "invite_accepted" | "task_assigned";
         PaginatedAuditEventList: {
             /**
              * Format: uri
@@ -1447,6 +1678,18 @@ export interface components {
             analyses?: string[];
             results?: string[];
             datasets?: string[];
+        };
+        PatchedEthicsApprovalInput: {
+            approval_number?: string;
+            board?: string;
+            title?: string;
+            projects?: string[];
+            /** Format: date */
+            approval_date?: string;
+            /** Format: date */
+            expiry_date?: string;
+            status?: components["schemas"]["ApprovalStatusEnum"];
+            restricted?: boolean;
         };
         PatchedLab: {
             /** Format: uuid */
@@ -1548,6 +1791,11 @@ export interface components {
             user: string;
             role: components["schemas"]["ProjectRoleEnum"];
         };
+        ProjectRef: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
         /**
          * @description * `lead` - Lead
          *     * `contributor` - Contributor
@@ -1564,6 +1812,9 @@ export interface components {
          * @enum {string}
          */
         ProjectStatusEnum: "planning" | "active" | "paused" | "completed" | "archived";
+        ReadAllResult: {
+            updated: number;
+        };
         Reference: {
             title?: string;
             url?: string;
@@ -1597,6 +1848,26 @@ export interface components {
             readonly id: string;
             readonly title: string;
         };
+        RetentionItem: {
+            kind: components["schemas"]["RetentionItemKindEnum"];
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uuid */
+            project_id: string;
+            project_name: string;
+            /** Format: date */
+            retain_until: string;
+            retention_note: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        /**
+         * @description * `project` - project
+         *     * `document` - document
+         * @enum {string}
+         */
+        RetentionItemKindEnum: "project" | "document";
         Revision: {
             /** Format: uuid */
             readonly id: string;
@@ -2019,11 +2290,15 @@ export interface operations {
                  *     * `manuscript.created` - Manuscript Created
                  *     * `manuscript.updated` - Manuscript Updated
                  *     * `manuscript.deleted` - Manuscript Deleted
+                 *     * `ethics_approval.created` - Ethics Approval Created
+                 *     * `ethics_approval.updated` - Ethics Approval Updated
+                 *     * `ethics_approval.links_changed` - Ethics Approval Links Changed
                  *     * `ethics_approval.deleted` - Ethics Approval Deleted
+                 *     * `retention.changed` - Retention Changed
                  *     * `audit_log.viewed` - Audit Log Viewed
                  *     * `handover.generated` - Handover Generated
                  */
-                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.deleted" | "audit_log.viewed" | "handover.generated";
+                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated";
                 actor?: string;
                 /** @description Pagination cursor */
                 cursor?: string;
@@ -2388,6 +2663,152 @@ export interface operations {
             };
         };
     };
+    labs_ethics_approvals_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EthicsApproval"][];
+                };
+            };
+        };
+    };
+    labs_ethics_approvals_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EthicsApprovalInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["EthicsApprovalInput"];
+                "multipart/form-data": components["schemas"]["EthicsApprovalInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EthicsApproval"];
+                };
+            };
+        };
+    };
+    labs_ethics_approvals_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ethicsapproval_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EthicsApproval"];
+                };
+            };
+        };
+    };
+    labs_ethics_approvals_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ethicsapproval_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_ethics_approvals_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ethicsapproval_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedEthicsApprovalInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedEthicsApprovalInput"];
+                "multipart/form-data": components["schemas"]["PatchedEthicsApprovalInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EthicsApproval"];
+                };
+            };
+        };
+    };
+    labs_ethics_approvals_attachments_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ethicsapproval_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["AttachmentUpload"];
+                "application/x-www-form-urlencoded": components["schemas"]["AttachmentUpload"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"];
+                };
+            };
+        };
+    };
     labs_invites_list: {
         parameters: {
             query?: never;
@@ -2594,6 +3015,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Membership"];
+                };
+            };
+        };
+    };
+    labs_notifications_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"][];
+                };
+            };
+        };
+    };
+    labs_notifications_read_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                notification_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"];
+                };
+            };
+        };
+    };
+    labs_notifications_read_all_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadAllResult"];
                 };
             };
         };
@@ -3384,6 +3869,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Result"];
+                };
+            };
+        };
+    };
+    labs_retention_due_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionItem"][];
                 };
             };
         };

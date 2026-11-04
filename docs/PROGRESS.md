@@ -28,3 +28,8 @@
 - P4.5 security review (opus): no critical/high; 4 medium (design hardening), 5 low. D48-D50. #3 folded into Phase 5. Fixes sent to sonnet.
 - E2E agent done (sonnet): make e2e 7 tests / 4 specs green. Phase 4 trace = 2 clicks from project page. Real-browser bugs fixed: login 403 (Vite proxy Host/CSRF, changeOrigin:false), BlockNote dark surface. Breadcrumbs + ?focus done. Follow-ups: seed viewer@ has no project membership; e2e should log in once (allauth 429 on reruns).
 - Phase 4 review fixes done (sonnet): 8 fixes, 15 regression cases, no matrix changes. Watch: test_audit_api flaked once locally. make test + make e2e green. Phase 4 accepted.
+- Phase 4 committed. P5.1+P5.2 combined (sonnet), incl. D48 and Phase 5 seed.
+- P5.1+P5.2 done (sonnet): ethics, notifications, jobs, retention, D48; 84 matrix rows. Orchestrator acceptance on fresh seeded DB: 25-day approval -> one reminder each to pi, lead, admin; rerun no dup; retention flagged archived project + overdue doc; row counts unchanged (no deletes). Started P5.3 frontend + Phase 5 security review.
+- P5.3 done (sonnet): ethics pages, notification bell, retention fields + review page; e2e storageState login once, ethics spec. Vitest 80, e2e 8/8 twice.
+- P5.4 security review (opus): no cross-lab; 1 high (member can withdraw/delete approvals of hidden projects, hard-deleting files), 1 medium (chunked upload bypass), 4 low. D52-D56. Sent to sonnet.
+- Phase 5 review fixes + D56 restricted approvals done (sonnet). Agent skipped pre-fix check; orchestrator mutation test on can_edit_ethics -> 3 regression tests fail as expected. Matrix: nonproj PATCH/DELETE approval 2xx->403 (stricter). Prettier fixes. make test + e2e 8/8 green. Phase 5 accepted.

@@ -62,11 +62,14 @@ class DocumentRevision(LabScopedModel):
 
 
 class Attachment(LabScopedModel):
-    """D38: exactly one owner. Today that is a project; Phase 5 adds a nullable
-    `ethics_approval` FK and swaps `attachment_has_owner` for an exactly-one check."""
+    """D38: exactly one owner, a project or an ethics approval (DB check). Project views see
+    only project-owned files; ethics files are served through the approval (D48)."""
 
     project = models.ForeignKey(
         "projects.Project", on_delete=models.CASCADE, null=True, related_name="attachments"
+    )
+    ethics_approval = models.ForeignKey(
+        "ethics.EthicsApproval", on_delete=models.PROTECT, null=True, related_name="attachments"
     )
     storage_key = models.CharField(max_length=512, unique=True)  # set server-side only
     original_filename = models.CharField(max_length=255)
@@ -79,13 +82,17 @@ class Attachment(LabScopedModel):
     notice_acknowledged_at = models.DateTimeField()
     deleted_at = models.DateTimeField(null=True, blank=True)  # soft delete; bytes are kept
 
-    lab_parents = ("project",)
+    lab_parents = ("project", "ethics_approval")
     permission_domain = "project"
     project_path = "project"
 
     class Meta(LabScopedModel.Meta):
         constraints = [
-            models.CheckConstraint(condition=Q(project__isnull=False), name="attachment_has_owner")
+            models.CheckConstraint(
+                condition=Q(project__isnull=False, ethics_approval__isnull=True)
+                | Q(project__isnull=True, ethics_approval__isnull=False),
+                name="attachment_has_one_owner",
+            )
         ]
 
     def __str__(self):

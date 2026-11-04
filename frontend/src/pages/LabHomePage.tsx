@@ -139,6 +139,7 @@ export function LabHomePage() {
       {creating && canCreate && (
         <ProjectFormDialog
           open
+          canRetention={lab.my_permissions.includes("view_retention")}
           onOpenChange={setCreating}
           onSave={async (v) => {
             const p = await createProject.mutateAsync(v);

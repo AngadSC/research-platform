@@ -9,6 +9,7 @@ from audit.models import AuditAction
 from audit.services import record
 from core.models import User
 from core.permissions import Perm, can, forget
+from core.retention import audit_retention, guard_retention, retention_changes
 from labs.models import LabMembership
 from projects.models import (
     Project,
@@ -24,7 +25,10 @@ from projects.models import (
 
 @transaction.atomic
 def create_project(*, lab, user, data, request=None) -> Project:
+    changes = retention_changes(Project(), data)
+    guard_retention(user, lab, changes)
     project = Project.objects.create(lab=lab, created_by=user, **data)
+    audit_retention(user, lab, project, changes, request)
     ProjectMembership.objects.create(lab=lab, project=project, user=user, role=ProjectRole.LEAD)
     forget(user)
     record(AuditAction.PROJECT_CREATED, actor=user, lab=lab, target=project, request=request)
@@ -33,6 +37,8 @@ def create_project(*, lab, user, data, request=None) -> Project:
 
 @transaction.atomic
 def update_project(*, project, user, data, request=None) -> Project:
+    changes = retention_changes(project, data)
+    guard_retention(user, project.lab, changes)
     for key, value in data.items():
         setattr(project, key, value)
     project.save()
@@ -44,6 +50,7 @@ def update_project(*, project, user, data, request=None) -> Project:
         request=request,
         metadata={"fields": sorted(data)},
     )
+    audit_retention(user, project.lab, project, changes, request)
     return project
 
 
@@ -202,3 +209,23 @@ def update_task(*, task, data) -> Task:
 def delete_task(*, task, by, request=None) -> None:
     record(AuditAction.TASK_DELETED, actor=by, lab=task.lab, target=task, request=request)
     task.delete()
+
+
+# ---------------------------------------------------------------- retention (SPEC phase 5)
+
+
+def retention_due(lab, today=None):
+    """Projects and documents past `retain_until`, soft-deleted ones included (flag them with
+    `deleted_at`). Read-only: nothing is ever deleted or changed because of retention.
+    The caller holds view_retention on the lab, which sees every project in it."""
+    from documents.models import Document
+
+    today = today or timezone.localdate()
+    projects = Project.objects.for_lab(lab).filter(retain_until__lt=today).order_by("retain_until")
+    documents = (
+        Document.objects.for_lab(lab)
+        .filter(retain_until__lt=today)
+        .select_related("project")
+        .order_by("retain_until")
+    )
+    return list(projects), list(documents)

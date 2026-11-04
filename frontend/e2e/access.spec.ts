@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
-import { expect, test, type Page } from "@playwright/test";
-import { login, openProject, PASSWORD } from "./helpers";
+import { expect, test } from "@playwright/test";
+import { login, loginForm, openProject, PASSWORD } from "./helpers";
 
 test("new user signs up, confirms by emailed link, and cannot see another lab's project", async ({
   browser,
@@ -42,35 +42,15 @@ test("new user signs up, confirms by emailed link, and cannot see another lab's 
   await expect(page.getByRole("heading", { name: "Email confirmed" })).toBeVisible();
 
   await page.context().clearCookies(); // confirming may sign the user in; start clean
-  await login(page, email.replace("@example.test", ""));
+  await loginForm(page, email.replace("@example.test", ""));
   await page.goto(seedUrl);
   await expect(page.getByText("We couldn't find that")).toBeVisible();
   await expect(page.getByText("Pilot Attention Study")).toHaveCount(0);
   await expect(page.getByText("Reaction time effect")).toHaveCount(0);
 });
 
-// The seed leaves viewer@ without any project membership (so no project is visible to it).
-// Give it the project `viewer` role through the app's own API, as the project lead would.
-async function grantViewer(page: Page) {
-  const [, labId, projectId] = page.url().match(/labs\/([\w-]+)\/projects\/([\w-]+)/)!;
-  const members = await (await page.request.get(`/api/labs/${labId}/members/`)).json();
-  const viewer = (members.results ?? members).find(
-    (m: { user: { email: string } }) => m.user.email === "viewer@example.test",
-  );
-  const csrf = (await page.context().cookies()).find((c) => c.name === "csrftoken")!.value;
-  const res = await page.request.post(`/api/labs/${labId}/projects/${projectId}/members/`, {
-    headers: { "X-CSRFToken": csrf },
-    data: { user: viewer.user.id, role: "viewer" },
-  });
-  expect([201, 400, 409]).toContain(res.status()); // 4xx: already a member
-}
-
-test("viewer sees no edit controls on a document or the task board", async ({ browser, page }) => {
-  const lead = await (await browser.newContext()).newPage();
-  await login(lead, "lead");
-  await openProject(lead);
-  await grantViewer(lead);
-
+test("viewer sees no edit controls on a document or the task board", async ({ page }) => {
+  // The seed gives viewer@ a viewer membership on the pilot project.
   await login(page, "viewer");
   await openProject(page);
 

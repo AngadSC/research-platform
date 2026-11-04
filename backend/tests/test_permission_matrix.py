@@ -13,8 +13,9 @@ from django.core.files.uploadedfile import SimpleUploadedFile  # documents/attac
 from django.urls import URLPattern, URLResolver, get_resolver, reverse
 from rest_framework.test import APIClient
 
-from core.models import Institution, User
+from core.models import Institution, Notification, NotificationKind, User
 from documents import services as document_services  # documents/attachments (Phase 3)
+from ethics.models import EthicsApproval  # ethics (Phase 5)
 from labs.models import Invite, Lab, LabMembership, LabRole
 from projects.models import (  # projects/tasks (Phase 3)
     Project,
@@ -140,6 +141,26 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "provenance:lineage"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "provenance:export"): "401 404 2 2 2 403 403 404 403",
     # --- end provenance (Phase 4) ---
+    # --- ethics and notifications (Phase 5) ---
+    # Approvals are lab-level (D27): every lab role reads them (view_ethics), pi/admin/member
+    # edit them (edit_ethics), the lab viewer cannot. P1 membership does not matter for the
+    # approval itself, only for its files and its project links (D48). Uploading is file access:
+    # edit_ethics plus a visible linked project (nonproj sees none: 403) or pi/admin.
+    # D52: PATCH and DELETE need the same visibility of every linked project, so nonproj is 403.
+    # A notification is its recipient's alone: the fixture one is addressed to pi, so everyone
+    # else in the lab gets 404, not 403. read-all only touches the caller's own rows. Retention
+    # review needs view_retention: pi and lab_admin only.
+    ("GET",    "ethics:approval-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "ethics:approval-list"): "401 404 2 2 2 2 2 2 403",
+    ("GET",    "ethics:approval-detail"): "401 404 2 2 2 2 2 2 2",
+    ("PATCH",  "ethics:approval-detail"): "401 404 2 2 2 2 2 403 403",
+    ("DELETE", "ethics:approval-detail"): "401 404 2 2 2 2 2 403 403",
+    ("POST",   "ethics:approval-attachments"): "401 404 2 2 2 2 2 403 403",
+    ("GET",    "core:notification-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "core:notification-read"): "401 404 2 404 404 404 404 404 404",
+    ("POST",   "core:notification-read-all"): "401 404 2 2 2 2 2 2 2",
+    ("GET",    "projects:retention-due"): "401 404 2 2 403 403 403 403 403",
+    # --- end ethics and notifications (Phase 5) ---
 }
 # fmt: on
 
@@ -218,6 +239,37 @@ def _prov_fixtures(lab, project, user, doc, attachment, tag):
 # --- end provenance (Phase 4) ---
 
 
+# --- ethics and notifications (Phase 5) ---
+def _ethics_fixtures(lab, project, user, tag):
+    """An approval linked to `project` with one PDF, and a notification addressed to `user`
+    (the lab's pi). Names carry `tag` so the swap test can look for leaks."""
+    approval = EthicsApproval.objects.create(
+        lab=lab,
+        approval_number=f"NUM-{tag}",
+        board="Board X",
+        title=f"Ethics {tag}",
+        approval_date="2030-01-01",
+        expiry_date="2031-01-01",
+        created_by=user,
+    )
+    approval.projects.add(project)
+    pdf = SimpleUploadedFile(
+        f"ethics-{tag}.pdf", f"%PDF-1.4 ethics bytes of {tag}".encode(), "application/pdf"
+    )
+    attachment = document_services.upload_attachment(approval=approval, user=user, file=pdf)
+    notification = Notification.objects.create(
+        lab=lab,
+        recipient=user,
+        kind=NotificationKind.ETHICS_EXPIRY,
+        title=f"Notification {tag}",
+        dedupe_key=f"matrix:{tag}",
+    )
+    return approval, attachment, notification
+
+
+# --- end ethics and notifications (Phase 5) ---
+
+
 def build_world():
     """Two labs, each with a project, a membership and a pending invite. Add each new
     lab-data model here, once for A and once for B."""
@@ -256,6 +308,7 @@ def build_world():
     doc_a, attachment_a = _doc_fixtures(lab_a, p1, users["pi"], "lab-a")
     # --- end documents/attachments (Phase 3) ---
     prov_a = _prov_fixtures(lab_a, p1, users["pi"], doc_a, attachment_a, "lab-a")  # Phase 4
+    eth_a, eth_att_a, note_a = _ethics_fixtures(lab_a, p1, users["pi"], "lab-a")  # Phase 5
     invite_a, _ = Invite.issue(
         lab=lab_a, email="invitee-a@example.com", role=LabRole.MEMBER, invited_by=users["pi"]
     )
@@ -279,6 +332,7 @@ def build_world():
     doc_b, attachment_b = _doc_fixtures(lab_b, p1_b, secret_pi, "LAB-B-SECRET")
     # --- end documents/attachments (Phase 3) ---
     prov_b = _prov_fixtures(lab_b, p1_b, secret_pi, doc_b, attachment_b, "LAB-B-SECRET")  # Ph. 4
+    eth_b, eth_att_b, note_b = _ethics_fixtures(lab_b, p1_b, secret_pi, "LAB-B-SECRET")  # Phase 5
     invite_b, _ = Invite.issue(
         lab=lab_b,
         email="invitee-b-secret@example.com",
@@ -303,6 +357,9 @@ def build_world():
             "version": 1,
             "attachment_id": attachment_a.pk,
             **prov_a,  # provenance (Phase 4)
+            "ethicsapproval_id": eth_a.pk,  # ethics and notifications (Phase 5)
+            "notification_id": note_a.pk,
+            "ethics_attachment_id": eth_att_a.pk,  # not a URL kwarg: ethics download test
         },
         b={
             "lab_id": lab_b.pk,
@@ -318,6 +375,9 @@ def build_world():
             "version": 1,
             "attachment_id": attachment_b.pk,
             **prov_b,  # provenance (Phase 4)
+            "ethicsapproval_id": eth_b.pk,  # ethics and notifications (Phase 5)
+            "notification_id": note_b.pk,
+            "ethics_attachment_id": eth_att_b.pk,
         },
         b_names=[
             "Lab B Secret",
@@ -337,6 +397,12 @@ def build_world():
             "Decision LAB-B-SECRET",
             "Manuscript LAB-B-SECRET",
             "LAB-B-SECRET.git",
+            # --- ethics and notifications (Phase 5) ---
+            "Ethics LAB-B-SECRET",
+            "NUM-LAB-B-SECRET",
+            "ethics-LAB-B-SECRET.pdf",
+            "ethics bytes of LAB-B-SECRET",
+            "Notification LAB-B-SECRET",
         ],
     )
 
@@ -469,6 +535,22 @@ PAYLOADS = {
     ("PATCH", "provenance:manuscript-detail"): lambda user, w: {"status": "submitted"},
     ("POST", "provenance:export"): lambda user, w: {},
     # --- end provenance (Phase 4) ---
+    # --- ethics and notifications (Phase 5) ---
+    ("POST", "ethics:approval-list"): lambda user, w: {
+        "approval_number": f"N-{next(_n)}",
+        "board": "Board Y",
+        "title": "New approval",
+        "approval_date": "2030-01-01",
+        "expiry_date": "2031-01-01",
+    },
+    ("PATCH", "ethics:approval-detail"): lambda user, w: {"title": "Edited approval"},
+    ("POST", "ethics:approval-attachments"): lambda user, w: {
+        "file": SimpleUploadedFile("up.pdf", b"%PDF-1.4 upload", content_type="application/pdf"),
+        "acknowledged_notice": "true",
+    },
+    ("POST", "core:notification-read"): lambda user, w: {},
+    ("POST", "core:notification-read-all"): lambda user, w: {},
+    # --- end ethics and notifications (Phase 5) ---
 }
 
 

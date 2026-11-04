@@ -2,6 +2,7 @@ import os
 import secrets
 from pathlib import Path
 
+from celery.schedules import crontab
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -170,11 +171,31 @@ STORAGES = {
     "lab_files": _lab_files,
 }
 ATTACHMENT_MAX_BYTES = 50 * 1024 * 1024
+FILE_UPLOAD_HANDLERS = [  # D53: the size cap goes first, before anything spools to disk
+    "core.uploads.SizeLimitUploadHandler",
+    "django.core.files.uploadhandler.MemoryFileUploadHandler",
+    "django.core.files.uploadhandler.TemporaryFileUploadHandler",
+]
 INVITES_PER_LAB_PER_DAY = 100  # D50
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # D9/D17: Celery with Valkey, via the redis client.
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+# Daily jobs (ARCHITECTURE section 5). Expiry is marked before reminders are sent.
+CELERY_BEAT_SCHEDULE = {
+    "ethics-mark-expired": {
+        "task": "ethics.jobs.mark_expired",
+        "schedule": crontab(hour=1, minute=0),
+    },
+    "ethics-expiry-reminders": {
+        "task": "ethics.jobs.send_expiry_reminders",
+        "schedule": crontab(hour=1, minute=10),
+    },
+    "retention-scan": {
+        "task": "projects.jobs.retention_scan",
+        "schedule": crontab(hour=1, minute=20),
+    },
+}
 
 # D14: dev email goes to the console.
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
@@ -245,6 +266,8 @@ SPECTACULAR_SETTINGS = {
         "TaskStatusEnum": "projects.models.TaskStatus",
         "ManuscriptStatusEnum": "provenance.models.ManuscriptStatus",
         "LineageKindEnum": "provenance.models.LineageKind",
+        "ApprovalStatusEnum": "ethics.models.ApprovalStatus",
+        "NotificationKindEnum": "core.models.NotificationKind",
     },
 }
 

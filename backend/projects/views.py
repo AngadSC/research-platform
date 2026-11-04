@@ -16,6 +16,7 @@ from projects.serializers import (
     ProjectMembershipRoleSerializer,
     ProjectMembershipSerializer,
     ProjectSerializer,
+    RetentionItemSerializer,
     TaskFilterSerializer,
     TaskInputSerializer,
     TaskSerializer,
@@ -266,3 +267,45 @@ class TaskDetailView(ProjectScopedMixin, generics.GenericAPIView):
     def delete(self, request, lab_id, task_id):
         services.delete_task(task=self.get_object(), by=request.user, request=request)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------- retention
+
+
+class RetentionDueView(LabScopedViewMixin, generics.GenericAPIView):
+    """The PI review list: items past `retain_until`, soft-deleted ones flagged. Read only."""
+
+    serializer_class = RetentionItemSerializer
+    pagination_class = None
+    perms = {"GET": Perm.VIEW_RETENTION}
+
+    @extend_schema(responses=RetentionItemSerializer(many=True))
+    def get(self, request, lab_id):
+        projects, documents = services.retention_due(request.lab)
+        rows = [
+            {
+                "kind": "project",
+                "id": p.pk,
+                "name": p.name,
+                "project_id": p.pk,
+                "project_name": p.name,
+                "retain_until": p.retain_until,
+                "retention_note": p.retention_note,
+                "deleted_at": p.deleted_at,
+            }
+            for p in projects
+        ] + [
+            {
+                "kind": "document",
+                "id": d.pk,
+                "name": d.title,
+                "project_id": d.project_id,
+                "project_name": d.project.name,
+                "retain_until": d.retain_until,
+                "retention_note": d.retention_note,
+                "deleted_at": d.deleted_at,
+            }
+            for d in documents
+        ]
+        rows.sort(key=lambda r: (r["retain_until"], r["name"]))
+        return Response(self.get_serializer(rows, many=True).data)

@@ -15,6 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Link } from "react-router";
+import { ApprovalBadge, ExpiryText } from "@/components/ethics/ApprovalBadge";
+import { useApprovals } from "@/hooks/ethics";
+import { useLab } from "@/hooks/workspace";
 import { useDeadlines, useProjectMembers } from "@/hooks/projects";
 import { useMembers } from "@/hooks/workspace";
 import {
@@ -386,6 +390,37 @@ function Members({
   );
 }
 
+function ProjectApprovals({ labId, projectId }: { labId: string; projectId: string }) {
+  const { data: lab } = useLab(labId);
+  const { data } = useApprovals(labId, lab?.my_permissions.includes("view_ethics"));
+  const mine = (data ?? []).filter((a) => a.projects.some((p) => p.id === projectId));
+  if (!lab?.my_permissions.includes("view_ethics")) return null;
+  return (
+    <section className="grid gap-3">
+      <h2 className="text-base font-semibold">Ethics approvals</h2>
+      {mine.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No ethics approvals are linked to this project.
+        </p>
+      ) : (
+        <ul className="grid divide-y rounded-lg border">
+          {mine.map((a) => (
+            <li key={a.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+              <Link to={`/labs/${labId}/ethics/${a.id}`} className="font-medium hover:underline">
+                {a.approval_number}: {a.title}
+              </Link>
+              <span className="flex items-center gap-2">
+                <ExpiryText expiry={a.expiry_date} />
+                <ApprovalBadge status={a.status} expiry={a.expiry_date} />
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 // Props: { labId, projectId, project } (ProjectTabProps).
 export default function OverviewTab({ labId, projectId, project }: ProjectTabProps) {
   const can = (p: string) => project.my_permissions.includes(p);
@@ -401,7 +436,11 @@ export default function OverviewTab({ labId, projectId, project }: ProjectTabPro
           <Fact label="Start date" value={day(project.start_date)} />
           <Fact label="Keep until" value={day(project.retain_until)} />
         </dl>
+        {project.retention_note && (
+          <p className="text-xs text-muted-foreground">Retention note: {project.retention_note}</p>
+        )}
       </section>
+      <ProjectApprovals labId={labId} projectId={projectId} />
       <Deadlines labId={labId} projectId={projectId} canEdit={can("edit_project")} />
       <Members labId={labId} projectId={projectId} canManage={can("manage_project_members")} />
     </div>

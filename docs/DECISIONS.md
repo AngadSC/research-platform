@@ -1,4 +1,4 @@
-# Decisions
+﻿# Decisions
 
 One line each. **[H]** marks decisions a human should confirm.
 
@@ -44,7 +44,7 @@ One line each. **[H]** marks decisions a human should confirm.
   - Invite preview `{lab_name,role,email}`.
   - Invite accept returns a Lab.
   - Errors use DRF's `{detail}` or field errors.
-- D36. The permission matrix test (§6) is built in Phase 1 and grows each phase. The cross-lab ID-swap test is the Phase 1 acceptance gate.
+- D36. The permission matrix test (Â§6) is built in Phase 1 and grows each phase. The cross-lab ID-swap test is the Phase 1 acceptance gate.
 - D37. Email links use the `FRONTEND_URL` env var: invites go to `/invite/<token>` and email verification to `/account/verify-email/<key>`.
 - D38. An Attachment has exactly one owner: a project, or (Phase 5) an ethics approval. A DB check constraint enforces it. Each lab-data model declares its permission domain explicitly. `_resolve` never infers "lab-level" from a null FK, and an unresolvable owner is denied (fail closed). From security review #4.
 - D39. Soft-deleted projects and their children are invisible to every permission check (`project_role`, `can`, `require`, `users_with`), not only to listings. From review #1.
@@ -52,10 +52,16 @@ One line each. **[H]** marks decisions a human should confirm.
 - D41. Settings fail closed: DEBUG defaults to False, and startup refuses a missing or placeholder SECRET_KEY when DEBUG is off. `/admin/` is mounted only when DEBUG is on. CACHES uses Valkey (Django's built-in RedisCache). Invite creation is throttled. From review #3, #6, #8.
 - D42. Documents use explicit save (Save button, Ctrl/Cmd+S), not autosave, so revisions stay meaningful. A stale save shows a conflict dialog and never overwrites silently.
 - D43. The project tabs are Overview, Tasks, Documents, Files, Research and Lineage. Research has sub-tabs for Datasets, Analyses, Results, Decisions and Manuscripts. Record routes are `/labs/:labId/projects/:projectId/research/<datasets|analyses|results|decisions|manuscripts>/:id`.
-- D44. Clicking a node in the lineage view opens a panel showing its whole upstream chain. A result shows its analysis (repo@commit) and that analysis's dataset versions. A manuscript shows its results, each with that chain. So tracing goes lab → project → Lineage tab → manuscript or result node, then read the panel: within the three-click limit. The panel is built from the lineage response alone.
+- D44. Clicking a node in the lineage view opens a panel showing its whole upstream chain. A result shows its analysis (repo@commit) and that analysis's dataset versions. A manuscript shows its results, each with that chain. So tracing goes lab â†’ project â†’ Lineage tab â†’ manuscript or result node, then read the panel: within the three-click limit. The panel is built from the lineage response alone.
 - D45. The command palette searches the lab's projects plus the current project's documents and research records. A lab-wide search endpoint is deferred.
 - D46. Seed data comes from `manage.py seed_pilot` (`make seed`). It only runs when DEBUG is on, it's idempotent, it uses `@example.test` emails with pre-verified addresses, and the dev password is printed on the console.
 - D47. Playwright end-to-end tests live in `frontend/e2e/` and run with `make e2e` against the running, seeded dev stack (`make dev` and `make seed` first). They stay out of `make test` so it doesn't need a live stack.
 - D48. Ethics approvals (Phase 5): serialized `projects` are filtered through `visible_projects`. Linking or unlinking a project needs `edit_content` on that project. Approval files need `view_ethics` and visibility of at least one linked project, or that the user is a pi or lab_admin. From Phase 4 review #3.
 - D49. Views and serializers resolve lab data through `visible_to()`. `for_lab()` is allowed only in services (whose lookups must also filter by an already-authorised project), jobs, permissions, tenancy and seeds, and a lint test enforces it. A placeholder SECRET_KEY is never used, whatever DEBUG is: in DEBUG the settings generate a random dev key and persist it in the git-ignored `backend/.dev_secret_key`, and outside DEBUG they refuse to start. From review #4 and #9.
 - D50. `ran_by`, `decided_by` and `controlled_by` default to the actor. Naming someone else needs `edit_project` (project leads). Lab creation is throttled per user, and invites are capped per lab per day. Upload bodies over the limit are rejected from Content-Length before they're read, and uploads are throttled. From review #5, #6 and #8.
+- D51. Expiry reminders and retention notices also go to lab admins, because they act as leads on every project (D19) and hold `view_retention`. **[H]** Confirm whether lab admins should get them.
+- D52. Editing or deleting an ethics approval needs `edit_ethics` plus visibility of every linked project, unless the user is a pi or lab_admin. Approvals are soft-deleted, and their attachments are never cascade-deleted (the FK uses PROTECT, and the attachments are soft-deleted with the approval). From Phase 5 review #1.
+- D53. Upload size is enforced while streaming, by a custom upload handler that aborts past `ATTACHMENT_MAX_BYTES`, so it doesn't depend on Content-Length alone. In production the reverse proxy must also cap the body size (see HANDOFF). From review #2.
+- D54. `visible_to()` applies per-model row filters for lab-wide records: Notification shows only the recipient's own, and Invite needs `manage_members`. Notifications are re-checked with `can()` on their target when listed, and hidden if the check fails. Any project-domain parent whose project can't be resolved fails the lab or project consistency check. From review #3, #4 and #5.
+- D55. Changing `retain_until` or `retention_note` on projects and documents needs `view_retention` (pi or lab_admin), and every change is audited. From review #6.
+- D56. Ethics approvals stay lab-visible by default (D27). Each approval has a `restricted` flag (default false). When it's on, only pi, lab_admin and users who can see at least one linked project can see the approval. Everyone else gets 404, and it's left out of their lists, counts, notifications and reminders. Setting or clearing the flag uses the same rule as editing (D52). Confirmed by the user.
