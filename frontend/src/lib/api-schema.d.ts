@@ -561,8 +561,52 @@ export interface operations {
     labs_audit_events_list: {
         parameters: {
             query?: {
-                /** @description The pagination cursor value. */
+                /**
+                 * @description * `auth.login` - Auth Login
+                 *     * `auth.login_failed` - Auth Login Failed
+                 *     * `auth.logout` - Auth Logout
+                 *     * `auth.password_changed` - Auth Password Changed
+                 *     * `auth.mfa_enabled` - Auth Mfa Enabled
+                 *     * `auth.mfa_disabled` - Auth Mfa Disabled
+                 *     * `lab.created` - Lab Created
+                 *     * `lab.updated` - Lab Updated
+                 *     * `membership.invited` - Membership Invited
+                 *     * `membership.invite_revoked` - Membership Invite Revoked
+                 *     * `membership.invite_accepted` - Membership Invite Accepted
+                 *     * `membership.role_changed` - Membership Role Changed
+                 *     * `membership.removed` - Membership Removed
+                 *     * `project_membership.added` - Project Membership Added
+                 *     * `project_membership.role_changed` - Project Membership Role Changed
+                 *     * `project_membership.removed` - Project Membership Removed
+                 *     * `project.created` - Project Created
+                 *     * `project.updated` - Project Updated
+                 *     * `project.deleted` - Project Deleted
+                 *     * `project.exported` - Project Exported
+                 *     * `document.viewed` - Document Viewed
+                 *     * `document.restored` - Document Restored
+                 *     * `document.deleted` - Document Deleted
+                 *     * `attachment.uploaded` - Attachment Uploaded
+                 *     * `attachment.downloaded` - Attachment Downloaded
+                 *     * `attachment.deleted` - Attachment Deleted
+                 *     * `task.deleted` - Task Deleted
+                 *     * `deadline.deleted` - Deadline Deleted
+                 *     * `dataset.deleted` - Dataset Deleted
+                 *     * `analysis.deleted` - Analysis Deleted
+                 *     * `result.deleted` - Result Deleted
+                 *     * `decision.deleted` - Decision Deleted
+                 *     * `manuscript.deleted` - Manuscript Deleted
+                 *     * `ethics_approval.deleted` - Ethics Approval Deleted
+                 *     * `audit_log.viewed` - Audit Log Viewed
+                 *     * `handover.generated` - Handover Generated
+                 */
+                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.deleted" | "analysis.deleted" | "result.deleted" | "decision.deleted" | "manuscript.deleted" | "ethics_approval.deleted" | "audit_log.viewed" | "handover.generated";
+                actor?: string;
+                /** @description Pagination cursor */
                 cursor?: string;
+                date_from?: string;
+                date_to?: string;
+                target_id?: string;
+                target_type?: string;
             };
             header?: never;
             path: {

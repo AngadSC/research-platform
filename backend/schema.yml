@@ -176,18 +176,121 @@ paths:
       description: Read-only. AuditEvent is not lab-scoped (D23), so the lab filter
         is explicit here.
       parameters:
-      - name: cursor
-        required: false
-        in: query
-        description: The pagination cursor value.
+      - in: query
+        name: action
+        schema:
+          enum:
+          - auth.login
+          - auth.login_failed
+          - auth.logout
+          - auth.password_changed
+          - auth.mfa_enabled
+          - auth.mfa_disabled
+          - lab.created
+          - lab.updated
+          - membership.invited
+          - membership.invite_revoked
+          - membership.invite_accepted
+          - membership.role_changed
+          - membership.removed
+          - project_membership.added
+          - project_membership.role_changed
+          - project_membership.removed
+          - project.created
+          - project.updated
+          - project.deleted
+          - project.exported
+          - document.viewed
+          - document.restored
+          - document.deleted
+          - attachment.uploaded
+          - attachment.downloaded
+          - attachment.deleted
+          - task.deleted
+          - deadline.deleted
+          - dataset.deleted
+          - analysis.deleted
+          - result.deleted
+          - decision.deleted
+          - manuscript.deleted
+          - ethics_approval.deleted
+          - audit_log.viewed
+          - handover.generated
+          type: string
+          minLength: 1
+        description: |-
+          * `auth.login` - Auth Login
+          * `auth.login_failed` - Auth Login Failed
+          * `auth.logout` - Auth Logout
+          * `auth.password_changed` - Auth Password Changed
+          * `auth.mfa_enabled` - Auth Mfa Enabled
+          * `auth.mfa_disabled` - Auth Mfa Disabled
+          * `lab.created` - Lab Created
+          * `lab.updated` - Lab Updated
+          * `membership.invited` - Membership Invited
+          * `membership.invite_revoked` - Membership Invite Revoked
+          * `membership.invite_accepted` - Membership Invite Accepted
+          * `membership.role_changed` - Membership Role Changed
+          * `membership.removed` - Membership Removed
+          * `project_membership.added` - Project Membership Added
+          * `project_membership.role_changed` - Project Membership Role Changed
+          * `project_membership.removed` - Project Membership Removed
+          * `project.created` - Project Created
+          * `project.updated` - Project Updated
+          * `project.deleted` - Project Deleted
+          * `project.exported` - Project Exported
+          * `document.viewed` - Document Viewed
+          * `document.restored` - Document Restored
+          * `document.deleted` - Document Deleted
+          * `attachment.uploaded` - Attachment Uploaded
+          * `attachment.downloaded` - Attachment Downloaded
+          * `attachment.deleted` - Attachment Deleted
+          * `task.deleted` - Task Deleted
+          * `deadline.deleted` - Deadline Deleted
+          * `dataset.deleted` - Dataset Deleted
+          * `analysis.deleted` - Analysis Deleted
+          * `result.deleted` - Result Deleted
+          * `decision.deleted` - Decision Deleted
+          * `manuscript.deleted` - Manuscript Deleted
+          * `ethics_approval.deleted` - Ethics Approval Deleted
+          * `audit_log.viewed` - Audit Log Viewed
+          * `handover.generated` - Handover Generated
+      - in: query
+        name: actor
         schema:
           type: string
+          format: uuid
+      - in: query
+        name: cursor
+        schema:
+          type: string
+        description: Pagination cursor
+      - in: query
+        name: date_from
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: date_to
+        schema:
+          type: string
+          format: date
       - in: path
         name: lab_id
         schema:
           type: string
           format: uuid
         required: true
+      - in: query
+        name: target_id
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: target_type
+        schema:
+          type: string
+          minLength: 1
       tags:
       - labs
       security:

@@ -137,7 +137,9 @@ def _fresh_invite_for(email, w):
     pi = User.objects.get(pk=w.user_ids["pi"])
     inst = Institution.objects.get(name="Matrix Institution")
     lab = Lab.objects.create(institution=inst, name=f"Fresh {next(_n)}", created_by=pi)
-    _, token = Invite.issue(lab=lab, email=email, role=LabRole.MEMBER, invited_by=pi)
+    inviter = User.objects.create_user(email=f"inviter{next(_n)}@example.com", password="pw")
+    LabMembership.objects.create(lab=lab, user=inviter, role=LabRole.PI)  # D40: a current PI
+    _, token = Invite.issue(lab=lab, email=email, role=LabRole.MEMBER, invited_by=inviter)
     return {"token": token}
 
 

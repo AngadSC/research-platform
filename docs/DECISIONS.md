@@ -46,3 +46,7 @@ One line each. **[H]** marks decisions a human should confirm.
   - Errors use DRF's `{detail}` or field errors.
 - D36. The permission matrix test (§6) is built in Phase 1 and grows each phase. The cross-lab ID-swap test is the Phase 1 acceptance gate.
 - D37. Email links use the `FRONTEND_URL` env var: invites go to `/invite/<token>` and email verification to `/account/verify-email/<key>`.
+- D38. An Attachment has exactly one owner: a project, or (Phase 5) an ethics approval. A DB check constraint enforces it. Each lab-data model declares its permission domain explicitly. `_resolve` never infers "lab-level" from a null FK, and an unresolvable owner is denied (fail closed). From security review #4.
+- D39. Soft-deleted projects and their children are invisible to every permission check (`project_role`, `can`, `require`, `users_with`), not only to listings. From review #1.
+- D40. Accepting an invite re-checks that the inviter can still `manage_members` and grant that role. Removing or demoting a member revokes the open invites they sent. From review #2.
+- D41. Settings fail closed: DEBUG defaults to False, and startup refuses a missing or placeholder SECRET_KEY when DEBUG is off. `/admin/` is mounted only when DEBUG is on. CACHES uses Valkey (Django's built-in RedisCache). Invite creation is throttled. From review #3, #6, #8.

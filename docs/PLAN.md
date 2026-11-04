@@ -27,8 +27,8 @@ Status: `todo` | `doing` | `done` | `failed` | `escalated`. Model/effort per orc
 | P2.3 | (started in P1.2) extend matrix to Phase 2 endpoints Permission matrix test (enumerates URL resolver, fails on unlisted endpoints) | sonnet / medium | done |
 | P2.4 | Shared UI components, app shell (sidebar, lab switcher, breadcrumbs, detail panel), `docs/UI.md` | sonnet / medium | done |
 | P2.5 | OpenAPI schema + generated TS types (`make types`) | haiku / low | done |
-| P2.6 | Security review gate | opus / high | doing |
-| P2.7 | Fix review findings | sonnet / medium | todo |
+| P2.6 | Security review gate | opus / high | done |
+| P2.7 | Fix review findings | sonnet / medium | done |
 
 ## Phase 3. Projects, tasks, documents
 | ID | Task | Model / effort | Status |

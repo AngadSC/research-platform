@@ -12,3 +12,6 @@
 - P1.2 done (sonnet): allauth headless + MFA, Phase 1 API, matrix (135 cases + cross-lab swap). ~280 backend tests. Orchestrator smoke test through Vite proxy passed end to end; set ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION=True. Phase 1 accepted.
 - P2.5 done (haiku): make types / types-check, openapi-typescript (MIT); api-types.ts aliases generated schema.
 - P2.1-P2.3 done (sonnet): audit-events API (cursor, filters), coverage tests for 11 actions, ad hoc permission lint test, matrix row. make test green. Checkpoint commit before security review.
+- Audit log page done (sonnet): 25 frontend tests. Follow-up: audit-events filter params missing from OpenAPI schema (needs extend_schema). Untracked tsbuildinfo.
+- P2.6 security review (opus): 0 cross-lab leaks today; 8 issues (1 high-latent, 4 medium, 3 low). Decisions D38-D41. Sent to sonnet for fixes.
+- P2.7 done (sonnet): all 8 review issues fixed with regression tests (verified failing pre-fix). make test green, smoke test green. Phase 2 accepted.

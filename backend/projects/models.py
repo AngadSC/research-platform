@@ -30,6 +30,7 @@ class Project(LabScopedModel):
     retention_note = models.TextField(blank=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
 
+    permission_domain = "project"
     project_path = ""  # itself
 
     class Meta(LabScopedModel.Meta):
@@ -48,6 +49,7 @@ class ProjectMembership(LabScopedModel):
     role = models.CharField(max_length=16, choices=ProjectRole.choices)
 
     lab_parents = ("project",)
+    permission_domain = "project"
     project_path = "project"
 
     class Meta(LabScopedModel.Meta):

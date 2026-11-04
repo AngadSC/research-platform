@@ -9,6 +9,15 @@ from projects.models import Project
 _n = itertools.count()
 
 
+@pytest.fixture(autouse=True)
+def _local_cache(settings):
+    """Tests use a per-process cache, never Valkey; cleared so throttles do not leak."""
+    settings.CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+    from django.core.cache import cache
+
+    cache.clear()
+
+
 @pytest.fixture
 def make_user(db):
     def make(**kw):

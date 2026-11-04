@@ -1,4 +1,4 @@
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import generics
 from rest_framework.pagination import CursorPagination
 
@@ -14,6 +14,14 @@ class AuditCursorPagination(CursorPagination):
     page_size = 50
 
 
+@extend_schema_view(  # on `get`: spectacular ignores `list` for generic views
+    get=extend_schema(
+        parameters=[
+            AuditFilterSerializer,
+            OpenApiParameter("cursor", str, description="Pagination cursor"),
+        ]
+    )
+)
 class AuditEventListView(LabScopedViewMixin, generics.ListAPIView):
     """Read-only. AuditEvent is not lab-scoped (D23), so the lab filter is explicit here."""
 
@@ -37,12 +45,6 @@ class AuditEventListView(LabScopedViewMixin, generics.ListAPIView):
             qs = qs.filter(occurred_at__date__lte=q["date_to"])
         return qs
 
-    @extend_schema(
-        parameters=[
-            AuditFilterSerializer,
-            OpenApiParameter("cursor", str, description="Pagination cursor"),
-        ]
-    )
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
         record(AuditAction.AUDIT_LOG_VIEWED, actor=request.user, lab=request.lab, request=request)

@@ -129,6 +129,8 @@ def _effective_project_role(lab_r, project_r) -> str | None:
 
 
 def project_role(user, project) -> str | None:
+    if project.deleted_at is not None:  # D39
+        return None
     lab_r = lab_role(user, project.lab_id)
     if lab_r is None:
         return None
@@ -155,13 +157,21 @@ def get_lab_or_404(user, lab_id) -> Lab:
 
 
 def _resolve(target):
-    """Return (lab_id, project or None)."""
+    """Return (lab_id, project or None). `(None, None)` means unresolvable: every check on it
+    denies. Deleted projects (D39) and project-typed objects without an owner (D38) are
+    unresolvable; a null FK is never read as "lab-level"."""
     if isinstance(target, Lab):
         return target.pk, None
     if isinstance(target, Project):
-        return target.lab_id, target
+        return (None, None) if target.deleted_at is not None else (target.lab_id, target)
     if isinstance(target, LabScopedModel):
-        return target.lab_id, project_of(target)
+        domain = target.permission_domain
+        if domain == "lab" and target.project_path is None:
+            return target.lab_id, None
+        project = project_of(target) if domain == "project" else None
+        if project is None or project.deleted_at is not None or project.lab_id != target.lab_id:
+            return None, None
+        return target.lab_id, project
     raise TypeError(f"cannot check permissions on {type(target).__name__}")
 
 
@@ -172,6 +182,8 @@ def can(user, perm: Perm, target=None) -> bool:
     if perm == Perm.AUTHENTICATED:
         return _active(user)
     lab_id, project = _resolve(target)
+    if lab_id is None:
+        return False
     if project is not None and perm in PROJECT_PERMS:
         return perm in PROJECT_ROLE_PERMS.get(project_role(user, project), ())
     if project is None and not isinstance(target, Lab):
@@ -183,6 +195,8 @@ def can(user, perm: Perm, target=None) -> bool:
 
 def _visible(user, target) -> bool:
     lab_id, project = _resolve(target)
+    if lab_id is None:
+        return False
     if project is not None:
         return project_role(user, project) is not None
     return lab_role(user, lab_id) is not None
@@ -226,6 +240,8 @@ def users_with(perm: Perm, target):
     """Active users holding `perm` on `target` (for jobs)."""
     perm = Perm(perm)
     lab_id, project = _resolve(target)
+    if lab_id is None:
+        return User.objects.none()
     lm = LabMembership.unscoped.filter(lab_id=lab_id)
     if project is not None and perm in PROJECT_PERMS:
         q = Q(pk__in=lm.filter(role__in=_IMPLICIT_LEADS).values("user"))

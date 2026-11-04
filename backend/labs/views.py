@@ -1,6 +1,7 @@
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import generics, status
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from core.permissions import Perm, labs_for
 from core.views import LabScopedViewMixin
@@ -89,6 +90,11 @@ class InviteListCreateView(LabScopedViewMixin, generics.ListCreateAPIView):
     serializer_class = InviteSerializer
     pagination_class = None
     perms = {"GET": Perm.MANAGE_MEMBERS, "POST": Perm.MANAGE_MEMBERS}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "invites"
+
+    def get_throttles(self):  # creation only; listing is not rate limited
+        return super().get_throttles() if self.request.method == "POST" else []
 
     def get_queryset(self):
         qs = super().get_queryset().filter(accepted_at__isnull=True, revoked_at__isnull=True)

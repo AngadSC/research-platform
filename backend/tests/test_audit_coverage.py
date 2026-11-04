@@ -3,7 +3,7 @@ AuditEvent with the right actor, action, target, lab and IP (ARCHITECTURE sectio
 
 import pytest
 from allauth.mfa.totp.internal import auth as totp
-from django.test import Client, override_settings
+from django.test import Client, TestCase, override_settings
 from rest_framework.test import APIClient
 
 from audit.models import AuditAction, AuditEvent
@@ -61,7 +61,8 @@ def test_invite_create_revoke_accept(lab_pi, make_user, verify_email, mailoutbox
     assert api(pi).delete(f"/api/labs/{lab.pk}/invites/{revoked.pk}/").status_code == 204
     check(one(AuditAction.MEMBERSHIP_INVITE_REVOKED), actor=pi, lab=lab, target=revoked)
 
-    api(pi).post(f"/api/labs/{lab.pk}/invites/", body, "json")
+    with TestCase.captureOnCommitCallbacks(execute=True):
+        api(pi).post(f"/api/labs/{lab.pk}/invites/", body, "json")
     token = mailoutbox[-1].body.split("/invite/")[1].split()[0]
     invitee = make_user(email="i@example.com")
     verify_email(invitee)

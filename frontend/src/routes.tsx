@@ -1,6 +1,7 @@
 import { Navigate, type RouteObject } from "react-router";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { ProtectedLayout } from "@/components/layout/ProtectedLayout";
+import { AuditLogPage } from "@/pages/AuditLogPage";
 import { AcceptInvitePage } from "@/pages/AcceptInvitePage";
 import { CheckEmailPage, LoginPage, SignupPage, VerifyEmailPage } from "@/pages/AuthPages";
 import { CreateLabPage } from "@/pages/CreateLabPage";
@@ -43,6 +44,7 @@ export const routes: RouteObject[] = [
             children: [
               { index: true, element: <LabHomePage /> },
               { path: "members", element: <MembersPage />, handle: { crumb: "Members" } },
+              { path: "audit-log", element: <AuditLogPage />, handle: { crumb: "Audit log" } },
             ],
           },
         ],

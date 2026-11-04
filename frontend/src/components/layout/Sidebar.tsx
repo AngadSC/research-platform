@@ -66,7 +66,7 @@ export function Sidebar() {
       </div>
       <Separator />
       <nav aria-label="Main" className="grid gap-0.5">
-        {navItems(labId).map(({ to, label, icon: Icon, end }) => (
+        {navItems(labId, current?.my_permissions).map(({ to, label, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end} className={linkClass}>
             <Icon aria-hidden />
             {label}

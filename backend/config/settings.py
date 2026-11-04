@@ -14,14 +14,14 @@ def env_list(name, default=""):
     return [item.strip() for item in os.environ.get(name, default).split(",") if item.strip()]
 
 
-DEBUG = env_bool("DEBUG", True)
+DEBUG = env_bool("DEBUG", False)  # D41: fail closed
 
 if DEBUG:
     SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-dev-only")
 else:
-    SECRET_KEY = os.environ.get("SECRET_KEY")
-    if not SECRET_KEY:
-        raise ImproperlyConfigured("SECRET_KEY must be set when DEBUG is false.")
+    SECRET_KEY = os.environ.get("SECRET_KEY", "")
+    if not SECRET_KEY or SECRET_KEY.startswith(("replace-with", "django-insecure")):
+        raise ImproperlyConfigured("SECRET_KEY must be a real secret when DEBUG is false.")
 
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 
@@ -165,7 +165,16 @@ SESSION_COOKIE_AGE = 7 * 24 * 3600
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 
+# D41: shared cache (Valkey) so allauth and DRF throttles count across processes.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.environ.get("CACHE_URL", "redis://valkey:6379/1"),
+    }
+}
+
 REST_FRAMEWORK = {
+    "DEFAULT_THROTTLE_RATES": {"invites": "30/hour"},
     "DEFAULT_PERMISSION_CLASSES": ["core.permissions.HasPerm"],
     "DEFAULT_AUTHENTICATION_CLASSES": ["core.auth.SessionAuthentication"],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",

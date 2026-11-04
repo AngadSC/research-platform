@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from core.models import Institution
 from core.permissions import LAB_ROLE_PERMS, lab_role
-from core.serializers import UserSerializer
+from core.serializers import UserSerializer, no_control_chars
 from labs.models import Invite, Lab, LabMembership, LabRole
 
 
@@ -21,6 +21,7 @@ class LabSerializer(serializers.ModelSerializer):
         model = Lab
         fields = ["id", "name", "institution", "my_role", "my_permissions"]
         read_only_fields = ["id"]
+        extra_kwargs = {"name": {"validators": [no_control_chars]}}
 
     def get_my_role(self, lab) -> str | None:
         return lab_role(self.context["request"].user, lab)

@@ -2,6 +2,7 @@ from datetime import timedelta
 
 import pytest
 from django.core import mail
+from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -32,7 +33,8 @@ def api(user=None):
 
 def send_invite(lab, pi, email="invitee@example.com", role="member"):
     mail.outbox.clear()
-    resp = api(pi).post(f"/api/labs/{lab.pk}/invites/", {"email": email, "role": role}, "json")
+    with TestCase.captureOnCommitCallbacks(execute=True):  # mail is sent after commit
+        resp = api(pi).post(f"/api/labs/{lab.pk}/invites/", {"email": email, "role": role}, "json")
     assert resp.status_code == 201, resp.content
     body = mail.outbox[0].body
     token = body.split("/invite/")[1].split()[0]

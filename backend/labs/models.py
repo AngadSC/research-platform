@@ -42,6 +42,7 @@ class Lab(models.Model):
 
 
 class LabMembership(LabScopedModel):
+    permission_domain = "lab"
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     role = models.CharField(max_length=16, choices=LabRole.choices)
     invited_by = models.ForeignKey(
@@ -57,6 +58,7 @@ class LabMembership(LabScopedModel):
 
 
 class Invite(LabScopedModel):
+    permission_domain = "lab"
     email = models.EmailField()  # stored lower-cased
     role = models.CharField(max_length=16, choices=LabRole.choices)
     token_hash = models.CharField(max_length=64, unique=True)

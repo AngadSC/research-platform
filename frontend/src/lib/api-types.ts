@@ -18,6 +18,8 @@ export type Lab = Schemas["Lab"];
 export type Membership = Schemas["Membership"];
 export type Invite = Schemas["Invite"];
 export type InvitePreview = Schemas["InvitePreview"];
+export type AuditEvent = Schemas["AuditEvent"];
+export type AuditPage = Schemas["PaginatedAuditEventList"];
 
 // allauth headless envelope
 export interface AuthFlow {

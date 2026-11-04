@@ -1,6 +1,14 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { Invite, InvitePreview, Lab, Membership, Role, User } from "@/lib/api-types";
+import type {
+  AuditPage,
+  Invite,
+  InvitePreview,
+  Lab,
+  Membership,
+  Role,
+  User,
+} from "@/lib/api-types";
 
 const j = (body: unknown) => ({ body });
 
@@ -103,5 +111,30 @@ export function useAcceptInvite() {
     mutationFn: (token: string) =>
       api<Lab>("/api/invites/accept/", { method: "POST", ...j({ token }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["labs"] }),
+  });
+}
+
+export interface AuditFilters {
+  action?: string;
+  actor?: string;
+  date_from?: string;
+  date_to?: string;
+}
+/** Cursor-paginated audit log; `next` is a full URL, so only its cursor is kept. */
+export function useAuditEvents(labId: string, filters: AuditFilters, enabled: boolean) {
+  return useInfiniteQuery({
+    queryKey: ["labs", labId, "audit", filters],
+    queryFn: ({ pageParam }) => {
+      const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v));
+      if (pageParam) qs.set("cursor", pageParam);
+      return api<AuditPage>(`/api/labs/${labId}/audit-events/?${qs}`);
+    },
+    initialPageParam: "",
+    getNextPageParam: (last) =>
+      last.next
+        ? (new URL(last.next, window.location.origin).searchParams.get("cursor") ?? undefined)
+        : undefined,
+    enabled,
+    retry: false,
   });
 }

@@ -4,6 +4,7 @@ in core/permissions.py, in admin.py files and in migrations."""
 import uuid
 from typing import ClassVar, Self
 
+from django.core.exceptions import ImproperlyConfigured
 from django.db import models
 from django.db.models.signals import m2m_changed
 
@@ -17,7 +18,8 @@ class CrossLabError(Exception):
 
 
 def project_of(obj):
-    """The owning Project of a lab-data object, or None (lab-level or null FK)."""
+    """The owning Project of a lab-data object, or None (no path, or the FK is null).
+    Callers must not read None as 'lab-level'; use `permission_domain` (D38)."""
     path = getattr(obj, "project_path", None)
     if path is None:
         return None
@@ -60,6 +62,22 @@ class LabScopedQuerySet(models.QuerySet):
     in_bulk = _guard("in_bulk")
     explain = _guard("explain")
 
+    def _combinator_query(self, combinator, *other_qs, all=False):
+        """union/intersection/difference: every operand must be scoped, or a scoped
+        queryset could be combined with `.all()` and leak another lab's rows."""
+        for qs in (self, *other_qs):
+            if not getattr(qs, "_scoped", False):
+                raise UnscopedQueryError(
+                    f"{self.model.__name__}: every {combinator} operand needs .for_lab() "
+                    "or .visible_to()"
+                )
+        return super()._combinator_query(combinator, *other_qs, all=all)
+
+    def raw(self, *args, **kwargs):
+        raise UnscopedQueryError(
+            f"raw SQL on {self.model.__name__} cannot be lab-scoped; do not use it"
+        )
+
     def delete(self):
         self._require_scope()
         return super().delete()
@@ -89,6 +107,12 @@ class LabScopedQuerySet(models.QuerySet):
         if permissions.lab_role(user, lab) is None:
             return qs.none()
         path = self.model.project_path
+        domain = self.model.permission_domain
+        if domain not in ("project", "lab") or (domain == "lab") != (path is None):
+            raise ImproperlyConfigured(
+                f"{self.model.__name__}: permission_domain {domain!r} does not match "
+                f"project_path {path!r}"
+            )
         if path is None:
             return qs
         key = "pk__in" if path == "" else f"{path}__in"
@@ -117,6 +141,9 @@ class LabScopedModel(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     lab_parents: ClassVar[tuple[str, ...]] = ()
+    # D38: every concrete model declares its permission domain. "project" needs a
+    # project_path; "lab" needs project_path None. Anything else is denied by the permission module.
+    permission_domain: ClassVar[str | None] = None
     project_path: ClassVar[str | None] = None
 
     objects = LabScopedManager()

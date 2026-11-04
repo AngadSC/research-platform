@@ -13,7 +13,7 @@ from audit.models import AuditAction
 from audit.services import record
 from core.auth import has_verified_email
 from core.models import PLACEHOLDER_INSTITUTION, Institution
-from core.permissions import lab_role
+from core.permissions import LAB_ROLE_PERMS, Perm, lab_role
 from core.tenancy import by_secret
 from labs.models import Invite, Lab, LabMembership, LabRole, hash_token
 from projects.models import ProjectMembership
@@ -26,6 +26,28 @@ def _forget_roles(user):
 def _require_pi_for_pi_role(actor, lab, *roles):
     if LabRole.PI in roles and lab_role(actor, lab) != LabRole.PI:
         raise PermissionDenied("Only a PI can grant, change or remove the PI role.")
+
+
+def _inviter_may_grant(lab, inviter, role) -> bool:
+    """D40: can `inviter` still manage members, and grant `role` (PI only by a PI)?"""
+    r = lab_role(inviter, lab)
+    return Perm.MANAGE_MEMBERS in LAB_ROLE_PERMS.get(r, ()) and (
+        role != LabRole.PI or r == LabRole.PI
+    )
+
+
+def _revoke_stale_invites(*, lab, user, by, request, new_role=None) -> None:
+    """D40: revoke open invites `user` sent that they could no longer issue as `new_role`
+    (None means they left the lab)."""
+    open_ = Invite.objects.for_lab(lab).filter(
+        invited_by=user, accepted_at__isnull=True, revoked_at__isnull=True
+    )
+    for invite in open_:
+        if new_role is None or not (
+            Perm.MANAGE_MEMBERS in LAB_ROLE_PERMS[new_role]
+            and (invite.role != LabRole.PI or new_role == LabRole.PI)
+        ):
+            _revoke(invite=invite, by=by, request=request)
 
 
 @transaction.atomic
@@ -65,19 +87,23 @@ def create_invite(*, lab, by, email, role, request=None) -> Invite:
         raise ValidationError({"email": "An invite for this email is already open."}) from exc
     # D37: the raw token exists only in this emailed link.
     link = f"{settings.FRONTEND_URL}/invite/{token}"
-    send_mail(
-        f"You are invited to {lab.name}",
+    subject = f"You are invited to {lab.name}".replace("\n", " ").replace("\r", " ")
+    body = (
         f"{by.display_name or by.email} invited you to join {lab.name} as {role}.\n\n"
-        f"Accept the invite (expires in 7 days): {link}\n",
-        None,
-        [invite.email],
+        f"Accept the invite (expires in 7 days): {link}\n"
     )
+    # After commit, and robust: a mail failure must not 500 a committed invite.
+    transaction.on_commit(lambda: send_mail(subject, body, None, [invite.email]), robust=True)
     return invite
 
 
 @transaction.atomic
 def revoke_invite(*, invite, by, request=None) -> None:
     _require_pi_for_pi_role(by, invite.lab, invite.role)
+    _revoke(invite=invite, by=by, request=request)
+
+
+def _revoke(*, invite, by, request=None) -> None:
     invite.revoked_at = timezone.now()
     invite.save(update_fields=["revoked_at", "updated_at"])
     record(
@@ -108,6 +134,8 @@ def accept_invite(*, user, token, request=None) -> Lab:
     if user.email.lower() != invite.email or not has_verified_email(user, invite.email):
         raise PermissionDenied("Verify the email address this invite was sent to, then retry.")
     lab = invite.lab
+    if not _inviter_may_grant(lab, invite.invited_by, invite.role):  # D40
+        raise Http404
     if LabMembership.objects.for_lab(lab).filter(user=user).exists():
         raise ValidationError({"detail": "You are already a member of this lab."})
     LabMembership.objects.create(lab=lab, user=user, role=invite.role, invited_by=invite.invited_by)
@@ -147,6 +175,7 @@ def change_role(*, membership, by, role, request=None) -> LabMembership:
         request=request,
         metadata={"user_id": str(membership.user_id), "old_role": old, "new_role": role},
     )
+    _revoke_stale_invites(lab=lab, user=membership.user, by=by, request=request, new_role=role)
     return membership
 
 
@@ -167,3 +196,4 @@ def remove_member(*, membership, by, request=None) -> None:
     # D19: a removed lab member loses their project memberships too.
     ProjectMembership.objects.for_lab(lab).filter(user_id=membership.user_id).delete()
     membership.delete()
+    _revoke_stale_invites(lab=lab, user=membership.user, by=by, request=request)
