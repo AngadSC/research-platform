@@ -65,5 +65,5 @@ Status: `todo` | `doing` | `done` | `failed` | `escalated`. Model/effort per orc
 ## Wrap-up
 | ID | Task | Model / effort | Status |
 |---|---|---|---|
-| W.1 | Playwright click-through + screenshots to `docs/screenshots/` | sonnet / medium | doing |
-| W.2 | `docs/HANDOFF.md` | orchestrator | todo |
+| W.1 | Playwright click-through + screenshots to `docs/screenshots/` | sonnet / medium | done |
+| W.2 | `docs/HANDOFF.md` | orchestrator | done |

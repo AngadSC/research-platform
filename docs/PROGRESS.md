@@ -34,3 +34,4 @@
 - P5.4 security review (opus): no cross-lab; 1 high (member can withdraw/delete approvals of hidden projects, hard-deleting files), 1 medium (chunked upload bypass), 4 low. D52-D56. Sent to sonnet.
 - Phase 5 review fixes + D56 restricted approvals done (sonnet). Agent skipped pre-fix check; orchestrator mutation test on can_edit_ethics -> 3 regression tests fail as expected. Matrix: nonproj PATCH/DELETE approval 2xx->403 (stricter). Prettier fixes. make test + e2e 8/8 green. Phase 5 accepted.
 - P6.1 done (sonnet): handover backend + page + print CSS; 2 matrix rows, 8 backend tests, Vitest 86, e2e 9/9. Phase 6 accepted (student report lists 3 open tasks, analysis, archived project under No other owner).
+- W.1 done (sonnet): 26 screenshots, 4 UI fixes. Final: backend 1134 passed/20 skipped (matrix 844), Vitest 86, e2e 9. HANDOFF.md written. Run complete.
