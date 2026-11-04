@@ -31,7 +31,17 @@ function Items({ items, showReason = true }: { items: HandoverItem[]; showReason
             {i.title}
           </Link>
           <span className="text-xs text-muted-foreground">
-            {[i.project?.name, showReason ? i.reason : null].filter(Boolean).join(" | ")}
+            {[
+              i.project?.name,
+              showReason
+                ? i.reason.replace(
+                    /\(([a-z]+(?:_[a-z]+)*)\)$/,
+                    (_, v: string) => `(${v === "todo" ? "to do" : v.replace(/_/g, " ")})`,
+                  )
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" | ")}
           </span>
         </li>
       ))}

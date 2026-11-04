@@ -1,7 +1,7 @@
 # Every recipe line is a `docker compose` command, so this works under cmd.exe or sh.
 # One-off commands use `run --rm --no-deps` unless they need Postgres/Valkey.
 
-.PHONY: e2e dev down lint types types-check test-backend test-frontend licenses test seed
+.PHONY: screenshots e2e dev down lint types types-check test-backend test-frontend licenses test seed
 
 dev:
 	docker compose up --build
@@ -42,4 +42,8 @@ test: lint test-backend test-frontend licenses
 
 # Needs the dev stack up and seeded (`make dev` in one terminal, `make seed`); runs from the host, not in a container.
 e2e:
-	cd frontend && npx playwright test
+	cd frontend && npx playwright test --project=chromium
+
+# Writes docs/screenshots/*.png from the seeded dev stack.
+screenshots:
+	cd frontend && npx playwright test e2e/screenshots.spec.ts

@@ -59,6 +59,7 @@ function Item({ data }: NodeProps<ItemNode>) {
         aria-pressed={state === "selected"}
         aria-label={`${KIND_LABEL[node.kind]}: ${node.label}`}
         onClick={() => onSelect(node.id)}
+        title={node.label}
         style={{ width: NODE_W, height: NODE_H }}
         className={cn(
           "flex items-center gap-3 rounded-lg border bg-card px-3 text-left text-card-foreground transition-[opacity,border-color,box-shadow] hover:border-ring/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
@@ -72,7 +73,7 @@ function Item({ data }: NodeProps<ItemNode>) {
           <Icon className="size-4" />
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-sm font-medium">{node.label}</span>
+          <span className="line-clamp-2 text-sm leading-tight font-medium">{node.label}</span>
           {node.kind === "manuscript" ? (
             <span className="flex">
               <StatusBadge status={node.subtitle} />
@@ -197,7 +198,7 @@ export function LineageGraph({ data, selectedId, onSelect }: Props) {
         edges={edges}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.12, maxZoom: 1 }}
+        fitViewOptions={{ padding: 0.04, maxZoom: 1 }}
         minZoom={0.2}
         maxZoom={1.5}
         nodesDraggable={false}

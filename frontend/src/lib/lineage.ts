@@ -29,7 +29,7 @@ export const recordPath = (n: Pick<LineageNode, "kind" | "href_id">) =>
 
 export const NODE_W = 232;
 export const NODE_H = 68;
-const COL_GAP = 88;
+const COL_GAP = 56;
 const ROW_GAP = 20;
 const HEADER_H = 44;
 const LANE_GAP = 40;

@@ -99,7 +99,7 @@ function EventDetails({ e }: { e: AuditEvent }) {
       <Field label="Action">
         {actionLabel(e.action)} <span className="text-xs text-muted-foreground">({e.action})</span>
       </Field>
-      <Field label="Target">{e.target_label || "—"}</Field>
+      <Field label="Target">{cleanTarget(e.target_label)}</Field>
       {e.target_type && <Field label="Target type">{e.target_type}</Field>}
       <Field label="IP address">{e.ip ?? "—"}</Field>
       {meta.length > 0 && (
@@ -132,7 +132,7 @@ const columns: Column<AuditEvent>[] = [
   },
   { key: "who", header: "Who", cell: who },
   { key: "action", header: "Action", cell: (e) => actionLabel(e.action) },
-  { key: "target", header: "Target", cell: (e) => e.target_label || "—" },
+  { key: "target", header: "Target", cell: (e) => cleanTarget(e.target_label) },
   { key: "ip", header: "IP address", cell: (e) => e.ip ?? "—" },
 ];
 
@@ -305,3 +305,12 @@ export function AuditLogPage() {
     </>
   );
 }
+
+/** Hide raw ids that backend labels sometimes embed (e.g. "<uuid> is member"). */
+const cleanTarget = (label?: string | null) =>
+  label
+    ? label.replace(
+        /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}( is member)?/g,
+        "a lab member",
+      )
+    : "�";

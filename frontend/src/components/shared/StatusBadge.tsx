@@ -23,7 +23,7 @@ const TONES: Record<string, BadgeVariant> = {
 
 /** Maps a backend status string to a tone; unknown statuses render neutral. */
 export function StatusBadge({ status }: { status: string }) {
-  const label = status.replace(/_/g, " ");
+  const label = status === "todo" ? "to do" : status.replace(/_/g, " ");
   return (
     <Badge variant={TONES[status.toLowerCase()] ?? "secondary"} className="capitalize">
       {label}
