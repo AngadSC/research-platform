@@ -60,10 +60,10 @@ Status: `todo` | `doing` | `done` | `failed` | `escalated`. Model/effort per orc
 ## Phase 6. Handover (stretch)
 | ID | Task | Model / effort | Status |
 |---|---|---|---|
-| P6.1 | Handover report backend + frontend | sonnet / medium | doing |
+| P6.1 | Handover report backend + frontend | sonnet / medium | done |
 
 ## Wrap-up
 | ID | Task | Model / effort | Status |
 |---|---|---|---|
-| W.1 | Playwright click-through + screenshots to `docs/screenshots/` | sonnet / medium | todo |
+| W.1 | Playwright click-through + screenshots to `docs/screenshots/` | sonnet / medium | doing |
 | W.2 | `docs/HANDOFF.md` | orchestrator | todo |

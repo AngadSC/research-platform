@@ -1,16 +1,22 @@
+from django.core.exceptions import PermissionDenied
 from django.http import Http404
-from drf_spectacular.utils import extend_schema
-from rest_framework import generics, status
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
+from rest_framework import generics, serializers, status
 from rest_framework.response import Response
 
-from core.permissions import Perm
+from audit.models import AuditAction
+from audit.services import record
+from core.permissions import Perm, can
 from core.tenancy import project_of
 from core.views import LabScopedViewMixin
-from projects import services
+from labs.models import LabMembership
+from projects import handover, services
 from projects.models import Project, ProjectDeadline, ProjectMembership, Task
 from projects.serializers import (
     DeadlineInputSerializer,
     DeadlineSerializer,
+    HandoverSerializer,
     ProjectInputSerializer,
     ProjectMembershipCreateSerializer,
     ProjectMembershipRoleSerializer,
@@ -309,3 +315,73 @@ class RetentionDueView(LabScopedViewMixin, generics.GenericAPIView):
         ]
         rows.sort(key=lambda r: (r["retain_until"], r["name"]))
         return Response(self.get_serializer(rows, many=True).data)
+
+
+# ---------------------------------------------------------------- handover (Phase 6)
+
+
+def _handover(request, membership, project=None):
+    report = handover.build_report(
+        requester=request.user, lab=request.lab, membership=membership, project=project
+    )
+    counts = {s["key"]: len(s["items"]) for s in report["sections"]}
+    record(
+        AuditAction.HANDOVER_GENERATED,
+        actor=request.user,
+        lab=request.lab,
+        target=project or membership,
+        request=request,
+        metadata={
+            "person": str(membership.user_id),
+            "counts": counts | {"no_other_owner": len(report["no_other_owner"])},
+        },
+    )
+    return Response(report)
+
+
+class MemberHandoverView(LabScopedViewMixin, generics.GenericAPIView):
+    """manage_members, or the target is the requester."""
+
+    model = LabMembership
+    serializer_class = HandoverSerializer
+    lookup_url_kwarg = "membership_id"
+    pagination_class = None
+    perms = {"GET": Perm.VIEW_LAB}
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("user")
+
+    @extend_schema(responses=HandoverSerializer)
+    def get(self, request, lab_id, membership_id):
+        membership = self.get_object()
+        if membership.user_id != request.user.pk and not can(
+            request.user, Perm.MANAGE_MEMBERS, request.lab
+        ):
+            raise PermissionDenied
+        return _handover(request, membership)
+
+
+class ProjectHandoverView(ProjectScopedMixin, generics.GenericAPIView):
+    """manage_project_members, limited to this project. `?user=<user_id>` picks the person
+    (default: the requester)."""
+
+    serializer_class = HandoverSerializer
+    perms = {"GET": Perm.MANAGE_PROJECT_MEMBERS}
+
+    @extend_schema(
+        parameters=[OpenApiParameter("user", OpenApiTypes.UUID, description="Person to report on")],
+        responses=HandoverSerializer,
+    )
+    def get(self, request, lab_id, project_id):
+        user_id = serializers.UUIDField().run_validation(
+            request.query_params.get("user", request.user.pk)
+        )
+        membership = (
+            LabMembership.objects.visible_to(request.user, request.lab)
+            .select_related("user")
+            .filter(user_id=user_id)
+            .first()
+        )
+        if membership is None:
+            raise Http404
+        return _handover(request, membership, self.project)

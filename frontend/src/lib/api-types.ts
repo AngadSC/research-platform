@@ -46,6 +46,8 @@ export type Analysis = Schemas["Analysis"];
 export type ResearchResult = Schemas["Result"];
 export type Decision = Schemas["Decision"];
 export type Manuscript = Schemas["Manuscript"];
+export type Handover = Schemas["Handover"];
+export type HandoverItem = Schemas["HandoverItem"];
 export type ManuscriptStatus = Schemas["ManuscriptStatusEnum"];
 
 export const PROJECT_STATUSES: { value: ProjectStatus; label: string }[] = [

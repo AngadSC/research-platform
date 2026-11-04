@@ -346,19 +346,29 @@ function Members({
             header: "Actions",
             className: "text-right",
             cell: (m: ProjectMembership) => (
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label={`Remove ${m.user.email}`}
-                onClick={() =>
-                  remove.mutate(m.id, {
-                    onSuccess: () => toast.success("Member removed"),
-                    onError: fail,
-                  })
-                }
-              >
-                Remove
-              </Button>
+              <div className="flex justify-end gap-1">
+                <Button variant="ghost" size="sm" asChild>
+                  <Link
+                    to={`/labs/${labId}/projects/${projectId}/handover?user=${m.user.id}`}
+                    aria-label={`Generate handover for ${m.user.email}`}
+                  >
+                    Generate handover
+                  </Link>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Remove ${m.user.email}`}
+                  onClick={() =>
+                    remove.mutate(m.id, {
+                      onSuccess: () => toast.success("Member removed"),
+                      onError: fail,
+                    })
+                  }
+                >
+                  Remove
+                </Button>
+              </div>
             ),
           },
         ]

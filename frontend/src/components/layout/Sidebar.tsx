@@ -63,7 +63,7 @@ export function Sidebar() {
   const navigate = useNavigate();
   const current = labs.find((l) => l.id === labId);
   return (
-    <aside className="flex w-64 shrink-0 flex-col gap-4 border-r bg-sidebar p-3">
+    <aside className="flex w-64 print:hidden shrink-0 flex-col gap-4 border-r bg-sidebar p-3">
       <div>
         <p className="px-2 pb-1 text-xs text-muted-foreground">{APP_NAME}</p>
         <div className="flex items-center gap-1">

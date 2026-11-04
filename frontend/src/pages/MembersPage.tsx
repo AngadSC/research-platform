@@ -1,6 +1,6 @@
 import { UserPlus } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -27,6 +27,7 @@ import {
   useCreateInvite,
   useInvites,
   useLab,
+  useMe,
   useMembers,
   useRemoveMember,
   useRevokeInvite,
@@ -166,6 +167,7 @@ export function MembersPage() {
   // Controls come from the server's permission list, never from the role name.
   const canManage = lab?.my_permissions.includes("manage_members") ?? false;
   const members = useMembers(labId);
+  const me = useMe().data;
   const invites = useInvites(labId, canManage);
   const update = useUpdateMember(labId);
   const remove = useRemoveMember(labId);
@@ -205,13 +207,26 @@ export function MembersPage() {
         ),
     },
     { key: "joined", header: "Joined", cell: (m) => date(m.created_at) },
-    ...(canManage
-      ? [
-          {
-            key: "actions",
-            header: "Actions",
-            className: "text-right",
-            cell: (m: Membership) => (
+    {
+      key: "actions",
+      header: "Actions",
+      className: "text-right",
+      cell: (m: Membership) => {
+        const mine = m.user.id === me?.id;
+        const handover = (mine || canManage) && (
+          <Button variant="ghost" size="sm" asChild>
+            <Link
+              to={`/labs/${labId}/members/${m.id}/handover`}
+              aria-label={`${mine ? "My handover" : "Generate handover"} for ${m.user.email}`}
+            >
+              {mine ? "My handover" : "Generate handover"}
+            </Link>
+          </Button>
+        );
+        return (
+          <div className="flex justify-end gap-1">
+            {handover}
+            {canManage && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -220,10 +235,11 @@ export function MembersPage() {
               >
                 Remove
               </Button>
-            ),
-          },
-        ]
-      : []),
+            )}
+          </div>
+        );
+      },
+    },
   ];
 
   const inviteCols: Column<Invite>[] = [

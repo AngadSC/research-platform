@@ -135,3 +135,41 @@ class RetentionItemSerializer(serializers.Serializer):
     retain_until = serializers.DateField()
     retention_note = serializers.CharField(allow_blank=True)
     deleted_at = serializers.DateTimeField(allow_null=True)
+
+
+# ---------------------------------------------------------------- handover (Phase 6)
+
+
+class HandoverProjectSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+
+
+class HandoverItemSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    kind = serializers.CharField()
+    title = serializers.CharField()
+    project = HandoverProjectSerializer(allow_null=True)
+    href = serializers.CharField()
+    reason = serializers.CharField()
+
+
+class HandoverSectionSerializer(serializers.Serializer):
+    key = serializers.CharField()
+    label = serializers.CharField()
+    items = HandoverItemSerializer(many=True)
+
+
+class HandoverPersonSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    membership_id = serializers.UUIDField()
+    display_name = serializers.CharField()
+    email = serializers.CharField()
+
+
+class HandoverSerializer(serializers.Serializer):
+    generated_at = serializers.DateTimeField()
+    person = HandoverPersonSerializer()
+    project = HandoverProjectSerializer(allow_null=True)
+    no_other_owner = HandoverItemSerializer(many=True)
+    sections = HandoverSectionSerializer(many=True)

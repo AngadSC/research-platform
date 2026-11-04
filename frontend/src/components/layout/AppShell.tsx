@@ -52,11 +52,11 @@ export function AppShell() {
 
   return (
     <TooltipProvider>
-      <div className="flex h-screen bg-background text-foreground">
+      <div className="flex h-screen bg-background text-foreground print:block print:h-auto">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-5xl px-8 py-6">
-            <div className="mb-4">
+        <main className="flex-1 overflow-y-auto print:overflow-visible">
+          <div className="mx-auto max-w-5xl px-8 py-6 print:max-w-none print:px-0">
+            <div className="mb-4 print:hidden">
               <Breadcrumbs items={crumbs} />
             </div>
             <Outlet />

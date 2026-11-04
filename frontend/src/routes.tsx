@@ -9,6 +9,7 @@ import { HomePage, NotBuiltPage } from "@/pages/HomePage";
 import { DocumentPage } from "@/pages/LazyDocumentPage";
 import { LazyLineageTab } from "@/pages/project/LazyLineageTab";
 import { LabHomePage } from "@/pages/LabHomePage";
+import { HandoverPage } from "@/pages/HandoverPage";
 import { MembersPage } from "@/pages/MembersPage";
 import { ProjectPage, ProjectTab } from "@/pages/ProjectPage";
 import DocumentsTab from "@/pages/project/DocumentsTab";
@@ -60,7 +61,18 @@ export const routes: RouteObject[] = [
             handle: { crumb: "@lab" },
             children: [
               { index: true, element: <LabHomePage /> },
-              { path: "members", element: <MembersPage />, handle: { crumb: "Members" } },
+              {
+                path: "members",
+                handle: { crumb: "Members" },
+                children: [
+                  { index: true, element: <MembersPage /> },
+                  {
+                    path: ":membershipId/handover",
+                    element: <HandoverPage />,
+                    handle: { crumb: "Handover" },
+                  },
+                ],
+              },
               {
                 path: "projects",
                 handle: { crumb: "Projects" },
@@ -76,6 +88,11 @@ export const routes: RouteObject[] = [
                         path: "overview",
                         element: <ProjectTab as={OverviewTab} />,
                         handle: { crumb: "Overview" },
+                      },
+                      {
+                        path: "handover",
+                        element: <HandoverPage />,
+                        handle: { crumb: "Handover" },
                       },
                       {
                         path: "tasks",

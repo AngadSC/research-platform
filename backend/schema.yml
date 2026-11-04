@@ -1453,6 +1453,34 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/members/{membership_id}/handover/:
+    get:
+      operationId: labs_members_handover_retrieve
+      description: manage_members, or the target is the requester.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: membership_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Handover'
+          description: ''
   /api/labs/{lab_id}/notifications/:
     get:
       operationId: labs_notifications_list
@@ -2255,6 +2283,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Export'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/handover/:
+    get:
+      operationId: labs_projects_handover_retrieve
+      description: |-
+        manage_project_members, limited to this project. `?user=<user_id>` picks the person
+        (default: the requester).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: user
+        schema:
+          type: string
+          format: uuid
+        description: Person to report on
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Handover'
           description: ''
   /api/labs/{lab_id}/projects/{project_id}/lineage/:
     get:
@@ -4017,6 +4081,101 @@ components:
       - project
       - results
       - tasks
+    Handover:
+      type: object
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        person:
+          $ref: '#/components/schemas/HandoverPerson'
+        project:
+          allOf:
+          - $ref: '#/components/schemas/HandoverProject'
+          nullable: true
+        no_other_owner:
+          type: array
+          items:
+            $ref: '#/components/schemas/HandoverItem'
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/HandoverSection'
+      required:
+      - generated_at
+      - no_other_owner
+      - person
+      - project
+      - sections
+    HandoverItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        title:
+          type: string
+        project:
+          allOf:
+          - $ref: '#/components/schemas/HandoverProject'
+          nullable: true
+        href:
+          type: string
+        reason:
+          type: string
+      required:
+      - href
+      - id
+      - kind
+      - project
+      - reason
+      - title
+    HandoverPerson:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        membership_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        email:
+          type: string
+      required:
+      - display_name
+      - email
+      - id
+      - membership_id
+    HandoverProject:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
+    HandoverSection:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/HandoverItem'
+      required:
+      - items
+      - key
+      - label
     Institution:
       type: object
       properties:

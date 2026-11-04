@@ -161,6 +161,15 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "core:notification-read-all"): "401 404 2 2 2 2 2 2 2",
     ("GET",    "projects:retention-due"): "401 404 2 2 403 403 403 403 403",
     # --- end ethics and notifications (Phase 5) ---
+    # --- handover (Phase 6) ---
+    # Member handover needs manage_members (pi, admin) or the target being the requester. The
+    # fixture membership is contrib's own, so contrib succeeds and every other member, the lab
+    # viewer included, gets 403. Project handover needs manage_project_members on P1: leads and
+    # the implicit leads pi/admin; contrib, pviewer and the capped lviewer get 403; nonproj
+    # cannot see P1: 404.
+    ("GET", "projects:member-handover"): "401 404 2 2 403 2 403 403 403",
+    ("GET", "projects:project-handover"): "401 404 2 2 2 403 403 404 403",
+    # --- end handover (Phase 6) ---
 }
 # fmt: on
 

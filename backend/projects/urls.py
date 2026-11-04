@@ -26,6 +26,12 @@ urlpatterns = [
         views.RetentionDueView.as_view(),
         name="retention-due",
     ),
+    path(_P + "handover/", views.ProjectHandoverView.as_view(), name="project-handover"),
+    path(
+        "labs/<uuid:lab_id>/members/<uuid:membership_id>/handover/",
+        views.MemberHandoverView.as_view(),
+        name="member-handover",
+    ),
     path(_P + "tasks/", views.TaskListCreateView.as_view(), name="task-list"),
     path(
         "labs/<uuid:lab_id>/tasks/<uuid:task_id>/",

@@ -536,6 +536,23 @@ export interface paths {
         patch: operations["labs_members_partial_update"];
         trace?: never;
     };
+    "/api/labs/{lab_id}/members/{membership_id}/handover/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description manage_members, or the target is the requester. */
+        get: operations["labs_members_handover_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/notifications/": {
         parameters: {
             query?: never;
@@ -862,6 +879,26 @@ export interface paths {
          *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
          */
         post: operations["labs_projects_export_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/handover/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description manage_project_members, limited to this project. `?user=<user_id>` picks the person
+         *     (default: the requester).
+         */
+        get: operations["labs_projects_handover_retrieve"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1478,6 +1515,41 @@ export interface components {
             results: components["schemas"]["Result"][];
             decisions: components["schemas"]["Decision"][];
             manuscripts: components["schemas"]["Manuscript"][];
+        };
+        Handover: {
+            /** Format: date-time */
+            generated_at: string;
+            person: components["schemas"]["HandoverPerson"];
+            project: components["schemas"]["HandoverProject"] | null;
+            no_other_owner: components["schemas"]["HandoverItem"][];
+            sections: components["schemas"]["HandoverSection"][];
+        };
+        HandoverItem: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            title: string;
+            project: components["schemas"]["HandoverProject"] | null;
+            href: string;
+            reason: string;
+        };
+        HandoverPerson: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            membership_id: string;
+            display_name: string;
+            email: string;
+        };
+        HandoverProject: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        HandoverSection: {
+            key: string;
+            label: string;
+            items: components["schemas"]["HandoverItem"][];
         };
         Institution: {
             /** Format: uuid */
@@ -3019,6 +3091,28 @@ export interface operations {
             };
         };
     };
+    labs_members_handover_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                membership_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Handover"];
+                };
+            };
+        };
+    };
     labs_notifications_list: {
         parameters: {
             query?: never;
@@ -3568,6 +3662,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Export"];
+                };
+            };
+        };
+    };
+    labs_projects_handover_retrieve: {
+        parameters: {
+            query?: {
+                /** @description Person to report on */
+                user?: string;
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Handover"];
                 };
             };
         };
