@@ -1,15 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createBrowserRouter, RouterProvider } from "react-router";
-import { APP_NAME } from "@/lib/constants";
+import { routes } from "@/routes";
 
-const queryClient = new QueryClient();
-
-const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <h1 className="p-8 text-2xl font-semibold">{APP_NAME}</h1>,
-  },
-]);
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+});
+const router = createBrowserRouter(routes);
 
 export function App() {
   return (

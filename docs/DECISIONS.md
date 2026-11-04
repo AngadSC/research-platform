@@ -36,3 +36,13 @@ One line each. **[H]** marks decisions a human should confirm.
 - D32. The permission matrix holds hand-written expected status codes per persona, never derived from the role tables, so it independently checks them.
 - D33. Lab model serializers drop DRF auto-unique validators, which would run unscoped queries. DB constraints enforce uniqueness and an IntegrityError becomes a 400.
 - D34. **[H]** MIT-0 is not on the allowlist. To avoid it, Vitest uses happy-dom (MIT) instead of jsdom, and cffi is pinned to 2.0.0. Adding MIT-0, which is more permissive than MIT, would remove both workarounds.
+- D35. Phase 1 JSON contract. Lists are plain arrays (no pagination) until a list needs it. Audit events get cursor pagination in Phase 2. Shapes:
+  - User `{id,email,display_name}`.
+  - Lab `{id,name,institution:{id,name},my_role,my_permissions:[str]}`, where `my_permissions` comes from core.permissions.
+  - Membership `{id,user:User,role,created_at}`.
+  - Invite `{id,email,role,expires_at,created_at,invited_by:User}`.
+  - Invite preview `{lab_name,role,email}`.
+  - Invite accept returns a Lab.
+  - Errors use DRF's `{detail}` or field errors.
+- D36. The permission matrix test (§6) is built in Phase 1 and grows each phase. The cross-lab ID-swap test is the Phase 1 acceptance gate.
+- D37. Email links use the `FRONTEND_URL` env var: invites go to `/invite/<token>` and email verification to `/account/verify-email/<key>`.

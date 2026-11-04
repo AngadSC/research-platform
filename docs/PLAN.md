@@ -14,18 +14,18 @@ Status: `todo` | `doing` | `done` | `failed` | `escalated`. Model/effort per orc
 | ID | Task | Model / effort | Status |
 |---|---|---|---|
 | P1.0 | `docs/ARCHITECTURE.md`: data model, tenancy, lab-scoped manager, permission module design, endpoint list | opus / high | done |
-| P1.1 | Models: Institution, Lab, Project, User, LabMembership, ProjectMembership, Invite; lab-scoped manager; migrations | sonnet / medium | todo |
-| P1.2 | Auth module (allauth headless: email/password, TOTP), signup, create lab, invites (7-day expiry), APIs | sonnet / medium | todo |
-| P1.3 | Cross-lab isolation tests (two labs, every endpoint) | sonnet / medium | todo |
-| P1.4 | Frontend: login, signup, create lab, accept invite pages | sonnet / medium | todo |
+| P1.1 | Tenancy core: base model/manager, permissions.py, AuditEvent + service, Phase 1 models, unit tests | sonnet / medium | done |
+| P1.2 | Auth module (allauth headless: email/password, TOTP), signup, create lab, invites (7-day expiry), APIs | sonnet / medium | done |
+| P1.3 | (folded into P1.2 with matrix, D36) Cross-lab isolation tests (two labs, every endpoint) | sonnet / medium | done |
+| P1.4 | Frontend: login, signup, create lab, accept invite pages | sonnet / medium | done |
 
 ## Phase 2. Permissions and audit
 | ID | Task | Model / effort | Status |
 |---|---|---|---|
-| P2.1 | `core/permissions.py` + sensitive permissions; route all views through it | sonnet / medium | todo |
+| P2.1 | (core built in P1.1) wire sensitive permissions + audit into every endpoint | sonnet / medium | todo |
 | P2.2 | AuditEvent (append-only) + logging for listed actions | sonnet / medium | todo |
-| P2.3 | Permission matrix test (enumerates URL resolver, fails on unlisted endpoints) | sonnet / medium | todo |
-| P2.4 | Shared UI components, app shell (sidebar, lab switcher, breadcrumbs, detail panel), `docs/UI.md` | sonnet / medium | todo |
+| P2.3 | (started in P1.2) extend matrix to Phase 2 endpoints Permission matrix test (enumerates URL resolver, fails on unlisted endpoints) | sonnet / medium | todo |
+| P2.4 | Shared UI components, app shell (sidebar, lab switcher, breadcrumbs, detail panel), `docs/UI.md` | sonnet / medium | done |
 | P2.5 | OpenAPI schema + generated TS types (`make types`) | haiku / low | todo |
 | P2.6 | Security review gate | opus / high | todo |
 | P2.7 | Fix review findings | sonnet / medium | todo |

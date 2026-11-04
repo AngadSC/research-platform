@@ -1,11 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { App } from "@/App";
-import { APP_NAME } from "@/lib/constants";
+import { mockFetch, SESSION, signedOut } from "@/test/utils";
 
 describe("App", () => {
-  it("renders the app name", () => {
+  it("sends signed-out visitors to the sign-in page", async () => {
+    mockFetch({ [SESSION]: signedOut });
     render(<App />);
-    expect(screen.getByRole("heading", { name: APP_NAME })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
   });
 });
