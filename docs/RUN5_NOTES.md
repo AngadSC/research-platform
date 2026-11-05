@@ -274,7 +274,7 @@ Prerequisite: the app must be reachable at a public **https** address, because C
 ### Known limits
 
 - No resources, prompts, SSE streaming or `subscriptions/listen`; tools only (`listChanged: false`).
-- DCR clients are never deleted. ponytail: they accumulate one row per fresh Claude connection; add a daily prune of clients with no grant older than a week if the table grows.
+- DCR clients: superseded by the review fix D200 (a daily job prunes clients that never got a grant).
 - No RFC 7009 revocation endpoint; people revoke in Settings. No per-tool allowlist per grant (read or read and write only).
 - Rate limits are fixed windows in the shared cache.
 - `get_document` returns the document's stored plain text (`search_text`), so headings, tables and formatting are flattened.

@@ -1,5 +1,64 @@
 # Handoff
 
+## Run 5: SSO, bring-your-own AI, PI dashboard, training, data management (2026-11-05)
+
+Built, tested, reviewed and pushed. **Full notes, every issue and every design choice are in `docs/RUN5_NOTES.md`.** Decisions are D152–D204 in `docs/DECISIONS.md`. Nothing has touched a real university sign-in server, a real Claude or ChatGPT connector, or a real API key.
+
+### What's new
+
+| Feature | What works | What you need to do |
+|---|---|---|
+| **University sign-in (SAML)** | Email-first login: a `@ualberta.ca` address gets "Continue with University of Alberta". Signed assertions are required, and only verified addresses on the institution's own domains link to existing accounts. An optional "require SSO" setting can block password sign-in for that domain (off by default). Config is a superuser-only `InstitutionSSO` record, set with `manage.py configure_sso` | Send UAlberta IT our SP metadata (the exact request is in `docs/MANUAL_TESTS.md` and `RUN5_NOTES.md`). Before go-live, add their IdP host to the Caddyfile CSP `form-action` (D158) |
+| **Your own Claude or ChatGPT (MCP connector)** | Our app is a remote MCP server at `<site>/mcp`. Add it in claude.ai (Pro, Max, Team or Enterprise) under **Customize > Connectors > Add custom connector**, so **your subscription pays for the AI**. OAuth sign-in, with consent defaulting to **one lab and read-only**. Personal access tokens for Claude Code (this works on localhost today). Every call is re-checked against your current roles. Write tools are audited. Revoke in Settings > Connected AI apps; PIs can revoke access to their lab | claude.ai and ChatGPT need a public https address (a deployment, or a tunnel you set up). ChatGPT connectors are documented for **Business, Enterprise and Edu**; Plus and Pro are unconfirmed (D169) |
+| **In-app assistant (your own API key)** | A chat panel scoped to your lab or project. **Claude via your Anthropic key:** Opus 5.5 by default, or Sonnet 5.5 or Haiku 5.5; adaptive thinking; Anthropic's server-side fallback for declined requests is on by default and can be turned off. **GPT via your OpenAI key:** this adapter has never touched the live API. Write actions need you to click **Approve**, and the dialog shows names and the exact text. Token usage shows on every message. Keys are encrypted and only the last 4 characters are ever shown | Paste a key in Settings > AI and try it. API usage is billed to that key, separately from any Pro or Plus subscription |
+| **Lab AI switch** (Settings > AI) | PI or lab admin chooses **Off / MCP only / MCP + in-app** for the lab (default MCP + in-app, with a notice). Enforced on both paths | Decide the default for labs with participant data (D188) |
+| **PI dashboard** | The PI's and lab admin's landing page: overdue tasks, ethics and funding expiring, stalled projects, missing data management plans, expiring training, a project health table, and per-person counts (counts only, no activity timeline) | – |
+| **Training and certifications** | Required trainings, private member records with certificates, a compliance matrix in Admin, My training, reminders at 60, 30 and 7 days and on expiry (emailed, D178), and a weekly digest for the PI | Add your lab's real requirements, e.g. TCPS 2 CORE or WHMIS |
+| **Data management plans** | One per project, in Workflow > Data, with Tri-Agency sections, status, history and lead approval | – |
+| **Borealis and FRDR** | Link published datasets by DOI or URL, metadata only. The FRDR and Borealis DOIs were checked live through DataCite | Borealis' own API was down for maintenance and is unverified (D180–D186) |
+
+### Security review (fresh opus) and fixes
+
+- **Nothing critical or high.** No cross-lab path in the permission code, no token or key leak, no SSRF.
+- **4 medium issues, all fixed (D193–D199):**
+  - Redirect URIs are now matched exactly.
+  - Consent and new tokens need a recent sign-in, and every AI grant is revoked on a password change, an MFA change or deactivation.
+  - The assistant has a server-wide stream cap and a 300-second deadline.
+  - Prompt-injection defences: record text is labelled as untrusted to the AI, consent defaults to one lab and read-only, the approval dialog shows names, and links point only to the app's own origin.
+- **4 low issues, all fixed (D200–D203):**
+  - the unsigned SAML logout route is removed
+  - require-SSO can't be bypassed through another verified address
+  - the grant list for a lab no longer shows a member's other labs
+  - unused app registrations are pruned
+- **Residual risk (D199):** text a lab member writes could try to steer another member's AI. In-app writes need your approval. Over MCP, your Claude or ChatGPT's own confirmation prompt is the last guard.
+
+### Tests
+
+- **Backend:** 3,262 passed, 97 skipped, 0 failed. One inventory test flaked once and passed on rerun.
+- **Frontend:** 267 Vitest pass. Lint, types and licences are clean: 83 Python packages, including `anthropic` (MIT), `openai` (Apache-2.0), `python3-saml`/`xmlsec` (MIT) and `lxml` (BSD), and 451 npm packages.
+
+### Decisions to look at
+
+- **D188:** AI is allowed by default per lab.
+- **D193 and D169:** the exact Claude and ChatGPT callback URLs came from documentation, not live traffic.
+- **D196:** the stream cap is 10 of 24 threads.
+- **D199:** the residual prompt-injection risk.
+- **D202:** require-SSO looks at all of a person's verified addresses.
+- **D153–D155, D158:** SSO configuration and production prerequisites.
+
+### How to try it today
+
+1. Restart the stack (`docker compose restart backend worker frontend`), then run `migrate` and `make seed`.
+2. As `pi@` (password `seed-password-not-secret`), you land on the Dashboard. Then visit:
+   - Admin > Training
+   - Settings > AI, for the lab's AI policy
+   - a project's Workflow > Data, for the data management plan
+3. **Assistant:** go to Settings > AI, paste an Anthropic key, open the assistant, and ask "What's overdue?".
+4. **Claude Code:** go to Settings > Access tokens, create one, then run the `claude mcp add` command the page shows. Ask "List my labs".
+5. **SSO:** test against a local test IdP, as described in `docs/MANUAL_TESTS.md`. The dev database has a fake SSO institution, `sso.example.test`, enabled for screenshot 61. It's harmless, since no real IdP answers for it; turn it off with `configure_sso` or in the Django admin if it gets in the way.
+
+Screenshots 58–67 show the new screens. Browser tests: 24 of 24 pass; the Overleaf paste spec is occasionally flaky under load.
+
 ## Run 4: founder's change list (2026-11-05)
 
 Built, tested and pushed. Decisions are D125–D151 in `docs/DECISIONS.md`, and limitations are below. Screenshots 44–57 show the new screens.

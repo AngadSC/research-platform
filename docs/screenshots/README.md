@@ -61,3 +61,16 @@ Run 4 (founder's change list; the dark ones switch the header toggle, because th
 - 54-settings.png: Settings
 - 55-unread-badge.png: unread badges on the bell, sidebar and lab switcher (notifications mocked)
 - 56-dark-workflow-ethics.png, 57-dark-tasks-board.png: dark mode
+
+Run 5 (all as `pi@`, from `seed_pilot`; nothing real: no keys, tokens or IdP). The sign-in step needs a fake SSO row, made once with `manage.py configure_sso` from a JSON file for the fake institution "Example Test University (FAKE)" with domain `sso.example.test` (fake IdP URLs, never contacted). The consent screen uses the seeded fake app `example-ai-app-fake`; it is never approved. 59, 62, 65 and 67 are cropped to their section.
+
+- 58-pi-dashboard.png: PI dashboard
+- 59-training-compliance.png: Admin > Training compliance matrix and requirements
+- 60-my-training.png: My training
+- 61-email-first-login.png: login after entering an SSO-domain email ("Continue with ...")
+- 62-settings-ai-connected-apps.png: Settings > Connected AI apps (empty)
+- 63-oauth-consent.png: consent screen for the fake app (unverified-app warning, one lab, read only)
+- 64-assistant-panel.png: assistant drawer with no key saved ("add your own API key")
+- 65-assistant-settings-keys.png: Assistant API keys, both providers "Not saved"
+- 66-workflow-data-dmp.png: Workflow > Data with the draft data management plan
+- 67-lab-ai-policy.png: "AI assistants in <lab>" policy (lives in Settings > AI, not Admin)

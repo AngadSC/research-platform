@@ -99,3 +99,13 @@ def test_drive_seed_is_idempotent_fake_and_has_both_states(debug_on):
         == links.get(provider="zotero").url
     )
     assert all("example.invalid" in link.url for link in links)
+
+
+def test_dmp_draft_is_seeded_once(debug_on):
+    from provenance.models import DataManagementPlan
+
+    call_command("seed_pilot")
+    call_command("seed_pilot")
+    plans = DataManagementPlan.objects.for_lab(Lab.objects.get(name=LAB_NAME))
+    assert [p.status for p in plans] == ["draft"]
+    assert plans[0].revisions.count() == 1

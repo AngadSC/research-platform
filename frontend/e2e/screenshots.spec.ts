@@ -24,6 +24,11 @@ const shot = async (page: Page, name: string) => {
   await page.screenshot({ path: `${DIR}/${name}.png`, fullPage: true });
   await page.setViewportSize({ width: 1440, height: 900 });
 };
+/** Screenshot one section only (long pages, and the 2FA setup key on Settings stays out). */
+const region = async (loc: ReturnType<Page["getByRole"]>, name: string) => {
+  await loc.scrollIntoViewIfNeeded();
+  await loc.screenshot({ path: `${DIR}/${name}.png` });
+};
 /** Click a table row and wait for the detail page; a click that lands during a re-render is retried. */
 const openRow = (page: Page, row: ReturnType<Page["getByRole"]>) =>
   expect(async () => {
@@ -428,5 +433,63 @@ test.describe("@screenshots", () => {
     ).toBeVisible();
     await shot(page, "57-dark-tasks-board");
     await pick(page, "Light"); // leave the shared account as found
+  });
+
+  test("run 5: dashboard, training, sign-in, AI, data management plan", async ({ page }) => {
+    // Email step of the email-first login. sso.example.test is a fake institution made with
+    // configure_sso; no IdP is contacted (nothing leaves the page until Continue is pressed twice).
+    await page.goto("/login");
+    await page.getByLabel("Email").fill("someone@sso.example.test");
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByRole("button", { name: /Continue with / })).toBeVisible();
+    await shot(page, "61-email-first-login");
+
+    await login(page, "pi");
+    await openProject(page);
+    const l = lab(page);
+    await page.goto(`${l}/dashboard`);
+    await expect(page.getByRole("heading", { name: "Projects", exact: true })).toBeVisible();
+    await shot(page, "58-pi-dashboard");
+
+    await page.goto(`${l}/admin`);
+    const training = page.getByRole("region", { name: "Training" });
+    await expect(training.getByRole("heading", { name: "Required trainings" })).toBeVisible();
+    await region(training, "59-training-compliance");
+
+    await page.goto(`${l}/training`);
+    await expect(page.getByRole("heading", { name: "My training", level: 1 })).toBeVisible();
+    await shot(page, "60-my-training");
+
+    await page.goto("/settings");
+    await expect(page.getByRole("region", { name: "Connected AI apps" })).toBeVisible();
+    await region(page.getByRole("region", { name: "Connected AI apps" }), "62-settings-ai-connected-apps");
+    await region(page.getByRole("region", { name: "Assistant API keys" }), "65-assistant-settings-keys");
+    await region(page.getByRole("region", { name: /^AI assistants in / }), "67-lab-ai-policy");
+
+    // Consent screen for the fake registered app (seed_pilot); nothing is approved.
+    const q = new URLSearchParams({
+      response_type: "code",
+      client_id: "example-ai-app-fake",
+      redirect_uri: "https://claude.ai/api/mcp/auth_callback",
+      code_challenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+      code_challenge_method: "S256",
+      state: "fake-state",
+      scope: "mcp:read",
+      resource: "http://localhost:5173/mcp",
+    });
+    await page.goto(`/oauth/authorize?${q}`);
+    await expect(page.getByText("Example AI app (FAKE)").first()).toBeVisible();
+    await shot(page, "63-oauth-consent");
+
+    await page.goto(l);
+    await page.getByRole("button", { name: "Assistant" }).click();
+    await expect(page.getByText(/Add your own API key/)).toBeVisible();
+    await shot(page, "64-assistant-panel");
+    await page.keyboard.press("Escape");
+
+    await openProject(page);
+    await page.goto(`${base(page)}/workflow/data`);
+    await expect(page.getByRole("heading", { name: "Data management plan" })).toBeVisible();
+    await shot(page, "66-workflow-data-dmp");
   });
 });

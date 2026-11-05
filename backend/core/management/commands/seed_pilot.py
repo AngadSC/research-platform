@@ -81,6 +81,8 @@ class Command(BaseCommand):
         self.seed_drive()
         self.seed_links()
         self.seed_training()
+        self.seed_dmp()
+        self.seed_oauth_client()
         self.summary()
 
     def seed_institution(self):
@@ -317,6 +319,40 @@ class Command(BaseCommand):
             user=student,
             title="Survey items (FAKE)",
             content=[block("paragraph", "Fake survey item text.")],
+        )
+
+    def seed_dmp(self):
+        """A fake draft data management plan on the pilot project (Run 5, D180). Idempotent:
+        skipped when the project already has a plan."""
+        from provenance import dmp
+
+        lab = Lab.objects.filter(name=LAB_NAME).first()
+        project = lab and Project.objects.for_lab(lab).filter(name__startswith="Pilot").first()
+        if project is None or not dmp.get_plan(project)._state.adding:
+            return
+        dmp.save_plan(
+            project=project,
+            user=User.objects.get(email="lead@example.test"),
+            data={
+                "data_description": "Fake response-time and questionnaire data (FAKE).",
+                "collection": "Collected in the lab with a fake task script (FAKE).",
+                "storage": "Lab shared drive, access limited to project members (FAKE).",
+                "preservation": "Deposit in a fake repository for 7 years (FAKE).",
+                "last_reviewed": timezone.localdate() - datetime.timedelta(days=30),
+            },
+        )
+
+    def seed_oauth_client(self):
+        """A fake registered AI app so the consent screen can be shown (D161). No tokens."""
+        from assistant.models import ClientKind, OAuthClient
+
+        OAuthClient.objects.get_or_create(
+            client_id="example-ai-app-fake",
+            defaults={
+                "kind": ClientKind.DCR,
+                "name": "Example AI app (FAKE)",
+                "redirect_uris": ["https://claude.ai/api/mcp/auth_callback"],
+            },
         )
 
     def seed_training(self):
