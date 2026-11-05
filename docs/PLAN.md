@@ -141,3 +141,17 @@ Same status values. Model and effort follow orchestrator section 8. Shared-tree 
 | T1 | Task drawer, attached docs/files, task thread, coloured board, board default + preference | sonnet / medium | done |
 | A1 | Admin tab (lab details, onboarding, inventory), Settings hub, University of Alberta resources | sonnet / medium | done |
 | G4 | Integrate: tab restyle, cross-agent fixes, full gate, screenshots | sonnet / medium | done |
+
+---
+
+# Plan: Run 5
+
+| ID | Task | Model / effort | Status |
+|---|---|---|---|
+| S5 | Institutional SSO (SAML, University of Alberta CCID ready), domain routing | opus / high | doing |
+| M5 | AI tool layer + remote MCP server (OAuth/PAT) for users' own Claude/ChatGPT | opus / high | doing |
+| P5 | PI dashboard | sonnet / medium | doing |
+| T5 | Training and certification tracking | sonnet / medium | doing |
+| D5 | Data management plans, Borealis and FRDR providers | sonnet / medium | todo |
+| B5 | In-app bring-your-own-key assistant (Claude, OpenAI) | sonnet / medium | todo |
+| R5 | Security review + fixes, screenshots, notes, push | opus / sonnet / orchestrator | todo |
