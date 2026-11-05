@@ -66,3 +66,4 @@
 - W2 done (sonnet): seed adds a tokenless Drive account and two example.invalid links (changed / no longer available), screenshots 01-35 regenerated (27-35 new), spec cleans up after itself, login CSRF race fixed in e2e global setup, seed test db mark fixed. Connected accounts absent from 29 because Google isn't configured.
 - E3 done (sonnet): freshness blocked when the linker can't view the project, 60 s check cooldown + throttle, over-broad grants rejected (D78), CSP narrowed to Picker script paths (unverified in a real browser), link hosts pinned to Google + safeHttpUrl, picker-token audited and throttled (audit/0009). Each verified failing when reverted.
 - Orchestrator: Drive icon fix (icon map keyed by provider too), prettier on two e2e files. Final gate: make test exit 0, backend 1404 passed / 25 skipped, matrix 98 rows / 984 cases, Vitest 132, Playwright 13, screenshots 6 specs, licenses 64 py / 451 npm. Committed.
+- HANDOFF.md written. Run 2 complete.
