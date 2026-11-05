@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  ReauthCancelled,
   useActivateTotp,
   useAuth,
   useDeactivateTotp,
@@ -22,14 +23,20 @@ import {
   useRegenerateRecoveryCodes,
   useTotp,
 } from "@/hooks/auth";
+import { useReauth } from "@/hooks/reauth";
 import { useMe, useUpdateMe } from "@/hooks/workspace";
 import { ApiError } from "@/lib/api";
 import { APP_NAME } from "@/lib/constants";
 import { formErrors } from "@/lib/forms";
 
+type Reauth = ReturnType<typeof useReauth>;
 const REAUTH = "For your safety, sign out and sign back in, then try this again.";
 const msg = (e: unknown) =>
-  e instanceof ApiError && e.status === 401 ? REAUTH : formErrors(e, []).form;
+  e instanceof ReauthCancelled
+    ? undefined
+    : e instanceof ApiError && e.status === 401
+      ? REAUTH
+      : formErrors(e, []).form;
 
 function Section({
   title,
@@ -108,7 +115,7 @@ function Qr({ uri }: { uri: string }) {
   ) : null;
 }
 
-function RecoveryCodes() {
+function RecoveryCodes({ run }: { run: Reauth["run"] }) {
   const codes = useRecoveryCodes(true);
   const regenerate = useRegenerateRecoveryCodes();
   const [error, setError] = useState<string>();
@@ -142,7 +149,7 @@ function RecoveryCodes() {
         disabled={regenerate.isPending}
         onClick={() => {
           setError(undefined);
-          regenerate.mutateAsync().then(
+          run(() => regenerate.mutateAsync()).then(
             () => toast.success("New recovery codes created"),
             (e) => setError(msg(e)),
           );
@@ -154,7 +161,7 @@ function RecoveryCodes() {
   );
 }
 
-function TotpSection() {
+function TotpSection({ run }: { run: Reauth["run"] }) {
   const { email } = useAuth();
   const totp = useTotp();
   const activate = useActivateTotp();
@@ -167,7 +174,7 @@ function TotpSection() {
     if (!code) return setError("Enter the 6-digit code from your app");
     setError(undefined);
     try {
-      await activate.mutateAsync(code);
+      await run(() => activate.mutateAsync(code));
       toast.success("Two-step verification is on");
     } catch (err) {
       setError(msg(err));
@@ -190,7 +197,7 @@ function TotpSection() {
           disabled={deactivate.isPending}
           onClick={() => {
             setError(undefined);
-            deactivate.mutateAsync().then(
+            run(() => deactivate.mutateAsync()).then(
               () => toast.success("Two-step verification is off"),
               (e) => setError(msg(e)),
             );
@@ -198,7 +205,7 @@ function TotpSection() {
         >
           Turn off two-step verification
         </Button>
-        <RecoveryCodes />
+        <RecoveryCodes run={run} />
       </>
     );
   else {
@@ -237,8 +244,9 @@ function TotpSection() {
   );
 }
 
-function ConnectedAccountsSection() {
+function ConnectedAccountsSection({ reauth }: { reauth: Reauth }) {
   const { hasUsablePassword } = useAuth();
+  const totp = useTotp();
   const providers = useProviders();
   const accounts = useProviderAccounts();
   const disconnect = useDisconnectProvider();
@@ -262,17 +270,28 @@ function ConnectedAccountsSection() {
             disabled={!hasUsablePassword || disconnect.isPending}
             onClick={() => {
               setError(undefined);
-              disconnect.mutateAsync(connected).then(
-                () => toast.success("Google disconnected"),
-                (e) => setError(msg(e)),
-              );
+              reauth
+                .run(() => disconnect.mutateAsync(connected))
+                .then(
+                  () => toast.success("Google disconnected"),
+                  (e) => setError(msg(e)),
+                );
             }}
           >
             Disconnect
           </Button>
         ) : (
           <div className="w-48">
-            <ProviderButton process="connect" label="Connect Google" returnTo="/account" />
+            <ProviderButton
+              process="connect"
+              label="Connect Google"
+              returnTo="/account"
+              beforeSubmit={async () => {
+                // Connecting leaves the page, so ask first (nothing to prove without a password or MFA).
+                const flows = { password: hasUsablePassword, mfa: !!totp.data?.enabled };
+                if (flows.password || flows.mfa) await reauth.ensure(flows);
+              }}
+            />
           </div>
         )}
       </div>
@@ -287,14 +306,14 @@ function ConnectedAccountsSection() {
   );
 }
 
-function EmailSection() {
+function EmailSection({ run: reauthRun }: { run: Reauth["run"] }) {
   const emails = useEmails();
   const act = useEmailAction();
   const [error, setError] = useState<string>();
 
   function run(op: "add" | "remove" | "primary" | "resend", email: string, ok: string) {
     setError(undefined);
-    return act.mutateAsync({ op, email }).then(
+    return reauthRun(() => act.mutateAsync({ op, email })).then(
       () => (toast.success(ok), true),
       (e) => (setError(msg(e)), false),
     );
@@ -371,14 +390,16 @@ function EmailSection() {
 }
 
 export function SecurityPage() {
+  const reauth = useReauth();
   return (
     <>
+      {reauth.dialog}
       <PageHeader title="Account" description="Your name and sign-in security." />
       <div className="grid max-w-2xl gap-8">
         <NameSection />
-        <EmailSection />
-        <ConnectedAccountsSection />
-        <TotpSection />
+        <EmailSection run={reauth.run} />
+        <ConnectedAccountsSection reauth={reauth} />
+        <TotpSection run={reauth.run} />
       </div>
     </>
   );

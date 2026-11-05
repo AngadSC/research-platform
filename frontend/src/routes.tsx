@@ -32,6 +32,7 @@ import {
 import TasksTab from "@/pages/project/TasksTab";
 import { EthicsDetailPage, EthicsFormPage, EthicsListPage } from "@/pages/ethics/EthicsPages";
 import { NotificationsPage, RetentionPage } from "@/pages/ethics/LabPages";
+import { IntegrationsErrorPage, IntegrationsPage } from "@/pages/IntegrationsPage";
 import { SecurityPage } from "@/pages/SecurityPage";
 
 export const routes: RouteObject[] = [
@@ -61,6 +62,11 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <HomePage /> },
       { path: "account", element: <SecurityPage />, handle: { crumb: "Account" } },
+      {
+        path: "integrations/error",
+        element: <IntegrationsErrorPage />,
+        handle: { crumb: "Integrations" },
+      },
       {
         path: "labs",
         handle: { crumb: "Labs" },
@@ -200,6 +206,11 @@ export const routes: RouteObject[] = [
                 handle: { crumb: "Retention review" },
               },
               { path: "audit-log", element: <AuditLogPage />, handle: { crumb: "Audit log" } },
+              {
+                path: "settings/integrations",
+                element: <IntegrationsPage />,
+                handle: { crumb: "Integrations" },
+              },
             ],
           },
         ],

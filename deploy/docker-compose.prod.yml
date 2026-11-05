@@ -1,0 +1,95 @@
+# Production stack example. Run from the deploy/ directory:
+#   docker compose -f docker-compose.prod.yml build
+#   docker compose -f docker-compose.prod.yml run --rm backend python manage.py migrate
+#   docker compose -f docker-compose.prod.yml up -d
+# Secrets live only in .env.prod (copy from .env.prod.example). Nothing secret is written here.
+# Only caddy publishes ports. Postgres, Valkey, gunicorn, worker and beat stay on the private network.
+
+x-env: &env
+  env_file:
+    - .env.prod
+
+services:
+  postgres:
+    image: postgres:16
+    <<: *env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  valkey:
+    image: valkey/valkey:8
+    <<: *env
+    restart: unless-stopped
+    # The password comes from .env.prod at runtime, so it never appears in this file or in `docker inspect`.
+    command: ["sh", "-c", "exec valkey-server --requirepass \"$$VALKEY_PASSWORD\" --appendonly yes"]
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli -a \"$$VALKEY_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - valkeydata:/data
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.prod
+    image: research-backend:prod
+    <<: *env
+    restart: unless-stopped
+    command: ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--access-logfile", "-"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  worker:
+    image: research-backend:prod
+    <<: *env
+    restart: unless-stopped
+    command: ["celery", "-A", "config", "worker", "-l", "info"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  beat:
+    image: research-backend:prod
+    <<: *env
+    restart: unless-stopped
+    # The app user cannot write /app, so the schedule file goes to /tmp.
+    command: ["celery", "-A", "config", "beat", "-l", "info", "-s", "/tmp/celerybeat-schedule"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  caddy:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data  # certificates; back this up or Caddy re-requests them
+      - caddyconfig:/config
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  valkeydata:
+  caddydata:
+  caddyconfig:

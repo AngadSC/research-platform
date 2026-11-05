@@ -17,6 +17,7 @@ from core.email import send_email
 from core.models import PLACEHOLDER_INSTITUTION, Institution
 from core.permissions import LAB_ROLE_PERMS, Perm, forget, lab_role
 from core.tenancy import by_secret
+from integrations.services import revoke_member_accounts
 from labs.models import Invite, Lab, LabMembership, LabRole, hash_token
 from projects.models import ProjectMembership
 from projects.services import unassign_lost_access
@@ -205,3 +206,6 @@ def remove_member(*, membership, by, request=None) -> None:
     unassign_lost_access(
         membership.user, lab=lab, by=by, request=request, reason="removed_from_lab"
     )
+    # D68: revoke their connected accounts for this lab in this transaction; the provider
+    # calls wait for the commit.
+    revoke_member_accounts(lab, membership.user, reason="member_removed")

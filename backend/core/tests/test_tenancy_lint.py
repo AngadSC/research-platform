@@ -5,6 +5,8 @@ in the tests of that guard (review #5)."""
 import re
 from pathlib import Path
 
+from core.tests.source_files import backend_py_files
+
 BACKEND = Path(__file__).resolve().parents[2]
 PATTERN = re.compile(r"\.unscoped\b|_base_manager")
 ALLOWED_NAMES = {"tenancy.py", "permissions.py", "admin.py", "test_tenancy_lint.py"}
@@ -15,7 +17,7 @@ RAW_ALLOWED_NAMES = {"test_tenancy_lint.py", "test_phase2_review.py"}
 def _offenders(pattern, allowed):
     return [
         str(p.relative_to(BACKEND))
-        for p in BACKEND.rglob("*.py")
+        for p in backend_py_files()
         if p.name not in allowed
         and "migrations" not in p.parts
         and ".venv" not in p.parts

@@ -1,0 +1,6 @@
+{% autoescape off %}Someone asked to add {{ email }} to the {{ product_name }} account for {{ account }}. Open this link while signed in to that account to confirm:
+
+{{ url }}
+
+If you did not ask for this, ignore this email. Nothing will be added to the account.
+{% endautoescape %}

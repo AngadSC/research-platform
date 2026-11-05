@@ -18,6 +18,7 @@ const EMPTY: Record<string, string> = {
   decisions: "They have not recorded any decisions.",
   ethics_approvals: "No ethics approvals are linked to projects they lead.",
   projects_led: "They do not lead any projects.",
+  external_links: "They have not linked any outside files.",
 };
 
 function Items({ items, showReason = true }: { items: HandoverItem[]; showReason?: boolean }) {

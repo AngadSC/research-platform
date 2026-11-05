@@ -19,6 +19,8 @@ const TONES: Record<string, BadgeVariant> = {
   rejected: "destructive",
   failed: "destructive",
   expired: "destructive",
+  error: "destructive",
+  revoked: "secondary",
 };
 
 /** Maps a backend status string to a tone; unknown statuses render neutral. */

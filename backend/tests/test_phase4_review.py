@@ -13,6 +13,7 @@ from rest_framework.test import APIClient
 from rest_framework.throttling import ScopedRateThrottle
 
 from core.permissions import Perm, can, forget, lab_role, users_with
+from core.tests.source_files import backend_py_files
 from labs.models import LabMembership, LabRole
 from projects.models import ProjectMembership, ProjectRole, Task
 from provenance.models import DatasetRecord
@@ -86,7 +87,7 @@ def test_for_lab_is_not_used_in_views_or_serializers():
     pattern = re.compile(r"\.for_lab\(")
     offenders = [
         str(p.relative_to(BACKEND))
-        for p in BACKEND.rglob("*.py")
+        for p in backend_py_files()
         if p.name in ("views.py", "serializers.py")
         and ".venv" not in p.parts
         and pattern.search(p.read_text(encoding="utf-8"))

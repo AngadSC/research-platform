@@ -1,17 +1,24 @@
 """Auth module boundary (ARCHITECTURE section 7). Everything allauth-specific lives here;
 no other module imports allauth. App code reads `request.user`."""
 
+from urllib.parse import urlparse
+
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.account.models import EmailAddress
 from allauth.account.signals import email_added, email_removed, password_changed, user_signed_up
 from allauth.core import context as allauth_context
+from allauth.headless.account.views import VerifyEmailView as AllauthVerifyEmailView
 from allauth.headless.adapter import DefaultHeadlessAdapter
+from allauth.headless.internal.restkit.response import ErrorResponse
 from allauth.mfa.signals import authenticator_added, authenticator_removed
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.socialaccount.signals import social_account_added, social_account_removed
+from django.conf import settings
 from django.contrib.auth.signals import user_logged_in, user_logged_out, user_login_failed
 from django.contrib.sites.shortcuts import get_current_site
+from django.core.exceptions import ValidationError
 from django.dispatch import receiver
+from django.test import RequestFactory
 from drf_spectacular.extensions import OpenApiAuthenticationExtension
 from rest_framework import authentication
 
@@ -49,14 +56,49 @@ class AccountAdapter(DefaultAccountAdapter):
         their own templates; the rest reuse allauth's text inside `account_notice`."""
         name = template_prefix.rsplit("/", 1)[-1]
         if name in ("email_confirmation", "email_confirmation_signup"):
-            send_email("email_verification", email, {"url": context["activate_url"]})
+            user = context.get("user")
+            if name == "email_confirmation" and user and not _is_primary(user, email):
+                # An address added to an existing account (D72): name the account it would join.
+                primary = EmailAddress.objects.filter(user=user, primary=True).first()
+                account = primary.email if primary else user.email
+                ctx = {"url": context["activate_url"], "account": account, "email": email}
+                send_email("email_verification_added", email, ctx)
+            else:
+                send_email("email_verification", email, {"url": context["activate_url"]})
         elif name == "password_reset_key":
             send_email("password_reset", email, {"url": context["password_reset_url"]})
         else:
             request = allauth_context.request
-            ctx = {"request": request, "email": email, "current_site": get_current_site(request)}
-            msg = self.render_mail(template_prefix, email, {**ctx, **context})
+            if request is None:  # on-commit signals (MFA, email notices) can outlive the request
+                host = urlparse(settings.FRONTEND_URL).netloc
+                request = RequestFactory().get("/", HTTP_HOST=host)
+            with allauth_context.request_context(request):
+                ctx = {
+                    "request": request,
+                    "email": email,
+                    "current_site": get_current_site(request),
+                }
+                msg = self.render_mail(template_prefix, email, {**ctx, **context})
             send_email("account_notice", email, {"subject": msg.subject, "message": msg.body})
+
+
+def _is_primary(user, email: str) -> bool:
+    return EmailAddress.objects.filter(user=user, email__iexact=email, primary=True).exists()
+
+
+class VerifyEmailView(AllauthVerifyEmailView):
+    """D72: a non-primary (added) address can only be confirmed by a request logged in as the
+    account it was added to. Signup addresses are primary and still confirm logged out."""
+
+    def post(self, request, *args, **kwargs):
+        address = self.input.verification.email_address if not self.process else None
+        if address and not address.primary and request.user != address.user:
+            err = ValidationError(
+                "Sign in to the account you added this address to, then open the link again.",
+                code="sign_in_required",
+            )
+            return ErrorResponse(request, exception=err, status=403)
+        return super().post(request, *args, **kwargs)
 
 
 class HeadlessAdapter(DefaultHeadlessAdapter):
@@ -64,14 +106,19 @@ class HeadlessAdapter(DefaultHeadlessAdapter):
         return {"id": str(user.pk), "email": user.email, "display_name": user.display_name}
 
 
+GOOGLE_MAIL_DOMAINS = {"gmail.com", "googlemail.com"}
+
+
 class SocialAccountAdapter(DefaultSocialAccountAdapter):
     def authenticate_by_email(self, sociallogin):
         """D62: link only when the provider says the email is verified AND it is a verified
         address of a local account. allauth's default also matches unverified local addresses
         (and then wipes the password); we never link those. No match means a new account."""
+        hd = str(sociallogin.account.extra_data.get("hd") or "").lower()
         for addr in sociallogin.email_addresses:
-            if not addr.verified:
-                continue
+            domain = addr.email.rsplit("@", 1)[-1].lower()
+            if not addr.verified or not (domain in GOOGLE_MAIL_DOMAINS or domain == hd):
+                continue  # D73: Google only vouches for gmail.com and its own Workspace domain
             local = (
                 EmailAddress.objects.filter(email__iexact=addr.email, verified=True)
                 .select_related("user")

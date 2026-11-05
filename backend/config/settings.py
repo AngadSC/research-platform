@@ -49,6 +49,8 @@ if not SECRET_KEY or SECRET_KEY.startswith(("replace-with", "django-insecure")):
     )
 
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
+# Production: https://<domain> so HTTPS POSTs pass Django's Origin check behind Caddy.
+CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -155,6 +157,7 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"  # collectstatic target in deploy/Dockerfile.prod
 
 # ARCHITECTURE section 8 / D26: lab files get their own storage alias. It is never served under
 # MEDIA_URL or static(); downloads go through the authenticated endpoint only.
@@ -204,6 +207,10 @@ CELERY_BEAT_SCHEDULE = {
     "retention-scan": {
         "task": "projects.jobs.retention_scan",
         "schedule": crontab(hour=1, minute=20),
+    },
+    "integrations-revoke-orphans": {
+        "task": "integrations.jobs.revoke_orphans",
+        "schedule": crontab(hour=1, minute=30),
     },
 }
 
@@ -259,6 +266,11 @@ ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 # Verifying in the same browser session that signed up finishes login (no second password prompt).
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
+# D74: sensitive account changes need a recent password/TOTP check; owners get notice emails.
+ACCOUNT_REAUTHENTICATION_REQUIRED = True
+ACCOUNT_EMAIL_NOTIFICATIONS = True
+ACCOUNT_MAX_EMAIL_ADDRESSES = 5
+ACCOUNT_RATE_LIMITS = {"manage_email": "5/h/user"}
 MFA_SUPPORTED_TYPES = ["totp", "recovery_codes"]
 
 # ARCHITECTURE section 7 / D62: Google sign-in (openid, email, profile only; no Drive scopes).
@@ -336,6 +348,9 @@ if not INTEGRATION_ENCRYPTION_KEYS:
         base64.urlsafe_b64encode(hashlib.sha256(_seed.encode()).digest()).decode()
     ]
 # D65: one OAuth callback for every integration provider, under /api/ so the Vite proxy covers it.
+# Django only hides `sensitive_variables` on 500 pages when DEBUG is off. Keep them hidden always,
+# so a token in a frame never shows up in a debug page.
+DEFAULT_EXCEPTION_REPORTER_FILTER = "integrations.debug.AlwaysCleanse"
 INTEGRATION_OAUTH_REDIRECT_URI = f"{FRONTEND_URL}/api/integrations/oauth/callback/"
 # D66: integration OAuth clients are separate from the Google sign-in client.
 INTEGRATION_CLIENTS = {

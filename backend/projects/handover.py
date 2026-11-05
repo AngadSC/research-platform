@@ -11,6 +11,7 @@ from django.utils import timezone
 from audit.models import AuditAction, AuditEvent
 from documents.models import Document
 from ethics.models import EthicsApproval
+from integrations.models import ExternalLink
 from labs.models import LabMembership, LabRole
 from projects.models import Project, ProjectMembership, ProjectRole, Task, TaskStatus
 from provenance.models import Analysis, DatasetRecord, Decision, Result
@@ -25,6 +26,7 @@ SECTIONS = [
     ("decisions", "Decisions"),
     ("ethics_approvals", "Ethics approvals"),
     ("projects_led", "Projects led"),
+    ("external_links", "External links to relink"),
 ]
 
 
@@ -160,7 +162,25 @@ def build_report(*, requester, lab, membership, project=None) -> dict:
                 "Linked to " + ", ".join(p.name for p in mine),
             )
         )
+    links = list(
+        scoped(ExternalLink)
+        .filter(linked_by=target)
+        .select_related("project")
+        .order_by("title", "id")
+    )
     by_key = {
+        "external_links": [
+            _item(
+                lid,
+                "external_link",
+                x,
+                x.title,
+                x.project,
+                "{p}/files",
+                "Linked by them. Relink it under another account if they lose access.",
+            )
+            for x in links
+        ],
         "open_tasks": [
             _item(lid, "task", t, t.title, t.project, "{p}/tasks", f"Assigned to them ({t.status})")
             for t in tasks

@@ -1,0 +1,39 @@
+# Production reverse proxy (docs/DEPLOY.md). Replace the placeholder domain with yours. Caddy gets
+# and renews the TLS certificate itself once DNS points at this server and ports 80 and 443 are open.
+research.example.org {
+	encode zstd gzip
+
+	# D53 (docs/DECISIONS.md): stop oversized bodies before gunicorn. The app allows
+	# ATTACHMENT_MAX_BYTES (50 MiB, backend/config/settings.py) plus MULTIPART_ALLOWANCE (64 KiB,
+	# backend/core/middleware.py) for multipart framing, so the proxy uses the same total.
+	request_body {
+		max_size 52494336
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		-Server
+	}
+
+	# API, allauth headless, provider callbacks and the health probe go to gunicorn.
+	# No /admin route: the Django admin is mounted only when DEBUG is on (D41).
+	@backend path /api/* /_allauth/* /accounts/* /healthz
+	handle @backend {
+		reverse_proxy backend:8000
+	}
+
+	# Everything else is the React SPA, built by frontend/Dockerfile.prod into /srv.
+	# Unknown paths fall back to index.html so client-side routes survive a reload.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+
+		# Google Picker (Drive integration) and Google sign-in. Nothing else external.
+		# form-action needs accounts.google.com because the sign-in form POST redirects there.
+		header Content-Security-Policy "default-src 'self'; script-src 'self' https://apis.google.com; frame-src https://docs.google.com https://drive.google.com https://accounts.google.com; connect-src 'self' https://apis.google.com https://docs.google.com https://drive.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com; frame-ancestors 'none'"
+	}
+}

@@ -20,6 +20,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/integrations/oauth/callback/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The browser comes back from the provider here. Always ends in a redirect to the SPA. */
+        get: operations["integrations_oauth_callback_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/invites/accept/": {
         parameters: {
             query?: never;
@@ -411,6 +428,113 @@ export interface paths {
          *     access, so D48 applies on top of edit_ethics.
          */
         post: operations["labs_ethics_approvals_attachments_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/external-links/{externallink_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        get: operations["labs_external_links_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        delete: operations["labs_external_links_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/integrations/{provider}/connect/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        post: operations["labs_integrations_connect_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/integrations/accounts/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Your own accounts; `?all=true` adds every member's for people who hold
+         *     manage_lab_integrations (everyone else still gets only their own, via visible_to).
+         */
+        get: operations["labs_integrations_accounts_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/integrations/accounts/{connectedaccount_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Own account: disconnect. Another member's (manage_lab_integrations): revoke. */
+        delete: operations["labs_integrations_accounts_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/integrations/providers/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        get: operations["labs_integrations_providers_list"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -885,6 +1009,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/projects/{project_id}/external-links/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        get: operations["labs_projects_external_links_list"];
+        put?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        post: operations["labs_projects_external_links_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/projects/{project_id}/handover/": {
         parameters: {
             query?: never;
@@ -1331,6 +1485,35 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
+        ConnectInput: {
+            scopes?: string[];
+        };
+        ConnectOutput: {
+            authorization_url: string;
+        };
+        /** @description Explicit read-only fields: token columns are never listed (ARCHITECTURE section 9). */
+        ConnectedAccount: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly provider: string;
+            readonly user: components["schemas"]["User"];
+            /** Format: email */
+            readonly external_email: string;
+            readonly granted_scopes: unknown;
+            readonly status: components["schemas"]["ConnectedAccountStatusEnum"];
+            /** Format: date-time */
+            readonly connected_at: string;
+            /** Format: date-time */
+            readonly last_used_at: string | null;
+        };
+        /**
+         * @description * `active` - Active
+         *     * `expired` - Expired
+         *     * `revoked` - Revoked
+         *     * `error` - Error
+         * @enum {string}
+         */
+        ConnectedAccountStatusEnum: "active" | "expired" | "revoked" | "error";
         Dataset: {
             /** Format: uuid */
             readonly id: string;
@@ -1526,6 +1709,64 @@ export interface components {
             results: components["schemas"]["Result"][];
             decisions: components["schemas"]["Decision"][];
             manuscripts: components["schemas"]["Manuscript"][];
+        };
+        ExternalLink: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly project: string;
+            /** Format: uuid */
+            readonly document: string | null;
+            /** Format: uuid */
+            readonly dataset: string | null;
+            /** Format: uuid */
+            readonly analysis: string | null;
+            /** Format: uuid */
+            readonly result: string | null;
+            /** Format: uuid */
+            readonly manuscript: string | null;
+            readonly provider: string;
+            readonly provider_label: string;
+            readonly external_id: string;
+            /** Format: uri */
+            readonly url: string;
+            readonly title: string;
+            readonly mime_type: string;
+            readonly linked_by: components["schemas"]["User"];
+            /** Format: date-time */
+            readonly linked_modified_at: string | null;
+            /** Format: date-time */
+            readonly remote_modified_at: string | null;
+            /** Format: date-time */
+            readonly last_checked_at: string | null;
+            /** Format: date-time */
+            readonly unavailable_since: string | null;
+            readonly changed_since_linked: boolean;
+            readonly linker_connection_status: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description `url`, `title` and `mime_type` are only used by link_only providers; for the others
+         *     the provider is asked for them.
+         */
+        ExternalLinkInput: {
+            provider: string;
+            external_id: string;
+            /** Format: uri */
+            url?: string;
+            title?: string;
+            mime_type?: string;
+            /** Format: uuid */
+            document?: string;
+            /** Format: uuid */
+            dataset?: string;
+            /** Format: uuid */
+            analysis?: string;
+            /** Format: uuid */
+            result?: string;
+            /** Format: uuid */
+            manuscript?: string;
         };
         Handover: {
             /** Format: date-time */
@@ -1898,6 +2139,22 @@ export interface components {
          * @enum {string}
          */
         ProjectStatusEnum: "planning" | "active" | "paused" | "completed" | "archived";
+        /** @description One registry entry plus the requester's own account there. Built from a dict. */
+        Provider: {
+            name: string;
+            label: string;
+            auth_type: string;
+            icon: string;
+            scopes: string[];
+            configured: boolean;
+            account: components["schemas"]["ProviderAccount"] | null;
+        };
+        ProviderAccount: {
+            /** Format: uuid */
+            id: string;
+            status: string;
+            external_email: string;
+        };
         ReadAllResult: {
             updated: number;
         };
@@ -2048,6 +2305,24 @@ export interface operations {
                         [key: string]: unknown;
                     };
                 };
+            };
+        };
+    };
+    integrations_oauth_callback_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -2906,6 +3181,140 @@ export interface operations {
             };
         };
     };
+    labs_external_links_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                externallink_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalLink"];
+                };
+            };
+        };
+    };
+    labs_external_links_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                externallink_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_integrations_connect_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ConnectInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ConnectInput"];
+                "multipart/form-data": components["schemas"]["ConnectInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectOutput"];
+                };
+            };
+        };
+    };
+    labs_integrations_accounts_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectedAccount"][];
+                };
+            };
+        };
+    };
+    labs_integrations_accounts_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                connectedaccount_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_integrations_providers_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Provider"][];
+                };
+            };
+        };
+    };
     labs_invites_list: {
         parameters: {
             query?: never;
@@ -3687,6 +4096,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Export"];
+                };
+            };
+        };
+    };
+    labs_projects_external_links_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalLink"][];
+                };
+            };
+        };
+    };
+    labs_projects_external_links_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExternalLinkInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ExternalLinkInput"];
+                "multipart/form-data": components["schemas"]["ExternalLinkInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalLink"];
                 };
             };
         };

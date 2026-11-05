@@ -5,6 +5,7 @@ database can change where a token is sent: the HTTP client attaches an account's
 URL whose host is in that provider's `api_hosts`.
 """
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -32,11 +33,21 @@ class Provider:
     api_hosts: frozenset[str] = frozenset()  # hosts an account token may be sent to
     authorize_params: dict = field(default_factory=dict)  # fixed extra authorize-URL params
     parse_identity: Callable[[dict], tuple[str, str]] | None = None
+    # Reads one item's metadata for a new ExternalLink: `(account, external_id) -> dict | None`
+    # with keys title, url, mime_type, modified_at (datetime), version, checksum; None when the
+    # item does not exist. Uses `integrations.http.send` with `account`; may raise IntegrationError.
+    fetch_item: Callable | None = None
+    # What an `external_id` may look like, checked before it is stored or sent anywhere. A
+    # provider that builds a URL from an id must still `urllib.parse.quote(id, safe="")` it.
+    external_id_pattern: str = r"^[A-Za-z0-9_.-]{1,255}$"
 
     def client(self) -> tuple[str, str]:
         """(client_id, client_secret) from settings; empty strings when not configured."""
         conf = settings.INTEGRATION_CLIENTS.get(self.name, {})
         return conf.get("client_id", ""), conf.get("client_secret", "")
+
+    def valid_external_id(self, value) -> bool:
+        return isinstance(value, str) and re.fullmatch(self.external_id_pattern, value) is not None
 
     @property
     def configured(self) -> bool:

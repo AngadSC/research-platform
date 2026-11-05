@@ -1,10 +1,37 @@
 """A fake OAuth2 provider and an in-process HTTP transport for integration tests."""
 
 import json
+from urllib.parse import quote
 
 import requests
+from django.utils.dateparse import parse_datetime
 
+from integrations import http
+from integrations.http import IntegrationError
 from integrations.registry import AuthType, Provider
+
+
+def fetch_item(account, external_id):
+    resp = http.send(
+        "GET",
+        f"https://api.fake.test/files/{quote(external_id, safe='')}",
+        provider=FAKE,
+        account=account,
+    )
+    if resp.status_code == 404:
+        return None
+    if resp.status_code != 200:
+        raise IntegrationError("the provider did not return the item")
+    data = resp.json()
+    return {
+        "title": data["name"],
+        "url": data["url"],
+        "mime_type": data.get("mimeType", ""),
+        "modified_at": parse_datetime(data["modifiedTime"]),
+        "version": str(data.get("version", "")),
+        "checksum": "",
+    }
+
 
 FAKE = Provider(
     name="fake",
@@ -19,6 +46,7 @@ FAKE = Provider(
     api_hosts=frozenset({"api.fake.test"}),
     authorize_params={"access_type": "offline", "include_granted_scopes": "true"},
     parse_identity=lambda data: (data["id"], data.get("email", "")),
+    fetch_item=fetch_item,
 )
 
 

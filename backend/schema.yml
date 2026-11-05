@@ -19,6 +19,18 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
+  /api/integrations/oauth/callback/:
+    get:
+      operationId: integrations_oauth_callback_retrieve
+      description: The browser comes back from the provider here. Always ends in a
+        redirect to the SPA.
+      tags:
+      - integrations
+      security:
+      - sessionAuth: []
+      responses:
+        '302':
+          description: No response body
   /api/invites/accept/:
     post:
       operationId: invites_accept_create
@@ -1198,6 +1210,184 @@ paths:
               schema:
                 $ref: '#/components/schemas/Attachment'
           description: ''
+  /api/labs/{lab_id}/external-links/{externallink_id}/:
+    get:
+      operationId: labs_external_links_retrieve
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: externallink_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalLink'
+          description: ''
+    delete:
+      operationId: labs_external_links_destroy
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: externallink_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/integrations/{provider}/connect/:
+    post:
+      operationId: labs_integrations_connect_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: provider
+        schema:
+          type: string
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ConnectInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConnectInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectOutput'
+          description: ''
+  /api/labs/{lab_id}/integrations/accounts/:
+    get:
+      operationId: labs_integrations_accounts_list
+      description: |-
+        Your own accounts; `?all=true` adds every member's for people who hold
+        manage_lab_integrations (everyone else still gets only their own, via visible_to).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConnectedAccount'
+          description: ''
+  /api/labs/{lab_id}/integrations/accounts/{connectedaccount_id}/:
+    delete:
+      operationId: labs_integrations_accounts_destroy
+      description: 'Own account: disconnect. Another member''s (manage_lab_integrations):
+        revoke.'
+      parameters:
+      - in: path
+        name: connectedaccount_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/integrations/providers/:
+    get:
+      operationId: labs_integrations_providers_list
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Provider'
+          description: ''
   /api/labs/{lab_id}/invites/:
     get:
       operationId: labs_invites_list
@@ -2305,6 +2495,85 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Export'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/external-links/:
+    get:
+      operationId: labs_projects_external_links_list
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExternalLink'
+          description: ''
+    post:
+      operationId: labs_projects_external_links_create
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExternalLinkInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ExternalLinkInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ExternalLinkInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalLink'
           description: ''
   /api/labs/{lab_id}/projects/{project_id}/handover/:
     get:
@@ -3518,6 +3787,76 @@ components:
       - detail
       - updated_at
       - updated_by
+    ConnectInput:
+      type: object
+      properties:
+        scopes:
+          type: array
+          items:
+            type: string
+    ConnectOutput:
+      type: object
+      properties:
+        authorization_url:
+          type: string
+      required:
+      - authorization_url
+    ConnectedAccount:
+      type: object
+      description: 'Explicit read-only fields: token columns are never listed (ARCHITECTURE
+        section 9).'
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        provider:
+          type: string
+          readOnly: true
+        user:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        external_email:
+          type: string
+          format: email
+          readOnly: true
+        granted_scopes:
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ConnectedAccountStatusEnum'
+          readOnly: true
+        connected_at:
+          type: string
+          format: date-time
+          readOnly: true
+        last_used_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - connected_at
+      - external_email
+      - granted_scopes
+      - id
+      - last_used_at
+      - provider
+      - status
+      - user
+    ConnectedAccountStatusEnum:
+      enum:
+      - active
+      - expired
+      - revoked
+      - error
+      type: string
+      description: |-
+        * `active` - Active
+        * `expired` - Expired
+        * `revoked` - Revoked
+        * `error` - Error
     Dataset:
       type: object
       properties:
@@ -4125,6 +4464,158 @@ components:
       - project
       - results
       - tasks
+    ExternalLink:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        project:
+          type: string
+          format: uuid
+          readOnly: true
+        document:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        dataset:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        analysis:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        result:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        manuscript:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        provider:
+          type: string
+          readOnly: true
+        provider_label:
+          type: string
+          readOnly: true
+        external_id:
+          type: string
+          readOnly: true
+        url:
+          type: string
+          format: uri
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        mime_type:
+          type: string
+          readOnly: true
+        linked_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        linked_modified_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        remote_modified_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        last_checked_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        unavailable_since:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        changed_since_linked:
+          type: boolean
+          readOnly: true
+        linker_connection_status:
+          type: string
+          nullable: true
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - analysis
+      - changed_since_linked
+      - created_at
+      - dataset
+      - document
+      - external_id
+      - id
+      - last_checked_at
+      - linked_by
+      - linked_modified_at
+      - linker_connection_status
+      - manuscript
+      - mime_type
+      - project
+      - provider
+      - provider_label
+      - remote_modified_at
+      - result
+      - title
+      - unavailable_since
+      - url
+    ExternalLinkInput:
+      type: object
+      description: |-
+        `url`, `title` and `mime_type` are only used by link_only providers; for the others
+        the provider is asked for them.
+      properties:
+        provider:
+          type: string
+          maxLength: 40
+        external_id:
+          type: string
+          maxLength: 255
+        url:
+          type: string
+          format: uri
+          maxLength: 2000
+        title:
+          type: string
+          maxLength: 500
+        mime_type:
+          type: string
+          maxLength: 255
+        document:
+          type: string
+          format: uuid
+        dataset:
+          type: string
+          format: uuid
+        analysis:
+          type: string
+          format: uuid
+        result:
+          type: string
+          format: uuid
+        manuscript:
+          type: string
+          format: uuid
+      required:
+      - external_id
+      - provider
     Handover:
       type: object
       properties:
@@ -5042,6 +5533,51 @@ components:
         * `paused` - Paused
         * `completed` - Completed
         * `archived` - Archived
+    Provider:
+      type: object
+      description: One registry entry plus the requester's own account there. Built
+        from a dict.
+      properties:
+        name:
+          type: string
+        label:
+          type: string
+        auth_type:
+          type: string
+        icon:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        configured:
+          type: boolean
+        account:
+          allOf:
+          - $ref: '#/components/schemas/ProviderAccount'
+          nullable: true
+      required:
+      - account
+      - auth_type
+      - configured
+      - icon
+      - label
+      - name
+      - scopes
+    ProviderAccount:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        external_email:
+          type: string
+      required:
+      - external_email
+      - id
+      - status
     ReadAllResult:
       type: object
       properties:

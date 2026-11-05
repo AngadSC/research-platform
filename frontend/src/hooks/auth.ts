@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, getCookie, rawRequest, SESSION_URL, toApiError } from "@/lib/api";
+import { api, ApiError, getCookie, rawRequest, SESSION_URL, toApiError } from "@/lib/api";
 import type { AuthEnvelope, RecoveryCodes, TotpAuthenticator } from "@/lib/api-types";
 
 const BASE = "/_allauth/browser/v1";
@@ -112,7 +112,12 @@ export function useRecoveryCodes(enabled: boolean) {
 function useSecurityMutation<V>(fn: (v: V) => Promise<AuthResult>) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: fn,
+    mutationFn: async (v: V) => {
+      const r = await fn(v);
+      // A signed-in user only gets 401 here when a recent password/code check is needed (D74).
+      if (r.env.status === 401) throw toApiError(401, r.env);
+      return r;
+    },
     onSuccess: () =>
       Promise.all([
         qc.invalidateQueries({ queryKey: TOTP_KEY }),
@@ -218,4 +223,33 @@ export function useEmailAction() {
     },
     onSuccess: (d) => d && qc.setQueryData(EMAILS_KEY, d),
   });
+}
+
+// ---- Reauthentication (D74) ----
+
+export class ReauthCancelled extends Error {}
+
+export interface ReauthFlows {
+  password: boolean;
+  mfa: boolean;
+}
+
+/** allauth answers a sensitive action with 401 and the flows that would satisfy it; null for any other error. */
+export function reauthFlows(e: unknown): ReauthFlows | null {
+  if (!(e instanceof ApiError) || e.status !== 401) return null;
+  const flows = (e.body as AuthEnvelope | null)?.data?.flows ?? [];
+  const ids = flows.map((f) => f.id);
+  const out = { password: ids.includes("reauthenticate"), mfa: ids.includes("mfa_reauthenticate") };
+  return out.password || out.mfa ? out : null;
+}
+
+/** Proves the password and/or a TOTP code (whichever the account has) so the action can be retried. */
+export async function reauthenticate(
+  flows: ReauthFlows,
+  v: { password?: string; code?: string },
+): Promise<void> {
+  if (flows.password)
+    await api(`${BASE}/auth/reauthenticate`, { method: "POST", body: { password: v.password } });
+  if (flows.mfa)
+    await api(`${BASE}/auth/2fa/reauthenticate`, { method: "POST", body: { code: v.code } });
 }

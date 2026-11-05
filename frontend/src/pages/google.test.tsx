@@ -164,3 +164,103 @@ describe("email addresses", () => {
     expect(body("DELETE")).toEqual({ email: "ada@home.org" });
   });
 });
+
+describe("reauthentication (D74)", () => {
+  const E = `${B}/account/email`;
+  const flows = (ids: string[]) => ({
+    status: 401,
+    body: {
+      status: 401,
+      data: { flows: ids.map((id) => ({ id })) },
+      meta: { is_authenticated: true },
+    },
+  });
+  const base = {
+    [SESSION]: userWith(true),
+    [CONFIG]: noGoogle,
+    [`GET ${B}/account/providers`]: { body: { status: 200, data: [] } },
+    [`GET ${E}`]: { body: { status: 200, data: [] } },
+    [`GET ${B}/account/authenticators/totp`]: { status: 404, body: { meta: { secret: "S" } } },
+  };
+
+  it("asks for the password after a 401, then retries the action", async () => {
+    let tries = 0;
+    const calls = mockFetch({
+      ...base,
+      [`POST ${E}`]: () =>
+        ++tries === 1 ? flows(["reauthenticate"]) : { body: { status: 200, data: [] } },
+      [`POST ${B}/auth/reauthenticate`]: { body: { status: 200 } },
+    });
+    renderRoute("/account");
+    await userEvent.type(await screen.findByLabelText("Add an email address"), "x@y.org");
+    await userEvent.click(screen.getByRole("button", { name: "Add email" }));
+    await userEvent.type(await screen.findByLabelText("Password"), "hunter2hunter2");
+    await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() =>
+      expect(calls.filter((c) => c.path === E && c.method === "POST")).toHaveLength(2),
+    );
+    expect(calls.find((c) => c.path === `${B}/auth/reauthenticate`)?.body).toEqual({
+      password: "hunter2hunter2",
+    });
+  });
+
+  it("also asks for the TOTP code when the account has two-step verification", async () => {
+    let tries = 0;
+    const calls = mockFetch({
+      ...base,
+      [`DELETE ${E}`]: () =>
+        ++tries === 1
+          ? flows(["reauthenticate", "mfa_reauthenticate"])
+          : { body: { status: 200, data: [] } },
+      [`GET ${E}`]: {
+        body: {
+          status: 200,
+          data: [
+            { email: "ada@uni.edu", primary: true, verified: true },
+            { email: "b@home.org", primary: false, verified: true },
+          ],
+        },
+      },
+      [`POST ${B}/auth/reauthenticate`]: { body: { status: 200 } },
+      [`POST ${B}/auth/2fa/reauthenticate`]: { body: { status: 200 } },
+    });
+    renderRoute("/account");
+    const row = (await screen.findByText("b@home.org")).closest("li")!;
+    await userEvent.click(within(row).getByRole("button", { name: "Remove" }));
+    await userEvent.type(await screen.findByLabelText("Password"), "pw-pw-pw-pw");
+    const dialog = within(screen.getByRole("dialog"));
+    await userEvent.type(dialog.getByLabelText("6-digit code"), "123456");
+    await userEvent.click(dialog.getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(calls.filter((c) => c.method === "DELETE")).toHaveLength(2));
+    expect(calls.find((c) => c.path === `${B}/auth/2fa/reauthenticate`)?.body).toEqual({
+      code: "123456",
+    });
+  });
+
+  it("asks only for the code when there is no usable password", async () => {
+    let tries = 0;
+    mockFetch({
+      ...base,
+      [SESSION]: userWith(false),
+      [`POST ${E}`]: () =>
+        ++tries === 1 ? flows(["mfa_reauthenticate"]) : { body: { status: 200, data: [] } },
+      [`POST ${B}/auth/2fa/reauthenticate`]: { body: { status: 200 } },
+    });
+    renderRoute("/account");
+    await userEvent.type(await screen.findByLabelText("Add an email address"), "x@y.org");
+    await userEvent.click(screen.getByRole("button", { name: "Add email" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByLabelText("6-digit code")).toBeInTheDocument();
+    expect(dialog.queryByLabelText("Password")).toBeNull();
+  });
+
+  it("asks before connecting Google, and does not retry when cancelled", async () => {
+    const calls = mockFetch({ ...base, [CONFIG]: withGoogle });
+    renderRoute("/account");
+    await userEvent.click(await screen.findByRole("button", { name: "Connect Google" }));
+    await screen.findByLabelText("Password");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByLabelText("Password")).toBeNull());
+    expect(calls.some((c) => c.path.includes("reauthenticate"))).toBe(false);
+  });
+});

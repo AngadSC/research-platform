@@ -3,6 +3,7 @@ disconnect and revoke. Views (next phase) call these and serialize the result.""
 
 import base64
 import hashlib
+import logging
 import re
 import secrets
 import time
@@ -10,20 +11,24 @@ from datetime import timedelta
 from urllib.parse import urlencode
 
 from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
+from rest_framework.exceptions import ValidationError
 
 from audit import services as audit
 from audit.models import AuditAction
 from core.models import NotificationKind
 from core.notifications import notify
-from core.permissions import Perm, get_lab_or_404, labs_for, require
+from core.permissions import Perm, get_lab_or_404, require
 from integrations import crypto, http, registry
 from integrations.http import AccountUnavailable, IntegrationError
-from integrations.models import AccountStatus, ConnectedAccount
+from integrations.models import TARGET_FIELDS, AccountStatus, ConnectedAccount, ExternalLink
 from labs.models import Lab
+from provenance.models import validate_web_url
 
+log = logging.getLogger("integrations.services")
 SESSION_KEY = "integrations.oauth"
 STATE_TTL = 600  # seconds a started connect flow stays valid
 MAX_PENDING = 5  # pending flows kept per session
@@ -305,59 +310,66 @@ def refresh_access_token(account) -> None:
 
 
 def _grant_used_elsewhere(row) -> bool:
-    """D68: the same external account is active for this user in another lab. Revoking at the
-    provider would revoke the whole grant and break that connection too."""
-    for lab in labs_for(row.user):
-        if lab.pk != row.lab_id and (
-            ConnectedAccount.objects.for_lab(lab)
-            .filter(
-                user=row.user_id,
-                provider=row.provider,
-                external_account_id=row.external_account_id,
-                status=AccountStatus.ACTIVE,
-            )
-            .exists()
-        ):
-            return True
-    return False
+    """D68: another active row (any user, any lab) holds the same external account. Revoking at
+    the provider would revoke the whole grant and break that connection too."""
+    return any(
+        ConnectedAccount.objects.for_lab(lab)
+        .filter(
+            provider=row.provider,
+            external_account_id=row.external_account_id,
+            status=AccountStatus.ACTIVE,
+        )
+        .exclude(pk=row.pk)
+        .exists()
+        for lab in Lab.objects.all()
+    )
 
 
 @sensitive_variables("token")
-def _revoke_at_provider(row) -> bool:
-    provider = registry.PROVIDERS.get(row.provider)
-    token = row.refresh_token() or row.access_token()
-    if provider is None or not provider.revoke_url or not token or _grant_used_elsewhere(row):
-        return False
+def _stored_token(row) -> str:
+    """The token to revoke at the provider; "" when there is none or it can't be decrypted. A
+    decrypt failure must never stop the local revoke."""
     try:
+        return row.refresh_token() or row.access_token()
+    except Exception:  # noqa: BLE001 - the local wipe goes ahead whatever this raises
+        return ""
+
+
+@sensitive_variables("token")
+def _revoke_at_provider(row, token) -> bool:
+    """Best effort: any failure means "not revoked" and never propagates."""
+    provider = registry.PROVIDERS.get(row.provider)
+    try:
+        if provider is None or not provider.revoke_url or not token or _grant_used_elsewhere(row):
+            return False
         resp = http.send("POST", provider.revoke_url, provider=provider, data={"token": token})
-    except IntegrationError:
+        return resp.status_code == 200
+    except Exception as exc:  # noqa: BLE001 - messages may echo the token; log the type only
+        log.warning("integration provider revoke failed: %s", type(exc).__name__)
         return False
-    return resp.status_code == 200
 
 
-def disconnect(account, *, actor, request=None, actor_label="") -> None:
+def disconnect(account, *, actor, request=None) -> None:
     """Wipe the tokens, mark the account revoked and revoke the grant at the provider (best
     effort: a provider failure never keeps the tokens). The owner needs manage_integrations
     (audited `integration.disconnected`); anyone else needs manage_lab_integrations
-    (`integration.revoked`). `actor=None` is a system revoke (lifecycle), with `actor_label`."""
-    own = actor is not None and account.user_id == actor.pk
-    if actor is not None:
-        perm = Perm.MANAGE_INTEGRATIONS if own else Perm.MANAGE_LAB_INTEGRATIONS
-        require(actor, perm, account)
+    (`integration.revoked`). System revokes go through `revoke_member_accounts`."""
+    own = account.user_id == actor.pk
+    require(actor, Perm.MANAGE_INTEGRATIONS if own else Perm.MANAGE_LAB_INTEGRATIONS, account)
     with transaction.atomic():
         row = (
             ConnectedAccount.objects.for_lab(account.lab_id).select_for_update().get(pk=account.pk)
         )
         if row.status == AccountStatus.REVOKED:
             return
-        revoked_at_provider = _revoke_at_provider(row)
+        token = _stored_token(row)
         row.status = AccountStatus.REVOKED
         row.clear_tokens()
         row.save()
+        revoked_at_provider = _revoke_at_provider(row, token)
         audit.record(
             AuditAction.INTEGRATION_DISCONNECTED if own else AuditAction.INTEGRATION_REVOKED,
             actor=actor,
-            actor_label=actor_label,
             lab=row.lab,
             target=row,
             request=request,
@@ -367,16 +379,152 @@ def disconnect(account, *, actor, request=None, actor_label="") -> None:
 
 
 def revoke_member_accounts(lab, user, *, reason) -> int:
-    """Lifecycle hook (member removed from `lab`, or deactivated): revoke every connected account
-    `user` holds in `lab`. `reason` becomes the audit actor label. Returns the number revoked."""
-    accounts = list(
-        ConnectedAccount.objects.for_lab(lab)
-        .filter(user=user)
-        .exclude(status=AccountStatus.REVOKED)
+    """Lifecycle hook (member removed from `lab`, or deactivated; `user` may be a pk): revoke
+    every connected account they hold in `lab`. Call it inside the transaction that changes the
+    membership, so the local revoke (status, tokens, audit with actor null and label
+    `lifecycle:<reason>`) commits with it. The provider calls run after the commit, best
+    effort, and can't undo the revoke. Returns the number revoked."""
+    pending = []
+    with transaction.atomic():
+        rows = (
+            ConnectedAccount.objects.for_lab(lab)
+            .select_for_update()
+            .filter(user=user)
+            .exclude(status=AccountStatus.REVOKED)
+        )
+        for row in rows:
+            pending.append((row, _stored_token(row)))
+            row.status = AccountStatus.REVOKED
+            row.clear_tokens()
+            row.save()
+            audit.record(
+                AuditAction.INTEGRATION_REVOKED,
+                actor=None,
+                actor_label=f"lifecycle:{reason}",
+                lab=row.lab,
+                target=row,
+                metadata={"provider": row.provider, "provider_revoked": False},
+            )
+        if pending:
+            transaction.on_commit(lambda: [_revoke_at_provider(r, t) for r, t in pending])
+    return len(pending)
+
+
+def revoke_orphaned_accounts() -> int:
+    """Daily safety net for the lifecycle hooks: revoke every account whose owner is no longer
+    an active member of its lab. Returns the number revoked."""
+    from labs.models import LabMembership
+
+    count = 0
+    for lab in Lab.objects.all():
+        active = LabMembership.objects.for_lab(lab).filter(user__is_active=True)
+        owners = (
+            ConnectedAccount.objects.for_lab(lab)
+            .exclude(status=AccountStatus.REVOKED)
+            .exclude(user__in=active.values("user"))
+            .values_list("user", flat=True)
+            .distinct()
+        )
+        for owner in list(owners):
+            count += revoke_member_accounts(lab, owner, reason="orphan_sweep")
+    return count
+
+
+# ---- external links
+
+
+def _target(project, field, pk):
+    """The optional item a link hangs off, from the same project (D20, D31)."""
+    model = ExternalLink._meta.get_field(field).related_model
+    qs = model.objects.for_lab(project.lab_id).filter(project=project, pk=pk)
+    if field == "document":
+        qs = qs.filter(deleted_at__isnull=True)
+    obj = qs.first()
+    if obj is None:
+        raise ValidationError({field: "This item does not exist in this project."})
+    return obj
+
+
+@transaction.atomic
+def create_link(*, project, user, data, request=None) -> ExternalLink:
+    """Link an outside item to `project` (the caller already holds edit_content). The provider
+    is asked for the item's metadata with the linker's own active account in this lab."""
+    provider = registry.PROVIDERS.get(data["provider"])
+    if provider is None:
+        raise ValidationError({"provider": "This service is not available."})
+    if not provider.valid_external_id(data["external_id"]):
+        raise ValidationError({"external_id": "This is not a valid item id."})
+    account, meta = None, {}
+    if provider.auth_type == registry.AuthType.LINK_ONLY:
+        if not (data.get("url") and data.get("title")):
+            raise ValidationError({"url": "Give the link's address and title."})
+        meta = {k: data.get(k, "") for k in ("url", "title", "mime_type")}
+    else:
+        account = (
+            ConnectedAccount.objects.for_lab(project.lab_id)
+            .filter(user=user, provider=provider.name, status=AccountStatus.ACTIVE)
+            .first()
+        )
+        if account is None:
+            raise ValidationError({"provider": f"Connect your {provider.label} account first."})
+        if provider.fetch_item is None:
+            raise ValidationError({"provider": f"Linking {provider.label} items is not ready yet."})
+        try:
+            meta = provider.fetch_item(account, data["external_id"])
+        except IntegrationError:
+            raise ValidationError(
+                {"external_id": f"{provider.label} could not be reached. Try again shortly."}
+            ) from None
+        if meta is None:
+            raise ValidationError(
+                {"external_id": f"Not found in {provider.label}, or you can't open it."}
+            )
+    try:
+        validate_web_url(meta["url"])
+    except DjangoValidationError:
+        raise ValidationError({"url": "Enter a web address starting with http or https."}) from None
+    targets = {f: _target(project, f, data[f]) for f in TARGET_FIELDS if data.get(f) is not None}
+    now = timezone.now()
+    link = ExternalLink.objects.create(
+        lab=project.lab,
+        project=project,
+        provider=provider.name,
+        connected_account=account,
+        external_id=data["external_id"],
+        url=meta["url"],
+        title=(meta["title"] or data["external_id"])[:500],
+        mime_type=(meta.get("mime_type") or "")[:255],
+        linked_by=user,
+        linked_modified_at=meta.get("modified_at"),
+        linked_version=(meta.get("version") or "")[:100],
+        remote_modified_at=meta.get("modified_at"),
+        remote_version=(meta.get("version") or "")[:100],
+        remote_checksum=(meta.get("checksum") or "")[:140],
+        last_checked_at=now if account else None,
+        **targets,
     )
-    for account in accounts:
-        disconnect(account, actor=None, actor_label=f"lifecycle:{reason}")
-    return len(accounts)
+    audit.record(
+        AuditAction.EXTERNAL_LINK_CREATED,
+        actor=user,
+        lab=project.lab,
+        target=link,
+        request=request,
+        metadata={"provider": provider.name, "external_id": link.external_id},
+    )
+    return link
+
+
+@transaction.atomic
+def remove_link(link, *, user, request=None) -> None:
+    audit.record(
+        AuditAction.EXTERNAL_LINK_REMOVED,
+        actor=user,
+        lab=link.lab,
+        target=link,
+        request=request,
+        metadata={"provider": link.provider, "external_id": link.external_id},
+    )
+    link.delete()
 
 
 # ---- key rotation
@@ -384,14 +532,18 @@ def revoke_member_accounts(lab, user, *, reason) -> int:
 
 def rotate_token_encryption() -> int:
     """Re-encrypt every stored token under the newest key (D63). Run after adding a key, before
-    removing an old one. Returns the number of accounts rewritten."""
+    removing an old one. Each row is locked and re-read, so a concurrent disconnect's wiped
+    tokens never come back. Returns the number of accounts rewritten."""
     count = 0
     for lab in Lab.objects.all():
-        for row in ConnectedAccount.objects.for_lab(lab).exclude(
-            access_token_ct="", refresh_token_ct=""
-        ):
-            row.access_token_ct = crypto.rotate(row.access_token_ct)
-            row.refresh_token_ct = crypto.rotate(row.refresh_token_ct)
-            row.save(update_fields=["access_token_ct", "refresh_token_ct"])
-            count += 1
+        ids = ConnectedAccount.objects.for_lab(lab).values_list("pk", flat=True)
+        for pk in list(ids):
+            with transaction.atomic():
+                row = ConnectedAccount.objects.for_lab(lab).select_for_update().get(pk=pk)
+                if not (row.access_token_ct or row.refresh_token_ct):
+                    continue
+                row.access_token_ct = crypto.rotate(row.access_token_ct)
+                row.refresh_token_ct = crypto.rotate(row.refresh_token_ct)
+                row.save(update_fields=["access_token_ct", "refresh_token_ct"])
+                count += 1
     return count

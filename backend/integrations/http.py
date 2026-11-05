@@ -1,7 +1,7 @@
 """The one outbound HTTP client for integrations (ARCHITECTURE section 9, D67).
 
-- HTTPS only, and only to hosts in the provider's `api_hosts`; a redirect to another host is
-  refused, never followed. Same-host redirects are followed for GET and HEAD only.
+- HTTPS only (default port), and only to hosts in the provider's `api_hosts`; a redirect to
+  another host is refused, never followed. Same-host redirects are followed for GET and HEAD only.
 - Connect and read timeouts; idempotent methods retry on network errors and 429/5xx with
   exponential backoff (Retry-After honoured, capped).
 - With an `account`, its bearer token is attached; an expiring token is refreshed first, and a
@@ -48,8 +48,8 @@ def _origin(url):
 
 
 def _check_url(url, provider):
-    scheme, host, _ = _origin(url)
-    if scheme != "https" or host not in provider.api_hosts:
+    scheme, host, port = _origin(url)
+    if scheme != "https" or host not in provider.api_hosts or port not in (None, 443):
         raise IntegrationError(f"{provider.label}: refused a request to a host it does not own")
 
 
@@ -82,7 +82,7 @@ def _send_with_retries(method, url, provider, kwargs):
         resp = None
         try:
             resp = _follow(method, url, provider, kwargs)
-        except (requests.ConnectionError, requests.Timeout) as exc:
+        except requests.RequestException as exc:
             path = urlsplit(url).path
             log.warning("integration %s %s%s failed: %s", method, host, path, type(exc).__name__)
             if not retry or last:

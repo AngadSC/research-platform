@@ -32,6 +32,7 @@ services:
     volumes:
       - ./backend:/app
       - labfiles:/data/lab_files  # lab attachments; never served by a static route
+      - ./deploy:/deploy:ro  # read by core/tests/test_production_settings.py
     ports:
       - "8000:8000"
     depends_on:

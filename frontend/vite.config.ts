@@ -25,6 +25,8 @@ export default defineConfig({
     environment: "jsdom",
     // jsdom is slower than happy-dom; the full suite runs close to the 5s default.
     testTimeout: 15000,
+    // Unbounded workers oversubscribe the container and time out the React Flow tests.
+    maxWorkers: 4,
     setupFiles: ["./src/test/setup.ts"],
     exclude: ["e2e/**", "node_modules/**"],
   },

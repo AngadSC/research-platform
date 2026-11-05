@@ -1,0 +1,52 @@
+# Production image for the Django API, Celery worker and beat (same image, different command).
+# Build: docker build -f backend/Dockerfile.prod backend
+
+# ---- builder: install dependencies into a venv and collect static files
+FROM python:3.12-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN python -m venv /opt/venv
+ENV PATH=/opt/venv/bin:$PATH
+
+WORKDIR /build
+COPY requirements.txt ./
+RUN pip install -r requirements.txt
+
+COPY . .
+# collectstatic imports settings, which refuse a placeholder SECRET_KEY when DEBUG is off. These
+# values exist only for this step and are not in the final image's environment.
+RUN SECRET_KEY=collectstatic-build-only-not-used-at-runtime-0123456789abcdefghijklmnop \
+    INTEGRATION_ENCRYPTION_KEYS="$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" \
+    DEBUG=False \
+    python manage.py collectstatic --noinput
+
+# ---- runtime
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH=/opt/venv/bin:$PATH
+
+RUN groupadd --system app \
+    && useradd --system --gid app --home-dir /app --shell /usr/sbin/nologin app \
+    && mkdir -p /data/lab_files \
+    && chown app:app /data/lab_files
+
+COPY --from=builder /opt/venv /opt/venv
+# App code stays owned by root and read-only to the app user.
+COPY --from=builder /build /app
+
+WORKDIR /app
+USER app
+
+EXPOSE 8000
+
+# Probes /healthz through gunicorn. Host must match ALLOWED_HOSTS, which is why the first entry
+# is sent as the Host header.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD ["python", "-c", "import os, urllib.request; req = urllib.request.Request('http://127.0.0.1:8000/healthz', headers={'Host': os.environ['ALLOWED_HOSTS'].split(',')[0].strip()}); raise SystemExit(0 if urllib.request.urlopen(req, timeout=4).status == 200 else 1)"]
+
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--access-logfile", "-"]

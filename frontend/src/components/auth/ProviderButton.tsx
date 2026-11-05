@@ -11,11 +11,14 @@ export function ProviderButton({
   process,
   label,
   returnTo,
+  beforeSubmit,
 }: {
   provider?: string;
   process: "login" | "connect";
   label: string;
   returnTo?: string;
+  /** Runs before the page leaves (e.g. reauthentication); the form posts once it resolves. */
+  beforeSubmit?: () => Promise<void>;
 }) {
   const { data } = useProviders();
   if (!data?.some((p) => p.id === provider)) return null;
@@ -23,7 +26,16 @@ export function ProviderButton({
     <form
       method="post"
       action="/_allauth/browser/v1/auth/provider/redirect"
-      onSubmit={() => returnTo && sessionStorage.setItem(RETURN_KEY, returnTo)}
+      onSubmit={(e) => {
+        if (returnTo) sessionStorage.setItem(RETURN_KEY, returnTo);
+        if (!beforeSubmit) return;
+        e.preventDefault();
+        const form = e.currentTarget;
+        beforeSubmit().then(
+          () => form.submit(),
+          () => undefined, // cancelled
+        );
+      }}
     >
       <input type="hidden" name="provider" value={provider} />
       <input type="hidden" name="process" value={process} />

@@ -5,6 +5,8 @@ its URL kwargs to `build_world().a` / `.b`, a `PAYLOADS` entry for each write me
 hand-written `MATRIX` row. The expected codes are never derived from the code or the role tables.
 """
 
+import dataclasses  # integrations (Run 2)
+import datetime  # integrations (Run 2)
 from types import SimpleNamespace
 
 import pytest
@@ -16,6 +18,9 @@ from rest_framework.test import APIClient
 from core.models import Institution, Notification, NotificationKind, User
 from documents import services as document_services  # documents/attachments (Phase 3)
 from ethics.models import EthicsApproval  # ethics (Phase 5)
+from integrations import registry  # integrations (Run 2)
+from integrations.models import ConnectedAccount, ExternalLink  # integrations (Run 2)
+from integrations.tests.fake import FAKE  # integrations (Run 2)
 from labs.models import Invite, Lab, LabMembership, LabRole
 from projects.models import (  # projects/tasks (Phase 3)
     Project,
@@ -42,6 +47,7 @@ EXEMPT_PREFIXES = [
     "/_allauth/",  # allauth headless: its own views, covered by core/tests/test_auth.py
     "/accounts/",  # allauth OAuth provider callbacks, covered by core/tests/test_google_auth.py
     "/admin/",  # Django admin: staff only, not part of the API
+    "/healthz",  # load-balancer probe: checks only, no data (core/tests/test_healthz.py)
 ]
 
 # fmt: off
@@ -171,6 +177,24 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET", "projects:member-handover"): "401 404 2 2 403 2 403 403 403",
     ("GET", "projects:project-handover"): "401 404 2 2 2 403 403 404 403",
     # --- end handover (Phase 6) ---
+    # --- integrations (Run 2) ---
+    # Providers are readable by every lab member (view_lab). Own accounts and connecting need
+    # manage_integrations, which every lab role holds, the viewer included (D69). The fixture
+    # account belongs to contrib: the owner disconnects it, pi and admin hold
+    # manage_lab_integrations and revoke it, and nobody else can see it: 404, not 403 (D21, D54).
+    # The OAuth callback needs only a login (the state check is inside), and with no state it
+    # redirects to the error page for everyone, even a user of no Lab A role. External links
+    # follow documents: read view_project, write edit_content; nonproj cannot see P1: 404.
+    ("GET",    "integrations:provider-list"): "401 404 2 2 2 2 2 2 2",
+    ("GET",    "integrations:account-list"): "401 404 2 2 2 2 2 2 2",
+    ("DELETE", "integrations:account-detail"): "401 404 2 2 404 2 404 404 404",
+    ("POST",   "integrations:connect"): "401 404 2 2 2 2 2 2 2",
+    ("GET",    "integrations:oauth-callback"): "401 302 302 302 302 302 302 302 302",
+    ("GET",    "integrations:external-link-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "integrations:external-link-list"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "integrations:external-link-detail"): "401 404 2 2 2 2 2 404 2",
+    ("DELETE", "integrations:external-link-detail"): "401 404 2 2 2 2 403 404 403",
+    # --- end integrations (Run 2) ---
 }
 # fmt: on
 
@@ -280,6 +304,63 @@ def _ethics_fixtures(lab, project, user, tag):
 # --- end ethics and notifications (Phase 5) ---
 
 
+# --- integrations (Run 2) ---
+def _integration_fixtures(lab, project, owners, tag):
+    """An active connected account per owner (name -> user), and one external link made by the
+    first owner on their account. Titles and emails carry `tag` so the swap test can look for
+    leaks. Nothing here holds a token."""
+    now = datetime.datetime(2030, 1, 1, tzinfo=datetime.UTC)
+    accounts = {
+        name: ConnectedAccount.objects.create(
+            lab=lab,
+            user=user,
+            provider="fake",
+            external_account_id=f"ext-{name}-{tag}",
+            external_email=f"{name}-{tag}@fake.test",
+            connected_at=now,
+        )
+        for name, user in owners.items()
+    }
+    first = next(iter(owners))
+    link = ExternalLink.objects.create(
+        lab=lab,
+        project=project,
+        provider="fake",
+        connected_account=accounts[first],
+        external_id=f"file-{tag}",
+        url="https://fake.test/file",
+        title=f"External link {tag}",
+        linked_by=owners[first],
+    )
+    return accounts, link
+
+
+@pytest.fixture(autouse=True)
+def _matrix_fake_provider(monkeypatch, settings):
+    """The fake provider is configured, and reads items without any network."""
+
+    def fetch_item(account, external_id):
+        return {
+            "title": "Linked",
+            "url": "https://fake.test/f",
+            "mime_type": "text/plain",
+            "modified_at": None,
+            "version": "1",
+            "checksum": "",
+        }
+
+    monkeypatch.setitem(
+        registry.PROVIDERS, "fake", dataclasses.replace(FAKE, fetch_item=fetch_item)
+    )
+    settings.INTEGRATION_CLIENTS = {
+        **settings.INTEGRATION_CLIENTS,
+        "fake": {"client_id": "fake-client", "client_secret": "fake-secret"},
+    }
+
+
+# --- end integrations (Run 2) ---
+
+
 def build_world():
     """Two labs, each with a project, a membership and a pending invite. Add each new
     lab-data model here, once for A and once for B."""
@@ -319,6 +400,9 @@ def build_world():
     # --- end documents/attachments (Phase 3) ---
     prov_a = _prov_fixtures(lab_a, p1, users["pi"], doc_a, attachment_a, "lab-a")  # Phase 4
     eth_a, eth_att_a, note_a = _ethics_fixtures(lab_a, p1, users["pi"], "lab-a")  # Phase 5
+    int_accounts_a, link_a = _integration_fixtures(
+        lab_a, p1, {n: users[n] for n in ("pi", "admin", "lead", "contrib")}, "lab-a"
+    )  # integrations (Run 2)
     invite_a, _ = Invite.issue(
         lab=lab_a, email="invitee-a@example.com", role=LabRole.MEMBER, invited_by=users["pi"]
     )
@@ -343,6 +427,9 @@ def build_world():
     # --- end documents/attachments (Phase 3) ---
     prov_b = _prov_fixtures(lab_b, p1_b, secret_pi, doc_b, attachment_b, "LAB-B-SECRET")  # Ph. 4
     eth_b, eth_att_b, note_b = _ethics_fixtures(lab_b, p1_b, secret_pi, "LAB-B-SECRET")  # Phase 5
+    int_accounts_b, link_b = _integration_fixtures(
+        lab_b, p1_b, {"outsider": secret_pi}, "LAB-B-SECRET"
+    )  # integrations (Run 2)
     invite_b, _ = Invite.issue(
         lab=lab_b,
         email="invitee-b-secret@example.com",
@@ -370,6 +457,9 @@ def build_world():
             "ethicsapproval_id": eth_a.pk,  # ethics and notifications (Phase 5)
             "notification_id": note_a.pk,
             "ethics_attachment_id": eth_att_a.pk,  # not a URL kwarg: ethics download test
+            "provider": "fake",  # integrations (Run 2)
+            "connectedaccount_id": int_accounts_a["contrib"].pk,
+            "externallink_id": link_a.pk,
         },
         b={
             "lab_id": lab_b.pk,
@@ -388,6 +478,9 @@ def build_world():
             "ethicsapproval_id": eth_b.pk,  # ethics and notifications (Phase 5)
             "notification_id": note_b.pk,
             "ethics_attachment_id": eth_att_b.pk,
+            "provider": "fake",  # integrations (Run 2)
+            "connectedaccount_id": int_accounts_b["outsider"].pk,
+            "externallink_id": link_b.pk,
         },
         b_names=[
             "Lab B Secret",
@@ -413,6 +506,9 @@ def build_world():
             "ethics-LAB-B-SECRET.pdf",
             "ethics bytes of LAB-B-SECRET",
             "Notification LAB-B-SECRET",
+            # --- integrations (Run 2) ---
+            "External link LAB-B-SECRET",
+            "outsider-LAB-B-SECRET@fake.test",
         ],
     )
 
@@ -560,6 +656,12 @@ PAYLOADS = {
     },
     ("POST", "core:notification-read"): lambda user, w: {},
     ("POST", "core:notification-read-all"): lambda user, w: {},
+    # --- integrations (Run 2): pi, admin, lead and contrib each hold an active fake account ---
+    ("POST", "integrations:connect"): lambda user, w: {},
+    ("POST", "integrations:external-link-list"): lambda user, w: {
+        "provider": "fake",
+        "external_id": f"file-{next(_n)}",
+    },
     # --- end ethics and notifications (Phase 5) ---
 }
 
@@ -614,7 +716,7 @@ def test_matrix_rows_are_well_formed():
     for key, row in MATRIX.items():
         tokens = row.split()
         assert len(tokens) == len(PERSONAS), key
-        assert set(tokens) <= {"2", "401", "403", "404"}, key
+        assert set(tokens) <= {"2", "302", "401", "403", "404"}, key  # 302: OAuth callback
         assert tokens[0] in {"2", "401"}, f"anon can only succeed or get 401: {key}"
         method, name = key
         if method in {"POST", "PATCH", "PUT"} and name != "core:health":
@@ -671,8 +773,8 @@ def test_matrix(world, method, name, persona, expected):
 def test_cross_lab_id_swap_is_404(world, method, name):
     """Acting as Lab A's PI: A's lab_id with B's object ID, and B's lab_id with A's object ID,
     both 404, and neither response leaks anything from Lab B."""
-    if len(discover()[(method, name)]) < 2:
-        pytest.skip("no object ID in the URL")
+    if len([k for k in discover()[(method, name)] if k.endswith("_id")]) < 2:
+        pytest.skip("no object ID in the URL")  # a `<provider>` slug is not an object ID
     pi = User.objects.get(pk=world.user_ids["pi"])
     client = client_for("pi", world)
     payload = PAYLOADS[(method, name)](pi, world) if (method, name) in PAYLOADS else None

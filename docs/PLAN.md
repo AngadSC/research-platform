@@ -87,21 +87,23 @@ Same status values. Model and effort follow orchestrator section 8. Shared-tree 
 | A3 | UI polish (plurals, relative dates, duplicate entry, sidebar drawer, mobile e2e) and D34 jsdom switch | haiku / low | done |
 | B1 | Google sign-in backend: provider config, linking rules, any-verified-email invites (D25), `/accounts/` proxy | opus / high | done |
 | C1 | Email service `core/email.py`, anymail config, route every email, export notice (D28) | sonnet / medium | done |
-| D1 | Integration framework design and security core: registry, models, MultiFernet tokens, HTTP client, OAuth2 connect flow, token-leak test | opus / high | doing |
+| D1 | Integration framework design and security core: registry, models, MultiFernet tokens, HTTP client, OAuth2 connect flow, token-leak test | opus / high | done |
 
 ## Wave 2
 | ID | Task | Model / effort | Status |
 |---|---|---|---|
 | B2 | Google sign-in UI: buttons, connected accounts, email addresses in account settings | sonnet / medium | done |
 | C2 | HTML email templates with the accent colour | haiku / low | done |
-| B3 | Security review: Phase B | opus / high | doing |
-| D2 | Integration endpoints, permissions, matrix, lifecycle, handover links, Integrations page | sonnet / medium | todo |
-| D3 | Security review: Phase D | opus / high | todo |
+| B3 | Security review: Phase B | opus / high | done |
+| B4 | Fix Phase B review findings | sonnet / medium | done |
+| D2 | Integration endpoints, permissions, matrix, lifecycle, handover links, Integrations page | sonnet / medium | done |
+| D3 | Security review: Phase D | opus / high | done |
+| D4 | Fix Phase D review findings | sonnet / medium | done |
 
 ## Wave 3
 | ID | Task | Model / effort | Status |
 |---|---|---|---|
 | E1 | Google Drive: drive.file, Picker, links on Files and research records, refresh job, dataset provenance | sonnet / medium | todo |
 | E2 | Security review: Phase E | opus / high | todo |
-| F1 | Production Dockerfile, `/healthz`, reverse proxy example, prod settings checklist test, DEPLOY.md | haiku / low | todo |
+| F1 | Production Dockerfile, `/healthz`, reverse proxy example, prod settings checklist test, DEPLOY.md | haiku / low | done |
 | W2 | Screenshots, HANDOFF.md | sonnet / medium, orchestrator | todo |

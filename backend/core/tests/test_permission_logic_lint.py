@@ -4,6 +4,8 @@ roles themselves (ARCHITECTURE section 3). Use can()/require() or a permission-m
 import re
 from pathlib import Path
 
+from core.tests.source_files import backend_py_files
+
 BACKEND = Path(__file__).resolve().parents[2]
 PATTERN = re.compile(
     r"\brole\s*(==|!=|\bnot\s+in\b|\bin\b)"
@@ -14,7 +16,7 @@ PATTERN = re.compile(
 
 
 def _files():
-    for p in BACKEND.rglob("*.py"):
+    for p in backend_py_files():
         if p.name in ("views.py", "serializers.py") and ".venv" not in p.parts:
             yield p
 
