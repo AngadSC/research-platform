@@ -28,3 +28,14 @@ Regenerate with `make screenshots` (dev stack up and seeded). 1440x900, light mo
 - 24-dark-lineage.png: lineage graph, dark mode
 - 25-dark-project-overview.png: project overview, dark mode
 - 26-viewer-document.png: document as `viewer@` (read-only)
+- 27-integrations-pi.png: Integrations page as `pi@` (everyone's connections)
+- 28-integrations-lead.png: Integrations page as `lead@` (own Drive connection)
+- 29-security-settings.png: account security with Email addresses (Connected accounts shows only when Google sign-in is configured)
+- 30-files-drive-links.png: Files tab with a Drive link, "Changed since linked" (as `lead@`)
+- 31-dataset-drive-link.png: dataset record with a Drive link, "No longer available"
+- 32-notifications-relative.png: notification bell list with relative times
+- 33-lineage-panel-drive-link.png: lineage panel for a dataset with a Drive link
+- 34-handover-sections.png: handover report for `lead@` with the external links section
+- 35-mobile-drawer.png: mobile drawer open, 390x844
+
+Drive rows come from `seed_pilot` (fake connection, `example.invalid` URLs, no tokens).

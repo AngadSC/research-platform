@@ -260,3 +260,6 @@ Send one test sign-up to a real inbox and confirm the link works before you invi
 
 To go back, restore the backup from before the upgrade. Migrations are not reversed
 automatically.
+
+## Content-Security-Policy and the Google Picker
+`script-src` in `deploy/Caddyfile` names the Picker's script paths (`apis.google.com/js/api.js`, `apis.google.com/_/scs/`, `www.gstatic.com/_/`), not whole Google hosts (D78). Google changes the paths it loads, and they could not be confirmed offline. Before go-live, open the Picker in a real browser with real Drive credentials, watch the console for CSP violations, and widen only the exact path reported.

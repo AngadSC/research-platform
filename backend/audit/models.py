@@ -70,6 +70,7 @@ class AuditAction(models.TextChoices):
     INTEGRATION_DISCONNECTED = "integration.disconnected"
     INTEGRATION_REVOKED = "integration.revoked"
     INTEGRATION_REFRESH_FAILED = "integration.refresh_failed"
+    INTEGRATION_PICKER_TOKEN = "integration.picker_token_issued"
     EXTERNAL_LINK_CREATED = "external_link.created"
     EXTERNAL_LINK_REMOVED = "external_link.removed"
     EXTERNAL_LINK_CHANGE_ACCEPTED = "external_link.change_accepted"

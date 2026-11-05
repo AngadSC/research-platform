@@ -16,12 +16,15 @@ from core.models import User
 from documents.services import create_document, save_document, upload_attachment
 from ethics import services as ethics_services
 from ethics.models import EthicsApproval
+from integrations.models import AccountStatus, ConnectedAccount, ExternalLink
 from labs.models import Lab, LabMembership, LabRole
 from labs.services import create_lab
 from projects import services as project_services
-from projects.models import ProjectRole, TaskStatus
+from projects.models import Project, ProjectRole, TaskStatus
 from provenance import services as prov
+from provenance.models import DatasetRecord
 
+PROJECT_NAME = "Pilot Attention Study (FAKE)"
 LAB_NAME = "Example Cognition Lab (FAKE)"
 PASSWORD = "seed-password-not-secret"  # noqa: S105 (dev-only, printed on purpose)
 FRONTEND_URL = "http://localhost:5173"
@@ -73,6 +76,7 @@ class Command(BaseCommand):
             with transaction.atomic():
                 self.seed()
             self.stdout.write("Seeded pilot data.")
+        self.seed_drive()
         self.summary()
 
     def make_user(self, email, display_name, lab=None, role=None):
@@ -297,6 +301,74 @@ class Command(BaseCommand):
             user=student,
             title="Survey items (FAKE)",
             content=[block("paragraph", "Fake survey item text.")],
+        )
+
+    def seed_drive(self):
+        """Fake Drive connection and two links, for screenshots. Never contacts Google: rows are
+        written directly (no tokens, which the model allows) and the .invalid hosts can't
+        resolve. Safe to re-run, and also fills in seed labs made before this existed."""
+        lab = Lab.objects.filter(name=LAB_NAME).first()
+        project = lab and Project.objects.for_lab(lab).filter(name=PROJECT_NAME).first()
+        dataset = (
+            project
+            and DatasetRecord.objects.for_lab(lab)
+            .filter(project=project, version_label="v2")
+            .first()
+        )
+        lead = User.objects.filter(email="lead@example.test").first()
+        if not (dataset and lead):
+            return
+        now = timezone.now()
+        account, _ = ConnectedAccount.objects.for_lab(lab).get_or_create(
+            user=lead,
+            provider="google_drive",
+            external_account_id="fake-drive-account-0001",
+            defaults={
+                "lab": lab,
+                "external_email": "lead@example.invalid",
+                "granted_scopes": ["https://www.googleapis.com/auth/drive.file"],
+                "status": AccountStatus.ACTIVE,
+                "connected_at": now - datetime.timedelta(days=12),
+                "last_used_at": now - datetime.timedelta(days=2),
+            },
+        )
+        base = {
+            "lab": lab,
+            "project": project,
+            "provider": "google_drive",
+            "connected_account": account,
+            "linked_by": lead,
+            "linked_modified_at": now - datetime.timedelta(days=10),
+            "last_checked_at": now - datetime.timedelta(hours=3),
+        }
+        # Files tab: changed since linked (the remote version moved on).
+        ExternalLink.objects.for_lab(lab).get_or_create(
+            project=project,
+            external_id="fake-drive-file-changed",
+            defaults={
+                **base,
+                "url": "https://drive.example.invalid/file/fake-drive-file-changed",
+                "title": "Recruitment tracker (FAKE).xlsx",
+                "mime_type": "application/vnd.ms-excel",
+                "linked_version": "3",
+                "remote_version": "5",
+                "remote_modified_at": now - datetime.timedelta(days=1),
+            },
+        )
+        # Dataset record: no longer available (the file was deleted or unshared).
+        ExternalLink.objects.for_lab(lab).get_or_create(
+            project=project,
+            external_id="fake-drive-file-gone",
+            defaults={
+                **base,
+                "dataset": dataset,
+                "url": "https://drive.example.invalid/file/fake-drive-file-gone",
+                "title": "attention-responses-export (FAKE).csv",
+                "mime_type": "text/csv",
+                "linked_version": "2",
+                "remote_version": "2",
+                "unavailable_since": now - datetime.timedelta(days=2),
+            },
         )
 
     def summary(self):

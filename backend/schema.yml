@@ -436,6 +436,7 @@ paths:
           - integration.disconnected
           - integration.revoked
           - integration.refresh_failed
+          - integration.picker_token_issued
           - external_link.created
           - external_link.removed
           - external_link.change_accepted
@@ -501,6 +502,7 @@ paths:
           * `integration.disconnected` - Integration Disconnected
           * `integration.revoked` - Integration Revoked
           * `integration.refresh_failed` - Integration Refresh Failed
+          * `integration.picker_token_issued` - Integration Picker Token
           * `external_link.created` - External Link Created
           * `external_link.removed` - External Link Removed
           * `external_link.change_accepted` - External Link Change Accepted
@@ -3530,6 +3532,7 @@ components:
       - integration.disconnected
       - integration.revoked
       - integration.refresh_failed
+      - integration.picker_token_issued
       - external_link.created
       - external_link.removed
       - external_link.change_accepted
@@ -3594,6 +3597,7 @@ components:
         * `integration.disconnected` - Integration Disconnected
         * `integration.revoked` - Integration Revoked
         * `integration.refresh_failed` - Integration Refresh Failed
+        * `integration.picker_token_issued` - Integration Picker Token
         * `external_link.created` - External Link Created
         * `external_link.removed` - External Link Removed
         * `external_link.change_accepted` - External Link Change Accepted
@@ -4652,7 +4656,9 @@ components:
           readOnly: true
         check_blocked:
           type: string
-          description: 'Why a freshness check can''t run: "" when it can.'
+          description: |-
+            Why a freshness check can't run: "" when it can (linker_inactive |
+            linker_access_lost, D78).
           readOnly: true
         version_note:
           type: string

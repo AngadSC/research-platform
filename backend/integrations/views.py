@@ -10,9 +10,13 @@ from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
+from rest_framework.exceptions import Throttled
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from audit import services as audit
+from audit.models import AuditAction
 from core.permissions import Perm
 from core.views import LabScopedViewMixin
 from integrations import registry, services
@@ -41,6 +45,7 @@ OAUTH_MESSAGES = {
     "provider_not_configured": "This service is not set up for your institution yet.",
     "scope_not_granted": "Allow every requested permission to connect.",
     "identity_failed": "We could not confirm which account you connected. Try again.",
+    "unexpected_scope": "The service granted more access than we asked for. Try again.",
     "other_account_connected": "Another account is already connected. Disconnect it first.",
 }
 
@@ -151,6 +156,8 @@ class PickerTokenView(LabScopedViewMixin, generics.GenericAPIView):
     model = ConnectedAccount
     serializer_class = PickerTokenSerializer
     perms = {"GET": Perm.MANAGE_INTEGRATIONS}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "picker_token"
 
     @extend_schema(responses=PickerTokenSerializer)
     @sensitive_variables("token")
@@ -175,11 +182,19 @@ class PickerTokenView(LabScopedViewMixin, generics.GenericAPIView):
         else:
             left = 3000  # Google access tokens last an hour; stay under it
         token = account.access_token()
+        audit.record(  # who got a browser token and when; never the token itself
+            AuditAction.INTEGRATION_PICKER_TOKEN,
+            actor=request.user,
+            lab=request.lab,
+            target=account,
+            request=request,
+            metadata={"provider": provider.name},
+        )
         resp = Response(
             {
                 "access_token": token,
                 "expires_in": max(1, min(3600, int(left))),
-                "scope": " ".join(provider.scopes),
+                "scope": " ".join(account.granted_scopes),
             }
         )
         resp["Cache-Control"] = "no-store"
@@ -270,11 +285,22 @@ class ExternalLinkDetailView(ExternalLinkMixin, generics.GenericAPIView):
 class ExternalLinkCheckView(ExternalLinkMixin, generics.GenericAPIView):
     lookup_url_kwarg = "externallink_id"
     perms = {"POST": Perm.VIEW_PROJECT}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "link_check"
 
     @extend_schema(request=None, responses=ExternalLinkSerializer)
     def post(self, request, lab_id, externallink_id):
         """Freshness check now, with the linker's account (whoever asks)."""
         link = self.get_object()
+        if link.last_checked_at:
+            wait = (
+                services.CHECK_MIN_INTERVAL
+                - (timezone.now() - link.last_checked_at).total_seconds()
+            )
+            if wait > 0:
+                raise Throttled(
+                    wait=int(wait) + 1, detail="Checked a moment ago. Try again in a minute."
+                )
         try:
             services.check_link(link)
         except IntegrationError:

@@ -9,7 +9,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from django.conf import settings
 from django.utils.dateparse import parse_datetime
@@ -42,6 +42,19 @@ class Provider:
     # What an `external_id` may look like, checked before it is stored or sent anywhere. A
     # provider that builds a URL from an id must still `urllib.parse.quote(id, safe="")` it.
     external_id_pattern: str = r"^[A-Za-z0-9_.-]{1,255}$"
+
+    # Hosts an item's web link may point at (empty = unpinned, as for link_only providers).
+    link_hosts: frozenset[str] = frozenset()
+
+    def link_url_ok(self, url) -> bool:
+        """True unless this provider pins link hosts and `url` is not https on one of them."""
+        if not self.link_hosts:
+            return True
+        try:
+            parts = urlsplit(url)
+            return parts.scheme == "https" and parts.hostname in self.link_hosts and not parts.port
+        except (ValueError, TypeError, AttributeError):
+            return False
 
     def client(self) -> tuple[str, str]:
         """(client_id, client_secret) from settings; empty strings when not configured."""
@@ -132,6 +145,7 @@ GOOGLE = Provider(
     parse_identity=_google_identity,
     fetch_item=_drive_fetch_item,
     external_id_pattern=r"^[A-Za-z0-9_-]+$",
+    link_hosts=frozenset({"docs.google.com", "drive.google.com"}),
 )
 
 PROVIDERS: dict[str, Provider] = {p.name: p for p in (GOOGLE,)}

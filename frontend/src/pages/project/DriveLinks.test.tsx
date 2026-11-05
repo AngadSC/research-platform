@@ -188,6 +188,29 @@ describe("Google Drive on the Files tab", () => {
     expect(screen.queryByRole("button", { name: "Refresh raw.csv" })).toBeNull();
   });
 
+  it("asks for a relink when the linker lost access, and hides Refresh", async () => {
+    mockFetch(base([provider()], [link({ check_blocked: "linker_access_lost" })]));
+    renderRoute(FILES);
+    expect(await screen.findByText(/lost access to this project. Relink it/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Refresh raw.csv" })).toBeNull();
+  });
+
+  it("never renders a blank or non-http link as a link", async () => {
+    mockFetch(
+      base(
+        [provider()],
+        [
+          link({ id: "l2", title: "blanked", url: "" }),
+          link({ id: "l3", title: "scripted", url: "javascript:alert(1)" }),
+        ],
+      ),
+    );
+    renderRoute(FILES);
+    expect(await screen.findByText("blanked")).toBeVisible();
+    expect(screen.queryByRole("link", { name: /blanked|scripted/ })).toBeNull();
+    expect(screen.getByText("scripted")).toBeVisible();
+  });
+
   it("keeps links to records off the project's file list", async () => {
     mockFetch(base([provider()], [link({ id: "l2", title: "in a dataset", dataset: "d1" })]));
     renderRoute(FILES);

@@ -313,6 +313,8 @@ REST_FRAMEWORK = {
         "invites": "30/hour",
         "uploads": "60/hour",
         "lab_create": "5/day",
+        "picker_token": "30/hour",
+        "link_check": "60/hour",
     },
     "DEFAULT_PERMISSION_CLASSES": ["core.permissions.HasPerm"],
     "DEFAULT_AUTHENTICATION_CLASSES": ["core.auth.SessionAuthentication"],

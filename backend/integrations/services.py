@@ -21,7 +21,7 @@ from audit import services as audit
 from audit.models import AuditAction
 from core.models import NotificationKind
 from core.notifications import notify
-from core.permissions import Perm, get_lab_or_404, require
+from core.permissions import Perm, can, get_lab_or_404, require
 from integrations import crypto, http, registry
 from integrations.http import AccountUnavailable, IntegrationError
 from integrations.models import TARGET_FIELDS, AccountStatus, ConnectedAccount, ExternalLink
@@ -172,6 +172,8 @@ def complete_connect(request, *, state, code="", error="") -> ConnectedAccount:
     granted = sorted(set(str(tokens.get("scope", "")).split()) or entry["scopes"])
     if not set(entry["scopes"]) <= set(granted):
         raise OAuthError("scope_not_granted")  # the user unticked a scope on the consent screen
+    if not set(granted) <= set(provider.scopes):
+        raise OAuthError("unexpected_scope")  # D78: a merged grant; discarded, not stored
     resp = http.send(
         "GET",
         provider.identity_url,
@@ -261,15 +263,18 @@ def _refresh_locked(row) -> bool:
             status = AccountStatus.EXPIRED if exc.code == "invalid_grant" else AccountStatus.ERROR
             reason = exc.code
         else:
-            row.set_tokens(
-                access=tokens["access_token"],
-                refresh=tokens.get("refresh_token") or None,  # some providers rotate it
-                expires_at=_expiry(tokens),
-            )
-            if tokens.get("scope"):
-                row.granted_scopes = sorted(set(str(tokens["scope"]).split()))
-            row.save()
-            return False
+            granted = sorted(set(str(tokens.get("scope", "")).split()))
+            if set(granted) <= set(provider.scopes):
+                row.set_tokens(
+                    access=tokens["access_token"],
+                    refresh=tokens.get("refresh_token") or None,  # some providers rotate it
+                    expires_at=_expiry(tokens),
+                )
+                if granted:
+                    row.granted_scopes = granted
+                row.save()
+                return False
+            status, reason = AccountStatus.ERROR, "unexpected_scope"  # D78: wipe and reconnect
     row.status = status
     row.clear_tokens()
     row.save()
@@ -479,6 +484,8 @@ def create_link(*, project, user, data, request=None) -> ExternalLink:
             raise ValidationError(
                 {"external_id": f"Not found in {provider.label}, or you can't open it."}
             )
+    if not provider.link_url_ok(meta["url"]):
+        raise ValidationError({"url": f"{provider.label} gave an unexpected link address."})
     try:
         validate_web_url(meta["url"])
     except DjangoValidationError:
@@ -568,16 +575,26 @@ def remove_link(link, *, user, request=None) -> None:
 # ---- freshness
 
 
+def check_blocked(link) -> str:
+    """Why `link` can't be checked: "" when it can. Freshness uses the linker's token, so it
+    needs their account active and their access to the project to still hold (D78)."""
+    if link.connected_account_id and link.connected_account.status != AccountStatus.ACTIVE:
+        return "linker_inactive"
+    if link.connected_account_id and not can(link.linked_by, Perm.VIEW_PROJECT, link.project):
+        return "linker_access_lost"
+    return ""
+
+
 def check_link(link) -> ExternalLink:
     """Read the item's metadata now, with the linker's account, and record what was seen.
-    A missing item sets `unavailable_since`; a later success clears it. Does nothing when the
-    linker's account is not active (the UI says why). Raises IntegrationError on a transient
+    A missing item sets `unavailable_since`; a later success clears it. Does nothing when
+    `check_blocked` gives a reason (the UI shows it). Raises IntegrationError on a transient
     failure."""
     provider = registry.PROVIDERS.get(link.provider)
     account = link.connected_account
     if provider is None or provider.fetch_item is None or account is None:
         return link
-    if account.status != AccountStatus.ACTIVE:
+    if check_blocked(link):
         return link
     try:
         meta = provider.fetch_item(account, link.external_id)
@@ -629,6 +646,7 @@ def accept_change(link, *, user, request=None) -> ExternalLink:
     return link
 
 
+CHECK_MIN_INTERVAL = 60  # seconds between manual checks of one link (D78)
 CHECK_PAUSE = 0.2  # seconds between provider calls in the daily job
 
 
@@ -637,9 +655,11 @@ def check_all_links() -> dict:
     API reports `check_blocked`). A failure on one link never stops the rest."""
     done = skipped = failed = 0
     for lab in Lab.objects.all():
-        links = ExternalLink.objects.for_lab(lab).select_related("connected_account", "project")
+        links = ExternalLink.objects.for_lab(lab).select_related(
+            "connected_account", "project", "linked_by"
+        )
         for link in links.filter(connected_account__isnull=False).order_by("pk"):
-            if link.connected_account.status != AccountStatus.ACTIVE:
+            if check_blocked(link):
                 skipped += 1
                 continue
             try:

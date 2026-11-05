@@ -11,6 +11,7 @@ export const CONNECT_ERRORS: Record<string, string> = {
   provider_not_configured: "This service is not set up for your institution yet.",
   scope_not_granted: "Allow every requested permission to connect.",
   identity_failed: "We could not confirm which account you connected. Try again.",
+  unexpected_scope: "The service granted more access than we asked for. Try again.",
   other_account_connected: "Another account is already connected. Disconnect it first.",
 };
 export const connectError = (code: string | null) =>
@@ -37,6 +38,11 @@ export type LinkState = {
 export function linkState(link: ExternalLink): LinkState {
   if (link.unavailable_since) return { tone: "destructive", label: "No longer available" };
   if (link.changed_since_linked) return { tone: "warning", label: "Changed since linked" };
+  if (link.check_blocked === "linker_access_lost")
+    return {
+      tone: "secondary",
+      label: "Can't check: the person who linked it lost access to this project. Relink it",
+    };
   if (link.linker_connection_status && link.linker_connection_status !== "active")
     return { tone: "secondary", label: "Can't check: the linker's connection is inactive" };
   return { tone: "success", label: "Up to date" };

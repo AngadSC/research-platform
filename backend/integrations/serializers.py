@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from core.serializers import UserSerializer
-from integrations import registry
+from integrations import registry, services
 from integrations.models import TARGET_FIELDS, ConnectedAccount, ExternalLink
 
 
@@ -131,10 +131,16 @@ class ExternalLinkSerializer(serializers.ModelSerializer):
         return obj.connected_account.status if obj.connected_account_id else None
 
     def get_check_blocked(self, obj) -> str:
-        """Why a freshness check can't run: "" when it can."""
-        if obj.connected_account_id and obj.connected_account.status != "active":
-            return "linker_inactive"
-        return ""
+        """Why a freshness check can't run: "" when it can (linker_inactive |
+        linker_access_lost, D78)."""
+        return services.check_blocked(obj)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        provider = registry.PROVIDERS.get(instance.provider)
+        if provider and not provider.link_url_ok(instance.url):
+            data["url"] = ""  # never hand the browser a link outside the provider's hosts (D78)
+        return data
 
     def get_version_note(self, obj) -> str:
         """Set on a just-created dataset link: copied | same | kept | none (D76)."""

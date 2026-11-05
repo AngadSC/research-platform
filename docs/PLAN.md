@@ -104,6 +104,7 @@ Same status values. Model and effort follow orchestrator section 8. Shared-tree 
 | ID | Task | Model / effort | Status |
 |---|---|---|---|
 | E1 | Google Drive: drive.file, Picker, links on Files and research records, refresh job, dataset provenance | sonnet / medium | done |
-| E2 | Security review: Phase E | opus / high | doing |
+| E2 | Security review: Phase E | opus / high | done |
+| E3 | Fix Phase E review findings | sonnet / medium | done |
 | F1 | Production Dockerfile, `/healthz`, reverse proxy example, prod settings checklist test, DEPLOY.md | haiku / low | done |
-| W2 | Screenshots, HANDOFF.md | sonnet / medium, orchestrator | todo |
+| W2 | Screenshots, HANDOFF.md | sonnet / medium, orchestrator | done |

@@ -6,7 +6,7 @@ const DIR = "../docs/screenshots";
 mkdirSync(DIR, { recursive: true });
 
 const shot = async (page: Page, name: string) => {
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => {}); // a stalled request must not block a screenshot
   await page.waitForTimeout(400);
   // The app scrolls inside <main>, so grow the viewport to fit instead of relying on fullPage.
   const h = await page.evaluate(() =>
@@ -28,6 +28,16 @@ const theme = (page: Page, t: "light" | "dark") =>
   page.addInitScript((v) => localStorage.setItem("theme", v), t);
 const base = (page: Page) => page.url().replace(/\/(overview|tasks|documents|files).*$/, "");
 const lab = (page: Page) => page.url().match(/\/labs\/[^/]+/)![0];
+
+/** Earlier `make e2e` runs leave e2e-*.pdf uploads on the Files tab; remove them so reruns match. */
+const clearE2eUploads = async (page: Page) => {
+  const del = page.getByRole("button", { name: /^Delete e2e-/ });
+  while (await del.count()) {
+    await del.first().click();
+    await page.getByRole("button", { name: "Delete file" }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+  }
+};
 
 test.beforeEach(async ({ page }) => theme(page, "light"));
 
@@ -65,6 +75,7 @@ test.describe("@screenshots", () => {
 
     await page.goto(`${b}/files`);
     await expect(page.getByRole("button", { name: "Upload file" }).first()).toBeVisible();
+    await clearE2eUploads(page);
     await shot(page, "08-files");
     await page.getByRole("button", { name: "Upload file" }).first().click();
     await expect(page.getByText(/Do not upload participant identifiers/)).toBeVisible();
@@ -127,19 +138,87 @@ test.describe("@screenshots", () => {
     // Empty state: a project with nothing in it (created once, reused afterwards).
     const empty = "Empty project (screenshots)";
     await page.goto(l);
-    await expect(page.getByRole("table").getByRole("row").nth(1)).toBeVisible();
-    if (!(await page.getByRole("row", { name: empty }).count())) {
+    // The sidebar lists every project; wait for it before deciding whether one exists.
+    const side = page.locator("#app-sidebar");
+    await expect(side.getByRole("link", { name: PROJECT })).toBeVisible();
+    if (!(await side.getByRole("link", { name: empty }).count())) {
       await page.getByRole("button", { name: "New project" }).first().click();
       const d = page.getByRole("dialog");
       await d.getByLabel("Name").fill(empty);
       await d.getByRole("button", { name: "Save" }).click();
-      await expect(page.getByRole("row", { name: empty })).toBeVisible();
+      await expect(side.getByRole("link", { name: empty })).toBeVisible();
     }
-    await page.getByRole("row", { name: empty }).first().click();
+    await side.getByRole("link", { name: empty }).first().click();
     await expect(page).toHaveURL(/\/overview$/);
     await page.goto(page.url().replace(/\/overview$/, "/tasks"));
     await expect(page.getByText("No tasks yet")).toBeVisible();
     await shot(page, "23-empty-state");
+  });
+
+  test("run 2 screens", async ({ page }) => {
+    await login(page, "pi");
+    await openProject(page);
+    const b = base(page);
+    const l = lab(page);
+
+    await page.goto(`${l}/settings/integrations`);
+    await expect(page.getByRole("heading", { name: "Integrations", level: 1 })).toBeVisible();
+    await expect(page.getByText("Lee Lead (FAKE)").first()).toBeVisible();
+    await shot(page, "27-integrations-pi");
+
+    await page.goto("/account");
+    await expect(page.getByRole("heading", { name: "Email addresses" })).toBeVisible();
+    // "Connected accounts" (Google) only renders when Google sign-in is configured; shown as is.
+    await shot(page, "29-security-settings");
+
+    await page.goto(`${b}/lineage`);
+    await page
+      .getByRole("button", { name: "Dataset: Attention task responses (FAKE)" })
+      .last()
+      .click();
+    await expect(page.getByRole("dialog").getByText("No longer available")).toBeVisible();
+    await shot(page, "33-lineage-panel-drive-link");
+
+    await page.goto(`${l}/members`);
+    await page.getByRole("link", { name: /Generate handover for lead@/ }).click();
+    await expect(page.getByRole("heading", { name: /Handover: Lee Lead/ })).toBeVisible();
+    await expect(page.getByText("attention-responses-export (FAKE).csv")).toBeVisible();
+    await shot(page, "34-handover-sections");
+
+    // The bell's list shows relative times ("3 hours ago").
+    await page.goto(`${l}`);
+    await page.getByRole("button", { name: /^Notifications, \d+ unread/ }).click();
+    await expect(page.getByText(/ ago/).first()).toBeVisible();
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `${DIR}/32-notifications-relative.png` });
+  });
+
+  test("run 2 screens as lead", async ({ page }) => {
+    await login(page, "lead");
+    await openProject(page);
+    const b = base(page);
+    const l = lab(page);
+
+    await page.goto(`${l}/settings/integrations`);
+    await expect(page.getByRole("heading", { name: "Integrations", level: 1 })).toBeVisible();
+    await expect(page.getByText(/lead@example\.invalid/).first()).toBeVisible();
+    await shot(page, "28-integrations-lead");
+
+    await page.goto(`${b}/files`);
+    await expect(page.getByText("Changed since linked")).toBeVisible();
+    await shot(page, "30-files-drive-links");
+
+    await page.goto(`${b}/research/datasets`);
+    await page.getByRole("row", { name: /v2/ }).click();
+    await expect(page.getByText("No longer available")).toBeVisible();
+    await shot(page, "31-dataset-drive-link");
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${b}/overview`);
+    await page.getByRole("button", { name: "Open navigation" }).click();
+    await expect(page.locator("#app-sidebar")).toBeVisible();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: `${DIR}/35-mobile-drawer.png` });
   });
 
   test("dark mode", async ({ page }) => {
