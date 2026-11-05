@@ -204,7 +204,7 @@ def record(action: AuditAction, *, actor: User | None, lab: Lab | None,
 | `<model>.deleted` for `task`, `deadline`, `dataset`, `analysis`, `result`, `decision`, `manuscript`, `ethics_approval` | the delete service for each |
 | `audit_log.viewed` | audit list view |
 | `integration.connected`, `integration.disconnected` (own account), `integration.revoked` (someone else's, or lifecycle with actor null), `integration.refresh_failed` (actor null, `actor_label="integrations:refresh"`) | `integrations.services` (section 9) |
-| `external_link.created`, `external_link.removed` | the external-link services (next phase, section 9) |
+| `external_link.created`, `external_link.removed`, `external_link.change_accepted` | the external-link services (section 9) |
 | `handover.generated` | handover views |
 
 Creating and editing ordinary content is not audited, because revisions and `updated_by` already cover it. Role changes are the "permission changes" that SPEC §2 phase 2 asks for.
@@ -315,10 +315,10 @@ The tokens are `2` (any 2xx), `401`, `403` and `404`. One test is parametrized o
 
 ## 9. Integrations (`backend/integrations/`)
 
-The framework for outside services: Google Drive first, then Microsoft, Overleaf, REDCap and Qualtrics. The security core (registry, models, crypto, HTTP client, OAuth flow services) exists. Endpoints, the permission-matrix rows, lifecycle hooks, the UI and Drive itself are the next phase and follow this section.
+The framework for outside services: Google Drive first, then Microsoft, Overleaf, REDCap and Qualtrics. The security core (registry, models, crypto, HTTP client, OAuth flow services) exists. Endpoints, the permission-matrix rows, the UI and Google Drive follow this section.
 
 ### Registry (`integrations/registry.py`)
-Providers are code, not a database table. `Provider` is a frozen dataclass: `name` (the key stored on rows), `label`, `auth_type` (`oauth2 | api_key | link_only`), `scopes` (the **only** scopes that can ever be requested), `icon`, `authorize_url`, `token_url`, `revoke_url`, `identity_url` + `parse_identity(json) -> (external_id, email)`, `api_hosts` (the hosts a token may be sent to) and `authorize_params` (fixed extra authorize-URL params). Client credentials come from `settings.INTEGRATION_CLIENTS[name]`; a provider without them is "not configured" and can't be connected. `PROVIDERS` holds `google` today. Tests register `integrations/tests/fake.py::FAKE` with `monkeypatch.setitem(PROVIDERS, ...)` and swap `integrations.http._session` for `FakeTransport`.
+Providers are code, not a database table. `Provider` is a frozen dataclass: `name` (the key stored on rows), `label`, `auth_type` (`oauth2 | api_key | link_only`), `scopes` (the **only** scopes that can ever be requested), `icon`, `authorize_url`, `token_url`, `revoke_url`, `identity_url` + `parse_identity(json) -> (external_id, email)`, `api_hosts` (the hosts a token may be sent to) and `authorize_params` (fixed extra authorize-URL params). Client credentials come from `settings.INTEGRATION_CLIENTS[name]`; a provider without them is "not configured" and can't be connected. `PROVIDERS` holds `google_drive` today (D77). Tests register `integrations/tests/fake.py::FAKE` with `monkeypatch.setitem(PROVIDERS, ...)` and swap `integrations.http._session` for `FakeTransport`.
 
 ### Models
 | Model | Fields | Constraints / notes |
@@ -360,7 +360,7 @@ Security properties: state is unguessable, single-use, short-lived and bound to 
 - **Member removed from a lab, or user deactivated:** call `integrations.services.revoke_member_accounts(lab, user, reason="member_removed" | "user_deactivated")` for each affected lab, via `transaction.on_commit` (it makes HTTP calls). Their `ExternalLink`s stay. Freshness checks for them stop, because the linker's account is revoked.
 - **Handover** (section 5, phase 6) lists the person's external links (`linked_by = user`) in that lab, so someone else can re-link them under their own account.
 
-### Endpoints (next phase)
+### Endpoints
 `L = /api/labs/<lab_id>`, `P = L/projects/<project_id>`. Rows go into the permission matrix by hand (D32). Responses use the serializers in `integrations/serializers.py` (explicit field lists, no token fields).
 
 | Method | Path | Perm |
@@ -373,16 +373,17 @@ Security properties: state is unguessable, single-use, short-lived and bound to 
 | GET | `L/integrations/google/picker-token/` (D70) | manage_integrations, own active account only |
 | GET / POST | `P/external-links/` (POST validates via the provider, records the baseline, audits `external_link.created`) | view_project / edit_content |
 | GET / DELETE | `L/external-links/<externallink_id>/` (DELETE audits `external_link.removed`) | view_project / edit_content |
-| POST | `L/external-links/<externallink_id>/check/` (freshness check now, with the linker's account) | view_project |
-| POST | `L/external-links/<externallink_id>/accept-change/` (copy `remote_*` to `linked_*`) | edit_content |
+| POST | `L/external-links/<externallink_id>/check/` (freshness check now, with the linker's account; 502 on a transient provider failure) | view_project |
+| POST | `L/external-links/<externallink_id>/accept-change/` (copy `remote_*` to `linked_*`, audits `external_link.change_accepted`) | edit_content |
 
 When a service accepts `connected_account` for a link, it must be the requester's own **active** account in this lab. `external_link.*` audit metadata holds `provider` and `external_id`, never a URL query string.
 
 ### Google Drive specifics
 - Scope **`https://www.googleapis.com/auth/drive.file` only** (D64): per-file access to files the user picks in the Google Picker. Identity comes from `GET drive/v3/about?fields=user(permissionId,emailAddress)`, which works with `drive.file`, so no `openid`/`email` scope is requested. External account id = `permissionId`.
-- **Picker:** the SPA loads the Google Picker with the integration client's API key and the access token from `picker-token`. Picked file ids come back to `P/external-links/`. The server then reads metadata with the linker's token: `files.get?fields=id,name,mimeType,modifiedTime,version,md5Checksum,webViewLink,trashed`.
+- **Picker:** the SPA loads Google's script only on click, then opens the Picker with the public API key and app id (`public_config` on the providers endpoint, D77) and the access token from `picker-token`. Picked file ids come back to `P/external-links/`. The server then reads metadata with the linker's token: `files.get?fields=id,name,mimeType,modifiedTime,version,md5Checksum,webViewLink,trashed`.
 - **Metadata only:** never download, export or cache file contents (`alt=media` and `files.export` are never called). Store `version` and `md5Checksum` (as `md5:<hex>`) when given.
-- **Freshness:** a daily Celery job loops over labs and checks each link with its linker's active account, at a bounded rate. 404, or `trashed=true`, sets `unavailable_since`; a later success clears it. A changed `version` or `modifiedTime` shows "changed since linked". Links whose account isn't active are skipped, and the UI says "can't check: the linker's connection is inactive".
+- **Freshness:** a daily Celery job loops over labs and checks each link with its linker's active account, at a bounded rate. 404, or `trashed=true`, sets `unavailable_since`; a later success clears it. A changed `md5Checksum`, `version` or `modifiedTime` shows "changed since linked". Links whose account isn't active are skipped, and the UI says "can't check: the linker's connection is inactive".
+- **Dataset records:** linking a file to a dataset record may fill its empty `checksum` (D76). The lineage response adds `meta.external_links` (id, provider, title, url, status, last_checked_at) to dataset, analysis, result and manuscript nodes.
 - **Incremental authorization:** a later feature needing another Drive scope adds it to `GOOGLE.scopes` (with a DECISIONS entry) and calls `start_connect(..., scopes=[new])`. `include_granted_scopes=true` merges it into the existing grant.
 
 ### Token-leak test (`integrations/tests/test_token_leaks.py`)

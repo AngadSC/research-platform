@@ -23,7 +23,7 @@ from django.test.utils import override_settings
 from audit.models import AuditEvent
 from core.models import Notification, User
 from integrations import http, services
-from integrations.jobs import revoke_orphans
+from integrations.jobs import check_links, revoke_orphans
 from integrations.models import ConnectedAccount, ExternalLink
 from integrations.serializers import ConnectedAccountSerializer
 from integrations.tests.conftest import CLIENT_SECRET, make_request, token_reply
@@ -355,6 +355,68 @@ def api_external_links(w):
     out.append(_dump(c.get(base)))
     detail = _lab_url(w, f"external-links/{created.json()['id']}/")
     out += [_dump(c.get(detail)), _dump(c.delete(detail)), _dump(c.get(detail))]
+    return "\n".join(out)
+
+
+@surface
+def api_drive_picker_check_accept_and_job(w):
+    """D70: the picker token is the one place an access token may leave the server. Its own
+    access token is removed from that one response (after checking it is really there, and
+    only once); everything else, the refresh token and the client secret included, is scanned,
+    as are the check and accept-change endpoints and the daily job."""
+    from django.conf import settings
+
+    from integrations.registry import DRIVE_FIELDS, GOOGLE
+
+    scope = GOOGLE.scopes[0]
+    clients = {
+        **settings.INTEGRATION_CLIENTS,
+        "google_drive": {"client_id": "gd", "client_secret": CLIENT_SECRET},
+    }
+    pi = w.users["pi"]
+    c = w.client(pi)
+    with override_settings(INTEGRATION_CLIENTS=clients):
+        request = make_request(pi)
+        state = parse_qs(urlsplit(services.start_connect(request, w.lab, "google_drive")).query)[
+            "state"
+        ][0]
+        w.transport.on("POST", GOOGLE.token_url, token_reply(ACCESS[2], REFRESH[2], scope=scope))
+        who = {"user": {"permissionId": "gd-1", "emailAddress": "p@fake.test"}}
+        w.transport.on("GET", GOOGLE.identity_url, response(200, who))
+        services.complete_connect(request, state=state, code=CODE)
+        _note_ciphertexts(w)
+
+        picker = c.get(_lab_url(w, "integrations/google/picker-token/"))
+        assert picker.status_code == 200 and picker["Cache-Control"] == "no-store"
+        text = _dump(picker)
+        assert text.count(ACCESS[2]) == 1  # exactly the access token, once
+        out = [text.replace(ACCESS[2], "<picker access token>")]
+        for role in ("member", "viewer", "lab_admin"):  # no Drive account of their own: 404
+            out.append(
+                _dump(w.client(w.users[role]).get(_lab_url(w, "integrations/google/picker-token/")))
+            )
+
+        file_url = f"https://www.googleapis.com/drive/v3/files/f9?fields={DRIVE_FIELDS}"
+        item = {
+            "name": "Raw.csv",
+            "webViewLink": "https://drive.google.com/f9",
+            "modifiedTime": "2030-01-01T10:00:00Z",
+            "version": "1",
+        }
+        w.transport.on("GET", file_url, response(200, item))
+        base = _lab_url(w, f"projects/{w.project.pk}/external-links/")
+        body = {"provider": "google_drive", "external_id": "f9"}
+        link = c.post(base, body, "application/json").json()
+        check = _lab_url(w, f"external-links/{link['id']}/check/")
+        accept = _lab_url(w, f"external-links/{link['id']}/accept-change/")
+        out.append(_dump(c.post(check)))
+        w.transport.on("GET", file_url, response(500, {"error": f"{ACCESS[2]} {REFRESH[2]}"}))
+        out.append(_dump(c.post(check)))
+        w.transport.on("GET", file_url, response(404, {"error": ACCESS[2]}))
+        out.append(_dump(c.post(check)))
+        out.append(_dump(c.post(accept)))
+        out.append(_dump(w.client(w.users["viewer"]).post(accept)))
+        out.append(repr(check_links()))
     return "\n".join(out)
 
 

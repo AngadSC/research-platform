@@ -48,6 +48,7 @@ export type Decision = Schemas["Decision"];
 export type Manuscript = Schemas["Manuscript"];
 export type ConnectedAccount = Schemas["ConnectedAccount"];
 export type IntegrationProvider = Schemas["Provider"];
+export type PickerToken = Schemas["PickerToken"];
 export type ConnectOutput = Schemas["ConnectOutput"];
 export type ExternalLink = Schemas["ExternalLink"];
 export type ExternalLinkInput = Schemas["ExternalLinkInput"];

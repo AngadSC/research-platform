@@ -6,6 +6,7 @@ import type {
   ExternalLink,
   ExternalLinkInput,
   IntegrationProvider,
+  PickerToken,
 } from "@/lib/api-types";
 
 const base = (labId: string) => `/api/labs/${labId}`;
@@ -78,6 +79,28 @@ export function useRemoveExternalLink(labId: string, projectId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api(`${base(labId)}/external-links/${id}/`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...root(labId), "links", projectId] }),
+  });
+}
+
+/** The only call that returns an access token (D70). Used right before opening the Picker. */
+export const fetchPickerToken = (labId: string) =>
+  api<PickerToken>(`${base(labId)}/integrations/google/picker-token/`);
+
+export function useCheckExternalLink(labId: string, projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<ExternalLink>(`${base(labId)}/external-links/${id}/check/`, { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...root(labId), "links", projectId] }),
+  });
+}
+
+export function useAcceptExternalChange(labId: string, projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<ExternalLink>(`${base(labId)}/external-links/${id}/accept-change/`, { method: "POST" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: [...root(labId), "links", projectId] }),
   });
 }

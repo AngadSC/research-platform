@@ -9,7 +9,7 @@ import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils
 const user = { id: "u1", email: "ada@uni.edu", display_name: "Ada" };
 const PAGE = "/labs/lab1/settings/integrations";
 const provider = (over: Record<string, unknown> = {}) => ({
-  name: "google",
+  name: "google_drive",
   label: "Google Drive",
   auth_type: "oauth2",
   icon: "google-drive",
@@ -20,7 +20,7 @@ const provider = (over: Record<string, unknown> = {}) => ({
 });
 const account = (over: Record<string, unknown> = {}) => ({
   id: "a1",
-  provider: "google",
+  provider: "google_drive",
   user,
   external_email: "ada@gmail.test",
   granted_scopes: [],
@@ -47,7 +47,7 @@ describe("Integrations page", () => {
   it("offers Connect for a service that is not connected", async () => {
     const calls = mockFetch({
       ...base(MEMBER, [provider()]),
-      "POST /api/labs/lab1/integrations/google/connect/": {
+      "POST /api/labs/lab1/integrations/google_drive/connect/": {
         body: { authorization_url: "https://accounts.example/consent" },
       },
     });
@@ -137,7 +137,7 @@ const link = (over: Partial<ExternalLink> = {}): ExternalLink =>
   ({
     id: "l1",
     project: "p1",
-    provider: "google",
+    provider: "google_drive",
     provider_label: "Google Drive",
     external_id: "f1",
     url: "https://drive.example/f1",

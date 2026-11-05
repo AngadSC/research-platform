@@ -27,7 +27,9 @@ def validate_commit(value):
 
 def validate_checksum(value):
     if value and not CHECKSUM_RE.match(value):
-        raise ValidationError("Use the form algorithm:hex, for example sha256:ab12... or md5:ab12...")
+        raise ValidationError(
+            "Use the form algorithm:hex, for example sha256:ab12... or md5:ab12..."
+        )
 
 
 class ManuscriptStatus(models.TextChoices):

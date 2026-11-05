@@ -9,7 +9,6 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
-
 from urllib.parse import quote
 
 from django.conf import settings

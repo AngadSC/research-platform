@@ -52,6 +52,11 @@ export function ExternalLinkItem({
             {" | Linked by "}
             {personName(link.linked_by)}
           </span>
+          {link.provider === "google_drive" && (
+            <span className="text-xs text-muted-foreground">
+              Opening this file uses Google&apos;s own sharing settings.
+            </span>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-2">

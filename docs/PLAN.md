@@ -103,7 +103,7 @@ Same status values. Model and effort follow orchestrator section 8. Shared-tree 
 ## Wave 3
 | ID | Task | Model / effort | Status |
 |---|---|---|---|
-| E1 | Google Drive: drive.file, Picker, links on Files and research records, refresh job, dataset provenance | sonnet / medium | doing |
-| E2 | Security review: Phase E | opus / high | todo |
+| E1 | Google Drive: drive.file, Picker, links on Files and research records, refresh job, dataset provenance | sonnet / medium | done |
+| E2 | Security review: Phase E | opus / high | doing |
 | F1 | Production Dockerfile, `/healthz`, reverse proxy example, prod settings checklist test, DEPLOY.md | haiku / low | done |
 | W2 | Screenshots, HANDOFF.md | sonnet / medium, orchestrator | todo |

@@ -7,6 +7,7 @@ import { DataTable, type Column } from "@/components/shared/DataTable";
 import { DetailPanel } from "@/components/shared/DetailPanel";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
+import { LinkedFiles, type LinkTarget } from "@/components/shared/LinkedFiles";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -364,6 +365,13 @@ function fields(kind: Kind, r: AnyRecord, labId: string, base: string): [string,
   }
 }
 
+const LINK_FIELD = {
+  datasets: "dataset",
+  analyses: "analysis",
+  results: "result",
+  manuscripts: "manuscript",
+} as const satisfies Partial<Record<Kind, LinkTarget>>;
+
 export function ResearchDetail(props: ProjectTabProps) {
   const { id = "" } = useParams();
   const kind = useKind();
@@ -426,6 +434,19 @@ function Detail({
           </div>
         ))}
       </dl>
+      {kind in LINK_FIELD && (
+        <section aria-labelledby="linked-files" className="grid max-w-3xl gap-2">
+          <h2 id="linked-files" className="text-sm font-medium">
+            Linked files
+          </h2>
+          <LinkedFiles
+            labId={labId}
+            projectId={projectId}
+            canEdit={canEdit}
+            target={{ field: LINK_FIELD[kind as keyof typeof LINK_FIELD], id }}
+          />
+        </section>
+      )}
       <DetailPanel open={editing} onOpenChange={setEditing} title={`Edit ${KINDS[kind].one}`}>
         {editing && (
           <ResearchForm

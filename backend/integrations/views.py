@@ -1,8 +1,7 @@
 """Integration endpoints (ARCHITECTURE section 9). Views validate and serialize; services act."""
 
-from urllib.parse import urlencode
-
 from datetime import timedelta
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
@@ -157,9 +156,11 @@ class PickerTokenView(LabScopedViewMixin, generics.GenericAPIView):
     @sensitive_variables("token")
     def get(self, request, lab_id):
         provider = registry.GOOGLE
-        account = self.get_queryset().filter(
-            user=request.user, provider=provider.name, status=AccountStatus.ACTIVE
-        ).first()
+        account = (
+            self.get_queryset()
+            .filter(user=request.user, provider=provider.name, status=AccountStatus.ACTIVE)
+            .first()
+        )
         if account is None:
             raise Http404
         if account.token_expires_at and account.token_expires_at <= timezone.now() + timedelta(
