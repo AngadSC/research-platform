@@ -81,6 +81,11 @@ class Provider:
     identity_url: str = ""  # GET with the token; parse_identity -> (external id, email)
     authorize_params: dict = field(default_factory=dict)  # fixed extra authorize-URL params
     parse_identity: Callable[[dict], tuple[str, str]] | None = None
+    # HTTP method of the OAuth identity call (Dropbox only answers POST). D100.
+    identity_method: str = "GET"
+    # `(token) -> bool`: revoke at the provider when a plain POST of `token` to `revoke_url`
+    # is not how it works (Dropbox: bearer header; Box: client credentials). Best effort. D100.
+    revoke: Callable[[str], bool] | None = None
 
     # api_key (D81). The connect form; `instance_url` among them iff needs_instance_url.
     connect_fields: tuple[ConnectField, ...] = ()

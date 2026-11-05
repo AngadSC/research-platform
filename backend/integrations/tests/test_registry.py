@@ -22,7 +22,7 @@ def test_every_enabled_provider_is_sound_and_reads_metadata_only(name):
 
 
 def test_every_provider_module_is_enabled_under_its_own_name():
-    modules = {p.stem for p in PROVIDERS_DIR.glob("*.py") if p.stem != "__init__"}
+    modules = {p.stem for p in PROVIDERS_DIR.glob("*.py") if not p.stem.startswith("_")}
     assert modules == set(registry.ENABLED), "add the module to registry.ENABLED (one line)"
     assert all(registry.get(m).name == m for m in modules)  # PROVIDER.name: the module name
 

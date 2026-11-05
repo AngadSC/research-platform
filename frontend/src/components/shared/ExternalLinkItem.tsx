@@ -1,14 +1,43 @@
-import { ExternalLink as OpenIcon, HardDrive, Link2 } from "lucide-react";
+import {
+  BookMarked,
+  ClipboardList,
+  Cloud,
+  ExternalLink as OpenIcon,
+  FlaskConical,
+  GitBranch,
+  HardDrive,
+  Archive,
+  Link2,
+  PenLine,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { RelativeTime } from "@/components/shared/RelativeTime";
 import { Badge } from "@/components/ui/badge";
 import type { ExternalLink } from "@/lib/api-types";
 import { personName } from "@/lib/api-types";
-import { linkState } from "@/lib/integrations";
+import { linkState, sharingNote } from "@/lib/integrations";
 import { safeHttpUrl } from "@/lib/lineage";
 
-// Keyed by registry icon name and by provider key (links pass `link.provider`).
-const ICONS: Record<string, typeof Link2> = { "google-drive": HardDrive, google_drive: HardDrive };
+// Neutral icons by category, keyed by the registry icon key (links pass `link.provider`, which
+// is the same key for every provider but Drive's older "google-drive" spelling).
+const STORAGE = HardDrive;
+const ICONS: Record<string, typeof Link2> = {
+  "google-drive": STORAGE,
+  google_drive: STORAGE,
+  onedrive: Cloud,
+  dropbox: Cloud,
+  box: Cloud,
+  github: GitBranch,
+  gitlab: GitBranch,
+  overleaf: PenLine,
+  zotero: BookMarked,
+  zenodo: Archive,
+  figshare: Archive,
+  osf: Archive,
+  redcap: ClipboardList,
+  qualtrics: ClipboardList,
+  protocols_io: FlaskConical,
+};
 
 export function ProviderIcon({ name, className }: { name: string; className?: string }) {
   const Icon = ICONS[name] ?? Link2;
@@ -59,11 +88,9 @@ export function ExternalLinkItem({
             {" | Linked by "}
             {personName(link.linked_by)}
           </span>
-          {link.provider === "google_drive" && (
-            <span className="text-xs text-muted-foreground">
-              Opening this file uses Google&apos;s own sharing settings.
-            </span>
-          )}
+          <span className="text-xs text-muted-foreground">
+            {sharingNote(link.provider, link.provider_label)}
+          </span>
         </div>
       </div>
       <div className="flex items-center gap-2">

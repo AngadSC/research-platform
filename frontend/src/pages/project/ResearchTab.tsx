@@ -7,7 +7,8 @@ import { DataTable, type Column } from "@/components/shared/DataTable";
 import { DetailPanel } from "@/components/shared/DetailPanel";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
-import { LinkedFiles, type LinkTarget } from "@/components/shared/LinkedFiles";
+import { LinkedFiles } from "@/components/shared/LinkedFiles";
+import type { LinkTarget } from "@/components/shared/LinkMenu";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ReferenceList } from "@/components/shared/References";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -364,6 +365,7 @@ const LINK_FIELD = {
   analyses: "analysis",
   results: "result",
   manuscripts: "manuscript",
+  decisions: "decision",
 } as const satisfies Partial<Record<Kind, LinkTarget>>;
 
 export function ResearchDetail(props: ProjectTabProps) {

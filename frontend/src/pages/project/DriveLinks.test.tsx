@@ -31,8 +31,12 @@ const provider = (over: Record<string, unknown> = {}) => ({
   name: "google_drive",
   label: "Google Drive",
   auth_type: "oauth2",
-  icon: "google-drive",
+  icon: "google_drive",
+  category: "storage",
   scopes: [],
+  link_targets: ["project", "dataset"],
+  link_methods: ["picker"],
+  connect_fields: [],
   configured: true,
   public_config: { api_key: "pk", app_id: "123" },
   account: { id: "a1", status: "active", external_email: "ada@gmail.test" },
@@ -77,7 +81,12 @@ const base = (providers: unknown[], links: unknown[] = []) => ({
   [LINKS]: { body: links },
 });
 const FILES = "/labs/lab1/projects/p1/files";
-const LINK_BUTTON = { name: "Link from Google Drive" };
+const LINK_BUTTON = { name: /Link from/ };
+// One menu for every provider: open it, choose Drive.
+const linkFromDrive = async () => {
+  await userEvent.click(await screen.findByRole("button", LINK_BUTTON));
+  await userEvent.click(await screen.findByRole("menuitem", { name: /Google Drive/ }));
+};
 
 beforeEach(() => vi.mocked(drive.pickDriveFile).mockReset());
 afterEach(() => vi.unstubAllGlobals());
@@ -101,6 +110,8 @@ describe("Google Drive on the Files tab", () => {
     const calls = mockFetch(base([provider({ account: null })]));
     renderRoute(FILES);
     await userEvent.click(await screen.findByRole("button", LINK_BUTTON));
+    expect(await screen.findByText(/Connect a service under Settings/)).toBeVisible();
+    expect(screen.queryByRole("menuitem", { name: /Google Drive/ })).toBeNull();
     expect(drive.pickDriveFile).not.toHaveBeenCalled();
     expect(calls.some((c) => c.path.includes("picker-token"))).toBe(false);
   });
@@ -113,7 +124,7 @@ describe("Google Drive on the Files tab", () => {
       "POST /api/labs/lab1/projects/p1/external-links/": { status: 201, body: link() },
     });
     renderRoute(FILES);
-    await userEvent.click(await screen.findByRole("button", LINK_BUTTON));
+    await linkFromDrive();
     await waitFor(() =>
       expect(drive.pickDriveFile).toHaveBeenCalledWith({
         apiKey: "pk",
@@ -131,7 +142,7 @@ describe("Google Drive on the Files tab", () => {
     vi.mocked(drive.pickDriveFile).mockResolvedValue(null);
     const calls = mockFetch({ ...base([provider()]), [TOKEN]: token });
     renderRoute(FILES);
-    await userEvent.click(await screen.findByRole("button", LINK_BUTTON));
+    await linkFromDrive();
     await waitFor(() => expect(drive.pickDriveFile).toHaveBeenCalled());
     expect(calls.some((c) => c.method === "POST")).toBe(false);
   });

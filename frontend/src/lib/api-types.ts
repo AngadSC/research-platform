@@ -54,6 +54,7 @@ export type PickerToken = Schemas["PickerToken"];
 export type ConnectOutput = Schemas["ConnectOutput"];
 export type ExternalLink = Schemas["ExternalLink"];
 export type ExternalLinkInput = Schemas["ExternalLinkInput"];
+export type ItemSearchResult = Schemas["ItemSearchResult"];
 export type Handover = Schemas["Handover"];
 export type HandoverItem = Schemas["HandoverItem"];
 export type ManuscriptStatus = Schemas["ManuscriptStatusEnum"];

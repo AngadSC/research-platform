@@ -179,7 +179,7 @@ def complete_connect(request, *, state, code="", error="") -> ConnectedAccount:
     if not set(granted) <= set(provider.scopes):
         raise OAuthError("unexpected_scope")  # D78: a merged grant; discarded, not stored
     resp = http.send(
-        "GET",
+        provider.identity_method,
         provider.identity_url,
         provider=provider,
         headers={"Authorization": f"Bearer {access}"},
@@ -459,6 +459,8 @@ def _revoke_at_provider(row, token) -> bool:
             or _grant_used_elsewhere(row)
         ):
             return False
+        if provider.revoke is not None:
+            return bool(provider.revoke(token))
         resp = http.send("POST", provider.revoke_url, provider=provider, data={"token": token})
         return resp.status_code == 200
     except Exception as exc:  # noqa: BLE001 - messages may echo the token; log the type only
@@ -665,6 +667,31 @@ def create_link(*, project, user, data, request=None) -> ExternalLink:
 
 
 APPLY_KINDS = ("dataset", "analysis", "result", "manuscript", "decision")
+# D115: list fields a provider may append one entry to (never fill-if-empty): (kind, field).
+APPEND_FIELDS = {("decision", "references")}
+
+
+def _append_reference(target, name, entry):
+    """Append one `{title, url, doi}` entry to the record's list, if it passes the D95 rules and
+    is not there yet (same DOI, else same URL, else same title) and the list has room. Returns
+    "copied", "same", "kept" (full) or None (the entry is refused)."""
+    from provenance.serializers import MAX_REFERENCES, ReferenceSerializer  # late: heavy import
+
+    ser = ReferenceSerializer(data=entry)
+    current = getattr(target, name)
+    if not (isinstance(entry, dict) and ser.is_valid() and isinstance(current, list)):
+        return None
+    new = {k: ser.validated_data.get(k, "") for k in ("doi", "url", "title")}
+    key = next(k for k in ("doi", "url", "title") if new[k])
+    if any(
+        isinstance(o, dict) and str(o.get(key, "")).casefold() == new[key].casefold()
+        for o in current
+    ):
+        return "same"
+    if len(current) >= MAX_REFERENCES:
+        return "kept"
+    setattr(target, name, [*current, {"title": new["title"], "url": new["url"], "doi": new["doi"]}])
+    return "copied"
 
 
 def _apply_to_target(provider, link, kind, target, meta, user, request) -> str:
@@ -681,6 +708,13 @@ def _apply_to_target(provider, link, kind, target, meta, user, request) -> str:
     copied, seen = [], set()
     for name, value in proposed.items():
         if not value:
+            continue
+        if (kind, name) in APPEND_FIELDS:
+            outcome = _append_reference(target, name, value)
+            if outcome == "copied":
+                copied.append(name)
+            elif outcome:
+                seen.add(outcome)
             continue
         try:
             value = target._meta.get_field(name).clean(value, target)

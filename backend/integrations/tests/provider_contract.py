@@ -66,9 +66,12 @@ CONTENT_PATHS = [
     r"zipball|tarball",
     r"/blobs?(?:$|[/?{])",
     r"files\.osf\.io",
+    r"waterbutler|ndownloader|files-archive",  # OSF, Figshare, Zenodo downloads (D115 to D119)
     r"responses",
     r"/file(?:$|[/?{])",
-    r"content=(?:record|file|report)",
+    r"content=(?:record|file|report|log|metadata|instrument|participantlist|user|event|arm)",
+    r"distributions?(?:$|[/?{])",
+    r"/(?:steps|materials|comments)(?:$|[/?{])",
 ]
 _HOOKS = ("fetch_item", "search_items", "identify", "parse_identity", "sign", "apply_to_target")
 
@@ -94,7 +97,13 @@ def content_paths(provider) -> list[str]:
     modules = {inspect.getmodule(h) for h in (getattr(provider, n) for n in _HOOKS) if h}
     modules.discard(None)
     modules.discard(inspect.getmodule(registry.Provider))  # the framework's default `sign`
-    texts = [s for m in modules for s in _strings(m)]
+    web = provider.link_hosts - provider.api_hosts  # pages people open; never requested (D78)
+    texts = [
+        s
+        for m in modules
+        for s in _strings(m)
+        if not any(s.startswith(f"https://{h}/") for h in web)
+    ]
     texts += [*provider.api_hosts, *provider.link_hosts, provider.identity_url]
     return sorted(
         {t for t in texts for p in CONTENT_PATHS if t and re.search(p, t.lower())},
@@ -381,7 +390,9 @@ class ProviderContract:
     def test_bad_key_is_refused_and_nothing_stored(self, w):
         self.needs("api_key")
         self.reply(w, "identity", status=401)
-        body = {"api_key": KEY, "secret": SECRET, "instance_url": self.instance_url}
+        body = {"api_key": KEY, "secret": SECRET}
+        if self.provider.needs_instance_url:
+            body["instance_url"] = self.instance_url
         resp = w.call("POST", f"integrations/{self.provider.name}/connect/", body)
         assert resp.status_code == 400 and resp.json()["code"] == "invalid_key"
         assert not ConnectedAccount.objects.for_lab(w.lab).exists()

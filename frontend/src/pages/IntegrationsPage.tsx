@@ -2,6 +2,7 @@ import { Plug } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
+import { ConnectDialog } from "@/components/shared/ConnectDialog";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ProviderIcon } from "@/components/shared/ExternalLinkItem";
@@ -24,7 +25,7 @@ import type { ConnectedAccount, IntegrationProvider } from "@/lib/api-types";
 import { personName } from "@/lib/api-types";
 import { useRegisterCommands } from "@/lib/commands";
 import { formErrors } from "@/lib/forms";
-import { connectError, needsReconnect, STATUS_HELP } from "@/lib/integrations";
+import { CATEGORIES, connectError, needsReconnect, STATUS_HELP } from "@/lib/integrations";
 
 interface Confirm {
   id: string;
@@ -48,6 +49,7 @@ export function IntegrationsPage() {
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [initialError] = useState(() => params.get("error"));
   const [failure, setFailure] = useState<string>();
+  const [keyed, setKeyed] = useState<IntegrationProvider | null>(null);
 
   // The server sends the browser back here with ?connected=<service> or ?error=<code>.
   const connected = params.get("connected");
@@ -75,7 +77,10 @@ export function IntegrationsPage() {
 
   const start = (p: IntegrationProvider) => {
     setFailure("");
-    connect.mutate(p.name, { onError: (e) => setFailure(formErrors(e, ["code"]).form) });
+    connect.mutate(
+      { provider: p.name },
+      { onError: (e) => setFailure(formErrors(e, ["code"]).form) },
+    );
   };
   const run = () => {
     if (!confirm) return;
@@ -138,26 +143,31 @@ export function IntegrationsPage() {
             <Skeleton className="h-16 w-full" />
           </div>
         ) : providers.data?.length ? (
-          <ul className="grid divide-y rounded-lg border bg-background">
-            {providers.data.map((p) => (
-              <ProviderRow
-                key={p.name}
-                p={p}
-                busy={connect.isPending}
-                onConnect={() => start(p)}
-                onDisconnect={() =>
-                  p.account &&
-                  setConfirm({
-                    id: p.account.id,
-                    action: "Disconnect",
-                    title: `Disconnect ${p.label}?`,
-                    description:
-                      "Linked items stay in your projects, but we stop checking them until you connect again.",
-                  })
-                }
-              />
-            ))}
-          </ul>
+          groupByCategory(providers.data).map(([cat, label, list]) => (
+            <div key={cat} className="grid gap-2">
+              <h3 className="text-sm font-medium text-muted-foreground">{label}</h3>
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {list.map((p) => (
+                  <ProviderCard
+                    key={p.name}
+                    p={p}
+                    busy={connect.isPending}
+                    onConnect={() => (p.auth_type === "api_key" ? setKeyed(p) : start(p))}
+                    onDisconnect={() =>
+                      p.account &&
+                      setConfirm({
+                        id: p.account.id,
+                        action: "Disconnect",
+                        title: `Disconnect ${p.label}?`,
+                        description:
+                          "Linked items stay in your projects, but we stop checking them until you connect again.",
+                      })
+                    }
+                  />
+                ))}
+              </ul>
+            </div>
+          ))
         ) : (
           <EmptyState
             icon={Plug}
@@ -185,6 +195,7 @@ export function IntegrationsPage() {
           />
         </section>
       )}
+      <ConnectDialog labId={labId} provider={keyed} onClose={() => setKeyed(null)} />
       <Dialog open={!!confirm} onOpenChange={(open) => !open && setConfirm(null)}>
         <DialogContent>
           <DialogTitle className="text-base font-semibold">{confirm?.title}</DialogTitle>
@@ -205,7 +216,18 @@ export function IntegrationsPage() {
   );
 }
 
-function ProviderRow({
+function groupByCategory(list: IntegrationProvider[]): [string, string, IntegrationProvider[]][] {
+  const known = CATEGORIES.map(([k]) => k);
+  const groups: [string, string, IntegrationProvider[]][] = CATEGORIES.map(([k, l]) => [
+    k,
+    l,
+    list.filter((p) => p.category === k),
+  ]);
+  groups.push(["other", "Other", list.filter((p) => !known.includes(p.category))]);
+  return groups.filter((g) => g[2].length > 0);
+}
+
+function ProviderCard({
   p,
   busy,
   onConnect,
@@ -218,39 +240,39 @@ function ProviderRow({
 }) {
   const status = p.account?.status;
   const retry = needsReconnect(status);
+  const connectable = p.auth_type === "oauth2" || p.auth_type === "api_key";
   let action = null;
-  if (p.auth_type === "oauth2") {
-    if (!p.configured)
-      action = (
-        <span className="text-xs text-muted-foreground">Not set up for your institution</span>
-      );
-    else if (status === "active")
-      action = (
-        <Button variant="outline" onClick={onDisconnect} aria-label={`Disconnect ${p.label}`}>
-          Disconnect
-        </Button>
-      );
-    else
-      action = (
-        <Button
-          disabled={busy}
-          onClick={onConnect}
-          aria-label={`${retry ? "Reconnect" : "Connect"} ${p.label}`}
-        >
-          {retry ? "Reconnect" : "Connect"}
-        </Button>
-      );
-  }
-  const who = p.account ? p.account.external_email || "Account" : "";
+  let note = "";
+  if (p.auth_type === "link_only") note = "No connection needed. Paste a link to attach it.";
+  else if (p.auth_type === "public") note = "No connection needed. Links to public records.";
+  else if (connectable && !p.configured && p.auth_type === "oauth2")
+    action = <span className="text-xs text-muted-foreground">Not set up on this server</span>;
+  else if (connectable && status === "active")
+    action = (
+      <Button variant="outline" onClick={onDisconnect} aria-label={`Disconnect ${p.label}`}>
+        Disconnect
+      </Button>
+    );
+  else if (connectable)
+    action = (
+      <Button
+        disabled={busy}
+        onClick={onConnect}
+        aria-label={`${retry ? "Reconnect" : "Connect"} ${p.label}`}
+      >
+        {retry ? "Reconnect" : "Connect"}
+      </Button>
+    );
+  const who = p.account ? p.account.external_email || p.account.instance_url || "Account" : "";
   const help = status && status !== "active" ? `. ${STATUS_HELP[status] ?? ""}` : "";
   return (
-    <li className="flex flex-wrap items-center justify-between gap-4 px-4 py-3">
-      <div className="flex items-center gap-3">
-        <ProviderIcon name={p.icon} className="size-5 text-muted-foreground" />
-        <div className="grid">
+    <li className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-background px-4 py-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <ProviderIcon name={p.icon} className="size-5 shrink-0 text-muted-foreground" />
+        <div className="grid min-w-0">
           <span className="text-sm font-medium">{p.label}</span>
           <span className="text-xs text-muted-foreground">
-            {p.account ? `${who}${help}` : "Not connected"}
+            {note || (p.account ? `${who}${help}` : "Not connected")}
           </span>
         </div>
       </div>

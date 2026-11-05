@@ -109,9 +109,9 @@ export default function FilesTab({ labId, projectId, project }: ProjectTabProps)
           />
         }
       />
-      <section aria-labelledby="drive-files" className="grid gap-2">
-        <h2 id="drive-files" className="text-sm font-medium">
-          Linked from Google Drive
+      <section aria-labelledby="linked-files" className="grid gap-2">
+        <h2 id="linked-files" className="text-sm font-medium">
+          Linked files
         </h2>
         <LinkedFiles labId={labId} projectId={projectId} canEdit={canEdit} />
       </section>

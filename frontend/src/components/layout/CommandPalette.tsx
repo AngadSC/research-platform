@@ -21,6 +21,7 @@ interface Props {
 export function CommandPalette({ labId, onGo }: Props) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
+  const [selected, setSelected] = useState("");
   const commands = useCommands();
   const { hits, loading, error } = useLabSearch(open ? labId : undefined, text);
 
@@ -35,6 +36,16 @@ export function CommandPalette({ labId, onGo }: Props) {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  // cmdk picks its first item when the text changes, before search hits arrive. Point it at the
+  // first hit when they do, so Enter opens it without an arrow press first.
+  const firstHit = groupHits(hits)[0]?.[1][0];
+  const firstValue = firstHit && `hit:${firstHit.type}:${firstHit.id}`;
+  const [seen, setSeen] = useState<string>();
+  if (firstValue && firstValue !== seen) {
+    setSeen(firstValue);
+    setSelected(firstValue);
+  }
+
   const groups = new Map<string, Command[]>();
   for (const c of commands) {
     const g = c.group ?? "Actions";
@@ -44,6 +55,8 @@ export function CommandPalette({ labId, onGo }: Props) {
   return (
     <CommandDialog
       open={open}
+      value={selected}
+      onValueChange={setSelected}
       onOpenChange={(o) => {
         setOpen(o);
         if (!o) setText("");

@@ -124,8 +124,25 @@ describe("CommandPalette search (D93)", () => {
     expect(urls.every((u) => u.startsWith("/api/labs/lab1/search/?q=zeb"))).toBe(true);
     expect(screen.getByText("Projects")).toBeInTheDocument();
     expect(screen.getByText("Tasks")).toBeInTheDocument();
-    await userEvent.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+    await userEvent.keyboard("{ArrowDown}{Enter}"); // the first hit is already selected
     expect(go).toHaveBeenCalledWith("/labs/lab1/x/b");
+  });
+
+  it("opens the first hit on Enter without an arrow press", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        const results = [hit("project", "a", "Zebra study"), hit("task", "b", "Feed zebra")];
+        return new Response(JSON.stringify({ results }), { status: 200 });
+      }),
+    );
+    const go = vi.fn();
+    wrap(<CommandPalette labId="lab1" onGo={go} />);
+    open();
+    await userEvent.type(screen.getByRole("combobox"), "zebra");
+    await screen.findByText("Zebra study");
+    await userEvent.keyboard("{Enter}");
+    expect(go).toHaveBeenCalledWith("/labs/lab1/x/a");
   });
 
   it("does not search below two characters and keeps static commands", async () => {

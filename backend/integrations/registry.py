@@ -24,6 +24,19 @@ from integrations.providers import (  # noqa: F401 - re-exported for callers and
 
 ENABLED = [
     "google_drive",
+    "github",
+    "gitlab",
+    "overleaf",
+    "onedrive",
+    "dropbox",
+    "box",
+    "redcap",
+    "qualtrics",
+    "protocols_io",
+    "zotero",
+    "zenodo",
+    "figshare",
+    "osf",
 ]
 
 PROVIDERS: dict[str, Provider] = {}

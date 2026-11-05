@@ -119,11 +119,12 @@ Same status values. Model and effort follow orchestrator section 8. Shared-tree 
 | F | Integration framework v2: api-key and instance-URL accounts (SSRF-safe), link-only and public providers, item search, one module per provider | opus / high | done |
 | DL | Signed-URL downloads in S3 mode | sonnet / medium | done |
 | S | Lab-wide search endpoint and palette; editable decision references | sonnet / medium | done |
-| U | Generic integration UI: connect dialogs, link dialog with search and paste | sonnet / medium | todo |
-| P1 | OneDrive/SharePoint, Dropbox, Box | sonnet / medium | todo |
-| P2 | GitHub, GitLab, Overleaf | sonnet / medium | todo |
-| P3 | REDCap, Qualtrics, protocols.io | sonnet / medium | todo |
-| P4 | Zotero, Zenodo, Figshare, OSF | sonnet / medium | todo |
-| R | Security review of Run 3 | opus / high | todo |
+| U | Generic integration UI: connect dialogs, link dialog with search and paste | sonnet / medium | done |
+| P1 | OneDrive/SharePoint, Dropbox, Box | sonnet / medium | done (unverified) |
+| P2 | GitHub, GitLab, Overleaf | sonnet / medium | done |
+| P3 | REDCap, Qualtrics, protocols.io | sonnet / medium | done (unverified) |
+| P4 | Zotero, Zenodo, Figshare, OSF | sonnet / medium | done (unverified) |
+| R | Security review of Run 3 | opus / high | doing |
+| V | Verify and fix all providers (serial test runs) | sonnet / medium | done |
 | RF | Review fixes | sonnet / medium | todo |
 | W3 | Screenshots, HANDOFF, push | sonnet / medium, orchestrator | todo |

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ExternalLinkItem } from "@/components/shared/ExternalLinkItem";
 import type { ExternalLink } from "@/lib/api-types";
 import { linkState } from "@/lib/integrations";
+import { KEYED, LINK_ONLY, OAUTH, PUBLIC } from "@/test/providers";
 import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
 
 const user = { id: "u1", email: "ada@uni.edu", display_name: "Ada" };
@@ -12,8 +13,11 @@ const provider = (over: Record<string, unknown> = {}) => ({
   name: "google_drive",
   label: "Google Drive",
   auth_type: "oauth2",
-  icon: "google-drive",
+  icon: "google_drive",
+  category: "storage",
   scopes: ["drive.file"],
+  connect_fields: [],
+  needs_instance_url: false,
   configured: true,
   account: null,
   ...over,
@@ -69,7 +73,7 @@ describe("Integrations page", () => {
   it("says when a service is not set up", async () => {
     mockFetch(base(MEMBER, [provider({ configured: false })]));
     renderRoute(PAGE);
-    expect(await screen.findByText("Not set up for your institution")).toBeInTheDocument();
+    expect(await screen.findByText("Not set up on this server")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Connect/ })).toBeNull();
   });
 
@@ -180,5 +184,93 @@ describe("ExternalLinkItem", () => {
     [{ linker_connection_status: null }, "Up to date"],
   ] as [Partial<ExternalLink>, string][])("status for %j is %s", (over, text) => {
     expect(linkState(link(over)).label).toBe(text);
+  });
+});
+
+describe("Integrations page, generic providers", () => {
+  const all = [
+    OAUTH,
+    { ...OAUTH, name: "box", label: "Box", configured: false },
+    KEYED,
+    LINK_ONLY,
+    PUBLIC,
+  ];
+
+  it("groups providers by category and says what each needs", async () => {
+    mockFetch(base(MEMBER, all));
+    renderRoute(PAGE);
+    expect(await screen.findByRole("heading", { name: "File storage" })).toBeVisible();
+    for (const g of ["References", "Writing", "Repositories"])
+      expect(screen.getByRole("heading", { name: g })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Connect Dropbox" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Connect Zotero" })).toBeVisible();
+    // Unconfigured OAuth: a note instead of Connect.
+    expect(screen.getByText("Not set up on this server")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Connect Box" })).toBeNull();
+    // Link-only and public need no connection.
+    expect(screen.getByText(/No connection needed. Paste a link/)).toBeVisible();
+    expect(screen.getByText(/No connection needed. Links to public records/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Connect (Overleaf|Zenodo)/ })).toBeNull();
+  });
+
+  it("connects an API-key provider from its fields, with the secret masked and cleared", async () => {
+    const calls = mockFetch({
+      ...base(MEMBER, [KEYED]),
+      "POST /api/labs/lab1/integrations/zotero/connect/": {
+        status: 400,
+        body: { api_key: ["That key was not accepted."] },
+      },
+    });
+    renderRoute(PAGE);
+    await userEvent.click(await screen.findByRole("button", { name: "Connect Zotero" }));
+    const key = await screen.findByLabelText("API key");
+    expect(key).toHaveAttribute("type", "password");
+    expect(screen.getByLabelText("Server address")).toHaveAttribute("type", "url");
+    expect(screen.getByText("Only for self-hosted servers.")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Connect" }));
+    expect(await screen.findByText("Enter api key.")).toBeVisible(); // required, checked first
+    expect(calls.some((c) => c.method === "POST")).toBe(false);
+    await userEvent.type(key, "s3cret-key");
+    await userEvent.click(screen.getByRole("button", { name: "Connect" }));
+    expect(await screen.findByText("That key was not accepted.")).toBeVisible();
+    expect(calls.find((c) => c.method === "POST")?.body).toEqual({ api_key: "s3cret-key" });
+    expect(screen.getByLabelText("API key")).toHaveValue(""); // never kept after a submit
+  });
+
+  it("closes and shows the account after a key is accepted", async () => {
+    let done = false;
+    const calls = mockFetch({
+      ...base(MEMBER, [KEYED]),
+      "GET /api/labs/lab1/integrations/providers/": () => ({
+        body: [
+          done
+            ? {
+                ...KEYED,
+                account: {
+                  id: "a",
+                  status: "active",
+                  external_email: "ada@z.test",
+                  instance_url: "",
+                },
+              }
+            : KEYED,
+        ],
+      }),
+      "POST /api/labs/lab1/integrations/zotero/connect/": () => {
+        done = true;
+        return { status: 201, body: { authorization_url: "", account: null } };
+      },
+    });
+    renderRoute(PAGE);
+    await userEvent.click(await screen.findByRole("button", { name: "Connect Zotero" }));
+    await userEvent.type(await screen.findByLabelText("API key"), "k");
+    await userEvent.type(screen.getByLabelText("Server address"), "https://zotero.example.edu");
+    await userEvent.click(screen.getByRole("button", { name: "Connect" }));
+    expect(await screen.findByRole("button", { name: "Disconnect Zotero" })).toBeVisible();
+    expect(calls.find((c) => c.method === "POST")?.body).toEqual({
+      api_key: "k",
+      instance_url: "https://zotero.example.edu",
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
