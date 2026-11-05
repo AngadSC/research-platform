@@ -32,8 +32,11 @@ research.example.org {
 		try_files {path} /index.html
 		file_server
 
-		# Google Picker (Drive integration) and Google sign-in. Nothing else external.
+		# D90/D91: downloads redirect to a presigned bucket URL and the PDF viewer fetch()es it, so
+		# connect-src names the bucket origin (replace BUCKET.s3.REGION.amazonaws.com with your
+		# endpoint; docs/DEPLOY.md has the bucket CORS rule).
+		# Google Picker (Drive integration) and Google sign-in.
 		# form-action needs accounts.google.com because the sign-in form POST redirects there.
-		header Content-Security-Policy "default-src 'self'; script-src 'self' https://apis.google.com/js/api.js https://apis.google.com/_/scs/ https://www.gstatic.com/_/; frame-src https://content.googleapis.com https://docs.google.com https://drive.google.com https://accounts.google.com; connect-src 'self' https://content.googleapis.com https://apis.google.com https://docs.google.com https://drive.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.googleusercontent.com https://ssl.gstatic.com; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com; frame-ancestors 'none'"
+		header Content-Security-Policy "default-src 'self'; script-src 'self' https://apis.google.com/js/api.js https://apis.google.com/_/scs/ https://www.gstatic.com/_/; frame-src https://content.googleapis.com https://docs.google.com https://drive.google.com https://accounts.google.com; connect-src 'self' https://BUCKET.s3.REGION.amazonaws.com https://content.googleapis.com https://apis.google.com https://docs.google.com https://drive.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.googleusercontent.com https://ssl.gstatic.com; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com; frame-ancestors 'none'"
 	}
 }

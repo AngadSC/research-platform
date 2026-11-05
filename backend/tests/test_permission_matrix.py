@@ -163,6 +163,8 @@ MATRIX: dict[tuple[str, str], str] = {
     ("PATCH",  "ethics:approval-detail"): "401 404 2 2 2 2 2 403 403",
     ("DELETE", "ethics:approval-detail"): "401 404 2 2 2 2 2 403 403",
     ("POST",   "ethics:approval-attachments"): "401 404 2 2 2 2 2 403 403",
+    # Search needs only view_lab, so all lab members get 200 (results: core/tests/test_search.py).
+    ("GET",    "core:search"): "401 404 2 2 2 2 2 2 2",
     ("GET",    "core:notification-list"): "401 404 2 2 2 2 2 2 2",
     ("POST",   "core:notification-read"): "401 404 2 404 404 404 404 404 404",
     ("POST",   "core:notification-read-all"): "401 404 2 2 2 2 2 2 2",
@@ -202,6 +204,12 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "integrations:external-link-check"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "integrations:external-link-accept-change"): "401 404 2 2 2 2 403 404 403",
     # --- end integrations (Run 2) ---
+    # --- integrations framework (Run 3, D85) ---
+    # Item search reads the provider for something to link, so it needs edit_content on P1:
+    # the implicit leads pi/admin, lead and contrib (each holds an active fake account); the
+    # project viewer and the capped lviewer get 403; nonproj cannot see P1: 404.
+    ("GET",    "integrations:item-search"): "401 404 2 2 2 2 403 404 403",
+    # --- end integrations framework (Run 3) ---
 }
 # fmt: on
 
@@ -367,8 +375,13 @@ def _matrix_fake_provider(monkeypatch, settings):
             "checksum": "",
         }
 
+    def search_items(account, query, target):  # integrations framework (Run 3)
+        return [{"id": "f1", "title": "Linked", "subtitle": "", "modified": None, "url": ""}]
+
     monkeypatch.setitem(
-        registry.PROVIDERS, "fake", dataclasses.replace(FAKE, fetch_item=fetch_item)
+        registry.PROVIDERS,
+        "fake",
+        dataclasses.replace(FAKE, fetch_item=fetch_item, search_items=search_items),
     )
     settings.INTEGRATION_CLIENTS = {
         **settings.INTEGRATION_CLIENTS,

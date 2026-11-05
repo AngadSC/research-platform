@@ -65,6 +65,7 @@ Generate each secret once:
 | `LAB_FILES_BUCKET` | Bucket name. Without it the app writes files to local disk, which is not for production. |
 | `LAB_FILES_REGION` | Bucket region, for example `eu-west-1`. |
 | `LAB_FILES_ENDPOINT_URL` | Empty for AWS. Set it for other S3-compatible providers. |
+| `LAB_FILES_STREAM_DOWNLOADS` | Leave empty. `True` makes Django stream downloads instead of redirecting to a 60 second presigned URL (D90). Use it only if your provider ignores response header overrides. |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Credentials for the bucket. The app also reads them for SES. |
 | `DEFAULT_FROM_EMAIL` | Sender, for example `Research Platform <noreply@your-domain>`. |
 | `EMAIL_BACKEND` | `anymail.backends.postmark.EmailBackend` or `anymail.backends.amazon_ses.EmailBackend`. |
@@ -106,6 +107,34 @@ tags the backend image as `research-backend:prod` for the worker and beat servic
 
 The backend image runs gunicorn as a non-root user and checks `/healthz` every 30 seconds. The
 frontend image is a static build served by Caddy.
+
+### Lab file downloads and bucket CORS (D90, D91)
+
+Downloads check access in Django, then redirect (302) to a presigned bucket URL that lasts 60
+seconds. Files no longer pass through gunicorn. Two things must be set up:
+
+1. **Bucket CORS.** The PDF viewer fetches the download URL from the page and follows the
+   redirect, so the bucket must allow GET from the app origin. Replace the origin with yours:
+
+   ```json
+   [
+     {
+       "AllowedOrigins": ["https://research.example.org"],
+       "AllowedMethods": ["GET"],
+       "AllowedHeaders": [],
+       "ExposeHeaders": ["Content-Type", "Content-Length"],
+       "MaxAgeSeconds": 300
+     }
+   ]
+   ```
+
+   Do not use `*` as the origin. The browser sends no cookies to the bucket (the SPA uses
+   `credentials: "same-origin"`).
+2. **CSP.** `connect-src` in `deploy/Caddyfile` lists the bucket origin
+   (`https://BUCKET.s3.REGION.amazonaws.com`). Edit the placeholder to match your endpoint.
+
+If your provider ignores `response-content-disposition` and the related overrides, set
+`LAB_FILES_STREAM_DOWNLOADS=True` to go back to streaming through Django.
 
 ## 4. First start
 

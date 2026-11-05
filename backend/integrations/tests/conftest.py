@@ -25,6 +25,7 @@ def transport(monkeypatch):
     fake = FakeTransport()
     monkeypatch.setattr(http, "_session", fake)
     monkeypatch.setattr(http.time, "sleep", lambda s: None)
+    monkeypatch.setattr(http, "_resolve", lambda host: ["93.184.216.34"])  # any test host: public
     return fake
 
 

@@ -484,3 +484,20 @@ def test_deleting_an_approval_keeps_the_stored_bytes(w, lab_files):
     attachment = file_for(w, approval)
     assert api(w.u["pi"]).delete(detail_url(w, approval)).status_code == 204
     assert lab_files.exists(attachment.storage_key)
+
+
+def test_ethics_file_keeps_its_rule_in_s3_mode(w, settings, monkeypatch):
+    """D90: the redirect comes after can_view_ethics_files; a denied user never gets a URL."""
+    from unittest.mock import MagicMock
+
+    attachment = file_for(w, make_approval(w, projects=[w.p1]))
+    settings.LAB_FILES_BUCKET = "lab-bucket"
+    settings.LAB_FILES_STREAM_DOWNLOADS = False
+    fake = MagicMock()
+    fake.url.return_value = "https://lab-bucket.s3.example/k?X-Amz-Expires=60"
+    monkeypatch.setattr("documents.views.storages", {"lab_files": fake})
+    assert download(api(w.u["nonproj"]), w, attachment).status_code == 403
+    fake.url.assert_not_called()
+    resp = download(api(w.u["contrib"]), w, attachment)
+    assert resp.status_code == 302 and resp["Location"].startswith("https://lab-bucket")
+    assert fake.url.call_args.kwargs["expire"] <= 60

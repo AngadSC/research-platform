@@ -70,12 +70,13 @@ const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
 interface Options {
   method?: string;
   body?: unknown;
+  signal?: AbortSignal;
 }
 
 /** Low-level call: never throws on HTTP status (allauth uses 401 for pending flows). */
 export async function rawRequest(
   path: string,
-  { method = "GET", body }: Options = {},
+  { method = "GET", body, signal }: Options = {},
 ): Promise<{ status: number; body: unknown }> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (!SAFE.has(method)) {
@@ -90,6 +91,7 @@ export async function rawRequest(
       method,
       headers,
       credentials: "same-origin",
+      signal,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {

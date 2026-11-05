@@ -1,6 +1,7 @@
-"""Token-leak test (ARCHITECTURE section 9). Distinctive canary tokens go through the whole account
-lifecycle (connect, refresh, refused refresh, provider errors that echo the token, reconnect,
-disconnect); then every surface below must be free of every canary.
+"""Token-leak test (ARCHITECTURE section 9). Distinctive canary tokens and API keys go through the
+whole account lifecycle (connect, refresh, refused refresh, a key the provider rejects, provider
+errors that echo the secret, reconnect, lifecycle revoke, disconnect); then every surface below
+must be free of every canary.
 
 To cover a new surface (an API response, a serializer, a job's output), add a function decorated
 with `@surface` that returns the text to scan. `w` is the World built by the `world` fixture:
@@ -22,12 +23,12 @@ from django.test.utils import override_settings
 
 from audit.models import AuditEvent
 from core.models import Notification, User
-from integrations import http, services
+from integrations import http, registry, services
 from integrations.jobs import check_links, revoke_orphans
 from integrations.models import ConnectedAccount, ExternalLink
 from integrations.serializers import ConnectedAccountSerializer
 from integrations.tests.conftest import CLIENT_SECRET, make_request, token_reply
-from integrations.tests.fake import FAKE, response
+from integrations.tests.fake import FAKE, FAKE_KEY, response
 
 pytestmark = pytest.mark.django_db
 
@@ -37,6 +38,12 @@ CODE = "CANARY-authcode-5a8b"
 LIFE_ACCESS = [f"CANARY-life-access-{i}-77aa10" for i in range(3)]
 LIFE_REFRESH = [f"CANARY-life-refresh-{i}-2c9d4e" for i in range(3)]
 FILE_URL = "https://api.fake.test/files/1"
+# API-key accounts (D81): the key and its secret half.
+KEYS = [f"CANARY-key-{i}-d41a7c" for i in range(5)]
+KEY_SECRETS = [f"CANARY-key-secret-{i}-0be3f5" for i in range(5)]
+INSTANCE = "https://git.fake.test"
+KEY_ME = f"{INSTANCE}/api/me"
+KEY_ITEM = f"{INSTANCE}/api/items/1"
 
 
 @dataclass
@@ -82,8 +89,11 @@ def _expect_error(w, fn):
 
 
 @pytest.fixture
-def world(lab_users, transport, caplog, make_project, make_user, join, capture_commits):
+def world(
+    lab_users, transport, caplog, make_project, make_user, join, capture_commits, monkeypatch
+):
     caplog.set_level(logging.DEBUG)
+    monkeypatch.setitem(registry.PROVIDERS, FAKE_KEY.name, FAKE_KEY)
     lab, users = lab_users
     w = World(lab=lab, users=users, transport=transport, caplog=caplog)
     member = users["member"]
@@ -131,15 +141,17 @@ def world(lab_users, transport, caplog, make_project, make_user, join, capture_c
     )
 
     _lifecycle(w, make_user, join, capture_commits)
+    _api_keys(w, make_user, join, capture_commits)
 
     sent_verifiers = [
         kw["data"].get("code_verifier") for kw in transport.sent("POST", FAKE.token_url)
     ]
     w.canaries = [*ACCESS, *REFRESH, *LIFE_ACCESS, *LIFE_REFRESH, CODE, CLIENT_SECRET]
+    w.canaries += [*KEYS, *KEY_SECRETS]
     w.canaries += list(filter(None, sent_verifiers))
     # the canaries really went over the wire, so a clean scan means something
     wire = repr(transport.calls)
-    assert all(c in wire for c in (ACCESS[1], REFRESH[0], CODE, CLIENT_SECRET))
+    assert all(c in wire for c in (ACCESS[1], REFRESH[0], CODE, CLIENT_SECRET, KEYS[2]))
     assert w.ciphertexts and all(w.ciphertexts), "no ciphertext to look for"
     return w
 
@@ -186,6 +198,50 @@ def _lifecycle(w, make_user, join, capture):
         assert revoke_orphans() == 1
     for acc in ConnectedAccount.objects.for_lab(lab).filter(user__in=people):
         assert acc.status == "revoked" and not acc.access_token_ct
+
+
+def _key_connect(user, lab, i):
+    return services.connect_with_key(
+        make_request(user),
+        lab,
+        "fake_key",
+        api_key=KEYS[i],
+        secret=KEY_SECRETS[i],
+        instance_url=INSTANCE,
+    )
+
+
+def _api_keys(w, make_user, join, capture):
+    """API-key accounts: a key the provider refuses (echoing it), a key revoked at the provider
+    later (a 401 echoing it), a network error carrying it, reconnect, and a member removal."""
+    from labs import services as lab_services
+    from labs.models import LabMembership
+
+    t, viewer = w.transport, w.users["viewer"]
+    t.on("GET", KEY_ME, response(401, {"error": f"bad key {KEYS[0]} {KEY_SECRETS[0]}"}))
+    _expect_error(w, lambda: _key_connect(viewer, w.lab, 0))
+    t.on("GET", KEY_ME, response(200, {"id": 7, "username": "ada"}))
+    acc = _key_connect(viewer, w.lab, 1)
+    t.on("GET", KEY_ITEM, response(401, {"error": f"revoked {KEYS[1]} {KEY_SECRETS[1]}"}))
+    _expect_error(w, lambda: http.send("GET", KEY_ITEM, provider=FAKE_KEY, account=acc))
+    assert ConnectedAccount.objects.for_lab(w.lab).get(pk=acc.pk).access_token_ct == ""
+    acc = _key_connect(viewer, w.lab, 2)  # the same server account: the row is reused
+    cut = requests.ConnectionError(f"X-Fake-Key: {KEYS[2]}:{KEY_SECRETS[2]}")
+    t.on("GET", KEY_ITEM, cut)
+    _expect_error(w, lambda: http.send("GET", KEY_ITEM, provider=FAKE_KEY, account=acc))
+    t.on("GET", KEY_ITEM, RuntimeError(f"stack bug {KEYS[2]}"))  # not a requests error
+    _expect_error(w, lambda: http.send("GET", KEY_ITEM, provider=FAKE_KEY, account=acc))
+    leaver = make_user()
+    join(leaver, w.lab, "member")
+    t.on("GET", KEY_ME, response(200, {"id": 8, "username": "leaver"}))
+    _key_connect(leaver, w.lab, 4)
+    _note_ciphertexts(w)
+    with capture(execute=True):
+        lab_services.remove_member(
+            membership=LabMembership.objects.for_lab(w.lab).get(user=leaver), by=w.users["pi"]
+        )
+    gone = ConnectedAccount.objects.for_lab(w.lab).get(user=leaver)
+    assert gone.status == "revoked" and not gone.access_token_ct and not gone.refresh_token_ct
 
 
 SURFACES = {}
@@ -366,7 +422,8 @@ def api_drive_picker_check_accept_and_job(w):
     as are the check and accept-change endpoints and the daily job."""
     from django.conf import settings
 
-    from integrations.registry import DRIVE_FIELDS, GOOGLE
+    from integrations.providers.google_drive import FIELDS as DRIVE_FIELDS
+    from integrations.providers.google_drive import PROVIDER as GOOGLE
 
     scope = GOOGLE.scopes[0]
     clients = {
@@ -424,9 +481,58 @@ def api_drive_picker_check_accept_and_job(w):
 
 
 @surface
+def api_key_connect_search_and_links(w):
+    """D81: the connect form, its errors (the key in the instance URL, too long, refused or
+    echoed by the provider), search and link errors that echo the key, and the lists."""
+    c = w.client(w.users["pi"])
+    url = _lab_url(w, "integrations/fake_key/connect/")
+    form = {"api_key": KEYS[3], "secret": KEY_SECRETS[3], "instance_url": INSTANCE}
+    out = []
+    w.transport.on("GET", KEY_ME, response(401, {"error": f"{KEYS[3]} {KEY_SECRETS[3]}"}))
+    for bad in (
+        {"instance_url": INSTANCE},
+        {**form, "instance_url": f"https://{KEYS[3]}@git.fake.test"},
+        {**form, "instance_url": f"https://git.fake.test/?k={KEYS[3]}"},
+        {**form, "api_key": KEYS[3] * 300},
+        {**form, "scopes": [KEYS[3]]},
+    ):
+        out.append(_dump(c.post(url, bad, "application/json")))
+    out.append(_dump(c.post(url, form)))  # form-encoded too
+    out.append(_dump(c.post(url, form, "application/json")))
+    w.transport.on("GET", KEY_ME, response(500, {"error": KEYS[3]}))
+    out.append(_dump(c.post(url, form, "application/json")))
+    w.transport.on("GET", KEY_ME, response(200, {"id": 9, "username": "pi"}))
+    ok = c.post(url, form, "application/json")
+    assert ok.status_code == 200, ok.content
+    out.append(_dump(ok))
+    out.append(_dump(c.post(url, form)))  # reconnect, form-encoded
+    search = _lab_url(w, f"projects/{w.project.pk}/integrations/fake_key/search/")
+    w.transport.on("GET", f"{INSTANCE}/api/search?q=x", response(500, {"error": KEYS[3]}))
+    out.append(_dump(c.get(search, {"q": "x"})))
+    w.transport.on(
+        "GET", f"{INSTANCE}/api/search?q=y", response(200, {"items": [{"id": "1", "name": "n"}]})
+    )
+    out.append(_dump(c.get(search, {"q": "y"})))
+    links = _lab_url(w, f"projects/{w.project.pk}/external-links/")
+    w.transport.on("GET", KEY_ITEM, response(500, {"error": f"{KEYS[3]} {KEY_SECRETS[3]}"}))
+    out.append(
+        _dump(c.post(links, {"provider": "fake_key", "external_id": "1"}, "application/json"))
+    )
+    w.transport.on("GET", KEY_ITEM, response(401, {"error": KEYS[3]}))
+    out.append(
+        _dump(c.post(links, {"provider": "fake_key", "external_id": "1"}, "application/json"))
+    )
+    for path in ("integrations/providers/", "integrations/accounts/?all=true"):
+        out.append(_dump(c.get(_lab_url(w, path))))
+    return "\n".join(out)
+
+
+@surface
 def api_disconnect_and_revoke(w):
     member, viewer, pi = w.users["member"], w.users["viewer"], w.users["pi"]
-    mine = ConnectedAccount.objects.for_lab(w.lab).get(user=viewer, status="active")
+    mine = ConnectedAccount.objects.for_lab(w.lab).get(
+        user=viewer, status="active", provider="fake"
+    )
     url = _lab_url(w, f"integrations/accounts/{mine.pk}/")
     out = [_dump(w.client(member).delete(url))]  # not theirs: 404
     echo = response(400, {"error": f"bad {REFRESH[0]} {ACCESS[0]}"})
@@ -491,8 +597,16 @@ def technical_500_pages(w):
             w.transport.on("GET", FAKE.identity_url, response(200, {"id": "x"}))
             # the code in the URL is the request's own business, so it is not a canary here
             pages.append(_callback(c, state=state, code="plain-code"))
+            # D81: an API-key connect that blows up in the provider while the key is in memory,
+            # posted as JSON and as a form (the debug page lists POST parameters)
+            registry.PROVIDERS["fake_key"] = dataclasses.replace(FAKE_KEY, identify=_boom)
+            url = _lab_url(w, "integrations/fake_key/connect/")
+            form = {"api_key": KEYS[3], "secret": KEY_SECRETS[3], "instance_url": INSTANCE}
+            pages.append(_dump(c.post(url, form, "application/json")))
+            pages.append(_dump(c.post(url, form)))
     finally:
         registry.PROVIDERS["fake"] = FAKE
+        registry.PROVIDERS["fake_key"] = FAKE_KEY
     assert all(p.startswith("500") for p in pages), [p[:60] for p in pages]
     assert all("RuntimeError" in p for p in pages)  # the technical page really rendered
     return "\n".join(pages)
@@ -515,4 +629,4 @@ def test_no_token_leaks(world, name, settings):
 
 
 def test_errors_were_collected(world):
-    assert len(world.errors) == 4
+    assert len(world.errors) == 8

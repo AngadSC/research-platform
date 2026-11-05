@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import os
+import re
 import secrets
 from pathlib import Path
 
@@ -168,7 +169,8 @@ if LAB_FILES_BUCKET:
         "OPTIONS": {
             "bucket_name": LAB_FILES_BUCKET,
             "default_acl": "private",
-            "querystring_auth": False,
+            "querystring_auth": True,  # D90: url() signs; only the download view calls it
+            "signature_version": "s3v4",
             "endpoint_url": os.environ.get("LAB_FILES_ENDPOINT_URL") or None,
             "region_name": os.environ.get("LAB_FILES_REGION") or None,
         },
@@ -178,6 +180,13 @@ else:
         "BACKEND": "django.core.files.storage.FileSystemStorage",
         "OPTIONS": {"location": os.environ.get("LAB_FILES_ROOT", "/data/lab_files")},
     }
+# D90: with a bucket, downloads redirect to a presigned GET (60 s at most) instead of streaming.
+# Set LAB_FILES_STREAM_DOWNLOADS=True for providers that ignore response-* overrides.
+LAB_FILES_STREAM_DOWNLOADS = os.environ.get("LAB_FILES_STREAM_DOWNLOADS", "").lower() in {
+    "1",
+    "true",
+}
+LAB_FILES_PRESIGN_SECONDS = 60
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
@@ -315,6 +324,9 @@ REST_FRAMEWORK = {
         "lab_create": "5/day",
         "picker_token": "30/hour",
         "link_check": "60/hour",
+        "search": "120/minute",
+        "integration_connect": "30/hour",  # D81: each API-key connect calls the provider
+        "integration_search": "30/minute",  # D85
     },
     "DEFAULT_PERMISSION_CLASSES": ["core.permissions.HasPerm"],
     "DEFAULT_AUTHENTICATION_CLASSES": ["core.auth.SessionAuthentication"],
@@ -365,6 +377,18 @@ INTEGRATION_CLIENTS = {
         "client_secret": os.environ.get("GOOGLE_DRIVE_CLIENT_SECRET", ""),
     },
 }
+# D87: any other OAuth provider is configured by convention, with no settings change:
+# INTEGRATION_<NAME>_CLIENT_ID / INTEGRATION_<NAME>_CLIENT_SECRET (NAME = registry key, upper case).
+for _var, _value in os.environ.items():
+    _m = re.fullmatch(r"INTEGRATION_([A-Z0-9_]+)_CLIENT_ID", _var)
+    if _m and _m[1].lower() not in INTEGRATION_CLIENTS:
+        INTEGRATION_CLIENTS[_m[1].lower()] = {
+            "client_id": _value,
+            "client_secret": os.environ.get(f"INTEGRATION_{_m[1]}_CLIENT_SECRET", ""),
+        }
+# D82: when set, self-hosted instance URLs (REDCap, GitLab, ...) must be on one of these hosts
+# (comma-separated; `*.uni.edu` allows any subdomain). Empty: any public https host.
+INTEGRATION_ALLOWED_INSTANCE_HOSTS = env_list("INTEGRATION_ALLOWED_INSTANCE_HOSTS")
 # Public by design (the browser Picker needs them): API key and Cloud project number (app id).
 INTEGRATION_PUBLIC = {
     "google_drive": {

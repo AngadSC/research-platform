@@ -1,5 +1,7 @@
+from django.conf import settings
 from django.core.files.storage import storages
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponseRedirect
+from django.utils.http import content_disposition_header
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
@@ -267,6 +269,8 @@ class AttachmentDownloadView(AttachmentMixin, generics.GenericAPIView):
             target=attachment,
             request=request,
         )
+        if settings.LAB_FILES_BUCKET and not settings.LAB_FILES_STREAM_DOWNLOADS:
+            return self._presigned_redirect(attachment)
         try:
             handle = storages["lab_files"].open(attachment.storage_key, "rb")
         except FileNotFoundError as exc:
@@ -280,4 +284,25 @@ class AttachmentDownloadView(AttachmentMixin, generics.GenericAPIView):
         response["X-Content-Type-Options"] = "nosniff"
         response["Content-Security-Policy"] = "sandbox"
         response["Cache-Control"] = "private, no-store"
+        return response
+
+    @staticmethod
+    def _presigned_redirect(attachment):
+        """D90: 302 to a presigned GET. Overrides mirror the streamed headers; the filename goes
+        through Django's RFC 6266/5987 encoder, so quotes, newlines and unicode are safe."""
+        pdf = attachment.content_type == "application/pdf"
+        url = storages["lab_files"].url(
+            attachment.storage_key,
+            parameters={
+                "ResponseContentDisposition": content_disposition_header(
+                    not pdf, attachment.original_filename
+                ),
+                "ResponseContentType": attachment.content_type,
+                "ResponseCacheControl": "private, no-store",
+            },
+            expire=min(settings.LAB_FILES_PRESIGN_SECONDS, 60),
+        )
+        response = HttpResponseRedirect(url)
+        response["Cache-Control"] = "no-store"
+        response["Referrer-Policy"] = "no-referrer"
         return response

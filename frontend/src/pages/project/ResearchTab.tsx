@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { LinkedFiles, type LinkTarget } from "@/components/shared/LinkedFiles";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { ReferenceList } from "@/components/shared/References";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import {
@@ -340,14 +341,7 @@ function fields(kind: Kind, r: AnyRecord, labId: string, base: string): [string,
           "Supporting files",
           <Files key="sf" labId={labId} base={base} items={d.supporting_attachments} />,
         ],
-        [
-          "References",
-          <ul key="rf">
-            {d.references.map((x, i) => (
-              <li key={i}>{[x.title, x.doi, x.url].filter(Boolean).join(" ")}</li>
-            ))}
-          </ul>,
-        ],
+        ["References", <ReferenceList key="rf" items={d.references} />],
         ["Datasets", <Refs key="d" base={base} kind="datasets" items={ds(d.datasets)} />],
         ["Analyses", <Refs key="a" base={base} kind="analyses" items={t(d.analyses)} />],
         ["Results", <Refs key="r" base={base} kind="results" items={t(d.results)} />],

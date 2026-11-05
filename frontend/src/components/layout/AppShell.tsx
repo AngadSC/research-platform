@@ -97,7 +97,7 @@ export function AppShell() {
           </main>
         </div>
       </div>
-      <CommandPalette />
+      <CommandPalette labId={labId} onGo={(url) => void navigate(url)} />
       <Toaster />
     </TooltipProvider>
   );

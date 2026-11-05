@@ -372,7 +372,7 @@ def lineage(project) -> dict:
     by_node = {}
     outside = ExternalLink.objects.for_lab(project.lab_id).filter(project=project)
     for link in outside.order_by("created_at", "id"):
-        for kind in ("dataset", "analysis", "result", "manuscript"):
+        for kind in ("dataset", "analysis", "result", "manuscript", "decision"):
             if getattr(link, f"{kind}_id"):
                 by_node.setdefault(f"{kind}:{getattr(link, f'{kind}_id')}", []).append(
                     {

@@ -1,15 +1,17 @@
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import generics, serializers
 from rest_framework.exceptions import NotAuthenticated
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from core.models import Notification
 from core.notifications import visible_notifications
 from core.permissions import Perm, get_lab_or_404
+from core.search import MAX_Q, SPECS, search
 from core.serializers import NotificationSerializer, UserSerializer
 
 
@@ -99,3 +101,42 @@ class NotificationReadAllView(NotificationMixin, generics.GenericAPIView):
             .update(read_at=timezone.now(), updated_at=timezone.now())
         )
         return Response({"updated": updated})
+
+
+# ---------------------------------------------------------------- search (D93)
+
+
+class SearchProjectSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+
+
+class SearchHitSerializer(serializers.Serializer):
+    type = serializers.CharField()
+    id = serializers.UUIDField()
+    title = serializers.CharField()
+    snippet = serializers.CharField()
+    project = SearchProjectSerializer(allow_null=True)
+    url = serializers.CharField()
+
+
+class SearchView(LabScopedViewMixin, APIView):
+    """Reading, like browsing: not audited (D93)."""
+
+    perms = {"GET": Perm.VIEW_LAB}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "search"
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("q", str, description=f"At least 2 characters, at most {MAX_Q}."),
+            OpenApiParameter(
+                "types", str, description="Comma-separated: " + ", ".join(s.type for s in SPECS)
+            ),
+        ],
+        responses=inline_serializer("SearchResults", {"results": SearchHitSerializer(many=True)}),
+    )
+    def get(self, request, lab_id):
+        types = {t for t in request.query_params.get("types", "").split(",") if t}
+        hits = search(request.user, request.lab, request.query_params.get("q", ""), types)
+        return Response({"results": hits})

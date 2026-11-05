@@ -514,8 +514,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
-         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         * @description oauth2: start the flow, returns the authorization URL. api_key: validate the key with
+         *     the provider and store it (D81); the key is never echoed, logged or audited.
          */
         post: operations["labs_integrations_connect_create"];
         delete?: never;
@@ -1119,6 +1119,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/projects/{project_id}/integrations/{provider}/search/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description D85: candidates from a provider without a picker. Your own account only, edit_content on
+         *     the project, throttled, never cached (here or by the browser).
+         */
+        get: operations["labs_projects_integrations_search_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/projects/{project_id}/lineage/": {
         parameters: {
             query?: never;
@@ -1302,6 +1322,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/search/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Reading, like browsing: not audited (D93). */
+        get: operations["labs_search_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/tasks/{task_id}/": {
         parameters: {
             query?: never;
@@ -1445,9 +1482,10 @@ export interface components {
          *     * `external_link.created` - External Link Created
          *     * `external_link.removed` - External Link Removed
          *     * `external_link.change_accepted` - External Link Change Accepted
+         *     * `integration.searched` - Integration Searched
          * @enum {string}
          */
-        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted";
+        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "integration.searched";
         Analysis: {
             /** Format: uuid */
             readonly id: string;
@@ -1539,6 +1577,25 @@ export interface components {
             readonly created_at: string;
             readonly metadata: unknown;
         };
+        /**
+         * @description * `oauth2` - oauth2
+         *     * `api_key` - api_key
+         *     * `link_only` - link_only
+         *     * `public` - public
+         * @enum {string}
+         */
+        AuthTypeEnum: "oauth2" | "api_key" | "link_only" | "public";
+        /**
+         * @description * `storage` - storage
+         *     * `code` - code
+         *     * `writing` - writing
+         *     * `data_capture` - data_capture
+         *     * `protocols` - protocols
+         *     * `references` - references
+         *     * `repository` - repository
+         * @enum {string}
+         */
+        CategoryEnum: "storage" | "code" | "writing" | "data_capture" | "protocols" | "references" | "repository";
         Conflict: {
             detail: string;
             code: string;
@@ -1547,11 +1604,31 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
+        /** @description One field of an API-key connect form; `secret` fields are write-only (never echoed). */
+        ConnectField: {
+            name: components["schemas"]["NameEnum"];
+            label: string;
+            help_text: string;
+            required: boolean;
+            secret: boolean;
+        };
+        /**
+         * @description oauth2: optional `scopes`. api_key: the connect form (D81). Secrets are write-only and
+         *     no validation message ever repeats a value.
+         */
         ConnectInput: {
             scopes?: string[];
+            api_key?: string;
+            secret?: string;
+            instance_url?: string;
         };
+        /**
+         * @description oauth2: `authorization_url` to send the browser to (`account` null). api_key: the stored
+         *     `account` (`authorization_url` empty).
+         */
         ConnectOutput: {
             authorization_url: string;
+            account: components["schemas"]["ConnectedAccount"] | null;
         };
         /** @description Explicit read-only fields: token columns are never listed (ARCHITECTURE section 9). */
         ConnectedAccount: {
@@ -1561,6 +1638,8 @@ export interface components {
             readonly user: components["schemas"]["User"];
             /** Format: email */
             readonly external_email: string;
+            /** Format: uri */
+            readonly instance_url: string;
             readonly granted_scopes: unknown;
             readonly status: components["schemas"]["ConnectedAccountStatusEnum"];
             /** Format: date-time */
@@ -1787,6 +1866,8 @@ export interface components {
             readonly result: string | null;
             /** Format: uuid */
             readonly manuscript: string | null;
+            /** Format: uuid */
+            readonly decision: string | null;
             readonly provider: string;
             readonly provider_label: string;
             readonly external_id: string;
@@ -1821,16 +1902,16 @@ export interface components {
             readonly created_at: string;
         };
         /**
-         * @description `url`, `title` and `mime_type` are only used by link_only providers; for the others
-         *     the provider is asked for them.
+         * @description Name the item by `external_id` (picker, search result) or by a pasted `url` the provider
+         *     parses. Everything else about the item is read from the provider server-side (D85); only a
+         *     link_only provider stores the pasted `url` and the person's `title`.
          */
         ExternalLinkInput: {
             provider: string;
-            external_id: string;
+            external_id?: string;
             /** Format: uri */
             url?: string;
             title?: string;
-            mime_type?: string;
             /** Format: uuid */
             document?: string;
             /** Format: uuid */
@@ -1841,6 +1922,8 @@ export interface components {
             result?: string;
             /** Format: uuid */
             manuscript?: string;
+            /** Format: uuid */
+            decision?: string;
         };
         Handover: {
             /** Format: date-time */
@@ -1905,6 +1988,15 @@ export interface components {
             /** Format: email */
             email: string;
         };
+        /** @description A candidate to link (D85). Linking it sends only `id`: the server re-reads the rest. */
+        ItemSearchResult: {
+            id: string;
+            title: string;
+            subtitle: string;
+            /** Format: date-time */
+            modified: string | null;
+            url: string;
+        };
         Lab: {
             /** Format: uuid */
             readonly id: string;
@@ -1951,6 +2043,24 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /**
+         * @description * `picker` - picker
+         *     * `search` - search
+         *     * `paste_url` - paste_url
+         * @enum {string}
+         */
+        LinkMethodsEnum: "picker" | "search" | "paste_url";
+        /**
+         * @description * `project` - project
+         *     * `document` - document
+         *     * `dataset` - dataset
+         *     * `analysis` - analysis
+         *     * `result` - result
+         *     * `manuscript` - manuscript
+         *     * `decision` - decision
+         * @enum {string}
+         */
+        LinkTargetsEnum: "project" | "document" | "dataset" | "analysis" | "result" | "manuscript" | "decision";
         Manuscript: {
             /** Format: uuid */
             readonly id: string;
@@ -1997,6 +2107,13 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        /**
+         * @description * `api_key` - api_key
+         *     * `secret` - secret
+         *     * `instance_url` - instance_url
+         * @enum {string}
+         */
+        NameEnum: "api_key" | "secret" | "instance_url";
         Notification: {
             /** Format: uuid */
             readonly id: string;
@@ -2219,17 +2336,30 @@ export interface components {
          * @enum {string}
          */
         ProjectStatusEnum: "planning" | "active" | "paused" | "completed" | "archived";
-        /** @description One registry entry plus the requester's own account there. Built from a dict. */
+        /**
+         * @description One registry entry plus the requester's own account there: everything the generic UI
+         *     needs (D80). Built from a dict (`views.provider_entry`).
+         */
         Provider: {
             name: string;
             label: string;
-            auth_type: string;
+            auth_type: components["schemas"]["AuthTypeEnum"];
+            category: components["schemas"]["CategoryEnum"];
             icon: string;
+            metadata_only: boolean;
             scopes: string[];
             configured: boolean;
             public_config: {
                 [key: string]: string;
             };
+            link_targets: components["schemas"]["LinkTargetsEnum"][];
+            link_methods: components["schemas"]["LinkMethodsEnum"][];
+            needs_instance_url: boolean;
+            connect_fields: components["schemas"]["ConnectField"][];
+            external_id_pattern: string;
+            url_pattern: string;
+            link_hosts: string[];
+            can_check: boolean;
             account: components["schemas"]["ProviderAccount"] | null;
         };
         ProviderAccount: {
@@ -2237,12 +2367,14 @@ export interface components {
             id: string;
             status: string;
             external_email: string;
+            instance_url: string;
         };
         ReadAllResult: {
             updated: number;
         };
+        /** @description D95: a title is required; url is http(s) only; doi looks like 10.1234/abc. */
         Reference: {
-            title?: string;
+            title: string;
             url?: string;
             doi?: string;
         };
@@ -2314,6 +2446,23 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
             readonly restored_from_version: number;
+        };
+        SearchHit: {
+            type: string;
+            /** Format: uuid */
+            id: string;
+            title: string;
+            snippet: string;
+            project: components["schemas"]["SearchProject"] | null;
+            url: string;
+        };
+        SearchProject: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        SearchResults: {
+            results: components["schemas"]["SearchHit"][];
         };
         Task: {
             /** Format: uuid */
@@ -2754,8 +2903,9 @@ export interface operations {
                  *     * `external_link.created` - External Link Created
                  *     * `external_link.removed` - External Link Removed
                  *     * `external_link.change_accepted` - External Link Change Accepted
+                 *     * `integration.searched` - Integration Searched
                  */
-                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted";
+                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "integration.searched";
                 actor?: string;
                 /** @description Pagination cursor */
                 cursor?: string;
@@ -4325,6 +4475,33 @@ export interface operations {
             };
         };
     };
+    labs_projects_integrations_search_list: {
+        parameters: {
+            query?: {
+                /** @description Empty: the provider's recent items. */
+                q?: string;
+                target?: "analysis" | "dataset" | "decision" | "document" | "manuscript" | "project" | "result";
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemSearchResult"][];
+                };
+            };
+        };
+    };
     labs_projects_lineage_retrieve: {
         parameters: {
             query?: never;
@@ -4643,6 +4820,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RetentionItem"][];
+                };
+            };
+        };
+    };
+    labs_search_retrieve: {
+        parameters: {
+            query?: {
+                /** @description At least 2 characters, at most 100. */
+                q?: string;
+                /** @description Comma-separated: project, task, document, dataset, analysis, result, decision, manuscript, ethics, link */
+                types?: string;
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResults"];
                 };
             };
         };

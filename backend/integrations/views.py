@@ -7,8 +7,9 @@ from django.conf import settings
 from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
 from django.http import Http404, HttpResponseRedirect
 from django.utils import timezone
-from django.views.decorators.debug import sensitive_variables
-from drf_spectacular.utils import extend_schema
+from django.utils.decorators import method_decorator
+from django.views.decorators.debug import sensitive_post_parameters, sensitive_variables
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, status
 from rest_framework.exceptions import Throttled
 from rest_framework.response import Response
@@ -28,6 +29,8 @@ from integrations.serializers import (
     ConnectOutputSerializer,
     ExternalLinkInputSerializer,
     ExternalLinkSerializer,
+    ItemSearchQuerySerializer,
+    ItemSearchResultSerializer,
     PickerTokenSerializer,
     ProviderSerializer,
 )
@@ -47,6 +50,10 @@ OAUTH_MESSAGES = {
     "identity_failed": "We could not confirm which account you connected. Try again.",
     "unexpected_scope": "The service granted more access than we asked for. Try again.",
     "other_account_connected": "Another account is already connected. Disconnect it first.",
+    "invalid_key": "The service did not accept that key. Check it and try again.",
+    "invalid_instance_url": "Enter the server's https address, for example "
+    "https://redcap.example.edu. It must be reachable from the internet.",
+    "instance_not_allowed": "This server is not on your institution's list of allowed servers.",
 }
 
 
@@ -64,6 +71,45 @@ def _own_account(accounts, provider):
     return rows[0] if rows else None
 
 
+def provider_entry(p, account) -> dict:
+    """Registry metadata for the generic UI (D80). Never a client secret or a key."""
+    return {
+        "name": p.name,
+        "label": p.label,
+        "auth_type": p.auth_type,
+        "category": p.category,
+        "icon": p.icon,
+        "metadata_only": p.metadata_only,
+        "scopes": list(p.scopes),
+        "configured": p.configured,
+        "public_config": p.public_config,
+        "link_targets": [t for t in registry.TARGETS if t in p.link_targets],
+        "link_methods": list(p.link_methods),
+        "needs_instance_url": p.needs_instance_url,
+        "connect_fields": [
+            {
+                "name": f.name,
+                "label": f.label,
+                "help_text": f.help_text,
+                "required": f.required,
+                "secret": f.secret,
+            }
+            for f in p.connect_fields
+        ],
+        "external_id_pattern": p.external_id_pattern,
+        "url_pattern": p.url_pattern,
+        "link_hosts": sorted(p.link_hosts),
+        "can_check": p.fetch_item is not None,
+        "account": account
+        and {
+            "id": account.pk,
+            "status": account.status,
+            "external_email": account.external_email,
+            "instance_url": account.instance_url,
+        },
+    }
+
+
 class ProviderListView(LabScopedViewMixin, generics.GenericAPIView):
     model = ConnectedAccount
     serializer_class = ProviderSerializer
@@ -73,26 +119,7 @@ class ProviderListView(LabScopedViewMixin, generics.GenericAPIView):
     @extend_schema(responses=ProviderSerializer(many=True))
     def get(self, request, lab_id):
         mine = list(self.get_queryset().filter(user=request.user))
-        out = []
-        for p in registry.PROVIDERS.values():
-            account = _own_account(mine, p.name)
-            out.append(
-                {
-                    "name": p.name,
-                    "label": p.label,
-                    "auth_type": p.auth_type,
-                    "icon": p.icon,
-                    "scopes": list(p.scopes),
-                    "configured": p.configured,
-                    "public_config": p.public_config,
-                    "account": account
-                    and {
-                        "id": account.pk,
-                        "status": account.status,
-                        "external_email": account.external_email,
-                    },
-                }
-            )
+        out = [provider_entry(p, _own_account(mine, p.name)) for p in registry.PROVIDERS.values()]
         return Response(self.get_serializer(out, many=True).data)
 
 
@@ -131,22 +158,43 @@ class AccountDetailView(AccountMixin, generics.GenericAPIView):
         return Response(self.get_serializer(account).data)
 
 
+@method_decorator(sensitive_post_parameters("api_key", "secret"), name="dispatch")
 class ConnectView(LabScopedViewMixin, generics.GenericAPIView):
+    """oauth2: start the flow, returns the authorization URL. api_key: validate the key with
+    the provider and store it (D81); the key is never echoed, logged or audited."""
+
     model = ConnectedAccount
     serializer_class = ConnectOutputSerializer
     perms = {"POST": Perm.MANAGE_INTEGRATIONS}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "integration_connect"
 
     @extend_schema(request=ConnectInputSerializer, responses=ConnectOutputSerializer)
+    @sensitive_variables()
     def post(self, request, lab_id, provider):
         body = ConnectInputSerializer(data=request.data)
         body.is_valid(raise_exception=True)
+        data = body.validated_data
+        entry = registry.PROVIDERS.get(provider)
         try:
-            url = services.start_connect(
-                request, request.lab, provider, scopes=body.validated_data.get("scopes")
-            )
+            if entry is not None and entry.auth_type == registry.AuthType.API_KEY:
+                account = services.connect_with_key(
+                    request,
+                    request.lab,
+                    provider,
+                    api_key=data.get("api_key", ""),
+                    secret=data.get("secret", ""),
+                    instance_url=data.get("instance_url", ""),
+                )
+                out = {"authorization_url": "", "account": account}
+            else:
+                url = services.start_connect(
+                    request, request.lab, provider, scopes=data.get("scopes")
+                )
+                out = {"authorization_url": url, "account": None}
         except OAuthError as exc:
             return oauth_error(exc.code)
-        return Response({"authorization_url": url})
+        return Response(self.get_serializer(out).data)
 
 
 class PickerTokenView(LabScopedViewMixin, generics.GenericAPIView):
@@ -162,7 +210,7 @@ class PickerTokenView(LabScopedViewMixin, generics.GenericAPIView):
     @extend_schema(responses=PickerTokenSerializer)
     @sensitive_variables("token")
     def get(self, request, lab_id):
-        provider = registry.GOOGLE
+        provider = registry.get("google_drive")
         account = (
             self.get_queryset()
             .filter(user=request.user, provider=provider.name, status=AccountStatus.ACTIVE)
@@ -319,3 +367,43 @@ class ExternalLinkAcceptChangeView(ExternalLinkMixin, generics.GenericAPIView):
     def post(self, request, lab_id, externallink_id):
         link = services.accept_change(self.get_object(), user=request.user, request=request)
         return self.out(self.get_queryset().get(pk=link.pk))
+
+
+class ItemSearchView(ProjectScopedMixin, generics.GenericAPIView):
+    """D85: candidates from a provider without a picker. Your own account only, edit_content on
+    the project, throttled, never cached (here or by the browser)."""
+
+    model = ExternalLink
+    serializer_class = ItemSearchResultSerializer
+    perms = {"GET": Perm.EDIT_CONTENT}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "integration_search"
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("q", str, description="Empty: the provider's recent items."),
+            OpenApiParameter("target", str, enum=list(registry.TARGETS)),
+        ],
+        responses=ItemSearchResultSerializer(many=True),
+    )
+    def get(self, request, lab_id, project_id, provider):
+        query = ItemSearchQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        try:
+            results = services.search_items(
+                project=self.project,
+                user=request.user,
+                provider_name=provider,
+                query=query.validated_data["q"],
+                target=query.validated_data["target"],
+                request=request,
+            )
+        except IntegrationError:
+            resp = Response(
+                {"detail": "The service could not be reached. Try again shortly."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        else:
+            resp = Response(self.get_serializer(results, many=True).data)
+        resp["Cache-Control"] = "no-store"
+        return resp

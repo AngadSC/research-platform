@@ -74,6 +74,8 @@ class AuditAction(models.TextChoices):
     EXTERNAL_LINK_CREATED = "external_link.created"
     EXTERNAL_LINK_REMOVED = "external_link.removed"
     EXTERNAL_LINK_CHANGE_ACCEPTED = "external_link.change_accepted"
+    # Run 3 (integrations framework, D85)
+    INTEGRATION_SEARCHED = "integration.searched"
 
 
 class AuditQuerySet(models.QuerySet):

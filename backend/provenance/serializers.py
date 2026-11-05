@@ -1,3 +1,5 @@
+import re
+
 from django.db.models import Prefetch
 from rest_framework import serializers
 
@@ -70,14 +72,24 @@ class AttachmentRefSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+DOI_RE = re.compile(r"^10\.\d{4,9}/\S+$")
+MAX_REFERENCES = 50
+
+
 class ReferenceSerializer(serializers.Serializer):
-    title = serializers.CharField(
-        max_length=300, allow_blank=True, required=False, validators=[no_control_chars]
-    )
+    """D95: a title is required; url is http(s) only; doi looks like 10.1234/abc."""
+
+    title = serializers.CharField(max_length=300, validators=[no_control_chars])
     url = serializers.CharField(
         max_length=500, allow_blank=True, required=False, validators=[validate_web_url]
     )
-    doi = serializers.CharField(max_length=200, allow_blank=True, required=False)
+    doi = serializers.RegexField(
+        DOI_RE,
+        max_length=200,
+        allow_blank=True,
+        required=False,
+        error_messages={"invalid": "Enter a DOI like 10.1234/abcd."},
+    )
 
 
 # ---------------------------------------------------------------- output
@@ -329,7 +341,7 @@ class DecisionInputSerializer(serializers.Serializer):
     decided_by = serializers.UUIDField(required=False)
     supporting_documents = _ids()
     supporting_attachments = _ids()
-    references = ReferenceSerializer(many=True, required=False)
+    references = ReferenceSerializer(many=True, required=False, max_length=MAX_REFERENCES)
     analyses = _ids()
     results = _ids()
     datasets = _ids()

@@ -6,6 +6,7 @@ from core.views import (
     NotificationListView,
     NotificationReadAllView,
     NotificationReadView,
+    SearchView,
 )
 
 app_name = "core"
@@ -13,6 +14,7 @@ L = "labs/<uuid:lab_id>/"
 urlpatterns = [
     path("health/", HealthView.as_view(), name="health"),
     path("me/", MeView.as_view(), name="me"),
+    path(L + "search/", SearchView.as_view(), name="search"),
     path(L + "notifications/", NotificationListView.as_view(), name="notification-list"),
     path(
         L + "notifications/read-all/",

@@ -440,6 +440,7 @@ paths:
           - external_link.created
           - external_link.removed
           - external_link.change_accepted
+          - integration.searched
           type: string
           minLength: 1
         description: |-
@@ -506,6 +507,7 @@ paths:
           * `external_link.created` - External Link Created
           * `external_link.removed` - External Link Removed
           * `external_link.change_accepted` - External Link Change Accepted
+          * `integration.searched` - Integration Searched
       - in: query
         name: actor
         schema:
@@ -1340,8 +1342,8 @@ paths:
     post:
       operationId: labs_integrations_connect_create
       description: |-
-        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
-        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+        oauth2: start the flow, returns the authorization URL. api_key: validate the key with
+        the provider and store it (D81); the key is never echoed, logged or audited.
       parameters:
       - in: path
         name: lab_id
@@ -2700,6 +2702,60 @@ paths:
               schema:
                 $ref: '#/components/schemas/Handover'
           description: ''
+  /api/labs/{lab_id}/projects/{project_id}/integrations/{provider}/search/:
+    get:
+      operationId: labs_projects_integrations_search_list
+      description: |-
+        D85: candidates from a provider without a picker. Your own account only, edit_content on
+        the project, throttled, never cached (here or by the browser).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: provider
+        schema:
+          type: string
+        required: true
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: 'Empty: the provider''s recent items.'
+      - in: query
+        name: target
+        schema:
+          type: string
+          enum:
+          - analysis
+          - dataset
+          - decision
+          - document
+          - manuscript
+          - project
+          - result
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ItemSearchResult'
+          description: ''
   /api/labs/{lab_id}/projects/{project_id}/lineage/:
     get:
       operationId: labs_projects_lineage_retrieve
@@ -3182,6 +3238,39 @@ paths:
                 items:
                   $ref: '#/components/schemas/RetentionItem'
           description: ''
+  /api/labs/{lab_id}/search/:
+    get:
+      operationId: labs_search_retrieve
+      description: 'Reading, like browsing: not audited (D93).'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: At least 2 characters, at most 100.
+      - in: query
+        name: types
+        schema:
+          type: string
+        description: 'Comma-separated: project, task, document, dataset, analysis,
+          result, decision, manuscript, ethics, link'
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResults'
+          description: ''
   /api/labs/{lab_id}/tasks/{task_id}/:
     get:
       operationId: labs_tasks_retrieve
@@ -3536,6 +3625,7 @@ components:
       - external_link.created
       - external_link.removed
       - external_link.change_accepted
+      - integration.searched
       type: string
       description: |-
         * `auth.login` - Auth Login
@@ -3601,6 +3691,7 @@ components:
         * `external_link.created` - External Link Created
         * `external_link.removed` - External Link Removed
         * `external_link.change_accepted` - External Link Change Accepted
+        * `integration.searched` - Integration Searched
     Analysis:
       type: object
       properties:
@@ -3860,6 +3951,36 @@ components:
       - target_id
       - target_label
       - target_type
+    AuthTypeEnum:
+      enum:
+      - oauth2
+      - api_key
+      - link_only
+      - public
+      type: string
+      description: |-
+        * `oauth2` - oauth2
+        * `api_key` - api_key
+        * `link_only` - link_only
+        * `public` - public
+    CategoryEnum:
+      enum:
+      - storage
+      - code
+      - writing
+      - data_capture
+      - protocols
+      - references
+      - repository
+      type: string
+      description: |-
+        * `storage` - storage
+        * `code` - code
+        * `writing` - writing
+        * `data_capture` - data_capture
+        * `protocols` - protocols
+        * `references` - references
+        * `repository` - repository
     Conflict:
       type: object
       properties:
@@ -3880,19 +4001,63 @@ components:
       - detail
       - updated_at
       - updated_by
+    ConnectField:
+      type: object
+      description: One field of an API-key connect form; `secret` fields are write-only
+        (never echoed).
+      properties:
+        name:
+          $ref: '#/components/schemas/NameEnum'
+        label:
+          type: string
+        help_text:
+          type: string
+        required:
+          type: boolean
+        secret:
+          type: boolean
+      required:
+      - help_text
+      - label
+      - name
+      - required
+      - secret
     ConnectInput:
       type: object
+      description: |-
+        oauth2: optional `scopes`. api_key: the connect form (D81). Secrets are write-only and
+        no validation message ever repeats a value.
       properties:
         scopes:
           type: array
           items:
             type: string
+        api_key:
+          type: string
+          writeOnly: true
+          maxLength: 4096
+        secret:
+          type: string
+          writeOnly: true
+          maxLength: 4096
+        instance_url:
+          type: string
+          writeOnly: true
+          maxLength: 500
     ConnectOutput:
       type: object
+      description: |-
+        oauth2: `authorization_url` to send the browser to (`account` null). api_key: the stored
+        `account` (`authorization_url` empty).
       properties:
         authorization_url:
           type: string
+        account:
+          allOf:
+          - $ref: '#/components/schemas/ConnectedAccount'
+          nullable: true
       required:
+      - account
       - authorization_url
     ConnectedAccount:
       type: object
@@ -3914,6 +4079,10 @@ components:
           type: string
           format: email
           readOnly: true
+        instance_url:
+          type: string
+          format: uri
+          readOnly: true
         granted_scopes:
           readOnly: true
         status:
@@ -3934,6 +4103,7 @@ components:
       - external_email
       - granted_scopes
       - id
+      - instance_url
       - last_used_at
       - provider
       - status
@@ -4593,6 +4763,11 @@ components:
           format: uuid
           readOnly: true
           nullable: true
+        decision:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
         provider:
           type: string
           readOnly: true
@@ -4679,6 +4854,7 @@ components:
       - check_blocked
       - created_at
       - dataset
+      - decision
       - document
       - external_id
       - id
@@ -4705,8 +4881,9 @@ components:
     ExternalLinkInput:
       type: object
       description: |-
-        `url`, `title` and `mime_type` are only used by link_only providers; for the others
-        the provider is asked for them.
+        Name the item by `external_id` (picker, search result) or by a pasted `url` the provider
+        parses. Everything else about the item is read from the provider server-side (D85); only a
+        link_only provider stores the pasted `url` and the person's `title`.
       properties:
         provider:
           type: string
@@ -4721,9 +4898,6 @@ components:
         title:
           type: string
           maxLength: 500
-        mime_type:
-          type: string
-          maxLength: 255
         document:
           type: string
           format: uuid
@@ -4739,8 +4913,10 @@ components:
         manuscript:
           type: string
           format: uuid
+        decision:
+          type: string
+          format: uuid
       required:
-      - external_id
       - provider
     Handover:
       type: object
@@ -4909,6 +5085,29 @@ components:
       - email
       - lab_name
       - role
+    ItemSearchResult:
+      type: object
+      description: 'A candidate to link (D85). Linking it sends only `id`: the server
+        re-reads the rest.'
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        subtitle:
+          type: string
+        modified:
+          type: string
+          format: date-time
+          nullable: true
+        url:
+          type: string
+      required:
+      - id
+      - modified
+      - subtitle
+      - title
+      - url
     Lab:
       type: object
       properties:
@@ -5018,6 +5217,34 @@ components:
       - label
       - meta
       - subtitle
+    LinkMethodsEnum:
+      enum:
+      - picker
+      - search
+      - paste_url
+      type: string
+      description: |-
+        * `picker` - picker
+        * `search` - search
+        * `paste_url` - paste_url
+    LinkTargetsEnum:
+      enum:
+      - project
+      - document
+      - dataset
+      - analysis
+      - result
+      - manuscript
+      - decision
+      type: string
+      description: |-
+        * `project` - project
+        * `document` - document
+        * `dataset` - dataset
+        * `analysis` - analysis
+        * `result` - result
+        * `manuscript` - manuscript
+        * `decision` - decision
     Manuscript:
       type: object
       properties:
@@ -5142,6 +5369,16 @@ components:
       - id
       - role
       - user
+    NameEnum:
+      enum:
+      - api_key
+      - secret
+      - instance_url
+      type: string
+      description: |-
+        * `api_key` - api_key
+        * `secret` - secret
+        * `instance_url` - instance_url
     Notification:
       type: object
       properties:
@@ -5675,17 +5912,22 @@ components:
         * `archived` - Archived
     Provider:
       type: object
-      description: One registry entry plus the requester's own account there. Built
-        from a dict.
+      description: |-
+        One registry entry plus the requester's own account there: everything the generic UI
+        needs (D80). Built from a dict (`views.provider_entry`).
       properties:
         name:
           type: string
         label:
           type: string
         auth_type:
-          type: string
+          $ref: '#/components/schemas/AuthTypeEnum'
+        category:
+          $ref: '#/components/schemas/CategoryEnum'
         icon:
           type: string
+        metadata_only:
+          type: boolean
         scopes:
           type: array
           items:
@@ -5696,6 +5938,30 @@ components:
           type: object
           additionalProperties:
             type: string
+        link_targets:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinkTargetsEnum'
+        link_methods:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinkMethodsEnum'
+        needs_instance_url:
+          type: boolean
+        connect_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConnectField'
+        external_id_pattern:
+          type: string
+        url_pattern:
+          type: string
+        link_hosts:
+          type: array
+          items:
+            type: string
+        can_check:
+          type: boolean
         account:
           allOf:
           - $ref: '#/components/schemas/ProviderAccount'
@@ -5703,12 +5969,22 @@ components:
       required:
       - account
       - auth_type
+      - can_check
+      - category
       - configured
+      - connect_fields
+      - external_id_pattern
       - icon
       - label
+      - link_hosts
+      - link_methods
+      - link_targets
+      - metadata_only
       - name
+      - needs_instance_url
       - public_config
       - scopes
+      - url_pattern
     ProviderAccount:
       type: object
       properties:
@@ -5719,9 +5995,12 @@ components:
           type: string
         external_email:
           type: string
+        instance_url:
+          type: string
       required:
       - external_email
       - id
+      - instance_url
       - status
     ReadAllResult:
       type: object
@@ -5732,6 +6011,8 @@ components:
       - updated
     Reference:
       type: object
+      description: 'D95: a title is required; url is http(s) only; doi looks like
+        10.1234/abc.'
       properties:
         title:
           type: string
@@ -5744,8 +6025,14 @@ components:
           - type: string
             maxLength: 0
         doi:
-          type: string
-          maxLength: 200
+          oneOf:
+          - type: string
+            maxLength: 200
+            pattern: ^10\.\d{4,9}/\S+$
+          - type: string
+            maxLength: 0
+      required:
+      - title
     Result:
       type: object
       properties:
@@ -5939,6 +6226,51 @@ components:
       - restored_from_version
       - title
       - version
+    SearchHit:
+      type: object
+      properties:
+        type:
+          type: string
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        snippet:
+          type: string
+        project:
+          allOf:
+          - $ref: '#/components/schemas/SearchProject'
+          nullable: true
+        url:
+          type: string
+      required:
+      - id
+      - project
+      - snippet
+      - title
+      - type
+      - url
+    SearchProject:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
+    SearchResults:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchHit'
+      required:
+      - results
     Task:
       type: object
       properties:

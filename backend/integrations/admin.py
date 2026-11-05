@@ -30,6 +30,7 @@ class ConnectedAccountAdmin(_ReadOnly):
         "provider",
         "external_account_id",
         "external_email",
+        "instance_url",
         "granted_scopes",
         "status",
         "token_expires_at",

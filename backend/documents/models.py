@@ -23,10 +23,20 @@ class Document(LabScopedModel):
     retain_until = models.DateField(null=True, blank=True)
     retention_note = models.TextField(blank=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
+    search_text = models.TextField(blank=True, editable=False)  # D93: derived from content
 
     lab_parents = ("project",)
     permission_domain = "project"
     project_path = "project"
+
+    def save(self, *args, **kwargs):
+        from documents.text import extract_text
+
+        self.search_text = extract_text(self.content)
+        fields = kwargs.get("update_fields")
+        if fields is not None and "content" in fields:
+            kwargs["update_fields"] = {*fields, "search_text"}
+        super().save(*args, **kwargs)
 
     class Meta(LabScopedModel.Meta):
         indexes = [

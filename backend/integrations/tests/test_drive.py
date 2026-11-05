@@ -11,18 +11,19 @@ from django.utils import timezone
 from rest_framework.throttling import ScopedRateThrottle
 
 from audit.models import AuditEvent
-from integrations import jobs, registry, services
+from integrations import jobs, services
 from integrations.http import AccountUnavailable, IntegrationError
 from integrations.models import AccountStatus, ConnectedAccount, ExternalLink
+from integrations.providers import google_drive
 from integrations.tests.fake import response
 from projects.models import ProjectMembership
 from provenance.models import DatasetRecord
 
 pytestmark = pytest.mark.django_db
 
-DRIVE = registry.GOOGLE
+DRIVE = google_drive.PROVIDER
 FILE_ID = "1AbC-dEf_9"
-FILE_URL = f"https://www.googleapis.com/drive/v3/files/{FILE_ID}?fields={registry.DRIVE_FIELDS}"
+FILE_URL = f"https://www.googleapis.com/drive/v3/files/{FILE_ID}?fields={google_drive.FIELDS}"
 SCOPE = "https://www.googleapis.com/auth/drive.file"
 MD5 = "d41d8cd98f00b204e9800998ecf8427e"
 LONG_AGO = datetime.datetime(2030, 1, 1, tzinfo=datetime.UTC)
