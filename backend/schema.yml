@@ -438,6 +438,8 @@ paths:
           - integration.refresh_failed
           - external_link.created
           - external_link.removed
+          - external_link.change_accepted
+          - chat_message.deleted
           type: string
           minLength: 1
         description: |-
@@ -502,6 +504,8 @@ paths:
           * `integration.refresh_failed` - Integration Refresh Failed
           * `external_link.created` - External Link Created
           * `external_link.removed` - External Link Removed
+          * `external_link.change_accepted` - External Link Change Accepted
+          * `chat_message.deleted` - Chat Message Deleted
       - in: query
         name: actor
         schema:
@@ -548,6 +552,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedAuditEventList'
+          description: ''
+  /api/labs/{lab_id}/chat/unread/:
+    get:
+      operationId: labs_chat_unread_list
+      description: Unread counts for the sidebar badges (D78). Clients poll this.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatUnread'
           description: ''
   /api/labs/{lab_id}/datasets/{datasetrecord_id}/:
     get:
@@ -1271,6 +1299,67 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/external-links/{externallink_id}/accept-change/:
+    post:
+      operationId: labs_external_links_accept_change_create
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: externallink_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalLink'
+          description: ''
+  /api/labs/{lab_id}/external-links/{externallink_id}/check/:
+    post:
+      operationId: labs_external_links_check_create
+      description: Freshness check now, with the linker's account (whoever asks).
+      parameters:
+      - in: path
+        name: externallink_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalLink'
+          description: ''
   /api/labs/{lab_id}/integrations/{provider}/connect/:
     post:
       operationId: labs_integrations_connect_create
@@ -1362,6 +1451,30 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/integrations/google/picker-token/:
+    get:
+      operationId: labs_integrations_google_picker_token_retrieve
+      description: |-
+        D70: the single place a token leaves the server. The requester's own active Drive
+        account only, the access token only, valid for at most an hour, never cached.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickerToken'
+          description: ''
   /api/labs/{lab_id}/integrations/providers/:
     get:
       operationId: labs_integrations_providers_list
@@ -1693,6 +1806,35 @@ paths:
               schema:
                 $ref: '#/components/schemas/Handover'
           description: ''
+  /api/labs/{lab_id}/messages/{chatmessage_id}/:
+    delete:
+      operationId: labs_messages_destroy
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: chatmessage_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/notifications/:
     get:
       operationId: labs_notifications_list
@@ -2798,6 +2940,123 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProjectMembership'
           description: ''
+  /api/labs/{lab_id}/projects/{project_id}/messages/:
+    get:
+      operationId: labs_projects_messages_list
+      description: The newest page, oldest first; `before` (a message's created_at)
+        pages back.
+      parameters:
+      - in: query
+        name: before
+        schema:
+          type: string
+          format: date-time
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatMessage'
+          description: ''
+    post:
+      operationId: labs_projects_messages_create
+      description: 'D77: everyone on the project can read and post, viewers included.
+        Clients poll this.'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessageInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChatMessageInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChatMessageInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessage'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/messages/read/:
+    post:
+      operationId: labs_projects_messages_read_create
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatReadInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChatReadInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChatReadInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/projects/{project_id}/results/:
     get:
       operationId: labs_projects_results_list
@@ -3445,6 +3704,8 @@ components:
       - integration.refresh_failed
       - external_link.created
       - external_link.removed
+      - external_link.change_accepted
+      - chat_message.deleted
       type: string
       description: |-
         * `auth.login` - Auth Login
@@ -3508,6 +3769,8 @@ components:
         * `integration.refresh_failed` - Integration Refresh Failed
         * `external_link.created` - External Link Created
         * `external_link.removed` - External Link Removed
+        * `external_link.change_accepted` - External Link Change Accepted
+        * `chat_message.deleted` - Chat Message Deleted
     Analysis:
       type: object
       properties:
@@ -3767,6 +4030,56 @@ components:
       - target_id
       - target_label
       - target_type
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        author:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        body:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - author
+      - body
+      - created_at
+      - id
+    ChatMessageInput:
+      type: object
+      properties:
+        body:
+          type: string
+          maxLength: 4000
+      required:
+      - body
+    ChatReadInput:
+      type: object
+      properties:
+        last_read_at:
+          type: string
+          format: date-time
+      required:
+      - last_read_at
+    ChatUnread:
+      type: object
+      properties:
+        project:
+          type: string
+          format: uuid
+        count:
+          type: integer
+      required:
+      - count
+      - project
     Conflict:
       type: object
       properties:
@@ -4528,11 +4841,23 @@ components:
           format: date-time
           readOnly: true
           nullable: true
+        linked_version:
+          type: string
+          readOnly: true
+        linked_checksum:
+          type: string
+          readOnly: true
         remote_modified_at:
           type: string
           format: date-time
           readOnly: true
           nullable: true
+        remote_version:
+          type: string
+          readOnly: true
+        remote_checksum:
+          type: string
+          readOnly: true
         last_checked_at:
           type: string
           format: date-time
@@ -4546,6 +4871,18 @@ components:
         changed_since_linked:
           type: boolean
           readOnly: true
+        status:
+          type: string
+          readOnly: true
+        check_blocked:
+          type: string
+          description: 'Why a freshness check can''t run: "" when it can.'
+          readOnly: true
+        version_note:
+          type: string
+          description: 'Set on a just-created dataset link: copied | same | kept |
+            none (D76).'
+          readOnly: true
         linker_connection_status:
           type: string
           nullable: true
@@ -4557,6 +4894,7 @@ components:
       required:
       - analysis
       - changed_since_linked
+      - check_blocked
       - created_at
       - dataset
       - document
@@ -4564,18 +4902,24 @@ components:
       - id
       - last_checked_at
       - linked_by
+      - linked_checksum
       - linked_modified_at
+      - linked_version
       - linker_connection_status
       - manuscript
       - mime_type
       - project
       - provider
       - provider_label
+      - remote_checksum
       - remote_modified_at
+      - remote_version
       - result
+      - status
       - title
       - unavailable_since
       - url
+      - version_note
     ExternalLinkInput:
       type: object
       description: |-
@@ -5372,6 +5716,20 @@ components:
         display_name:
           type: string
           maxLength: 120
+    PickerToken:
+      type: object
+      description: 'D70: the one response that carries an access token.'
+      properties:
+        access_token:
+          type: string
+        expires_in:
+          type: integer
+        scope:
+          type: string
+      required:
+      - access_token
+      - expires_in
+      - scope
     Project:
       type: object
       properties:
@@ -5552,6 +5910,10 @@ components:
             type: string
         configured:
           type: boolean
+        public_config:
+          type: object
+          additionalProperties:
+            type: string
         account:
           allOf:
           - $ref: '#/components/schemas/ProviderAccount'
@@ -5563,6 +5925,7 @@ components:
       - icon
       - label
       - name
+      - public_config
       - scopes
     ProviderAccount:
       type: object

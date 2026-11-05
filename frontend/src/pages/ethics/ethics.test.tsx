@@ -101,7 +101,7 @@ describe("list", () => {
     });
     renderRoute("/labs/lab1/ethics");
     expect(await screen.findByText("in 25 days")).toBeInTheDocument();
-    expect(screen.getByText("active", { selector: "span[data-days]" })).toHaveClass("text-warning");
+    expect(screen.getByText("active", { selector: "span[data-days]" })).toHaveClass("bg-warning");
   });
 
   it("explains an empty list", async () => {

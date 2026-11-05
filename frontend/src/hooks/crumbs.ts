@@ -39,6 +39,13 @@ export function useCrumbs(): Crumb[] {
   });
 }
 
+/** The project id from the matched route, if the current page is inside a project. */
+export function useCurrentProjectId(): string | undefined {
+  return useMatches()
+    .map((m) => m.params.projectId)
+    .find(Boolean);
+}
+
 /** The lab id from the matched route, if the current page is inside a lab. */
 export function useCurrentLabId(): string | undefined {
   return useMatches()

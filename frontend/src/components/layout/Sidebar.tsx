@@ -1,4 +1,5 @@
-import { ChevronsUpDown, LogOut, Plus } from "lucide-react";
+import { useState } from "react";
+import { ChevronRight, ChevronsUpDown, LogOut, Plus } from "lucide-react";
 import { NavLink, useNavigate } from "react-router";
 import {
   DropdownMenu,
@@ -11,22 +12,103 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import { UnreadBadge } from "@/components/shared/UnreadBadge";
 import { useLogout } from "@/hooks/auth";
-import { useCurrentLabId } from "@/hooks/crumbs";
+import { useUnreadChats } from "@/hooks/chat";
+import { useCurrentLabId, useCurrentProjectId } from "@/hooks/crumbs";
 import { useProjects } from "@/hooks/projects";
 import { useLabs } from "@/hooks/workspace";
-import type { Lab } from "@/lib/api-types";
-import { navItems } from "@/lib/nav";
-import { APP_NAME } from "@/lib/constants";
+import type { Lab, Project } from "@/lib/api-types";
+import { vivid } from "@/lib/identity";
+import { navItems, PROJECT_SECTIONS } from "@/lib/nav";
 import { cn } from "@/lib/utils";
+import { BrandMark } from "./BrandMark";
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
     "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4",
     isActive
-      ? "bg-accent font-medium text-accent-foreground"
+      ? "bg-primary font-semibold text-primary-foreground"
       : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
   );
+
+const iconButton =
+  "shrink-0 rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4";
+
+/** A project row that opens into its sections. The project you are in opens by itself. */
+function ProjectItem({
+  labId,
+  project,
+  isCurrent,
+  unread,
+  onNavigate,
+}: {
+  labId: string;
+  project: Project;
+  isCurrent: boolean;
+  unread: number;
+  onNavigate: () => void;
+}) {
+  const [choice, setChoice] = useState<boolean>();
+  const open = choice ?? isCurrent;
+  const base = `/labs/${labId}/projects/${project.id}`;
+  const listId = `project-sections-${project.id}`;
+  return (
+    <li>
+      <div
+        className={cn(
+          "flex items-center gap-0.5 rounded-md hover:bg-accent",
+          isCurrent && "bg-accent",
+        )}
+      >
+        <NavLink
+          to={base}
+          onClick={() => {
+            setChoice(true);
+            onNavigate();
+          }}
+          className={cn(
+            "flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            isCurrent ? "font-semibold text-accent-foreground" : "text-muted-foreground",
+          )}
+        >
+          <span
+            aria-hidden
+            className={cn(
+              "size-2.5 shrink-0 rounded-full ring-1 ring-on-vivid/70",
+              vivid(project.id).bg,
+            )}
+          />
+          <span className="truncate">{project.name}</span>
+          {!open && <UnreadBadge count={unread} />}
+        </NavLink>
+        <button
+          type="button"
+          aria-label={`${project.name} sections`}
+          aria-expanded={open}
+          aria-controls={listId}
+          onClick={() => setChoice(!open)}
+          className={iconButton}
+        >
+          <ChevronRight aria-hidden className={cn("transition-transform", open && "rotate-90")} />
+        </button>
+      </div>
+      {open && (
+        <ul id={listId} className="mt-0.5 ml-3.5 grid grid-cols-1 gap-0.5 border-l-2 pl-2">
+          {PROJECT_SECTIONS.map(({ to, label, icon: Icon }) => (
+            <li key={to}>
+              <NavLink to={`${base}/${to}`} className={linkClass} onClick={onNavigate}>
+                <Icon aria-hidden />
+                {label}
+                {to === "chat" && <UnreadBadge count={unread} />}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
 
 function LabSwitcher({
   labs,
@@ -42,7 +124,7 @@ function LabSwitcher({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Switch lab"
-        className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-sm font-semibold hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="flex w-full items-center justify-between gap-2 rounded-md border px-2 py-2 text-left text-sm font-semibold hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <span className="truncate">{current?.name ?? "Select a lab"}</span>
         <ChevronsUpDown className="size-4 shrink-0 opacity-60" aria-hidden />
@@ -77,21 +159,25 @@ function LabSwitcher({
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: labs = [] } = useLabs();
   const labId = useCurrentLabId();
+  const projectId = useCurrentProjectId();
   const logout = useLogout();
   const { data: projects = [] } = useProjects(labId);
+  const unread = useUnreadChats(labId);
   const navigate = useNavigate();
   const current = labs.find((l) => l.id === labId);
   return (
     <aside
       id="app-sidebar"
       className={cn(
-        "w-64 shrink-0 flex-col gap-4 border-r bg-sidebar p-3 print:hidden",
+        "sidebar-scope w-64 shrink-0 flex-col gap-4 overflow-y-auto p-3 print:hidden",
         // Below md the sidebar is a drawer that only exists while open.
         open ? "fixed inset-y-0 left-0 z-50 flex md:static md:z-auto" : "hidden md:flex",
       )}
     >
       <div>
-        <p className="px-2 pb-1 text-xs text-muted-foreground">{APP_NAME}</p>
+        <div className="px-2 pb-2">
+          <BrandMark />
+        </div>
         <div className="flex items-center gap-1">
           <div className="min-w-0 flex-1">
             <LabSwitcher labs={labs} current={current} onNavigate={onClose} />
@@ -101,9 +187,11 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
       </div>
       <Separator />
       {labId && (
-        <nav aria-label="Projects" className="grid gap-0.5">
+        <nav aria-label="Projects" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
           <div className="flex items-center justify-between px-2 pb-1">
-            <span className="text-xs text-muted-foreground">Projects</span>
+            <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              Projects
+            </span>
             {current?.my_permissions.includes("create_project") && (
               <button
                 type="button"
@@ -112,22 +200,24 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                   onClose();
                   void navigate(`/labs/${labId}?new=project`);
                 }}
-                className="rounded-md p-1 text-muted-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4"
+                className={iconButton}
               >
                 <Plus aria-hidden />
               </button>
             )}
           </div>
-          {projects.map((p) => (
-            <NavLink
-              key={p.id}
-              to={`/labs/${labId}/projects/${p.id}`}
-              className={linkClass}
-              onClick={onClose}
-            >
-              <span className="truncate">{p.name}</span>
-            </NavLink>
-          ))}
+          <ul className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+            {projects.map((p) => (
+              <ProjectItem
+                key={p.id}
+                labId={labId}
+                project={p}
+                isCurrent={p.id === projectId}
+                unread={unread[p.id] ?? 0}
+                onNavigate={onClose}
+              />
+            ))}
+          </ul>
         </nav>
       )}
       <nav aria-label="Main" className="grid gap-0.5">

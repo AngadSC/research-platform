@@ -73,6 +73,7 @@ class AuditAction(models.TextChoices):
     EXTERNAL_LINK_CREATED = "external_link.created"
     EXTERNAL_LINK_REMOVED = "external_link.removed"
     EXTERNAL_LINK_CHANGE_ACCEPTED = "external_link.change_accepted"
+    CHAT_MESSAGE_DELETED = "chat_message.deleted"
 
 
 class AuditQuerySet(models.QuerySet):

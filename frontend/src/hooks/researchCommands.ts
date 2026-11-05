@@ -20,6 +20,12 @@ export function useProjectCommands(labId: string, projectId: string, canEdit: bo
       const p = `/labs/${labId}/projects/${projectId}`;
       const go = (to: string) => () => void navigate(to);
       const out: Command[] = [
+        {
+          id: "chat:open",
+          label: "Open project chat",
+          group: "Actions",
+          onSelect: go(`${p}/chat`),
+        },
         ...(projects ?? []).map((x) => ({
           id: `project:${x.id}`,
           label: `Go to project: ${x.name}`,

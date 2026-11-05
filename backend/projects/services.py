@@ -1,7 +1,9 @@
 """Project business logic (ARCHITECTURE section 0). Views validate and call these; write
 actions record their audit event in the same transaction."""
 
+from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
+from django.db.models import Count, F, OuterRef, Q, Subquery
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -13,6 +15,8 @@ from core.permissions import Perm, can, forget, users_with
 from core.retention import audit_retention, guard_retention, retention_changes
 from labs.models import LabMembership
 from projects.models import (
+    ChatMessage,
+    ChatReadState,
     Project,
     ProjectDeadline,
     ProjectMembership,
@@ -256,6 +260,65 @@ def update_task(*, task, data) -> Task:
 def delete_task(*, task, by, request=None) -> None:
     record(AuditAction.TASK_DELETED, actor=by, lab=task.lab, target=task, request=request)
     task.delete()
+
+
+# ---------------------------------------------------------------- chat
+
+
+def post_message(*, project, by, body) -> ChatMessage:
+    return ChatMessage.objects.create(lab=project.lab, project=project, author=by, body=body)
+
+
+@transaction.atomic
+def delete_message(*, message, by, request=None) -> None:
+    """D77: authors remove their own messages; project leads remove anyone's. The text is really
+    deleted, so something posted by mistake (a participant identifier) is gone. The audit event
+    keeps who and when, never the text."""
+    if message.author_id != by.pk and not can(by, Perm.EDIT_PROJECT, message):
+        raise PermissionDenied
+    record(
+        AuditAction.CHAT_MESSAGE_DELETED,
+        actor=by,
+        lab=message.lab,
+        target=message,
+        request=request,
+        metadata={"author": str(message.author_id)},
+    )
+    message.delete()
+
+
+def mark_chat_read(*, project, user, read_to) -> None:
+    """D78: `read_to` is the newest message the person saw, so a message that arrives while this
+    request is on its way stays unread. It only moves forward (an older tab can't undo a newer
+    one) and never past now."""
+    read_to = min(read_to, timezone.now())
+    states = ChatReadState.objects.for_lab(project.lab_id).filter(project=project, user=user)
+    _, created = states.get_or_create(
+        lab=project.lab, project=project, user=user, defaults={"last_read_at": read_to}
+    )
+    if not created:
+        states.filter(last_read_at__lt=read_to).update(
+            last_read_at=read_to, updated_at=timezone.now()
+        )
+
+
+def unread_chat_counts(*, user, lab) -> list[dict]:
+    """Per project the user can see: messages from other people newer than their read position.
+    Projects with nothing unread are left out."""
+    read_at = (
+        ChatReadState.objects.for_lab(lab)
+        .filter(user=user, project=OuterRef("project"))
+        .values("last_read_at")[:1]
+    )
+    return list(
+        ChatMessage.objects.visible_to(user, lab)
+        .exclude(author=user)
+        .annotate(read_at=Subquery(read_at))
+        .filter(Q(read_at__isnull=True) | Q(created_at__gt=F("read_at")))
+        .order_by()
+        .values("project")
+        .annotate(count=Count("id"))
+    )
 
 
 # ---------------------------------------------------------------- retention (SPEC phase 5)

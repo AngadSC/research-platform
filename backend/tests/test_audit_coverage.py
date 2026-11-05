@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 
 from audit.models import AuditAction, AuditEvent
 from labs.models import Invite, Lab, LabRole
+from projects.models import ChatMessage
 
 pytestmark = pytest.mark.django_db
 
@@ -145,3 +146,13 @@ def test_forwarded_for_only_trusted_behind_proxies(auth_user):
         _login(Client(REMOTE_ADDR=IP, **xff))
     ips = AuditEvent.objects.filter(action=AuditAction.AUTH_LOGIN).values_list("ip", flat=True)
     assert sorted(ips) == ["198.51.100.2", IP]
+
+
+def test_chat_message_deleted_keeps_no_text(lab_pi, make_project):
+    lab, pi = lab_pi
+    project = make_project(lab)
+    message = ChatMessage.objects.create(lab=lab, project=project, author=pi, body="secret text")
+    assert api(pi).delete(f"/api/labs/{lab.pk}/messages/{message.pk}/").status_code == 204
+    event = one(AuditAction.CHAT_MESSAGE_DELETED)
+    check(event, actor=pi, lab=lab, target=message)
+    assert "secret text" not in str(event.metadata)

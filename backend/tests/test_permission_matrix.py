@@ -23,6 +23,7 @@ from integrations.models import ConnectedAccount, ExternalLink  # integrations (
 from integrations.tests.fake import FAKE  # integrations (Run 2)
 from labs.models import Invite, Lab, LabMembership, LabRole
 from projects.models import (  # projects/tasks (Phase 3)
+    ChatMessage,
     Project,
     ProjectDeadline,
     ProjectMembership,
@@ -92,6 +93,15 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET", "projects:task-detail"): "401 404 2 2 2 2 2 404 2",
     ("PATCH", "projects:task-detail"): "401 404 2 2 2 2 403 404 403",
     ("DELETE", "projects:task-detail"): "401 404 2 2 2 2 403 404 403",
+    # Chat (D77): everyone on P1 reads and posts, viewers too. The message is contrib's, so
+    # contrib may delete it as author, and pi, admin and lead as leads. Viewers are not the author.
+    ("GET", "projects:chatmessage-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST", "projects:chatmessage-list"): "401 404 2 2 2 2 2 404 2",
+    ("DELETE", "projects:chatmessage-detail"): "401 404 2 2 2 2 403 404 403",
+    # Read state (D78) is your own: anyone who can see P1 may mark it read. Unread counts are
+    # per lab and filtered to the projects you can see, so nonproj gets a 2 with no P1 rows.
+    ("POST", "projects:chatmessage-read"): "401 404 2 2 2 2 2 404 2",
+    ("GET", "projects:chat-unread"): "401 404 2 2 2 2 2 2 2",
     # --- end projects/tasks (Phase 3) ---
     # --- documents/attachments (Phase 3) ---
     # Reasoned per persona on P1: reads need view_project (everyone on P1, including the
@@ -412,6 +422,7 @@ def build_world():
     deadline_a = ProjectDeadline.objects.create(
         lab=lab_a, project=p1, title="Deadline A", due_date="2030-01-01"
     )
+    chat_a = ChatMessage.objects.create(lab=lab_a, project=p1, author=users["contrib"], body="Hi")
     # --- end projects/tasks (Phase 3) ---
     # --- documents/attachments (Phase 3): Lab A fixtures ---
     doc_a, attachment_a = _doc_fixtures(lab_a, p1, users["pi"], "lab-a")
@@ -438,6 +449,9 @@ def build_world():
     )
     deadline_b = ProjectDeadline.objects.create(
         lab=lab_b, project=p1_b, title="Deadline B Secret", due_date="2030-01-01"
+    )
+    chat_b = ChatMessage.objects.create(
+        lab=lab_b, project=p1_b, author=secret_pi, body="Chat B Secret"
     )
     # --- end projects/tasks (Phase 3) ---
     # --- documents/attachments (Phase 3): Lab B mirror ---
@@ -467,6 +481,7 @@ def build_world():
             .pk,
             "projectdeadline_id": deadline_a.pk,
             "task_id": task_a.pk,
+            "chatmessage_id": chat_a.pk,
             # --- documents/attachments (Phase 3) ---
             "document_id": doc_a.pk,
             "version": 1,
@@ -488,6 +503,7 @@ def build_world():
             "projectmembership_id": pm_b.pk,
             "projectdeadline_id": deadline_b.pk,
             "task_id": task_b.pk,
+            "chatmessage_id": chat_b.pk,
             # --- documents/attachments (Phase 3) ---
             "document_id": doc_b.pk,
             "version": 1,
@@ -505,6 +521,7 @@ def build_world():
             "P1 Secret",
             "invitee-b-secret@example.com",
             "Task B Secret",  # projects/tasks (Phase 3)
+            "Chat B Secret",
             "Deadline B Secret",
             # --- documents/attachments (Phase 3): titles, filename and the file's bytes ---
             "Doc LAB-B-SECRET",
@@ -607,6 +624,8 @@ PAYLOADS = {
         "assignee": str(w.user_ids["contrib"]),  # on P1, so allowed
     },
     ("PATCH", "projects:task-detail"): lambda user, w: {"status": "in_progress", "position": 0},
+    ("POST", "projects:chatmessage-list"): lambda user, w: {"body": "Hello"},
+    ("POST", "projects:chatmessage-read"): lambda user, w: {"last_read_at": "2030-01-01T00:00:00Z"},
     # --- end projects/tasks (Phase 3) ---
     # --- documents/attachments (Phase 3) ---
     ("POST", "documents:document-list"): lambda user, w: {

@@ -47,6 +47,7 @@ const ACTIONS: Record<string, string> = {
   "attachment.downloaded": "Downloaded a file",
   "attachment.deleted": "Deleted a file",
   "task.deleted": "Deleted a task",
+  "chat_message.deleted": "Deleted a chat message",
   "deadline.deleted": "Deleted a deadline",
   "dataset.deleted": "Deleted a dataset",
   "analysis.deleted": "Deleted an analysis",

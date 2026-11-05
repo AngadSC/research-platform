@@ -2,8 +2,8 @@ import { useMemo, useState, type ComponentType } from "react";
 import { NavLink, Outlet, useNavigate, useOutletContext, useParams } from "react-router";
 import { toast } from "sonner";
 import { FormError } from "@/components/shared/FormError";
-import { PageHeader } from "@/components/shared/PageHeader";
-import { StatusBadge } from "@/components/shared/StatusBadge";
+import { StatusPill } from "@/components/shared/StatusBadge";
+import { UnreadBadge } from "@/components/shared/UnreadBadge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,12 +13,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUnreadChats } from "@/hooks/chat";
 import { useCreateDocument } from "@/hooks/documents";
 import { useProjectCommands } from "@/hooks/researchCommands";
 import { saveJson, useExportProject } from "@/hooks/research";
 import { useDeleteProject, useProject, useUpdateProject } from "@/hooks/projects";
 import type { Project } from "@/lib/api-types";
 import { useRegisterCommands } from "@/lib/commands";
+import { vivid } from "@/lib/identity";
+import { PROJECT_SECTIONS } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { formErrors } from "@/lib/forms";
 import { ProjectFormDialog } from "@/pages/project/ProjectFormDialog";
@@ -35,15 +38,6 @@ export function ProjectTab({ as: Tab }: { as: ComponentType<ProjectTabProps> }) 
   return <Tab {...useOutletContext<ProjectTabProps>()} />;
 }
 
-const TABS = [
-  ["overview", "Overview"],
-  ["tasks", "Tasks"],
-  ["documents", "Documents"],
-  ["files", "Files"],
-  ["research", "Research"],
-  ["lineage", "Lineage"],
-] as const;
-
 export function ProjectPage() {
   const { labId = "", projectId = "" } = useParams();
   const navigate = useNavigate();
@@ -54,6 +48,7 @@ export function ProjectPage() {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const unread = useUnreadChats(labId)[projectId] ?? 0;
   const canEditContent = project?.my_permissions.includes("edit_content");
   const exportProject = useExportProject(labId, projectId);
   useProjectCommands(labId, projectId, !!canEditContent);
@@ -96,60 +91,75 @@ export function ProjectPage() {
       </div>
     );
   const can = (perm: string) => project.my_permissions.includes(perm);
+  const colour = vivid(project.id);
 
   return (
     <>
-      <PageHeader
-        title={project.name}
-        description={undefined}
-        actions={
-          <>
-            <StatusBadge status={project.status} />
-            {can("export") && (
-              <Button
-                variant="outline"
-                disabled={exportProject.isPending}
-                onClick={() =>
-                  exportProject.mutate(undefined, {
-                    onSuccess: (d) => {
-                      saveJson(d, `${project.name.replace(/[^\w-]+/g, "-")}-export.json`);
-                      toast.success("Project exported");
-                    },
-                    onError: (e) => toast.error(formErrors(e, []).form ?? "Export failed."),
-                  })
-                }
-              >
-                Export project
-              </Button>
-            )}
-            {can("edit_project") && (
-              <Button variant="outline" onClick={() => setEditing(true)}>
-                Edit
-              </Button>
-            )}
-            {can("delete_project") && (
-              <Button variant="outline" onClick={() => setDeleting(true)}>
-                Delete
-              </Button>
-            )}
-          </>
-        }
-      />
-      <nav aria-label="Project sections" className="mb-6 flex gap-1 border-b">
-        {TABS.map(([to, label]) => (
+      <header
+        className={cn(
+          "mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl px-5 py-4 text-on-vivid print:hidden",
+          colour.bg,
+        )}
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <h1 className="min-w-0 text-2xl font-bold tracking-tight break-words">{project.name}</h1>
+          <StatusPill status={project.status} className={colour.text} />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {can("export") && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={exportProject.isPending}
+              onClick={() =>
+                exportProject.mutate(undefined, {
+                  onSuccess: (d) => {
+                    saveJson(d, `${project.name.replace(/[^\w-]+/g, "-")}-export.json`);
+                    toast.success("Project exported");
+                  },
+                  onError: (e) => toast.error(formErrors(e, []).form ?? "Export failed."),
+                })
+              }
+            >
+              Export project
+            </Button>
+          )}
+          {can("edit_project") && (
+            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+              Edit
+            </Button>
+          )}
+          {can("delete_project") && (
+            <Button variant="outline" size="sm" onClick={() => setDeleting(true)}>
+              Delete
+            </Button>
+          )}
+        </div>
+      </header>
+      {/* The sidebar dropdown holds these on larger screens; on a phone it sits in a drawer. */}
+      <nav
+        aria-label="Project sections"
+        className="mb-6 flex gap-1 overflow-x-auto pb-1 print:hidden md:hidden"
+      >
+        {PROJECT_SECTIONS.map(({ to, label }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
               cn(
-                "-mb-px border-b-2 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                "shrink-0 rounded-full px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                 isActive
-                  ? "border-primary font-medium"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
+                  ? "bg-primary font-semibold text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground",
               )
             }
           >
             {label}
+            {to === "chat" && unread > 0 && (
+              <span className="ml-1.5 inline-block">
+                <UnreadBadge count={unread} />
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

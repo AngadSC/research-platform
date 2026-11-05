@@ -37,6 +37,8 @@ The invite token is `secrets.token_urlsafe(32)` and appears only in the emailed 
 | `ProjectMembership` | `project` FK CASCADE, `user` FK User PROTECT, `role` choice `lead\|contributor\|viewer` | `lab_parents=("project",)`; unique `(project, user)`; index `(lab, user)`. The service requires a `LabMembership` in the same lab. |
 | `ProjectDeadline` | `project` FK CASCADE, `title` char(200), `due_date` date, `done` bool | `lab_parents=("project",)`; index `(project, due_date)` |
 | `Task` | `project` FK CASCADE, `title` char(300), `description` text, `assignee` FK User PROTECT null, `due_date` null, `status` choice `todo\|in_progress\|done`, `position` int (board order), `created_by` FK User PROTECT | `lab_parents=("project",)`; index `(project, status, position)`, `(lab, assignee)` |
+| `ChatMessage` | `project` FK CASCADE, `author` FK User PROTECT, `body` text | `lab_parents=("project",)`; index `(project, created_at)`; deleting is a real delete (D77) |
+| `ChatReadState` | `project` FK CASCADE, `user` FK User PROTECT, `last_read_at` datetime | `lab_parents=("project",)`; unique `(project, user)` (D78) |
 
 ### documents
 | Model | Fields | Constraints / indexes |
@@ -233,6 +235,10 @@ Creating and editing ordinary content is not audited, because revisions and `upd
 | 3 | PATCH, DELETE | `L/deadlines/<projectdeadline_id>/` | edit_project |
 | 3 | GET / POST | `P/tasks/` | view_project / edit_content |
 | 3 | GET / PATCH, DELETE | `L/tasks/<task_id>/` | view_project / edit_content |
+| 3 | GET, POST | `P/messages/` (`?before=<created_at>` pages back) | view_project (D77) |
+| 3 | DELETE | `L/messages/<chatmessage_id>/` | view_project, then author or edit_project in `delete_message` |
+| 3 | POST | `P/messages/read/` | view_project (D78) |
+| 3 | GET | `L/chat/unread/` (only projects the user can see) | view_lab (D78) |
 | 3 | GET / POST | `P/documents/` | view_project / edit_content |
 | 3 | GET / PUT, DELETE | `L/documents/<document_id>/` (PUT takes `base_version`; a stale save gets 409) | view_project / edit_content |
 | 3 | GET | `L/documents/<document_id>/revisions/` and `.../revisions/<int:version>/` | view_project |

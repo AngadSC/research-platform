@@ -313,6 +313,7 @@ REST_FRAMEWORK = {
         "invites": "30/hour",
         "uploads": "60/hour",
         "lab_create": "5/day",
+        "chat": "60/minute",
     },
     "DEFAULT_PERMISSION_CLASSES": ["core.permissions.HasPerm"],
     "DEFAULT_AUTHENTICATION_CLASSES": ["core.auth.SessionAuthentication"],

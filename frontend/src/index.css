@@ -4,51 +4,94 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #18181b;
+  --background: #fbfaff;
+  --foreground: #0d0b26;
   --card: #ffffff;
-  --card-foreground: #18181b;
+  --card-foreground: #0d0b26;
   --popover: #ffffff;
-  --popover-foreground: #18181b;
-  --primary: #4f46e5; /* indigo-600, white text 6.3:1 */
+  --popover-foreground: #0d0b26;
+  --primary: #4a1fff; /* electric violet */
   --primary-foreground: #ffffff;
-  --secondary: #f4f4f5;
-  --secondary-foreground: #27272a;
-  --muted: #f4f4f5;
-  --muted-foreground: #52525b; /* 7.7:1 on white */
-  --accent: #f4f4f5;
-  --accent-foreground: #18181b;
-  --destructive: #b91c1c;
-  --success: #15803d;
-  --warning: #b45309;
-  --border: #e4e4e7;
-  --input: #d4d4d8;
-  --ring: #4f46e5;
-  --sidebar: #fafafa;
+  --secondary: #e4e0ff;
+  --secondary-foreground: #24166e;
+  --muted: #efedfb;
+  --muted-foreground: #45426a;
+  --accent: #e4e0ff;
+  --accent-foreground: #0d0b26;
+  --destructive: #cc0039;
+  --destructive-foreground: #ffffff;
+  --success: #00704a;
+  --success-foreground: #ffffff;
+  --warning: #9e4a00;
+  --warning-foreground: #ffffff;
+  --border: #cdc9e8;
+  --input: #7d78a8; /* 3:1 against the page, so field edges stay visible */
+  --ring: #4a1fff;
+
+  /* The sidebar is dark ink in both themes; `.sidebar-scope` applies these. */
+  --sidebar: #120c45;
+  --sidebar-foreground: #f6f4ff;
+  --sidebar-muted: #bdb8ec;
+  --sidebar-accent: #2b2373;
+  --sidebar-border: #372e86;
+  --sidebar-highlight: #c8ff2e; /* lime: the current page */
+  --sidebar-highlight-foreground: #120c45;
+
+  /* Identity colours: one per project and person (lib/identity.ts). */
+  --vivid-1: #4a1fff;
+  --vivid-2: #d1006a;
+  --vivid-3: #007a78;
+  --vivid-4: #c03600;
+  --vivid-5: #0061d1;
+  --vivid-6: #8a00c2;
+  --on-vivid: #ffffff;
 }
 
 .dark {
-  --background: #09090b;
-  --foreground: #fafafa;
-  --card: #111113;
-  --card-foreground: #fafafa;
-  --popover: #111113;
-  --popover-foreground: #fafafa;
-  --primary: #818cf8; /* indigo-400, dark text 6.4:1 */
-  --primary-foreground: #09090b;
-  --secondary: #1f1f23;
-  --secondary-foreground: #fafafa;
-  --muted: #1f1f23;
-  --muted-foreground: #a1a1aa; /* 7.6:1 on bg */
-  --accent: #1f1f23;
-  --accent-foreground: #fafafa;
-  --destructive: #f87171;
-  --success: #4ade80;
-  --warning: #fbbf24;
-  --border: #27272a;
-  --input: #3f3f46;
-  --ring: #818cf8;
-  --sidebar: #0d0d10;
+  --background: #0b0a1f;
+  --foreground: #f7f6ff;
+  --card: #16143a;
+  --card-foreground: #f7f6ff;
+  --popover: #1b1945;
+  --popover-foreground: #f7f6ff;
+  --primary: #a899ff;
+  --primary-foreground: #0b0a1f;
+  --secondary: #2a2663;
+  --secondary-foreground: #ece9ff;
+  --muted: #1e1b4b;
+  --muted-foreground: #bcb9de;
+  --accent: #2a2663;
+  --accent-foreground: #f7f6ff;
+  --destructive: #ff6f8f;
+  --destructive-foreground: #0b0a1f;
+  --success: #2fe39a;
+  --success-foreground: #0b0a1f;
+  --warning: #ffc02e;
+  --warning-foreground: #0b0a1f;
+  --border: #3b3770;
+  --input: #7a75b0;
+  --ring: #a899ff;
+
+  --sidebar: #17114f;
+  --sidebar-accent: #2f2780;
+  --sidebar-border: #3d3491;
+  --sidebar-highlight-foreground: #17114f;
+}
+
+/* Everything inside re-reads the tokens, so shared components work on the dark sidebar. */
+.sidebar-scope {
+  --background: var(--sidebar);
+  --foreground: var(--sidebar-foreground);
+  --muted-foreground: var(--sidebar-muted);
+  --accent: var(--sidebar-accent);
+  --accent-foreground: var(--sidebar-foreground);
+  --border: var(--sidebar-border);
+  --input: var(--sidebar-border);
+  --primary: var(--sidebar-highlight);
+  --primary-foreground: var(--sidebar-highlight-foreground);
+  --ring: var(--sidebar-highlight);
+  background-color: var(--sidebar);
+  color: var(--sidebar-foreground);
 }
 
 @theme inline {
@@ -68,12 +111,22 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-sidebar: var(--sidebar);
+  --color-vivid-1: var(--vivid-1);
+  --color-vivid-2: var(--vivid-2);
+  --color-vivid-3: var(--vivid-3);
+  --color-vivid-4: var(--vivid-4);
+  --color-vivid-5: var(--vivid-5);
+  --color-vivid-6: var(--vivid-6);
+  --color-on-vivid: var(--on-vivid);
 }
 
 @layer base {

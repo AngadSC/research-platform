@@ -127,6 +127,12 @@ class Command(BaseCommand):
                     "due_date": today + datetime.timedelta(days=days),
                 },
             )
+        for author, body in [
+            (lead, "Welcome to the project chat. Use it for quick questions (FAKE)."),
+            (student, "RT export is cleaned. Fitting the primary model next (FAKE)."),
+            (lead, "Great. Please link the result when it is ready (FAKE)."),
+        ]:
+            project_services.post_message(project=project, by=author, body=body)
         for title, days in [("Pilot data freeze (FAKE)", 21), ("Ethics check-in (FAKE)", 60)]:
             project_services.create_deadline(
                 project=project,

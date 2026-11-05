@@ -38,4 +38,12 @@ urlpatterns = [
         views.TaskDetailView.as_view(),
         name="task-detail",
     ),
+    path(_P + "messages/", views.ChatMessageListCreateView.as_view(), name="chatmessage-list"),
+    path(_P + "messages/read/", views.ChatReadView.as_view(), name="chatmessage-read"),
+    path("labs/<uuid:lab_id>/chat/unread/", views.ChatUnreadView.as_view(), name="chat-unread"),
+    path(
+        "labs/<uuid:lab_id>/messages/<uuid:chatmessage_id>/",
+        views.ChatMessageDetailView.as_view(),
+        name="chatmessage-detail",
+    ),
 ]

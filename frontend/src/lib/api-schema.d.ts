@@ -200,6 +200,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/chat/unread/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Unread counts for the sidebar badges (D78). Clients poll this. */
+        get: operations["labs_chat_unread_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/datasets/{datasetrecord_id}/": {
         parameters: {
             query?: never;
@@ -464,6 +481,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/external-links/{externallink_id}/accept-change/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        post: operations["labs_external_links_accept_change_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/external-links/{externallink_id}/check/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Freshness check now, with the linker's account (whoever asks). */
+        post: operations["labs_external_links_check_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/integrations/{provider}/connect/": {
         parameters: {
             query?: never;
@@ -516,6 +573,26 @@ export interface paths {
         post?: never;
         /** @description Own account: disconnect. Another member's (manage_lab_integrations): revoke. */
         delete: operations["labs_integrations_accounts_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/integrations/google/picker-token/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description D70: the single place a token leaves the server. The requester's own active Drive
+         *     account only, the access token only, valid for at most an hour, never cached.
+         */
+        get: operations["labs_integrations_google_picker_token_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -672,6 +749,29 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/messages/{chatmessage_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        delete: operations["labs_messages_destroy"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1138,6 +1238,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/projects/{project_id}/messages/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The newest page, oldest first; `before` (a message's created_at) pages back. */
+        get: operations["labs_projects_messages_list"];
+        put?: never;
+        /** @description D77: everyone on the project can read and post, viewers included. Clients poll this. */
+        post: operations["labs_projects_messages_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/messages/read/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        post: operations["labs_projects_messages_read_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/projects/{project_id}/results/": {
         parameters: {
             query?: never;
@@ -1383,9 +1524,11 @@ export interface components {
          *     * `integration.refresh_failed` - Integration Refresh Failed
          *     * `external_link.created` - External Link Created
          *     * `external_link.removed` - External Link Removed
+         *     * `external_link.change_accepted` - External Link Change Accepted
+         *     * `chat_message.deleted` - Chat Message Deleted
          * @enum {string}
          */
-        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "external_link.created" | "external_link.removed";
+        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted";
         Analysis: {
             /** Format: uuid */
             readonly id: string;
@@ -1476,6 +1619,26 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
             readonly metadata: unknown;
+        };
+        ChatMessage: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly author: components["schemas"]["User"];
+            readonly body: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        ChatMessageInput: {
+            body: string;
+        };
+        ChatReadInput: {
+            /** Format: date-time */
+            last_read_at: string;
+        };
+        ChatUnread: {
+            /** Format: uuid */
+            project: string;
+            count: number;
         };
         Conflict: {
             detail: string;
@@ -1735,13 +1898,22 @@ export interface components {
             readonly linked_by: components["schemas"]["User"];
             /** Format: date-time */
             readonly linked_modified_at: string | null;
+            readonly linked_version: string;
+            readonly linked_checksum: string;
             /** Format: date-time */
             readonly remote_modified_at: string | null;
+            readonly remote_version: string;
+            readonly remote_checksum: string;
             /** Format: date-time */
             readonly last_checked_at: string | null;
             /** Format: date-time */
             readonly unavailable_since: string | null;
             readonly changed_since_linked: boolean;
+            readonly status: string;
+            /** @description Why a freshness check can't run: "" when it can. */
+            readonly check_blocked: string;
+            /** @description Set on a just-created dataset link: copied | same | kept | none (D76). */
+            readonly version_note: string;
             readonly linker_connection_status: string | null;
             /** Format: date-time */
             readonly created_at: string;
@@ -2074,6 +2246,12 @@ export interface components {
             readonly email?: string;
             display_name?: string;
         };
+        /** @description D70: the one response that carries an access token. */
+        PickerToken: {
+            access_token: string;
+            expires_in: number;
+            scope: string;
+        };
         Project: {
             /** Format: uuid */
             readonly id: string;
@@ -2147,6 +2325,9 @@ export interface components {
             icon: string;
             scopes: string[];
             configured: boolean;
+            public_config: {
+                [key: string]: string;
+            };
             account: components["schemas"]["ProviderAccount"] | null;
         };
         ProviderAccount: {
@@ -2669,8 +2850,10 @@ export interface operations {
                  *     * `integration.refresh_failed` - Integration Refresh Failed
                  *     * `external_link.created` - External Link Created
                  *     * `external_link.removed` - External Link Removed
+                 *     * `external_link.change_accepted` - External Link Change Accepted
+                 *     * `chat_message.deleted` - Chat Message Deleted
                  */
-                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "external_link.created" | "external_link.removed";
+                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted";
                 actor?: string;
                 /** @description Pagination cursor */
                 cursor?: string;
@@ -2693,6 +2876,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedAuditEventList"];
+                };
+            };
+        };
+    };
+    labs_chat_unread_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatUnread"][];
                 };
             };
         };
@@ -3224,6 +3428,50 @@ export interface operations {
             };
         };
     };
+    labs_external_links_accept_change_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                externallink_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalLink"];
+                };
+            };
+        };
+    };
+    labs_external_links_check_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                externallink_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalLink"];
+                };
+            };
+        };
+    };
     labs_integrations_connect_create: {
         parameters: {
             query?: never;
@@ -3291,6 +3539,27 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    labs_integrations_google_picker_token_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PickerToken"];
+                };
             };
         };
     };
@@ -3544,6 +3813,27 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Handover"];
                 };
+            };
+        };
+    };
+    labs_messages_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chatmessage_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -4294,6 +4584,85 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ProjectMembership"];
                 };
+            };
+        };
+    };
+    labs_projects_messages_list: {
+        parameters: {
+            query?: {
+                before?: string;
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessage"][];
+                };
+            };
+        };
+    };
+    labs_projects_messages_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatMessageInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ChatMessageInput"];
+                "multipart/form-data": components["schemas"]["ChatMessageInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessage"];
+                };
+            };
+        };
+    };
+    labs_projects_messages_read_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatReadInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ChatReadInput"];
+                "multipart/form-data": components["schemas"]["ChatReadInput"];
+            };
+        };
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -4,6 +4,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, serializers, status
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from audit.models import AuditAction
 from audit.services import record
@@ -12,8 +13,13 @@ from core.tenancy import project_of
 from core.views import LabScopedViewMixin
 from labs.models import LabMembership
 from projects import handover, services
-from projects.models import Project, ProjectDeadline, ProjectMembership, Task
+from projects.models import ChatMessage, Project, ProjectDeadline, ProjectMembership, Task
 from projects.serializers import (
+    ChatMessageFilterSerializer,
+    ChatMessageInputSerializer,
+    ChatMessageSerializer,
+    ChatReadInputSerializer,
+    ChatUnreadSerializer,
     DeadlineInputSerializer,
     DeadlineSerializer,
     HandoverSerializer,
@@ -273,6 +279,90 @@ class TaskDetailView(ProjectScopedMixin, generics.GenericAPIView):
     def delete(self, request, lab_id, task_id):
         services.delete_task(task=self.get_object(), by=request.user, request=request)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------- chat
+
+
+class ChatMessageListCreateView(ProjectScopedMixin, generics.GenericAPIView):
+    """D77: everyone on the project can read and post, viewers included. Clients poll this."""
+
+    model = ChatMessage
+    serializer_class = ChatMessageSerializer
+    nested = True
+    perms = {"GET": Perm.VIEW_PROJECT, "POST": Perm.VIEW_PROJECT}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "chat"
+    page_size = 100
+
+    def get_throttles(self):  # sending only; polling is not rate limited
+        return super().get_throttles() if self.request.method == "POST" else []
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("author")
+
+    @extend_schema(
+        parameters=[ChatMessageFilterSerializer], responses=ChatMessageSerializer(many=True)
+    )
+    def get(self, request, lab_id, project_id):
+        """The newest page, oldest first; `before` (a message's created_at) pages back."""
+        filters = ChatMessageFilterSerializer(data=request.query_params)
+        filters.is_valid(raise_exception=True)
+        qs = self.get_queryset()
+        if "before" in filters.validated_data:
+            qs = qs.filter(created_at__lt=filters.validated_data["before"])
+        page = list(qs.order_by("-created_at", "-id")[: self.page_size])
+        return Response(self.get_serializer(reversed(page), many=True).data)
+
+    @extend_schema(request=ChatMessageInputSerializer, responses={201: ChatMessageSerializer})
+    def post(self, request, lab_id, project_id):
+        message = services.post_message(
+            project=self.project,
+            by=request.user,
+            body=self.body(ChatMessageInputSerializer)["body"],
+        )
+        return self.out(message, status.HTTP_201_CREATED)
+
+
+class ChatMessageDetailView(ProjectScopedMixin, generics.GenericAPIView):
+    model = ChatMessage
+    serializer_class = ChatMessageSerializer
+    lookup_url_kwarg = "chatmessage_id"
+    perms = {"DELETE": Perm.VIEW_PROJECT}  # services.delete_message narrows this to author or lead
+
+    @extend_schema(responses={204: None})
+    def delete(self, request, lab_id, chatmessage_id):
+        services.delete_message(message=self.get_object(), by=request.user, request=request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ChatReadView(ProjectScopedMixin, generics.GenericAPIView):
+    model = ChatMessage
+    serializer_class = ChatReadInputSerializer
+    nested = True
+    perms = {"POST": Perm.VIEW_PROJECT}
+
+    @extend_schema(request=ChatReadInputSerializer, responses={204: None})
+    def post(self, request, lab_id, project_id):
+        services.mark_chat_read(
+            project=self.project,
+            user=request.user,
+            read_to=self.body(ChatReadInputSerializer)["last_read_at"],
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ChatUnreadView(LabScopedViewMixin, generics.GenericAPIView):
+    """Unread counts for the sidebar badges (D78). Clients poll this."""
+
+    serializer_class = ChatUnreadSerializer
+    pagination_class = None
+    perms = {"GET": Perm.VIEW_LAB}
+
+    @extend_schema(responses=ChatUnreadSerializer(many=True))
+    def get(self, request, lab_id):
+        rows = services.unread_chat_counts(user=request.user, lab=request.lab)
+        return Response(self.get_serializer(rows, many=True).data)
 
 
 # ---------------------------------------------------------------- retention

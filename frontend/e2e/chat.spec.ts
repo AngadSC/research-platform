@@ -1,0 +1,95 @@
+import { expect, test } from "@playwright/test";
+import { login, openProject, watchErrors } from "./helpers";
+
+test("two project members talk: a message reaches the other person without a reload", async ({
+  page,
+  browser,
+}) => {
+  const errors = watchErrors(page);
+  await login(page, "lead");
+  await openProject(page);
+  const sidebar = page.locator("#app-sidebar");
+  await expect(sidebar.getByRole("link", { name: "Overview" })).toBeVisible();
+  await sidebar.getByRole("link", { name: "Chat" }).click();
+  await expect(page).toHaveURL(/\/chat$/);
+
+  const other = await (await browser.newContext()).newPage();
+  await login(other, "viewer"); // viewers can post too (D77)
+  await openProject(other);
+  await other.locator("#app-sidebar").getByRole("link", { name: "Chat" }).click();
+
+  const text = `Hello from the viewer ${Date.now()} (FAKE)`;
+  const box = other.getByRole("textbox", { name: "Message" });
+  await box.fill(text);
+  await box.press("Enter");
+  await expect(box).toHaveValue("");
+
+  const log = page.getByRole("log", { name: "Messages" });
+  await expect(log.getByText(text)).toBeVisible({ timeout: 10_000 }); // arrives by polling
+
+  await log.getByText(text).hover();
+  await page.getByRole("button", { name: `Delete message: ${text.slice(0, 40)}` }).click();
+  await page.getByRole("button", { name: "Delete message", exact: true }).click();
+  await expect(log.getByText(text)).toHaveCount(0);
+  await expect(other.getByRole("log").getByText(text)).toHaveCount(0, { timeout: 10_000 });
+  expect(errors).toEqual([]);
+});
+
+test("a badge shows unread messages until the chat is opened", async ({ page, browser }) => {
+  await login(page, "lead");
+  await openProject(page); // on Overview, so the Chat row is in view but not open
+  const chatLink = page.locator("#app-sidebar").getByRole("link", { name: /^Chat/ });
+
+  const other = await (await browser.newContext()).newPage();
+  await login(other, "viewer");
+  await openProject(other);
+  await other.locator("#app-sidebar").getByRole("link", { name: "Chat" }).click();
+  const box = other.getByRole("textbox", { name: "Message" });
+  await box.fill(`Unread test ${Date.now()} (FAKE)`);
+  await box.press("Enter");
+  await expect(box).toHaveValue("");
+
+  await expect(chatLink).toContainText("unread message", { timeout: 20_000 }); // badge polls
+  await chatLink.click();
+  await expect(chatLink).not.toContainText("unread message");
+  await page.reload(); // cleared on the server, not just on this screen
+  await expect(page.getByRole("log", { name: "Messages" })).toBeVisible();
+  await expect(chatLink).not.toContainText("unread message");
+});
+
+test("messages stay unread while you are scrolled up, until you come back down", async ({
+  page,
+  browser,
+}) => {
+  const other = await (await browser.newContext()).newPage();
+  await login(other, "viewer");
+  await openProject(other);
+  await other.locator("#app-sidebar").getByRole("link", { name: "Chat" }).click();
+  const box = other.getByRole("textbox", { name: "Message" });
+  const post = async (text: string) => {
+    await box.fill(text);
+    await box.press("Enter");
+    await expect(box).toHaveValue("");
+  };
+  for (let i = 0; i < 25; i++) await post(`Scroll filler ${i} (FAKE)`); // enough to scroll
+
+  await login(page, "pi");
+  await openProject(page);
+  const chatLink = page.locator("#app-sidebar").getByRole("link", { name: /^Chat/ });
+  await chatLink.click();
+  const log = page.getByRole("log", { name: "Messages" });
+  await expect(log.getByText("Scroll filler 24 (FAKE)")).toBeVisible();
+  await expect(chatLink).not.toContainText("unread message");
+
+  await log.hover();
+  await page.mouse.wheel(0, -1000);
+  await expect(log.getByText("Scroll filler 24 (FAKE)")).not.toBeInViewport();
+
+  await post(`While scrolled up ${Date.now()} (FAKE)`);
+  const jump = page.getByRole("button", { name: "New messages" });
+  await expect(jump).toBeVisible({ timeout: 10_000 });
+  await expect(chatLink).toContainText("1 unread message", { timeout: 20_000 });
+
+  await jump.click();
+  await expect(chatLink).not.toContainText("unread message");
+});

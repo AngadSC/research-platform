@@ -1,4 +1,31 @@
-import { Archive, Bell, FileCheck2, History, Home, Plug, ShieldCheck, Users } from "lucide-react";
+import {
+  Archive,
+  Bell,
+  CheckSquare,
+  FileCheck2,
+  FileText,
+  FlaskConical,
+  Folder,
+  GitBranch,
+  History,
+  Home,
+  LayoutDashboard,
+  MessagesSquare,
+  Plug,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
+
+/** The sections of a project, shown in its sidebar dropdown (and as pills below md). */
+export const PROJECT_SECTIONS = [
+  { to: "overview", label: "Overview", icon: LayoutDashboard },
+  { to: "tasks", label: "Tasks", icon: CheckSquare },
+  { to: "documents", label: "Documents", icon: FileText },
+  { to: "files", label: "Files", icon: Folder },
+  { to: "research", label: "Research", icon: FlaskConical },
+  { to: "lineage", label: "Lineage", icon: GitBranch },
+  { to: "chat", label: "Chat", icon: MessagesSquare },
+] as const;
 
 /** Sidebar and palette links. Lab pages only appear once a lab is selected. */
 export function navItems(labId?: string, permissions: string[] = []) {

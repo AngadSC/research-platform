@@ -18,6 +18,7 @@ import { LabHomePage } from "@/pages/LabHomePage";
 import { HandoverPage } from "@/pages/HandoverPage";
 import { MembersPage } from "@/pages/MembersPage";
 import { ProjectPage, ProjectTab } from "@/pages/ProjectPage";
+import ChatTab from "@/pages/project/ChatTab";
 import DocumentsTab from "@/pages/project/DocumentsTab";
 import FilesTab from "@/pages/project/FilesTab";
 import PdfViewerRoute from "@/pages/project/PdfViewerRoute";
@@ -115,6 +116,11 @@ export const routes: RouteObject[] = [
                         path: "tasks",
                         element: <ProjectTab as={TasksTab} />,
                         handle: { crumb: "Tasks" },
+                      },
+                      {
+                        path: "chat",
+                        element: <ProjectTab as={ChatTab} />,
+                        handle: { crumb: "Chat" },
                       },
                       {
                         path: "documents",

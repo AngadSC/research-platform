@@ -3,6 +3,7 @@ from rest_framework import serializers
 from core.permissions import PROJECT_PERMS, Perm, can, project_role
 from core.serializers import UserSerializer, no_control_chars
 from projects.models import (
+    ChatMessage,
     Project,
     ProjectDeadline,
     ProjectMembership,
@@ -173,3 +174,29 @@ class HandoverSerializer(serializers.Serializer):
     project = HandoverProjectSerializer(allow_null=True)
     no_other_owner = HandoverItemSerializer(many=True)
     sections = HandoverSectionSerializer(many=True)
+
+
+class ChatMessageSerializer(serializers.ModelSerializer):
+    author = UserSerializer(read_only=True)
+
+    class Meta:
+        model = ChatMessage
+        fields = ["id", "author", "body", "created_at"]
+        read_only_fields = fields
+
+
+class ChatMessageInputSerializer(serializers.Serializer):
+    body = serializers.CharField(max_length=4000)  # newlines are fine in a message
+
+
+class ChatMessageFilterSerializer(serializers.Serializer):
+    before = serializers.DateTimeField(required=False)
+
+
+class ChatReadInputSerializer(serializers.Serializer):
+    last_read_at = serializers.DateTimeField()
+
+
+class ChatUnreadSerializer(serializers.Serializer):
+    project = serializers.UUIDField()
+    count = serializers.IntegerField()

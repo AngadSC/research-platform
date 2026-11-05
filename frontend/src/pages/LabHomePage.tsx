@@ -18,6 +18,7 @@ import type { Project } from "@/lib/api-types";
 import { useLab, useUpdateLab } from "@/hooks/workspace";
 import { formErrors, type FormErrors } from "@/lib/forms";
 import { roleLabel } from "@/lib/api-types";
+import { vivid } from "@/lib/identity";
 
 function RenameForm({ labId, name }: { labId: string; name: string }) {
   const update = useUpdateLab(labId);
@@ -62,7 +63,16 @@ export function LabHomePage() {
     setParams(open ? { new: "project" } : {}, { replace: true });
 
   const cols: Column<Project>[] = [
-    { key: "name", header: "Project", cell: (p) => <span className="font-medium">{p.name}</span> },
+    {
+      key: "name",
+      header: "Project",
+      cell: (p) => (
+        <span className="flex items-center gap-2 font-medium">
+          <span aria-hidden className={`size-2.5 shrink-0 rounded-full ${vivid(p.id).bg}`} />
+          {p.name}
+        </span>
+      ),
+    },
     { key: "status", header: "Status", cell: (p) => <StatusBadge status={p.status} /> },
     {
       key: "updated",

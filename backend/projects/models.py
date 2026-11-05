@@ -111,3 +111,41 @@ class Task(LabScopedModel):
 
     def __str__(self):
         return self.title
+
+
+class ChatMessage(LabScopedModel):
+    """One message in a project's group chat. Removal is a real delete (see services)."""
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="chat_messages")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    body = models.TextField()
+
+    lab_parents = ("project",)
+    permission_domain = "project"
+    project_path = "project"
+
+    class Meta(LabScopedModel.Meta):
+        indexes = [models.Index(fields=["project", "created_at"], name="chatmessage_recent_idx")]
+
+    def __str__(self):
+        return f"{self.author_id}: {self.body[:40]}"
+
+
+class ChatReadState(LabScopedModel):
+    """How far one person has read one project's chat (D78). No row means nothing read yet."""
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="+")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    last_read_at = models.DateTimeField()
+
+    lab_parents = ("project",)
+    permission_domain = "project"
+    project_path = "project"
+
+    class Meta(LabScopedModel.Meta):
+        constraints = [
+            models.UniqueConstraint(fields=["project", "user"], name="chatreadstate_unique")
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} read to {self.last_read_at}"
