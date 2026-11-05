@@ -276,7 +276,7 @@ def field_of(model, name):
 
 def lineage(project) -> dict:
     """Every provenance item in the project as graph nodes and edges. Edge `kind` is the kind
-    of its source node. Ten queries however large the project is (the M2M link tables are
+    of its source node. Eleven queries however large the project is (the M2M link tables are
     read whole, once each), so the UI never needs a per-node call."""
 
     def mine(model, *related):
@@ -365,6 +365,28 @@ def lineage(project) -> dict:
             decided_on=d.decided_on,
             rationale=d.rationale,
         )
+
+    # Outside files linked to nodes (integrations): one more query, shown in the node's panel.
+    from integrations.models import ExternalLink
+
+    by_node = {}
+    outside = ExternalLink.objects.for_lab(project.lab_id).filter(project=project)
+    for link in outside.order_by("created_at", "id"):
+        for kind in ("dataset", "analysis", "result", "manuscript"):
+            if getattr(link, f"{kind}_id"):
+                by_node.setdefault(f"{kind}:{getattr(link, f'{kind}_id')}", []).append(
+                    {
+                        "id": link.pk,
+                        "provider": link.provider,
+                        "title": link.title,
+                        "url": link.url,
+                        "status": link.status,
+                        "last_checked_at": link.last_checked_at,
+                    }
+                )
+    for n in nodes:
+        if n["id"] in by_node:
+            n["meta"]["external_links"] = by_node[n["id"]]
 
     for analysis_id, dataset_id in links(field_of(Analysis, "datasets")):
         edge("dataset", "dataset", "analysis", dataset_id, analysis_id)

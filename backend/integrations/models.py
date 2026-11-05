@@ -136,6 +136,7 @@ class ExternalLink(LabScopedModel):
     # Baseline at link time, and the latest seen by a freshness check.
     linked_modified_at = models.DateTimeField(null=True, blank=True)
     linked_version = models.CharField(max_length=100, blank=True)
+    linked_checksum = models.CharField(max_length=140, blank=True)
     remote_modified_at = models.DateTimeField(null=True, blank=True)
     remote_version = models.CharField(max_length=100, blank=True)
     remote_checksum = models.CharField(max_length=140, blank=True)  # "md5:<hex>" when given
@@ -161,7 +162,16 @@ class ExternalLink(LabScopedModel):
         return self.title
 
     @property
+    def status(self) -> str:
+        if self.unavailable_since:
+            return "unavailable"
+        return "changed" if self.changed_since_linked else "ok"
+
+    @property
     def changed_since_linked(self) -> bool:
+        if self.remote_checksum and self.linked_checksum:
+            if self.remote_checksum != self.linked_checksum:
+                return True
         if self.remote_version and self.linked_version:
             return self.remote_version != self.linked_version
         return bool(

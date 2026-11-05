@@ -208,6 +208,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "projects.jobs.retention_scan",
         "schedule": crontab(hour=1, minute=20),
     },
+    "integrations-check-links": {
+        "task": "integrations.jobs.check_links",
+        "schedule": crontab(hour=2, minute=0),
+    },
     "integrations-revoke-orphans": {
         "task": "integrations.jobs.revoke_orphans",
         "schedule": crontab(hour=1, minute=30),
@@ -354,8 +358,15 @@ DEFAULT_EXCEPTION_REPORTER_FILTER = "integrations.debug.AlwaysCleanse"
 INTEGRATION_OAUTH_REDIRECT_URI = f"{FRONTEND_URL}/api/integrations/oauth/callback/"
 # D66: integration OAuth clients are separate from the Google sign-in client.
 INTEGRATION_CLIENTS = {
-    "google": {
+    "google_drive": {
         "client_id": os.environ.get("GOOGLE_DRIVE_CLIENT_ID", ""),
         "client_secret": os.environ.get("GOOGLE_DRIVE_CLIENT_SECRET", ""),
+    },
+}
+# Public by design (the browser Picker needs them): API key and Cloud project number (app id).
+INTEGRATION_PUBLIC = {
+    "google_drive": {
+        "api_key": os.environ.get("GOOGLE_DRIVE_API_KEY", ""),
+        "app_id": os.environ.get("GOOGLE_DRIVE_APP_ID", ""),
     },
 }

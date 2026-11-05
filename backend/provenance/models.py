@@ -12,7 +12,8 @@ from django.db.models import Q
 from core.tenancy import LabScopedModel
 
 COMMIT_RE = re.compile(r"^[0-9a-fA-F]{7,40}$")
-CHECKSUM_RE = re.compile(r"^[a-z0-9-]+:[0-9a-fA-F]{8,128}$")  # e.g. sha256:<hex>
+# e.g. sha256:<hex> or md5:<hex>; drive-version:<n> for Drive files with no md5 (D76)
+CHECKSUM_RE = re.compile(r"^(?:[a-z0-9-]+:[0-9a-fA-F]{8,128}|drive-version:[0-9]{1,20})$")
 
 # URLField's default validator also accepts ftp; provenance links are web pages only, and
 # javascript: must never be storable (it would run when a UI renders the link).
@@ -26,7 +27,7 @@ def validate_commit(value):
 
 def validate_checksum(value):
     if value and not CHECKSUM_RE.match(value):
-        raise ValidationError("Use the form algorithm:hex, for example sha256:ab12...")
+        raise ValidationError("Use the form algorithm:hex, for example sha256:ab12... or md5:ab12...")
 
 
 class ManuscriptStatus(models.TextChoices):

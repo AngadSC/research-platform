@@ -168,8 +168,9 @@ def test_rotation_skips_rows_wiped_meanwhile(lab_users, connect, settings, monke
 def test_default_external_id_pattern():
     ok = ["abc", "A-b_c.1", "x" * 255]
     bad = ["", "a/b", "../x", "a?b", "a b", "a\n", "x" * 256, "a#b", "a%2Fb"]
-    assert all(registry.GOOGLE.valid_external_id(v) for v in ok)
-    assert not any(registry.GOOGLE.valid_external_id(v) for v in bad)
+    default = registry.Provider("x", "X", registry.AuthType.LINK_ONLY)
+    assert all(default.valid_external_id(v) for v in ok)
+    assert not any(default.valid_external_id(v) for v in bad)
 
 
 def test_provider_can_narrow_the_pattern():

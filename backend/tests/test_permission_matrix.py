@@ -194,6 +194,13 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "integrations:external-link-list"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "integrations:external-link-detail"): "401 404 2 2 2 2 2 404 2",
     ("DELETE", "integrations:external-link-detail"): "401 404 2 2 2 2 403 404 403",
+    # D70: the picker token is the requester's own active Drive account's, so only the four
+    # people the fixture gave one get 200; everyone else in the lab gets 404.
+    ("GET",    "integrations:picker-token"): "401 404 2 2 2 2 404 404 404",
+    # A freshness check needs only view_project (it uses the linker's account); accepting a
+    # change is a write: edit_content.
+    ("POST",   "integrations:external-link-check"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "integrations:external-link-accept-change"): "401 404 2 2 2 2 403 404 403",
     # --- end integrations (Run 2) ---
 }
 # fmt: on
@@ -321,6 +328,17 @@ def _integration_fixtures(lab, project, owners, tag):
         )
         for name, user in owners.items()
     }
+    for name, user in owners.items():  # a Drive account with a token for the picker (D70)
+        drive = ConnectedAccount(
+            lab=lab,
+            user=user,
+            provider="google_drive",
+            external_account_id=f"gd-{name}-{tag}",
+            external_email=f"gd-{name}-{tag}@fake.test",
+            connected_at=now,
+        )
+        drive.set_tokens(access=f"matrix-{name}", refresh=None, expires_at=None)
+        drive.save()
     first = next(iter(owners))
     link = ExternalLink.objects.create(
         lab=lab,
@@ -658,6 +676,8 @@ PAYLOADS = {
     ("POST", "core:notification-read-all"): lambda user, w: {},
     # --- integrations (Run 2): pi, admin, lead and contrib each hold an active fake account ---
     ("POST", "integrations:connect"): lambda user, w: {},
+    ("POST", "integrations:external-link-check"): lambda user, w: {},
+    ("POST", "integrations:external-link-accept-change"): lambda user, w: {},
     ("POST", "integrations:external-link-list"): lambda user, w: {
         "provider": "fake",
         "external_id": f"file-{next(_n)}",

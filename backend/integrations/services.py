@@ -497,21 +497,59 @@ def create_link(*, project, user, data, request=None) -> ExternalLink:
         linked_by=user,
         linked_modified_at=meta.get("modified_at"),
         linked_version=(meta.get("version") or "")[:100],
+        linked_checksum=(meta.get("checksum") or "")[:140],
         remote_modified_at=meta.get("modified_at"),
         remote_version=(meta.get("version") or "")[:100],
         remote_checksum=(meta.get("checksum") or "")[:140],
         last_checked_at=now if account else None,
         **targets,
     )
+    link.version_note = _copy_version(link, user=user, request=request)
     audit.record(
         AuditAction.EXTERNAL_LINK_CREATED,
         actor=user,
         lab=project.lab,
         target=link,
         request=request,
-        metadata={"provider": provider.name, "external_id": link.external_id},
+        metadata={
+            "provider": provider.name,
+            "external_id": link.external_id,
+            **({"version_copy": link.version_note} if link.dataset_id else {}),
+        },
     )
     return link
+
+
+VERSION_PREFIX = {"google_drive": "drive-version"}  # for files with no checksum (D76)
+
+
+def _copy_version(link, *, user, request) -> str:
+    """D76: a linked file's checksum (or version) goes into the dataset record's `checksum`
+    only while that is empty. Returns "copied", "same", "kept" (the record has a different
+    value, left alone: a new version is a new row, D20) or "none" (the file has no version)."""
+    if not link.dataset_id:
+        return ""
+    version = (link.remote_version or "").strip()
+    prefix = VERSION_PREFIX.get(link.provider)
+    value = link.remote_checksum or (f"{prefix}:{version}" if prefix and version.isdigit() else "")
+    if not value:
+        return "none"
+    dataset = link.dataset
+    if dataset.checksum == value:
+        return "same"
+    if dataset.checksum:
+        return "kept"
+    dataset.checksum = value
+    dataset.save(update_fields=["checksum", "updated_at"])
+    audit.record(
+        AuditAction.DATASET_UPDATED,
+        actor=user,
+        lab=link.lab,
+        target=dataset,
+        request=request,
+        metadata={"source": "external_link", "fields": ["checksum"]},
+    )
+    return "copied"
 
 
 @transaction.atomic
@@ -525,6 +563,93 @@ def remove_link(link, *, user, request=None) -> None:
         metadata={"provider": link.provider, "external_id": link.external_id},
     )
     link.delete()
+
+
+# ---- freshness
+
+
+def check_link(link) -> ExternalLink:
+    """Read the item's metadata now, with the linker's account, and record what was seen.
+    A missing item sets `unavailable_since`; a later success clears it. Does nothing when the
+    linker's account is not active (the UI says why). Raises IntegrationError on a transient
+    failure."""
+    provider = registry.PROVIDERS.get(link.provider)
+    account = link.connected_account
+    if provider is None or provider.fetch_item is None or account is None:
+        return link
+    if account.status != AccountStatus.ACTIVE:
+        return link
+    try:
+        meta = provider.fetch_item(account, link.external_id)
+    except AccountUnavailable:
+        return link
+    now = timezone.now()
+    if meta is None:
+        link.unavailable_since = link.unavailable_since or now
+    else:
+        link.unavailable_since = None
+        link.remote_modified_at = meta.get("modified_at")
+        link.remote_version = (meta.get("version") or "")[:100]
+        link.remote_checksum = (meta.get("checksum") or "")[:140]
+        if meta.get("title"):
+            link.title = meta["title"][:500]
+    link.last_checked_at = now
+    link.save(
+        update_fields=[
+            "unavailable_since",
+            "remote_modified_at",
+            "remote_version",
+            "remote_checksum",
+            "title",
+            "last_checked_at",
+            "updated_at",
+        ]
+    )
+    return link
+
+
+@transaction.atomic
+def accept_change(link, *, user, request=None) -> ExternalLink:
+    """Record the values last seen as the new baseline. The linked dataset record is not
+    touched (D76)."""
+    link.linked_modified_at = link.remote_modified_at
+    link.linked_version = link.remote_version
+    link.linked_checksum = link.remote_checksum
+    link.save(
+        update_fields=["linked_modified_at", "linked_version", "linked_checksum", "updated_at"]
+    )
+    audit.record(
+        AuditAction.EXTERNAL_LINK_CHANGE_ACCEPTED,
+        actor=user,
+        lab=link.lab,
+        target=link,
+        request=request,
+        metadata={"provider": link.provider, "external_id": link.external_id},
+    )
+    return link
+
+
+CHECK_PAUSE = 0.2  # seconds between provider calls in the daily job
+
+
+def check_all_links() -> dict:
+    """Daily job: refresh every link whose linker's account is active. Others are skipped (the
+    API reports `check_blocked`). A failure on one link never stops the rest."""
+    done = skipped = failed = 0
+    for lab in Lab.objects.all():
+        links = ExternalLink.objects.for_lab(lab).select_related("connected_account", "project")
+        for link in links.filter(connected_account__isnull=False).order_by("pk"):
+            if link.connected_account.status != AccountStatus.ACTIVE:
+                skipped += 1
+                continue
+            try:
+                check_link(link)
+                done += 1
+            except Exception as exc:  # noqa: BLE001 - messages are fixed; log the type only
+                log.warning("integration link check failed: %s", type(exc).__name__)
+                failed += 1
+            time.sleep(CHECK_PAUSE)
+    return {"checked": done, "skipped": skipped, "failed": failed}
 
 
 # ---- key rotation

@@ -2,7 +2,13 @@
 
 from celery import shared_task
 
-from integrations.services import revoke_orphaned_accounts
+from integrations.services import check_all_links, revoke_orphaned_accounts
+
+
+@shared_task
+def check_links() -> dict:
+    """Refresh link metadata with each linker's own token (ARCHITECTURE section 9)."""
+    return check_all_links()
 
 
 @shared_task

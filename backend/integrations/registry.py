@@ -10,7 +10,10 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from urllib.parse import quote
+
 from django.conf import settings
+from django.utils.dateparse import parse_datetime
 
 
 class AuthType(StrEnum):
@@ -53,6 +56,12 @@ class Provider:
     def configured(self) -> bool:
         return self.auth_type != AuthType.OAUTH2 or all(self.client())
 
+    @property
+    def public_config(self) -> dict:
+        """Browser-safe settings (the Picker's API key and app id); {} unless all are set."""
+        conf = settings.INTEGRATION_PUBLIC.get(self.name, {})
+        return dict(conf) if conf and all(conf.values()) else {}
+
 
 def _google_identity(data: dict) -> tuple[str, str]:
     # Drive `about` works with drive.file alone, so no openid/email scope is needed (D64).
@@ -60,8 +69,52 @@ def _google_identity(data: dict) -> tuple[str, str]:
     return str(user["permissionId"]), str(user.get("emailAddress", ""))
 
 
+DRIVE_FIELDS = "id,name,mimeType,modifiedTime,md5Checksum,version,webViewLink,trashed"
+_RATE_REASONS = {"rateLimitExceeded", "userRateLimitExceeded", "dailyLimitExceeded"}
+
+
+def _drive_fetch_item(account, external_id):
+    """Drive v3 `files.get`, metadata only (D64): never `alt=media`, export or download.
+    None = "no longer available": 404, 403 (access lost) or trashed."""
+    from integrations import http  # late: http imports services, which imports this module
+
+    resp = http.send(
+        "GET",
+        f"https://www.googleapis.com/drive/v3/files/{quote(external_id, safe='')}"
+        f"?fields={DRIVE_FIELDS}",
+        provider=GOOGLE,
+        account=account,
+    )
+    if resp.status_code == 403:
+        try:
+            reasons = {e.get("reason") for e in resp.json()["error"]["errors"]}
+        except (ValueError, KeyError, TypeError, AttributeError):
+            reasons = set()
+        if reasons & _RATE_REASONS:  # throttled, not lost
+            raise http.IntegrationError("Google Drive is rate limiting requests")
+    if resp.status_code in (403, 404):
+        return None
+    if resp.status_code != 200:
+        raise http.IntegrationError("Google Drive did not return the file")
+    try:
+        data = resp.json()
+        if data.get("trashed"):
+            return None
+        md5 = data.get("md5Checksum")
+        return {
+            "title": data["name"],
+            "url": data["webViewLink"],
+            "mime_type": data.get("mimeType", ""),
+            "modified_at": parse_datetime(data["modifiedTime"]),
+            "version": str(data.get("version", "")),
+            "checksum": f"md5:{md5.lower()}" if md5 else "",
+        }
+    except (ValueError, KeyError, TypeError, AttributeError):
+        raise http.IntegrationError("Google Drive returned an unreadable answer") from None
+
+
 GOOGLE = Provider(
-    name="google",
+    name="google_drive",
     label="Google Drive",
     auth_type=AuthType.OAUTH2,
     scopes=("https://www.googleapis.com/auth/drive.file",),
@@ -78,6 +131,8 @@ GOOGLE = Provider(
         "include_granted_scopes": "true",
     },
     parse_identity=_google_identity,
+    fetch_item=_drive_fetch_item,
+    external_id_pattern=r"^[A-Za-z0-9_-]+$",
 )
 
 PROVIDERS: dict[str, Provider] = {p.name: p for p in (GOOGLE,)}

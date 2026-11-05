@@ -59,3 +59,4 @@
 - Orchestrator: handover e2e 500 was the dev DB missing integrations/0001 (runserver migrates only at start); migrated, Playwright 13/13.
 - D4 done (sonnet; stopped after it kept re-sending its report): cross-user grant check, RequestException wrap, local revoke in-transaction + provider call after commit, daily orphan sweep (integrations/jobs.py), locked rotation, external_id_pattern + port check, leak test covers ciphertext, formatted tracebacks, lifecycle, rotation output, DEBUG 500 page (new integrations/debug.py filter: Django drops sensitive_variables masking under DEBUG). Renumbered its duplicate D71 to D75.
 - Orchestrator: lint tests walked the host's 216 MB backend/.venv (32 s each); shared core/tests/source_files.py skips dot-dirs, now <0.5 s. Gate green: backend 1361 passed / 24 skipped (4.5 min), Vitest 118, Playwright 13, lint, types, licenses. Committed Phases B, D, F.
+- E1 started (sonnet): Google Drive.

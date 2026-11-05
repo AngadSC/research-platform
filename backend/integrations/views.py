@@ -2,9 +2,13 @@
 
 from urllib.parse import urlencode
 
+from datetime import timedelta
+
 from django.conf import settings
 from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
 from django.http import Http404, HttpResponseRedirect
+from django.utils import timezone
+from django.views.decorators.debug import sensitive_variables
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -21,6 +25,7 @@ from integrations.serializers import (
     ConnectOutputSerializer,
     ExternalLinkInputSerializer,
     ExternalLinkSerializer,
+    PickerTokenSerializer,
     ProviderSerializer,
 )
 from integrations.services import OAuthError
@@ -75,6 +80,7 @@ class ProviderListView(LabScopedViewMixin, generics.GenericAPIView):
                     "icon": p.icon,
                     "scopes": list(p.scopes),
                     "configured": p.configured,
+                    "public_config": p.public_config,
                     "account": account
                     and {
                         "id": account.pk,
@@ -139,6 +145,46 @@ class ConnectView(LabScopedViewMixin, generics.GenericAPIView):
         return Response({"authorization_url": url})
 
 
+class PickerTokenView(LabScopedViewMixin, generics.GenericAPIView):
+    """D70: the single place a token leaves the server. The requester's own active Drive
+    account only, the access token only, valid for at most an hour, never cached."""
+
+    model = ConnectedAccount
+    serializer_class = PickerTokenSerializer
+    perms = {"GET": Perm.MANAGE_INTEGRATIONS}
+
+    @extend_schema(responses=PickerTokenSerializer)
+    @sensitive_variables("token")
+    def get(self, request, lab_id):
+        provider = registry.GOOGLE
+        account = self.get_queryset().filter(
+            user=request.user, provider=provider.name, status=AccountStatus.ACTIVE
+        ).first()
+        if account is None:
+            raise Http404
+        if account.token_expires_at and account.token_expires_at <= timezone.now() + timedelta(
+            seconds=120
+        ):
+            try:
+                services.refresh_access_token(account)
+            except IntegrationError:
+                return oauth_error("provider_error")
+        if account.token_expires_at:
+            left = (account.token_expires_at - timezone.now()).total_seconds()
+        else:
+            left = 3000  # Google access tokens last an hour; stay under it
+        token = account.access_token()
+        resp = Response(
+            {
+                "access_token": token,
+                "expires_in": max(1, min(3600, int(left))),
+                "scope": " ".join(provider.scopes),
+            }
+        )
+        resp["Cache-Control"] = "no-store"
+        return resp
+
+
 def _frontend(path, **query):
     suffix = f"?{urlencode(query)}" if query else ""
     return HttpResponseRedirect(f"{settings.FRONTEND_URL}{path}{suffix}")
@@ -201,7 +247,9 @@ class ExternalLinkListCreateView(ExternalLinkMixin, generics.GenericAPIView):
             data=self.body(ExternalLinkInputSerializer),
             request=request,
         )
-        return self.out(self.get_queryset().get(pk=link.pk), status.HTTP_201_CREATED)
+        out = self.get_queryset().get(pk=link.pk)
+        out.version_note = link.version_note
+        return self.out(out, status.HTTP_201_CREATED)
 
 
 class ExternalLinkDetailView(ExternalLinkMixin, generics.GenericAPIView):
@@ -216,3 +264,31 @@ class ExternalLinkDetailView(ExternalLinkMixin, generics.GenericAPIView):
     def delete(self, request, lab_id, externallink_id):
         services.remove_link(self.get_object(), user=request.user, request=request)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ExternalLinkCheckView(ExternalLinkMixin, generics.GenericAPIView):
+    lookup_url_kwarg = "externallink_id"
+    perms = {"POST": Perm.VIEW_PROJECT}
+
+    @extend_schema(request=None, responses=ExternalLinkSerializer)
+    def post(self, request, lab_id, externallink_id):
+        """Freshness check now, with the linker's account (whoever asks)."""
+        link = self.get_object()
+        try:
+            services.check_link(link)
+        except IntegrationError:
+            return Response(
+                {"detail": "The service could not be reached. Try again shortly."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return self.out(self.get_queryset().get(pk=link.pk))
+
+
+class ExternalLinkAcceptChangeView(ExternalLinkMixin, generics.GenericAPIView):
+    lookup_url_kwarg = "externallink_id"
+    perms = {"POST": Perm.EDIT_CONTENT}
+
+    @extend_schema(request=None, responses=ExternalLinkSerializer)
+    def post(self, request, lab_id, externallink_id):
+        link = services.accept_change(self.get_object(), user=request.user, request=request)
+        return self.out(self.get_queryset().get(pk=link.pk))

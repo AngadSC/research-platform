@@ -72,6 +72,7 @@ Generate each secret once:
 | `AWS_SES_REGION_NAME` | SES region, for example `eu-west-1` (SES only). |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google sign-in client. Empty hides the Google button. |
 | `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET` | Google Drive integration client (separate, D66). |
+| `GOOGLE_DRIVE_API_KEY`, `GOOGLE_DRIVE_APP_ID` | Google Picker browser API key and Cloud project number. Empty hides the Drive actions. |
 
 If you use SES, comment out the Postmark lines and uncomment the two SES lines in the template.
 

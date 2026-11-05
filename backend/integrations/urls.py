@@ -13,11 +13,26 @@ urlpatterns = [
         name="account-detail",
     ),
     path(L + "integrations/<slug:provider>/connect/", views.ConnectView.as_view(), name="connect"),
+    path(
+        L + "integrations/google/picker-token/",
+        views.PickerTokenView.as_view(),
+        name="picker-token",
+    ),
     path("integrations/oauth/callback/", views.OAuthCallbackView.as_view(), name="oauth-callback"),
     path(
         L + "projects/<uuid:project_id>/external-links/",
         views.ExternalLinkListCreateView.as_view(),
         name="external-link-list",
+    ),
+    path(
+        L + "external-links/<uuid:externallink_id>/check/",
+        views.ExternalLinkCheckView.as_view(),
+        name="external-link-check",
+    ),
+    path(
+        L + "external-links/<uuid:externallink_id>/accept-change/",
+        views.ExternalLinkAcceptChangeView.as_view(),
+        name="external-link-accept-change",
     ),
     path(
         L + "external-links/<uuid:externallink_id>/",
