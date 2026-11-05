@@ -59,6 +59,9 @@ section 9 describes the framework; DECISIONS D80 to D89 record why.
       leave it empty and rely on the account's instance host.
 - [ ] **Quote ids** you put in a URL: `urllib.parse.quote(external_id, safe="")`, and keep
       `external_id_pattern` tight (D75).
+- [ ] **Bounded responses** (D120). `send` already caps time (15 s per request) and size (2 MB) and
+      closes the connection; keep hooks to a few calls (a whole endpoint has 25 s) and never read
+      `resp.raw` or ask for `stream=True` yourself.
 - [ ] **No secrets in errors or logs**: raise `IntegrationError` with a fixed message; never
       include a response body, header, query string or token. Decorate any function that
       holds a token in a local with `@sensitive_variables`.

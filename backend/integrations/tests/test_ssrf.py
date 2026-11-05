@@ -363,3 +363,32 @@ def test_a_tightened_deployment_allowlist_applies_to_existing_accounts(
     settings.INTEGRATION_ALLOWED_INSTANCE_HOSTS = ["gitlab.uni.edu"]
     with pytest.raises(IntegrationError, match="refused a request"):
         http.send("GET", f"{INSTANCE}/api/items/1", provider=FAKE_KEY, account=key_account)
+
+
+# ---- the pin depends on a requests hook (D124)
+
+
+def test_requests_still_calls_the_hook_the_pin_overrides():
+    """`PinnedAdapter` pins the address by overriding `get_connection_with_tls_context`, which
+    requests >= 2.32.2 calls from `send`. If a requests upgrade renamed or stopped calling it,
+    the override would be dead code and DNS pinning would be skipped without any error."""
+    import inspect
+
+    from requests.adapters import HTTPAdapter
+
+    assert callable(getattr(HTTPAdapter, "get_connection_with_tls_context", None))
+    assert "get_connection_with_tls_context" in inspect.getsource(HTTPAdapter.send)
+    assert http.PinnedAdapter.get_connection_with_tls_context is not (
+        HTTPAdapter.get_connection_with_tls_context
+    )
+
+
+def test_requests_is_pinned_at_or_above_the_hook_version():
+    import re
+    from pathlib import Path
+
+    text = (Path(__file__).resolve().parents[2] / "requirements.txt").read_text()
+    match = re.search(r"^requests(==|>=)(\d+)\.(\d+)\.(\d+)", text, re.M)
+    assert match, "requests must be pinned in requirements.txt"
+    assert tuple(map(int, match.groups()[1:])) >= (2, 32, 2)
+    assert tuple(map(int, requests.__version__.split(".")[:3])) >= (2, 32, 2)

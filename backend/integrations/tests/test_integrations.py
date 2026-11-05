@@ -235,7 +235,8 @@ def test_cross_host_redirect_refused_same_host_followed(account, transport):
     transport.on("GET", "https://api.fake.test/files/2", response(200, {"ok": True}))
     assert http.send("GET", FILE_URL, provider=FAKE, account=account).json() == {"ok": True}
     assert transport.calls[-1][2]["allow_redirects"] is False
-    assert transport.calls[-1][2]["timeout"] == http.TIMEOUT
+    connect, read = transport.calls[-1][2]["timeout"]  # capped by the request deadline (D120)
+    assert 0 < connect <= http.TIMEOUT[0] and 0 < read <= http.TIMEOUT[1]
 
 
 def test_retries_idempotent_requests_only(account, transport):

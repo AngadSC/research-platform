@@ -77,9 +77,25 @@ def test_drive_seed_is_idempotent_fake_and_has_both_states(debug_on):
     call_command("seed_pilot")
     call_command("seed_pilot")
     lab = Lab.objects.get(name=LAB_NAME)
-    (account,) = ConnectedAccount.objects.for_lab(lab)
-    assert account.user.email == "lead@example.test"
-    assert not account.access_token_ct and not account.refresh_token_ct
+    accounts = ConnectedAccount.objects.for_lab(lab)
+    assert sorted((a.provider, a.user.email) for a in accounts) == [
+        ("github", "pi@example.test"),
+        ("google_drive", "lead@example.test"),
+    ]
+    assert not any(a.access_token_ct or a.refresh_token_ct for a in accounts)
     links = ExternalLink.objects.for_lab(lab)
-    assert sorted(link.status for link in links) == ["changed", "unavailable"]
+    assert sorted(link.provider for link in links) == [
+        "github",
+        "google_drive",
+        "google_drive",
+        "overleaf",
+        "zenodo",
+        "zotero",
+    ]
+    drive = links.filter(provider="google_drive")
+    assert sorted(link.status for link in drive) == ["changed", "unavailable"]
+    assert (
+        links.get(provider="zotero").decision.references[0]["url"]
+        == links.get(provider="zotero").url
+    )
     assert all("example.invalid" in link.url for link in links)

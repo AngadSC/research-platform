@@ -4,7 +4,8 @@ export default defineConfig({
   testDir: "./e2e",
   workers: 1,
   globalSetup: "./e2e/global-setup.ts",
-  timeout: 60_000,
+  timeout: 90_000,
+  expect: { timeout: 20_000 }, // the dev stack is slow on a loaded machine
   outputDir: "test-results",
   use: { baseURL: "http://localhost:5173", screenshot: "only-on-failure" },
   projects: [

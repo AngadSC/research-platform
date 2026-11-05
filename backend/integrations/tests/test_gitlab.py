@@ -270,6 +270,31 @@ class TestGitLab(ProviderContract):
         )
         assert link["version_note"] == "kept"
 
+    def test_a_commit_is_never_paired_with_another_repositorys_address(self, w):
+        """D121: the record already names a repository; a commit is not added from another."""
+        from provenance.models import Analysis
+
+        analysis = self.analysis(w)
+        Analysis.objects.for_lab(w.lab).filter(pk=analysis.pk).update(
+            code_repo_url="https://example.org/repo-a"
+        )
+        w.transport.on("GET", PROJECT_API, response(200, project()))
+        w.transport.on("GET", COMMIT_API, response(200, commit()))
+        link = self.create_link(w, external_id=f"lab/pipeline@{SHA}", analysis=str(analysis.pk))
+        analysis.refresh_from_db()
+        assert (analysis.code_repo_url, analysis.code_commit) == ("https://example.org/repo-a", "")
+        assert link["version_note"] == "kept"
+
+    def test_a_repository_address_off_the_instance_host_is_not_stored(self, w, monkeypatch):
+        """D121: `web_url` comes from the (user-chosen) server; it must be on its own host."""
+        evil = [("GET", PROJECT_API, 200, project(web_url="https://evil.test/x"))]
+        monkeypatch.setitem(self.replies, "item", evil)  # create_link re-registers "item"
+        w.transport.on("GET", COMMIT_API, response(200, commit()))
+        link = self.create_link(w, external_id=f"lab/pipeline@{SHA}")
+        analysis = type(self.analysis(w)).objects.for_lab(w.lab).get(pk=link["analysis"])
+        assert (analysis.code_repo_url, analysis.code_commit) == ("", "")
+        assert link["version_note"] == "none"
+
     def test_apply_to_target_only_for_analyses(self):
         meta = {"repo_url": f"{HOST}/lab/pipeline", "commit": SHA}
         assert gitlab.apply_to_target("analysis", meta) == {

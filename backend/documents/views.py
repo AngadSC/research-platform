@@ -269,7 +269,10 @@ class AttachmentDownloadView(AttachmentMixin, generics.GenericAPIView):
             target=attachment,
             request=request,
         )
-        if settings.LAB_FILES_BUCKET and not settings.LAB_FILES_STREAM_DOWNLOADS:
+        inline = attachment.content_type == "application/pdf"  # shown by PDF.js
+        # D123: only forced downloads are presigned. Anything shown inline streams through
+        # Django, which is the only place `nosniff` and `CSP: sandbox` can be set.
+        if settings.LAB_FILES_BUCKET and not settings.LAB_FILES_STREAM_DOWNLOADS and not inline:
             return self._presigned_redirect(attachment)
         try:
             handle = storages["lab_files"].open(attachment.storage_key, "rb")
@@ -277,7 +280,7 @@ class AttachmentDownloadView(AttachmentMixin, generics.GenericAPIView):
             raise Http404 from exc
         response = FileResponse(
             handle,
-            as_attachment=attachment.content_type != "application/pdf",  # PDFs: inline for PDF.js
+            as_attachment=not inline,
             filename=attachment.original_filename,
             content_type=attachment.content_type,
         )
@@ -288,14 +291,14 @@ class AttachmentDownloadView(AttachmentMixin, generics.GenericAPIView):
 
     @staticmethod
     def _presigned_redirect(attachment):
-        """D90: 302 to a presigned GET. Overrides mirror the streamed headers; the filename goes
-        through Django's RFC 6266/5987 encoder, so quotes, newlines and unicode are safe."""
-        pdf = attachment.content_type == "application/pdf"
+        """D90, D123: 302 to a presigned GET of a forced download (`attachment`, never inline).
+        The filename goes through Django's RFC 6266/5987 encoder, so quotes, newlines and
+        unicode are safe."""
         url = storages["lab_files"].url(
             attachment.storage_key,
             parameters={
                 "ResponseContentDisposition": content_disposition_header(
-                    not pdf, attachment.original_filename
+                    True, attachment.original_filename
                 ),
                 "ResponseContentType": attachment.content_type,
                 "ResponseCacheControl": "private, no-store",

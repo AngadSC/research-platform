@@ -490,7 +490,10 @@ def test_ethics_file_keeps_its_rule_in_s3_mode(w, settings, monkeypatch):
     """D90: the redirect comes after can_view_ethics_files; a denied user never gets a URL."""
     from unittest.mock import MagicMock
 
-    attachment = file_for(w, make_approval(w, projects=[w.p1]))
+    # D123: PDFs always stream, so use a forced-download type to reach the presign path.
+    csv = SimpleUploadedFile("f.csv", b"a,b;1,2", content_type="text/csv")
+    approval = make_approval(w, projects=[w.p1])
+    attachment = upload_attachment(approval=approval, user=w.u["pi"], file=csv)
     settings.LAB_FILES_BUCKET = "lab-bucket"
     settings.LAB_FILES_STREAM_DOWNLOADS = False
     fake = MagicMock()

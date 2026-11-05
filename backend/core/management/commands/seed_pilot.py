@@ -22,7 +22,7 @@ from labs.services import create_lab
 from projects import services as project_services
 from projects.models import Project, ProjectRole, TaskStatus
 from provenance import services as prov
-from provenance.models import DatasetRecord
+from provenance.models import Analysis, DatasetRecord, Decision, ManuscriptLink
 
 PROJECT_NAME = "Pilot Attention Study (FAKE)"
 LAB_NAME = "Example Cognition Lab (FAKE)"
@@ -77,6 +77,7 @@ class Command(BaseCommand):
                 self.seed()
             self.stdout.write("Seeded pilot data.")
         self.seed_drive()
+        self.seed_links()
         self.summary()
 
     def make_user(self, email, display_name, lab=None, role=None):
@@ -370,6 +371,90 @@ class Command(BaseCommand):
                 "unavailable_since": now - datetime.timedelta(days=2),
             },
         )
+
+    def seed_links(self):
+        """Tokenless, no-account links (GitHub, Overleaf, Zotero, Zenodo) and one Zotero
+        reference. Nothing is fetched; hosts are .invalid, ids are fake. Re-runnable."""
+        lab = Lab.objects.filter(name=LAB_NAME).first()
+        project = lab and Project.objects.for_lab(lab).filter(name=PROJECT_NAME).first()
+        lead = User.objects.filter(email="lead@example.test").first()
+        if not (project and lead):
+            return
+        now = timezone.now()
+        # A tokenless GitHub connection, so the search dialog is reachable (screenshots mock the
+        # search reply in the browser; the server never calls GitHub).
+        pi = User.objects.get(email="pi@example.test")
+        ConnectedAccount.objects.for_lab(lab).get_or_create(
+            user=pi,
+            provider="github",
+            external_account_id="example-lab-fake",
+            defaults={
+                "lab": lab,
+                "external_email": "",
+                "status": AccountStatus.ACTIVE,
+                "connected_at": now - datetime.timedelta(days=5),
+            },
+        )
+        analysis = Analysis.objects.for_lab(lab).filter(project=project).first()
+        manuscript = ManuscriptLink.objects.for_lab(lab).filter(project=project).first()
+        decision = Decision.objects.for_lab(lab).filter(project=project).first()
+        dataset = (
+            DatasetRecord.objects.for_lab(lab).filter(project=project, version_label="v1").first()
+        )
+        ref = {
+            "title": "Fake reference on response-time trimming (FAKE)",
+            "url": "https://zotero.example.invalid/items/FAKE0001",
+            "doi": "",
+        }
+        if decision and ref not in decision.references:
+            decision.references = [*decision.references, ref]
+            decision.save(update_fields=["references", "updated_at"])
+        for target, provider, ext_id, url, title in [
+            (
+                "analysis",
+                "github",
+                "example-lab-fake/attention-analysis@" + FAKE_COMMIT,
+                "https://github.example.invalid/example-lab-fake/attention-analysis/commit/"
+                + FAKE_COMMIT,
+                "example-lab-fake/attention-analysis (FAKE)",
+            ),
+            (
+                "manuscript",
+                "overleaf",
+                "a1b2c3d4e5f60718293a4b5c",
+                "https://overleaf.example.invalid/project/a1b2c3d4e5f60718293a4b5c",
+                "Attention manuscript source (FAKE)",
+            ),
+            ("decision", "zotero", "u0:FAKE0001", ref["url"], ref["title"]),
+            (
+                "dataset",
+                "zenodo",
+                "999999999999",
+                "https://zenodo.example.invalid/records/999999999999",
+                "Attention task responses, archived copy (FAKE)",
+            ),
+        ]:
+            obj = {
+                "analysis": analysis,
+                "manuscript": manuscript,
+                "decision": decision,
+                "dataset": dataset,
+            }[target]
+            if obj is None:
+                continue
+            ExternalLink.objects.for_lab(lab).get_or_create(
+                project=project,
+                provider=provider,
+                external_id=ext_id,
+                defaults={
+                    "lab": lab,
+                    "linked_by": lead,
+                    "url": url,
+                    "title": title,
+                    "last_checked_at": now,
+                    target: obj,
+                },
+            )
 
     def summary(self):
         self.stdout.write(f"Frontend: {FRONTEND_URL}")

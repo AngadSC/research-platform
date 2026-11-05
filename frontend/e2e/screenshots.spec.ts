@@ -24,6 +24,13 @@ const shot = async (page: Page, name: string) => {
   await page.screenshot({ path: `${DIR}/${name}.png`, fullPage: true });
   await page.setViewportSize({ width: 1440, height: 900 });
 };
+/** Click a table row and wait for the detail page; a click that lands during a re-render is retried. */
+const openRow = (page: Page, row: ReturnType<Page["getByRole"]>) =>
+  expect(async () => {
+    const before = page.url();
+    await row.click({ timeout: 5000 });
+    await expect(page).not.toHaveURL(before, { timeout: 5000 });
+  }).toPass({ timeout: 30_000 });
 const theme = (page: Page, t: "light" | "dark") =>
   page.addInitScript((v) => localStorage.setItem("theme", v), t);
 const base = (page: Page) => page.url().replace(/\/(overview|tasks|documents|files).*$/, "");
@@ -164,7 +171,6 @@ test.describe("@screenshots", () => {
     await page.goto(`${l}/settings/integrations`);
     await expect(page.getByRole("heading", { name: "Integrations", level: 1 })).toBeVisible();
     await expect(page.getByText("Lee Lead (FAKE)").first()).toBeVisible();
-    await shot(page, "27-integrations-pi");
 
     await page.goto("/account");
     await expect(page.getByRole("heading", { name: "Email addresses" })).toBeVisible();
@@ -219,6 +225,85 @@ test.describe("@screenshots", () => {
     await expect(page.locator("#app-sidebar")).toBeVisible();
     await page.waitForTimeout(500);
     await page.screenshot({ path: `${DIR}/35-mobile-drawer.png` });
+  });
+
+  test("run 3 screens", async ({ page }) => {
+    await login(page, "pi");
+    await openProject(page);
+    const b = base(page);
+    const l = lab(page);
+
+    await page.goto(`${l}/settings/integrations`);
+    await expect(page.getByRole("heading", { name: "Integrations", level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "File storage" })).toBeVisible();
+    await shot(page, "27-integrations-pi");
+    await page.getByRole("button", { name: "Connect GitLab" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await shot(page, "36-connect-api-key");
+    await page.keyboard.press("Escape");
+
+    await page.goto(`${b}/research/datasets`);
+    await openRow(page, page.getByRole("row", { name: /v1/ }));
+    await expect(page.getByText("archived copy (FAKE)")).toBeVisible();
+    await shot(page, "42-dataset-zenodo-link");
+    await page.getByRole("button", { name: /Link from/ }).click();
+    await expect(page.getByRole("menuitem", { name: /GitHub/ })).toBeVisible();
+    await shot(page, "37-link-from-menu");
+
+    // No connected search provider can answer offline, so the browser answers the search call.
+    await page.route("**/integrations/github/search/**", (r) =>
+      r.fulfill({
+        json: [
+          {
+            id: "example-lab-fake/attention-data",
+            title: "example-lab-fake/attention-data (FAKE)",
+            subtitle: "Fake repository",
+            modified: null,
+          },
+          {
+            id: "example-lab-fake/rt-trimming",
+            title: "example-lab-fake/rt-trimming (FAKE)",
+            subtitle: "Fake repository",
+            modified: null,
+          },
+        ],
+      }),
+    );
+    await page.getByRole("menuitem", { name: /GitHub/ }).click();
+    await expect(
+      page.getByRole("dialog").getByText("example-lab-fake/rt-trimming (FAKE)"),
+    ).toBeVisible();
+    await shot(page, "38-search-link-dialog");
+    await page.keyboard.press("Escape");
+
+    await page.goto(`${b}/research/manuscripts`);
+    await openRow(page, page.getByRole("row").nth(1));
+    await expect(page.getByText("Attention manuscript source (FAKE)")).toBeVisible();
+    await page.getByRole("button", { name: /Link from/ }).click();
+    await page.getByRole("menuitem", { name: /Overleaf/ }).click();
+    await expect(page.getByLabel("Overleaf link")).toBeVisible();
+    await shot(page, "39-overleaf-paste-dialog");
+    await page.keyboard.press("Escape");
+
+    await page.goto("/");
+    await expect(page.getByText(PROJECT).first()).toBeVisible();
+    await page.keyboard.press("Control+k");
+    await page.getByRole("dialog").getByRole("combobox").fill("attention");
+    await expect(page.getByRole("dialog").getByRole("option").nth(1)).toBeVisible();
+    await shot(page, "40-palette-search");
+    await page.keyboard.press("Escape");
+
+    await page.goto(`${b}/research/decisions`);
+    await openRow(page, page.getByRole("row").nth(1));
+    await expect(
+      page.getByText("Fake reference on response-time trimming (FAKE)").first(),
+    ).toBeVisible();
+    await shot(page, "41-decision-references");
+
+    await page.goto(`${b}/research/analyses`);
+    await openRow(page, page.getByRole("table").getByRole("row").nth(1));
+    await expect(page.getByText("example-lab-fake/attention-analysis (FAKE)")).toBeVisible();
+    await shot(page, "43-analysis-github-link");
   });
 
   test("dark mode", async ({ page }) => {

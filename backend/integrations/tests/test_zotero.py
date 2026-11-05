@@ -195,5 +195,28 @@ class TestZotero(ProviderContract):
         d = self.decision(w, full)
         assert self.link(w, d, "ABCD2345") == "kept" and d.references == full
 
+    def test_a_concurrent_append_is_not_lost(self, w):
+        """D122: someone else appends between our read of the decision and our save. The row is
+        locked and re-read first, so both entries survive."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        self.connect(w)
+        d = self.decision(w)
+        theirs = {"title": "Theirs", "url": "", "doi": ""}
+
+        def concurrent_edit(kwargs):  # runs while the provider is read, after the decision was
+            Decision.objects.for_lab(w.lab).filter(pk=d.pk).update(references=[theirs])
+            return response(200, item("ABCD2345"))
+
+        w.transport.on("GET", f"{API}/users/123/items/ABCD2345", concurrent_edit)
+        body = {"provider": "zotero", "external_id": ITEM, "decision": str(d.pk)}
+        with CaptureQueriesContext(connection) as queries:
+            resp = w.call("POST", f"projects/{w.project.pk}/external-links/", body)
+        assert resp.status_code == 201, resp.content
+        d.refresh_from_db()
+        assert [r["title"] for r in d.references] == ["Theirs", "Sleep and memory"]
+        assert any("FOR UPDATE" in q["sql"] for q in queries)
+
     def test_other_targets_get_nothing(self):
         assert zotero.apply_to_target("manuscript", {"title": "t"}) == {}

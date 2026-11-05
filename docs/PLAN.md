@@ -124,7 +124,7 @@ Same status values. Model and effort follow orchestrator section 8. Shared-tree 
 | P2 | GitHub, GitLab, Overleaf | sonnet / medium | done |
 | P3 | REDCap, Qualtrics, protocols.io | sonnet / medium | done (unverified) |
 | P4 | Zotero, Zenodo, Figshare, OSF | sonnet / medium | done (unverified) |
-| R | Security review of Run 3 | opus / high | doing |
+| R | Security review of Run 3 | opus / high | done |
 | V | Verify and fix all providers (serial test runs) | sonnet / medium | done |
-| RF | Review fixes | sonnet / medium | todo |
-| W3 | Screenshots, HANDOFF, push | sonnet / medium, orchestrator | todo |
+| RF | Review fixes | sonnet / medium | done |
+| W3 | Screenshots, HANDOFF, push | sonnet / medium, orchestrator | done |

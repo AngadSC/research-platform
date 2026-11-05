@@ -259,6 +259,36 @@ class TestGitHub(ProviderContract):
         )
         assert link["version_note"] == "kept"
 
+    def test_a_commit_is_never_paired_with_another_repositorys_address(self, w):
+        """D121: repo A typed by hand, commit empty. A commit link from repo B must not leave
+        the record with A's address and B's commit."""
+        from provenance.models import Analysis
+
+        analysis = self.analysis(w)
+        Analysis.objects.for_lab(w.lab).filter(pk=analysis.pk).update(
+            code_repo_url="https://github.com/other/repo-a"
+        )
+        w.transport.on("GET", COMMIT_API, response(200, [commit()]))
+        link = self.create_link(
+            w, external_id=f"octo/lab-pipeline@{SHA}", analysis=str(analysis.pk)
+        )
+        analysis.refresh_from_db()
+        assert (analysis.code_repo_url, analysis.code_commit) == (
+            "https://github.com/other/repo-a",
+            "",
+        )
+        assert link["version_note"] == "kept"
+
+    def test_a_repo_link_does_not_complete_a_lone_commit(self, w):
+        from provenance.models import Analysis
+
+        analysis = self.analysis(w)
+        Analysis.objects.for_lab(w.lab).filter(pk=analysis.pk).update(code_commit="abc1234")
+        link = self.create_link(w, analysis=str(analysis.pk))
+        analysis.refresh_from_db()
+        assert (analysis.code_repo_url, analysis.code_commit) == ("", "abc1234")
+        assert link["version_note"] == "kept"
+
     def test_a_repo_link_fills_only_the_address(self, w):
         link = self.create_link(w)
         analysis = type(self.analysis(w)).objects.for_lab(w.lab).get(pk=link["analysis"])

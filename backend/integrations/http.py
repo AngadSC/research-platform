@@ -7,8 +7,13 @@
   connects to the address it checked (`PinnedAdapter`), so DNS rebinding between the check and
   the connect can't win. Proxy settings from the environment are ignored for the same reason.
   Instance URLs are also checked when they are entered (`validate_instance_url`).
-- Connect and read timeouts; idempotent methods retry on network errors and 429/5xx with
-  exponential backoff (Retry-After honoured, capped).
+- Time and size (D120): every response is streamed under a total wall-clock deadline
+  (`INTEGRATION_HTTP_DEADLINE`, or the job value in `budget(per_request=...)`) and a body cap
+  (`INTEGRATION_HTTP_MAX_BYTES`), and always closed. `budget()` / `interactive` bound a whole
+  endpoint, retries and backoff included. The per-read timeout alone is not a limit: a server
+  can drip one byte every few seconds forever.
+- Idempotent methods retry on network errors and 429/5xx with exponential backoff
+  (Retry-After honoured, capped), never past the deadline.
 - With an `account`, its credentials are attached (`provider.sign`). OAuth: an expiring token is
   refreshed first, and a 401 triggers one refresh and one retry; a refused refresh marks the
   account. API key: a 401 means the key was revoked, and marks the account the same way.
@@ -16,16 +21,21 @@
   Exception messages follow the same rule.
 """
 
+import contextlib
+import contextvars
+import functools
 import ipaddress
 import logging
 import re
 import socket
+import threading
 import time
 from datetime import timedelta
 from urllib.parse import urljoin, urlsplit
 
 import requests
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
 from requests.adapters import HTTPAdapter
@@ -34,7 +44,7 @@ from integrations.providers import AuthType
 
 log = logging.getLogger("integrations.http")
 
-TIMEOUT = (5, 20)  # connect, read (seconds)
+TIMEOUT = (5, 20)  # connect, read (seconds): per socket operation, not a total (D120)
 MAX_ATTEMPTS = 3
 BACKOFF = 0.5  # seconds, doubled per attempt
 MAX_SLEEP = 8
@@ -96,6 +106,12 @@ def public_address(host) -> str:
     if not addresses or not all(is_public_ip(a) for a in addresses):
         raise IntegrationError("Refused a service address that is not public")
     return addresses[0]
+
+
+# D124: requests >= 2.32.2 routes every connection through this method; an older or changed
+# requests would silently skip the pin below, so refuse to start instead.
+if not callable(getattr(HTTPAdapter, "get_connection_with_tls_context", None)):
+    raise ImproperlyConfigured("requests >= 2.32.2 is required: DNS pinning would be skipped")
 
 
 class PinnedAdapter(HTTPAdapter):
@@ -187,6 +203,122 @@ def validate_instance_url(url, provider) -> str:
     return f"https://{host}{parts.path.rstrip('/')}"
 
 
+# ---- time and size limits (D120)
+
+
+class _Limits:
+    """The clock for the current call tree. `deadline` is a monotonic time no request inside
+    may pass (a whole endpoint, or one background link); `per_request` is how long one request
+    may take, connect to last body byte."""
+
+    def __init__(self, deadline=None, per_request=None):
+        self.deadline, self.per_request = deadline, per_request
+
+
+_limits = contextvars.ContextVar("integration_limits", default=None)
+
+
+def _current() -> _Limits:
+    return _limits.get() or _Limits()
+
+
+@contextlib.contextmanager
+def budget(total=None, *, per_request=None):
+    """Bound everything sent inside to `total` seconds in all (retries and backoff included).
+    Nested budgets can only tighten the outer one; `per_request` overrides the per-request
+    deadline (background jobs use `INTEGRATION_JOB_HTTP_DEADLINE`)."""
+    outer = _current()
+    deadline = outer.deadline
+    if total is not None:
+        mine = time.monotonic() + total
+        deadline = mine if deadline is None else min(deadline, mine)
+    token = _limits.set(_Limits(deadline, per_request or outer.per_request))
+    try:
+        yield
+    finally:
+        _limits.reset(token)
+
+
+def interactive(func):
+    """Give an endpoint's service function one overall budget (`INTEGRATION_ENDPOINT_BUDGET`)."""
+
+    @functools.wraps(func)
+    @sensitive_variables("args", "kwargs")  # connect_with_key is called with the API key
+    def wrapper(*args, **kwargs):
+        with budget(settings.INTEGRATION_ENDPOINT_BUDGET):
+            return func(*args, **kwargs)
+
+    wrapper.endpoint_budget = True  # the tests check every endpoint function carries one
+    return wrapper
+
+
+def _request_deadline() -> float:
+    """Monotonic time by which the request about to be sent must be completely done."""
+    limits = _current()
+    mine = time.monotonic() + (limits.per_request or settings.INTEGRATION_HTTP_DEADLINE)
+    return mine if limits.deadline is None else min(mine, limits.deadline)
+
+
+def _remaining(deadline, provider) -> float:
+    left = deadline - time.monotonic()
+    if left <= 0:
+        raise IntegrationError(f"{provider.label} did not respond in time")
+    return left
+
+
+def _close(resp):
+    if getattr(resp, "raw", None) is not None:
+        with contextlib.suppress(Exception):
+            resp.close()
+
+
+def _abort(resp, fired):
+    """Deadline watchdog: shut the socket down so a read blocked in another thread returns now.
+    A body is read in blocks, and a block that is filled one byte at a time never times out
+    per read, so only an outside clock can stop it."""
+    fired.set()
+    # urllib3 hands the socket to the http.client response (the connection's own `sock` is
+    # already None for a body that ends when the server closes), so look there first.
+    for find in (lambda: resp.raw._fp.fp.raw._sock, lambda: resp.raw._connection.sock):
+        with contextlib.suppress(Exception):
+            find().shutdown(socket.SHUT_RDWR)
+            return
+
+
+def _read_body(resp, deadline, provider):
+    """Read the body into `resp` under the deadline and the size cap, then close the
+    connection, whatever happens. Content-Length is checked first, then the bytes received
+    (decoded, so a compression bomb counts). A response that already holds its body (a test
+    transport) is left alone."""
+    if resp._content is not False:
+        return
+    cap = settings.INTEGRATION_HTTP_MAX_BYTES
+    fired, timer = threading.Event(), None
+    try:
+        timer = threading.Timer(_remaining(deadline, provider), _abort, (resp, fired))
+        timer.daemon = True
+        timer.start()
+        declared = resp.headers.get("Content-Length", "")
+        if declared.isdigit() and int(declared) > cap:
+            raise IntegrationError(f"{provider.label}: the response was too large")
+        chunks, size = [], 0
+        for chunk in resp.iter_content(chunk_size=8192):
+            size += len(chunk)
+            if size > cap:
+                raise IntegrationError(f"{provider.label}: the response was too large")
+            chunks.append(chunk)
+            _remaining(deadline, provider)
+        if fired.is_set():  # the socket was cut under us: a short read is not a whole body
+            raise IntegrationError(f"{provider.label} did not respond in time")
+        resp._content = b"".join(chunks)
+    except (requests.RequestException, OSError):  # includes a read timeout and a cut socket
+        raise IntegrationError(f"{provider.label} did not respond in time") from None
+    finally:
+        if timer is not None:
+            timer.cancel()
+        _close(resp)
+
+
 # ---- sending
 
 
@@ -213,28 +345,40 @@ def _check_url(url, provider, account=None):
         raise refused
 
 
-def _sleep_for(attempt, resp):
+def _sleep_for(attempt, resp, deadline):
+    """Back off; False (no retry) when the wait would run past the deadline."""
     delay = BACKOFF * 2**attempt
     retry_after = resp.headers.get("Retry-After", "") if resp is not None else ""
     if retry_after.isdigit():
         delay = int(retry_after)
-    time.sleep(min(delay, MAX_SLEEP))
+    delay = min(delay, MAX_SLEEP)
+    if time.monotonic() + delay >= deadline:
+        return False
+    time.sleep(delay)
+    return True
 
 
 @sensitive_variables("kwargs")
-def _follow(method, url, provider, kwargs):
+def _follow(method, url, provider, kwargs, deadline):
     origin = _origin(url)
     for _ in range(MAX_REDIRECTS + 1):
+        left = _remaining(deadline, provider)
+        timeout = (min(TIMEOUT[0], left), min(TIMEOUT[1], left))
         try:
-            resp = _session.request(method, url, timeout=TIMEOUT, allow_redirects=False, **kwargs)
+            resp = _session.request(
+                method, url, timeout=timeout, allow_redirects=False, stream=True, **kwargs
+            )
         except (requests.RequestException, IntegrationError):
             raise
         except Exception as exc:  # noqa: BLE001 - the HTTP stack's frames hold the headers
             log.warning("integration %s %s failed: %s", method, origin[1], type(exc).__name__)
             raise IntegrationError(f"{provider.label}: the request failed") from None
         if not resp.is_redirect or method not in ("GET", "HEAD"):
+            _read_body(resp, deadline, provider)
             return resp
-        url = urljoin(url, resp.headers["Location"])
+        location = resp.headers.get("Location", "")
+        _close(resp)
+        url = urljoin(url, location)
         if _origin(url) != origin:
             raise IntegrationError(f"{provider.label}: refused a redirect to another host")
     raise IntegrationError(f"{provider.label}: too many redirects")
@@ -244,11 +388,12 @@ def _follow(method, url, provider, kwargs):
 def _send_with_retries(method, url, provider, kwargs):
     host = _origin(url)[1]
     retry = method in IDEMPOTENT
+    deadline = _request_deadline()  # one deadline for all attempts and the waits between them
     for attempt in range(MAX_ATTEMPTS):
         last = attempt == MAX_ATTEMPTS - 1
         resp = None
         try:
-            resp = _follow(method, url, provider, kwargs)
+            resp = _follow(method, url, provider, kwargs, deadline)
         except requests.RequestException as exc:
             path = urlsplit(url).path
             log.warning("integration %s %s%s failed: %s", method, host, path, type(exc).__name__)
@@ -260,7 +405,10 @@ def _send_with_retries(method, url, provider, kwargs):
             log.info("integration %s %s%s -> %s", method, host, path, resp.status_code)
             if resp.status_code not in RETRY_STATUSES or not retry or last:
                 return resp
-        _sleep_for(attempt, resp)
+        if not _sleep_for(attempt, resp, deadline):
+            if resp is not None:
+                return resp  # out of time: the caller sees the last (retryable) status
+            raise IntegrationError(f"{provider.label} did not respond in time")
 
 
 @sensitive_variables("headers", "signed", "kwargs", "secret")

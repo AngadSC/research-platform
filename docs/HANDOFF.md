@@ -1,4 +1,94 @@
-# Handoff: Build Run 2
+# Handoff
+
+## Morning summary: Run 3 (overnight, 2026-11-04 to 05)
+
+Everything below is built, tested against mocks, committed on `main` and pushed. Nothing was deployed, no accounts were created, and no real credentials were used. **No integration has ever talked to its real service**, so your hand test today is the first real contact. Every decision I made on my own is in `docs/DECISIONS.md` under "Run 3" (D79 to D124). The ones you should look at are listed below.
+
+### What's new
+
+| Area | What works | Where to look |
+|---|---|---|
+| Email noise (your call on D71) | Only ethics expiry, retention due, project exported and integration-problem notices are emailed. Task assignment, unassignment and invite-accepted notices are in-app only. Account emails (verification, reset, invites) always send | Notifications bell vs. worker log |
+| Integrations framework v2 | One file per provider. Four auth types: OAuth, API key, link-only and public. Self-hosted instance URLs (REDCap, GitLab) with SSRF defences: https/443 only, private and metadata IPs refused, DNS pinned per request, redirects stay on host. Every outside call has a total deadline and a 2 MB cap. Keys are encrypted like tokens and never shown back | Lab settings > Integrations |
+| 13 new providers | **File storage:** OneDrive/SharePoint, Dropbox, Box (OAuth). **Code:** GitHub and GitLab (read-only access tokens). Linking a commit fills an analysis' repo and commit if both are empty. **Writing:** Overleaf (link-only; share links are refused). **Data capture:** REDCap, Qualtrics, protocols.io (API keys; **project and survey metadata only, never records or responses**). **References:** Zotero (read-only key; adds the item to a decision's references). **Repositories:** Zenodo, Figshare (public, no account), OSF (read-only token) | "Link from…" on Files, datasets, analyses, results, manuscripts, decisions and documents |
+| Generic integrations UI | The Integrations page and every "Link from…" menu are built from the provider list: connect dialogs per auth type, search with live results, paste a URL, or the Google Picker | Screenshots 27 and 36–43 |
+| Lab-wide search | Ctrl/Cmd+K searches projects, tasks, document text, research records, ethics approvals and linked items. Each hit is permission-checked (restricted approvals stay hidden) | Command palette |
+| Decision references | Add, remove and reorder references (title, URL, DOI) on decisions, with validation | Research > Decisions |
+| Downloads | With S3 storage, non-PDF downloads redirect to a 60-second signed link after the same permission check and audit. PDFs still stream through the server so they keep the sandbox headers. The bucket needs a CORS rule (`DEPLOY.md`) | `documents/views.py` |
+
+Not built, and why (D79): LabArchives and Benchling (vendor-issued keys, no way to test), ORCID (an identity, not lab data), Slack/Teams (not research records), and billing (needs a payment account and pricing).
+
+### Tests (final gate, all green)
+
+- **Backend:** 2,098 passed, 59 skipped in about 6.5 minutes. Permission matrix: 100 endpoint rows, 1,004 cases, 100% coverage.
+- **Integrations alone:** about 740 tests: a shared contract test per provider, 86+ SSRF tests including DNS rebinding, slow-drip and oversize response tests, the token and key leak test, and a check that no provider has a download path.
+- **Frontend:** 153 Vitest, 15 Playwright, 43 screenshots. Licenses: 64 Python and 451 npm packages, all allowed.
+- **Security review** (fresh opus, all of Run 3) found no cross-lab path, no token or key leak, no SSRF to internal addresses and no participant-data path. It found one medium-high issue: slow or huge responses from a user-chosen server could tie up every worker. Also 3 low issues: a repo/commit mismatch, a reference-append race, and PDF headers on signed links. All are fixed, with regression tests checked to fail when the fix is reverted.
+
+### Decisions to check this morning
+
+1. **D81:** lab **viewers** may connect integration accounts, including API keys, although they can't create links. Easy to tighten to members and above.
+2. **D106:** GitHub uses a pasted fine-grained read-only token, not "Sign in with GitHub", because GitHub OAuth has no read-only scope for private repos.
+3. **D108:** GitLab uses a `read_api` token, plus the server address (type `gitlab.com` for the hosted one).
+4. **D109:** Overleaf accepts only `overleaf.com/project/<id>` links. Share links are refused because anyone holding one gets access.
+5. **D100:** OneDrive asks for `Files.Read.All` (read-only), so SharePoint and shared files work. `Files.Read` would reach only your own OneDrive.
+6. **D110:** REDCap reads only project info, not the data dictionary.
+7. **D82:** set `INTEGRATION_ALLOWED_INSTANCE_HOSTS` in production if you want self-hosted servers limited to your university's domains.
+8. **D115, D118:** Zotero refuses write-capable keys, and OSF uses a token so private projects work.
+9. Still open from Run 2: D62, D64, D66, D68–D70 and D72–D74 (Google sign-in and Drive details).
+
+### Testing by hand today
+
+1. `make dev`, then `docker compose run --rm backend python manage.py migrate` and `make seed`. The seed now includes fake GitHub, Overleaf, Zotero and Zenodo links.
+2. **No credentials needed:**
+   - Lab-wide search (Ctrl+K).
+   - Editing decision references.
+   - Pasting a real public **Zenodo** or **Figshare** URL onto a dataset. These are the first real outside calls and need no account.
+   - Pasting an **Overleaf** project link onto a manuscript.
+3. **With a free token:** GitHub (fine-grained, read-only), GitLab, Zotero, OSF and protocols.io. Paste the token in Integrations > Connect, then link from an analysis, decision or dataset.
+4. **Needs an app registration:** Google sign-in and Drive, OneDrive, Dropbox and Box. Put the client ID and secret in `.env` (names below) and restart.
+5. **Needs a university account:** REDCap and Qualtrics.
+6. `docs/MANUAL_TESTS.md` has setup steps and checks for every provider. Expect some field-name mismatches against the real APIs. Several reply shapes were written from documentation only, and are flagged in their decisions.
+
+OAuth redirect URI for every integration: `http://localhost:5173/api/integrations/oauth/callback/`. Google sign-in: `http://localhost:5173/accounts/google/login/callback/`.
+
+New env vars, with placeholders in `.env.example`:
+- `INTEGRATION_ONEDRIVE_CLIENT_ID`, `_SECRET` and `INTEGRATION_ONEDRIVE_TENANT` (default `common`)
+- `INTEGRATION_DROPBOX_CLIENT_ID` and `_SECRET`
+- `INTEGRATION_BOX_CLIENT_ID` and `_SECRET`
+- optional: `INTEGRATION_ALLOWED_INSTANCE_HOSTS` and `LAB_FILES_STREAM_DOWNLOADS`
+
+API-key providers need no env vars; users paste their own token.
+
+### Known issues, most severe first
+
+1. **No provider has been run against its real API.** Mocks follow the published docs, and some reply shapes are guesses: Qualtrics metadata, protocols.io v4, and OSF file ids are flagged.
+2. **Production is still untested in practice:** no real deploy, the restore drill never rehearsed, the CSP and bucket CORS never checked in a browser. Valkey must have a password and TLS (`DEPLOY.md`).
+3. **The machine struggled under parallel test runs tonight.** Postgres crash-looped once under seven concurrent test containers and recovered after a restart. A separate container, `smart-home-platform-1`, was also running and at one point crash-looping, competing for resources. One run at a time is fine: the full suite takes about 6.5 minutes.
+4. **Two Playwright specs can time out right after a backend restart.** They pass on a rerun, and the timeouts were raised.
+5. Unchanged from Run 2: bulk `QuerySet.update(is_active=False)` skips the immediate deactivation side effects (the daily sweep still revokes integrations), and the M2M database triggers don't re-check links if a record moves between projects later.
+
+### Next tasks, in priority order
+
+1. Hand test as above, starting with the no-credential providers. Then answer D81 and the Run 2 decisions still open.
+2. Register OAuth apps (Google, Microsoft, Dropbox, Box) in test mode and run `docs/MANUAL_TESTS.md`.
+3. Pick an email provider (Postmark or SES) and send one of each email.
+4. Stage a deployment from `deploy/`, and rehearse backup and restore.
+5. Fix whatever the real APIs disagree with. Each provider is one file, plus its test's mocked replies.
+6. Later: billing, ORCID sign-in, LabArchives or Benchling if a lab asks.
+
+### Agents used tonight
+
+12 subagents, no escalations. The review-fix task was briefed at sonnet high from the start, because it combined a DoS fix with concurrency changes.
+- **Opus:** 2 (framework v2, security review)
+- **Sonnet:** 10 (downloads, search, UI, 4 provider batches, verifier, review fixes, screenshots)
+
+Four agents were stopped after they finished but kept re-sending their reports. The provider agents lost test time to the Postgres crash, so a verifier ran every provider's tests one at a time and fixed 21 failures. Full log: `docs/PROGRESS.md`.
+
+---
+
+# Run 2 handoff (previous)
+
 
 Every Run 2 phase is built, tested and committed on `main`. Nothing was deployed. No accounts were created, and no real Google or email credentials were used: there is no local `.env`, so the one-off real Google sign-in check was skipped. Every Google call in the tests is mocked. Run 1's handoff is in git history (`6a820ca`).
 

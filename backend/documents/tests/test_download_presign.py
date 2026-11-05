@@ -1,14 +1,20 @@
 """D90: S3 mode redirects downloads to a short presigned URL (no network: signing is local)."""
 
+import os
+import subprocess
+import sys
 from unittest.mock import MagicMock
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from django.core.files.base import ContentFile
 from django.core.files.storage import storages
 from rest_framework.test import APIClient
 from storages.backends.s3 import S3Storage
 
 from audit.models import AuditAction, AuditEvent
+from documents import views as documents_views
+from documents.storage import LabFilesS3Storage
 from documents.tests.test_documents import PDF, upload, url
 from labs.models import LabRole
 
@@ -66,11 +72,53 @@ def test_redirects_to_short_presigned_url_with_overrides(setup, s3):
     assert event.actor == user and str(event.target_id) == att_id
 
 
-def test_pdf_stays_inline_and_plain_names_are_quoted(setup, s3):
+def test_pdf_streams_through_django_with_the_safety_headers(setup, s3):
+    """D123: anything shown inline never gets a bucket URL, so it keeps `nosniff` and the
+    sandbox CSP, which only Django can set."""
     lab, _, project, client = setup
     att_id = upload(client, lab, project).json()["id"]
-    q = query(client.get(url("attachment-download", lab, attachment_id=att_id)))
-    assert q["response-content-disposition"] == 'inline; filename="a.pdf"'
+    store = documents_views.storages["lab_files"]
+    store.open = storages["lab_files"].open  # the bytes are in the filesystem fixture
+    resp = client.get(url("attachment-download", lab, attachment_id=att_id))
+    assert resp.status_code == 200 and b"".join(resp.streaming_content) == PDF
+    assert resp["Content-Disposition"] == 'inline; filename="a.pdf"'
+    assert resp["X-Content-Type-Options"] == "nosniff"
+    assert resp["Content-Security-Policy"] == "sandbox"
+    assert resp["Cache-Control"] == "private, no-store"
+    s3.assert_not_called()
+
+
+@pytest.mark.parametrize("ctype", ["text/html", "image/svg+xml", "application/xhtml+xml"])
+def test_presigned_downloads_are_always_attachments(setup, s3, ctype):
+    lab, _, project, client = setup
+    att_id = upload(client, lab, project, name="page.html", ctype=ctype).json()["id"]
+    resp = client.get(url("attachment-download", lab, attachment_id=att_id))
+    assert resp.status_code == 302
+    assert query(resp)["response-content-disposition"] == 'attachment; filename="page.html"'
+
+
+def test_objects_are_stored_as_forced_downloads(settings):
+    """D123: the bucket itself says octet-stream + attachment, whatever the client declared, so
+    a provider that ignores the response-* overrides still can't render an upload."""
+    store = LabFilesS3Storage(
+        bucket_name="lab-bucket", access_key="a", secret_key="b", default_acl="private"
+    )
+    content = ContentFile(b"<script>1</script>")
+    content.content_type = "text/html"
+    params = store._get_write_parameters("labs/x/attachments/y", content)
+    assert params["ContentType"] == "application/octet-stream"
+    assert params["ContentDisposition"] == "attachment"
+    assert params["CacheControl"] == "private, no-store"
+    assert params["ACL"] == "private"
+
+
+def test_the_bucket_setting_uses_that_storage():
+    code = "from config import settings as s; print(s.STORAGES['lab_files']['BACKEND'])"
+    env = {**os.environ, "LAB_FILES_BUCKET": "lab-bucket", "DEBUG": "True"}
+    out = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, env=env, check=True
+    )
+    assert out.stdout.strip() == "documents.storage.LabFilesS3Storage"
 
 
 def test_forbidden_and_cross_lab_requests_get_no_url(setup, s3, make_lab, make_user, join):

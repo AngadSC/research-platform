@@ -165,7 +165,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"  # collectstatic target in deploy/Dockerf
 LAB_FILES_BUCKET = os.environ.get("LAB_FILES_BUCKET", "")
 if LAB_FILES_BUCKET:
     _lab_files = {
-        "BACKEND": "storages.backends.s3.S3Storage",
+        "BACKEND": "documents.storage.LabFilesS3Storage",  # D123: forced-download metadata
         "OPTIONS": {
             "bucket_name": LAB_FILES_BUCKET,
             "default_acl": "private",
@@ -180,7 +180,8 @@ else:
         "BACKEND": "django.core.files.storage.FileSystemStorage",
         "OPTIONS": {"location": os.environ.get("LAB_FILES_ROOT", "/data/lab_files")},
     }
-# D90: with a bucket, downloads redirect to a presigned GET (60 s at most) instead of streaming.
+# D90, D123: with a bucket, forced-attachment downloads redirect to a presigned GET (60 s at
+# most); PDFs, shown inline, always stream through Django.
 # Set LAB_FILES_STREAM_DOWNLOADS=True for providers that ignore response-* overrides.
 LAB_FILES_STREAM_DOWNLOADS = os.environ.get("LAB_FILES_STREAM_DOWNLOADS", "").lower() in {
     "1",
@@ -218,7 +219,7 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(hour=1, minute=20),
     },
     "integrations-check-links": {
-        "task": "integrations.jobs.check_links",
+        "task": "integrations.jobs.check_links_by_lab",
         "schedule": crontab(hour=2, minute=0),
     },
     "integrations-revoke-orphans": {
@@ -389,6 +390,16 @@ for _var, _value in os.environ.items():
 # D82: when set, self-hosted instance URLs (REDCap, GitLab, ...) must be on one of these hosts
 # (comma-separated; `*.uni.edu` allows any subdomain). Empty: any public https host.
 INTEGRATION_ALLOWED_INSTANCE_HOSTS = env_list("INTEGRATION_ALLOWED_INSTANCE_HOSTS")
+# D120: outbound call limits (seconds / bytes). One request, connect to last body byte, may take
+# INTEGRATION_HTTP_DEADLINE; a whole interactive endpoint INTEGRATION_ENDPOINT_BUDGET; in the
+# daily job one request INTEGRATION_JOB_HTTP_DEADLINE, one link INTEGRATION_JOB_LINK_BUDGET and
+# one lab INTEGRATION_JOB_LAB_BUDGET (under the Celery soft limit in integrations/jobs.py).
+INTEGRATION_HTTP_DEADLINE = float(os.environ.get("INTEGRATION_HTTP_DEADLINE", "15"))
+INTEGRATION_ENDPOINT_BUDGET = float(os.environ.get("INTEGRATION_ENDPOINT_BUDGET", "25"))
+INTEGRATION_HTTP_MAX_BYTES = int(os.environ.get("INTEGRATION_HTTP_MAX_BYTES", str(2 * 1024 * 1024)))
+INTEGRATION_JOB_HTTP_DEADLINE = float(os.environ.get("INTEGRATION_JOB_HTTP_DEADLINE", "30"))
+INTEGRATION_JOB_LINK_BUDGET = float(os.environ.get("INTEGRATION_JOB_LINK_BUDGET", "60"))
+INTEGRATION_JOB_LAB_BUDGET = float(os.environ.get("INTEGRATION_JOB_LAB_BUDGET", "900"))
 # Public by design (the browser Picker needs them): API key and Cloud project number (app id).
 INTEGRATION_PUBLIC = {
     "google_drive": {

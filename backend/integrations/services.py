@@ -140,6 +140,7 @@ def start_connect(request, lab, provider_name, scopes=None) -> str:
     return f"{provider.authorize_url}?{urlencode(params)}"
 
 
+@http.interactive
 @sensitive_variables("entry", "tokens", "access", "pending")
 def complete_connect(request, *, state, code="", error="") -> ConnectedAccount:
     """The OAuth callback. Consumes the state (even on failure), re-checks the user and their
@@ -253,6 +254,7 @@ def _store_account(
     return account
 
 
+@http.interactive
 @sensitive_variables()
 def connect_with_key(request, lab, provider_name, *, api_key, secret="", instance_url=""):
     """API-key connect (D81): validate the key with one cheap provider call before anything is
@@ -446,6 +448,7 @@ def _stored_token(row) -> str:
         return ""
 
 
+@http.interactive
 @sensitive_variables("token")
 def _revoke_at_provider(row, token) -> bool:
     """Best effort: any failure means "not revoked" and never propagates."""
@@ -576,6 +579,7 @@ def _own_account(project, user, provider):
     return account
 
 
+@http.interactive
 @transaction.atomic
 def create_link(*, project, user, data, request=None) -> ExternalLink:
     """Link an outside item to `project` (the caller already holds edit_content).
@@ -669,6 +673,9 @@ def create_link(*, project, user, data, request=None) -> ExternalLink:
 APPLY_KINDS = ("dataset", "analysis", "result", "manuscript", "decision")
 # D115: list fields a provider may append one entry to (never fill-if-empty): (kind, field).
 APPEND_FIELDS = {("decision", "references")}
+# D121: fields that only make sense together. A commit belongs to one repository, so both are
+# written in one step and only while both are empty, never filled one by one from two links.
+PAIRED_FIELDS = {"analysis": ("code_repo_url", "code_commit")}
 
 
 def _append_reference(target, name, entry):
@@ -694,6 +701,29 @@ def _append_reference(target, name, entry):
     return "copied"
 
 
+def _pair_values(provider, link, target, pair, proposed):
+    """D121: `(outcome, proposed)`. A non-empty outcome ends the apply ("kept" or "same": the
+    record already has a code reference). Otherwise `proposed` holds the pair only if every
+    value is acceptable (the repository address on the provider's pinned hosts, and each value
+    valid for its field), else the pair is dropped whole."""
+    if any(getattr(target, name) for name in pair):
+        same = all(getattr(target, n) == proposed.get(n, "") for n in pair if proposed.get(n))
+        return ("same" if same else "kept"), proposed
+    rest = {k: v for k, v in proposed.items() if k not in pair}
+    values = {n: proposed.get(n) or "" for n in pair}
+    account = link.connected_account
+    host = account.instance_host if account else ""
+    try:
+        for name, value in values.items():
+            if value:
+                target._meta.get_field(name).clean(value, target)
+    except DjangoValidationError:
+        return "", rest
+    if values.get(pair[0]) and not provider.link_url_ok(values[pair[0]], host):
+        return "", rest  # a server-supplied address off its own host is never stored
+    return "", {**rest, **values}
+
+
 def _apply_to_target(provider, link, kind, target, meta, user, request) -> str:
     """D76, D86: the provider proposes values for the linked record (`apply_to_target`). Each
     is written only while that field is empty and only if the field's validators accept it.
@@ -705,7 +735,17 @@ def _apply_to_target(provider, link, kind, target, meta, user, request) -> str:
     proposed = provider.apply_to_target(kind, meta) or {}
     if not proposed:
         return ""
+    if any((kind, name) in APPEND_FIELDS for name in proposed):
+        # D122: lock the row and re-read it, so two people appending at once keep both entries
+        # instead of the later save overwriting the earlier one with a stale list.
+        list(type(target).objects.for_lab(link.lab_id).select_for_update().filter(pk=target.pk))
+        target.refresh_from_db()
     copied, seen = [], set()
+    pair = PAIRED_FIELDS.get(kind, ())
+    if any(name in proposed for name in pair):
+        outcome, proposed = _pair_values(provider, link, target, pair, proposed)
+        if outcome:
+            return outcome
     for name, value in proposed.items():
         if not value:
             continue
@@ -772,6 +812,7 @@ def _search_result(provider, item, instance_host) -> dict | None:
     }
 
 
+@http.interactive
 def search_items(*, project, user, provider_name, query, target, request=None) -> list[dict]:
     """Candidates to link, from the provider, read with the requester's own account (none for a
     public provider). Nothing is stored or cached; linking one re-fetches it (create_link).
@@ -895,32 +936,57 @@ CHECK_MIN_INTERVAL = 60  # seconds between manual checks of one link (D78)
 CHECK_PAUSE = 0.2  # seconds between provider calls in the daily job
 
 
-def check_all_links() -> dict:
-    """Daily job: refresh every link whose linker's account is active, and every link of a
+def check_lab_links(lab) -> dict:
+    """Refresh every link of `lab` whose linker's account is active, and every link of a
     provider that is read without an account and offers `fetch_item` (public, link_only).
-    Others are skipped (the API reports `check_blocked`). A failure on one link never stops
-    the rest."""
+    Others are skipped (the API reports `check_blocked`). One link gets a time budget (and one
+    lab a larger one, D120): a slow or hostile server costs that link, never the rest. A
+    failure on one link never stops the others."""
     accountless = [
         p.name for p in registry.PROVIDERS.values() if not p.needs_account and p.fetch_item
     ]
     done = skipped = failed = 0
-    for lab in Lab.objects.all():
-        links = ExternalLink.objects.for_lab(lab).select_related(
-            "connected_account", "project", "linked_by"
-        )
-        checkable = Q(connected_account__isnull=False) | Q(provider__in=accountless)
-        for link in links.filter(checkable).order_by("pk"):
-            if check_blocked(link):
-                skipped += 1
-                continue
-            try:
+    stop_at = time.monotonic() + settings.INTEGRATION_JOB_LAB_BUDGET
+    links = ExternalLink.objects.for_lab(lab).select_related(
+        "connected_account", "project", "linked_by"
+    )
+    checkable = Q(connected_account__isnull=False) | Q(provider__in=accountless)
+    for link in links.filter(checkable).order_by("pk"):
+        if time.monotonic() >= stop_at:
+            log.warning("integration link checks for a lab stopped at its time budget")
+            failed += 1  # the rest are checked tomorrow
+            break
+        if check_blocked(link):
+            skipped += 1
+            continue
+        try:
+            with http.budget(
+                settings.INTEGRATION_JOB_LINK_BUDGET,
+                per_request=settings.INTEGRATION_JOB_HTTP_DEADLINE,
+            ):
                 check_link(link)
-                done += 1
-            except Exception as exc:  # noqa: BLE001 - messages are fixed; log the type only
-                log.warning("integration link check failed: %s", type(exc).__name__)
-                failed += 1
-            time.sleep(CHECK_PAUSE)
+            done += 1
+        except Exception as exc:  # noqa: BLE001 - messages are fixed; log the type only
+            log.warning("integration link check failed: %s", type(exc).__name__)
+            failed += 1
+        time.sleep(CHECK_PAUSE)
     return {"checked": done, "skipped": skipped, "failed": failed}
+
+
+def check_all_links() -> dict:
+    """Every lab in turn (`check_lab_links`); one lab's failure never stops the others. The
+    daily schedule runs one Celery task per lab instead (jobs.check_lab_links)."""
+    total = {"checked": 0, "skipped": 0, "failed": 0}
+    for lab in Lab.objects.all():
+        try:
+            result = check_lab_links(lab)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("integration link checks for a lab failed: %s", type(exc).__name__)
+            total["failed"] += 1
+            continue
+        for key, value in result.items():
+            total[key] += value
+    return total
 
 
 # ---- key rotation

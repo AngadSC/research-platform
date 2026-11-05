@@ -20,7 +20,7 @@ from audit import services as audit
 from audit.models import AuditAction
 from core.permissions import Perm
 from core.views import LabScopedViewMixin
-from integrations import registry, services
+from integrations import http, registry, services
 from integrations.http import IntegrationError
 from integrations.models import AccountStatus, ConnectedAccount, ExternalLink
 from integrations.serializers import (
@@ -350,7 +350,8 @@ class ExternalLinkCheckView(ExternalLinkMixin, generics.GenericAPIView):
                     wait=int(wait) + 1, detail="Checked a moment ago. Try again in a minute."
                 )
         try:
-            services.check_link(link)
+            with http.budget(settings.INTEGRATION_ENDPOINT_BUDGET):
+                services.check_link(link)
         except IntegrationError:
             return Response(
                 {"detail": "The service could not be reached. Try again shortly."},
