@@ -12,7 +12,7 @@ from core.models import Notification
 from core.notifications import visible_notifications
 from core.permissions import Perm, get_lab_or_404
 from core.search import MAX_Q, SPECS, search
-from core.serializers import NotificationSerializer, UserSerializer
+from core.serializers import MeSerializer, NotificationSerializer
 
 
 class HealthView(APIView):
@@ -24,7 +24,7 @@ class HealthView(APIView):
 
 
 class MeView(generics.RetrieveUpdateAPIView):
-    serializer_class = UserSerializer
+    serializer_class = MeSerializer
     http_method_names = ["get", "patch", "head", "options"]
     perms = {"GET": Perm.AUTHENTICATED, "PATCH": Perm.AUTHENTICATED}
 

@@ -20,6 +20,30 @@ class UserSerializer(serializers.ModelSerializer):
         extra_kwargs = {"display_name": {"validators": [no_control_chars]}}
 
 
+# D125: personal UI settings. Unknown keys and values are rejected; PATCH merges.
+PREFERENCE_CHOICES = {
+    "theme": ("light", "dark", "system"),
+    "task_view": ("board", "list"),
+}
+
+
+class MeSerializer(UserSerializer):
+    """`/api/me/` only: the user's own preferences never appear in nested user objects."""
+
+    preferences = serializers.JSONField(required=False)
+
+    class Meta(UserSerializer.Meta):
+        fields = [*UserSerializer.Meta.fields, "preferences"]
+
+    def validate_preferences(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Must be an object.")
+        for key, val in value.items():
+            if val not in PREFERENCE_CHOICES.get(key, ()):
+                raise serializers.ValidationError(f"Unsupported preference: {key}.")
+        return {**(self.instance.preferences if self.instance else {}), **value}
+
+
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification

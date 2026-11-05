@@ -37,6 +37,8 @@ class User(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
     display_name = models.CharField(max_length=120, blank=True)
+    # Personal UI settings; only these keys, validated by MeSerializer (D125).
+    preferences = models.JSONField(default=dict, blank=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []

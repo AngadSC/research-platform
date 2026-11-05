@@ -3387,7 +3387,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/Me'
           description: ''
     patch:
       operationId: me_partial_update
@@ -3397,13 +3397,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatchedUser'
+              $ref: '#/components/schemas/PatchedMe'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/PatchedUser'
+              $ref: '#/components/schemas/PatchedMe'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/PatchedUser'
+              $ref: '#/components/schemas/PatchedMe'
       security:
       - sessionAuth: []
       responses:
@@ -3411,7 +3411,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/Me'
           description: ''
   /api/schema/:
     get:
@@ -5347,6 +5347,26 @@ components:
         * `in_review` - In Review
         * `accepted` - Accepted
         * `published` - Published
+    Me:
+      type: object
+      description: '`/api/me/` only: the user''s own preferences never appear in nested
+        user objects.'
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        display_name:
+          type: string
+          maxLength: 120
+        preferences: {}
+      required:
+      - email
+      - id
     Membership:
       type: object
       properties:
@@ -5651,6 +5671,23 @@ components:
             type: string
             format: uuid
           maxItems: 200
+    PatchedMe:
+      type: object
+      description: '`/api/me/` only: the user''s own preferences never appear in nested
+        user objects.'
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        display_name:
+          type: string
+          maxLength: 120
+        preferences: {}
     PatchedProjectInput:
       type: object
       properties:
@@ -5721,20 +5758,6 @@ components:
         position:
           type: integer
           minimum: 0
-    PatchedUser:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          readOnly: true
-        email:
-          type: string
-          format: email
-          readOnly: true
-        display_name:
-          type: string
-          maxLength: 120
     PickerToken:
       type: object
       description: 'D70: the one response that carries an access token.'

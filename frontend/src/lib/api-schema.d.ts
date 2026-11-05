@@ -2099,6 +2099,15 @@ export interface components {
          * @enum {string}
          */
         ManuscriptStatusEnum: "drafting" | "submitted" | "in_review" | "accepted" | "published";
+        /** @description `/api/me/` only: the user's own preferences never appear in nested user objects. */
+        Me: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: email */
+            readonly email: string;
+            display_name?: string;
+            preferences?: unknown;
+        };
         Membership: {
             /** Format: uuid */
             readonly id: string;
@@ -2224,6 +2233,15 @@ export interface components {
             status?: components["schemas"]["ManuscriptStatusEnum"];
             results?: string[];
         };
+        /** @description `/api/me/` only: the user's own preferences never appear in nested user objects. */
+        PatchedMe: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: email */
+            readonly email?: string;
+            display_name?: string;
+            preferences?: unknown;
+        };
         PatchedProjectInput: {
             name?: string;
             description?: string;
@@ -2257,13 +2275,6 @@ export interface components {
             due_date?: string | null;
             status?: components["schemas"]["TaskStatusEnum"];
             position?: number;
-        };
-        PatchedUser: {
-            /** Format: uuid */
-            readonly id?: string;
-            /** Format: email */
-            readonly email?: string;
-            display_name?: string;
         };
         /** @description D70: the one response that carries an access token. */
         PickerToken: {
@@ -4935,7 +4946,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"];
+                    "application/json": components["schemas"]["Me"];
                 };
             };
         };
@@ -4949,9 +4960,9 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["PatchedUser"];
-                "application/x-www-form-urlencoded": components["schemas"]["PatchedUser"];
-                "multipart/form-data": components["schemas"]["PatchedUser"];
+                "application/json": components["schemas"]["PatchedMe"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedMe"];
+                "multipart/form-data": components["schemas"]["PatchedMe"];
             };
         };
         responses: {
@@ -4960,7 +4971,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"];
+                    "application/json": components["schemas"]["Me"];
                 };
             };
         };

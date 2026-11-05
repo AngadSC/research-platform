@@ -88,3 +88,7 @@
 - Orchestrator full run: 2096 passed / 59 skipped / 2 failed in 6.5 min (RF's crawl was host load). Fixed test_ethics_file_keeps_its_rule_in_s3_mode to upload a CSV (D123 now streams PDFs; the ethics-before-presign intent kept). Seed test failure belongs to W3's in-progress seed.
 - W3 done (sonnet): seed links (GitHub, Overleaf, Zotero + reference, Zenodo), screenshots 36-43 new, all regenerated; Playwright timeouts raised; ethics e2e day-count drift fixed.
 - Final gate: backend 2098 passed / 59 skipped, matrix 100 rows / 1004 cases, Vitest 153, Playwright 15, lint (after prettier on ethics.spec.ts), licenses 64/451. HANDOFF morning summary written. Run 3 complete; committed and pushed.
+
+## Run 4 (founder's change list)
+
+- Answered DB/university/email questions. Added User.preferences + MeSerializer (D125) with test, migrated, types regenerated. D126 records email and university-resource scope. Dispatching 4 agents (look, workflow, tasks, admin/settings) with scoped backend tests only.
