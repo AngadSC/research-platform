@@ -148,10 +148,10 @@ Same status values. Model and effort follow orchestrator section 8. Shared-tree 
 
 | ID | Task | Model / effort | Status |
 |---|---|---|---|
-| S5 | Institutional SSO (SAML, University of Alberta CCID ready), domain routing | opus / high | doing |
-| M5 | AI tool layer + remote MCP server (OAuth/PAT) for users' own Claude/ChatGPT | opus / high | doing |
-| P5 | PI dashboard | sonnet / medium | doing |
-| T5 | Training and certification tracking | sonnet / medium | doing |
-| D5 | Data management plans, Borealis and FRDR providers | sonnet / medium | todo |
-| B5 | In-app bring-your-own-key assistant (Claude, OpenAI) | sonnet / medium | todo |
-| R5 | Security review + fixes, screenshots, notes, push | opus / sonnet / orchestrator | todo |
+| S5 | Institutional SSO (SAML, University of Alberta CCID ready), domain routing | opus / high | done |
+| M5 | AI tool layer + remote MCP server (OAuth/PAT) for users' own Claude/ChatGPT | opus / high | done |
+| P5 | PI dashboard | sonnet / medium | done |
+| T5 | Training and certification tracking | sonnet / medium | done |
+| D5 | Data management plans, Borealis and FRDR providers | sonnet / medium | done |
+| B5 | In-app bring-your-own-key assistant (Claude, OpenAI) | sonnet / medium | done |
+| R5 | Security review + fixes, screenshots, notes, push | opus / sonnet / orchestrator | done |

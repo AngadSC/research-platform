@@ -100,6 +100,26 @@ class AuditAction(models.TextChoices):
     RECRUITMENT_ENTRY_UPDATED = "recruitment_entry.updated"
     RECRUITMENT_ENTRY_DELETED = "recruitment_entry.deleted"
     RECRUITMENT_PLAN_UPDATED = "recruitment_plan.updated"
+    # Run 5 (AI access and MCP, D160-D169)
+    AI_ACCESS_GRANTED = "ai_access.granted"
+    AI_ACCESS_REVOKED = "ai_access.revoked"
+    AI_TOOL_WRITE = "ai_tool.write"
+    # Run 5 (in-app assistant, D187-D192): a person's own provider key; the key never appears
+    AI_KEY_SAVED = "ai_key.saved"
+    AI_KEY_REMOVED = "ai_key.removed"
+    # Run 5 (training, D175-D179)
+    TRAINING_REQUIREMENT_CREATED = "training_requirement.created"
+    TRAINING_REQUIREMENT_UPDATED = "training_requirement.updated"
+    TRAINING_REQUIREMENT_DELETED = "training_requirement.deleted"
+    TRAINING_RECORD_CREATED = "training_record.created"
+    TRAINING_RECORD_UPDATED = "training_record.updated"
+    TRAINING_RECORD_VERIFIED = "training_record.verified"
+    TRAINING_RECORD_DELETED = "training_record.deleted"
+    # Run 5 (data management plan, D180-D186)
+    DMP_CREATED = "dmp.created"
+    DMP_UPDATED = "dmp.updated"
+    DMP_APPROVED = "dmp.approved"
+    DMP_DELETED = "dmp.deleted"
 
 
 class AuditQuerySet(models.QuerySet):

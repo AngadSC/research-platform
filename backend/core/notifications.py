@@ -16,6 +16,8 @@ EMAIL_KINDS = frozenset(
         NotificationKind.RETENTION_DUE,
         NotificationKind.PROJECT_EXPORTED,
         NotificationKind.INTEGRATION_ISSUE,
+        NotificationKind.TRAINING_EXPIRY,  # D178
+        NotificationKind.TRAINING_DIGEST,
     }
 )
 

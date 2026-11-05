@@ -2,7 +2,9 @@ import {
   Archive,
   Bell,
   Boxes,
+  GraduationCap,
   History,
+  LayoutDashboard,
   Home,
   Plug,
   Settings,
@@ -14,9 +16,15 @@ import {
 export function navItems(labId?: string, permissions: string[] = []) {
   return [
     { to: "/", label: "Home", icon: Home, end: true },
+    ...(labId && permissions.includes("manage_lab")
+      ? [{ to: `/labs/${labId}/dashboard`, label: "Dashboard", icon: LayoutDashboard, end: false }]
+      : []),
     ...(labId ? [{ to: `/labs/${labId}/members`, label: "Members", icon: Users, end: false }] : []),
     ...(labId
       ? [{ to: `/labs/${labId}/inventory`, label: "Inventory", icon: Boxes, end: false }]
+      : []),
+    ...(labId
+      ? [{ to: `/labs/${labId}/training`, label: "My training", icon: GraduationCap, end: false }]
       : []),
     ...(labId && permissions.includes("manage_lab")
       ? [{ to: `/labs/${labId}/admin`, label: "Admin", icon: ShieldCheck, end: false }]

@@ -15,6 +15,7 @@ import { HomePage, NotBuiltPage } from "@/pages/HomePage";
 import { DocumentPage } from "@/pages/LazyDocumentPage";
 import { LazyLineageTab } from "@/pages/project/LazyLineageTab";
 import { LabHomePage } from "@/pages/LabHomePage";
+import { DashboardPage, LabIndexPage } from "@/pages/DashboardPage";
 import { HandoverPage } from "@/pages/HandoverPage";
 import { MembersPage } from "@/pages/MembersPage";
 import { ProjectPage, ProjectTab } from "@/pages/ProjectPage";
@@ -41,7 +42,9 @@ import { NotificationsPage, RetentionPage } from "@/pages/ethics/LabPages";
 import { IntegrationsErrorPage, IntegrationsPage } from "@/pages/IntegrationsPage";
 import { AdminPage } from "@/pages/admin/AdminPage";
 import { InventoryPage } from "@/pages/admin/InventoryPage";
+import { MyTrainingPage } from "@/pages/training/MyTrainingPage";
 import { SettingsPage } from "@/pages/SettingsPage";
+import { OAuthConsentPage } from "@/pages/OAuthConsentPage";
 
 export const routes: RouteObject[] = [
   {
@@ -70,6 +73,12 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <HomePage /> },
       { path: "settings", element: <SettingsPage />, handle: { crumb: "Settings" } },
+      // D161: OAuth authorization endpoint for MCP clients (sign-in and MFA happen first)
+      {
+        path: "oauth/authorize",
+        element: <OAuthConsentPage />,
+        handle: { crumb: "Connect an AI app" },
+      },
       // Run 4: Account and Security moved into Settings; the old address still works.
       { path: "account", element: <Navigate to="/settings#security" replace /> },
       {
@@ -87,7 +96,8 @@ export const routes: RouteObject[] = [
             path: ":labId",
             handle: { crumb: "@lab" },
             children: [
-              { index: true, element: <LabHomePage /> },
+              { index: true, element: <LabIndexPage /> },
+              { path: "dashboard", element: <DashboardPage />, handle: { crumb: "Dashboard" } },
               {
                 path: "members",
                 handle: { crumb: "Members" },
@@ -252,6 +262,7 @@ export const routes: RouteObject[] = [
               { path: "audit-log", element: <AuditLogPage />, handle: { crumb: "Audit log" } },
               { path: "admin", element: <AdminPage />, handle: { crumb: "Admin" } },
               { path: "inventory", element: <InventoryPage />, handle: { crumb: "Inventory" } },
+              { path: "training", element: <MyTrainingPage />, handle: { crumb: "My training" } },
               {
                 path: "settings/integrations",
                 element: <IntegrationsPage />,

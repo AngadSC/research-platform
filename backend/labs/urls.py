@@ -1,12 +1,13 @@
 from django.urls import path
 
 from labs import admin_views as av
-from labs import views
+from labs import dashboard, views
 
 app_name = "labs"
 urlpatterns = [
     path("labs/", views.LabListCreateView.as_view(), name="lab-list"),
     path("labs/<uuid:lab_id>/", views.LabDetailView.as_view(), name="lab-detail"),
+    path("labs/<uuid:lab_id>/dashboard/", dashboard.DashboardView.as_view(), name="dashboard"),
     path("labs/<uuid:lab_id>/members/", views.MemberListView.as_view(), name="member-list"),
     path(
         "labs/<uuid:lab_id>/members/<uuid:membership_id>/",

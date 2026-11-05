@@ -9,7 +9,7 @@ export function InstitutionLinks({
   title,
 }: {
   labId: string;
-  category: "ethics" | "funding";
+  category: "ethics" | "funding" | "data_management";
   title: string;
 }) {
   const { data } = useInstitutionLinks(labId, category);

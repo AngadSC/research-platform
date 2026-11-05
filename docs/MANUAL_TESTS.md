@@ -219,3 +219,106 @@ Overleaf has no API; nothing is fetched. Use a test project.
 3. In Overleaf > Share, turn on **link sharing** and copy the read-only link (`.../read/...`) and the edit link (`.../<digits><letters>`). Paste each: both are refused with the message to share the project in Overleaf instead; nothing is stored. Turn link sharing off again.
 4. Paste the project address of a project you are not invited to: it links (we cannot check), and opening it from the app shows Overleaf's own access screen.
 - [ ] Audit log and the browser address bar never contain a share token.
+
+## Institutional SSO (SAML, D152 to D159)
+
+Automated tests sign SAML responses with a throwaway key (`core/tests/test_saml_auth.py`). This checklist runs the real browser flow against a local test IdP, then against UAlberta. Do not create accounts on public test IdPs for this; the local container below needs none.
+
+### SP values (what an IdP registers)
+
+Replace `<slug>` with the config's slug (`ualberta` for UAlberta, `testidp` below). The entity ID is the metadata URL and is derived from `FRONTEND_URL`, so set that to its final value before registering.
+
+| | Local (`FRONTEND_URL=http://localhost:5173`) | Production (`FRONTEND_URL=https://<domain>`) |
+|---|---|---|
+| SP metadata URL | `http://localhost:5173/accounts/saml/<slug>/metadata/` | `https://<domain>/accounts/saml/<slug>/metadata/` |
+| SP entity ID | same as the metadata URL | same as the metadata URL |
+| ACS (HTTP-POST) | `http://localhost:5173/accounts/saml/<slug>/acs/` | `https://<domain>/accounts/saml/<slug>/acs/` |
+| SLO (HTTP-Redirect, optional) | `http://localhost:5173/accounts/saml/<slug>/sls/` | `https://<domain>/accounts/saml/<slug>/sls/` |
+
+The metadata URL answers only once the config exists and is enabled (404 before). `manage.py configure_sso` prints all of these.
+
+### 1. Local test IdP (SimpleSAMLphp in Docker)
+
+1. Start a disposable SimpleSAMLphp IdP that trusts our local SP (the image ships test users `user1`/`user1pass` and `user2`/`user2pass`, emails `user1@example.com` and `user2@example.com`):
+   ```
+   docker run -d --name test-saml-idp -p 8080:8080 -p 8443:8443 \
+     -e SIMPLESAMLPHP_SP_ENTITY_ID=http://localhost:5173/accounts/saml/testidp/metadata/ \
+     -e SIMPLESAMLPHP_SP_ASSERTION_CONSUMER_SERVICE=http://localhost:5173/accounts/saml/testidp/acs/ \
+     kristophjunge/test-saml-idp
+   ```
+2. Open `https://localhost:8443/simplesaml/saml2/idp/metadata.php` (accept the self-signed certificate). Copy the `entityID`, the HTTP-Redirect `SingleSignOnService` Location and the signing `X509Certificate`. A metadata URL can't be used here: the safe fetcher refuses localhost, by design.
+3. Write `testidp.json` in `backend/` (it is mounted at `/app`):
+   ```json
+   {"institution": "Test IdP University", "slug": "testidp", "enabled": true,
+    "email_domains": ["example.com"],
+    "idp_entity_id": "<entityID from step 2>",
+    "idp_sso_url": "https://localhost:8443/simplesaml/saml2/idp/SSOService.php",
+    "idp_x509cert": "<certificate from step 2>"}
+   ```
+   Run `docker compose exec backend python manage.py configure_sso testidp.json`. The default attribute mapping already accepts this IdP's friendly names (`email`, `uid`).
+4. Check:
+   - [ ] `http://localhost:5173/accounts/saml/testidp/metadata/` returns XML with `entityID` and the ACS above, and `WantAssertionsSigned="true"`.
+   - [ ] On `/login`, type `user1@example.com` and Continue. You see "Continue with Test IdP University" and "Use a password instead". Any other domain goes straight to the password form.
+   - [ ] Continue. You reach the IdP; sign in as `user1`/`user1pass`. You come back signed in. Settings > Security lists the connected SAML account. The audit log has `auth.login` with method `saml:testidp`.
+   - [ ] Sign out and sign in again with SSO: the same account (no duplicate).
+   - [ ] Linking: sign up with a password as `user2@example.com`, verify the email, sign out, then sign in with SSO as `user2`. You land in the same account. The audit log shows `auth.social_connected` (provider `saml:testidp`), and the password still works.
+   - [ ] Domain guard: rerun `configure_sso` with `"email_domains": ["example.org"]`. SSO as `user1` now lands on "Sign-in did not finish" and nobody is signed in.
+   - [ ] Require SSO: rerun with `"require_sso": true` (and the domain back to `example.com`). The login page offers only the institution button, password sign-in for `user2@example.com` is refused with a message naming the institution, and signing up with an `@example.com` address is refused.
+   - [ ] Signature: put a different certificate in `idp_x509cert` and rerun. SSO now fails with "Sign-in did not finish", and the backend log says "Signature validation failed".
+   - [ ] If the IdP signs only the Response and not the Assertion, the backend log says "The Assertion of the Response is not signed and the SP requires it". That is the setting UAlberta IT must turn on (below).
+5. Clean up: `docker rm -f test-saml-idp`, then rerun `configure_sso` with `"enabled": false` (or delete the row in the dev admin).
+
+### 2. Request to UAlberta IT
+
+Send this once the production domain is fixed (replace `<domain>`). It goes to IST as a request to register a SAML 2.0 service provider with the UAlberta Shibboleth IdP.
+
+> We would like to register a SAML 2.0 service provider for **<product name>**, a research lab workspace used by UAlberta labs, so researchers sign in with their CCID.
+>
+> - **SP metadata URL:** `https://<domain>/accounts/saml/ualberta/metadata/`
+> - **SP entity ID:** `https://<domain>/accounts/saml/ualberta/metadata/`
+> - **Assertion Consumer Service:** `https://<domain>/accounts/saml/ualberta/acs/` (binding HTTP-POST)
+> - **AuthnRequests:** sent with HTTP-Redirect, unsigned. SP-initiated only; IdP-initiated logins are refused.
+> - **Signing:** please **sign the assertions** (signAssertions), SHA-256. Signing the response as well is fine. We do not have an encryption certificate in our metadata, so assertions arrive unencrypted over TLS. Please tell us if encryption is required.
+> - **NameID format:** `urn:oasis:names:tc:SAML:2.0:nameid-format:persistent` preferred. Transient is acceptable, because we identify people by eduPersonPrincipalName.
+> - **Attributes we need (and only these):**
+>   - `mail` (`urn:oid:0.9.2342.19200300.100.1.3`): to match and create accounts; must be the `@ualberta.ca` address
+>   - `givenName` (`urn:oid:2.5.4.42`) and `sn` (`urn:oid:2.5.4.4`): the display name
+>   - `eduPersonPrincipalName` (`urn:oid:1.3.6.1.4.1.5923.1.1.1.6`), or `uid` (`urn:oid:0.9.2342.19200300.100.1.1`) if ePPN is not released: a stable account identifier
+> - **Single logout:** not required. Our SLO endpoint, if you want it, is `https://<domain>/accounts/saml/ualberta/sls/` (HTTP-Redirect).
+> - **Please send us:** your IdP metadata URL (or the IdP entity ID, HTTP-Redirect SSO URL and signing certificate), any email domains besides `ualberta.ca` that you vouch for, and notice of future signing-key rollovers.
+> - **Data handling:** we store the name, email and ePPN, and an audit record of each sign-in. Nothing else from the assertion is kept beyond the attributes above.
+
+When they reply: `configure_sso` with `"slug": "ualberta"`, `"email_domains": ["ualberta.ca"]` and their `idp_metadata_url` (https; it is fetched through the safe client on each run). Add their SSO host to `form-action` in the `deploy/Caddyfile` CSP, check `TRUSTED_PROXY_COUNT=1`, then repeat the checks in section 1 with a real CCID.
+
+
+## Data management plan (D180 to D182)
+
+- [ ] Open a project, Workflow > Data. A "Data management plan" panel sits above the datasets list and says "Not started".
+- [ ] As a contributor choose Start plan, fill a couple of sections, set Status to Submitted, Save. The badge reads Submitted; History lists Version 1.
+- [ ] As a project lead press Approve. The badge reads Approved, "Approved by <you>" shows, the last-reviewed date is today, and History has a new version.
+- [ ] Edit an approved plan: a note says saving sets it back to draft. After saving the badge is Draft and Approve is back.
+- [ ] A contributor sees Edit but no Approve or Delete; a viewer sees neither and cannot edit.
+- [ ] Paste an external plan link (for example your DMP Assistant export address): it opens in a new tab. A `javascript:` address is refused.
+- [ ] Choose an attachment from the project's Files; it is listed under the plan. A file from another project is not offered.
+- [ ] As the PI, the Dashboard card "No approved data management plan" lists planning and active projects without one and links to Workflow > Data; approving a project's plan removes it.
+- [ ] In a University of Alberta lab (Admin > Resources has links in the "Data management" category) the links show under the panel; otherwise no section is drawn.
+- [ ] Audit log shows `dmp.created`, `dmp.updated`, `dmp.approved` and `dmp.deleted`.
+
+## Borealis (no account needed, D183)
+
+Borealis was down for maintenance while this was written, so the API call has not been seen against the real service. Run these once it is back; the first one confirms the reply layout.
+
+- [ ] On a dataset record's links choose Borealis and paste `https://borealisdata.ca/dataset.xhtml?persistentId=doi:10.5683/SP/30JPOR` ("Global Tourism Watch 2013"; the DOI and its Borealis address are confirmed in DataCite, the dataset page itself returned an error during maintenance). The link shows that title, a version like `1.0` and opens the Borealis page.
+- [ ] Also try `https://doi.org/10.5683/SP4/UBVBL1` ("Supplementary material: Effect of colostrum volume at birth ...", registered by Borealis on the day of writing) and `https://borealisdata.ca/citation?persistentId=doi:10.5683/SP/GUBPAJ` ("Hockey Night in Canada, 2014").
+- [ ] An empty dataset version label takes the Dataverse version; a label you typed stays.
+- [ ] A DOI with another prefix (`https://doi.org/10.5281/zenodo.1`) and an address with `/api/access/datafile/...` are refused.
+- [ ] A draft-only or deaccessioned dataset shows as no longer available, never as a draft.
+- [ ] Server side, only `/api/datasets/:persistentId/versions/:latest-published?...&excludeFiles=true` is requested; no file endpoint.
+
+## FRDR (no account needed, D184)
+
+- [ ] On a dataset record's links choose FRDR and paste `https://doi.org/10.20383/101.011` ("Bow River at Banff (05BB001) Stage and Discharge Measurements"; the DataCite record and the FRDR page `https://www.frdr-dfdr.ca/repo/dataset/39e86b8b-57ef-d798-ad3e-9d15273bcc65` were loaded and match). The link opens the FRDR page.
+- [ ] Paste the FRDR page address above instead: it links to the same dataset (resolved through DataCite) and shows the same title.
+- [ ] `https://doi.org/10.20383/101.010` ("Fortress Mountain Snow Laboratory, Blowing Snow Camera Measurements") also works. A non-FRDR DOI is refused.
+- [ ] Version is blank for most FRDR datasets (DataCite has none); that is expected.
+- [ ] Server side, only `api.datacite.org` is requested; frdr-dfdr.ca is never contacted.

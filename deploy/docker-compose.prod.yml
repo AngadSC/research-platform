@@ -43,7 +43,17 @@ services:
     image: research-backend:prod
     <<: *env
     restart: unless-stopped
-    command: ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--access-logfile", "-"]
+    # D190: the in-app assistant streams answers (server-sent events) that can run for minutes.
+    # gthread keeps one open stream from using up a whole worker, and the timeout is raised from
+    # the 30 s default so a long answer is not killed. Caddy must not buffer them (see Caddyfile).
+    # D196: capacity is workers x threads = 3 x 8 = 24 threads. Each open stream holds one, so the
+    # app caps streams server-wide (ASSISTANT_MAX_STREAMS, default 10, leaving 14 threads for
+    # ordinary requests; keep it well below workers x threads if you change either) and stops
+    # every stream after ASSISTANT_STREAM_DEADLINE (default 300 s), which must stay below the
+    # 330 s gunicorn --timeout here and the 330 s read_timeout in the Caddyfile, so the app ends a
+    # stream cleanly before a proxy cuts it. ASSISTANT_LOCK_TTL (default 600 s) must exceed the
+    # deadline plus the provider read timeout (120 s).
+    command: ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--worker-class", "gthread", "--threads", "8", "--timeout", "330", "--access-logfile", "-"]
     depends_on:
       postgres:
         condition: service_healthy

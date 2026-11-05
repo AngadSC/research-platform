@@ -15,6 +15,7 @@ import { APP_NAME, MOD_KEY, OPEN_SEARCH_EVENT } from "@/lib/constants";
 import { useMe } from "@/hooks/workspace";
 import { useAccountTheme } from "@/lib/theme";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import { AssistantDrawer } from "@/components/assistant/AssistantDrawer";
 import { NotificationBell } from "./NotificationBell";
 import { Sidebar } from "./Sidebar";
 
@@ -105,6 +106,7 @@ export function AppShell() {
                   {MOD_KEY} F
                 </kbd>
               </Button>
+              {labId && <AssistantDrawer labId={labId} />}
               {labId && <NotificationBell labId={labId} />}
               <ThemeToggle />
             </div>

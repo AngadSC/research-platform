@@ -8,6 +8,7 @@ import { InventorySection } from "./InventorySection";
 import { LabDetailsSection } from "./LabDetailsSection";
 import { OnboardingSection } from "./OnboardingSection";
 import { ResourcesEditor } from "./ResourcesEditor";
+import { TrainingSection } from "./TrainingSection";
 import { Section } from "./common";
 
 const LINKS = [
@@ -70,6 +71,7 @@ export function AdminPage() {
         </Section>
         <LabDetailsSection lab={lab} />
         <OnboardingSection labId={labId} />
+        <TrainingSection labId={labId} />
         <InventorySection labId={labId} canEdit={lab.my_permissions.includes("manage_inventory")} />
         <ResourcesEditor labId={labId} />
       </div>

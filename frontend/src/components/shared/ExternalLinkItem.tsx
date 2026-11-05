@@ -34,6 +34,8 @@ const ICONS: Record<string, typeof Link2> = {
   zenodo: Archive,
   figshare: Archive,
   osf: Archive,
+  borealis: Archive,
+  frdr: Archive,
   redcap: ClipboardList,
   qualtrics: ClipboardList,
   protocols_io: FlaskConical,

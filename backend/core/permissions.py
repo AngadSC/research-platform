@@ -44,6 +44,7 @@ class Perm(StrEnum):
     MANAGE_INTEGRATIONS = "manage_integrations"  # connect/disconnect your own accounts
     MANAGE_LAB_INTEGRATIONS = "manage_lab_integrations"  # see and revoke any member's
     MANAGE_INVENTORY = "manage_inventory"  # Run 4, D147: add, edit and delete inventory items
+    MANAGE_TRAINING = "manage_training"  # Run 5, D176: requirements, everyone's records
     # project-level
     VIEW_PROJECT = "view_project"
     EDIT_PROJECT = "edit_project"
@@ -80,6 +81,7 @@ _ALL_LAB = frozenset(
         _P.MANAGE_INTEGRATIONS,
         _P.MANAGE_LAB_INTEGRATIONS,
         _P.MANAGE_INVENTORY,
+        _P.MANAGE_TRAINING,
     }
 )
 LAB_ROLE_PERMS: dict[str, frozenset[Perm]] = {

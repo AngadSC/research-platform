@@ -26,7 +26,7 @@ describe("Continue with Google", () => {
   it("is hidden when no Google provider is configured", async () => {
     mockFetch({ [SESSION]: signedOut, [CONFIG]: noGoogle });
     renderRoute("/login");
-    await screen.findByRole("button", { name: "Sign in" });
+    await screen.findByRole("button", { name: "Continue" });
     await waitFor(() => expect(screen.queryByText("Continue with Google")).toBeNull());
   });
 
@@ -51,7 +51,7 @@ describe("provider callback", () => {
   it("explains a failed sign-in", async () => {
     mockFetch({});
     renderRoute("/account/provider/callback?error=access_denied");
-    expect(await screen.findByText("Google sign-in did not finish")).toBeInTheDocument();
+    expect(await screen.findByText("Sign-in did not finish")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Back to sign in" })).toBeInTheDocument();
   });
 

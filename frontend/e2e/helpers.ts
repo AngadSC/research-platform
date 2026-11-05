@@ -21,6 +21,7 @@ export async function login(page: Page, who: string) {
 export async function loginForm(page: Page, who: string) {
   await page.goto("/login");
   await page.getByLabel("Email").fill(`${who}@example.test`);
+  await page.getByRole("button", { name: "Continue" }).click(); // email step (D156)
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).not.toHaveURL(/login/);

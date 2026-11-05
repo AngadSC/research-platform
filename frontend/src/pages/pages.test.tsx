@@ -5,6 +5,16 @@ import { makeLab, mockFetch, renderRoute, SESSION, signedIn, signedOut } from "@
 
 const LOGIN_PATH = "/_allauth/browser/v1/auth/login";
 const MFA_PATH = "/_allauth/browser/v1/auth/2fa/authenticate";
+const PASSWORD_ONLY = {
+  "POST /api/auth/login-methods/": { body: { methods: ["password"], institution: null } },
+};
+
+/** The email step (D156), answered "password", then the password form. */
+async function passwordStep(email: string) {
+  await userEvent.type(await screen.findByLabelText("Email"), email);
+  await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+  await screen.findByLabelText("Password");
+}
 
 describe("login", () => {
   it("signs in and lands on the first-run empty state", async () => {
@@ -16,10 +26,11 @@ describe("login", () => {
         return signedIn;
       },
       "GET /api/labs/": { body: [] },
+      ...PASSWORD_ONLY,
     });
     document.cookie = "csrftoken=t";
     renderRoute("/login");
-    await userEvent.type(await screen.findByLabelText("Email"), "ada@uni.edu");
+    await passwordStep("ada@uni.edu");
     await userEvent.type(screen.getByLabelText("Password"), "hunter2hunter2");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
     expect(await screen.findByText("Create your first lab")).toBeInTheDocument();
@@ -30,10 +41,13 @@ describe("login", () => {
   });
 
   it("shows inline errors for empty fields", async () => {
-    mockFetch({ [SESSION]: signedOut });
+    mockFetch({ [SESSION]: signedOut, ...PASSWORD_ONLY });
     renderRoute("/login");
-    await userEvent.click(await screen.findByRole("button", { name: "Sign in" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Continue" }));
     expect(screen.getByText("Enter your email address")).toBeInTheDocument();
+    await passwordStep("ada@uni.edu");
+    expect(screen.getByLabelText("Email")).toHaveValue("ada@uni.edu");
+    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
     expect(screen.getByText("Enter your password")).toBeInTheDocument();
   });
 
@@ -56,10 +70,11 @@ describe("login", () => {
       },
       "GET /api/labs/": { body: [lab] },
       "GET /api/labs/lab1/": { body: lab },
+      ...PASSWORD_ONLY,
     });
     document.cookie = "csrftoken=t";
     renderRoute("/login");
-    await userEvent.type(await screen.findByLabelText("Email"), "ada@uni.edu");
+    await passwordStep("ada@uni.edu");
     await userEvent.type(screen.getByLabelText("Password"), "pw");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
     await userEvent.type(await screen.findByLabelText("Authentication code"), "123456");

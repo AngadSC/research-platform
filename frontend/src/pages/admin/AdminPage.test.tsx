@@ -29,6 +29,15 @@ const base = (perms: string[], extra: Record<string, unknown> = {}) => ({
   "GET /api/labs/lab1/onboarding-items/": { body: [] },
   "GET /api/labs/lab1/inventory/?ordering=name": { body: [] },
   "GET /api/labs/lab1/institution-resources/": { body: [] },
+  "GET /api/labs/lab1/training/requirements/": { body: [] },
+  "GET /api/labs/lab1/training/compliance/": {
+    body: {
+      requirements: [],
+      members: [],
+      summary: { done: 0, expiring: 0, expired: 0, missing: 0 },
+    },
+  },
+  "GET /api/labs/lab1/projects/": { body: [] },
   ...extra,
 });
 
@@ -37,7 +46,12 @@ describe("admin area", () => {
     mockFetch(base(ADMIN));
     renderRoute("/labs/lab1/admin");
     expect(await screen.findByRole("heading", { name: "Lab details" })).toBeInTheDocument();
-    for (const name of ["Turnover and onboarding", "Inventory", "Institution resources"])
+    for (const name of [
+      "Turnover and onboarding",
+      "Training",
+      "Inventory",
+      "Institution resources",
+    ])
       expect(screen.getByRole("heading", { name })).toBeInTheDocument();
     const tools = screen.getByRole("region", { name: "Admin tools" });
     for (const name of [
@@ -82,6 +96,9 @@ describe("admin area", () => {
       required: true,
       order: 0,
       completed_user_ids: [],
+      training_requirement: null,
+      training_requirement_name: "",
+      training_done_user_ids: [],
     };
     const calls = mockFetch(
       base(ADMIN, {

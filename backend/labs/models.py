@@ -24,6 +24,14 @@ def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+class AiPolicy(models.TextChoices):
+    """D188: what AI assistants may do with this lab's data. Managed by pi and lab_admin."""
+
+    OFF = "off"  # no AI assistant of any kind (MCP connections and the in-app assistant get 403)
+    MCP = "mcp"  # people may connect their own AI app over MCP, but the in-app assistant is off
+    FULL = "full"  # MCP and the in-app assistant (the default)
+
+
 class Lab(models.Model):
     """The tenant. Not lab-scoped."""
 
@@ -36,6 +44,7 @@ class Lab(models.Model):
     address = models.TextField(blank=True)
     contact_email = models.EmailField(blank=True)
     website = models.URLField(max_length=300, blank=True)
+    ai_policy = models.CharField(max_length=8, choices=AiPolicy.choices, default=AiPolicy.FULL)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -180,6 +189,7 @@ class OnboardingItem(LabScopedModel):
     """One line of the onboarding or departure checklist (D148)."""
 
     permission_domain = "lab"
+    lab_parents = ("training_requirement",)
 
     kind = models.CharField(max_length=16, choices=OnboardingKind.choices)
     title = models.CharField(max_length=200)
@@ -187,6 +197,14 @@ class OnboardingItem(LabScopedModel):
     url = models.URLField(max_length=500, blank=True)  # https only; validated in the serializer
     required = models.BooleanField(default=True)
     order = models.PositiveIntegerField(default=0)
+    # Run 5, D179: a current training record counts as done for this item
+    training_requirement = models.ForeignKey(
+        "training.TrainingRequirement",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
 
     class Meta(LabScopedModel.Meta):
         indexes = [models.Index(fields=["lab", "kind", "order"], name="onboarding_lab_kind_idx")]

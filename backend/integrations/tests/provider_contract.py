@@ -72,6 +72,7 @@ CONTENT_PATHS = [
     r"content=(?:record|file|report|log|metadata|instrument|participantlist|user|event|arm)",
     r"distributions?(?:$|[/?{])",
     r"/(?:steps|materials|comments)(?:$|[/?{])",
+    r"/api/access/|/api/files?/|datafile",  # Dataverse file endpoints (D183)
 ]
 _HOOKS = ("fetch_item", "search_items", "identify", "parse_identity", "sign", "apply_to_target")
 

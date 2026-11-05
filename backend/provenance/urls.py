@@ -1,6 +1,6 @@
 from django.urls import path
 
-from provenance import views
+from provenance import dmp, views
 
 app_name = "provenance"
 _P = "labs/<uuid:lab_id>/projects/<uuid:project_id>/"
@@ -55,6 +55,13 @@ urlpatterns = [
         name="recruitment-detail",
     ),
     path(_P + "recruitment-plan/", views.RecruitmentPlanView.as_view(), name="recruitment-plan"),
+    path(_P + "data-management-plan/", dmp.DmpView.as_view(), name="dmp"),
+    path(_P + "data-management-plan/approve/", dmp.DmpApproveView.as_view(), name="dmp-approve"),
+    path(
+        _P + "data-management-plan/revisions/",
+        dmp.DmpRevisionsView.as_view(),
+        name="dmp-revisions",
+    ),
     path(_P + "lineage/", views.LineageView.as_view(), name="lineage"),
     path(_P + "export/", views.ExportView.as_view(), name="export"),
 ]

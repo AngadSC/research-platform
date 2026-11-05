@@ -37,6 +37,8 @@ ENABLED = [
     "zenodo",
     "figshare",
     "osf",
+    "borealis",
+    "frdr",
 ]
 
 PROVIDERS: dict[str, Provider] = {}

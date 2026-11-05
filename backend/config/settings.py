@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     "allauth.mfa",
     "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
+    "allauth.socialaccount.providers.saml",  # D152: apps come from core.InstitutionSSO
     "rest_framework",
     "drf_spectacular",
     "core",
@@ -74,8 +75,10 @@ INSTALLED_APPS = [
     "documents",
     "provenance",
     "ethics",
+    "training",
     "audit",
     "integrations",
+    "assistant",  # Run 5, D160: AI tool layer and MCP server
 ]
 
 MIDDLEWARE = [
@@ -223,6 +226,18 @@ CELERY_BEAT_SCHEDULE = {
         "task": "integrations.jobs.check_links_by_lab",
         "schedule": crontab(hour=2, minute=0),
     },
+    "training-expiry-reminders": {  # D178
+        "task": "training.jobs.send_expiry_reminders",
+        "schedule": crontab(hour=1, minute=40),
+    },
+    "training-weekly-digest": {
+        "task": "training.jobs.send_weekly_digest",
+        "schedule": crontab(hour=7, minute=0, day_of_week=1),
+    },
+    "assistant-prune-clients": {  # D200
+        "task": "assistant.jobs.prune_unused_clients",
+        "schedule": crontab(hour=3, minute=0),
+    },
     "integrations-revoke-orphans": {
         "task": "integrations.jobs.revoke_orphans",
         "schedule": crontab(hour=1, minute=30),
@@ -329,6 +344,10 @@ REST_FRAMEWORK = {
         "search": "120/minute",
         "integration_connect": "30/hour",  # D81: each API-key connect calls the provider
         "integration_search": "30/minute",  # D85
+        "login_methods": "60/minute",  # D156, per IP
+        "ai_token": "20/hour",  # D164: personal access tokens created
+        "ai_key": "20/hour",  # D187: each key save makes one provider call
+        "ai_chat": "240/hour",  # D190: messages and approvals to the in-app assistant
     },
     "DEFAULT_PERMISSION_CLASSES": ["core.permissions.HasPerm"],
     "DEFAULT_AUTHENTICATION_CLASSES": ["core.auth.SessionAuthentication"],
@@ -348,11 +367,20 @@ SPECTACULAR_SETTINGS = {
         "LineageKindEnum": "provenance.models.LineageKind",
         "ApprovalStatusEnum": "ethics.models.ApprovalStatus",
         "NotificationKindEnum": "core.models.NotificationKind",
+        "AiGrantKindEnum": "assistant.models.GrantKind",  # D164
+        "AiAccessEnum": "assistant.models.Access",
+        "TrainingCategoryEnum": "training.models.TrainingCategory",  # Run 5
+        "TrainingAppliesToEnum": "training.models.AppliesTo",
+        "ComplianceStatusEnum": "training.models.ComplianceStatus",
     },
 }
 
 # ARCHITECTURE §4: X-Forwarded-For is trusted only behind this many proxies.
 TRUSTED_PROXY_COUNT = int(os.environ.get("TRUSTED_PROXY_COUNT", "0"))
+# D155: behind Caddy (which sets X-Forwarded-Proto itself) requests are https. SAML builds the ACS
+# URL and checks the response Destination from the request, so this must be right.
+if TRUSTED_PROXY_COUNT:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # ARCHITECTURE section 9 / D63: integration tokens are Fernet-encrypted with these keys, newest
 # first (comma-separated). In DEBUG a missing value means a random dev key derived from the
@@ -408,3 +436,36 @@ INTEGRATION_PUBLIC = {
         "app_id": os.environ.get("GOOGLE_DRIVE_APP_ID", ""),
     },
 }
+
+# Run 5, D160-D169: remote MCP server and its OAuth 2.1 authorization server (assistant app).
+# MCP_BASE_URL is the public https origin Claude/ChatGPT reach (the issuer); the MCP endpoint is
+# MCP_BASE_URL + "/mcp". Defaults to FRONTEND_URL because the SPA origin proxies /mcp, /.well-known
+# and /api to Django (Vite in dev, Caddy in production).
+MCP_BASE_URL = os.environ.get("MCP_BASE_URL", FRONTEND_URL).rstrip("/")
+# D193: the exact https redirect URIs an AI app may use (dynamic registration and CIMD alike).
+# `*` in the last path segment matches one id-like segment (ChatGPT's per-connector callback).
+# Sources: Claude's connector docs (claude.com/docs/connectors/building/authentication) and
+# support article 11503834 (the claude.com variant); OpenAI's plugins auth guide
+# (developers.openai.com/plugins/build/auth: stable URI and per-callback URI). UNVERIFIED against
+# live traffic: confirm before production. Loopback http://localhost, 127.0.0.1 or [::1] on any
+# port is always allowed (RFC 8252, Claude Code).
+MCP_ALLOWED_REDIRECT_URIS = env_list(
+    "MCP_ALLOWED_REDIRECT_URIS",
+    "https://claude.ai/api/mcp/auth_callback,"
+    "https://claude.com/api/mcp/auth_callback,"
+    "https://chatgpt.com/connector_platform_oauth_redirect,"
+    "https://chatgpt.com/connector/oauth/*",
+)
+# D165: hosts whose Client ID Metadata Documents we fetch (SSRF-pinned, integrations/http.py).
+MCP_CIMD_HOSTS = env_list("MCP_CIMD_HOSTS", "claude.ai,claude.com,chatgpt.com")
+# D196: in-app assistant streams hold one gunicorn thread each (3 workers x 8 threads = 24 in
+# deploy/docker-compose.prod.yml). At most ASSISTANT_MAX_STREAMS run at once on the whole server,
+# so ordinary requests always find a thread. A stream is stopped after ASSISTANT_STREAM_DEADLINE
+# seconds in total; its cache slots live ASSISTANT_LOCK_TTL seconds and are refreshed by a
+# heartbeat while it runs. Keep DEADLINE + the provider read timeout (120) below LOCK_TTL, and
+# MAX_STREAMS well below workers x threads.
+ASSISTANT_MAX_STREAMS = int(os.environ.get("ASSISTANT_MAX_STREAMS", "10"))
+ASSISTANT_STREAM_DEADLINE = int(os.environ.get("ASSISTANT_STREAM_DEADLINE", "300"))
+ASSISTANT_LOCK_TTL = int(os.environ.get("ASSISTANT_LOCK_TTL", "600"))
+# D166: browser origins allowed to call /mcp besides MCP_BASE_URL's (DNS-rebinding check).
+MCP_ALLOWED_ORIGINS = env_list("MCP_ALLOWED_ORIGINS")

@@ -15,6 +15,10 @@ from django.core.files.uploadedfile import SimpleUploadedFile  # documents/attac
 from django.urls import URLPattern, URLResolver, get_resolver, reverse
 from rest_framework.test import APIClient
 
+from assistant.ai import keys as ai_keys  # in-app assistant (Run 5)
+from assistant.models import AIGrant, AIProviderKey, Conversation, Message  # AI access (Run 5)
+from assistant.services import register_client  # AI access (Run 5)
+from assistant.tests.reauth import sign_in  # AI access (Run 5)
 from core.models import Institution, Notification, NotificationKind, User
 from documents import services as document_services  # documents/attachments (Phase 3)
 from ethics.models import EthicsApproval  # ethics (Phase 5)
@@ -40,6 +44,7 @@ from projects.models import (  # projects/tasks (Phase 3)
 )
 from provenance.models import (  # provenance (Phase 4)
     Analysis,
+    DataManagementPlan,
     DatasetRecord,
     Decision,
     FundingRecord,
@@ -48,6 +53,8 @@ from provenance.models import (  # provenance (Phase 4)
     Result,
     ReviewItem,
 )
+from training import services as training_services  # training (Run 5)
+from training.models import TrainingRecord, TrainingRequirement  # training (Run 5)
 
 # Fixed order. Lab roles: outsider is the PI of Lab B and not in Lab A; pi, admin (lab_admin),
 # lead, contrib, pviewer and nonproj (members); lviewer is a lab viewer. Project roles on P1:
@@ -57,9 +64,15 @@ PERSONAS = ["anon", "outsider", "pi", "admin", "lead", "contrib", "pviewer", "no
 # Each exemption needs a reason.
 EXEMPT_PREFIXES = [
     "/_allauth/",  # allauth headless: its own views, covered by core/tests/test_auth.py
-    "/accounts/",  # allauth OAuth provider callbacks, covered by core/tests/test_google_auth.py
+    "/accounts/",  # allauth provider URLs: Google (test_google_auth.py), SAML (test_saml_auth.py)
     "/admin/",  # Django admin: staff only, not part of the API
     "/healthz",  # load-balancer probe: checks only, no data (core/tests/test_healthz.py)
+    # AI access (Run 5, D161): MCP protocol endpoints for AI clients, not the SPA API. Bearer
+    # tokens only, covered by assistant/tests/test_mcp.py and test_token_leaks.py.
+    "/mcp",
+    "/.well-known/",  # public OAuth metadata (RFC 9728, RFC 8414)
+    "/api/oauth/token/",
+    "/api/oauth/register/",
 ]
 
 # fmt: off
@@ -68,10 +81,14 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "core:health"):           "2   2        2  2     2    2       2       2       2",
     ("GET",    "core:me"):               "401 2        2  2     2    2       2       2       2",
     ("PATCH",  "core:me"):               "401 2        2  2     2    2       2       2       2",
+    # D156: SSO routing by email domain, public
+    ("POST",   "core:login-methods"):    "2   2        2  2     2    2       2       2       2",
     ("GET",    "labs:lab-list"):         "401 2        2  2     2    2       2       2       2",
     ("POST",   "labs:lab-list"):         "401 2        2  2     2    2       2       2       2",
     ("GET",    "labs:lab-detail"):       "401 404      2  2     2    2       2       2       2",
     ("PATCH",  "labs:lab-detail"):       "401 404      2  2     403  403     403     403     403",
+    # D170: PI dashboard, pi and lab_admin only
+    ("GET",    "labs:dashboard"):        "401 404      2  2     403  403     403     403     403",
     ("GET",    "labs:member-list"):      "401 404      2  2     2    2       2       2       2",
     ("PATCH",  "labs:member-detail"):    "401 404      2  2     403  403     403     403     403",
     ("DELETE", "labs:member-detail"):    "401 404      2  2     403  403     403     403     403",
@@ -190,6 +207,13 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "provenance:manuscript-detail"): "401 404 2 2 2 2 2 404 2",
     ("PATCH",  "provenance:manuscript-detail"): "401 404 2 2 2 2 403 404 403",
     ("DELETE", "provenance:manuscript-detail"): "401 404 2 2 2 2 403 404 403",
+    # Data management plan (Run 5, D180): reads view_project, writes edit_content, approve and
+    # delete need a project lead (edit_project).
+    ("GET",    "provenance:dmp"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "provenance:dmp"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "provenance:dmp"): "401 404 2 2 2 403 403 404 403",
+    ("POST",   "provenance:dmp-approve"): "401 404 2 2 2 403 403 404 403",
+    ("GET",    "provenance:dmp-revisions"): "401 404 2 2 2 2 2 404 2",
     ("GET",    "provenance:lineage"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "provenance:export"): "401 404 2 2 2 403 403 404 403",
     # --- end provenance (Phase 4) ---
@@ -276,6 +300,61 @@ MATRIX: dict[tuple[str, str], str] = {
     ("PATCH",  "labs:inventory-detail"): "401 404 2 2 2 2 2 2 403",
     ("DELETE", "labs:inventory-detail"): "401 404 2 2 2 2 2 2 403",
     # --- end admin area (Run 4) ---
+    # --- training (Run 5, D175-D179) ---
+    # Requirements are read by every lab member and managed with manage_training (pi, admin).
+    # Records: the fixture one is contrib's. Everyone may call the endpoints, but the queryset is
+    # the owner's own (or everything for manage_training), so everyone else gets 404, not 403
+    # (D176). Verify, the compliance matrix and the expiring list need manage_training: 403.
+    # Filing a record is open to every member (a viewer too); the payload files it for oneself.
+    ("GET",    "training:requirement-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "training:requirement-list"): "401 404 2 2 403 403 403 403 403",
+    ("GET",    "training:requirement-detail"): "401 404 2 2 2 2 2 2 2",
+    ("PATCH",  "training:requirement-detail"): "401 404 2 2 403 403 403 403 403",
+    ("DELETE", "training:requirement-detail"): "401 404 2 2 403 403 403 403 403",
+    ("GET",    "training:record-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "training:record-list"): "401 404 2 2 2 2 2 2 2",
+    ("GET",    "training:record-detail"): "401 404 2 2 404 2 404 404 404",
+    ("PATCH",  "training:record-detail"): "401 404 2 2 404 2 404 404 404",
+    ("DELETE", "training:record-detail"): "401 404 2 2 404 2 404 404 404",
+    ("POST",   "training:record-verify"): "401 404 2 2 403 403 403 403 403",
+    ("GET",    "training:record-certificate"): "401 404 2 2 404 2 404 404 404",
+    ("POST",   "training:record-certificate"): "401 404 2 2 404 2 404 404 404",
+    ("GET",    "training:compliance"): "401 404 2 2 403 403 403 403 403",
+    ("GET",    "training:my-training"): "401 404 2 2 2 2 2 2 2",
+    ("GET",    "training:expiring"): "401 404 2 2 403 403 403 403 403",
+    # --- end training (Run 5) ---
+    # --- AI access (Run 5, D160-D169) ---
+    # The consent API and your own grants need only a login (they are the user's own); the
+    # payloads consent for, or create a token on, the persona's own lab. The fixture grant is
+    # contrib's: only its owner sees it, so everyone else gets 404, not 403 (D21). Each lab's
+    # grant list and removing the lab from a grant need manage_lab_integrations: pi and admin.
+    ("POST",   "assistant:authorize"): "401 2 2 2 2 2 2 2 2",
+    ("GET",    "assistant:grant-list"): "401 2 2 2 2 2 2 2 2",
+    ("POST",   "assistant:grant-list"): "401 2 2 2 2 2 2 2 2",
+    ("DELETE", "assistant:grant-detail"): "401 404 404 404 404 2 404 404 404",
+    ("GET",    "assistant:lab-grant-list"): "401 404 2 2 403 403 403 403 403",
+    ("DELETE", "assistant:lab-grant-detail"): "401 404 2 2 403 403 403 403 403",
+    # --- end AI access (Run 5) ---
+    # --- in-app assistant (Run 5, D187-D192) ---
+    # Keys are the caller's own (every persona holds one), so every signed-in person succeeds.
+    # The lab's AI policy is read by every member and changed by manage_lab (pi, admin). The
+    # fixture conversation is pi's: only its owner may read, delete or continue it, so everyone
+    # else gets 404 (never 403, and not even a lab admin), and it has a write waiting for approval
+    # so both the message and the approval endpoints can answer 200 (the stream is not read).
+    ("GET",    "assistant:key-list"): "401 2 2 2 2 2 2 2 2",
+    ("PUT",    "assistant:key-detail"): "401 2 2 2 2 2 2 2 2",
+    ("PATCH",  "assistant:key-detail"): "401 2 2 2 2 2 2 2 2",
+    ("DELETE", "assistant:key-detail"): "401 2 2 2 2 2 2 2 2",
+    ("GET",    "assistant:ai-policy"): "401 404 2 2 2 2 2 2 2",
+    ("PATCH",  "assistant:ai-policy"): "401 404 2 2 403 403 403 403 403",
+    ("GET",    "assistant:assistant-config"): "401 404 2 2 2 2 2 2 2",
+    ("GET",    "assistant:conversation-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "assistant:conversation-list"): "401 404 2 2 2 2 2 2 2",
+    ("GET",    "assistant:conversation-detail"): "401 404 2 404 404 404 404 404 404",
+    ("DELETE", "assistant:conversation-detail"): "401 404 2 404 404 404 404 404 404",
+    ("POST",   "assistant:conversation-message"): "401 404 2 404 404 404 404 404 404",
+    ("POST",   "assistant:conversation-approval"): "401 404 2 404 404 404 404 404 404",
+    # --- end in-app assistant (Run 5) ---
 }
 # fmt: on
 
@@ -360,6 +439,7 @@ def _prov_fixtures(lab, project, user, doc, attachment, tag):
         created_by=user,
         **kw,
     )
+    DataManagementPlan.objects.create(data_description=f"DMP {tag}", updated_by=user, **kw)
     return {
         "fundingrecord_id": funding.pk,
         "reviewitem_id": review.pk,
@@ -462,6 +542,34 @@ def _admin_fixtures(lab, tag):
 # --- end admin area (Run 4) ---
 
 
+# --- training (Run 5) ---
+def _training_fixtures(lab, owner, tag):
+    """`free` has no records (the URL's DELETE can succeed); `used` has the owner's record, with a
+    certificate whose bytes carry `tag`. Returns (free, record)."""
+    free = TrainingRequirement.objects.create(
+        lab=lab, name=f"Training free {tag}", category="safety", validity_months=12
+    )
+    used = TrainingRequirement.objects.create(
+        lab=lab, name=f"Training {tag}", category="ethics", validity_months=24
+    )
+    record = TrainingRecord.objects.create(
+        lab=lab,
+        requirement=used,
+        user=owner,
+        completed_on=datetime.date(2030, 1, 1),
+        expires_on=datetime.date(2032, 1, 1),
+        notes=f"Notes {tag}",
+    )
+    cert = SimpleUploadedFile(
+        f"cert-{tag}.pdf", f"cert bytes of {tag}".encode(), content_type="application/pdf"
+    )
+    training_services.upload_certificate(record, actor=owner, file=cert)
+    return free, record
+
+
+# --- end training (Run 5) ---
+
+
 @pytest.fixture(autouse=True)
 def _matrix_fake_provider(monkeypatch, settings):
     """The fake provider is configured, and reads items without any network."""
@@ -491,6 +599,80 @@ def _matrix_fake_provider(monkeypatch, settings):
 
 
 # --- end integrations (Run 2) ---
+
+
+# --- AI access (Run 5) ---
+def _ai_fixtures(lab, owner, tag):
+    """A read-only personal-access grant on `lab` (no token row: nothing secret in the world)."""
+    grant = AIGrant.objects.create(user=owner, kind="pat", name=f"AI grant {tag}", access="read")
+    grant.labs.add(lab)
+    return grant
+
+
+def _ai_lab(user, w):
+    """The persona's own lab: Lab B for its PI (the outsider), Lab A for everyone else."""
+    outsider = user is not None and user.pk == w.user_ids["outsider"]
+    return str((w.b if outsider else w.a)["lab_id"])
+
+
+def _ai_consent(user, w):
+    cb = "https://claude.ai/api/mcp/auth_callback"
+    client = register_client({"client_name": "Matrix app", "redirect_uris": [cb]})
+    return {
+        "response_type": "code",
+        "client_id": client.client_id,
+        "redirect_uri": cb,
+        "code_challenge": "c" * 43,
+        "code_challenge_method": "S256",
+        "decision": "approve",
+        "labs": [_ai_lab(user, w)],
+        "access": "read",
+    }
+
+
+# --- end AI access (Run 5) ---
+
+
+# --- in-app assistant (Run 5) ---
+def _assistant_fixtures(lab, owner, project, tag):
+    """The owner's conversation, ending on a write that waits for approval."""
+    conv = Conversation.objects.create(
+        user=owner,
+        lab=lab,
+        project=project,
+        provider="anthropic",
+        model="claude-opus-5-5",
+        title=f"Chat {tag}",
+        system_prompt="system",
+    )
+    Message.objects.create(
+        conversation=conv, seq=1, role="user", content=[{"type": "text", "text": f"Question {tag}"}]
+    )
+    Message.objects.create(
+        conversation=conv,
+        seq=2,
+        role="assistant",
+        stop_reason="tool_use",
+        model="claude-opus-5-5",
+        content=[
+            {
+                "type": "tool_use",
+                "id": "toolu_matrix",
+                "name": "create_task",
+                "input": {"lab_id": str(lab.pk), "project_id": str(project.pk), "title": "Add"},
+            }
+        ],
+    )
+    return conv
+
+
+@pytest.fixture(autouse=True)
+def _matrix_fake_key_check(monkeypatch):
+    """Saving a key makes one provider call; the matrix never reaches the network."""
+    monkeypatch.setattr(ai_keys, "check", lambda provider, api_key: None)
+
+
+# --- end in-app assistant (Run 5) ---
 
 
 def build_world():
@@ -539,6 +721,13 @@ def build_world():
         lab_a, p1, {n: users[n] for n in ("pi", "admin", "lead", "contrib")}, "lab-a"
     )  # integrations (Run 2)
     res_a, onb_a, inv_a = _admin_fixtures(lab_a, "lab-a")  # admin area (Run 4)
+    tr_free_a, tr_rec_a = _training_fixtures(lab_a, users["contrib"], "lab-a")  # training (Run 5)
+    ai_a = _ai_fixtures(lab_a, users["contrib"], "lab-a")  # AI access (Run 5)
+    for persona_user in users.values():  # in-app assistant (Run 5): everyone holds a key
+        row = AIProviderKey(user=persona_user, provider="anthropic")
+        row.set_key("sk-ant-api03-matrix-key-abcdefghijklmnop")
+        row.save()
+    conv_a = _assistant_fixtures(lab_a, users["pi"], p1, "lab-a")
     invite_a, _ = Invite.issue(
         lab=lab_a, email="invitee-a@example.com", role=LabRole.MEMBER, invited_by=users["pi"]
     )
@@ -572,6 +761,9 @@ def build_world():
         lab_b, p1_b, {"outsider": secret_pi}, "LAB-B-SECRET"
     )  # integrations (Run 2)
     res_b, onb_b, inv_b = _admin_fixtures(lab_b, "LAB-B-SECRET")  # admin area (Run 4)
+    tr_free_b, tr_rec_b = _training_fixtures(lab_b, secret_pi, "LAB-B-SECRET")  # training (Run 5)
+    ai_b = _ai_fixtures(lab_b, secret_pi, "LAB-B-SECRET")  # AI access (Run 5)
+    conv_b = _assistant_fixtures(lab_b, secret_pi, p1_b, "LAB-B-SECRET")  # assistant (Run 5)
     invite_b, _ = Invite.issue(
         lab=lab_b,
         email="invitee-b-secret@example.com",
@@ -606,6 +798,11 @@ def build_world():
             "institutionresource_id": res_a.pk,  # admin area (Run 4)
             "onboardingitem_id": onb_a.pk,
             "inventoryitem_id": inv_a.pk,
+            "trainingrequirement_id": tr_free_a.pk,  # training (Run 5)
+            "trainingrecord_id": tr_rec_a.pk,
+            "aigrant_id": ai_a.pk,  # AI access (Run 5)
+            "ai_provider": "anthropic",  # in-app assistant (Run 5)
+            "conversation_id": conv_a.pk,
         },
         b={
             "lab_id": lab_b.pk,
@@ -631,6 +828,11 @@ def build_world():
             "institutionresource_id": res_b.pk,  # admin area (Run 4)
             "onboardingitem_id": onb_b.pk,
             "inventoryitem_id": inv_b.pk,
+            "trainingrequirement_id": tr_free_b.pk,  # training (Run 5)
+            "trainingrecord_id": tr_rec_b.pk,
+            "aigrant_id": ai_b.pk,  # AI access (Run 5)
+            "ai_provider": "anthropic",  # in-app assistant (Run 5)
+            "conversation_id": conv_b.pk,
         },
         b_names=[
             "Lab B Secret",
@@ -667,6 +869,15 @@ def build_world():
             "Resource LAB-B-SECRET",
             "Onboarding LAB-B-SECRET",
             "Inventory LAB-B-SECRET",
+            # --- training (Run 5) ---
+            "Training LAB-B-SECRET",
+            "Training free LAB-B-SECRET",
+            "Notes LAB-B-SECRET",
+            "cert-LAB-B-SECRET.pdf",
+            "cert bytes of LAB-B-SECRET",
+            "AI grant LAB-B-SECRET",  # AI access (Run 5)
+            "Chat LAB-B-SECRET",  # in-app assistant (Run 5)
+            "Question LAB-B-SECRET",
         ],
     )
 
@@ -700,7 +911,8 @@ def world(django_db_setup, django_db_blocker, matrix_lab_files):
 def client_for(persona, w):
     client = APIClient()
     if persona != "anon":
-        client.force_login(User.objects.get(pk=w.user_ids[persona]))
+        # D194: a signed-in persona has signed in just now; consent and token creation ask for that
+        sign_in(client, User.objects.get(pk=w.user_ids[persona]))
     return client
 
 
@@ -721,6 +933,7 @@ def _fresh_invite_for(email, w):
 # (persona user or None, world) -> a valid request body, so an allowed call returns 2xx.
 PAYLOADS = {
     ("PATCH", "core:me"): lambda user, w: {"display_name": "New Name"},
+    ("POST", "core:login-methods"): lambda user, w: {"email": "someone@example.com"},
     ("POST", "labs:lab-list"): lambda user, w: {"name": "Brand New Lab"},
     ("PATCH", "labs:lab-detail"): lambda user, w: {"name": "Renamed Lab"},
     ("PATCH", "labs:member-detail"): lambda user, w: {"role": "viewer"},
@@ -823,6 +1036,8 @@ PAYLOADS = {
     },
     ("PATCH", "provenance:recruitment-detail"): lambda user, w: {"count": 5},
     ("PATCH", "provenance:recruitment-plan"): lambda user, w: {"target_enrolment": 40},
+    ("PATCH", "provenance:dmp"): lambda user, w: {"storage": "Edited"},
+    ("POST", "provenance:dmp-approve"): lambda user, w: {},
     # --- end workflow (Run 4) ---
     ("POST", "provenance:export"): lambda user, w: {},
     # --- end provenance (Phase 4) ---
@@ -866,6 +1081,45 @@ PAYLOADS = {
     ("POST", "labs:inventory-list"): lambda user, w: {"name": "New item", "category": "reagent"},
     ("PATCH", "labs:inventory-detail"): lambda user, w: {"notes": "Edited"},
     # --- end admin area (Run 4) ---
+    # --- training (Run 5) ---
+    ("POST", "training:requirement-list"): lambda user, w: {
+        "name": f"New training {next(_n)}",
+        "category": "safety",
+        "validity_months": 12,
+    },
+    ("PATCH", "training:requirement-detail"): lambda user, w: {"notes": "Edited"},
+    ("POST", "training:record-list"): lambda user, w: {
+        "requirement": str(w.a["trainingrequirement_id"]),
+        "completed_on": "2030-03-01",
+    },
+    ("PATCH", "training:record-detail"): lambda user, w: {"notes": "Edited"},
+    ("POST", "training:record-verify"): lambda user, w: {},
+    ("POST", "training:record-certificate"): lambda user, w: {
+        "file": SimpleUploadedFile("up.pdf", b"%PDF-1.4 upload", content_type="application/pdf"),
+        "acknowledged_notice": "true",
+    },
+    # --- end training (Run 5) ---
+    # --- AI access (Run 5) ---
+    ("POST", "assistant:authorize"): _ai_consent,
+    ("POST", "assistant:grant-list"): lambda user, w: {
+        "name": "Matrix token",
+        "labs": [_ai_lab(user, w)],
+        "access": "read",
+        "expires_in_days": 7,
+    },
+    # --- end AI access (Run 5) ---
+    # --- in-app assistant (Run 5) ---
+    ("PUT", "assistant:key-detail"): lambda user, w: {
+        "api_key": "sk-ant-api03-matrix-key-abcdefghijklmnop"
+    },
+    ("PATCH", "assistant:key-detail"): lambda user, w: {"refusal_fallback": True},
+    ("PATCH", "assistant:ai-policy"): lambda user, w: {"ai_policy": "full"},
+    ("POST", "assistant:conversation-list"): lambda user, w: {"provider": "anthropic"},
+    ("POST", "assistant:conversation-message"): lambda user, w: {"text": "Hello"},
+    ("POST", "assistant:conversation-approval"): lambda user, w: {
+        "decisions": {"toolu_matrix": True}
+    },
+    # --- end in-app assistant (Run 5) ---
 }
 
 

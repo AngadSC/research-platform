@@ -65,6 +65,10 @@ class ResourceInputSerializer(serializers.Serializer):
 
 class OnboardingItemSerializer(serializers.ModelSerializer):
     completed_user_ids = serializers.SerializerMethodField()
+    # D179: a linked training counts as done for anyone whose current record is not expired
+    training_requirement = serializers.UUIDField(source="training_requirement_id", allow_null=True)
+    training_requirement_name = serializers.SerializerMethodField()
+    training_done_user_ids = serializers.SerializerMethodField()
 
     class Meta:
         model = OnboardingItem
@@ -77,11 +81,24 @@ class OnboardingItemSerializer(serializers.ModelSerializer):
             "required",
             "order",
             "completed_user_ids",
+            "training_requirement",
+            "training_requirement_name",
+            "training_done_user_ids",
         ]
         read_only_fields = fields
 
     def get_completed_user_ids(self, item) -> list[str]:
         return sorted(str(c.user_id) for c in item.completions.all())
+
+    def get_training_requirement_name(self, item) -> str:
+        return item.training_requirement.name if item.training_requirement else ""
+
+    def get_training_done_user_ids(self, item) -> list[str]:
+        if item.training_requirement is None:
+            return []
+        from training.services import done_user_ids
+
+        return done_user_ids(item.lab, item.training_requirement)
 
 
 class OnboardingItemInputSerializer(serializers.Serializer):
@@ -91,6 +108,7 @@ class OnboardingItemInputSerializer(serializers.Serializer):
     url = serializers.CharField(max_length=500, allow_blank=True, required=False)
     required = serializers.BooleanField(required=False)
     order = serializers.IntegerField(min_value=0, max_value=100000, required=False)
+    training_requirement = serializers.UUIDField(allow_null=True, required=False)  # D179
 
     def validate_url(self, value):
         return https_url(value) if value else value

@@ -6,6 +6,7 @@ import { FormField } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useOnboarding } from "@/hooks/admin";
+import { useTrainingRequirements } from "@/hooks/training";
 import { useMembers } from "@/hooks/workspace";
 import type { OnboardingItem } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
@@ -19,6 +20,7 @@ const KINDS = [
 export function OnboardingSection({ labId }: { labId: string }) {
   const { list, create, remove, setDone } = useOnboarding(labId);
   const members = useMembers(labId).data ?? [];
+  const trainings = useTrainingRequirements(labId).data ?? [];
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
   const [who, setWho] = useState("");
   const person = who || members[0]?.user.id || "";
@@ -41,6 +43,7 @@ export function OnboardingSection({ labId }: { labId: string }) {
         description: formValue(fd, "description"),
         url,
         required: fd.get("required") === "on",
+        training_requirement: formValue(fd, "training_requirement") || null,
       });
       setErrors({ fields: {} });
       form.reset();
@@ -82,8 +85,11 @@ export function OnboardingSection({ labId }: { labId: string }) {
                   type="checkbox"
                   className="mt-1"
                   aria-label={`${i.title} done`}
-                  checked={i.completed_user_ids.includes(person)}
-                  disabled={!person}
+                  checked={
+                    i.completed_user_ids.includes(person) ||
+                    i.training_done_user_ids.includes(person)
+                  }
+                  disabled={!person || i.training_done_user_ids.includes(person)}
                   onChange={(e) =>
                     setDone.mutate(
                       { itemId: i.id, user: person, done: e.target.checked },
@@ -112,6 +118,12 @@ export function OnboardingSection({ labId }: { labId: string }) {
                   </div>
                   {i.description && (
                     <p className="text-sm text-muted-foreground">{i.description}</p>
+                  )}
+                  {i.training_requirement_name && (
+                    <p className="text-xs text-muted-foreground">
+                      Ticks itself once {i.training_requirement_name} training is recorded and not
+                      expired. {i.training_done_user_ids.length} of {members.length} done that way.
+                    </p>
                   )}
                 </div>
                 <Button
@@ -168,6 +180,23 @@ export function OnboardingSection({ labId }: { labId: string }) {
         >
           {(p) => <Input {...p} name="url" type="url" />}
         </FormField>
+        {trainings.length > 0 && (
+          <FormField
+            label="Linked training (optional)"
+            hint="Anyone with a current record counts as done."
+          >
+            {(p) => (
+              <NativeSelect {...p} name="training_requirement" defaultValue="">
+                <option value="">None</option>
+                {trainings.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </NativeSelect>
+            )}
+          </FormField>
+        )}
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="required" defaultChecked /> Required
         </label>

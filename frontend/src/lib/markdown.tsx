@@ -18,7 +18,24 @@ const link = (href: string, text: string, key: string) => (
   </a>
 );
 
-function inline(text: string, prefix: string): ReactNode[] {
+/** Links in the assistant's answers (D198): only addresses on this app's own origin become
+ * links. Anything else is plain text with the address written out, so no link text can hide where
+ * it goes (record text can steer the model into writing links). */
+const ownOrigin = (href: string) => {
+  try {
+    return new URL(href, window.location.origin).origin === window.location.origin;
+  } catch {
+    return false;
+  }
+};
+
+function inline(text: string, prefix: string, ownOnly: boolean): ReactNode[] {
+  const make = (href: string, label: string, key: string) =>
+    !ownOnly || ownOrigin(href) ? (
+      link(href, label, key)
+    ) : (
+      <span key={key}>{label === href ? href : `${label} (${href})`}</span>
+    );
   return text.split(INLINE).map((part, i) => {
     const key = `${prefix}-${i}`;
     if (i % 2 === 0) return part;
@@ -32,13 +49,13 @@ function inline(text: string, prefix: string): ReactNode[] {
       );
     if (part.startsWith("[")) {
       const m = /^\[([^\]]+)\]\((.+)\)$/.exec(part);
-      return m ? link(m[2]!, m[1]!, key) : part;
+      return m ? make(m[2]!, m[1]!, key) : part;
     }
-    return link(part, part, key);
+    return make(part, part, key);
   });
 }
 
-export function Markdown({ text }: { text: string }) {
+export function Markdown({ text, ownLinksOnly = false }: { text: string; ownLinksOnly?: boolean }) {
   const blocks: ReactNode[] = [];
   let items: string[] = [];
   const flush = (at: number) => {
@@ -46,7 +63,7 @@ export function Markdown({ text }: { text: string }) {
     blocks.push(
       <ul key={`ul${at}`} className="list-disc pl-5">
         {items.map((it, i) => (
-          <li key={i}>{inline(it, `l${at}-${i}`)}</li>
+          <li key={i}>{inline(it, `l${at}-${i}`, ownLinksOnly)}</li>
         ))}
       </ul>,
     );
@@ -57,7 +74,11 @@ export function Markdown({ text }: { text: string }) {
     if (li) return void items.push(li[1] ?? "");
     flush(i);
     blocks.push(
-      line.trim() ? <p key={i}>{inline(line, `p${i}`)}</p> : <div key={i} className="h-2" />,
+      line.trim() ? (
+        <p key={i}>{inline(line, `p${i}`, ownLinksOnly)}</p>
+      ) : (
+        <div key={i} className="h-2" />
+      ),
     );
   });
   flush(text.length);

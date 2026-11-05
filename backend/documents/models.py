@@ -72,14 +72,18 @@ class DocumentRevision(LabScopedModel):
 
 
 class Attachment(LabScopedModel):
-    """D38: exactly one owner, a project or an ethics approval (DB check). Project views see
-    only project-owned files; ethics files are served through the approval (D48)."""
+    """D38, D175: exactly one owner, a project, an ethics approval or a training record (DB
+    check). Project views see only project-owned files; ethics files are served through the
+    approval (D48) and training certificates through their record."""
 
     project = models.ForeignKey(
         "projects.Project", on_delete=models.CASCADE, null=True, related_name="attachments"
     )
     ethics_approval = models.ForeignKey(
         "ethics.EthicsApproval", on_delete=models.PROTECT, null=True, related_name="attachments"
+    )
+    training_record = models.ForeignKey(  # D175: a member's certificate, private to them
+        "training.TrainingRecord", on_delete=models.PROTECT, null=True, related_name="attachments"
     )
     storage_key = models.CharField(max_length=512, unique=True)  # set server-side only
     original_filename = models.CharField(max_length=255)
@@ -92,15 +96,28 @@ class Attachment(LabScopedModel):
     notice_acknowledged_at = models.DateTimeField()
     deleted_at = models.DateTimeField(null=True, blank=True)  # soft delete; bytes are kept
 
-    lab_parents = ("project", "ethics_approval")
+    lab_parents = ("project", "ethics_approval", "training_record")
     permission_domain = "project"
     project_path = "project"
 
     class Meta(LabScopedModel.Meta):
         constraints = [
             models.CheckConstraint(
-                condition=Q(project__isnull=False, ethics_approval__isnull=True)
-                | Q(project__isnull=True, ethics_approval__isnull=False),
+                condition=Q(
+                    project__isnull=False,
+                    ethics_approval__isnull=True,
+                    training_record__isnull=True,
+                )
+                | Q(
+                    project__isnull=True,
+                    ethics_approval__isnull=False,
+                    training_record__isnull=True,
+                )
+                | Q(
+                    project__isnull=True,
+                    ethics_approval__isnull=True,
+                    training_record__isnull=False,
+                ),
                 name="attachment_has_one_owner",
             )
         ]

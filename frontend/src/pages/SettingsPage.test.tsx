@@ -8,6 +8,7 @@ const base = (perms: string[]) => ({
   [SESSION]: signedIn,
   "GET /api/me/": { body: me },
   "GET /api/labs/": { body: [makeLab(perms)] },
+  "GET /api/ai/grants/": { body: [] },
   "PATCH /api/me/": (req: { body: unknown }) => ({
     body: { ...me, preferences: (req.body as { preferences: object }).preferences },
   }),

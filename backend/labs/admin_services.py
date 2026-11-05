@@ -142,8 +142,24 @@ def delete_resource(obj, *, user, request=None):
     _delete(obj, A.INSTITUTION_RESOURCE_DELETED, user=user, request=request)
 
 
+def _with_training(lab, data):
+    """Swap the requirement id for the lab's own requirement (a foreign id reads as unknown)."""
+    if "training_requirement" not in data:
+        return data
+    data = dict(data)
+    if (rid := data["training_requirement"]) is not None:
+        from training.models import TrainingRequirement
+
+        req = TrainingRequirement.objects.for_lab(lab).filter(pk=rid).first()
+        if req is None:
+            raise ValidationError({"training_requirement": "This training does not exist."})
+        data["training_requirement"] = req
+    return data
+
+
 @transaction.atomic
 def create_onboarding_item(*, lab, user, data, request=None):
+    data = _with_training(lab, data)
     return _create(
         OnboardingItem, A.ONBOARDING_ITEM_CREATED, lab=lab, user=user, data=data, request=request
     )
@@ -151,6 +167,7 @@ def create_onboarding_item(*, lab, user, data, request=None):
 
 @transaction.atomic
 def update_onboarding_item(obj, *, user, data, request=None):
+    data = _with_training(obj.lab, data)
     return _update(obj, A.ONBOARDING_ITEM_UPDATED, user=user, data=data, request=request)
 
 

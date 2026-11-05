@@ -262,50 +262,55 @@ class AttachmentDownloadView(AttachmentMixin, generics.GenericAPIView):
             )
         else:
             attachment = self.get_object()
-        record(
-            AuditAction.ATTACHMENT_DOWNLOADED,
-            actor=request.user,
-            lab=request.lab,
-            target=attachment,
-            request=request,
-        )
-        inline = attachment.content_type == "application/pdf"  # shown by PDF.js
-        # D123: only forced downloads are presigned. Anything shown inline streams through
-        # Django, which is the only place `nosniff` and `CSP: sandbox` can be set.
-        if settings.LAB_FILES_BUCKET and not settings.LAB_FILES_STREAM_DOWNLOADS and not inline:
-            return self._presigned_redirect(attachment)
-        try:
-            handle = storages["lab_files"].open(attachment.storage_key, "rb")
-        except FileNotFoundError as exc:
-            raise Http404 from exc
-        response = FileResponse(
-            handle,
-            as_attachment=not inline,
-            filename=attachment.original_filename,
-            content_type=attachment.content_type,
-        )
-        response["X-Content-Type-Options"] = "nosniff"
-        response["Content-Security-Policy"] = "sandbox"
-        response["Cache-Control"] = "private, no-store"
-        return response
+        return download_response(request, attachment)
 
-    @staticmethod
-    def _presigned_redirect(attachment):
-        """D90, D123: 302 to a presigned GET of a forced download (`attachment`, never inline).
-        The filename goes through Django's RFC 6266/5987 encoder, so quotes, newlines and
-        unicode are safe."""
-        url = storages["lab_files"].url(
-            attachment.storage_key,
-            parameters={
-                "ResponseContentDisposition": content_disposition_header(
-                    True, attachment.original_filename
-                ),
-                "ResponseContentType": attachment.content_type,
-                "ResponseCacheControl": "private, no-store",
-            },
-            expire=min(settings.LAB_FILES_PRESIGN_SECONDS, 60),
-        )
-        response = HttpResponseRedirect(url)
-        response["Cache-Control"] = "no-store"
-        response["Referrer-Policy"] = "no-referrer"
-        return response
+
+def download_response(request, attachment):
+    """Audit the download, then stream it (or presign it). Callers have checked access."""
+    record(
+        AuditAction.ATTACHMENT_DOWNLOADED,
+        actor=request.user,
+        lab=request.lab,
+        target=attachment,
+        request=request,
+    )
+    inline = attachment.content_type == "application/pdf"  # shown by PDF.js
+    # D123: only forced downloads are presigned. Anything shown inline streams through
+    # Django, which is the only place `nosniff` and `CSP: sandbox` can be set.
+    if settings.LAB_FILES_BUCKET and not settings.LAB_FILES_STREAM_DOWNLOADS and not inline:
+        return _presigned_redirect(attachment)
+    try:
+        handle = storages["lab_files"].open(attachment.storage_key, "rb")
+    except FileNotFoundError as exc:
+        raise Http404 from exc
+    response = FileResponse(
+        handle,
+        as_attachment=not inline,
+        filename=attachment.original_filename,
+        content_type=attachment.content_type,
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Content-Security-Policy"] = "sandbox"
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+def _presigned_redirect(attachment):
+    """D90, D123: 302 to a presigned GET of a forced download (`attachment`, never inline).
+    The filename goes through Django's RFC 6266/5987 encoder, so quotes, newlines and
+    unicode are safe."""
+    url = storages["lab_files"].url(
+        attachment.storage_key,
+        parameters={
+            "ResponseContentDisposition": content_disposition_header(
+                True, attachment.original_filename
+            ),
+            "ResponseContentType": attachment.content_type,
+            "ResponseCacheControl": "private, no-store",
+        },
+        expire=min(settings.LAB_FILES_PRESIGN_SECONDS, 60),
+    )
+    response = HttpResponseRedirect(url)
+    response["Cache-Control"] = "no-store"
+    response["Referrer-Policy"] = "no-referrer"
+    return response

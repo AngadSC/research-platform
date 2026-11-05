@@ -77,7 +77,10 @@ export function useProjectApprovals(labId: string, projectId: string, enabled: b
 
 /** The institution's links for a category. A missing or failing endpoint reads as no links,
  * never as a crash (D135). */
-export function useInstitutionLinks(labId: string, category: "ethics" | "funding") {
+export function useInstitutionLinks(
+  labId: string,
+  category: "ethics" | "funding" | "data_management",
+) {
   return useQuery({
     queryKey: ["labs", labId, "institution-resources", category],
     queryFn: async () => {

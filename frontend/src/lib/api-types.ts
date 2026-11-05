@@ -14,6 +14,7 @@ export const ROLES: { value: Role; label: string }[] = [
 export const roleLabel = (r: string) => ROLES.find((x) => x.value === r)?.label ?? r;
 
 export type User = Schemas["User"];
+export type LoginMethods = Schemas["LoginMethods"];
 export type Lab = Schemas["Lab"];
 export type Membership = Schemas["Membership"];
 export type Invite = Schemas["Invite"];
@@ -149,3 +150,18 @@ export type RecruitmentEntry = Schemas["RecruitmentEntry"];
 export type RecruitmentEntryInput = Schemas["RecruitmentEntryInput"];
 export type RecruitmentPlan = Schemas["RecruitmentPlan"];
 export type DeadlinePriority = Schemas["PriorityEnum"];
+
+// Data management plan (Run 5, D180-D182)
+export type Dmp = Schemas["Dmp"];
+export type DmpInput = Schemas["PatchedDmpInput"];
+export type DmpRevision = Schemas["DmpRevision"];
+
+// Training (Run 5, D175-D179)
+export type TrainingRequirement = Schemas["TrainingRequirement"];
+export type TrainingRequirementInput = Schemas["TrainingRequirementInput"];
+export type TrainingRecord = Schemas["TrainingRecord"];
+export type TrainingRecordInput = Schemas["TrainingRecordCreate"];
+export type TrainingCompliance = Schemas["TrainingCompliance"];
+export type TrainingCell = Schemas["TrainingCell"];
+export type TrainingExpiring = Schemas["Expiring"];
+export type ComplianceStatus = Schemas["ComplianceStatusEnum"];

@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from core.auth import login_methods_for_email, sso_for_email
 from core.models import Notification
 from core.notifications import visible_notifications
 from core.permissions import Perm, get_lab_or_404
@@ -21,6 +22,35 @@ class HealthView(APIView):
     @extend_schema(responses=OpenApiTypes.OBJECT)
     def get(self, request):
         return Response({"status": "ok"})
+
+
+class LoginMethodsView(APIView):
+    """Email-first sign-in (D156): which ways in this address has. Answers by domain only, so it
+    says nothing about whether an account exists. POST keeps the address out of URLs and logs."""
+
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "login_methods"
+
+    @extend_schema(
+        request=inline_serializer("LoginMethodsRequest", {"email": serializers.EmailField()}),
+        responses=inline_serializer(
+            "LoginMethods",
+            {
+                "methods": serializers.ListField(child=serializers.CharField()),
+                "institution": serializers.CharField(allow_null=True),
+            },
+        ),
+    )
+    def post(self, request):
+        email = serializers.EmailField().run_validation(request.data.get("email"))
+        cfg = sso_for_email(email)
+        return Response(
+            {
+                "methods": login_methods_for_email(email),
+                "institution": cfg.institution.name if cfg else None,
+            }
+        )
 
 
 class MeView(generics.RetrieveUpdateAPIView):

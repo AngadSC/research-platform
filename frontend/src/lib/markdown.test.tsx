@@ -25,4 +25,20 @@ describe("Markdown", () => {
     expect(container.querySelector("a")).toBeNull();
     expect(container).toHaveTextContent("<script>alert(1)</script>");
   });
+
+  it("with ownLinksOnly, other origins become plain text with the address shown (D198)", () => {
+    const own = `${window.location.origin}/labs/1/projects/2`;
+    const { container } = render(
+      <Markdown
+        ownLinksOnly
+        text={`[the plan](${own}) and [click here](https://evil.example/steal?x=1) and https://evil.example/b`}
+      />,
+    );
+    const links = container.querySelectorAll("a");
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute("href", own);
+    // nothing hides behind link text: the real address is written out
+    expect(container).toHaveTextContent("click here (https://evil.example/steal?x=1)");
+    expect(container).toHaveTextContent("https://evil.example/b");
+  });
 });

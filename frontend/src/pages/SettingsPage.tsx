@@ -9,6 +9,8 @@ import { useTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { Section } from "@/pages/admin/common";
 import { NameSection, SecuritySections } from "@/pages/SecurityPage";
+import { AiAccessSections } from "@/pages/settings/AiAccessSections";
+import { AiKeysSection } from "@/pages/settings/AiKeysSection";
 
 type TaskView = "board" | "list";
 
@@ -18,6 +20,8 @@ export const EMAILED = [
   "Retention review due",
   "Project exported",
   "Integration needs attention",
+  "Training expiring or expired",
+  "Weekly training digest (PI and lab admins)",
 ];
 export const IN_APP_ONLY = ["Task assigned", "Task unassigned", "Invitation accepted"];
 
@@ -117,6 +121,10 @@ export function SettingsPage() {
         <div id="security" className="grid gap-4">
           <h2 className="text-lg font-semibold">Security</h2>
           <SecuritySections />
+        </div>
+        <div id="ai" className="grid gap-8">
+          <AiKeysSection />
+          <AiAccessSections />
         </div>
         <Section title="Integrations" description="Connect storage, code and reference accounts.">
           {lab ? (

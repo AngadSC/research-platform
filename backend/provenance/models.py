@@ -294,3 +294,76 @@ class RecruitmentEntry(ProvenanceModel):
 
     def __str__(self):
         return f"{self.entry_date} {self.status} {self.count}"
+
+
+# ---------------------------------------------------------------- Data management plan (Run 5)
+
+DMP_SECTIONS = (
+    "data_description",
+    "collection",
+    "documentation",
+    "storage",
+    "preservation",
+    "sharing",
+    "responsibilities",
+    "ethics_legal",
+)
+
+
+class DmpStatus(models.TextChoices):
+    DRAFT = "draft"
+    SUBMITTED = "submitted"
+    APPROVED = "approved"
+
+
+class DataManagementPlan(ProvenanceModel):
+    """One per project (D180): the Tri-Agency RDM / DMP Assistant sections as free text, a
+    status, the last review date, an optional external DMP link and one attachment."""
+
+    project = models.OneToOneField(
+        "projects.Project", on_delete=models.CASCADE, related_name="data_management_plan"
+    )
+    data_description = models.TextField(blank=True)
+    collection = models.TextField(blank=True)
+    documentation = models.TextField(blank=True)
+    storage = models.TextField(blank=True)
+    preservation = models.TextField(blank=True)
+    sharing = models.TextField(blank=True)
+    responsibilities = models.TextField(blank=True)
+    ethics_legal = models.TextField(blank=True)
+    status = models.CharField(max_length=12, choices=DmpStatus.choices, default=DmpStatus.DRAFT)
+    last_reviewed = models.DateField(null=True, blank=True)
+    external_url = models.CharField(max_length=500, blank=True, validators=[validate_web_url])
+    attachment = models.ForeignKey(
+        "documents.Attachment", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, related_name="+"
+    )
+
+    lab_parents = ("project", "attachment")
+
+    def __str__(self):
+        return f"DMP {self.project_id}"
+
+
+class DataManagementPlanRevision(LabScopedModel):
+    """A snapshot after every save (D181): numbered per plan, never edited."""
+
+    plan = models.ForeignKey(DataManagementPlan, on_delete=models.CASCADE, related_name="revisions")
+    number = models.PositiveIntegerField()
+    snapshot = models.JSONField(default=dict)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+
+    lab_parents = ("plan",)
+    permission_domain = "project"
+    project_path = "plan__project"
+
+    class Meta(LabScopedModel.Meta):
+        constraints = [models.UniqueConstraint(fields=["plan", "number"], name="dmp_rev_number")]

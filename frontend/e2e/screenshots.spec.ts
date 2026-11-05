@@ -56,7 +56,7 @@ test.beforeEach(async ({ page }) => theme(page, "light"));
 test.describe("@screenshots", () => {
   test("logged out", async ({ page }) => {
     await page.goto("/login");
-    await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Continue" })).toBeVisible();
     await shot(page, "01-login");
   });
 

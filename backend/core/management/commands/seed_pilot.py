@@ -23,6 +23,7 @@ from projects import services as project_services
 from projects.models import Project, ProjectRole, TaskStatus
 from provenance import services as prov
 from provenance.models import Analysis, DatasetRecord, Decision, ManuscriptLink
+from training import services as services_training
 
 PROJECT_NAME = "Pilot Attention Study (FAKE)"
 LAB_NAME = "Example Cognition Lab (FAKE)"
@@ -79,6 +80,7 @@ class Command(BaseCommand):
         self.seed_institution()
         self.seed_drive()
         self.seed_links()
+        self.seed_training()
         self.summary()
 
     def seed_institution(self):
@@ -315,6 +317,73 @@ class Command(BaseCommand):
             user=student,
             title="Survey items (FAKE)",
             content=[block("paragraph", "Fake survey item text.")],
+        )
+
+    def seed_training(self):
+        """Fake training requirements and records (Run 5, D175-D179). Idempotent: requirements
+        are matched by name, records by (member, requirement), so a rerun adds nothing."""
+        from labs.models import OnboardingItem
+        from training.models import AppliesTo, TrainingRecord, TrainingRequirement
+
+        lab = Lab.objects.filter(name=LAB_NAME).first()
+        if lab is None:
+            return
+        today = timezone.localdate()
+        by_email = {u.email: u for u in User.objects.filter(email__endswith="@example.test")}
+        pi = by_email["pi@example.test"]
+        project = Project.objects.for_lab(lab).filter(name__startswith="Pilot Attention").first()
+        reqs = {}
+        for name, category, months, applies, roles in [
+            ("TCPS 2: CORE (FAKE)", "ethics", None, AppliesTo.ALL, []),
+            ("WHMIS (FAKE)", "safety", 12, AppliesTo.ROLES, ["pi", "lab_admin", "member"]),
+            ("Biosafety (FAKE)", "biosafety", 12, AppliesTo.PROJECTS, []),
+        ]:
+            req, made = TrainingRequirement.objects.for_lab(lab).get_or_create(
+                name=name,
+                defaults={
+                    "lab": lab,
+                    "category": category,
+                    "validity_months": months,
+                    "applies_to": applies,
+                    "roles": roles,
+                    "notes": "Fake requirement for the demo.",
+                },
+            )
+            if made and applies == AppliesTo.PROJECTS and project is not None:
+                req.projects.add(project)
+            reqs[name.split(" ")[0]] = req
+        day = datetime.timedelta
+        # (member, requirement, days since completed, verified)
+        for email, key, ago, verified in [
+            ("pi@example.test", "TCPS", 900, True),
+            ("pi@example.test", "WHMIS", 100, True),
+            ("admin@example.test", "TCPS", 700, True),
+            ("admin@example.test", "WHMIS", 400, False),  # expired 35 days ago
+            ("lead@example.test", "TCPS", 800, True),
+            ("lead@example.test", "WHMIS", 340, True),  # expires in about 25 days
+            ("student@example.test", "TCPS", 200, False),
+            ("student@example.test", "Biosafety", 380, True),  # expired; WHMIS stays missing
+            ("viewer@example.test", "TCPS", 50, False),
+        ]:
+            user, req = by_email[email], reqs[key]
+            if TrainingRecord.objects.for_lab(lab).filter(user=user, requirement=req).exists():
+                continue
+            done = today - day(days=ago)
+            expires = services_training.computed_expiry(req, done)
+            TrainingRecord.objects.create(
+                lab=lab,
+                requirement=req,
+                user=user,
+                completed_on=done,
+                expires_on=expires,
+                notes="Fake record.",
+                verified_by=pi if verified else None,
+                verified_at=timezone.now() if verified else None,
+            )
+        OnboardingItem.objects.for_lab(lab).get_or_create(
+            kind="new_member",
+            title="Complete WHMIS (FAKE)",
+            defaults={"lab": lab, "training_requirement": reqs["WHMIS"], "order": 90},
         )
 
     def seed_drive(self):

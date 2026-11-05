@@ -4,6 +4,7 @@ import { TabNav } from "@/components/shared/TabNav";
 import { SECTIONS, sectionOf } from "@/lib/workflow";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { SectionLists } from "@/pages/project/ResearchTab";
+import { DmpPanel } from "@/pages/project/workflow/DmpPanel";
 
 /** The Workflow tab: Funding, Ethics, Participants, Data, Analysis, Manuscript, Review (D132). */
 export function WorkflowLayout(props: ProjectTabProps) {
@@ -17,7 +18,12 @@ export function WorkflowLayout(props: ProjectTabProps) {
 
 export const WorkflowIndex = () => <Navigate to="funding" replace />;
 
-export const DataTab = (p: ProjectTabProps) => <SectionLists {...p} section="data" />;
+export const DataTab = (p: ProjectTabProps) => (
+  <div className="grid gap-8">
+    <DmpPanel {...p} />
+    <SectionLists {...p} section="data" />
+  </div>
+);
 export const AnalysisTab = (p: ProjectTabProps) => <SectionLists {...p} section="analysis" />;
 export const ManuscriptTab = (p: ProjectTabProps) => <SectionLists {...p} section="manuscript" />;
 

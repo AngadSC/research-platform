@@ -157,13 +157,15 @@ def _safe_content_type(declared) -> str:
     )
 
 
-def upload_attachment(*, user, file, project=None, approval=None, request=None) -> Attachment:
+def upload_attachment(
+    *, user, file, project=None, approval=None, training_record=None, request=None
+) -> Attachment:
     """The caller has already checked `acknowledged_notice` (the serializer) and access to the
-    owner: exactly one of `project` or an ethics `approval` (D38). The key is built here and
-    never taken from the client (D26)."""
-    if (project is None) == (approval is None):
+    owner: exactly one of `project`, an ethics `approval` or a `training_record` (D38, D175). The
+    key is built here and never taken from the client (D26)."""
+    if sum(o is not None for o in (project, approval, training_record)) != 1:
         raise ValueError("an attachment has exactly one owner")
-    owner = project or approval
+    owner = project or approval or training_record
     if file.size > settings.ATTACHMENT_MAX_BYTES:
         raise ValidationError({"file": "File is too large (50 MB maximum)."})
     digest = hashlib.sha256()
@@ -180,6 +182,7 @@ def upload_attachment(*, user, file, project=None, approval=None, request=None) 
                 id=attachment_id,
                 project=project,
                 ethics_approval=approval,
+                training_record=training_record,
                 storage_key=saved,
                 original_filename="".join(c for c in file.name if c.isprintable())[:255] or "file",
                 content_type=_safe_content_type(file.content_type),
@@ -196,6 +199,7 @@ def upload_attachment(*, user, file, project=None, approval=None, request=None) 
                 request=request,
                 metadata={
                     "ethics_approval": str(approval.pk) if approval else None,
+                    "training_record": str(training_record.pk) if training_record else None,
                     "notice_acknowledged_at": now.isoformat(),
                     "size_bytes": attachment.size_bytes,
                     "sha256": attachment.sha256,

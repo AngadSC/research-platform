@@ -12,6 +12,7 @@ export default async function globalSetup(config: FullConfig) {
     await page.goto("/login");
     await config;
     await page.getByLabel("Email").fill(`${who}@example.test`);
+    await page.getByRole("button", { name: "Continue" }).click(); // email step (D156)
     await page.getByLabel("Password").fill(PASSWORD);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).not.toHaveURL(/login/, { timeout: 20_000 });
