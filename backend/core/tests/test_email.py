@@ -173,3 +173,28 @@ def test_pi_export_notifies_nobody(export_world, django_capture_on_commit_callba
         assert export(project, pi).status_code == 200
     assert not Notification.objects.for_lab(lab).filter(kind=NotificationKind.PROJECT_EXPORTED)
     assert mail.outbox == []
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "kind,emailed",
+    [
+        ("ethics_expiry", True),
+        ("retention_due", True),
+        ("project_exported", True),
+        ("integration_issue", True),
+        ("task_assigned", False),
+        ("task_unassigned", False),
+        ("invite_accepted", False),
+    ],
+)
+def test_only_actionable_kinds_are_emailed(
+    kind, emailed, make_lab, make_user, mailoutbox, django_capture_on_commit_callbacks
+):
+    """D71: every kind gets an in-app notification; only EMAIL_KINDS also get an email."""
+    from core.notifications import notify
+
+    lab, user = make_lab(), make_user()
+    with django_capture_on_commit_callbacks(execute=True):
+        assert notify(lab=lab, recipient=user, kind=kind, title="t", dedupe_key=f"k:{kind}")
+    assert (len(mailoutbox) == 1) is emailed

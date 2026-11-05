@@ -67,3 +67,7 @@
 - E3 done (sonnet): freshness blocked when the linker can't view the project, 60 s check cooldown + throttle, over-broad grants rejected (D78), CSP narrowed to Picker script paths (unverified in a real browser), link hosts pinned to Google + safeHttpUrl, picker-token audited and throttled (audit/0009). Each verified failing when reverted.
 - Orchestrator: Drive icon fix (icon map keyed by provider too), prettier on two e2e files. Final gate: make test exit 0, backend 1404 passed / 25 skipped, matrix 98 rows / 984 cases, Vitest 132, Playwright 13, screenshots 6 specs, licenses 64 py / 451 npm. Committed.
 - HANDOFF.md written. Run 2 complete.
+
+## Run 3 (overnight)
+
+- Pushed Run 2 to origin/main (founder asked). D71 changed per founder: email only for ethics, retention, export and integration-issue notices; test per kind. D79 scope written. Started F (opus), DL and S (sonnet).

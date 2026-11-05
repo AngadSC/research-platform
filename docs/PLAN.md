@@ -108,3 +108,22 @@ Same status values. Model and effort follow orchestrator section 8. Shared-tree 
 | E3 | Fix Phase E review findings | sonnet / medium | done |
 | F1 | Production Dockerfile, `/healthz`, reverse proxy example, prod settings checklist test, DEPLOY.md | haiku / low | done |
 | W2 | Screenshots, HANDOFF.md | sonnet / medium, orchestrator | done |
+
+---
+
+# Plan: Build Run 3 (overnight)
+
+| ID | Task | Model / effort | Status |
+|---|---|---|---|
+| R0 | D71: email only actionable notification kinds | orchestrator | done |
+| F | Integration framework v2: api-key and instance-URL accounts (SSRF-safe), link-only and public providers, item search, one module per provider | opus / high | doing |
+| DL | Signed-URL downloads in S3 mode | sonnet / medium | doing |
+| S | Lab-wide search endpoint and palette; editable decision references | sonnet / medium | doing |
+| U | Generic integration UI: connect dialogs, link dialog with search and paste | sonnet / medium | todo |
+| P1 | OneDrive/SharePoint, Dropbox, Box | sonnet / medium | todo |
+| P2 | GitHub, GitLab, Overleaf | sonnet / medium | todo |
+| P3 | REDCap, Qualtrics, protocols.io | sonnet / medium | todo |
+| P4 | Zotero, Zenodo, Figshare, OSF | sonnet / medium | todo |
+| R | Security review of Run 3 | opus / high | todo |
+| RF | Review fixes | sonnet / medium | todo |
+| W3 | Screenshots, HANDOFF, push | sonnet / medium, orchestrator | todo |
