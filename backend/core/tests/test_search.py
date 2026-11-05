@@ -107,12 +107,14 @@ def test_every_type_is_found_with_a_spa_url(w):
         user=u,
         data={"title": f"{WORD} paper", "url": "https://x.example/p"},
     )
+    prov.create("funding", project=w.p1, user=u, data={"funder": f"{WORD} fund"})
+    prov.create("review", project=w.p1, user=u, data={"title": f"{WORD} signoff"})
     approval(w, "Z-1")
     hits = run(w, "pi")
     assert {h["type"] for h in hits} == {s.type for s in SPECS if s.type != "link"}
     by = {h["type"]: h for h in hits}
     assert by["document"]["url"] == f"/labs/{w.lab.pk}/projects/{w.p1.pk}/documents/{doc.pk}"
-    assert by["dataset"]["url"].endswith(f"/research/datasets/{ds.pk}")
+    assert by["dataset"]["url"].endswith(f"/workflow/data/datasets/{ds.pk}")
     assert by["ethics"]["project"] is None
     assert by["ethics"]["url"].startswith(f"/labs/{w.lab.pk}/ethics/")
     assert by["document"]["project"] == {"id": str(w.p1.pk), "name": w.p1.name}

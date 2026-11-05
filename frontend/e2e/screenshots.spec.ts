@@ -33,6 +33,11 @@ const openRow = (page: Page, row: ReturnType<Page["getByRole"]>) =>
   }).toPass({ timeout: 30_000 });
 const theme = (page: Page, t: "light" | "dark") =>
   page.addInitScript((v) => localStorage.setItem("theme", v), t);
+/** Pick a theme with the header toggle: it saves to the account, which beats localStorage on sign-in (D128). */
+const pick = async (page: Page, t: "Light" | "Dark") => {
+  await page.getByRole("radio", { name: t }).click();
+  await expect(page.locator("html")).toHaveClass(t === "Dark" ? /dark/ : /^(?!.*dark)/);
+};
 const base = (page: Page) => page.url().replace(/\/(overview|tasks|documents|files).*$/, "");
 const lab = (page: Page) => page.url().match(/\/labs\/[^/]+/)![0];
 
@@ -68,7 +73,7 @@ test.describe("@screenshots", () => {
     await page.goto(`${b}/tasks?view=board`);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await shot(page, "04-task-board");
-    await page.goto(`${b}/tasks`);
+    await page.goto(`${b}/tasks?view=list`);
     await shot(page, "05-task-list");
 
     await page.goto(`${b}/documents`);
@@ -97,10 +102,10 @@ test.describe("@screenshots", () => {
       await shot(page, "10-pdf-viewer");
     }
 
-    await page.goto(`${b}/research/datasets`);
+    await page.goto(`${b}/workflow/data`);
     await expect(page.getByRole("table")).toBeVisible();
     await shot(page, "11-datasets");
-    await page.goto(`${b}/research/analyses`);
+    await page.goto(`${b}/workflow/analysis`);
     await page.getByRole("table").getByRole("row").nth(1).click();
     await expect(page.getByRole("navigation", { name: /breadcrumb/i })).toContainText("Analyses");
     await shot(page, "12-analysis-detail");
@@ -214,7 +219,7 @@ test.describe("@screenshots", () => {
     await expect(page.getByText("Changed since linked")).toBeVisible();
     await shot(page, "30-files-drive-links");
 
-    await page.goto(`${b}/research/datasets`);
+    await page.goto(`${b}/workflow/data`);
     await page.getByRole("row", { name: /v2/ }).click();
     await expect(page.getByText("No longer available")).toBeVisible();
     await shot(page, "31-dataset-drive-link");
@@ -242,7 +247,7 @@ test.describe("@screenshots", () => {
     await shot(page, "36-connect-api-key");
     await page.keyboard.press("Escape");
 
-    await page.goto(`${b}/research/datasets`);
+    await page.goto(`${b}/workflow/data`);
     await openRow(page, page.getByRole("row", { name: /v1/ }));
     await expect(page.getByText("archived copy (FAKE)")).toBeVisible();
     await shot(page, "42-dataset-zenodo-link");
@@ -276,7 +281,7 @@ test.describe("@screenshots", () => {
     await shot(page, "38-search-link-dialog");
     await page.keyboard.press("Escape");
 
-    await page.goto(`${b}/research/manuscripts`);
+    await page.goto(`${b}/workflow/manuscript`);
     await openRow(page, page.getByRole("row").nth(1));
     await expect(page.getByText("Attention manuscript source (FAKE)")).toBeVisible();
     await page.getByRole("button", { name: /Link from/ }).click();
@@ -293,14 +298,14 @@ test.describe("@screenshots", () => {
     await shot(page, "40-palette-search");
     await page.keyboard.press("Escape");
 
-    await page.goto(`${b}/research/decisions`);
+    await page.goto(`${b}/workflow/review`);
     await openRow(page, page.getByRole("row").nth(1));
     await expect(
       page.getByText("Fake reference on response-time trimming (FAKE)").first(),
     ).toBeVisible();
     await shot(page, "41-decision-references");
 
-    await page.goto(`${b}/research/analyses`);
+    await page.goto(`${b}/workflow/analysis`);
     await openRow(page, page.getByRole("table").getByRole("row").nth(1));
     await expect(page.getByText("example-lab-fake/attention-analysis (FAKE)")).toBeVisible();
     await shot(page, "43-analysis-github-link");
@@ -309,6 +314,7 @@ test.describe("@screenshots", () => {
   test("dark mode", async ({ page }) => {
     await theme(page, "dark");
     await login(page, "pi");
+    await pick(page, "Dark");
     await openProject(page);
     const b = base(page);
     await shot(page, "25-dark-project-overview");
@@ -317,6 +323,7 @@ test.describe("@screenshots", () => {
       page.getByRole("button", { name: "Result: Reaction time effect (FAKE)" }),
     ).toBeVisible();
     await shot(page, "24-dark-lineage");
+    await pick(page, "Light"); // leave the shared account as found
   });
 
   test("viewer read-only document", async ({ page }) => {
@@ -326,5 +333,100 @@ test.describe("@screenshots", () => {
     await page.getByText("Study protocol draft (FAKE)").click();
     await expect(page.getByLabel("Document content")).toBeVisible();
     await shot(page, "26-viewer-document");
+  });
+
+  test("run 4: landing, workflow, overview, tasks, admin, settings, dark", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("link", { name: "Register" }).first()).toBeVisible();
+    await shot(page, "44-landing");
+
+    await login(page, "pi");
+    await openProject(page);
+    await shot(page, "45-overview-priorities-last-edited");
+    const b = base(page);
+    for (const [slug, name] of [
+      ["funding", "46-workflow-funding"],
+      ["ethics", "47-workflow-ethics-ualberta"],
+      ["participants", "48-workflow-participants"],
+      ["review", "49-workflow-review"],
+    ] as const) {
+      await page.goto(`${b}/workflow/${slug}`);
+      await expect(page.getByRole("navigation", { name: "Workflow sections" })).toBeVisible();
+      await expect(page.getByRole("main").getByRole("heading").first()).toBeVisible();
+      await shot(page, name);
+    }
+
+    await page.goto(`${b}/tasks?view=board`);
+    await expect(
+      page.getByRole("button", { name: "Fit primary RT model (FAKE)", exact: true }),
+    ).toBeVisible();
+    await shot(page, "50-tasks-coloured-board");
+    await page.getByRole("button", { name: "Fit primary RT model (FAKE)", exact: true }).click();
+    const drawer = page.getByRole("dialog");
+    await drawer.getByLabel("Write an update").fill("Model fit is running; results by Friday.");
+    await drawer.getByRole("button", { name: "Post update" }).click();
+    const thread = drawer.getByRole("region", { name: "Updates" });
+    await expect(thread.getByText("Model fit is running")).toBeVisible();
+    await drawer.getByRole("button", { name: "Attach existing" }).click();
+    const item = page.getByRole("menuitem").first();
+    const title = ((await item.textContent()) ?? "").trim();
+    await item.click();
+    const files = drawer.getByRole("region", { name: "Documents and files" });
+    await expect(files.getByRole("link", { name: title })).toBeVisible();
+    await drawer.getByRole("button", { name: "Post update" }).scrollIntoViewIfNeeded();
+    await shot(page, "51-task-drawer-thread-files");
+    await files.getByRole("button", { name: `Detach ${title}` }).click();
+    await thread
+      .getByRole("button", { name: /^Delete/ })
+      .last()
+      .click();
+    await thread.getByRole("button", { name: "Confirm delete post" }).click();
+    await expect(thread.getByText("Model fit is running")).toHaveCount(0);
+
+    await page.goto(`${lab(page)}/admin`);
+    await expect(page.getByRole("heading", { name: "Admin", level: 1 })).toBeVisible();
+    await shot(page, "52-admin");
+    await page.goto(`${lab(page)}/inventory`);
+    await expect(page.getByRole("heading", { name: "Inventory", level: 1 })).toBeVisible();
+    await shot(page, "53-inventory");
+    await page.goto("/settings");
+    await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
+    await shot(page, "54-settings");
+  });
+
+  test("run 4: unread badge and dark workflow", async ({ page }) => {
+    const item = (i: number) => ({
+      id: `00000000-0000-0000-0000-00000000000${i}`,
+      kind: "approval_expiring",
+      title: `Ethics approval expires soon (${i})`,
+      body: "",
+      created_at: new Date().toISOString(),
+      read_at: null,
+    });
+    await page.route(/\/notifications\/$/, (route) =>
+      route.request().method() === "GET"
+        ? route.fulfill({ json: [item(1), item(2), item(3)] })
+        : route.continue(),
+    );
+    await login(page, "pi");
+    await expect(page.getByRole("button", { name: "Notifications, 3 unread" })).toBeVisible();
+    await shot(page, "55-unread-badge");
+  });
+
+  test("run 4: dark workflow and tasks", async ({ page }) => {
+    await theme(page, "dark");
+    await login(page, "pi");
+    await pick(page, "Dark");
+    await openProject(page);
+    const b = base(page);
+    await page.goto(`${b}/workflow/ethics`);
+    await expect(page.getByRole("navigation", { name: "Workflow sections" })).toBeVisible();
+    await shot(page, "56-dark-workflow-ethics");
+    await page.goto(`${b}/tasks?view=board`);
+    await expect(
+      page.getByRole("button", { name: "Fit primary RT model (FAKE)", exact: true }),
+    ).toBeVisible();
+    await shot(page, "57-dark-tasks-board");
+    await pick(page, "Light"); // leave the shared account as found
   });
 });

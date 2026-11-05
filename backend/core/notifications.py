@@ -75,6 +75,11 @@ def _still_allowed(user, lab, n) -> bool:
                 or any(can(user, Perm.EDIT_PROJECT, p) for p in approval.projects.all())
             )
         )
+    if n.kind == NotificationKind.TASK_POST:  # D142: the reader must still see the project
+        task = (
+            apps.get_model("projects", "Task").objects.for_lab(lab).filter(pk=n.target_id).first()
+        )
+        return task is not None and can(user, Perm.VIEW_PROJECT, task)
     return can(user, Perm.VIEW_LAB, lab)
 
 

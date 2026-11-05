@@ -32,6 +32,29 @@ urlpatterns = [
         views.ManuscriptDetailView.as_view(),
         name="manuscript-detail",
     ),
+    path(_P + "funding/", views.FundingListCreateView.as_view(), name="funding-list"),
+    path(
+        _L + "funding/<uuid:fundingrecord_id>/",
+        views.FundingDetailView.as_view(),
+        name="funding-detail",
+    ),
+    path(_P + "review-items/", views.ReviewListCreateView.as_view(), name="review-list"),
+    path(
+        _L + "review-items/<uuid:reviewitem_id>/",
+        views.ReviewDetailView.as_view(),
+        name="review-detail",
+    ),
+    path(
+        _P + "recruitment-entries/",
+        views.RecruitmentListCreateView.as_view(),
+        name="recruitment-list",
+    ),
+    path(
+        _L + "recruitment-entries/<uuid:recruitmententry_id>/",
+        views.RecruitmentDetailView.as_view(),
+        name="recruitment-detail",
+    ),
+    path(_P + "recruitment-plan/", views.RecruitmentPlanView.as_view(), name="recruitment-plan"),
     path(_P + "lineage/", views.LineageView.as_view(), name="lineage"),
     path(_P + "export/", views.ExportView.as_view(), name="export"),
 ]

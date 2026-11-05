@@ -95,7 +95,7 @@ export function HandoverPage() {
           className="grid gap-3 rounded-lg border border-warning/30 bg-warning/10 p-4"
         >
           <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 size-5 text-warning" aria-hidden />
+            <AlertTriangle className="mt-0.5 size-5 text-warning-text" aria-hidden />
             <div>
               <h2 id="no-other-owner" className="text-base font-semibold">
                 No other owner ({data.no_other_owner.length})

@@ -11,6 +11,8 @@ from provenance.serializers import (
     OUTPUT,
     ExportSerializer,
     LineageSerializer,
+    RecruitmentPlanInputSerializer,
+    RecruitmentPlanSerializer,
     queryset,
 )
 from provenance.services import SPECS
@@ -154,6 +156,57 @@ class ManuscriptListCreateView(KindListCreate):
 @_detail_schema("manuscript")
 class ManuscriptDetailView(KindDetail):
     kind = "manuscript"
+
+
+@_list_schema("funding")
+class FundingListCreateView(KindListCreate):
+    kind = "funding"
+
+
+@_detail_schema("funding")
+class FundingDetailView(KindDetail):
+    kind = "funding"
+
+
+@_list_schema("review")
+class ReviewListCreateView(KindListCreate):
+    kind = "review"
+
+
+@_detail_schema("review")
+class ReviewDetailView(KindDetail):
+    kind = "review"
+
+
+@_list_schema("recruitment")
+class RecruitmentListCreateView(KindListCreate):
+    kind = "recruitment"
+
+
+@_detail_schema("recruitment")
+class RecruitmentDetailView(KindDetail):
+    kind = "recruitment"
+
+
+class RecruitmentPlanView(ProjectScopedMixin, generics.GenericAPIView):
+    """The project's target enrolment and notes (D136); no plan yet reads as empty."""
+
+    serializer_class = RecruitmentPlanSerializer
+    perms = {"GET": Perm.VIEW_PROJECT, "PATCH": Perm.EDIT_CONTENT}
+
+    @extend_schema(responses=RecruitmentPlanSerializer)
+    def get(self, request, lab_id, project_id):
+        return Response(self.get_serializer(services.recruitment_plan(self.project)).data)
+
+    @extend_schema(request=RecruitmentPlanInputSerializer, responses=RecruitmentPlanSerializer)
+    def patch(self, request, lab_id, project_id):
+        plan = services.update_recruitment_plan(
+            project=self.project,
+            user=request.user,
+            data=self.body(RecruitmentPlanInputSerializer, partial=True),
+            request=request,
+        )
+        return Response(self.get_serializer(plan).data)
 
 
 class LineageView(ProjectScopedMixin, generics.GenericAPIView):

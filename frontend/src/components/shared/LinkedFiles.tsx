@@ -19,11 +19,14 @@ export function LinkedFiles({
   projectId,
   target,
   canEdit,
+  only,
 }: {
   labId: string;
   projectId: string;
   target?: LinkTargetRef;
   canEdit: boolean;
+  /** Show and offer only these providers (by name). */
+  only?: string[];
 }) {
   const links = useExternalLinks(labId, projectId);
   const check = useCheckExternalLink(labId, projectId);
@@ -31,15 +34,17 @@ export function LinkedFiles({
   const remove = useRemoveExternalLink(labId, projectId);
   const fail = (e: unknown) => toast.error(formErrors(e, []).form ?? "Something went wrong.");
 
-  const mine = (links.data ?? []).filter((l: ExternalLink) =>
-    target
-      ? l[target.field] === target.id
-      : !l.document && !l.dataset && !l.analysis && !l.result && !l.manuscript && !l.decision,
-  );
+  const mine = (links.data ?? [])
+    .filter((l: ExternalLink) => !only || only.includes(l.provider))
+    .filter((l: ExternalLink) =>
+      target
+        ? l[target.field] === target.id
+        : !l.document && !l.dataset && !l.analysis && !l.result && !l.manuscript && !l.decision,
+    );
 
   return (
     <div className="grid gap-2">
-      {canEdit && <LinkMenu labId={labId} projectId={projectId} target={target} />}
+      {canEdit && <LinkMenu labId={labId} projectId={projectId} target={target} only={only} />}
       {mine.length > 0 && (
         <>
           <ul className="grid divide-y rounded-lg border bg-background">

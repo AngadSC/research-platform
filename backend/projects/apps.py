@@ -24,6 +24,9 @@ class ProjectsConfig(AppConfig):
     def ready(self):
         from django.conf import settings
 
+        from projects import activity
+
+        activity.connect()
         post_save.connect(
             _on_user_saved, sender=settings.AUTH_USER_MODEL, dispatch_uid="unassign_on_deactivate"
         )

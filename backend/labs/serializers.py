@@ -19,8 +19,26 @@ class LabSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Lab
-        fields = ["id", "name", "institution", "my_role", "my_permissions"]
-        read_only_fields = ["id"]
+        fields = [
+            "id",
+            "name",
+            "institution",
+            "department",
+            "description",
+            "address",
+            "contact_email",
+            "website",
+            "my_role",
+            "my_permissions",
+        ]
+        read_only_fields = [
+            "id",
+            "department",
+            "description",
+            "address",
+            "contact_email",
+            "website",
+        ]
         extra_kwargs = {"name": {"validators": [no_control_chars]}}
 
     def get_my_role(self, lab) -> str | None:

@@ -5,6 +5,7 @@ import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -25,11 +26,15 @@ import {
   PROJECT_ROLES,
   personName,
   type Deadline,
+  type DeadlinePriority,
   type ProjectMembership,
   type ProjectRole,
 } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
+import { NativeSelect } from "@/pages/project/workflow/parts";
+import { RelativeTime } from "@/components/shared/RelativeTime";
+import { label, PRIORITIES, PRIORITY_TONE } from "@/lib/workflow";
 
 const fail = (e: unknown) => toast.error(formErrors(e, []).form ?? "Something went wrong.");
 const day = (iso: string | null) =>
@@ -54,7 +59,7 @@ function DeadlineDialog({
 }: {
   deadline: Deadline | "new";
   onClose: () => void;
-  onSave: (v: { title: string; due_date: string }) => Promise<unknown>;
+  onSave: (v: { title: string; due_date: string; priority: DeadlinePriority }) => Promise<unknown>;
 }) {
   const existing = deadline === "new" ? undefined : deadline;
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
@@ -68,7 +73,7 @@ function DeadlineDialog({
     if (!due_date) fields.due_date = "Pick a due date";
     if (Object.keys(fields).length) return setErrors({ fields });
     try {
-      await onSave({ title, due_date });
+      await onSave({ title, due_date, priority: String(f.get("priority")) as DeadlinePriority });
       toast.success("Saved");
       onClose();
     } catch (err) {
@@ -88,6 +93,17 @@ function DeadlineDialog({
           </FormField>
           <FormField label="Due date" error={errors.fields.due_date}>
             {(p) => <Input {...p} type="date" name="due_date" defaultValue={existing?.due_date} />}
+          </FormField>
+          <FormField label="Priority">
+            {(p) => (
+              <NativeSelect {...p} name="priority" defaultValue={existing?.priority ?? "medium"}>
+                {PRIORITIES.map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
+              </NativeSelect>
+            )}
           </FormField>
           <FormError message={errors.form} />
           <div className="flex justify-end gap-2">
@@ -118,6 +134,15 @@ function Deadlines({
       key: "title",
       header: "Deadline",
       cell: (d) => <span className={d.done ? "line-through" : undefined}>{d.title}</span>,
+    },
+    {
+      key: "priority",
+      header: "Priority",
+      cell: (d) => (
+        <Badge variant={PRIORITY_TONE[d.priority] ?? "secondary"}>
+          {label(PRIORITIES, d.priority)}
+        </Badge>
+      ),
     },
     { key: "due", header: "Due", cell: (d) => day(d.due_date) },
     ...(canEdit
@@ -441,6 +466,12 @@ export default function OverviewTab({ labId, projectId, project }: ProjectTabPro
         <p className="text-sm whitespace-pre-wrap">
           {project.description || "No description yet."}
         </p>
+        {project.last_activity_at && (
+          <p className="text-xs text-muted-foreground">
+            Last edited <RelativeTime value={project.last_activity_at} />
+            {project.last_activity_by && <> by {personName(project.last_activity_by)}</>}
+          </p>
+        )}
         <dl className="grid grid-cols-3 gap-4">
           <Fact label="Status" value={project.status} />
           <Fact label="Start date" value={day(project.start_date)} />

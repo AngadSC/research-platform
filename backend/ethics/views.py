@@ -1,11 +1,14 @@
-from drf_spectacular.utils import extend_schema
+import uuid
+
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
-from core.permissions import Perm, can_view_ethics_files
+from core.permissions import Perm, can_view_ethics_files, visible_projects
 from core.views import LabScopedViewMixin
 from documents.serializers import AttachmentSerializer, AttachmentUploadSerializer
 from ethics import services
@@ -43,9 +46,26 @@ class ApprovalListCreateView(ApprovalMixin, generics.GenericAPIView):
     def get_queryset(self):
         return super().get_queryset().order_by("expiry_date", "id")
 
-    @extend_schema(responses=EthicsApprovalSerializer(many=True))
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("project", OpenApiTypes.UUID, description="Only this project")
+        ],
+        responses=EthicsApprovalSerializer(many=True),
+    )
     def get(self, request, lab_id):
-        return Response(self.get_serializer(self.get_queryset(), many=True).data)
+        qs = self.get_queryset()
+        project = request.query_params.get("project")
+        if project:  # D134: the project's Ethics tab. Same visibility rules, just narrower.
+            try:
+                pk = uuid.UUID(project)
+            except ValueError:
+                pk = None
+            # an invisible project reads as empty, so the filter can't probe for links
+            if pk and visible_projects(request.user, request.lab).filter(pk=pk).exists():
+                qs = qs.filter(projects__pk=pk)
+            else:
+                qs = qs.none()
+        return Response(self.get_serializer(qs, many=True).data)
 
     @extend_schema(request=EthicsApprovalInputSerializer, responses={201: EthicsApprovalSerializer})
     def post(self, request, lab_id):

@@ -1,5 +1,6 @@
 import { useMemo, useState, type ComponentType } from "react";
-import { NavLink, Outlet, useNavigate, useOutletContext, useParams } from "react-router";
+import { TabNav } from "@/components/shared/TabNav";
+import { Outlet, useNavigate, useOutletContext, useParams } from "react-router";
 import { toast } from "sonner";
 import { FormError } from "@/components/shared/FormError";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -19,7 +20,6 @@ import { saveJson, useExportProject } from "@/hooks/research";
 import { useDeleteProject, useProject, useUpdateProject } from "@/hooks/projects";
 import type { Project } from "@/lib/api-types";
 import { useRegisterCommands } from "@/lib/commands";
-import { cn } from "@/lib/utils";
 import { formErrors } from "@/lib/forms";
 import { ProjectFormDialog } from "@/pages/project/ProjectFormDialog";
 
@@ -40,7 +40,7 @@ const TABS = [
   ["tasks", "Tasks"],
   ["documents", "Documents"],
   ["files", "Files"],
-  ["research", "Research"],
+  ["workflow", "Workflow"],
   ["lineage", "Lineage"],
 ] as const;
 
@@ -135,24 +135,7 @@ export function ProjectPage() {
           </>
         }
       />
-      <nav aria-label="Project sections" className="mb-6 flex gap-1 border-b">
-        {TABS.map(([to, label]) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              cn(
-                "-mb-px border-b-2 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                isActive
-                  ? "border-primary font-medium"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
-              )
-            }
-          >
-            {label}
-          </NavLink>
-        ))}
-      </nav>
+      <TabNav label="Project sections" tabs={TABS} className="mb-6" />{" "}
       <Outlet context={{ labId, projectId, project } satisfies ProjectTabProps} />
       {editing && (
         <ProjectFormDialog

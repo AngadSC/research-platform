@@ -21,20 +21,32 @@ from ethics.models import EthicsApproval  # ethics (Phase 5)
 from integrations import registry  # integrations (Run 2)
 from integrations.models import ConnectedAccount, ExternalLink  # integrations (Run 2)
 from integrations.tests.fake import FAKE  # integrations (Run 2)
-from labs.models import Invite, Lab, LabMembership, LabRole
+from labs.models import (  # admin area (Run 4)
+    InstitutionResource,
+    InventoryItem,
+    Invite,
+    Lab,
+    LabMembership,
+    LabRole,
+    OnboardingItem,
+)
 from projects.models import (  # projects/tasks (Phase 3)
     Project,
     ProjectDeadline,
     ProjectMembership,
     ProjectRole,
     Task,
+    TaskPost,
 )
 from provenance.models import (  # provenance (Phase 4)
     Analysis,
     DatasetRecord,
     Decision,
+    FundingRecord,
     ManuscriptLink,
+    RecruitmentEntry,
     Result,
+    ReviewItem,
 )
 
 # Fixed order. Lab roles: outsider is the PI of Lab B and not in Lab A; pi, admin (lab_admin),
@@ -92,6 +104,18 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET", "projects:task-detail"): "401 404 2 2 2 2 2 404 2",
     ("PATCH", "projects:task-detail"): "401 404 2 2 2 2 403 404 403",
     ("DELETE", "projects:task-detail"): "401 404 2 2 2 2 403 404 403",
+    # --- task thread and links (Run 4, D141/D142) ---
+    # Reading the thread needs view_project; posting and linking need edit_content. The fixture
+    # post is pi's: only its author may edit it (so admin and lead get 403), and the author or a
+    # lead (pi, admin, lead) may delete it; contrib is neither.
+    ("GET", "projects:taskpost-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST", "projects:taskpost-list"): "401 404 2 2 2 2 403 404 403",
+    ("PATCH", "projects:taskpost-detail"): "401 404 2 403 403 403 403 404 403",
+    ("DELETE", "projects:taskpost-detail"): "401 404 2 2 2 403 403 404 403",
+    ("POST", "projects:task-document-add"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "projects:task-document-remove"): "401 404 2 2 2 2 403 404 403",
+    ("POST", "projects:task-attachment-add"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "projects:task-attachment-remove"): "401 404 2 2 2 2 403 404 403",
     # --- end projects/tasks (Phase 3) ---
     # --- documents/attachments (Phase 3) ---
     # Reasoned per persona on P1: reads need view_project (everyone on P1, including the
@@ -140,6 +164,27 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "provenance:decision-detail"): "401 404 2 2 2 2 2 404 2",
     ("PATCH",  "provenance:decision-detail"): "401 404 2 2 2 2 403 404 403",
     ("DELETE", "provenance:decision-detail"): "401 404 2 2 2 2 403 404 403",
+    # Workflow records (Run 4, D133 to D138) follow the same shape as the other provenance
+    # records: reads view_project, writes edit_content. The funding `amount` is lead-only in the
+    # body (tested in test_workflow.py), not in the status codes. Holder/reviewer in the payloads
+    # is the acting persona, who can view P1 (anon and outsiders never get that far).
+    ("GET",    "provenance:funding-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "provenance:funding-list"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:funding-detail"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "provenance:funding-detail"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "provenance:funding-detail"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:review-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "provenance:review-list"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:review-detail"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "provenance:review-detail"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "provenance:review-detail"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:recruitment-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "provenance:recruitment-list"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:recruitment-detail"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "provenance:recruitment-detail"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "provenance:recruitment-detail"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:recruitment-plan"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "provenance:recruitment-plan"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "provenance:manuscript-list"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "provenance:manuscript-list"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "provenance:manuscript-detail"): "401 404 2 2 2 2 2 404 2",
@@ -210,6 +255,27 @@ MATRIX: dict[tuple[str, str], str] = {
     # project viewer and the capped lviewer get 403; nonproj cannot see P1: 404.
     ("GET",    "integrations:item-search"): "401 404 2 2 2 2 403 404 403",
     # --- end integrations framework (Run 3) ---
+    # --- admin area (Run 4, D146-D151) ---
+    # Lab details, institution resources (writes) and onboarding need manage_lab: pi and admin
+    # only. Resources are read by every lab member (view_lab). Inventory is read by every member,
+    # the viewer included, and edited with manage_inventory: pi, admin and members; the lab
+    # viewer gets 403 (D147). Another lab's ids are 404 for everyone (cross-lab swap test).
+    ("GET",    "labs:resource-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "labs:resource-list"): "401 404 2 2 403 403 403 403 403",
+    ("PATCH",  "labs:resource-detail"): "401 404 2 2 403 403 403 403 403",
+    ("DELETE", "labs:resource-detail"): "401 404 2 2 403 403 403 403 403",
+    ("GET",    "labs:onboarding-list"): "401 404 2 2 403 403 403 403 403",
+    ("POST",   "labs:onboarding-list"): "401 404 2 2 403 403 403 403 403",
+    ("PATCH",  "labs:onboarding-detail"): "401 404 2 2 403 403 403 403 403",
+    ("DELETE", "labs:onboarding-detail"): "401 404 2 2 403 403 403 403 403",
+    ("POST",   "labs:onboarding-completion"): "401 404 2 2 403 403 403 403 403",
+    ("GET",    "labs:inventory-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "labs:inventory-list"): "401 404 2 2 2 2 2 2 403",
+    ("GET",    "labs:inventory-export"): "401 404 2 2 2 2 2 2 2",
+    ("GET",    "labs:inventory-detail"): "401 404 2 2 2 2 2 2 2",
+    ("PATCH",  "labs:inventory-detail"): "401 404 2 2 2 2 2 2 403",
+    ("DELETE", "labs:inventory-detail"): "401 404 2 2 2 2 2 2 403",
+    # --- end admin area (Run 4) ---
 }
 # fmt: on
 
@@ -276,7 +342,28 @@ def _prov_fixtures(lab, project, user, doc, attachment, tag):
     decision.datasets.add(ds_free)
     decision.supporting_documents.add(doc)
     decision.supporting_attachments.add(attachment)
+    # Workflow records (Run 4): a funding record with a lab attachment, a review item, one entry
+    funding = FundingRecord.objects.create(
+        funder=f"Funder {tag}",
+        amount="1000.00",
+        holder=user,
+        attachment=attachment,
+        created_by=user,
+        **kw,
+    )
+    review = ReviewItem.objects.create(title=f"Review {tag}", reviewer=user, created_by=user, **kw)
+    entry = RecruitmentEntry.objects.create(
+        entry_date="2030-01-01",
+        status="screened",
+        count=3,
+        notes=f"Entry {tag}",
+        created_by=user,
+        **kw,
+    )
     return {
+        "fundingrecord_id": funding.pk,
+        "reviewitem_id": review.pk,
+        "recruitmententry_id": entry.pk,
         "datasetrecord_id": ds_free.pk,
         "analysis_id": an_free.pk,
         "result_id": result.pk,
@@ -361,6 +448,20 @@ def _integration_fixtures(lab, project, owners, tag):
     return accounts, link
 
 
+# --- admin area (Run 4) ---
+def _admin_fixtures(lab, tag):
+    """One resource, onboarding item and inventory item; names carry `tag` for the swap test."""
+    res = InstitutionResource.objects.create(
+        lab=lab, category="funding", title=f"Resource {tag}", url=f"https://example.edu/{tag}"
+    )
+    item = OnboardingItem.objects.create(lab=lab, kind="new_member", title=f"Onboarding {tag}")
+    inv = InventoryItem.objects.create(lab=lab, name=f"Inventory {tag}", category="equipment")
+    return res, item, inv
+
+
+# --- end admin area (Run 4) ---
+
+
 @pytest.fixture(autouse=True)
 def _matrix_fake_provider(monkeypatch, settings):
     """The fake provider is configured, and reads items without any network."""
@@ -428,12 +529,16 @@ def build_world():
     # --- end projects/tasks (Phase 3) ---
     # --- documents/attachments (Phase 3): Lab A fixtures ---
     doc_a, attachment_a = _doc_fixtures(lab_a, p1, users["pi"], "lab-a")
+    task_a.documents.add(doc_a)  # task thread and links (Run 4)
+    task_a.attachments.add(attachment_a)
+    post_a = TaskPost.objects.create(lab=lab_a, task=task_a, author=users["pi"], body="Post lab-a")
     # --- end documents/attachments (Phase 3) ---
     prov_a = _prov_fixtures(lab_a, p1, users["pi"], doc_a, attachment_a, "lab-a")  # Phase 4
     eth_a, eth_att_a, note_a = _ethics_fixtures(lab_a, p1, users["pi"], "lab-a")  # Phase 5
     int_accounts_a, link_a = _integration_fixtures(
         lab_a, p1, {n: users[n] for n in ("pi", "admin", "lead", "contrib")}, "lab-a"
     )  # integrations (Run 2)
+    res_a, onb_a, inv_a = _admin_fixtures(lab_a, "lab-a")  # admin area (Run 4)
     invite_a, _ = Invite.issue(
         lab=lab_a, email="invitee-a@example.com", role=LabRole.MEMBER, invited_by=users["pi"]
     )
@@ -455,12 +560,18 @@ def build_world():
     # --- end projects/tasks (Phase 3) ---
     # --- documents/attachments (Phase 3): Lab B mirror ---
     doc_b, attachment_b = _doc_fixtures(lab_b, p1_b, secret_pi, "LAB-B-SECRET")
+    task_b.documents.add(doc_b)  # task thread and links (Run 4)
+    task_b.attachments.add(attachment_b)
+    post_b = TaskPost.objects.create(
+        lab=lab_b, task=task_b, author=secret_pi, body="Post LAB-B-SECRET"
+    )
     # --- end documents/attachments (Phase 3) ---
     prov_b = _prov_fixtures(lab_b, p1_b, secret_pi, doc_b, attachment_b, "LAB-B-SECRET")  # Ph. 4
     eth_b, eth_att_b, note_b = _ethics_fixtures(lab_b, p1_b, secret_pi, "LAB-B-SECRET")  # Phase 5
     int_accounts_b, link_b = _integration_fixtures(
         lab_b, p1_b, {"outsider": secret_pi}, "LAB-B-SECRET"
     )  # integrations (Run 2)
+    res_b, onb_b, inv_b = _admin_fixtures(lab_b, "LAB-B-SECRET")  # admin area (Run 4)
     invite_b, _ = Invite.issue(
         lab=lab_b,
         email="invitee-b-secret@example.com",
@@ -480,6 +591,7 @@ def build_world():
             .pk,
             "projectdeadline_id": deadline_a.pk,
             "task_id": task_a.pk,
+            "taskpost_id": post_a.pk,
             # --- documents/attachments (Phase 3) ---
             "document_id": doc_a.pk,
             "version": 1,
@@ -491,6 +603,9 @@ def build_world():
             "provider": "fake",  # integrations (Run 2)
             "connectedaccount_id": int_accounts_a["contrib"].pk,
             "externallink_id": link_a.pk,
+            "institutionresource_id": res_a.pk,  # admin area (Run 4)
+            "onboardingitem_id": onb_a.pk,
+            "inventoryitem_id": inv_a.pk,
         },
         b={
             "lab_id": lab_b.pk,
@@ -501,6 +616,7 @@ def build_world():
             "projectmembership_id": pm_b.pk,
             "projectdeadline_id": deadline_b.pk,
             "task_id": task_b.pk,
+            "taskpost_id": post_b.pk,
             # --- documents/attachments (Phase 3) ---
             "document_id": doc_b.pk,
             "version": 1,
@@ -512,6 +628,9 @@ def build_world():
             "provider": "fake",  # integrations (Run 2)
             "connectedaccount_id": int_accounts_b["outsider"].pk,
             "externallink_id": link_b.pk,
+            "institutionresource_id": res_b.pk,  # admin area (Run 4)
+            "onboardingitem_id": onb_b.pk,
+            "inventoryitem_id": inv_b.pk,
         },
         b_names=[
             "Lab B Secret",
@@ -519,6 +638,7 @@ def build_world():
             "invitee-b-secret@example.com",
             "Task B Secret",  # projects/tasks (Phase 3)
             "Deadline B Secret",
+            "Post LAB-B-SECRET",  # task thread (Run 4)
             # --- documents/attachments (Phase 3): titles, filename and the file's bytes ---
             "Doc LAB-B-SECRET",
             "file-LAB-B-SECRET.pdf",
@@ -530,6 +650,9 @@ def build_world():
             "Result LAB-B-SECRET",
             "Decision LAB-B-SECRET",
             "Manuscript LAB-B-SECRET",
+            "Funder LAB-B-SECRET",  # workflow (Run 4)
+            "Review LAB-B-SECRET",
+            "Entry LAB-B-SECRET",
             "LAB-B-SECRET.git",
             # --- ethics and notifications (Phase 5) ---
             "Ethics LAB-B-SECRET",
@@ -540,6 +663,10 @@ def build_world():
             # --- integrations (Run 2) ---
             "External link LAB-B-SECRET",
             "outsider-LAB-B-SECRET@fake.test",
+            # --- admin area (Run 4) ---
+            "Resource LAB-B-SECRET",
+            "Onboarding LAB-B-SECRET",
+            "Inventory LAB-B-SECRET",
         ],
     )
 
@@ -620,6 +747,10 @@ PAYLOADS = {
         "assignee": str(w.user_ids["contrib"]),  # on P1, so allowed
     },
     ("PATCH", "projects:task-detail"): lambda user, w: {"status": "in_progress", "position": 0},
+    ("POST", "projects:taskpost-list"): lambda user, w: {"body": "An update"},
+    ("PATCH", "projects:taskpost-detail"): lambda user, w: {"body": "Edited update"},
+    ("POST", "projects:task-document-add"): lambda user, w: {"id": str(w.a["document_id"])},
+    ("POST", "projects:task-attachment-add"): lambda user, w: {"id": str(w.a["attachment_id"])},
     # --- end projects/tasks (Phase 3) ---
     # --- documents/attachments (Phase 3) ---
     ("POST", "documents:document-list"): lambda user, w: {
@@ -670,6 +801,29 @@ PAYLOADS = {
         "results": [str(w.a["result_id"])],
     },
     ("PATCH", "provenance:manuscript-detail"): lambda user, w: {"status": "submitted"},
+    # --- workflow (Run 4) ---
+    ("POST", "provenance:funding-list"): lambda user, w: {
+        "funder": "NSERC",
+        "program": "Discovery",
+        "status": "applied",
+        "holder": str(user.pk) if user else None,
+        "attachment": str(w.a["attachment_id"]),
+    },
+    ("PATCH", "provenance:funding-detail"): lambda user, w: {"notes": "Edited"},
+    ("POST", "provenance:review-list"): lambda user, w: {
+        "title": "Sign-off",
+        "reviewer": str(user.pk) if user else None,
+        "status": "requested",
+    },
+    ("PATCH", "provenance:review-detail"): lambda user, w: {"status": "approved"},
+    ("POST", "provenance:recruitment-list"): lambda user, w: {
+        "entry_date": "2030-02-01",
+        "status": "enrolled",
+        "count": 2,
+    },
+    ("PATCH", "provenance:recruitment-detail"): lambda user, w: {"count": 5},
+    ("PATCH", "provenance:recruitment-plan"): lambda user, w: {"target_enrolment": 40},
+    # --- end workflow (Run 4) ---
     ("POST", "provenance:export"): lambda user, w: {},
     # --- end provenance (Phase 4) ---
     # --- ethics and notifications (Phase 5) ---
@@ -696,6 +850,22 @@ PAYLOADS = {
         "external_id": f"file-{next(_n)}",
     },
     # --- end ethics and notifications (Phase 5) ---
+    # --- admin area (Run 4) ---
+    ("POST", "labs:resource-list"): lambda user, w: {
+        "category": "ethics",
+        "title": "New resource",
+        "url": f"https://example.edu/new-{next(_n)}",
+    },
+    ("PATCH", "labs:resource-detail"): lambda user, w: {"title": "Edited resource"},
+    ("POST", "labs:onboarding-list"): lambda user, w: {"kind": "new_member", "title": "New item"},
+    ("PATCH", "labs:onboarding-detail"): lambda user, w: {"required": False},
+    ("POST", "labs:onboarding-completion"): lambda user, w: {
+        "user": str(w.user_ids["contrib"]),
+        "done": True,
+    },
+    ("POST", "labs:inventory-list"): lambda user, w: {"name": "New item", "category": "reagent"},
+    ("PATCH", "labs:inventory-detail"): lambda user, w: {"notes": "Edited"},
+    # --- end admin area (Run 4) ---
 }
 
 

@@ -1,0 +1,141 @@
+"""Input and output serializers for the admin area (D146-D151). Inputs are plain (D33)."""
+
+from urllib.parse import urlsplit
+
+from rest_framework import serializers
+
+from core.models import User
+from core.serializers import UserSerializer, no_control_chars
+from labs.models import (
+    InstitutionResource,
+    InventoryCategory,
+    InventoryItem,
+    InventoryStatus,
+    OnboardingItem,
+    OnboardingKind,
+    ResourceCategory,
+)
+
+
+def https_url(value):
+    """https only, a host, no embedded credentials (D149). Applies to every user-supplied link."""
+    parts = urlsplit(value)
+    if parts.scheme != "https" or not parts.hostname or parts.username or parts.password:
+        raise serializers.ValidationError("Enter a web address starting with https://")
+    no_control_chars(value)
+    return value
+
+
+def web_url(value):
+    parts = urlsplit(value)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise serializers.ValidationError("Enter a web address starting with http:// or https://")
+    return value
+
+
+class LabDetailsInputSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=200, validators=[no_control_chars])
+    institution_name = serializers.CharField(max_length=200, validators=[no_control_chars])
+    department = serializers.CharField(
+        max_length=200, allow_blank=True, validators=[no_control_chars]
+    )
+    description = serializers.CharField(max_length=5000, allow_blank=True)
+    address = serializers.CharField(max_length=1000, allow_blank=True)
+    contact_email = serializers.EmailField(allow_blank=True)
+    website = serializers.CharField(max_length=300, allow_blank=True)
+
+    def validate_website(self, value):
+        return web_url(value) if value else value
+
+
+class ResourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InstitutionResource
+        fields = ["id", "category", "title", "url", "description", "order"]
+        read_only_fields = ["id"]
+
+
+class ResourceInputSerializer(serializers.Serializer):
+    category = serializers.ChoiceField(choices=ResourceCategory.choices)
+    title = serializers.CharField(max_length=200, validators=[no_control_chars])
+    url = serializers.CharField(max_length=500, validators=[https_url])
+    description = serializers.CharField(max_length=2000, allow_blank=True, required=False)
+    order = serializers.IntegerField(min_value=0, max_value=100000, required=False)
+
+
+class OnboardingItemSerializer(serializers.ModelSerializer):
+    completed_user_ids = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OnboardingItem
+        fields = [
+            "id",
+            "kind",
+            "title",
+            "description",
+            "url",
+            "required",
+            "order",
+            "completed_user_ids",
+        ]
+        read_only_fields = fields
+
+    def get_completed_user_ids(self, item) -> list[str]:
+        return sorted(str(c.user_id) for c in item.completions.all())
+
+
+class OnboardingItemInputSerializer(serializers.Serializer):
+    kind = serializers.ChoiceField(choices=OnboardingKind.choices)
+    title = serializers.CharField(max_length=200, validators=[no_control_chars])
+    description = serializers.CharField(max_length=2000, allow_blank=True, required=False)
+    url = serializers.CharField(max_length=500, allow_blank=True, required=False)
+    required = serializers.BooleanField(required=False)
+    order = serializers.IntegerField(min_value=0, max_value=100000, required=False)
+
+    def validate_url(self, value):
+        return https_url(value) if value else value
+
+
+class CompletionInputSerializer(serializers.Serializer):
+    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    done = serializers.BooleanField()
+
+
+class InventorySerializer(serializers.ModelSerializer):
+    owner = UserSerializer(read_only=True)
+
+    class Meta:
+        model = InventoryItem
+        fields = [
+            "id",
+            "name",
+            "category",
+            "location",
+            "quantity",
+            "unit",
+            "owner",
+            "serial_number",
+            "purchase_date",
+            "due_date",
+            "status",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class InventoryInputSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=200, validators=[no_control_chars])
+    category = serializers.ChoiceField(choices=InventoryCategory.choices)
+    location = serializers.CharField(max_length=200, allow_blank=True, required=False)
+    quantity = serializers.DecimalField(
+        max_digits=12, decimal_places=2, min_value=0, required=False
+    )
+    unit = serializers.CharField(max_length=32, allow_blank=True, required=False)
+    owner = serializers.UUIDField(allow_null=True, required=False)  # resolved in the service
+    serial_number = serializers.CharField(max_length=100, allow_blank=True, required=False)
+    purchase_date = serializers.DateField(allow_null=True, required=False)
+    due_date = serializers.DateField(allow_null=True, required=False)
+    status = serializers.ChoiceField(choices=InventoryStatus.choices, required=False)
+    notes = serializers.CharField(max_length=5000, allow_blank=True, required=False)

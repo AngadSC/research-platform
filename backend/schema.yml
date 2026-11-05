@@ -166,13 +166,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatchedLab'
+              $ref: '#/components/schemas/PatchedLabDetailsInput'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/PatchedLab'
+              $ref: '#/components/schemas/PatchedLabDetailsInput'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/PatchedLab'
+              $ref: '#/components/schemas/PatchedLabDetailsInput'
       security:
       - sessionAuth: []
       responses:
@@ -404,6 +404,7 @@ paths:
           - attachment.downloaded
           - attachment.deleted
           - task.deleted
+          - task_post.deleted
           - deadline.deleted
           - dataset.created
           - dataset.updated
@@ -441,6 +442,27 @@ paths:
           - external_link.removed
           - external_link.change_accepted
           - integration.searched
+          - inventory_item.created
+          - inventory_item.updated
+          - inventory_item.deleted
+          - inventory.exported
+          - onboarding_item.created
+          - onboarding_item.updated
+          - onboarding_item.deleted
+          - onboarding.completion_changed
+          - institution_resource.created
+          - institution_resource.updated
+          - institution_resource.deleted
+          - funding.created
+          - funding.updated
+          - funding.deleted
+          - review_item.created
+          - review_item.updated
+          - review_item.deleted
+          - recruitment_entry.created
+          - recruitment_entry.updated
+          - recruitment_entry.deleted
+          - recruitment_plan.updated
           type: string
           minLength: 1
         description: |-
@@ -471,6 +493,7 @@ paths:
           * `attachment.downloaded` - Attachment Downloaded
           * `attachment.deleted` - Attachment Deleted
           * `task.deleted` - Task Deleted
+          * `task_post.deleted` - Task Post Deleted
           * `deadline.deleted` - Deadline Deleted
           * `dataset.created` - Dataset Created
           * `dataset.updated` - Dataset Updated
@@ -508,6 +531,27 @@ paths:
           * `external_link.removed` - External Link Removed
           * `external_link.change_accepted` - External Link Change Accepted
           * `integration.searched` - Integration Searched
+          * `inventory_item.created` - Inventory Item Created
+          * `inventory_item.updated` - Inventory Item Updated
+          * `inventory_item.deleted` - Inventory Item Deleted
+          * `inventory.exported` - Inventory Exported
+          * `onboarding_item.created` - Onboarding Item Created
+          * `onboarding_item.updated` - Onboarding Item Updated
+          * `onboarding_item.deleted` - Onboarding Item Deleted
+          * `onboarding.completion_changed` - Onboarding Completion Changed
+          * `institution_resource.created` - Institution Resource Created
+          * `institution_resource.updated` - Institution Resource Updated
+          * `institution_resource.deleted` - Institution Resource Deleted
+          * `funding.created` - Funding Created
+          * `funding.updated` - Funding Updated
+          * `funding.deleted` - Funding Deleted
+          * `review_item.created` - Review Item Created
+          * `review_item.updated` - Review Item Updated
+          * `review_item.deleted` - Review Item Deleted
+          * `recruitment_entry.created` - Recruitment Entry Created
+          * `recruitment_entry.updated` - Recruitment Entry Updated
+          * `recruitment_entry.deleted` - Recruitment Entry Deleted
+          * `recruitment_plan.updated` - Recruitment Plan Updated
       - in: query
         name: actor
         schema:
@@ -1034,6 +1078,12 @@ paths:
           type: string
           format: uuid
         required: true
+      - in: query
+        name: project
+        schema:
+          type: string
+          format: uuid
+        description: Only this project
       tags:
       - labs
       security:
@@ -1338,6 +1388,236 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExternalLink'
           description: ''
+  /api/labs/{lab_id}/funding/{fundingrecord_id}/:
+    get:
+      operationId: labs_funding_retrieve
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: fundingrecord_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Funding'
+          description: ''
+    patch:
+      operationId: labs_funding_partial_update
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: fundingrecord_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFundingInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedFundingInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedFundingInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Funding'
+          description: ''
+    delete:
+      operationId: labs_funding_destroy
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: fundingrecord_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/institution-resources/:
+    get:
+      operationId: labs_institution_resources_list
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: query
+        name: category
+        schema:
+          type: string
+        description: ethics, funding, data_management, other
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Resource'
+          description: ''
+    post:
+      operationId: labs_institution_resources_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ResourceInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ResourceInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+          description: ''
+  /api/labs/{lab_id}/institution-resources/{institutionresource_id}/:
+    patch:
+      operationId: labs_institution_resources_partial_update
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: institutionresource_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedResourceInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedResourceInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedResourceInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+          description: ''
+    delete:
+      operationId: labs_institution_resources_destroy
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: institutionresource_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/integrations/{provider}/connect/:
     post:
       operationId: labs_integrations_connect_create
@@ -1478,6 +1758,215 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Provider'
+          description: ''
+  /api/labs/{lab_id}/inventory/:
+    get:
+      operationId: labs_inventory_list
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: query
+        name: category
+        schema:
+          type: string
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: ordering
+        schema:
+          type: string
+        description: A field name, '-' prefix for descending
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Search name, location, serial number, notes
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Inventory'
+          description: ''
+    post:
+      operationId: labs_inventory_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InventoryInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InventoryInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inventory'
+          description: ''
+  /api/labs/{lab_id}/inventory/{inventoryitem_id}/:
+    get:
+      operationId: labs_inventory_retrieve
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: inventoryitem_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inventory'
+          description: ''
+    patch:
+      operationId: labs_inventory_partial_update
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: inventoryitem_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inventory'
+          description: ''
+    delete:
+      operationId: labs_inventory_destroy
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: inventoryitem_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/inventory/export/:
+    get:
+      operationId: labs_inventory_export_retrieve
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: query
+        name: category
+        schema:
+          type: string
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: ordering
+        schema:
+          type: string
+        description: A field name, '-' prefix for descending
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Search name, location, serial number, notes
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
           description: ''
   /api/labs/{lab_id}/invites/:
     get:
@@ -1863,6 +2352,175 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReadAllResult'
+          description: ''
+  /api/labs/{lab_id}/onboarding-items/:
+    get:
+      operationId: labs_onboarding_items_list
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OnboardingItem'
+          description: ''
+    post:
+      operationId: labs_onboarding_items_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardingItemInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OnboardingItemInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OnboardingItemInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingItem'
+          description: ''
+  /api/labs/{lab_id}/onboarding-items/{onboardingitem_id}/:
+    patch:
+      operationId: labs_onboarding_items_partial_update
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: onboardingitem_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedOnboardingItemInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedOnboardingItemInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedOnboardingItemInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingItem'
+          description: ''
+    delete:
+      operationId: labs_onboarding_items_destroy
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: onboardingitem_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/onboarding-items/{onboardingitem_id}/completions/:
+    post:
+      operationId: labs_onboarding_items_completions_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: onboardingitem_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletionInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CompletionInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CompletionInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingItem'
           description: ''
   /api/labs/{lab_id}/project-members/{projectmembership_id}/:
     patch:
@@ -2666,6 +3324,81 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExternalLink'
           description: ''
+  /api/labs/{lab_id}/projects/{project_id}/funding/:
+    get:
+      operationId: labs_projects_funding_list
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Funding'
+          description: ''
+    post:
+      operationId: labs_projects_funding_create
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FundingInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FundingInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FundingInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Funding'
+          description: ''
   /api/labs/{lab_id}/projects/{project_id}/handover/:
     get:
       operationId: labs_projects_handover_retrieve
@@ -2943,6 +3676,149 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProjectMembership'
           description: ''
+  /api/labs/{lab_id}/projects/{project_id}/recruitment-entries/:
+    get:
+      operationId: labs_projects_recruitment_entries_list
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RecruitmentEntry'
+          description: ''
+    post:
+      operationId: labs_projects_recruitment_entries_create
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecruitmentEntryInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RecruitmentEntryInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecruitmentEntryInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecruitmentEntry'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/recruitment-plan/:
+    get:
+      operationId: labs_projects_recruitment_plan_retrieve
+      description: The project's target enrolment and notes (D136); no plan yet reads
+        as empty.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecruitmentPlan'
+          description: ''
+    patch:
+      operationId: labs_projects_recruitment_plan_partial_update
+      description: The project's target enrolment and notes (D136); no plan yet reads
+        as empty.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedRecruitmentPlanInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedRecruitmentPlanInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedRecruitmentPlanInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecruitmentPlan'
+          description: ''
   /api/labs/{lab_id}/projects/{project_id}/results/:
     get:
       operationId: labs_projects_results_list
@@ -3017,6 +3893,81 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Result'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/review-items/:
+    get:
+      operationId: labs_projects_review_items_list
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReviewItem'
+          description: ''
+    post:
+      operationId: labs_projects_review_items_create
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewItemInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReviewItemInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReviewItemInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewItem'
           description: ''
   /api/labs/{lab_id}/projects/{project_id}/tasks/:
     get:
@@ -3115,6 +4066,104 @@ paths:
               schema:
                 $ref: '#/components/schemas/Task'
           description: ''
+  /api/labs/{lab_id}/recruitment-entries/{recruitmententry_id}/:
+    get:
+      operationId: labs_recruitment_entries_retrieve
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: recruitmententry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecruitmentEntry'
+          description: ''
+    patch:
+      operationId: labs_recruitment_entries_partial_update
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: recruitmententry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedRecruitmentEntryInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedRecruitmentEntryInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedRecruitmentEntryInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecruitmentEntry'
+          description: ''
+    delete:
+      operationId: labs_recruitment_entries_destroy
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: recruitmententry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/results/{result_id}/:
     get:
       operationId: labs_results_retrieve
@@ -3238,6 +4287,104 @@ paths:
                 items:
                   $ref: '#/components/schemas/RetentionItem'
           description: ''
+  /api/labs/{lab_id}/review-items/{reviewitem_id}/:
+    get:
+      operationId: labs_review_items_retrieve
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: reviewitem_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewItem'
+          description: ''
+    patch:
+      operationId: labs_review_items_partial_update
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: reviewitem_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedReviewItemInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedReviewItemInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedReviewItemInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewItem'
+          description: ''
+    delete:
+      operationId: labs_review_items_destroy
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: reviewitem_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/search/:
     get:
       operationId: labs_search_retrieve
@@ -3259,7 +4406,7 @@ paths:
         schema:
           type: string
         description: 'Comma-separated: project, task, document, dataset, analysis,
-          result, decision, manuscript, ethics, link'
+          result, decision, manuscript, funding, review, ethics, link'
       tags:
       - labs
       security:
@@ -3271,6 +4418,78 @@ paths:
               schema:
                 $ref: '#/components/schemas/SearchResults'
           description: ''
+  /api/labs/{lab_id}/task-posts/{taskpost_id}/:
+    patch:
+      operationId: labs_task_posts_partial_update
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: taskpost_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTaskPostInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTaskPostInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTaskPostInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskPost'
+          description: ''
+    delete:
+      operationId: labs_task_posts_destroy
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: taskpost_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/tasks/{task_id}/:
     get:
       operationId: labs_tasks_retrieve
@@ -3375,6 +4594,235 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/tasks/{task_id}/attachments/:
+    post:
+      operationId: labs_tasks_attachments_create
+      description: |-
+        Routes under `L/tasks/<task_id>/...` (thread, links): the task is resolved first, so a
+        task the user cannot see is a 404, and its project drives the permission check.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskLinkInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TaskLinkInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TaskLinkInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: ''
+  /api/labs/{lab_id}/tasks/{task_id}/attachments/{attachment_id}/:
+    delete:
+      operationId: labs_tasks_attachments_destroy
+      description: |-
+        Routes under `L/tasks/<task_id>/...` (thread, links): the task is resolved first, so a
+        task the user cannot see is a 404, and its project drives the permission check.
+      parameters:
+      - in: path
+        name: attachment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: ''
+  /api/labs/{lab_id}/tasks/{task_id}/documents/:
+    post:
+      operationId: labs_tasks_documents_create
+      description: |-
+        Routes under `L/tasks/<task_id>/...` (thread, links): the task is resolved first, so a
+        task the user cannot see is a 404, and its project drives the permission check.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskLinkInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TaskLinkInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TaskLinkInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: ''
+  /api/labs/{lab_id}/tasks/{task_id}/documents/{document_id}/:
+    delete:
+      operationId: labs_tasks_documents_destroy
+      description: |-
+        Routes under `L/tasks/<task_id>/...` (thread, links): the task is resolved first, so a
+        task the user cannot see is a 404, and its project drives the permission check.
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: ''
+  /api/labs/{lab_id}/tasks/{task_id}/posts/:
+    get:
+      operationId: labs_tasks_posts_list
+      description: |-
+        Routes under `L/tasks/<task_id>/...` (thread, links): the task is resolved first, so a
+        task the user cannot see is a 404, and its project drives the permission check.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskPost'
+          description: ''
+    post:
+      operationId: labs_tasks_posts_create
+      description: |-
+        Routes under `L/tasks/<task_id>/...` (thread, links): the task is resolved first, so a
+        task the user cannot see is a 404, and its project drives the permission check.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskPostInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TaskPostInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TaskPostInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskPost'
+          description: ''
   /api/me/:
     get:
       operationId: me_retrieve
@@ -3589,6 +5037,7 @@ components:
       - attachment.downloaded
       - attachment.deleted
       - task.deleted
+      - task_post.deleted
       - deadline.deleted
       - dataset.created
       - dataset.updated
@@ -3626,6 +5075,27 @@ components:
       - external_link.removed
       - external_link.change_accepted
       - integration.searched
+      - inventory_item.created
+      - inventory_item.updated
+      - inventory_item.deleted
+      - inventory.exported
+      - onboarding_item.created
+      - onboarding_item.updated
+      - onboarding_item.deleted
+      - onboarding.completion_changed
+      - institution_resource.created
+      - institution_resource.updated
+      - institution_resource.deleted
+      - funding.created
+      - funding.updated
+      - funding.deleted
+      - review_item.created
+      - review_item.updated
+      - review_item.deleted
+      - recruitment_entry.created
+      - recruitment_entry.updated
+      - recruitment_entry.deleted
+      - recruitment_plan.updated
       type: string
       description: |-
         * `auth.login` - Auth Login
@@ -3655,6 +5125,7 @@ components:
         * `attachment.downloaded` - Attachment Downloaded
         * `attachment.deleted` - Attachment Deleted
         * `task.deleted` - Task Deleted
+        * `task_post.deleted` - Task Post Deleted
         * `deadline.deleted` - Deadline Deleted
         * `dataset.created` - Dataset Created
         * `dataset.updated` - Dataset Updated
@@ -3692,6 +5163,27 @@ components:
         * `external_link.removed` - External Link Removed
         * `external_link.change_accepted` - External Link Change Accepted
         * `integration.searched` - Integration Searched
+        * `inventory_item.created` - Inventory Item Created
+        * `inventory_item.updated` - Inventory Item Updated
+        * `inventory_item.deleted` - Inventory Item Deleted
+        * `inventory.exported` - Inventory Exported
+        * `onboarding_item.created` - Onboarding Item Created
+        * `onboarding_item.updated` - Onboarding Item Updated
+        * `onboarding_item.deleted` - Onboarding Item Deleted
+        * `onboarding.completion_changed` - Onboarding Completion Changed
+        * `institution_resource.created` - Institution Resource Created
+        * `institution_resource.updated` - Institution Resource Updated
+        * `institution_resource.deleted` - Institution Resource Deleted
+        * `funding.created` - Funding Created
+        * `funding.updated` - Funding Updated
+        * `funding.deleted` - Funding Deleted
+        * `review_item.created` - Review Item Created
+        * `review_item.updated` - Review Item Updated
+        * `review_item.deleted` - Review Item Deleted
+        * `recruitment_entry.created` - Recruitment Entry Created
+        * `recruitment_entry.updated` - Recruitment Entry Updated
+        * `recruitment_entry.deleted` - Recruitment Entry Deleted
+        * `recruitment_plan.updated` - Recruitment Plan Updated
     Analysis:
       type: object
       properties:
@@ -3963,24 +5455,43 @@ components:
         * `api_key` - api_key
         * `link_only` - link_only
         * `public` - public
-    CategoryEnum:
+    Category9e5Enum:
       enum:
-      - storage
-      - code
-      - writing
-      - data_capture
-      - protocols
-      - references
-      - repository
+      - equipment
+      - reagent
+      - consumable
+      - software_licence
+      - other
       type: string
       description: |-
-        * `storage` - storage
-        * `code` - code
-        * `writing` - writing
-        * `data_capture` - data_capture
-        * `protocols` - protocols
-        * `references` - references
-        * `repository` - repository
+        * `equipment` - Equipment
+        * `reagent` - Reagent
+        * `consumable` - Consumable
+        * `software_licence` - Software Licence
+        * `other` - Other
+    CategoryD5bEnum:
+      enum:
+      - ethics
+      - funding
+      - data_management
+      - other
+      type: string
+      description: |-
+        * `ethics` - Ethics
+        * `funding` - Funding
+        * `data_management` - Data Management
+        * `other` - Other
+    CompletionInput:
+      type: object
+      properties:
+        user:
+          type: string
+          format: uuid
+        done:
+          type: boolean
+      required:
+      - done
+      - user
     Conflict:
       type: object
       properties:
@@ -4262,6 +5773,10 @@ components:
         done:
           type: boolean
           readOnly: true
+        priority:
+          allOf:
+          - $ref: '#/components/schemas/PriorityEnum'
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -4275,6 +5790,7 @@ components:
       - done
       - due_date
       - id
+      - priority
       - project
       - title
       - updated_at
@@ -4289,6 +5805,8 @@ components:
           format: date
         done:
           type: boolean
+        priority:
+          $ref: '#/components/schemas/PriorityEnum'
       required:
       - due_date
       - title
@@ -4715,6 +6233,20 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Manuscript'
+        funding:
+          type: array
+          items:
+            $ref: '#/components/schemas/Funding'
+        review_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewItem'
+        recruitment_entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecruitmentEntry'
+        recruitment_plan:
+          $ref: '#/components/schemas/RecruitmentPlan'
       required:
       - analyses
       - attachments
@@ -4723,9 +6255,13 @@ components:
       - decisions
       - documents
       - exported_at
+      - funding
       - manuscripts
       - project
+      - recruitment_entries
+      - recruitment_plan
       - results
+      - review_items
       - tasks
     ExternalLink:
       type: object
@@ -4918,6 +6454,133 @@ components:
           format: uuid
       required:
       - provider
+    Funding:
+      type: object
+      description: 'D133: `amount` and `currency` are null for anyone who is not a
+        project lead.'
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        project:
+          type: string
+          format: uuid
+          readOnly: true
+        funder:
+          type: string
+          readOnly: true
+        program:
+          type: string
+          readOnly: true
+        award_number:
+          type: string
+          readOnly: true
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+        currency:
+          type: string
+          readOnly: true
+        start_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        end_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/Status1eeEnum'
+          readOnly: true
+        holder:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        notes:
+          type: string
+          readOnly: true
+        attachment:
+          allOf:
+          - $ref: '#/components/schemas/AttachmentRef'
+          readOnly: true
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - amount
+      - attachment
+      - award_number
+      - created_at
+      - created_by
+      - currency
+      - end_date
+      - funder
+      - holder
+      - id
+      - notes
+      - program
+      - project
+      - start_date
+      - status
+      - updated_at
+    FundingInput:
+      type: object
+      properties:
+        funder:
+          type: string
+          maxLength: 200
+        program:
+          type: string
+          maxLength: 300
+        award_number:
+          type: string
+          maxLength: 100
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          nullable: true
+        currency:
+          type: string
+          pattern: ^[A-Z]{3}$
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: '#/components/schemas/Status1eeEnum'
+        holder:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+        attachment:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - funder
     Handover:
       type: object
       properties:
@@ -5026,6 +6689,119 @@ components:
       required:
       - id
       - name
+    Inventory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        category:
+          allOf:
+          - $ref: '#/components/schemas/Category9e5Enum'
+          readOnly: true
+        location:
+          type: string
+          readOnly: true
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        unit:
+          type: string
+          readOnly: true
+        owner:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        serial_number:
+          type: string
+          readOnly: true
+        purchase_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        due_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusA7dEnum'
+          readOnly: true
+        notes:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - category
+      - created_at
+      - due_date
+      - id
+      - location
+      - name
+      - notes
+      - owner
+      - purchase_date
+      - quantity
+      - serial_number
+      - status
+      - unit
+      - updated_at
+    InventoryInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        category:
+          $ref: '#/components/schemas/Category9e5Enum'
+        location:
+          type: string
+          maxLength: 200
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        unit:
+          type: string
+          maxLength: 32
+        owner:
+          type: string
+          format: uuid
+          nullable: true
+        serial_number:
+          type: string
+          maxLength: 100
+        purchase_date:
+          type: string
+          format: date
+          nullable: true
+        due_date:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: '#/components/schemas/StatusA7dEnum'
+        notes:
+          type: string
+          maxLength: 5000
+      required:
+      - category
+      - name
     Invite:
       type: object
       properties:
@@ -5108,6 +6884,14 @@ components:
       - subtitle
       - title
       - url
+    Kind4ddEnum:
+      enum:
+      - new_member
+      - departing
+      type: string
+      description: |-
+        * `new_member` - New Member
+        * `departing` - Departing
     Lab:
       type: object
       properties:
@@ -5122,6 +6906,23 @@ components:
           allOf:
           - $ref: '#/components/schemas/Institution'
           readOnly: true
+        department:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        address:
+          type: string
+          readOnly: true
+        contact_email:
+          type: string
+          format: email
+          readOnly: true
+        website:
+          type: string
+          format: uri
+          readOnly: true
         my_role:
           type: string
           nullable: true
@@ -5132,11 +6933,16 @@ components:
             type: string
           readOnly: true
       required:
+      - address
+      - contact_email
+      - department
+      - description
       - id
       - institution
       - my_permissions
       - my_role
       - name
+      - website
     LabRoleEnum:
       enum:
       - pi
@@ -5451,6 +7257,7 @@ components:
       - task_unassigned
       - project_exported
       - integration_issue
+      - task_post
       type: string
       description: |-
         * `ethics_expiry` - Ethics Expiry
@@ -5460,6 +7267,71 @@ components:
         * `task_unassigned` - Task Unassigned
         * `project_exported` - Project Exported
         * `integration_issue` - Integration Issue
+        * `task_post` - Task Post
+    OnboardingItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/Kind4ddEnum'
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        url:
+          type: string
+          format: uri
+          readOnly: true
+        required:
+          type: boolean
+          readOnly: true
+        order:
+          type: integer
+          readOnly: true
+        completed_user_ids:
+          type: array
+          items:
+            type: string
+          readOnly: true
+      required:
+      - completed_user_ids
+      - description
+      - id
+      - kind
+      - order
+      - required
+      - title
+      - url
+    OnboardingItemInput:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/Kind4ddEnum'
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+        url:
+          type: string
+          maxLength: 500
+        required:
+          type: boolean
+        order:
+          type: integer
+          maximum: 100000
+          minimum: 0
+      required:
+      - kind
+      - title
     PaginatedAuditEventList:
       type: object
       required:
@@ -5555,6 +7427,8 @@ components:
           format: date
         done:
           type: boolean
+        priority:
+          $ref: '#/components/schemas/PriorityEnum'
     PatchedDecisionInput:
       type: object
       properties:
@@ -5630,29 +7504,111 @@ components:
           $ref: '#/components/schemas/ApprovalStatusEnum'
         restricted:
           type: boolean
-    PatchedLab:
+    PatchedFundingInput:
       type: object
       properties:
-        id:
+        funder:
+          type: string
+          maxLength: 200
+        program:
+          type: string
+          maxLength: 300
+        award_number:
+          type: string
+          maxLength: 100
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          nullable: true
+        currency:
+          type: string
+          pattern: ^[A-Z]{3}$
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: '#/components/schemas/Status1eeEnum'
+        holder:
           type: string
           format: uuid
-          readOnly: true
+          nullable: true
+        notes:
+          type: string
+        attachment:
+          type: string
+          format: uuid
+          nullable: true
+    PatchedInventoryInput:
+      type: object
+      properties:
         name:
           type: string
           maxLength: 200
-        institution:
-          allOf:
-          - $ref: '#/components/schemas/Institution'
-          readOnly: true
-        my_role:
+        category:
+          $ref: '#/components/schemas/Category9e5Enum'
+        location:
           type: string
+          maxLength: 200
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        unit:
+          type: string
+          maxLength: 32
+        owner:
+          type: string
+          format: uuid
           nullable: true
-          readOnly: true
-        my_permissions:
-          type: array
-          items:
-            type: string
-          readOnly: true
+        serial_number:
+          type: string
+          maxLength: 100
+        purchase_date:
+          type: string
+          format: date
+          nullable: true
+        due_date:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: '#/components/schemas/StatusA7dEnum'
+        notes:
+          type: string
+          maxLength: 5000
+    PatchedLabDetailsInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        institution_name:
+          type: string
+          maxLength: 200
+        department:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 5000
+        address:
+          type: string
+          maxLength: 1000
+        contact_email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        website:
+          type: string
+          maxLength: 300
     PatchedManuscriptInput:
       type: object
       properties:
@@ -5688,6 +7644,26 @@ components:
           type: string
           maxLength: 120
         preferences: {}
+    PatchedOnboardingItemInput:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/Kind4ddEnum'
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+        url:
+          type: string
+          maxLength: 500
+        required:
+          type: boolean
+        order:
+          type: integer
+          maximum: 100000
+          minimum: 0
     PatchedProjectInput:
       type: object
       properties:
@@ -5713,6 +7689,50 @@ components:
       properties:
         role:
           $ref: '#/components/schemas/ProjectRoleEnum'
+    PatchedRecruitmentEntryInput:
+      type: object
+      properties:
+        entry_date:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/StatusFccEnum'
+        count:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+        notes:
+          type: string
+          maxLength: 500
+    PatchedRecruitmentPlanInput:
+      type: object
+      properties:
+        target_enrolment:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+          nullable: true
+        notes:
+          type: string
+          maxLength: 5000
+    PatchedResourceInput:
+      type: object
+      properties:
+        category:
+          $ref: '#/components/schemas/CategoryD5bEnum'
+        title:
+          type: string
+          maxLength: 200
+        url:
+          type: string
+          maxLength: 500
+        description:
+          type: string
+          maxLength: 2000
+        order:
+          type: integer
+          maximum: 100000
+          minimum: 0
     PatchedResultInput:
       type: object
       properties:
@@ -5730,6 +7750,24 @@ components:
             type: string
             format: uuid
           maxItems: 200
+    PatchedReviewItemInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        reviewer:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          $ref: '#/components/schemas/Status2a9Enum'
+        due_date:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
     PatchedRole:
       type: object
       properties:
@@ -5758,6 +7796,12 @@ components:
         position:
           type: integer
           minimum: 0
+    PatchedTaskPostInput:
+      type: object
+      properties:
+        body:
+          type: string
+          maxLength: 5000
     PickerToken:
       type: object
       description: 'D70: the one response that carries an access token.'
@@ -5772,6 +7816,16 @@ components:
       - access_token
       - expires_in
       - scope
+    PriorityEnum:
+      enum:
+      - high
+      - medium
+      - low
+      type: string
+      description: |-
+        * `high` - High
+        * `medium` - Medium
+        * `low` - Low
     Project:
       type: object
       properties:
@@ -5814,6 +7868,15 @@ components:
           type: string
           format: date-time
           readOnly: true
+        last_activity_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        last_activity_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
         my_project_role:
           type: string
           nullable: true
@@ -5828,6 +7891,8 @@ components:
       - created_by
       - description
       - id
+      - last_activity_at
+      - last_activity_by
       - my_permissions
       - my_project_role
       - name
@@ -5946,7 +8011,7 @@ components:
         auth_type:
           $ref: '#/components/schemas/AuthTypeEnum'
         category:
-          $ref: '#/components/schemas/CategoryEnum'
+          $ref: '#/components/schemas/ProviderCategoryEnum'
         icon:
           type: string
         metadata_only:
@@ -6025,6 +8090,24 @@ components:
       - id
       - instance_url
       - status
+    ProviderCategoryEnum:
+      enum:
+      - storage
+      - code
+      - writing
+      - data_capture
+      - protocols
+      - references
+      - repository
+      type: string
+      description: |-
+        * `storage` - storage
+        * `code` - code
+        * `writing` - writing
+        * `data_capture` - data_capture
+        * `protocols` - protocols
+        * `references` - references
+        * `repository` - repository
     ReadAllResult:
       type: object
       properties:
@@ -6032,6 +8115,85 @@ components:
           type: integer
       required:
       - updated
+    RecruitmentEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        project:
+          type: string
+          format: uuid
+          readOnly: true
+        entry_date:
+          type: string
+          format: date
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusFccEnum'
+          readOnly: true
+        count:
+          type: integer
+          readOnly: true
+        notes:
+          type: string
+          readOnly: true
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - count
+      - created_at
+      - created_by
+      - entry_date
+      - id
+      - notes
+      - project
+      - status
+      - updated_at
+    RecruitmentEntryInput:
+      type: object
+      properties:
+        entry_date:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/StatusFccEnum'
+        count:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+        notes:
+          type: string
+          maxLength: 500
+      required:
+      - count
+      - entry_date
+      - status
+    RecruitmentPlan:
+      type: object
+      properties:
+        target_enrolment:
+          type: integer
+          readOnly: true
+          nullable: true
+        notes:
+          type: string
+          readOnly: true
+      required:
+      - notes
+      - target_enrolment
     Reference:
       type: object
       description: 'D95: a title is required; url is http(s) only; doi looks like
@@ -6056,6 +8218,55 @@ components:
             maxLength: 0
       required:
       - title
+    Resource:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        category:
+          $ref: '#/components/schemas/CategoryD5bEnum'
+        title:
+          type: string
+          maxLength: 200
+        url:
+          type: string
+          format: uri
+          maxLength: 500
+        description:
+          type: string
+        order:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+      required:
+      - category
+      - id
+      - title
+      - url
+    ResourceInput:
+      type: object
+      properties:
+        category:
+          $ref: '#/components/schemas/CategoryD5bEnum'
+        title:
+          type: string
+          maxLength: 200
+        url:
+          type: string
+          maxLength: 500
+        description:
+          type: string
+          maxLength: 2000
+        order:
+          type: integer
+          maximum: 100000
+          minimum: 0
+      required:
+      - category
+      - title
+      - url
     Result:
       type: object
       properties:
@@ -6184,6 +8395,79 @@ components:
       description: |-
         * `project` - project
         * `document` - document
+    ReviewItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        project:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        reviewer:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/Status2a9Enum'
+          readOnly: true
+        due_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        notes:
+          type: string
+          readOnly: true
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - created_by
+      - due_date
+      - id
+      - notes
+      - project
+      - reviewer
+      - status
+      - title
+      - updated_at
+    ReviewItemInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        reviewer:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          $ref: '#/components/schemas/Status2a9Enum'
+        due_date:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+      required:
+      - title
     Revision:
       type: object
       properties:
@@ -6294,6 +8578,56 @@ components:
             $ref: '#/components/schemas/SearchHit'
       required:
       - results
+    Status1eeEnum:
+      enum:
+      - applied
+      - awarded
+      - active
+      - closed
+      - declined
+      type: string
+      description: |-
+        * `applied` - Applied
+        * `awarded` - Awarded
+        * `active` - Active
+        * `closed` - Closed
+        * `declined` - Declined
+    Status2a9Enum:
+      enum:
+      - requested
+      - in_review
+      - changes_requested
+      - approved
+      type: string
+      description: |-
+        * `requested` - Requested
+        * `in_review` - In Review
+        * `changes_requested` - Changes Requested
+        * `approved` - Approved
+    StatusA7dEnum:
+      enum:
+      - active
+      - in_repair
+      - retired
+      - lost
+      type: string
+      description: |-
+        * `active` - Active
+        * `in_repair` - In Repair
+        * `retired` - Retired
+        * `lost` - Lost
+    StatusFccEnum:
+      enum:
+      - screened
+      - enrolled
+      - withdrawn
+      - completed
+      type: string
+      description: |-
+        * `screened` - Screened
+        * `enrolled` - Enrolled
+        * `withdrawn` - Withdrawn
+        * `completed` - Completed
     Task:
       type: object
       properties:
@@ -6331,6 +8665,19 @@ components:
           allOf:
           - $ref: '#/components/schemas/User'
           readOnly: true
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskDocument'
+          readOnly: true
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskAttachment'
+          readOnly: true
+        post_count:
+          type: integer
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -6341,16 +8688,50 @@ components:
           readOnly: true
       required:
       - assignee
+      - attachments
       - created_at
       - created_by
       - description
+      - documents
       - due_date
       - id
       - position
+      - post_count
       - project
       - status
       - title
       - updated_at
+    TaskAttachment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        original_filename:
+          type: string
+        content_type:
+          type: string
+        size_bytes:
+          type: integer
+      required:
+      - content_type
+      - id
+      - original_filename
+      - size_bytes
+    TaskDocument:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        version:
+          type: integer
+      required:
+      - id
+      - title
+      - version
     TaskInput:
       type: object
       description: '`status` + `position` also reorder: the task lands at that index
@@ -6376,6 +8757,56 @@ components:
           minimum: 0
       required:
       - title
+    TaskLinkInput:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+      required:
+      - id
+    TaskPost:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        task:
+          type: string
+          format: uuid
+          readOnly: true
+        author:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        body:
+          type: string
+          readOnly: true
+        edited_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - author
+      - body
+      - created_at
+      - edited_at
+      - id
+      - task
+    TaskPostInput:
+      type: object
+      properties:
+        body:
+          type: string
+          maxLength: 5000
+      required:
+      - body
     TaskStatusEnum:
       enum:
       - todo

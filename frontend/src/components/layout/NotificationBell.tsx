@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { notificationLink, useMarkRead, useNotifications } from "@/hooks/ethics";
 import { cn } from "@/lib/utils";
+import { UnreadBadge } from "./UnreadBadge";
 
 export function NotificationBell({ labId }: { labId: string }) {
   const { data = [] } = useNotifications(labId);
@@ -22,16 +23,9 @@ export function NotificationBell({ labId }: { labId: string }) {
         className="relative rounded-md p-1.5 text-muted-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4"
       >
         <Bell aria-hidden />
-        {unread.length > 0 && (
-          <span
-            data-testid="unread-count"
-            className="absolute -top-1 -right-1 grid min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground"
-          >
-            {unread.length}
-          </span>
-        )}
+        <UnreadBadge count={unread.length} className="absolute -top-1 -right-1" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-80 p-0">
+      <DropdownMenuContent align="end" className="w-80 p-0">
         <div className="flex items-center justify-between border-b px-3 py-2">
           <span className="text-sm font-semibold">Notifications</span>
           <Button

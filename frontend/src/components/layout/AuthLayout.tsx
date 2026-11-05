@@ -1,20 +1,32 @@
-import { Outlet } from "react-router";
+import { Outlet, useLocation } from "react-router";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 import { Toaster } from "@/components/ui/sonner";
 import { useCrumbs } from "@/hooks/crumbs";
-import { APP_NAME } from "@/lib/constants";
+import { Features, HeroText, LandingHeader } from "@/pages/LandingPage";
 
-/** Plain centred layout for pages people see before they are signed in. */
+/** Signed-out layout. Sign in and Register also show the product page around the form. */
 export function AuthLayout() {
   const crumbs = useCrumbs();
+  const { pathname } = useLocation();
+  const landing = pathname === "/login" || pathname === "/signup";
   return (
-    <div className="flex min-h-screen flex-col items-center bg-background px-4 py-12 text-foreground">
-      <div className="grid w-full max-w-md gap-6">
-        <p className="text-sm font-semibold">{APP_NAME}</p>
-        <Breadcrumbs items={crumbs} />
-        <main className="rounded-lg border p-6">
-          <Outlet />
-        </main>
+    <div className="min-h-screen bg-background text-foreground">
+      <LandingHeader />
+      <div className="mx-auto grid max-w-5xl gap-16 px-4 py-10 md:px-8">
+        <div
+          className={
+            landing ? "grid items-center gap-10 lg:grid-cols-2" : "mx-auto w-full max-w-md"
+          }
+        >
+          {landing && <HeroText />}
+          <div className="grid w-full max-w-md gap-4 justify-self-center lg:justify-self-end">
+            {!landing && <Breadcrumbs items={crumbs} />}
+            <main className="rounded-xl bg-muted p-6">
+              <Outlet />
+            </main>
+          </div>
+        </div>
+        {landing && <Features />}
       </div>
       <Toaster />
     </div>

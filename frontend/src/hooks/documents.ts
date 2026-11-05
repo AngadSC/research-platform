@@ -13,10 +13,12 @@ const listKey = (labId: string, projectId: string) =>
   ["labs", labId, "projects", projectId, "documents"] as const;
 const docKey = (labId: string, id: string) => ["labs", labId, "documents", id] as const;
 
-export function useDocuments(labId: string, projectId: string) {
+/** `pollMs` re-fetches on that interval while the tab is visible (the stale-document banner). */
+export function useDocuments(labId: string, projectId: string, pollMs?: number) {
   return useQuery({
     queryKey: listKey(labId, projectId),
     queryFn: () => api<DocumentRow[]>(`${base(labId)}/projects/${projectId}/documents/`),
+    refetchInterval: pollMs,
   });
 }
 

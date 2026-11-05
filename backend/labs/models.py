@@ -30,6 +30,12 @@ class Lab(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     institution = models.ForeignKey("core.Institution", on_delete=models.PROTECT)
     name = models.CharField(max_length=200)
+    # Lab details (Run 4, D146): free text shown in Admin > Lab details.
+    department = models.CharField(max_length=200, blank=True)
+    description = models.TextField(blank=True)
+    address = models.TextField(blank=True)
+    contact_email = models.EmailField(blank=True)
+    website = models.URLField(max_length=300, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -114,3 +120,124 @@ class Invite(LabScopedModel):
             and self.revoked_at is None
             and self.expires_at > timezone.now()
         )
+
+
+# ---------------------------------------------------------------- Run 4: admin area (D146-D151)
+
+
+class InventoryCategory(models.TextChoices):
+    EQUIPMENT = "equipment"
+    REAGENT = "reagent"
+    CONSUMABLE = "consumable"
+    SOFTWARE_LICENCE = "software_licence"
+    OTHER = "other"
+
+
+class InventoryStatus(models.TextChoices):
+    ACTIVE = "active"
+    IN_REPAIR = "in_repair"
+    RETIRED = "retired"
+    LOST = "lost"
+
+
+class InventoryItem(LabScopedModel):
+    """A lab-owned thing (D147). Editing needs manage_inventory; every lab member reads."""
+
+    permission_domain = "lab"
+
+    name = models.CharField(max_length=200)
+    category = models.CharField(max_length=24, choices=InventoryCategory.choices)
+    location = models.CharField(max_length=200, blank=True)
+    quantity = models.DecimalField(max_digits=12, decimal_places=2, default=1)
+    unit = models.CharField(max_length=32, blank=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    serial_number = models.CharField(max_length=100, blank=True)
+    purchase_date = models.DateField(null=True, blank=True)
+    due_date = models.DateField(null=True, blank=True)  # calibration or maintenance
+    status = models.CharField(
+        max_length=16, choices=InventoryStatus.choices, default=InventoryStatus.ACTIVE
+    )
+    notes = models.TextField(blank=True)
+
+    class Meta(LabScopedModel.Meta):
+        indexes = [models.Index(fields=["lab", "category"], name="inventory_lab_cat_idx")]
+        constraints = [
+            models.CheckConstraint(condition=Q(quantity__gte=0), name="inventory_quantity_gte0")
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class OnboardingKind(models.TextChoices):
+    NEW_MEMBER = "new_member"
+    DEPARTING = "departing"
+
+
+class OnboardingItem(LabScopedModel):
+    """One line of the onboarding or departure checklist (D148)."""
+
+    permission_domain = "lab"
+
+    kind = models.CharField(max_length=16, choices=OnboardingKind.choices)
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    url = models.URLField(max_length=500, blank=True)  # https only; validated in the serializer
+    required = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta(LabScopedModel.Meta):
+        indexes = [models.Index(fields=["lab", "kind", "order"], name="onboarding_lab_kind_idx")]
+
+    def __str__(self):
+        return self.title
+
+
+class OnboardingCompletion(LabScopedModel):
+    permission_domain = "lab"
+    lab_parents = ("item",)
+
+    item = models.ForeignKey(OnboardingItem, on_delete=models.CASCADE, related_name="completions")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+
+    class Meta(LabScopedModel.Meta):
+        constraints = [
+            models.UniqueConstraint(fields=["item", "user"], name="onboarding_completion_unique")
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} completed {self.item_id}"
+
+
+class ResourceCategory(models.TextChoices):
+    ETHICS = "ethics"
+    FUNDING = "funding"
+    DATA_MANAGEMENT = "data_management"
+    OTHER = "other"
+
+
+class InstitutionResource(LabScopedModel):
+    """A curated link to a university page (D126, D149). Lab-scoped, so one lab's edits never
+    reach another lab that shares the institution."""
+
+    permission_domain = "lab"
+
+    category = models.CharField(max_length=24, choices=ResourceCategory.choices)
+    title = models.CharField(max_length=200)
+    url = models.URLField(max_length=500)  # https only; validated in the serializer
+    description = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta(LabScopedModel.Meta):
+        constraints = [
+            models.UniqueConstraint(fields=["lab", "url"], name="institution_resource_url_unique")
+        ]
+        indexes = [models.Index(fields=["lab", "category", "order"], name="instres_lab_cat_idx")]
+
+    def __str__(self):
+        return self.title

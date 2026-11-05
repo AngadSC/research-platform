@@ -38,4 +38,34 @@ urlpatterns = [
         views.TaskDetailView.as_view(),
         name="task-detail",
     ),
+    path(
+        "labs/<uuid:lab_id>/tasks/<uuid:task_id>/posts/",
+        views.TaskPostListCreateView.as_view(),
+        name="taskpost-list",
+    ),
+    path(
+        "labs/<uuid:lab_id>/task-posts/<uuid:taskpost_id>/",
+        views.TaskPostDetailView.as_view(),
+        name="taskpost-detail",
+    ),
+    path(
+        "labs/<uuid:lab_id>/tasks/<uuid:task_id>/documents/",
+        views.TaskDocumentAddView.as_view(),
+        name="task-document-add",
+    ),
+    path(
+        "labs/<uuid:lab_id>/tasks/<uuid:task_id>/documents/<uuid:document_id>/",
+        views.TaskDocumentRemoveView.as_view(),
+        name="task-document-remove",
+    ),
+    path(
+        "labs/<uuid:lab_id>/tasks/<uuid:task_id>/attachments/",
+        views.TaskAttachmentAddView.as_view(),
+        name="task-attachment-add",
+    ),
+    path(
+        "labs/<uuid:lab_id>/tasks/<uuid:task_id>/attachments/<uuid:attachment_id>/",
+        views.TaskAttachmentRemoveView.as_view(),
+        name="task-attachment-remove",
+    ),
 ]

@@ -24,9 +24,18 @@ Notation: `name: Type [constraints]`. Every `LabScopedModel` also has `id`, `lab
 ### labs
 | Model | Fields | Constraints / indexes |
 |---|---|---|
-| `Lab` (not LabScoped: it is the tenant) | `id`, `institution` FK PROTECT, `name` char(200), `created_by` FK User PROTECT, `created_at`, `updated_at` | index `(institution)` |
+| `Lab` (not LabScoped: it is the tenant) | `id`, `institution` FK PROTECT, `name` char(200), `department`, `description`, `address`, `contact_email`, `website` (blank allowed, D146), `created_by` FK User PROTECT, `created_at`, `updated_at` | index `(institution)` |
 | `LabMembership` | `user` FK User PROTECT, `role` choice `pi\|lab_admin\|member\|viewer`, `invited_by` FK User PROTECT null | unique `(lab, user)`; index `(user)` |
 | `Invite` | `email` (stored lower-cased), `role` lab-role choice, `token_hash` char(64) unique (sha256 hex), `invited_by` FK User PROTECT, `expires_at` (`created_at + 7 days`), `accepted_at` null, `accepted_by` FK User PROTECT null, `revoked_at` null | partial unique `(lab, email)` where `accepted_at IS NULL AND revoked_at IS NULL`; index `(expires_at)` |
+
+Admin area (Run 4, D146-D151), all lab-level (`permission_domain = "lab"`):
+
+| Model | Fields | Constraints / indexes |
+|---|---|---|
+| `InventoryItem` | `name`, `category` choice `equipment`, `reagent`, `consumable`, `software_licence`, `other`; `location`, `quantity` decimal >= 0, `unit`, `owner` FK User PROTECT null (a lab member, checked in the service), `serial_number`, `purchase_date` null, `due_date` null (calibration or maintenance), `status` choice `active`, `in_repair`, `retired`, `lost`; `notes` | index `(lab, category)`; check `quantity >= 0` |
+| `OnboardingItem` | `kind` choice `new_member`, `departing`; `title`, `description`, `url` (https), `required` bool, `order` | index `(lab, kind, order)` |
+| `OnboardingCompletion` | `item` FK CASCADE, `user` FK User PROTECT, `completed_by` FK User PROTECT | `lab_parents=("item",)`; composite lab FK via `LabForeignKey`; unique `(item, user)` |
+| `InstitutionResource` | `category` choice `ethics`, `funding`, `data_management`, `other`; `title`, `url` (https only, no credentials), `description`, `order` | unique `(lab, url)`; index `(lab, category, order)` |
 
 The invite token is `secrets.token_urlsafe(32)` and appears only in the emailed link. The database stores only `sha256(token)`, and lookups hash the token they receive. An invite is usable only if it is not expired, not accepted and not revoked. Accepting it requires a logged-in user whose verified email matches `Invite.email` (D25). Accepting creates the `LabMembership` and sets `accepted_*` in one transaction. Only a PI can invite someone with the role `pi`.
 
@@ -36,7 +45,8 @@ The invite token is `secrets.token_urlsafe(32)` and appears only in the emailed 
 | `Project` | `name` char(200), `description` text, `status` choice `planning\|active\|paused\|completed\|archived`, `start_date` null, `created_by` FK User PROTECT, `retain_until` date null, `retention_note` text, `deleted_at` null | `project_path = ""` (itself); index `(lab, deleted_at)`, `(lab, retain_until)` |
 | `ProjectMembership` | `project` FK CASCADE, `user` FK User PROTECT, `role` choice `lead\|contributor\|viewer` | `lab_parents=("project",)`; unique `(project, user)`; index `(lab, user)`. The service requires a `LabMembership` in the same lab. |
 | `ProjectDeadline` | `project` FK CASCADE, `title` char(200), `due_date` date, `done` bool | `lab_parents=("project",)`; index `(project, due_date)` |
-| `Task` | `project` FK CASCADE, `title` char(300), `description` text, `assignee` FK User PROTECT null, `due_date` null, `status` choice `todo\|in_progress\|done`, `position` int (board order), `created_by` FK User PROTECT | `lab_parents=("project",)`; index `(project, status, position)`, `(lab, assignee)` |
+| `Task` | `project` FK CASCADE, `title` char(300), `description` text, `assignee` FK User PROTECT null, `due_date` null, `status` choice `todo\|in_progress\|done`, `position` int (board order), `created_by` FK User PROTECT, `documents` M2M Document, `attachments` M2M Attachment (same project, D141) | `lab_parents=("project",)`; index `(project, status, position)`, `(lab, assignee)` |
+| `TaskPost` (D142) | `task` FK CASCADE, `author` FK User PROTECT, `body` text (max 5,000 in the API), `edited_at` null | `lab_parents=("task",)`, `project_path="task__project"`; composite `(task_id, lab_id)` FK; index `(task, created_at)` |
 
 ### documents
 | Model | Fields | Constraints / indexes |
@@ -68,7 +78,7 @@ For all of these, `project_path="project"`. Every M2M target must be in the **sa
 ### notifications (in the `core` app)
 | Model | Fields | Constraints / indexes |
 |---|---|---|
-| `Notification` | `recipient` FK User PROTECT, `kind` choice `ethics_expiry\|retention_due\|invite_accepted\|task_assigned`, `title`, `body`, `target_type` char(64), `target_id` UUID null, `dedupe_key` char(200), `read_at` null | unique `(recipient, dedupe_key)`; index `(lab, recipient, read_at, created_at)` |
+| `Notification` | `recipient` FK User PROTECT, `kind` choice `ethics_expiry\|retention_due\|invite_accepted\|task_assigned\|task_post`, `title`, `body`, `target_type` char(64), `target_id` UUID null, `dedupe_key` char(200), `read_at` null | unique `(recipient, dedupe_key)`; index `(lab, recipient, read_at, created_at)` |
 
 ### audit
 | Model | Fields | Constraints / indexes |
@@ -126,7 +136,8 @@ class LabScopedQuerySet(QuerySet):
 class Perm(StrEnum):  # lab-level
     VIEW_LAB, MANAGE_LAB, MANAGE_MEMBERS, MANAGE_BILLING, VIEW_AUDIT_LOG,
     CREATE_PROJECT, VIEW_ETHICS, EDIT_ETHICS, VIEW_RETENTION,
-    MANAGE_INTEGRATIONS, MANAGE_LAB_INTEGRATIONS          # section 9
+    MANAGE_INTEGRATIONS, MANAGE_LAB_INTEGRATIONS,         # section 9
+    MANAGE_INVENTORY                                      # Run 4, D147
                       # project-level
     VIEW_PROJECT, EDIT_PROJECT, EDIT_CONTENT, MANAGE_PROJECT_MEMBERS, EXPORT, DELETE_PROJECT
     # pseudo: PUBLIC, AUTHENTICATED
@@ -164,6 +175,7 @@ class HasPerm(BasePermission)   # DRF; reads view.perms
 | delete_project | Y | Y | - | - |
 | manage_integrations (connect and disconnect your own accounts, section 9) | Y | Y | Y | Y |
 | manage_lab_integrations (see and revoke any member's connected account) | Y | Y | - | - |
+| manage_inventory (add, edit, delete inventory items; every member reads them, D147) | Y | Y | Y | - |
 
 Only a PI can grant, change or remove the `pi` role. A lab must always have at least one PI (the service rejects the change with 400).
 
@@ -206,7 +218,11 @@ def record(action: AuditAction, *, actor: User | None, lab: Lab | None,
 | `integration.connected` (OAuth or API key), `integration.disconnected` (own account), `integration.revoked` (someone else's, or lifecycle with actor null), `integration.refresh_failed` (actor null, `actor_label="integrations:refresh"`; also an API key answered with 401) | `integrations.services` (section 9) |
 | `external_link.created`, `external_link.removed`, `external_link.change_accepted` | the external-link services (section 9) |
 | `integration.picker_token_issued`, `integration.searched` (provider, target, result count; never the query) | the picker-token view; `integrations.services.search_items` (section 9) |
+| `task_post.deleted` | `projects.services.delete_post` |
 | `handover.generated` | handover views |
+| `inventory_item.created`, `.updated`, `.deleted`, `inventory.exported` | `labs.admin_services`, inventory export view (D147) |
+| `onboarding_item.created`, `.updated`, `.deleted`, `onboarding.completion_changed` | `labs.admin_services` (D148) |
+| `institution_resource.created`, `.updated`, `.deleted` | `labs.admin_services`; starter loads use `actor_label job:institution_resources` (D149) |
 
 Creating and editing ordinary content is not audited, because revisions and `updated_by` already cover it. Role changes are the "permission changes" that SPEC §2 phase 2 asks for.
 
@@ -234,6 +250,10 @@ Creating and editing ordinary content is not audited, because revisions and `upd
 | 3 | PATCH, DELETE | `L/deadlines/<projectdeadline_id>/` | edit_project |
 | 3 | GET / POST | `P/tasks/` | view_project / edit_content |
 | 3 | GET / PATCH, DELETE | `L/tasks/<task_id>/` | view_project / edit_content |
+| 4 | GET / POST | `L/tasks/<task_id>/posts/` (the task's update thread, D142) | view_project / edit_content |
+| 4 | PATCH, DELETE | `L/task-posts/<taskpost_id>/` (PATCH: author only; DELETE: author or edit_project; deletion is audited) | edit_content |
+| 4 | POST | `L/tasks/<task_id>/documents/`, `L/tasks/<task_id>/attachments/` (body `{id}`, same project, idempotent, D141) | edit_content |
+| 4 | DELETE | `L/tasks/<task_id>/documents/<document_id>/`, `L/tasks/<task_id>/attachments/<attachment_id>/` | edit_content |
 | 3 | GET / POST | `P/documents/` | view_project / edit_content |
 | 3 | GET / PUT, DELETE | `L/documents/<document_id>/` (PUT takes `base_version`; a stale save gets 409) | view_project / edit_content |
 | 3 | GET | `L/documents/<document_id>/revisions/` and `.../revisions/<int:version>/` | view_project |
@@ -251,6 +271,15 @@ Creating and editing ordinary content is not audited, because revisions and `upd
 | 5 | GET | `L/notifications/` (own notifications only) | view_lab |
 | 5 | POST | `L/notifications/<notification_id>/read/` (another user's notification returns 404), `L/notifications/read-all/` | view_lab |
 | 5 | GET | `L/retention/due/` | view_retention |
+| R4 | PATCH | `L/` also takes `department`, `description`, `address`, `contact_email`, `website`, `institution_name` (D146) | manage_lab |
+| R4 | GET / POST | `L/institution-resources/?category=` | view_lab / manage_lab |
+| R4 | PATCH, DELETE | `L/institution-resources/<institutionresource_id>/` | manage_lab |
+| R4 | GET / POST | `L/onboarding-items/` | manage_lab |
+| R4 | PATCH, DELETE | `L/onboarding-items/<onboardingitem_id>/` | manage_lab |
+| R4 | POST | `L/onboarding-items/<onboardingitem_id>/completions/` (`{user, done}`) | manage_lab |
+| R4 | GET / POST | `L/inventory/?q=&category=&ordering=` | view_lab / manage_inventory |
+| R4 | GET | `L/inventory/export/` (CSV) | view_lab |
+| R4 | GET / PATCH, DELETE | `L/inventory/<inventoryitem_id>/` | view_lab / manage_inventory |
 | 6 | GET | `L/members/<membership_id>/handover/` | manage_members, or the target is the requester |
 | 6 | GET | `P/handover/?user=<user_id>` | manage_project_members |
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Menu } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { Outlet, useNavigate } from "react-router";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,7 +11,11 @@ import { useLabs } from "@/hooks/workspace";
 import { useRegisterCommands, type Command } from "@/lib/commands";
 import { CommandPalette } from "./CommandPalette";
 import { navItems } from "@/lib/nav";
-import { APP_NAME } from "@/lib/constants";
+import { APP_NAME, MOD_KEY, OPEN_SEARCH_EVENT } from "@/lib/constants";
+import { useMe } from "@/hooks/workspace";
+import { useAccountTheme } from "@/lib/theme";
+import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import { NotificationBell } from "./NotificationBell";
 import { Sidebar } from "./Sidebar";
 
 export function AppShell() {
@@ -21,6 +25,7 @@ export function AppShell() {
   const { data: labs } = useLabs();
   const { data: projects } = useProjects(labId);
   const [navOpen, setNavOpen] = useState(false);
+  useAccountTheme((useMe().data as { preferences?: unknown } | undefined)?.preferences);
 
   // Below md the sidebar is a drawer: Escape closes it.
   useEffect(() => {
@@ -74,10 +79,11 @@ export function AppShell() {
           />
         )}
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex items-center gap-2 border-b px-3 py-2 print:hidden md:hidden">
+          <header className="flex items-center gap-2 px-4 py-3 print:hidden md:px-8">
             <Button
               variant="ghost"
               size="icon"
+              className="md:hidden"
               aria-label="Open navigation"
               aria-controls="app-sidebar"
               aria-expanded={navOpen}
@@ -85,10 +91,26 @@ export function AppShell() {
             >
               <Menu aria-hidden />
             </Button>
-            <span className="text-sm font-semibold">{APP_NAME}</span>
+            <span className="text-sm font-semibold md:hidden">{APP_NAME}</span>
+            <div className="ml-auto flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                aria-label="Search"
+                onClick={() => window.dispatchEvent(new Event(OPEN_SEARCH_EVENT))}
+              >
+                <Search aria-hidden />
+                <span className="hidden sm:inline">Search</span>
+                <kbd className="hidden rounded bg-background px-1.5 text-xs font-medium text-muted-foreground sm:inline">
+                  {MOD_KEY} F
+                </kbd>
+              </Button>
+              {labId && <NotificationBell labId={labId} />}
+              <ThemeToggle />
+            </div>
           </header>
           <main className="min-h-0 flex-1 overflow-y-auto print:overflow-visible">
-            <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 print:max-w-none print:px-0">
+            <div className="mx-auto max-w-5xl px-4 py-4 md:px-8 print:max-w-none print:px-0">
               <div className="mb-4 print:hidden">
                 <Breadcrumbs items={crumbs} />
               </div>

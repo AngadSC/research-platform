@@ -42,8 +42,8 @@ test("trace a result and a manuscript back to dataset version and commit in two 
 test("?focus opens the item's panel", async ({ page }) => {
   await login(page, "lead");
   await openProject(page);
-  await page.getByRole("link", { name: "Research" }).click();
-  await page.getByRole("link", { name: "Results" }).click();
+  await page.getByRole("link", { name: "Workflow" }).click();
+  await page.getByRole("link", { name: "Analysis", exact: true }).click();
   await page.getByText("Reaction time effect (FAKE)").click();
   await expect(page.getByRole("navigation", { name: /breadcrumb/i })).toContainText(
     "Reaction time effect (FAKE)",

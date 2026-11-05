@@ -8,9 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Separator } from "@/components/ui/separator";
-import { NotificationBell } from "@/components/layout/NotificationBell";
-import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import { UnreadBadge, useUnreadCount } from "@/components/layout/UnreadBadge";
 import { useLogout } from "@/hooks/auth";
 import { useCurrentLabId } from "@/hooks/crumbs";
 import { useProjects } from "@/hooks/projects";
@@ -22,9 +20,9 @@ import { cn } from "@/lib/utils";
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4",
+    "flex items-center gap-2 rounded-md px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4",
     isActive
-      ? "bg-accent font-medium text-accent-foreground"
+      ? "bg-primary/10 font-semibold text-primary"
       : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
   );
 
@@ -32,19 +30,22 @@ function LabSwitcher({
   labs,
   current,
   onNavigate,
+  unread,
 }: {
   labs: Lab[];
   current: Lab | undefined;
   onNavigate: () => void;
+  unread: number;
 }) {
   const navigate = useNavigate();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Switch lab"
-        className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-sm font-semibold hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <span className="truncate">{current?.name ?? "Select a lab"}</span>
+        <UnreadBadge count={unread} className="ml-auto" />
         <ChevronsUpDown className="size-4 shrink-0 opacity-60" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
@@ -81,25 +82,20 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   const { data: projects = [] } = useProjects(labId);
   const navigate = useNavigate();
   const current = labs.find((l) => l.id === labId);
+  const unread = useUnreadCount(labId);
   return (
     <aside
       id="app-sidebar"
       className={cn(
-        "w-64 shrink-0 flex-col gap-4 border-r bg-sidebar p-3 print:hidden",
+        "w-64 shrink-0 flex-col gap-6 bg-sidebar p-4 print:hidden",
         // Below md the sidebar is a drawer that only exists while open.
         open ? "fixed inset-y-0 left-0 z-50 flex md:static md:z-auto" : "hidden md:flex",
       )}
     >
       <div>
         <p className="px-2 pb-1 text-xs text-muted-foreground">{APP_NAME}</p>
-        <div className="flex items-center gap-1">
-          <div className="min-w-0 flex-1">
-            <LabSwitcher labs={labs} current={current} onNavigate={onClose} />
-          </div>
-          {labId && <NotificationBell labId={labId} />}
-        </div>
+        <LabSwitcher labs={labs} current={current} onNavigate={onClose} unread={unread} />
       </div>
-      <Separator />
       {labId && (
         <nav aria-label="Projects" className="grid gap-0.5">
           <div className="flex items-center justify-between px-2 pb-1">
@@ -135,6 +131,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           <NavLink key={to} to={to} end={end} className={linkClass} onClick={onClose}>
             <Icon aria-hidden />
             {label}
+            {to.endsWith("/notifications") && <UnreadBadge count={unread} className="ml-auto" />}
           </NavLink>
         ))}
         <button
@@ -146,10 +143,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           Sign out
         </button>
       </nav>
-      <div className="mt-auto flex items-center justify-between">
-        <span className="px-2 text-xs text-muted-foreground">Ctrl K to search</span>
-        <ThemeToggle />
-      </div>
     </aside>
   );
 }

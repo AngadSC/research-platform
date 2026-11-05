@@ -76,9 +76,22 @@ class Command(BaseCommand):
             with transaction.atomic():
                 self.seed()
             self.stdout.write("Seeded pilot data.")
+        self.seed_institution()
         self.seed_drive()
         self.seed_links()
         self.summary()
+
+    def seed_institution(self):
+        """Point the demo lab at the University of Alberta."""
+        from core.institution_starters import UALBERTA
+        from core.models import Institution
+        from labs.admin_services import apply_starter_resources
+
+        lab = Lab.objects.get(name=LAB_NAME)
+        if lab.institution.name != UALBERTA:
+            lab.institution, _ = Institution.objects.get_or_create(name=UALBERTA)
+            lab.save()
+        apply_starter_resources(lab)
 
     def make_user(self, email, display_name, lab=None, role=None):
         user = User.objects.create_user(email=email, password=PASSWORD, display_name=display_name)

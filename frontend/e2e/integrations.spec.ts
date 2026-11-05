@@ -16,7 +16,7 @@ test("paste an Overleaf link onto a manuscript with a title, then remove it", as
   await login(page, "lead");
   await openProject(page);
   const base = page.url().replace(/\/(overview|tasks|documents|files).*$/, "");
-  await page.goto(`${base}/research/manuscripts`);
+  await page.goto(`${base}/workflow/manuscript`);
   await page.getByRole("row").nth(1).click();
 
   const title = `e2e Overleaf ${Date.now()}`;

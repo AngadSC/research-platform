@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useBlocker, useParams } from "react-router";
 import { toast } from "sonner";
 import { ConflictDialog } from "@/components/documents/ConflictDialog";
+import { StaleDocumentBanner } from "@/components/documents/StaleDocumentBanner";
 import { RevisionsPanel } from "@/components/documents/RevisionsPanel";
 import { LinkedFiles } from "@/components/shared/LinkedFiles";
 import { FormField } from "@/components/shared/FormField";
@@ -46,6 +47,7 @@ function DocumentEditor({
   const [initial] = useState<unknown[]>(() => (Array.isArray(doc.content) ? doc.content : []));
   const content = useRef<unknown[]>(initial);
   const version = useRef(doc.version);
+  const [savedVersion, setSavedVersion] = useState(doc.version);
 
   const send = useCallback(
     (baseVersion: number) =>
@@ -62,6 +64,7 @@ function DocumentEditor({
         {
           onSuccess: (d) => {
             version.current = d.version;
+            setSavedVersion(d.version);
             setDirty(false);
             setConflict(null);
             toast.success("Saved");
@@ -143,6 +146,14 @@ function DocumentEditor({
           </Button>
         )}
       </div>
+      <StaleDocumentBanner
+        labId={labId}
+        projectId={projectId}
+        documentId={doc.id}
+        localVersion={savedVersion}
+        dirty={dirty}
+        onReload={() => void reload()}
+      />
       {!canEdit && (
         <p className="text-xs text-muted-foreground">You have read-only access to this document.</p>
       )}

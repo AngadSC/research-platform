@@ -5,7 +5,8 @@ from rest_framework.throttling import ScopedRateThrottle
 
 from core.permissions import Perm, labs_for
 from core.views import LabScopedViewMixin
-from labs import services
+from labs import admin_services, services
+from labs.admin_serializers import LabDetailsInputSerializer
 from labs.models import Invite, LabMembership
 from labs.serializers import (
     InviteCreateSerializer,
@@ -47,11 +48,13 @@ class LabDetailView(LabScopedViewMixin, generics.GenericAPIView):
     def get(self, request, lab_id):
         return Response(self.get_serializer(request.lab).data)
 
+    @extend_schema(request=LabDetailsInputSerializer, responses=LabSerializer)
     def patch(self, request, lab_id):
-        ser = self.get_serializer(request.lab, data=request.data, partial=True)
+        ser = LabDetailsInputSerializer(data=request.data, partial=True)
         ser.is_valid(raise_exception=True)
-        name = ser.validated_data.get("name", request.lab.name)
-        lab = services.update_lab(lab=request.lab, user=request.user, name=name, request=request)
+        lab = admin_services.update_lab_details(
+            lab=request.lab, user=request.user, data=ser.validated_data, request=request
+        )
         return Response(self.get_serializer(lab).data)
 
 

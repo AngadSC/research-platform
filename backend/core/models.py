@@ -73,6 +73,8 @@ class NotificationKind(models.TextChoices):
     TASK_UNASSIGNED = "task_unassigned"
     PROJECT_EXPORTED = "project_exported"
     INTEGRATION_ISSUE = "integration_issue"
+    # Run 4
+    TASK_POST = "task_post"
 
 
 class Notification(LabScopedModel):

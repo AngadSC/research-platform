@@ -1,12 +1,25 @@
-import { Archive, Bell, FileCheck2, History, Home, Plug, ShieldCheck, Users } from "lucide-react";
+import {
+  Archive,
+  Bell,
+  Boxes,
+  History,
+  Home,
+  Plug,
+  Settings,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 
 /** Sidebar and palette links. Lab pages only appear once a lab is selected. */
 export function navItems(labId?: string, permissions: string[] = []) {
   return [
     { to: "/", label: "Home", icon: Home, end: true },
     ...(labId ? [{ to: `/labs/${labId}/members`, label: "Members", icon: Users, end: false }] : []),
-    ...(labId && permissions.includes("view_ethics")
-      ? [{ to: `/labs/${labId}/ethics`, label: "Ethics approvals", icon: FileCheck2, end: false }]
+    ...(labId
+      ? [{ to: `/labs/${labId}/inventory`, label: "Inventory", icon: Boxes, end: false }]
+      : []),
+    ...(labId && permissions.includes("manage_lab")
+      ? [{ to: `/labs/${labId}/admin`, label: "Admin", icon: ShieldCheck, end: false }]
       : []),
     ...(labId
       ? [{ to: `/labs/${labId}/notifications`, label: "Notifications", icon: Bell, end: false }]
@@ -27,6 +40,6 @@ export function navItems(labId?: string, permissions: string[] = []) {
           },
         ]
       : []),
-    { to: "/account", label: "Account", icon: ShieldCheck, end: false },
+    { to: "/settings", label: "Settings", icon: Settings, end: false },
   ];
 }

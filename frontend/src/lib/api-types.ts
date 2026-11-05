@@ -27,6 +27,10 @@ export type Deadline = Schemas["Deadline"];
 export type DeadlineInput = Schemas["DeadlineInput"];
 export type Task = Schemas["Task"];
 export type TaskInput = Schemas["TaskInput"];
+export type TaskPost = Schemas["TaskPost"];
+export type TaskDocument = Schemas["TaskDocument"];
+export type TaskAttachment = Schemas["TaskAttachment"];
+export type TaskView = "board" | "list";
 export type Attachment = Schemas["Attachment"];
 export type AttachmentRef = Schemas["AttachmentRef"];
 export type TaskStatus = Schemas["TaskStatusEnum"];
@@ -120,3 +124,28 @@ export type EthicsApprovalInput = Schemas["EthicsApprovalInput"];
 export type ApprovalStatus = Schemas["ApprovalStatusEnum"];
 export type AppNotification = Schemas["Notification"];
 export type RetentionItem = Schemas["RetentionItem"];
+
+// Admin area (Run 4)
+export type InventoryItem = Schemas["Inventory"];
+export type InventoryInput = Schemas["InventoryInput"];
+export type OnboardingItem = Schemas["OnboardingItem"];
+export type OnboardingItemInput = Schemas["OnboardingItemInput"];
+export type InstitutionResource = Schemas["Resource"];
+export type InstitutionResourceInput = Schemas["ResourceInput"];
+export type ResourceCategory = InstitutionResourceInput["category"];
+export const RESOURCE_CATEGORIES: { value: ResourceCategory; label: string }[] = [
+  { value: "ethics", label: "Ethics" },
+  { value: "funding", label: "Funding" },
+  { value: "data_management", label: "Data management" },
+  { value: "other", label: "Other" },
+];
+
+// Project workflow (Run 4)
+export type Funding = Schemas["Funding"];
+export type FundingInput = Schemas["FundingInput"];
+export type ReviewItem = Schemas["ReviewItem"];
+export type ReviewItemInput = Schemas["ReviewItemInput"];
+export type RecruitmentEntry = Schemas["RecruitmentEntry"];
+export type RecruitmentEntryInput = Schemas["RecruitmentEntryInput"];
+export type RecruitmentPlan = Schemas["RecruitmentPlan"];
+export type DeadlinePriority = Schemas["PriorityEnum"];

@@ -1,5 +1,58 @@
 # Handoff
 
+## Run 4: founder's change list (2026-11-05)
+
+Built, tested and pushed. Decisions are D125–D151 in `docs/DECISIONS.md`, and limitations are below. Screenshots 44–57 show the new screens.
+
+- **Look:** white base with high-contrast red, green, amber and indigo buttons, status badges and tabs (one shared `TabNav`). Dark mode has a header toggle saved to your account. The board colours are yellow To do, orange In progress and green Done.
+- **Landing page:** a product page at `/` with Sign in and Register at the top right.
+- **Search:** Ctrl/Cmd+F (and Ctrl/Cmd+K) opens search. Inside text fields, documents and PDFs, Ctrl+F stays the browser's own find.
+- **Unread badges** on Notifications, the lab entry and the bell.
+- **Project Workflow tab:** Funding, Ethics (approvals linked to the project, plus University of Alberta resources), Participants (counts only, no personal data), Data, Analysis, Manuscript and Review. Ethics left the sidebar; the lab-wide list is in Admin.
+- **Overview:** high, medium and low deadline priorities, and "Last edited … by …".
+- **Tasks:**
+  - a detail drawer with assignee and status
+  - attached documents and files
+  - a task thread
+  - the board is the default; switch to list in Settings or on the toggle
+- **Admin tab** (PI and lab admin): lab details, the onboarding checklist, inventory with CSV export, institution resources, and links to the audit log, retention and ethics.
+- **Settings:** one page for profile, appearance, default task view, notifications, security and integrations.
+- **Not built:** email inbox connection (D126; a per-project forwarding address is the cheaper option if you want it) and true real-time co-editing (D145; documents auto-refresh instead).
+- **Tests:**
+  - backend: 2,541 passed, 66 skipped
+  - permission matrix: 1,404 cases
+  - Vitest: 212
+  - Playwright: 23, with the Overleaf spec flaky once
+  - lint, types and licenses: clean
+- **Database:** the dev database is local Postgres in Docker on this PC (volume `research-platform_pgdata`), not hosted anywhere.
+
+## Run 4 limitations
+
+Each agent adds its own bullets here.
+
+- **Admin: University of Alberta starter links are incomplete (D149).** Verified and included (each fetched and confirmed official): Research Ethics Office, ARISE support page, Internal research funding, Institutional approval for grant applications (Research Administrative Services), Institutional Research Data Management Strategy. Gaps, left out because no official page was confirmed: a Tri-Agency (NSERC, SSHRC, CIHR) guidance page on a ualberta.ca address; the library's research data management page (it redirects to a doubled-slash address, so I did not trust it); the DMP Assistant; a page listing all the REBs. The Research Services Office is also called Research Administrative Services on the site. Add them in Admin > Institution resources.
+- **Admin: onboarding has links only, no file attachments, and only pi and lab_admin tick items (D148).** Members cannot see or tick their own checklist.
+- **Admin: the institution is chosen by typing a name (D146).** Anyone with manage_lab can create a new Institution row; there is no merge or rename, and a misspelled name creates a separate institution. Starter links apply only to the exact name "University of Alberta" (other casings are corrected).
+- **Admin: institution resources are per lab (D149).** Changing the institution later does not remove links already copied. Starter updates are not pushed to labs that already have them; re-run `load_institution_resources` to add new starters.
+- **Admin: members can edit inventory (D147).** If the founder wants only pi and lab_admin, remove `manage_inventory` from the member row in `core/permissions.py`, the matrix rows and `canEdit` in the UI.
+- **Settings: notification choices are read-only (D150), and Settings uses the first lab for its Integrations and Admin links.** `/settings` is outside a lab, so the sidebar shows no lab entries there (same as the old Account page).
+- **Admin lists and the inventory CSV export are unpaginated.** Fine for a lab-sized list; add paging if one lab holds thousands of items.
+
+- **Tasks: documents are not co-edited in real time (D145).** Open documents poll every 5 seconds and show "<name> updated this document" with a Reload button when someone else saves. Real simultaneous editing needs a websocket and CRDT service (Yjs plus channels or y-websocket) that this stack does not have. Two people editing at once still get the conflict dialog on the second save; edits are not merged.
+- **Tasks: the thread and a task's documents and files are polled, not pushed.** The thread refreshes every 10 seconds while the drawer is open; the task list refreshes on actions and focus. A new document or upload from a task is two requests, so a failure in the second leaves the document or file in the project but not on the task.
+- **Tasks: viewers cannot post (D142).** Posting needs `edit_content`. If the founder wants viewers to comment, change `perms["POST"]` on `TaskPostListCreateView`, the matrix rows and the composer's `canPost`.
+- **Tasks: board colours are fixed light surfaces in both themes (D144)** because the theme tokens have no orange; they will not follow later theme changes.
+- **Tasks: post edits are not audited, and an edit does not re-notify the assignee.**
+- **Workflow: deletes do not move "Last edited" (D139).** Only saves are stamped; removing a task or record leaves the line as it was. Add a `post_delete` receiver if that should count.
+- **Workflow: participant privacy is a warning plus one guard (D136).** The server refuses email addresses in recruitment notes, but names, initials, phone numbers and participant ids cannot be detected, so the warning text is the real control. Notes on entries and the plan are visible to everyone who can view the project.
+- **Workflow: recruitment counts are increments, not a ledger of transitions (D136).** Withdrawing someone does not reduce Enrolled; enter it as a Withdrawn entry. Entries can be removed but not edited in the UI (the API allows PATCH).
+- **Workflow: funding amounts are lead-only (D133).** A contributor or viewer sees the record without the amount; the PI and lab admin see all (implicit leads). Search never matches amounts. If the founder wants contributors to see amounts, drop the check in `provenance/serializers.py` (`FundingSerializer`) and `provenance/services.py` (`FUNDING_LEAD_ONLY`).
+- **Workflow: no reviewer notification and no sign-off enforcement (D138).** Setting a review to approved does not block or unlock anything; the reviewer is not told. Holder and reviewer pickers list all lab members and the server rejects anyone who cannot see the project.
+- **Workflow: the lab-wide ethics list left the sidebar (D134).** It lives in Admin and behind a link in Workflow > Ethics (pi and lab_admin only). A plain member can reach an approval only through a project or a notification.
+- **Workflow: the Ethics tab creates approvals but not files (D134).** Upload the approval letter from the approval's own page after saving.
+- **Workflow: institution links are shown only if the lab has them (D135).** An empty list or an error draws nothing, so a lab that never loaded resources sees no "Ethics resources" box.
+- **Workflow: old `/research` addresses redirect, but emailed or saved deep links to `/ethics` from the sidebar era are unchanged and still work.** The Playwright and Vitest suites use the new addresses.
+
 ## Morning summary: Run 3 (overnight, 2026-11-04 to 05)
 
 Everything below is built, tested against mocks, committed on `main` and pushed. Nothing was deployed, no accounts were created, and no real credentials were used. **No integration has ever talked to its real service**, so your hand test today is the first real contact. Every decision I made on my own is in `docs/DECISIONS.md` under "Run 3" (D79 to D124). The ones you should look at are listed below.
@@ -12,7 +65,7 @@ Everything below is built, tested against mocks, committed on `main` and pushed.
 | Integrations framework v2 | One file per provider. Four auth types: OAuth, API key, link-only and public. Self-hosted instance URLs (REDCap, GitLab) with SSRF defences: https/443 only, private and metadata IPs refused, DNS pinned per request, redirects stay on host. Every outside call has a total deadline and a 2 MB cap. Keys are encrypted like tokens and never shown back | Lab settings > Integrations |
 | 13 new providers | **File storage:** OneDrive/SharePoint, Dropbox, Box (OAuth). **Code:** GitHub and GitLab (read-only access tokens). Linking a commit fills an analysis' repo and commit if both are empty. **Writing:** Overleaf (link-only; share links are refused). **Data capture:** REDCap, Qualtrics, protocols.io (API keys; **project and survey metadata only, never records or responses**). **References:** Zotero (read-only key; adds the item to a decision's references). **Repositories:** Zenodo, Figshare (public, no account), OSF (read-only token) | "Link from…" on Files, datasets, analyses, results, manuscripts, decisions and documents |
 | Generic integrations UI | The Integrations page and every "Link from…" menu are built from the provider list: connect dialogs per auth type, search with live results, paste a URL, or the Google Picker | Screenshots 27 and 36–43 |
-| Lab-wide search | Ctrl/Cmd+K searches projects, tasks, document text, research records, ethics approvals and linked items. Each hit is permission-checked (restricted approvals stay hidden) | Command palette |
+| Lab-wide search | Ctrl/Cmd+F or Ctrl/Cmd+K searches projects, tasks, document text, research records, ethics approvals and linked items. Each hit is permission-checked (restricted approvals stay hidden) | Command palette |
 | Decision references | Add, remove and reorder references (title, URL, DOI) on decisions, with validation | Research > Decisions |
 | Downloads | With S3 storage, non-PDF downloads redirect to a 60-second signed link after the same permission check and audit. PDFs still stream through the server so they keep the sandbox headers. The bucket needs a CORS rule (`DEPLOY.md`) | `documents/views.py` |
 

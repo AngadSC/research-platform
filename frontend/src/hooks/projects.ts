@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMe } from "@/hooks/workspace";
 import { api, upload } from "@/lib/api";
 import type {
   Attachment,
@@ -10,7 +11,10 @@ import type {
   ProjectRole,
   Task,
   TaskInput,
+  TaskPost,
+  TaskView,
   TaskStatus,
+  User,
 } from "@/lib/api-types";
 
 const body = (b: unknown) => ({ body: b });
@@ -188,4 +192,83 @@ export function useAttachment(labId: string, attachmentId: string) {
     queryKey: ["labs", labId, "attachments", attachmentId],
     queryFn: () => api<Attachment>(`${base(labId)}/attachments/${attachmentId}/`),
   });
+}
+
+// ---------------------------------------------------------------- task thread and links (Run 4)
+
+/** Board unless the account says list (D143). `ready` is false until /api/me/ has answered. */
+export function useTaskView() {
+  const qc = useQueryClient();
+  const me = useMe();
+  const prefs = (me.data as { preferences?: { task_view?: TaskView } } | undefined)?.preferences;
+  const saved = prefs?.task_view;
+  const save = useMutation({
+    mutationFn: (task_view: TaskView) =>
+      api<User>("/api/me/", { method: "PATCH", ...body({ preferences: { task_view } }) }),
+    onSuccess: (u) => qc.setQueryData(["me"], u),
+  });
+  return {
+    ready: !me.isPending,
+    saved: saved === "list" ? ("list" as const) : ("board" as const),
+    save: save.mutate,
+  };
+}
+
+const postsKey = (labId: string, taskId: string) => ["labs", labId, "tasks", taskId, "posts"];
+
+/** Polls so a teammate's update appears without a reload. */
+export function useTaskPosts(labId: string, taskId: string) {
+  const qc = useQueryClient();
+  const key = postsKey(labId, taskId);
+  const list = useQuery({
+    queryKey: key,
+    queryFn: () => api<TaskPost[]>(`${base(labId)}/tasks/${taskId}/posts/`),
+    refetchInterval: 10_000,
+  });
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: key });
+    void qc.invalidateQueries({ queryKey: ["labs", labId, "projects"] }); // post_count
+  };
+  const create = useMutation({
+    mutationFn: (text: string) =>
+      api<TaskPost>(`${base(labId)}/tasks/${taskId}/posts/`, {
+        method: "POST",
+        ...body({ body: text }),
+      }),
+    onSuccess: refresh,
+  });
+  const edit = useMutation({
+    mutationFn: (v: { id: string; body: string }) =>
+      api<TaskPost>(`${base(labId)}/task-posts/${v.id}/`, {
+        method: "PATCH",
+        ...body({ body: v.body }),
+      }),
+    onSuccess: refresh,
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => api(`${base(labId)}/task-posts/${id}/`, { method: "DELETE" }),
+    onSuccess: refresh,
+  });
+  return { list, create, edit, remove };
+}
+
+export type TaskLinkKind = "documents" | "attachments";
+
+export function useTaskLinks(labId: string, projectId: string, taskId: string) {
+  const qc = useQueryClient();
+  const done = () => qc.invalidateQueries({ queryKey: [...pKey(labId, projectId), "tasks"] });
+  const attach = useMutation({
+    mutationFn: (v: { kind: TaskLinkKind; id: string }) =>
+      api<Task>(`${base(labId)}/tasks/${taskId}/${v.kind}/`, {
+        method: "POST",
+        ...body({ id: v.id }),
+      }),
+    onSuccess: done,
+  });
+  const detach = useMutation({
+    mutationFn: (v: { kind: TaskLinkKind; id: string }) =>
+      api<Task>(`${base(labId)}/tasks/${taskId}/${v.kind}/${v.id}/`, { method: "DELETE" }),
+    onSuccess: done,
+  });
+  return { attach, detach };
 }

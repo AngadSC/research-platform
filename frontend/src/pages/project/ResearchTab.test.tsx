@@ -78,7 +78,7 @@ describe("Research tab", () => {
 
   it("explains an empty list in plain words", async () => {
     mockFetch(base(["view_project"]));
-    renderRoute("/labs/lab1/projects/p1/research/datasets");
+    renderRoute("/labs/lab1/projects/p1/workflow/data");
     expect(
       await screen.findByText(
         "A dataset record points to where data lives. We never store the data itself.",
@@ -88,9 +88,9 @@ describe("Research tab", () => {
 
   it("shows analysis datasets with versions as links", async () => {
     mockFetch(base(["view_project"]));
-    renderRoute("/labs/lab1/projects/p1/research/analyses/a1");
+    renderRoute("/labs/lab1/projects/p1/workflow/analysis/analyses/a1");
     const link = await screen.findByRole("link", { name: "Stool (v2)" });
-    expect(link).toHaveAttribute("href", "/labs/lab1/projects/p1/research/datasets/d1");
+    expect(link).toHaveAttribute("href", "/labs/lab1/projects/p1/workflow/data/datasets/d1");
     expect(screen.getByRole("link", { name: "View in lineage" })).toHaveAttribute(
       "href",
       "/labs/lab1/projects/p1/lineage?focus=analysis:a1",
@@ -99,7 +99,7 @@ describe("Research tab", () => {
 
   it("hides export without permission", async () => {
     mockFetch(base(["view_project"]));
-    renderRoute("/labs/lab1/projects/p1/research/analyses");
+    renderRoute("/labs/lab1/projects/p1/workflow/analysis");
     await screen.findByText("Alpha diversity");
     expect(screen.queryByRole("button", { name: "Export project" })).not.toBeInTheDocument();
   });
@@ -109,7 +109,7 @@ describe("Research tab", () => {
       base(["view_project", "export"], { [`POST ${P}/export/`]: { body: { exported_at: "now" } } }),
     );
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
-    renderRoute("/labs/lab1/projects/p1/research/analyses");
+    renderRoute("/labs/lab1/projects/p1/workflow/analysis");
     await userEvent.click(await screen.findByRole("button", { name: "Export project" }));
     await waitFor(() => expect(click).toHaveBeenCalled());
     expect(calls.some((c) => c.method === "POST" && c.path === `${P}/export/`)).toBe(true);
@@ -156,7 +156,7 @@ describe("Decision references form (D95)", () => {
         "PATCH /api/labs/lab1/decisions/dc1/": { body: decision },
       }),
     );
-    renderRoute("/labs/lab1/projects/p1/research/decisions/dc1");
+    renderRoute("/labs/lab1/projects/p1/workflow/review/decisions/dc1");
     expect(await screen.findByRole("link", { name: "Old paper" })).toHaveAttribute(
       "href",
       "https://example.org/old",

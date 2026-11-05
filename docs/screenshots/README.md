@@ -48,3 +48,16 @@ Regenerate with `make screenshots` (dev stack up and seeded). 1440x900, light mo
 
 Drive rows come from `seed_pilot` (fake connection, `example.invalid` URLs, no tokens).
 GitHub, Overleaf, Zotero and Zenodo rows come from `seed_pilot` too (tokenless links, `.invalid` hosts, fake ids such as `example-lab-fake`), plus a tokenless GitHub connection for `pi@` so the search dialog opens. No connected provider can search offline, so 38 mocks the search reply in the browser (`page.route`); the two results are fake and the server never calls GitHub.
+
+Run 4 (founder's change list; the dark ones switch the header toggle, because the account theme beats localStorage, D128):
+
+- 44-landing.png: signed-out landing page
+- 45-overview-priorities-last-edited.png: project overview with deadline priorities and "Last edited"
+- 46-workflow-funding.png, 47-workflow-ethics-ualberta.png (University of Alberta resources), 48-workflow-participants.png, 49-workflow-review.png: Workflow sub-tabs
+- 50-tasks-coloured-board.png: coloured task board
+- 51-task-drawer-thread-files.png: task drawer with attached document and thread
+- 52-admin.png: Admin (lab details, onboarding, inventory, institution resources)
+- 53-inventory.png: Inventory page
+- 54-settings.png: Settings
+- 55-unread-badge.png: unread badges on the bell, sidebar and lab switcher (notifications mocked)
+- 56-dark-workflow-ethics.png, 57-dark-tasks-board.png: dark mode

@@ -504,6 +504,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/funding/{fundingrecord_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+         *     (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+         *     project and prefetches every nested link, so no list or detail makes per-row queries.
+         */
+        get: operations["labs_funding_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+         *     (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+         *     project and prefetches every nested link, so no list or detail makes per-row queries.
+         */
+        delete: operations["labs_funding_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+         *     (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+         *     project and prefetches every nested link, so no list or detail makes per-row queries.
+         */
+        patch: operations["labs_funding_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/institution-resources/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        get: operations["labs_institution_resources_list"];
+        put?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        post: operations["labs_institution_resources_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/institution-resources/{institutionresource_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        delete: operations["labs_institution_resources_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        patch: operations["labs_institution_resources_partial_update"];
+        trace?: never;
+    };
     "/api/labs/{lab_id}/integrations/{provider}/connect/": {
         parameters: {
             query?: never;
@@ -593,6 +672,78 @@ export interface paths {
          *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
          */
         get: operations["labs_integrations_providers_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/inventory/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        get: operations["labs_inventory_list"];
+        put?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        post: operations["labs_inventory_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/inventory/{inventoryitem_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        get: operations["labs_inventory_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        delete: operations["labs_inventory_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        patch: operations["labs_inventory_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/inventory/export/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        get: operations["labs_inventory_export_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -791,6 +942,74 @@ export interface paths {
          *     another user's notification is a 404.
          */
         post: operations["labs_notifications_read_all_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/onboarding-items/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        get: operations["labs_onboarding_items_list"];
+        put?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        post: operations["labs_onboarding_items_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/onboarding-items/{onboardingitem_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        delete: operations["labs_onboarding_items_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        patch: operations["labs_onboarding_items_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/onboarding-items/{onboardingitem_id}/completions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        post: operations["labs_onboarding_items_completions_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1099,6 +1318,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/projects/{project_id}/funding/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+         *     (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+         *     project and prefetches every nested link, so no list or detail makes per-row queries.
+         */
+        get: operations["labs_projects_funding_list"];
+        put?: never;
+        /**
+         * @description One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+         *     (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+         *     project and prefetches every nested link, so no list or detail makes per-row queries.
+         */
+        post: operations["labs_projects_funding_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/projects/{project_id}/handover/": {
         parameters: {
             query?: never;
@@ -1218,6 +1463,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/projects/{project_id}/recruitment-entries/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+         *     (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+         *     project and prefetches every nested link, so no list or detail makes per-row queries.
+         */
+        get: operations["labs_projects_recruitment_entries_list"];
+        put?: never;
+        /**
+         * @description One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+         *     (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+         *     project and prefetches every nested link, so no list or detail makes per-row queries.
+         */
+        post: operations["labs_projects_recruitment_entries_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/recruitment-plan/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The project's target enrolment and notes (D136); no plan yet reads as empty. */
+        get: operations["labs_projects_recruitment_plan_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description The project's target enrolment and notes (D136); no plan yet reads as empty. */
+        patch: operations["labs_projects_recruitment_plan_partial_update"];
+        trace?: never;
+    };
     "/api/labs/{lab_id}/projects/{project_id}/results/": {
         parameters: {
             query?: never;
@@ -1238,6 +1527,32 @@ export interface paths {
          *     project and prefetches every nested link, so no list or detail makes per-row queries.
          */
         post: operations["labs_projects_results_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/review-items/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+         *     (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+         *     project and prefetches every nested link, so no list or detail makes per-row queries.
+         */
+        get: operations["labs_projects_review_items_list"];
+        put?: never;
+        /**
+         * @description One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+         *     (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+         *     project and prefetches every nested link, so no list or detail makes per-row queries.
+         */
+        post: operations["labs_projects_review_items_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1272,6 +1587,37 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/recruitment-entries/{recruitmententry_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+         *     (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+         *     project and prefetches every nested link, so no list or detail makes per-row queries.
+         */
+        get: operations["labs_recruitment_entries_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+         *     (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+         *     project and prefetches every nested link, so no list or detail makes per-row queries.
+         */
+        delete: operations["labs_recruitment_entries_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+         *     (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+         *     project and prefetches every nested link, so no list or detail makes per-row queries.
+         */
+        patch: operations["labs_recruitment_entries_partial_update"];
         trace?: never;
     };
     "/api/labs/{lab_id}/results/{result_id}/": {
@@ -1322,6 +1668,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/review-items/{reviewitem_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+         *     (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+         *     project and prefetches every nested link, so no list or detail makes per-row queries.
+         */
+        get: operations["labs_review_items_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+         *     (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+         *     project and prefetches every nested link, so no list or detail makes per-row queries.
+         */
+        delete: operations["labs_review_items_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+         *     (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+         *     project and prefetches every nested link, so no list or detail makes per-row queries.
+         */
+        patch: operations["labs_review_items_partial_update"];
+        trace?: never;
+    };
     "/api/labs/{lab_id}/search/": {
         parameters: {
             query?: never;
@@ -1337,6 +1714,36 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/task-posts/{taskpost_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        delete: operations["labs_task_posts_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        patch: operations["labs_task_posts_partial_update"];
         trace?: never;
     };
     "/api/labs/{lab_id}/tasks/{task_id}/": {
@@ -1374,6 +1781,110 @@ export interface paths {
          *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
          */
         patch: operations["labs_tasks_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/tasks/{task_id}/attachments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Routes under `L/tasks/<task_id>/...` (thread, links): the task is resolved first, so a
+         *     task the user cannot see is a 404, and its project drives the permission check.
+         */
+        post: operations["labs_tasks_attachments_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/tasks/{task_id}/attachments/{attachment_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description Routes under `L/tasks/<task_id>/...` (thread, links): the task is resolved first, so a
+         *     task the user cannot see is a 404, and its project drives the permission check.
+         */
+        delete: operations["labs_tasks_attachments_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/tasks/{task_id}/documents/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Routes under `L/tasks/<task_id>/...` (thread, links): the task is resolved first, so a
+         *     task the user cannot see is a 404, and its project drives the permission check.
+         */
+        post: operations["labs_tasks_documents_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/tasks/{task_id}/documents/{document_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description Routes under `L/tasks/<task_id>/...` (thread, links): the task is resolved first, so a
+         *     task the user cannot see is a 404, and its project drives the permission check.
+         */
+        delete: operations["labs_tasks_documents_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/tasks/{task_id}/posts/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Routes under `L/tasks/<task_id>/...` (thread, links): the task is resolved first, so a
+         *     task the user cannot see is a 404, and its project drives the permission check.
+         */
+        get: operations["labs_tasks_posts_list"];
+        put?: never;
+        /**
+         * @description Routes under `L/tasks/<task_id>/...` (thread, links): the task is resolved first, so a
+         *     task the user cannot see is a 404, and its project drives the permission check.
+         */
+        post: operations["labs_tasks_posts_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/me/": {
@@ -1446,6 +1957,7 @@ export interface components {
          *     * `attachment.downloaded` - Attachment Downloaded
          *     * `attachment.deleted` - Attachment Deleted
          *     * `task.deleted` - Task Deleted
+         *     * `task_post.deleted` - Task Post Deleted
          *     * `deadline.deleted` - Deadline Deleted
          *     * `dataset.created` - Dataset Created
          *     * `dataset.updated` - Dataset Updated
@@ -1483,9 +1995,30 @@ export interface components {
          *     * `external_link.removed` - External Link Removed
          *     * `external_link.change_accepted` - External Link Change Accepted
          *     * `integration.searched` - Integration Searched
+         *     * `inventory_item.created` - Inventory Item Created
+         *     * `inventory_item.updated` - Inventory Item Updated
+         *     * `inventory_item.deleted` - Inventory Item Deleted
+         *     * `inventory.exported` - Inventory Exported
+         *     * `onboarding_item.created` - Onboarding Item Created
+         *     * `onboarding_item.updated` - Onboarding Item Updated
+         *     * `onboarding_item.deleted` - Onboarding Item Deleted
+         *     * `onboarding.completion_changed` - Onboarding Completion Changed
+         *     * `institution_resource.created` - Institution Resource Created
+         *     * `institution_resource.updated` - Institution Resource Updated
+         *     * `institution_resource.deleted` - Institution Resource Deleted
+         *     * `funding.created` - Funding Created
+         *     * `funding.updated` - Funding Updated
+         *     * `funding.deleted` - Funding Deleted
+         *     * `review_item.created` - Review Item Created
+         *     * `review_item.updated` - Review Item Updated
+         *     * `review_item.deleted` - Review Item Deleted
+         *     * `recruitment_entry.created` - Recruitment Entry Created
+         *     * `recruitment_entry.updated` - Recruitment Entry Updated
+         *     * `recruitment_entry.deleted` - Recruitment Entry Deleted
+         *     * `recruitment_plan.updated` - Recruitment Plan Updated
          * @enum {string}
          */
-        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "integration.searched";
+        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated";
         Analysis: {
             /** Format: uuid */
             readonly id: string;
@@ -1586,16 +2119,27 @@ export interface components {
          */
         AuthTypeEnum: "oauth2" | "api_key" | "link_only" | "public";
         /**
-         * @description * `storage` - storage
-         *     * `code` - code
-         *     * `writing` - writing
-         *     * `data_capture` - data_capture
-         *     * `protocols` - protocols
-         *     * `references` - references
-         *     * `repository` - repository
+         * @description * `equipment` - Equipment
+         *     * `reagent` - Reagent
+         *     * `consumable` - Consumable
+         *     * `software_licence` - Software Licence
+         *     * `other` - Other
          * @enum {string}
          */
-        CategoryEnum: "storage" | "code" | "writing" | "data_capture" | "protocols" | "references" | "repository";
+        Category9e5Enum: "equipment" | "reagent" | "consumable" | "software_licence" | "other";
+        /**
+         * @description * `ethics` - Ethics
+         *     * `funding` - Funding
+         *     * `data_management` - Data Management
+         *     * `other` - Other
+         * @enum {string}
+         */
+        CategoryD5bEnum: "ethics" | "funding" | "data_management" | "other";
+        CompletionInput: {
+            /** Format: uuid */
+            user: string;
+            done: boolean;
+        };
         Conflict: {
             detail: string;
             code: string;
@@ -1703,6 +2247,7 @@ export interface components {
             /** Format: date */
             readonly due_date: string;
             readonly done: boolean;
+            readonly priority: components["schemas"]["PriorityEnum"];
             /** Format: date-time */
             readonly created_at: string;
             /** Format: date-time */
@@ -1713,6 +2258,7 @@ export interface components {
             /** Format: date */
             due_date: string;
             done?: boolean;
+            priority?: components["schemas"]["PriorityEnum"];
         };
         Decision: {
             /** Format: uuid */
@@ -1850,6 +2396,10 @@ export interface components {
             results: components["schemas"]["Result"][];
             decisions: components["schemas"]["Decision"][];
             manuscripts: components["schemas"]["Manuscript"][];
+            funding: components["schemas"]["Funding"][];
+            review_items: components["schemas"]["ReviewItem"][];
+            recruitment_entries: components["schemas"]["RecruitmentEntry"][];
+            recruitment_plan: components["schemas"]["RecruitmentPlan"];
         };
         ExternalLink: {
             /** Format: uuid */
@@ -1925,6 +2475,50 @@ export interface components {
             /** Format: uuid */
             decision?: string;
         };
+        /** @description D133: `amount` and `currency` are null for anyone who is not a project lead. */
+        Funding: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly project: string;
+            readonly funder: string;
+            readonly program: string;
+            readonly award_number: string;
+            /** Format: decimal */
+            readonly amount: string | null;
+            readonly currency: string;
+            /** Format: date */
+            readonly start_date: string | null;
+            /** Format: date */
+            readonly end_date: string | null;
+            readonly status: components["schemas"]["Status1eeEnum"];
+            readonly holder: components["schemas"]["User"];
+            readonly notes: string;
+            readonly attachment: components["schemas"]["AttachmentRef"];
+            readonly created_by: components["schemas"]["User"];
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        FundingInput: {
+            funder: string;
+            program?: string;
+            award_number?: string;
+            /** Format: decimal */
+            amount?: string | null;
+            currency?: string;
+            /** Format: date */
+            start_date?: string | null;
+            /** Format: date */
+            end_date?: string | null;
+            status?: components["schemas"]["Status1eeEnum"];
+            /** Format: uuid */
+            holder?: string | null;
+            notes?: string;
+            /** Format: uuid */
+            attachment?: string | null;
+        };
         Handover: {
             /** Format: date-time */
             generated_at: string;
@@ -1965,6 +2559,45 @@ export interface components {
             readonly id: string;
             name: string;
         };
+        Inventory: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly category: components["schemas"]["Category9e5Enum"];
+            readonly location: string;
+            /** Format: decimal */
+            readonly quantity: string;
+            readonly unit: string;
+            readonly owner: components["schemas"]["User"];
+            readonly serial_number: string;
+            /** Format: date */
+            readonly purchase_date: string | null;
+            /** Format: date */
+            readonly due_date: string | null;
+            readonly status: components["schemas"]["StatusA7dEnum"];
+            readonly notes: string;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        InventoryInput: {
+            name: string;
+            category: components["schemas"]["Category9e5Enum"];
+            location?: string;
+            /** Format: decimal */
+            quantity?: string;
+            unit?: string;
+            /** Format: uuid */
+            owner?: string | null;
+            serial_number?: string;
+            /** Format: date */
+            purchase_date?: string | null;
+            /** Format: date */
+            due_date?: string | null;
+            status?: components["schemas"]["StatusA7dEnum"];
+            notes?: string;
+        };
         Invite: {
             /** Format: uuid */
             readonly id: string;
@@ -1997,11 +2630,24 @@ export interface components {
             modified: string | null;
             url: string;
         };
+        /**
+         * @description * `new_member` - New Member
+         *     * `departing` - Departing
+         * @enum {string}
+         */
+        Kind4ddEnum: "new_member" | "departing";
         Lab: {
             /** Format: uuid */
             readonly id: string;
             name: string;
             readonly institution: components["schemas"]["Institution"];
+            readonly department: string;
+            readonly description: string;
+            readonly address: string;
+            /** Format: email */
+            readonly contact_email: string;
+            /** Format: uri */
+            readonly website: string;
             readonly my_role: string | null;
             readonly my_permissions: string[];
         };
@@ -2145,9 +2791,30 @@ export interface components {
          *     * `task_unassigned` - Task Unassigned
          *     * `project_exported` - Project Exported
          *     * `integration_issue` - Integration Issue
+         *     * `task_post` - Task Post
          * @enum {string}
          */
-        NotificationKindEnum: "ethics_expiry" | "retention_due" | "invite_accepted" | "task_assigned" | "task_unassigned" | "project_exported" | "integration_issue";
+        NotificationKindEnum: "ethics_expiry" | "retention_due" | "invite_accepted" | "task_assigned" | "task_unassigned" | "project_exported" | "integration_issue" | "task_post";
+        OnboardingItem: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly kind: components["schemas"]["Kind4ddEnum"];
+            readonly title: string;
+            readonly description: string;
+            /** Format: uri */
+            readonly url: string;
+            readonly required: boolean;
+            readonly order: number;
+            readonly completed_user_ids: string[];
+        };
+        OnboardingItemInput: {
+            kind: components["schemas"]["Kind4ddEnum"];
+            title: string;
+            description?: string;
+            url?: string;
+            required?: boolean;
+            order?: number;
+        };
         PaginatedAuditEventList: {
             /**
              * Format: uri
@@ -2191,6 +2858,7 @@ export interface components {
             /** Format: date */
             due_date?: string;
             done?: boolean;
+            priority?: components["schemas"]["PriorityEnum"];
         };
         PatchedDecisionInput: {
             title?: string;
@@ -2218,13 +2886,49 @@ export interface components {
             status?: components["schemas"]["ApprovalStatusEnum"];
             restricted?: boolean;
         };
-        PatchedLab: {
+        PatchedFundingInput: {
+            funder?: string;
+            program?: string;
+            award_number?: string;
+            /** Format: decimal */
+            amount?: string | null;
+            currency?: string;
+            /** Format: date */
+            start_date?: string | null;
+            /** Format: date */
+            end_date?: string | null;
+            status?: components["schemas"]["Status1eeEnum"];
             /** Format: uuid */
-            readonly id?: string;
+            holder?: string | null;
+            notes?: string;
+            /** Format: uuid */
+            attachment?: string | null;
+        };
+        PatchedInventoryInput: {
             name?: string;
-            readonly institution?: components["schemas"]["Institution"];
-            readonly my_role?: string | null;
-            readonly my_permissions?: string[];
+            category?: components["schemas"]["Category9e5Enum"];
+            location?: string;
+            /** Format: decimal */
+            quantity?: string;
+            unit?: string;
+            /** Format: uuid */
+            owner?: string | null;
+            serial_number?: string;
+            /** Format: date */
+            purchase_date?: string | null;
+            /** Format: date */
+            due_date?: string | null;
+            status?: components["schemas"]["StatusA7dEnum"];
+            notes?: string;
+        };
+        PatchedLabDetailsInput: {
+            name?: string;
+            institution_name?: string;
+            department?: string;
+            description?: string;
+            address?: string;
+            contact_email?: string;
+            website?: string;
         };
         PatchedManuscriptInput: {
             title?: string;
@@ -2242,6 +2946,14 @@ export interface components {
             display_name?: string;
             preferences?: unknown;
         };
+        PatchedOnboardingItemInput: {
+            kind?: components["schemas"]["Kind4ddEnum"];
+            title?: string;
+            description?: string;
+            url?: string;
+            required?: boolean;
+            order?: number;
+        };
         PatchedProjectInput: {
             name?: string;
             description?: string;
@@ -2255,12 +2967,39 @@ export interface components {
         PatchedProjectMembershipRole: {
             role?: components["schemas"]["ProjectRoleEnum"];
         };
+        PatchedRecruitmentEntryInput: {
+            /** Format: date */
+            entry_date?: string;
+            status?: components["schemas"]["StatusFccEnum"];
+            count?: number;
+            notes?: string;
+        };
+        PatchedRecruitmentPlanInput: {
+            target_enrolment?: number | null;
+            notes?: string;
+        };
+        PatchedResourceInput: {
+            category?: components["schemas"]["CategoryD5bEnum"];
+            title?: string;
+            url?: string;
+            description?: string;
+            order?: number;
+        };
         PatchedResultInput: {
             title?: string;
             summary?: string;
             /** Format: uuid */
             analysis?: string;
             attachments?: string[];
+        };
+        PatchedReviewItemInput: {
+            title?: string;
+            /** Format: uuid */
+            reviewer?: string | null;
+            status?: components["schemas"]["Status2a9Enum"];
+            /** Format: date */
+            due_date?: string | null;
+            notes?: string;
         };
         PatchedRole: {
             role?: components["schemas"]["LabRoleEnum"];
@@ -2276,12 +3015,22 @@ export interface components {
             status?: components["schemas"]["TaskStatusEnum"];
             position?: number;
         };
+        PatchedTaskPostInput: {
+            body?: string;
+        };
         /** @description D70: the one response that carries an access token. */
         PickerToken: {
             access_token: string;
             expires_in: number;
             scope: string;
         };
+        /**
+         * @description * `high` - High
+         *     * `medium` - Medium
+         *     * `low` - Low
+         * @enum {string}
+         */
+        PriorityEnum: "high" | "medium" | "low";
         Project: {
             /** Format: uuid */
             readonly id: string;
@@ -2298,6 +3047,9 @@ export interface components {
             readonly created_at: string;
             /** Format: date-time */
             readonly updated_at: string;
+            /** Format: date-time */
+            readonly last_activity_at: string | null;
+            readonly last_activity_by: components["schemas"]["User"];
             readonly my_project_role: string | null;
             readonly my_permissions: string[];
         };
@@ -2355,7 +3107,7 @@ export interface components {
             name: string;
             label: string;
             auth_type: components["schemas"]["AuthTypeEnum"];
-            category: components["schemas"]["CategoryEnum"];
+            category: components["schemas"]["ProviderCategoryEnum"];
             icon: string;
             metadata_only: boolean;
             scopes: string[];
@@ -2380,14 +3132,69 @@ export interface components {
             external_email: string;
             instance_url: string;
         };
+        /**
+         * @description * `storage` - storage
+         *     * `code` - code
+         *     * `writing` - writing
+         *     * `data_capture` - data_capture
+         *     * `protocols` - protocols
+         *     * `references` - references
+         *     * `repository` - repository
+         * @enum {string}
+         */
+        ProviderCategoryEnum: "storage" | "code" | "writing" | "data_capture" | "protocols" | "references" | "repository";
         ReadAllResult: {
             updated: number;
+        };
+        RecruitmentEntry: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly project: string;
+            /** Format: date */
+            readonly entry_date: string;
+            readonly status: components["schemas"]["StatusFccEnum"];
+            readonly count: number;
+            readonly notes: string;
+            readonly created_by: components["schemas"]["User"];
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        RecruitmentEntryInput: {
+            /** Format: date */
+            entry_date: string;
+            status: components["schemas"]["StatusFccEnum"];
+            count: number;
+            notes?: string;
+        };
+        RecruitmentPlan: {
+            readonly target_enrolment: number | null;
+            readonly notes: string;
         };
         /** @description D95: a title is required; url is http(s) only; doi looks like 10.1234/abc. */
         Reference: {
             title: string;
             url?: string;
             doi?: string;
+        };
+        Resource: {
+            /** Format: uuid */
+            readonly id: string;
+            category: components["schemas"]["CategoryD5bEnum"];
+            title: string;
+            /** Format: uri */
+            url: string;
+            description?: string;
+            order?: number;
+        };
+        ResourceInput: {
+            category: components["schemas"]["CategoryD5bEnum"];
+            title: string;
+            url: string;
+            description?: string;
+            order?: number;
         };
         Result: {
             /** Format: uuid */
@@ -2437,6 +3244,32 @@ export interface components {
          * @enum {string}
          */
         RetentionItemKindEnum: "project" | "document";
+        ReviewItem: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly project: string;
+            readonly title: string;
+            readonly reviewer: components["schemas"]["User"];
+            readonly status: components["schemas"]["Status2a9Enum"];
+            /** Format: date */
+            readonly due_date: string | null;
+            readonly notes: string;
+            readonly created_by: components["schemas"]["User"];
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        ReviewItemInput: {
+            title: string;
+            /** Format: uuid */
+            reviewer?: string | null;
+            status?: components["schemas"]["Status2a9Enum"];
+            /** Format: date */
+            due_date?: string | null;
+            notes?: string;
+        };
         Revision: {
             /** Format: uuid */
             readonly id: string;
@@ -2475,6 +3308,39 @@ export interface components {
         SearchResults: {
             results: components["schemas"]["SearchHit"][];
         };
+        /**
+         * @description * `applied` - Applied
+         *     * `awarded` - Awarded
+         *     * `active` - Active
+         *     * `closed` - Closed
+         *     * `declined` - Declined
+         * @enum {string}
+         */
+        Status1eeEnum: "applied" | "awarded" | "active" | "closed" | "declined";
+        /**
+         * @description * `requested` - Requested
+         *     * `in_review` - In Review
+         *     * `changes_requested` - Changes Requested
+         *     * `approved` - Approved
+         * @enum {string}
+         */
+        Status2a9Enum: "requested" | "in_review" | "changes_requested" | "approved";
+        /**
+         * @description * `active` - Active
+         *     * `in_repair` - In Repair
+         *     * `retired` - Retired
+         *     * `lost` - Lost
+         * @enum {string}
+         */
+        StatusA7dEnum: "active" | "in_repair" | "retired" | "lost";
+        /**
+         * @description * `screened` - Screened
+         *     * `enrolled` - Enrolled
+         *     * `withdrawn` - Withdrawn
+         *     * `completed` - Completed
+         * @enum {string}
+         */
+        StatusFccEnum: "screened" | "enrolled" | "withdrawn" | "completed";
         Task: {
             /** Format: uuid */
             readonly id: string;
@@ -2488,10 +3354,26 @@ export interface components {
             readonly status: components["schemas"]["TaskStatusEnum"];
             readonly position: number;
             readonly created_by: components["schemas"]["User"];
+            readonly documents: components["schemas"]["TaskDocument"][];
+            readonly attachments: components["schemas"]["TaskAttachment"][];
+            readonly post_count: number;
             /** Format: date-time */
             readonly created_at: string;
             /** Format: date-time */
             readonly updated_at: string;
+        };
+        TaskAttachment: {
+            /** Format: uuid */
+            id: string;
+            original_filename: string;
+            content_type: string;
+            size_bytes: number;
+        };
+        TaskDocument: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            version: number;
         };
         /** @description `status` + `position` also reorder: the task lands at that index of that column. */
         TaskInput: {
@@ -2503,6 +3385,25 @@ export interface components {
             due_date?: string | null;
             status?: components["schemas"]["TaskStatusEnum"];
             position?: number;
+        };
+        TaskLinkInput: {
+            /** Format: uuid */
+            id: string;
+        };
+        TaskPost: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly task: string;
+            readonly author: components["schemas"]["User"];
+            readonly body: string;
+            /** Format: date-time */
+            readonly edited_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        TaskPostInput: {
+            body: string;
         };
         /**
          * @description * `todo` - Todo
@@ -2695,9 +3596,9 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["PatchedLab"];
-                "application/x-www-form-urlencoded": components["schemas"]["PatchedLab"];
-                "multipart/form-data": components["schemas"]["PatchedLab"];
+                "application/json": components["schemas"]["PatchedLabDetailsInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedLabDetailsInput"];
+                "multipart/form-data": components["schemas"]["PatchedLabDetailsInput"];
             };
         };
         responses: {
@@ -2878,6 +3779,7 @@ export interface operations {
                  *     * `attachment.downloaded` - Attachment Downloaded
                  *     * `attachment.deleted` - Attachment Deleted
                  *     * `task.deleted` - Task Deleted
+                 *     * `task_post.deleted` - Task Post Deleted
                  *     * `deadline.deleted` - Deadline Deleted
                  *     * `dataset.created` - Dataset Created
                  *     * `dataset.updated` - Dataset Updated
@@ -2915,8 +3817,29 @@ export interface operations {
                  *     * `external_link.removed` - External Link Removed
                  *     * `external_link.change_accepted` - External Link Change Accepted
                  *     * `integration.searched` - Integration Searched
+                 *     * `inventory_item.created` - Inventory Item Created
+                 *     * `inventory_item.updated` - Inventory Item Updated
+                 *     * `inventory_item.deleted` - Inventory Item Deleted
+                 *     * `inventory.exported` - Inventory Exported
+                 *     * `onboarding_item.created` - Onboarding Item Created
+                 *     * `onboarding_item.updated` - Onboarding Item Updated
+                 *     * `onboarding_item.deleted` - Onboarding Item Deleted
+                 *     * `onboarding.completion_changed` - Onboarding Completion Changed
+                 *     * `institution_resource.created` - Institution Resource Created
+                 *     * `institution_resource.updated` - Institution Resource Updated
+                 *     * `institution_resource.deleted` - Institution Resource Deleted
+                 *     * `funding.created` - Funding Created
+                 *     * `funding.updated` - Funding Updated
+                 *     * `funding.deleted` - Funding Deleted
+                 *     * `review_item.created` - Review Item Created
+                 *     * `review_item.updated` - Review Item Updated
+                 *     * `review_item.deleted` - Review Item Deleted
+                 *     * `recruitment_entry.created` - Recruitment Entry Created
+                 *     * `recruitment_entry.updated` - Recruitment Entry Updated
+                 *     * `recruitment_entry.deleted` - Recruitment Entry Deleted
+                 *     * `recruitment_plan.updated` - Recruitment Plan Updated
                  */
-                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "integration.searched";
+                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated";
                 actor?: string;
                 /** @description Pagination cursor */
                 cursor?: string;
@@ -3283,7 +4206,10 @@ export interface operations {
     };
     labs_ethics_approvals_list: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only this project */
+                project?: string;
+            };
             header?: never;
             path: {
                 lab_id: string;
@@ -3514,6 +4440,177 @@ export interface operations {
             };
         };
     };
+    labs_funding_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fundingrecord_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Funding"];
+                };
+            };
+        };
+    };
+    labs_funding_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fundingrecord_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_funding_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fundingrecord_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedFundingInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedFundingInput"];
+                "multipart/form-data": components["schemas"]["PatchedFundingInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Funding"];
+                };
+            };
+        };
+    };
+    labs_institution_resources_list: {
+        parameters: {
+            query?: {
+                /** @description ethics, funding, data_management, other */
+                category?: string;
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Resource"][];
+                };
+            };
+        };
+    };
+    labs_institution_resources_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourceInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ResourceInput"];
+                "multipart/form-data": components["schemas"]["ResourceInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Resource"];
+                };
+            };
+        };
+    };
+    labs_institution_resources_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                institutionresource_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_institution_resources_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                institutionresource_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedResourceInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedResourceInput"];
+                "multipart/form-data": components["schemas"]["PatchedResourceInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Resource"];
+                };
+            };
+        };
+    };
     labs_integrations_connect_create: {
         parameters: {
             query?: never;
@@ -3622,6 +4719,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Provider"][];
+                };
+            };
+        };
+    };
+    labs_inventory_list: {
+        parameters: {
+            query?: {
+                category?: string;
+                /** @description A field name, '-' prefix for descending */
+                ordering?: string;
+                /** @description Search name, location, serial number, notes */
+                q?: string;
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Inventory"][];
+                };
+            };
+        };
+    };
+    labs_inventory_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["InventoryInput"];
+                "multipart/form-data": components["schemas"]["InventoryInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Inventory"];
+                };
+            };
+        };
+    };
+    labs_inventory_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inventoryitem_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Inventory"];
+                };
+            };
+        };
+    };
+    labs_inventory_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inventoryitem_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_inventory_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inventoryitem_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedInventoryInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedInventoryInput"];
+                "multipart/form-data": components["schemas"]["PatchedInventoryInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Inventory"];
+                };
+            };
+        };
+    };
+    labs_inventory_export_retrieve: {
+        parameters: {
+            query?: {
+                category?: string;
+                /** @description A field name, '-' prefix for descending */
+                ordering?: string;
+                /** @description Search name, location, serial number, notes */
+                q?: string;
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
                 };
             };
         };
@@ -3918,6 +5167,131 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReadAllResult"];
+                };
+            };
+        };
+    };
+    labs_onboarding_items_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingItem"][];
+                };
+            };
+        };
+    };
+    labs_onboarding_items_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OnboardingItemInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["OnboardingItemInput"];
+                "multipart/form-data": components["schemas"]["OnboardingItemInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingItem"];
+                };
+            };
+        };
+    };
+    labs_onboarding_items_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                onboardingitem_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_onboarding_items_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                onboardingitem_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedOnboardingItemInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedOnboardingItemInput"];
+                "multipart/form-data": components["schemas"]["PatchedOnboardingItemInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingItem"];
+                };
+            };
+        };
+    };
+    labs_onboarding_items_completions_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                onboardingitem_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompletionInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["CompletionInput"];
+                "multipart/form-data": components["schemas"]["CompletionInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingItem"];
                 };
             };
         };
@@ -4461,6 +5835,56 @@ export interface operations {
             };
         };
     };
+    labs_projects_funding_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Funding"][];
+                };
+            };
+        };
+    };
+    labs_projects_funding_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FundingInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["FundingInput"];
+                "multipart/form-data": components["schemas"]["FundingInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Funding"];
+                };
+            };
+        };
+    };
     labs_projects_handover_retrieve: {
         parameters: {
             query?: {
@@ -4635,6 +6059,106 @@ export interface operations {
             };
         };
     };
+    labs_projects_recruitment_entries_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitmentEntry"][];
+                };
+            };
+        };
+    };
+    labs_projects_recruitment_entries_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecruitmentEntryInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["RecruitmentEntryInput"];
+                "multipart/form-data": components["schemas"]["RecruitmentEntryInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitmentEntry"];
+                };
+            };
+        };
+    };
+    labs_projects_recruitment_plan_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitmentPlan"];
+                };
+            };
+        };
+    };
+    labs_projects_recruitment_plan_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedRecruitmentPlanInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedRecruitmentPlanInput"];
+                "multipart/form-data": components["schemas"]["PatchedRecruitmentPlanInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitmentPlan"];
+                };
+            };
+        };
+    };
     labs_projects_results_list: {
         parameters: {
             query?: never;
@@ -4681,6 +6205,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Result"];
+                };
+            };
+        };
+    };
+    labs_projects_review_items_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewItem"][];
+                };
+            };
+        };
+    };
+    labs_projects_review_items_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewItemInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ReviewItemInput"];
+                "multipart/form-data": components["schemas"]["ReviewItemInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewItem"];
                 };
             };
         };
@@ -4739,6 +6313,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Task"];
+                };
+            };
+        };
+    };
+    labs_recruitment_entries_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                recruitmententry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitmentEntry"];
+                };
+            };
+        };
+    };
+    labs_recruitment_entries_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                recruitmententry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_recruitment_entries_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                recruitmententry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedRecruitmentEntryInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedRecruitmentEntryInput"];
+                "multipart/form-data": components["schemas"]["PatchedRecruitmentEntryInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitmentEntry"];
                 };
             };
         };
@@ -4835,12 +6480,83 @@ export interface operations {
             };
         };
     };
+    labs_review_items_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                reviewitem_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewItem"];
+                };
+            };
+        };
+    };
+    labs_review_items_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                reviewitem_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_review_items_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                reviewitem_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedReviewItemInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedReviewItemInput"];
+                "multipart/form-data": components["schemas"]["PatchedReviewItemInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewItem"];
+                };
+            };
+        };
+    };
     labs_search_retrieve: {
         parameters: {
             query?: {
                 /** @description At least 2 characters, at most 100. */
                 q?: string;
-                /** @description Comma-separated: project, task, document, dataset, analysis, result, decision, manuscript, ethics, link */
+                /** @description Comma-separated: project, task, document, dataset, analysis, result, decision, manuscript, funding, review, ethics, link */
                 types?: string;
             };
             header?: never;
@@ -4857,6 +6573,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchResults"];
+                };
+            };
+        };
+    };
+    labs_task_posts_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                taskpost_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_task_posts_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                taskpost_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedTaskPostInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedTaskPostInput"];
+                "multipart/form-data": components["schemas"]["PatchedTaskPostInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskPost"];
                 };
             };
         };
@@ -4928,6 +6693,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Task"];
+                };
+            };
+        };
+    };
+    labs_tasks_attachments_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskLinkInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["TaskLinkInput"];
+                "multipart/form-data": components["schemas"]["TaskLinkInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+        };
+    };
+    labs_tasks_attachments_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+                lab_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+        };
+    };
+    labs_tasks_documents_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskLinkInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["TaskLinkInput"];
+                "multipart/form-data": components["schemas"]["TaskLinkInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+        };
+    };
+    labs_tasks_documents_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                lab_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+        };
+    };
+    labs_tasks_posts_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskPost"][];
+                };
+            };
+        };
+    };
+    labs_tasks_posts_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskPostInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["TaskPostInput"];
+                "multipart/form-data": components["schemas"]["TaskPostInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskPost"];
                 };
             };
         };

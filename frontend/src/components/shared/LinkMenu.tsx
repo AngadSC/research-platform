@@ -71,10 +71,13 @@ export function LinkMenu({
   labId,
   projectId,
   target,
+  only,
 }: {
   labId: string;
   projectId: string;
   target?: LinkTargetRef;
+  /** Offer only these providers (by name), for tabs about one kind of service. */
+  only?: string[];
 }) {
   const kind: LinkKind = target?.field ?? "project";
   const providers = useProviders(labId).data;
@@ -82,7 +85,7 @@ export function LinkMenu({
   const [busy, setBusy] = useState(false);
   const link = useLinker(labId, projectId, target);
 
-  const offered = offering(providers, kind);
+  const offered = offering(providers, kind).filter((p) => !only || only.includes(p.name));
   if (!offered.length) return null;
   const usable = offered.filter(isUsable);
 

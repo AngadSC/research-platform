@@ -113,6 +113,6 @@ describe("helpers", () => {
     expect(safeHttpUrl("not a url")).toBeNull();
   });
   it("builds record paths", () => {
-    expect(recordPath({ kind: "analysis", href_id: "u" })).toBe("research/analyses/u");
+    expect(recordPath({ kind: "analysis", href_id: "u" })).toBe("workflow/analysis/analyses/u");
   });
 });

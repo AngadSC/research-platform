@@ -37,6 +37,7 @@ class AuditAction(models.TextChoices):
     ATTACHMENT_DOWNLOADED = "attachment.downloaded"
     ATTACHMENT_DELETED = "attachment.deleted"
     TASK_DELETED = "task.deleted"
+    TASK_POST_DELETED = "task_post.deleted"
     DEADLINE_DELETED = "deadline.deleted"
     DATASET_CREATED = "dataset.created"
     DATASET_UPDATED = "dataset.updated"
@@ -76,6 +77,29 @@ class AuditAction(models.TextChoices):
     EXTERNAL_LINK_CHANGE_ACCEPTED = "external_link.change_accepted"
     # Run 3 (integrations framework, D85)
     INTEGRATION_SEARCHED = "integration.searched"
+    # Run 4 (admin area, D146-D151)
+    INVENTORY_ITEM_CREATED = "inventory_item.created"
+    INVENTORY_ITEM_UPDATED = "inventory_item.updated"
+    INVENTORY_ITEM_DELETED = "inventory_item.deleted"
+    INVENTORY_EXPORTED = "inventory.exported"
+    ONBOARDING_ITEM_CREATED = "onboarding_item.created"
+    ONBOARDING_ITEM_UPDATED = "onboarding_item.updated"
+    ONBOARDING_ITEM_DELETED = "onboarding_item.deleted"
+    ONBOARDING_COMPLETION_CHANGED = "onboarding.completion_changed"
+    INSTITUTION_RESOURCE_CREATED = "institution_resource.created"
+    INSTITUTION_RESOURCE_UPDATED = "institution_resource.updated"
+    INSTITUTION_RESOURCE_DELETED = "institution_resource.deleted"
+    # Run 4 (project workflow, D132-D139)
+    FUNDING_CREATED = "funding.created"
+    FUNDING_UPDATED = "funding.updated"
+    FUNDING_DELETED = "funding.deleted"
+    REVIEW_ITEM_CREATED = "review_item.created"
+    REVIEW_ITEM_UPDATED = "review_item.updated"
+    REVIEW_ITEM_DELETED = "review_item.deleted"
+    RECRUITMENT_ENTRY_CREATED = "recruitment_entry.created"
+    RECRUITMENT_ENTRY_UPDATED = "recruitment_entry.updated"
+    RECRUITMENT_ENTRY_DELETED = "recruitment_entry.deleted"
+    RECRUITMENT_PLAN_UPDATED = "recruitment_plan.updated"
 
 
 class AuditQuerySet(models.QuerySet):

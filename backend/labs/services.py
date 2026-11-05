@@ -60,14 +60,6 @@ def create_lab(*, user, name, request=None) -> Lab:
     return lab
 
 
-@transaction.atomic
-def update_lab(*, lab, user, name, request=None) -> Lab:
-    lab.name = name
-    lab.save(update_fields=["name", "updated_at"])
-    record(AuditAction.LAB_UPDATED, actor=user, lab=lab, request=request, metadata={"name": name})
-    return lab
-
-
 def create_invite(*, lab, by, email, role, request=None) -> Invite:
     _require_pi_for_pi_role(by, lab, role)
     since = timezone.now() - datetime.timedelta(days=1)  # D50; revoked invites count too

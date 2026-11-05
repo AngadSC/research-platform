@@ -54,7 +54,7 @@ describe("Lineage tab", () => {
     expect(await screen.findByText("Add a dataset to start tracing your work")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Add a dataset" })).toHaveAttribute(
       "href",
-      "/labs/lab1/projects/p1/research/datasets",
+      "/labs/lab1/projects/p1/workflow/data",
     );
   });
 
@@ -90,7 +90,7 @@ describe("Lineage tab", () => {
     expect(repo).toHaveAttribute("rel", "noopener noreferrer");
     expect(within(panel).getByRole("link", { name: "Open full record" })).toHaveAttribute(
       "href",
-      "/labs/lab1/projects/p1/research/results/r1",
+      "/labs/lab1/projects/p1/workflow/analysis/results/r1",
     );
   });
 

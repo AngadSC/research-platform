@@ -1,5 +1,6 @@
 from django.urls import path
 
+from labs import admin_views as av
 from labs import views
 
 app_name = "labs"
@@ -17,6 +18,44 @@ urlpatterns = [
         "labs/<uuid:lab_id>/invites/<uuid:invite_id>/",
         views.InviteDetailView.as_view(),
         name="invite-detail",
+    ),
+    path(
+        "labs/<uuid:lab_id>/institution-resources/",
+        av.ResourceListCreateView.as_view(),
+        name="resource-list",
+    ),
+    path(
+        "labs/<uuid:lab_id>/institution-resources/<uuid:institutionresource_id>/",
+        av.ResourceDetailView.as_view(),
+        name="resource-detail",
+    ),
+    path(
+        "labs/<uuid:lab_id>/onboarding-items/",
+        av.OnboardingListCreateView.as_view(),
+        name="onboarding-list",
+    ),
+    path(
+        "labs/<uuid:lab_id>/onboarding-items/<uuid:onboardingitem_id>/",
+        av.OnboardingDetailView.as_view(),
+        name="onboarding-detail",
+    ),
+    path(
+        "labs/<uuid:lab_id>/onboarding-items/<uuid:onboardingitem_id>/completions/",
+        av.OnboardingCompletionView.as_view(),
+        name="onboarding-completion",
+    ),
+    path(
+        "labs/<uuid:lab_id>/inventory/", av.InventoryListCreateView.as_view(), name="inventory-list"
+    ),
+    path(
+        "labs/<uuid:lab_id>/inventory/export/",
+        av.InventoryExportView.as_view(),
+        name="inventory-export",
+    ),
+    path(
+        "labs/<uuid:lab_id>/inventory/<uuid:inventoryitem_id>/",
+        av.InventoryDetailView.as_view(),
+        name="inventory-detail",
     ),
     path("invites/preview/", views.InvitePreviewView.as_view(), name="invite-preview"),
     path("invites/accept/", views.InviteAcceptView.as_view(), name="invite-accept"),

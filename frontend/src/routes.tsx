@@ -22,18 +22,26 @@ import DocumentsTab from "@/pages/project/DocumentsTab";
 import FilesTab from "@/pages/project/FilesTab";
 import PdfViewerRoute from "@/pages/project/PdfViewerRoute";
 import OverviewTab from "@/pages/project/OverviewTab";
-import {
-  ResearchDetail,
-  ResearchIndex,
-  ResearchLayout,
-  ResearchList,
-  ResearchNew,
-} from "@/pages/project/ResearchTab";
+import { ResearchDetail, ResearchNew } from "@/pages/project/ResearchTab";
 import TasksTab from "@/pages/project/TasksTab";
+import EthicsTab from "@/pages/project/workflow/EthicsTab";
+import FundingTab from "@/pages/project/workflow/FundingTab";
+import ParticipantsTab from "@/pages/project/workflow/ParticipantsTab";
+import ReviewTab from "@/pages/project/workflow/ReviewTab";
+import {
+  AnalysisTab,
+  DataTab,
+  ManuscriptTab,
+  ResearchRedirect,
+  WorkflowIndex,
+  WorkflowLayout,
+} from "@/pages/project/workflow/WorkflowLayout";
 import { EthicsDetailPage, EthicsFormPage, EthicsListPage } from "@/pages/ethics/EthicsPages";
 import { NotificationsPage, RetentionPage } from "@/pages/ethics/LabPages";
 import { IntegrationsErrorPage, IntegrationsPage } from "@/pages/IntegrationsPage";
-import { SecurityPage } from "@/pages/SecurityPage";
+import { AdminPage } from "@/pages/admin/AdminPage";
+import { InventoryPage } from "@/pages/admin/InventoryPage";
+import { SettingsPage } from "@/pages/SettingsPage";
 
 export const routes: RouteObject[] = [
   {
@@ -61,7 +69,9 @@ export const routes: RouteObject[] = [
     handle: { crumb: "Home" },
     children: [
       { index: true, element: <HomePage /> },
-      { path: "account", element: <SecurityPage />, handle: { crumb: "Account" } },
+      { path: "settings", element: <SettingsPage />, handle: { crumb: "Settings" } },
+      // Run 4: Account and Security moved into Settings; the old address still works.
+      { path: "account", element: <Navigate to="/settings#security" replace /> },
       {
         path: "integrations/error",
         element: <IntegrationsErrorPage />,
@@ -145,29 +155,63 @@ export const routes: RouteObject[] = [
                         handle: { crumb: "Lineage" },
                         element: <ProjectTab as={LazyLineageTab} />,
                       },
+                      // D132: the old Research tab is the Workflow tab; its addresses redirect.
+                      { path: "research/*", element: <ResearchRedirect /> },
                       {
-                        path: "research",
-                        handle: { crumb: "Research" },
-                        element: <ProjectTab as={ResearchLayout} />,
+                        path: "workflow",
+                        handle: { crumb: "Workflow" },
+                        element: <ProjectTab as={WorkflowLayout} />,
                         children: [
-                          { index: true, element: <ResearchIndex /> },
+                          { index: true, element: <WorkflowIndex /> },
                           {
-                            path: ":kind",
-                            handle: { crumb: "@kind" },
+                            path: "funding",
+                            element: <ProjectTab as={FundingTab} />,
+                            handle: { crumb: "Funding" },
+                          },
+                          {
+                            path: "ethics",
+                            element: <ProjectTab as={EthicsTab} />,
+                            handle: { crumb: "Ethics" },
+                          },
+                          {
+                            path: "participants",
+                            element: <ProjectTab as={ParticipantsTab} />,
+                            handle: { crumb: "Participants" },
+                          },
+                          ...(
+                            [
+                              ["data", "Data", DataTab],
+                              ["analysis", "Analysis", AnalysisTab],
+                              ["manuscript", "Manuscript", ManuscriptTab],
+                              ["review", "Review", ReviewTab],
+                            ] as const
+                          ).map(([path, crumb, Tab]) => ({
+                            path,
+                            handle: { crumb },
                             children: [
-                              { index: true, element: <ProjectTab as={ResearchList} /> },
+                              { index: true, element: <ProjectTab as={Tab} /> },
                               {
-                                path: "new",
-                                element: <ProjectTab as={ResearchNew} />,
-                                handle: { crumb: "New" },
-                              },
-                              {
-                                path: ":id",
-                                element: <ProjectTab as={ResearchDetail} />,
-                                handle: { crumb: "@record" },
+                                path: ":kind",
+                                handle: { crumb: "@kind" },
+                                children: [
+                                  {
+                                    index: true,
+                                    element: <Navigate to=".." relative="path" replace />,
+                                  },
+                                  {
+                                    path: "new",
+                                    element: <ProjectTab as={ResearchNew} />,
+                                    handle: { crumb: "New" },
+                                  },
+                                  {
+                                    path: ":id",
+                                    element: <ProjectTab as={ResearchDetail} />,
+                                    handle: { crumb: "@record" },
+                                  },
+                                ],
                               },
                             ],
-                          },
+                          })),
                         ],
                       },
                     ],
@@ -206,6 +250,8 @@ export const routes: RouteObject[] = [
                 handle: { crumb: "Retention review" },
               },
               { path: "audit-log", element: <AuditLogPage />, handle: { crumb: "Audit log" } },
+              { path: "admin", element: <AdminPage />, handle: { crumb: "Admin" } },
+              { path: "inventory", element: <InventoryPage />, handle: { crumb: "Inventory" } },
               {
                 path: "settings/integrations",
                 element: <IntegrationsPage />,

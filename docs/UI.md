@@ -13,8 +13,8 @@ Feels like Linear or Notion, not a university portal. Rules come from SPEC secti
 **Style**
 
 - Do use the CSS variable tokens (`bg-background`, `text-muted-foreground`, `border-border`, `bg-primary`). Don't hard-code hex or Tailwind colour names like `bg-indigo-600`.
-- Do use one accent (indigo, `primary`) for the main action per screen. Don't add a second accent colour.
-- Do separate with `border`. Don't use heavy shadows.
+- Do use indigo (`primary`) for the main action per screen. Use `success`, `warning`, `danger` and `info` (with their `-foreground`) for status badges and buttons (D127), and `-text` variants for coloured text on white. Don't pick other colours.
+- Do separate with spacing and tinted surfaces (`bg-muted`, `bg-sidebar`) before reaching for `border`. Don't use heavy shadows.
 - Do test both themes. Contrast must stay at WCAG AA (4.5:1 for text).
 
 **States**
@@ -42,9 +42,9 @@ Shared (`src/components/shared/`):
 - `DetailPanel` `open`, `onOpenChange`, `title`, `description`; right slide-over, Escape closes, focus trapped.
 - `FormField` `label`, `hint`, `error`; child is a function: `{(p) => <Input {...p} />}`.
 - `StatusBadge` `status` string; known statuses get a tone, unknown ones are neutral. Add new ones to `TONES`.
-- `ThemeToggle` light, dark, system; stored in localStorage (`lib/theme.ts`).
+- `ThemeToggle` light, dark, system segmented control in the header. `lib/theme.ts` applies it, keeps localStorage for first paint and saves it to the account (`preferences.theme`, D128).
 
-Layout (`src/components/layout/`): `AppShell` (sidebar, breadcrumbs, `Toaster`, palette), `Sidebar` (lab switcher, projects, nav), `CommandPalette` (Ctrl/Cmd+K).
+Layout (`src/components/layout/`): `AppShell` (sidebar, breadcrumbs, `Toaster`, palette), `Sidebar` (lab switcher, projects, nav), `CommandPalette` (Ctrl/Cmd+K or Ctrl/Cmd+F; the browser keeps Ctrl+F in text fields, editors and the PDF viewer via `data-native-find`, D130), `UnreadBadge` (D131). Signed-out pages use `LandingHeader`, `HeroText` and `Features` from `pages/LandingPage` (D129).
 
 Primitives (`src/components/ui/`, shadcn style): button, input, textarea, label, select, dialog, sheet, dropdown-menu, badge, skeleton, sonner, command, tooltip, separator, table. Add new ones only when a page needs them, and keep them in this style.
 
@@ -54,7 +54,7 @@ Command palette: call `useRegisterCommands(useMemo(() => [{ id, label, group, on
 
 - Spacing uses the 4px Tailwind scale. Between sections `gap-8`, between related items `gap-2` to `gap-4`, card and panel padding `p-6`, page padding `px-8 py-6`. Page content max width is `max-w-5xl`.
 - Font is Inter then the system font. Page title `text-2xl font-semibold`, section title `text-base font-semibold`, body `text-sm`, hint and meta `text-xs text-muted-foreground`. Use two weights only: 400 and 500/600.
-- Radius is `rounded-md` for controls, `rounded-lg` for panels and tables.
+- Radius is `rounded-md` (8px) for controls, `rounded-lg` (12px) for panels and tables. Button variants: default, secondary, outline, ghost, success, warning, destructive; badge variants add info.
 
 ## Add a page
 

@@ -3,7 +3,7 @@ actions record their audit event in the same transaction."""
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from audit.models import AuditAction
 from audit.services import record
@@ -18,6 +18,7 @@ from projects.models import (
     ProjectMembership,
     ProjectRole,
     Task,
+    TaskPost,
     TaskStatus,
 )
 
@@ -256,6 +257,57 @@ def update_task(*, task, data) -> Task:
 def delete_task(*, task, by, request=None) -> None:
     record(AuditAction.TASK_DELETED, actor=by, lab=task.lab, target=task, request=request)
     task.delete()
+
+
+# ---------------------------------------------------------------- task links and thread (Run 4)
+
+
+def link_to_task(*, task, kind, obj) -> None:
+    """Attach a document or attachment of the same project (D141). Idempotent. The ORM refuses
+    a different lab or project, and the DB trigger backs that up."""
+    if obj.project_id != task.project_id or obj.lab_id != task.lab_id:
+        raise ValidationError({kind: "That item is not in this project."})
+    if kind == "documents" and obj.deleted_at is not None:
+        raise ValidationError({kind: "That document was deleted."})
+    getattr(task, kind).add(obj)
+
+
+def unlink_from_task(*, task, kind, obj) -> None:
+    getattr(task, kind).remove(obj)
+
+
+@transaction.atomic
+def create_post(*, task, author, body) -> TaskPost:
+    post = TaskPost.objects.create(lab=task.lab, task=task, author=author, body=body)
+    assignee = task.assignee  # D142: in-app only; nobody is told about their own post
+    if assignee is not None and assignee.pk != author.pk and assignee.is_active:
+        notify(
+            lab=task.lab,
+            recipient=assignee,
+            kind=NotificationKind.TASK_POST,
+            title=f"New update on: {task.title}"[:200],
+            body=f"{author.display_name or author.email}: {body[:200]}",
+            target=task,
+            dedupe_key=f"task_post:{post.pk}",
+        )
+    return post
+
+
+@transaction.atomic
+def edit_post(*, post, by, body) -> TaskPost:
+    if post.author_id != by.pk:
+        raise PermissionDenied("Only the author can edit a post.")
+    post.body, post.edited_at = body, timezone.now()
+    post.save()
+    return post
+
+
+@transaction.atomic
+def delete_post(*, post, by, request=None) -> None:
+    if post.author_id != by.pk and not can(by, Perm.EDIT_PROJECT, post.task.project):
+        raise PermissionDenied("Only the author or a project lead can delete a post.")
+    record(AuditAction.TASK_POST_DELETED, actor=by, lab=post.lab, target=post, request=request)
+    post.delete()
 
 
 # ---------------------------------------------------------------- retention (SPEC phase 5)

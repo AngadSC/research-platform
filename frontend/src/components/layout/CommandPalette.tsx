@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/command";
 import { groupHits, useLabSearch } from "@/hooks/search";
 import { useCommands, type Command } from "@/lib/commands";
+import { MOD_KEY, OPEN_SEARCH_EVENT } from "@/lib/constants";
 
 interface Props {
   /** Current lab; without one only the static commands show. */
@@ -17,7 +18,16 @@ interface Props {
   onGo?: (url: string) => void;
 }
 
-/** Opens on Cmd/Ctrl+K. Add entries with useRegisterCommands (see lib/commands.ts). */
+/** True where Ctrl/Cmd+F should stay the browser's own find: text fields, editors and the PDF viewer. */
+function wantsNativeFind(t: EventTarget | null) {
+  const el = t instanceof Element ? t : null;
+  return (
+    !!el?.closest("input, textarea, select, [contenteditable]:not([contenteditable=false])") ||
+    !!document.querySelector("[data-native-find]")
+  );
+}
+
+/** Opens on Cmd/Ctrl+K or Cmd/Ctrl+F. Add entries with useRegisterCommands (see lib/commands.ts). */
 export function CommandPalette({ labId, onGo }: Props) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
@@ -27,13 +37,23 @@ export function CommandPalette({ labId, onGo }: Props) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === "k" && (e.metaKey || e.ctrlKey)) {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
+      const k = e.key.toLowerCase();
+      if (k === "k") {
         e.preventDefault();
         setOpen((o) => !o);
+      } else if (k === "f" && !wantsNativeFind(e.target)) {
+        e.preventDefault();
+        setOpen(true);
       }
     };
+    const onOpen = () => setOpen(true);
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    window.addEventListener(OPEN_SEARCH_EVENT, onOpen);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener(OPEN_SEARCH_EVENT, onOpen);
+    };
   }, []);
 
   // cmdk picks its first item when the text changes, before search hits arrive. Point it at the
@@ -63,7 +83,7 @@ export function CommandPalette({ labId, onGo }: Props) {
       }}
     >
       <CommandInput
-        placeholder="Search everything in this lab, or run an action"
+        placeholder={`Search everything in this lab, or run an action (${MOD_KEY} F or ${MOD_KEY} K)`}
         value={text}
         onValueChange={setText}
       />

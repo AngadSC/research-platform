@@ -17,7 +17,15 @@ from documents.models import Document
 from ethics.models import EthicsApproval
 from integrations.models import ExternalLink
 from projects.models import Project, Task
-from provenance.models import Analysis, DatasetRecord, Decision, ManuscriptLink, Result
+from provenance.models import (
+    Analysis,
+    DatasetRecord,
+    Decision,
+    FundingRecord,
+    ManuscriptLink,
+    Result,
+    ReviewItem,
+)
 
 PER_TYPE = 8
 MAX_TOTAL = 40
@@ -39,8 +47,13 @@ def _p(o):
     return f"/labs/{o.lab_id}/projects/{o.project_id}"
 
 
-def _r(kind):
-    return lambda o: f"{_p(o)}/research/{kind}/{o.pk}"
+def _r(section, kind):
+    """D132: records live at /workflow/<section>/<kind>/<id> (the old /research URLs redirect)."""
+    return lambda o: f"{_p(o)}/workflow/{section}/{kind}/{o.pk}"
+
+
+def _w(tab):
+    return lambda o: f"{_p(o)}/workflow/{tab}"
 
 
 SPECS = [
@@ -56,11 +69,14 @@ SPECS = [
         lambda o: f"{_p(o)}/documents/{o.pk}",
         deleted=True,
     ),
-    Spec("dataset", DatasetRecord, "name", (), _r("datasets")),
-    Spec("analysis", Analysis, "title", ("description",), _r("analyses")),
-    Spec("result", Result, "title", ("summary",), _r("results")),
-    Spec("decision", Decision, "title", ("rationale",), _r("decisions")),
-    Spec("manuscript", ManuscriptLink, "title", (), _r("manuscripts")),
+    Spec("dataset", DatasetRecord, "name", (), _r("data", "datasets")),
+    Spec("analysis", Analysis, "title", ("description",), _r("analysis", "analyses")),
+    Spec("result", Result, "title", ("summary",), _r("analysis", "results")),
+    Spec("decision", Decision, "title", ("rationale",), _r("review", "decisions")),
+    Spec("manuscript", ManuscriptLink, "title", (), _r("manuscript", "manuscripts")),
+    # grant amounts are lead-only (D133), so they are neither searched nor shown
+    Spec("funding", FundingRecord, "funder", ("program", "award_number"), _w("funding")),
+    Spec("review", ReviewItem, "title", ("notes",), _w("review")),
     Spec(
         "ethics",
         EthicsApproval,
