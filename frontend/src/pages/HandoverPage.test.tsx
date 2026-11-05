@@ -24,6 +24,11 @@ const report = (orphans: unknown[]) => ({
   no_other_owner: orphans,
   sections: [
     { key: "open_tasks", label: "Open tasks", items: [item("Fit model", "task")] },
+    {
+      key: "unassigned_tasks",
+      label: "Unassigned after access change",
+      items: [item("Clean data", "task")],
+    },
     { key: "datasets", label: "Datasets", items: [] },
   ],
 });
@@ -45,6 +50,9 @@ describe("handover report", () => {
     const callout = await screen.findByRole("region", { name: /No other owner/ });
     expect(within(callout).getByRole("link", { name: "Archived Survey" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Open tasks (1)" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Unassigned after access change (1)" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("No datasets")).toBeInTheDocument(); // empty section
     expect(screen.getByRole("button", { name: /Print or save as PDF/ })).toBeInTheDocument();
   });

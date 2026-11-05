@@ -58,8 +58,10 @@ def test_assignee_outside_project_is_rejected(lab, people):
         resp = api(people["lead"]).post(
             url, {"title": "T", "assignee": str(people[who].pk)}, "json"
         )
-        assert resp.status_code == (400 if who == "outside" else 201), who
-    assert Task.objects.for_lab(lab).count() == 2  # contrib and lview can view the project
+        assert resp.status_code == (201 if who == "contrib" else 400), who
+    assert (
+        Task.objects.for_lab(lab).count() == 1
+    )  # only contrib can edit content (a lab viewer is capped at viewer)
     # a stranger from no lab at all, and an unknown id: same 400
     bad = str(uuid.UUID(int=1))
     assert api(people["lead"]).post(url, {"title": "T", "assignee": bad}, "json").status_code == 400

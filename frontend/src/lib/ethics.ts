@@ -1,5 +1,6 @@
 import type { BadgeVariant } from "@/components/ui/badge";
 import type { ApprovalStatus } from "@/lib/api-types";
+import { plural } from "@/lib/format";
 
 export const WARN_DAYS = 60;
 export const URGENT_DAYS = 7;
@@ -21,7 +22,7 @@ export function relativeDays(days: number): string {
   if (days === 0) return "today";
   if (days === 1) return "tomorrow";
   if (days === -1) return "yesterday";
-  return days > 0 ? `in ${days} days` : `${-days} days ago`;
+  return days > 0 ? `in ${plural(days, "day")}` : `${plural(-days, "day")} ago`;
 }
 
 /** Warn within 60 days; red within 7 days or once expired. Withdrawn approvals stay neutral. */

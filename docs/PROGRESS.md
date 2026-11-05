@@ -35,3 +35,15 @@
 - Phase 5 review fixes + D56 restricted approvals done (sonnet). Agent skipped pre-fix check; orchestrator mutation test on can_edit_ethics -> 3 regression tests fail as expected. Matrix: nonproj PATCH/DELETE approval 2xx->403 (stricter). Prettier fixes. make test + e2e 8/8 green. Phase 5 accepted.
 - P6.1 done (sonnet): handover backend + page + print CSS; 2 matrix rows, 8 backend tests, Vitest 86, e2e 9/9. Phase 6 accepted (student report lists 3 open tasks, analysis, archived project under No other owner).
 - W.1 done (sonnet): 26 screenshots, 4 UI fixes. Final: backend 1134 passed/20 skipped (matrix 844), Vitest 86, e2e 9. HANDOFF.md written. Run complete.
+
+## Run 2
+
+- 2026-11-04: Read Run 1 docs. No `.env`, so no real Google credentials: the manual sign-in check is skipped. Section 1 decisions applied. Added deps (D60), MIT-0 to the Python allowlist (64 packages pass), audit/0007 and core/0005 (D59), TEST_DB_NAME (D58). Wave 1 dispatched.
+- B1 done (opus): allauth Google provider (hidden when env unset), linking rule in core/auth.py, /accounts proxy, invites match any verified address (D25), audit hooks. 20 tests. D62 [H]: taken address with no allowed link creates nothing. B2 started.
+- C1 done (sonnet): core/email.py (Celery, on-commit, retries, core.email log), templates for 8 emails, all emails routed incl. allauth; export notice (in-app + email) to PIs. Every in-app notification is also emailed once (decision to log, [H]). 16 tests. C2 started.
+- C2 done (haiku): HTML email layout with indigo accent. Orchestrator replaced a hardcoded 'Research Platform' with settings.PRODUCT_NAME (backend mirror of the D12 constant) in the email context.
+- A1 done (sonnet): unassign_lost_access on every access-loss path (incl. deactivation via post_save; bulk update skips it), audit + deduped lead notifications, assignee now needs edit_content, handover section. Frontend check pending A3's jsdom switch (matchMedia).
+- A2 done (sonnet high): core/lab_db.py (LabForeignKey, LabM2MTrigger ops with pre-checks), labs/0002: 16 composite FKs, 9 M2M triggers, guard test. Limit: M2M triggers don't recheck if a parent's project_id changes later.
+- A3 done (haiku): jsdom (happy-dom removed, test shims), MIT-0 in npm check, plurals, RelativeTime, duplicate Members command removed, sidebar drawer < md, e2e/mobile.spec.ts (4). 'Not set' was already fixed.
+- B2 done (sonnet): Google button (native form POST, hidden without provider), callback page, Email addresses and Connected accounts in Security settings. 9 tests.
+- Orchestrator: full backend suite green after A1, A2, B1, C1 (no failures). Started B3 security review.

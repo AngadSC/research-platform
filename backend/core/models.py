@@ -67,6 +67,10 @@ class NotificationKind(models.TextChoices):
     RETENTION_DUE = "retention_due"
     INVITE_ACCEPTED = "invite_accepted"
     TASK_ASSIGNED = "task_assigned"
+    # Run 2
+    TASK_UNASSIGNED = "task_unassigned"
+    PROJECT_EXPORTED = "project_exported"
+    INTEGRATION_ISSUE = "integration_issue"
 
 
 class Notification(LabScopedModel):

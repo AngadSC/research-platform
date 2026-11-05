@@ -5,7 +5,6 @@ import datetime
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
-from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from django.http import Http404
 from django.utils import timezone
@@ -14,11 +13,13 @@ from rest_framework.exceptions import Throttled, ValidationError
 from audit.models import AuditAction
 from audit.services import record
 from core.auth import has_verified_email
+from core.email import send_email
 from core.models import PLACEHOLDER_INSTITUTION, Institution
 from core.permissions import LAB_ROLE_PERMS, Perm, forget, lab_role
 from core.tenancy import by_secret
 from labs.models import Invite, Lab, LabMembership, LabRole, hash_token
 from projects.models import ProjectMembership
+from projects.services import unassign_lost_access
 
 
 def _require_pi_for_pi_role(actor, lab, *roles):
@@ -90,13 +91,11 @@ def create_invite(*, lab, by, email, role, request=None) -> Invite:
         raise ValidationError({"email": "An invite for this email is already open."}) from exc
     # D37: the raw token exists only in this emailed link.
     link = f"{settings.FRONTEND_URL}/invite/{token}"
-    subject = f"You are invited to {lab.name}".replace("\n", " ").replace("\r", " ")
-    body = (
-        f"{by.display_name or by.email} invited you to join {lab.name} as {role}.\n\n"
-        f"Accept the invite (expires in 7 days): {link}\n"
+    send_email(
+        "invite",
+        invite.email,
+        {"inviter": by.display_name or by.email, "lab": lab.name, "role": role, "url": link},
     )
-    # After commit, and robust: a mail failure must not 500 a committed invite.
-    transaction.on_commit(lambda: send_mail(subject, body, None, [invite.email]), robust=True)
     return invite
 
 
@@ -133,8 +132,8 @@ def usable_invite_for_token(token, *, lock=False) -> Invite:
 @transaction.atomic
 def accept_invite(*, user, token, request=None) -> Lab:
     invite = usable_invite_for_token(token, lock=True)
-    # D25: the logged-in user must own a verified address equal to the invited one.
-    if user.email.lower() != invite.email or not has_verified_email(user, invite.email):
+    # D25: the invited address must be any verified address of the logged-in user.
+    if not has_verified_email(user, invite.email):
         raise PermissionDenied("Verify the email address this invite was sent to, then retry.")
     lab = invite.lab
     if not _inviter_may_grant(lab, invite.invited_by, invite.role):  # D40
@@ -179,6 +178,9 @@ def change_role(*, membership, by, role, request=None) -> LabMembership:
         metadata={"user_id": str(membership.user_id), "old_role": old, "new_role": role},
     )
     _revoke_stale_invites(lab=lab, user=membership.user, by=by, request=request, new_role=role)
+    unassign_lost_access(
+        membership.user, lab=lab, by=by, request=request, reason="lab_role_changed"
+    )
     return membership
 
 
@@ -200,3 +202,6 @@ def remove_member(*, membership, by, request=None) -> None:
     ProjectMembership.objects.for_lab(lab).filter(user_id=membership.user_id).delete()
     membership.delete()
     _revoke_stale_invites(lab=lab, user=membership.user, by=by, request=request)
+    unassign_lost_access(
+        membership.user, lab=lab, by=by, request=request, reason="removed_from_lab"
+    )

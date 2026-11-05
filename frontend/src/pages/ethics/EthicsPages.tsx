@@ -128,7 +128,8 @@ export function EthicsDetailPage() {
   if (error) return <FormError message={formErrors(error, []).form} />;
   if (!a) return <Skeleton aria-label="Loading" className="h-40 w-full" />;
   return (
-    <div className="grid gap-8">
+    // PageHeader already has mb-8, so drop it here to avoid a 64px gap under the title.
+    <div className="grid gap-8 [&>header]:mb-0">
       <PageHeader
         title={a.title}
         description={`${a.board}, ${a.approval_number}${a.restricted ? " (restricted)" : ""}`}

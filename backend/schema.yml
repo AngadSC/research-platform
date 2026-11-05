@@ -415,6 +415,17 @@ paths:
           - retention.changed
           - audit_log.viewed
           - handover.generated
+          - task.unassigned
+          - auth.social_connected
+          - auth.social_disconnected
+          - auth.email_added
+          - auth.email_removed
+          - integration.connected
+          - integration.disconnected
+          - integration.revoked
+          - integration.refresh_failed
+          - external_link.created
+          - external_link.removed
           type: string
           minLength: 1
         description: |-
@@ -468,6 +479,17 @@ paths:
           * `retention.changed` - Retention Changed
           * `audit_log.viewed` - Audit Log Viewed
           * `handover.generated` - Handover Generated
+          * `task.unassigned` - Task Unassigned
+          * `auth.social_connected` - Auth Social Connected
+          * `auth.social_disconnected` - Auth Social Disconnected
+          * `auth.email_added` - Auth Email Added
+          * `auth.email_removed` - Auth Email Removed
+          * `integration.connected` - Integration Connected
+          * `integration.disconnected` - Integration Disconnected
+          * `integration.revoked` - Integration Revoked
+          * `integration.refresh_failed` - Integration Refresh Failed
+          * `external_link.created` - External Link Created
+          * `external_link.removed` - External Link Removed
       - in: query
         name: actor
         schema:
@@ -3143,6 +3165,17 @@ components:
       - retention.changed
       - audit_log.viewed
       - handover.generated
+      - task.unassigned
+      - auth.social_connected
+      - auth.social_disconnected
+      - auth.email_added
+      - auth.email_removed
+      - integration.connected
+      - integration.disconnected
+      - integration.revoked
+      - integration.refresh_failed
+      - external_link.created
+      - external_link.removed
       type: string
       description: |-
         * `auth.login` - Auth Login
@@ -3195,6 +3228,17 @@ components:
         * `retention.changed` - Retention Changed
         * `audit_log.viewed` - Audit Log Viewed
         * `handover.generated` - Handover Generated
+        * `task.unassigned` - Task Unassigned
+        * `auth.social_connected` - Auth Social Connected
+        * `auth.social_disconnected` - Auth Social Disconnected
+        * `auth.email_added` - Auth Email Added
+        * `auth.email_removed` - Auth Email Removed
+        * `integration.connected` - Integration Connected
+        * `integration.disconnected` - Integration Disconnected
+        * `integration.revoked` - Integration Revoked
+        * `integration.refresh_failed` - Integration Refresh Failed
+        * `external_link.created` - External Link Created
+        * `external_link.removed` - External Link Removed
     Analysis:
       type: object
       properties:
@@ -4530,12 +4574,18 @@ components:
       - retention_due
       - invite_accepted
       - task_assigned
+      - task_unassigned
+      - project_exported
+      - integration_issue
       type: string
       description: |-
         * `ethics_expiry` - Ethics Expiry
         * `retention_due` - Retention Due
         * `invite_accepted` - Invite Accepted
         * `task_assigned` - Task Assigned
+        * `task_unassigned` - Task Unassigned
+        * `project_exported` - Project Exported
+        * `integration_issue` - Integration Issue
     PaginatedAuditEventList:
       type: object
       required:

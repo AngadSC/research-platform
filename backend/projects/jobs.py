@@ -41,6 +41,10 @@ def retention_scan() -> int:
                 continue
             for item in items:
                 created += notify(
-                    lab=lab, recipient=user, kind=NotificationKind.RETENTION_DUE, **item
+                    lab=lab,
+                    recipient=user,
+                    kind=NotificationKind.RETENTION_DUE,
+                    email_template="retention_notice",
+                    **item,
                 )
     return created

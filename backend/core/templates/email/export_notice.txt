@@ -1,0 +1,4 @@
+{% autoescape off %}{{ exporter }} exported the project "{{ project }}" in {{ lab }}.
+
+If you did not expect this, check the audit log: {{ frontend_url }}
+{% endautoescape %}

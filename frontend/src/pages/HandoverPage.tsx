@@ -10,6 +10,7 @@ import { ApiError } from "@/lib/api";
 
 const EMPTY: Record<string, string> = {
   open_tasks: "No open tasks are assigned to them.",
+  unassigned_tasks: "No tasks were unassigned from them after an access change.",
   documents: "They have not created or last edited any documents.",
   analyses: "They have not run any analyses.",
   results: "None of their analyses have results.",

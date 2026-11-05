@@ -60,6 +60,18 @@ class AuditAction(models.TextChoices):
     RETENTION_CHANGED = "retention.changed"
     AUDIT_LOG_VIEWED = "audit_log.viewed"
     HANDOVER_GENERATED = "handover.generated"
+    # Run 2
+    TASK_UNASSIGNED = "task.unassigned"
+    AUTH_SOCIAL_CONNECTED = "auth.social_connected"
+    AUTH_SOCIAL_DISCONNECTED = "auth.social_disconnected"
+    AUTH_EMAIL_ADDED = "auth.email_added"
+    AUTH_EMAIL_REMOVED = "auth.email_removed"
+    INTEGRATION_CONNECTED = "integration.connected"
+    INTEGRATION_DISCONNECTED = "integration.disconnected"
+    INTEGRATION_REVOKED = "integration.revoked"
+    INTEGRATION_REFRESH_FAILED = "integration.refresh_failed"
+    EXTERNAL_LINK_CREATED = "external_link.created"
+    EXTERNAL_LINK_REMOVED = "external_link.removed"
 
 
 class AuditQuerySet(models.QuerySet):

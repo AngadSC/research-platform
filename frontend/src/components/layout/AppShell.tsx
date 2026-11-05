@@ -1,7 +1,9 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Menu } from "lucide-react";
 import { Outlet, useNavigate } from "react-router";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { useCrumbs, useCurrentLabId } from "@/hooks/crumbs";
 import { useProjects } from "@/hooks/projects";
@@ -9,6 +11,7 @@ import { useLabs } from "@/hooks/workspace";
 import { useRegisterCommands, type Command } from "@/lib/commands";
 import { CommandPalette } from "./CommandPalette";
 import { navItems } from "@/lib/nav";
+import { APP_NAME } from "@/lib/constants";
 import { Sidebar } from "./Sidebar";
 
 export function AppShell() {
@@ -17,6 +20,15 @@ export function AppShell() {
   const labId = useCurrentLabId();
   const { data: labs } = useLabs();
   const { data: projects } = useProjects(labId);
+  const [navOpen, setNavOpen] = useState(false);
+
+  // Below md the sidebar is a drawer: Escape closes it.
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setNavOpen(false);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [navOpen]);
 
   const commands = useMemo<Command[]>(
     () => [
@@ -53,15 +65,37 @@ export function AppShell() {
   return (
     <TooltipProvider>
       <div className="flex h-screen bg-background text-foreground print:block print:h-auto">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto print:overflow-visible">
-          <div className="mx-auto max-w-5xl px-8 py-6 print:max-w-none print:px-0">
-            <div className="mb-4 print:hidden">
-              <Breadcrumbs items={crumbs} />
+        <Sidebar open={navOpen} onClose={() => setNavOpen(false)} />
+        {navOpen && (
+          <div
+            aria-hidden
+            className="fixed inset-0 z-40 bg-black/40 md:hidden"
+            onClick={() => setNavOpen(false)}
+          />
+        )}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="flex items-center gap-2 border-b px-3 py-2 print:hidden md:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Open navigation"
+              aria-controls="app-sidebar"
+              aria-expanded={navOpen}
+              onClick={() => setNavOpen(true)}
+            >
+              <Menu aria-hidden />
+            </Button>
+            <span className="text-sm font-semibold">{APP_NAME}</span>
+          </header>
+          <main className="min-h-0 flex-1 overflow-y-auto print:overflow-visible">
+            <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 print:max-w-none print:px-0">
+              <div className="mb-4 print:hidden">
+                <Breadcrumbs items={crumbs} />
+              </div>
+              <Outlet />
             </div>
-            <Outlet />
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
       <CommandPalette />
       <Toaster />

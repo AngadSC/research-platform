@@ -86,7 +86,8 @@ def send_expiry_reminders() -> int:
             days = (approval.expiry_date - today).days
             threshold = threshold_for(days)
             key = f"ethics:{approval.pk}:{threshold}:{approval.expiry_date.isoformat()}"
-            when = "today" if days == 0 else f"in {days} day(s)"
+            unit = "day" if days == 1 else "days"
+            when = "today" if days == 0 else f"in {days} {unit}"
             title = f"Ethics approval {approval.approval_number} expires {when}"
             body = (
                 f"{approval.title} ({approval.board} {approval.approval_number}) expires on "
@@ -101,5 +102,6 @@ def send_expiry_reminders() -> int:
                     body=body,
                     target=approval,
                     dedupe_key=key,
+                    email_template="ethics_reminder",
                 )
     return created

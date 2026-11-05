@@ -8,6 +8,7 @@ import sys
 # D2 allowlist, plus LGPL (allowed for backend Python packages only).
 ALLOWED = {
     "MIT",
+    "MIT-0",  # D34, confirmed in Run 2
     "BSD-2-Clause",
     "BSD-3-Clause",
     "Apache-2.0",

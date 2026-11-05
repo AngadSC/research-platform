@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import os
 import secrets
 from pathlib import Path
@@ -59,6 +61,8 @@ INSTALLED_APPS = [
     "allauth.account",
     "allauth.headless",
     "allauth.mfa",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
     "rest_framework",
     "drf_spectacular",
     "core",
@@ -68,6 +72,7 @@ INSTALLED_APPS = [
     "provenance",
     "ethics",
     "audit",
+    "integrations",
 ]
 
 MIDDLEWARE = [
@@ -112,6 +117,8 @@ if os.environ.get("POSTGRES_HOST"):
             "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
             "HOST": os.environ["POSTGRES_HOST"],
             "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+            # Parallel test runs pass a distinct TEST_DB_NAME so they don't share test_<db>.
+            "TEST": {"NAME": os.environ.get("TEST_DB_NAME") or None},
         }
     }
 else:
@@ -121,6 +128,9 @@ else:
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
+
+# D12: placeholder product name; the frontend mirrors it in src/lib/constants.ts.
+PRODUCT_NAME = "Research Workspace"
 
 # D16: custom user model.
 AUTH_USER_MODEL = "core.User"
@@ -197,8 +207,24 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
-# D14: dev email goes to the console.
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# D14: dev email goes to the console. Production sets EMAIL_BACKEND to an anymail backend, e.g.
+# anymail.backends.postmark.EmailBackend or anymail.backends.amazon_ses.EmailBackend, plus the
+# provider's credentials below. No code change is needed to switch provider.
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Research Platform <noreply@localhost>")
+SERVER_EMAIL = os.environ.get("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
+ANYMAIL = {
+    k: v
+    for k, v in {
+        "POSTMARK_SERVER_TOKEN": os.environ.get("POSTMARK_SERVER_TOKEN"),
+        "AMAZON_SES_CLIENT_PARAMS": (
+            {"region_name": os.environ["AWS_SES_REGION_NAME"]}
+            if os.environ.get("AWS_SES_REGION_NAME")
+            else None
+        ),
+    }.items()
+    if v
+}
 
 if not DEBUG:
     SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", True)
@@ -223,6 +249,9 @@ HEADLESS_FRONTEND_URLS = {
     "account_reset_password": f"{FRONTEND_URL}/account/password/reset",
     "account_reset_password_from_key": f"{FRONTEND_URL}/account/password/reset/key/{{key}}",
     "account_signup": f"{FRONTEND_URL}/account/signup",
+    # Google sign-in: failures land here with ?error=...; the SPA passes the same route as its
+    # callback_url, so success and pending stages (verify email) land there too.
+    "socialaccount_login_error": f"{FRONTEND_URL}/account/provider/callback",
 }
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
@@ -231,6 +260,25 @@ ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 # Verifying in the same browser session that signed up finishes login (no second password prompt).
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
 MFA_SUPPORTED_TYPES = ["totp", "recovery_codes"]
+
+# ARCHITECTURE section 7 / D62: Google sign-in (openid, email, profile only; no Drive scopes).
+# Without GOOGLE_CLIENT_ID there is no app, so the headless config lists no Google provider.
+SOCIALACCOUNT_ADAPTER = "core.auth.SocialAccountAdapter"
+# Link to an existing account by email; core.auth.SocialAccountAdapter only matches verified ones.
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "SCOPE": ["openid", "email", "profile"],
+        "AUTH_PARAMS": {"access_type": "online"},
+        "APPS": (
+            [{"client_id": GOOGLE_CLIENT_ID, "secret": os.environ.get("GOOGLE_CLIENT_SECRET", "")}]
+            if GOOGLE_CLIENT_ID
+            else []
+        ),
+    }
+}
 
 SESSION_COOKIE_AGE = 7 * 24 * 3600
 SESSION_COOKIE_SAMESITE = "Lax"
@@ -256,7 +304,7 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Research Workspace API",
+    "TITLE": f"{PRODUCT_NAME} API",
     "VERSION": "0.1.0",
     # Stable enum names: same-named choice fields would otherwise get hash-suffixed names.
     "ENUM_NAME_OVERRIDES": {
@@ -273,3 +321,26 @@ SPECTACULAR_SETTINGS = {
 
 # ARCHITECTURE §4: X-Forwarded-For is trusted only behind this many proxies.
 TRUSTED_PROXY_COUNT = int(os.environ.get("TRUSTED_PROXY_COUNT", "0"))
+
+# ARCHITECTURE section 9 / D63: integration tokens are Fernet-encrypted with these keys, newest
+# first (comma-separated). In DEBUG a missing value means a random dev key derived from the
+# git-ignored backend/.dev_integration_key (the D49 pattern); outside DEBUG startup refuses.
+INTEGRATION_ENCRYPTION_KEYS = env_list("INTEGRATION_ENCRYPTION_KEYS")
+if not INTEGRATION_ENCRYPTION_KEYS:
+    if not DEBUG:
+        raise ImproperlyConfigured("INTEGRATION_ENCRYPTION_KEYS must be set when DEBUG is false.")
+    _seed = _dev_secret_key(
+        Path(os.environ.get("DEV_INTEGRATION_KEY_FILE", BASE_DIR / ".dev_integration_key"))
+    )
+    INTEGRATION_ENCRYPTION_KEYS = [
+        base64.urlsafe_b64encode(hashlib.sha256(_seed.encode()).digest()).decode()
+    ]
+# D65: one OAuth callback for every integration provider, under /api/ so the Vite proxy covers it.
+INTEGRATION_OAUTH_REDIRECT_URI = f"{FRONTEND_URL}/api/integrations/oauth/callback/"
+# D66: integration OAuth clients are separate from the Google sign-in client.
+INTEGRATION_CLIENTS = {
+    "google": {
+        "client_id": os.environ.get("GOOGLE_DRIVE_CLIENT_ID", ""),
+        "client_secret": os.environ.get("GOOGLE_DRIVE_CLIENT_SECRET", ""),
+    },
+}

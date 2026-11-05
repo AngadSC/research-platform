@@ -18,6 +18,15 @@ def _local_cache(settings):
     cache.clear()
 
 
+@pytest.fixture(autouse=True)
+def _eager_celery(settings):
+    """Email tasks run inline so tests see them in mail.outbox."""
+    settings.CELERY_TASK_ALWAYS_EAGER = True
+    from config.celery import app
+
+    app.conf.task_always_eager = True
+
+
 @pytest.fixture
 def make_user(db):
     def make(**kw):
@@ -56,9 +65,10 @@ def join(db):
 def verify_email(db):
     from allauth.account.models import EmailAddress
 
-    def do(user, verified=True):
+    def do(user, verified=True, email=None):
+        """The user's primary address, or a secondary one when `email` is given."""
         return EmailAddress.objects.create(
-            user=user, email=user.email, verified=verified, primary=True
+            user=user, email=email or user.email, verified=verified, primary=email is None
         )
 
     return do

@@ -1,9 +1,11 @@
 import QRCode from "qrcode";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { ProviderButton } from "@/components/auth/ProviderButton";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,6 +13,11 @@ import {
   useActivateTotp,
   useAuth,
   useDeactivateTotp,
+  useDisconnectProvider,
+  useEmailAction,
+  useEmails,
+  useProviderAccounts,
+  useProviders,
   useRecoveryCodes,
   useRegenerateRecoveryCodes,
   useTotp,
@@ -230,12 +237,147 @@ function TotpSection() {
   );
 }
 
+function ConnectedAccountsSection() {
+  const { hasUsablePassword } = useAuth();
+  const providers = useProviders();
+  const accounts = useProviderAccounts();
+  const disconnect = useDisconnectProvider();
+  const [error, setError] = useState<string>();
+  const google = providers.data?.find((p) => p.id === "google");
+  const connected = accounts.data?.find((a) => a.provider.id === "google");
+
+  if (!google && !connected) return null;
+  return (
+    <Section title="Connected accounts" description="Sign in with Google instead of a password.">
+      <div className="flex items-center justify-between gap-4">
+        <div className="text-sm">
+          <p className="font-medium">Google</p>
+          <p className="text-muted-foreground">
+            {accounts.isLoading ? "Loading..." : connected ? connected.display : "Not connected"}
+          </p>
+        </div>
+        {connected ? (
+          <Button
+            variant="outline"
+            disabled={!hasUsablePassword || disconnect.isPending}
+            onClick={() => {
+              setError(undefined);
+              disconnect.mutateAsync(connected).then(
+                () => toast.success("Google disconnected"),
+                (e) => setError(msg(e)),
+              );
+            }}
+          >
+            Disconnect
+          </Button>
+        ) : (
+          <div className="w-48">
+            <ProviderButton process="connect" label="Connect Google" returnTo="/account" />
+          </div>
+        )}
+      </div>
+      {connected && !hasUsablePassword && (
+        <p className="text-xs text-muted-foreground">
+          You sign in only with Google. Set a password first (use Forgot password on the sign-in
+          page), then you can disconnect.
+        </p>
+      )}
+      <FormError message={error} />
+    </Section>
+  );
+}
+
+function EmailSection() {
+  const emails = useEmails();
+  const act = useEmailAction();
+  const [error, setError] = useState<string>();
+
+  function run(op: "add" | "remove" | "primary" | "resend", email: string, ok: string) {
+    setError(undefined);
+    return act.mutateAsync({ op, email }).then(
+      () => (toast.success(ok), true),
+      (e) => (setError(msg(e)), false),
+    );
+  }
+
+  async function add(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const email = String(new FormData(form).get("email") ?? "").trim();
+    if (!email) return setError("Enter an email address");
+    if (await run("add", email, "Check that inbox to confirm the address")) form.reset();
+  }
+
+  return (
+    <Section
+      title="Email addresses"
+      description="Lab invitations work with any verified address on your account."
+    >
+      {emails.isLoading ? (
+        <Skeleton className="h-16 w-full" />
+      ) : (
+        <ul className="grid divide-y rounded-md border">
+          {(emails.data ?? []).map((m) => (
+            <li key={m.email} className="flex flex-wrap items-center gap-2 p-3 text-sm">
+              <span className="mr-auto font-medium">{m.email}</span>
+              {m.primary && <Badge>Primary</Badge>}
+              <Badge variant={m.verified ? "secondary" : "outline"}>
+                {m.verified ? "Verified" : "Not verified"}
+              </Badge>
+              {!m.verified && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={act.isPending}
+                  onClick={() => void run("resend", m.email, "Verification email sent")}
+                >
+                  Resend verification
+                </Button>
+              )}
+              {m.verified && !m.primary && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={act.isPending}
+                  onClick={() => void run("primary", m.email, "Primary email changed")}
+                >
+                  Make primary
+                </Button>
+              )}
+              {!m.primary && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={act.isPending}
+                  onClick={() => void run("remove", m.email, "Email removed")}
+                >
+                  Remove
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <form onSubmit={add} noValidate className="grid max-w-sm gap-4">
+        <FormField label="Add an email address" error={error}>
+          {(p) => <Input {...p} name="email" type="email" autoComplete="email" />}
+        </FormField>
+        <Button type="submit" className="justify-self-start" disabled={act.isPending}>
+          Add email
+        </Button>
+      </form>
+    </Section>
+  );
+}
+
 export function SecurityPage() {
   return (
     <>
       <PageHeader title="Account" description="Your name and sign-in security." />
       <div className="grid max-w-2xl gap-8">
         <NameSection />
+        <EmailSection />
+        <ConnectedAccountsSection />
         <TotpSection />
       </div>
     </>

@@ -29,7 +29,7 @@ const handlers = (lineage: { status?: number; body?: unknown }) => ({
 const PATH = "/labs/lab1/projects/p1/lineage";
 
 beforeEach(() => {
-  // React Flow measures nodes with these; happy-dom has neither.
+  // React Flow measures nodes with these; jsdom has neither.
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -98,7 +98,7 @@ describe("Lineage tab", () => {
     mockFetch(handlers({ body: sample }));
     renderRoute(PATH);
     const node = await screen.findByRole("button", { name: "Result: Figure 1" });
-    // happy-dom cannot run d3-zoom pointer handling, so click directly.
+    // jsdom cannot run d3-zoom pointer handling, so click directly.
     fireEvent.click(node);
     expect(await screen.findByRole("dialog")).toHaveTextContent(COMMIT);
   });

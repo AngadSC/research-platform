@@ -1,0 +1,17 @@
+{% extends "email/base.html" %}
+{% block heading %}Project exported{% endblock %}
+{% block content %}
+                <p style="margin:0 0 16px 0;">{{ exporter }} exported the project <strong>{{ project }}</strong> in {{ lab }}.</p>
+                <p style="margin:0 0 16px 0;">If you did not expect this, check the audit log.</p>
+{% endblock %}
+{% block action %}
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 20px 0;">
+                  <tr>
+                    <td bgcolor="#4f46e5" align="center" style="border-radius:6px;background-color:#4f46e5;">
+                      <a href="{{ frontend_url }}" target="_blank" style="display:inline-block;padding:12px 22px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:20px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">Open the platform</a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:0 0 20px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;color:#4b5563;">If the button does not work, copy this link into your browser:<br><a href="{{ frontend_url }}" style="color:#4338ca;word-break:break-all;">{{ frontend_url }}</a></p>
+{% endblock %}
+{% block footer %}You received this because you are a PI in {{ lab }} and a project in it was exported.{% endblock %}

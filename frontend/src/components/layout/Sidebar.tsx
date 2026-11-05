@@ -28,7 +28,15 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
       : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
   );
 
-function LabSwitcher({ labs, current }: { labs: Lab[]; current: Lab | undefined }) {
+function LabSwitcher({
+  labs,
+  current,
+  onNavigate,
+}: {
+  labs: Lab[];
+  current: Lab | undefined;
+  onNavigate: () => void;
+}) {
   const navigate = useNavigate();
   return (
     <DropdownMenu>
@@ -42,12 +50,23 @@ function LabSwitcher({ labs, current }: { labs: Lab[]; current: Lab | undefined 
       <DropdownMenuContent align="start" className="w-56">
         <DropdownMenuLabel>Switch lab</DropdownMenuLabel>
         {labs.map((lab) => (
-          <DropdownMenuItem key={lab.id} onSelect={() => void navigate(`/labs/${lab.id}`)}>
+          <DropdownMenuItem
+            key={lab.id}
+            onSelect={() => {
+              onNavigate();
+              void navigate(`/labs/${lab.id}`);
+            }}
+          >
             {lab.name}
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => void navigate("/labs/new")}>
+        <DropdownMenuItem
+          onSelect={() => {
+            onNavigate();
+            void navigate("/labs/new");
+          }}
+        >
           Create a lab
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -55,7 +74,7 @@ function LabSwitcher({ labs, current }: { labs: Lab[]; current: Lab | undefined 
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: labs = [] } = useLabs();
   const labId = useCurrentLabId();
   const logout = useLogout();
@@ -63,12 +82,19 @@ export function Sidebar() {
   const navigate = useNavigate();
   const current = labs.find((l) => l.id === labId);
   return (
-    <aside className="flex w-64 print:hidden shrink-0 flex-col gap-4 border-r bg-sidebar p-3">
+    <aside
+      id="app-sidebar"
+      className={cn(
+        "w-64 shrink-0 flex-col gap-4 border-r bg-sidebar p-3 print:hidden",
+        // Below md the sidebar is a drawer that only exists while open.
+        open ? "fixed inset-y-0 left-0 z-50 flex md:static md:z-auto" : "hidden md:flex",
+      )}
+    >
       <div>
         <p className="px-2 pb-1 text-xs text-muted-foreground">{APP_NAME}</p>
         <div className="flex items-center gap-1">
           <div className="min-w-0 flex-1">
-            <LabSwitcher labs={labs} current={current} />
+            <LabSwitcher labs={labs} current={current} onNavigate={onClose} />
           </div>
           {labId && <NotificationBell labId={labId} />}
         </div>
@@ -82,7 +108,10 @@ export function Sidebar() {
               <button
                 type="button"
                 aria-label="New project"
-                onClick={() => void navigate(`/labs/${labId}?new=project`)}
+                onClick={() => {
+                  onClose();
+                  void navigate(`/labs/${labId}?new=project`);
+                }}
                 className="rounded-md p-1 text-muted-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4"
               >
                 <Plus aria-hidden />
@@ -90,7 +119,12 @@ export function Sidebar() {
             )}
           </div>
           {projects.map((p) => (
-            <NavLink key={p.id} to={`/labs/${labId}/projects/${p.id}`} className={linkClass}>
+            <NavLink
+              key={p.id}
+              to={`/labs/${labId}/projects/${p.id}`}
+              className={linkClass}
+              onClick={onClose}
+            >
               <span className="truncate">{p.name}</span>
             </NavLink>
           ))}
@@ -98,7 +132,7 @@ export function Sidebar() {
       )}
       <nav aria-label="Main" className="grid gap-0.5">
         {navItems(labId, current?.my_permissions).map(({ to, label, icon: Icon, end }) => (
-          <NavLink key={to} to={to} end={end} className={linkClass}>
+          <NavLink key={to} to={to} end={end} className={linkClass} onClick={onClose}>
             <Icon aria-hidden />
             {label}
           </NavLink>

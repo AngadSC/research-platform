@@ -1,4 +1,5 @@
 import { FileText, Plus } from "lucide-react";
+import { RelativeTime } from "@/components/shared/RelativeTime";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { DataTable } from "@/components/shared/DataTable";
@@ -8,8 +9,6 @@ import { useCreateDocument, useDocuments } from "@/hooks/documents";
 import { personName } from "@/lib/api-types";
 import { formErrors } from "@/lib/forms";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
-
-const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
 
 export default function DocumentsTab({ labId, projectId, project }: ProjectTabProps) {
   const navigate = useNavigate();
@@ -44,7 +43,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
             cell: (d) => <span className="font-medium">{d.title}</span>,
           },
           { key: "by", header: "Last edited by", cell: (d) => personName(d.updated_by) },
-          { key: "at", header: "Updated", cell: (d) => day(d.updated_at) },
+          { key: "at", header: "Updated", cell: (d) => <RelativeTime value={d.updated_at} /> },
         ]}
         empty={
           <EmptyState

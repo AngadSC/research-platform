@@ -3,6 +3,7 @@ one project (D20, D31): an ID from another project or lab fails exactly like a m
 Writes record their audit event in the same transaction."""
 
 import datetime
+import uuid
 
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
@@ -11,10 +12,12 @@ from rest_framework.exceptions import ValidationError
 
 from audit.models import AuditAction
 from audit.services import record
-from core.models import User
+from core.models import NotificationKind, User
+from core.notifications import notify
 from core.permissions import Perm, can, require
 from documents.models import Attachment, Document
 from documents.services import Conflict
+from labs.models import LabMembership, LabRole
 from projects.models import ProjectDeadline, Task
 from provenance.models import Analysis, DatasetRecord, Decision, ManuscriptLink, Result
 
@@ -236,7 +239,32 @@ def export_project(*, project, user, context, request=None) -> dict:
         request=request,
         metadata={k: v.count() for k, v in out.items() if hasattr(v, "count")},
     )
+    _notify_pis_of_export(project=project, user=user)
     return out
+
+
+def _notify_pis_of_export(*, project, user) -> None:
+    """D28: when anyone but a PI exports, every lab PI hears about it (in-app and email)."""
+    lab = project.lab
+    pis = [
+        m.user
+        for m in LabMembership.objects.for_lab(lab).filter(role=LabRole.PI).select_related("user")
+    ]
+    if any(pi.pk == user.pk for pi in pis):
+        return
+    who = user.display_name or user.email
+    for pi in pis:
+        notify(
+            lab=lab,
+            recipient=pi,
+            kind=NotificationKind.PROJECT_EXPORTED,
+            title=f"{who} exported {project.name}",
+            body=f"{who} exported the project {project.name}.",
+            target=project,
+            dedupe_key=f"export:{project.pk}:{uuid.uuid4()}",
+            email_template="export_notice",
+            email_context={"exporter": who, "project": project.name, "lab": lab.name},
+        )
 
 
 # ---------------------------------------------------------------- lineage

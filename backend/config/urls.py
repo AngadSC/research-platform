@@ -4,6 +4,8 @@ from django.urls import include, path
 
 urlpatterns = [
     path("_allauth/", include("allauth.headless.urls")),
+    # Provider callbacks only (HEADLESS_ONLY), e.g. /accounts/google/login/callback/.
+    path("accounts/", include("allauth.urls")),
     path("api/", include("core.urls")),
     path("api/", include("labs.urls")),
     path("api/", include("audit.urls")),

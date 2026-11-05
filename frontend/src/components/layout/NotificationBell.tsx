@@ -1,4 +1,5 @@
 import { Bell } from "lucide-react";
+import { RelativeTime } from "@/components/shared/RelativeTime";
 import { Link, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
@@ -7,7 +8,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { notificationLink, useMarkRead, useNotifications } from "@/hooks/ethics";
-import { when } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export function NotificationBell({ labId }: { labId: string }) {
@@ -60,7 +60,9 @@ export function NotificationBell({ labId }: { labId: string }) {
                 {n.title}
               </button>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">{when(n.created_at)}</span>
+                <span className="text-xs text-muted-foreground">
+                  <RelativeTime value={n.created_at} />
+                </span>
                 <Button
                   variant="ghost"
                   size="sm"

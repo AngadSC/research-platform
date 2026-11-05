@@ -3,7 +3,13 @@ import { AuthLayout } from "@/components/layout/AuthLayout";
 import { ProtectedLayout } from "@/components/layout/ProtectedLayout";
 import { AuditLogPage } from "@/pages/AuditLogPage";
 import { AcceptInvitePage } from "@/pages/AcceptInvitePage";
-import { CheckEmailPage, LoginPage, SignupPage, VerifyEmailPage } from "@/pages/AuthPages";
+import {
+  CheckEmailPage,
+  LoginPage,
+  ProviderCallbackPage,
+  SignupPage,
+  VerifyEmailPage,
+} from "@/pages/AuthPages";
 import { CreateLabPage } from "@/pages/CreateLabPage";
 import { HomePage, NotBuiltPage } from "@/pages/HomePage";
 import { DocumentPage } from "@/pages/LazyDocumentPage";
@@ -39,6 +45,11 @@ export const routes: RouteObject[] = [
         path: "/account/verify-email/:key",
         element: <VerifyEmailPage />,
         handle: { crumb: "Confirm email" },
+      },
+      {
+        path: "/account/provider/callback",
+        element: <ProviderCallbackPage />,
+        handle: { crumb: "Sign in" },
       },
       { path: "/invite/:token", element: <AcceptInvitePage />, handle: { crumb: "Invitation" } },
     ],

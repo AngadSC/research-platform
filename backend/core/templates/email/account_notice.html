@@ -1,0 +1,6 @@
+{% extends "email/base.html" %}
+{% block heading %}Account notice{% endblock %}
+{% block content %}
+                <p style="margin:0 0 16px 0;">{{ message|linebreaksbr }}</p>
+{% endblock %}
+{% block footer %}You received this because the notice concerns your account on {{ product_name }}.{% endblock %}

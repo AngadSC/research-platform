@@ -1,13 +1,15 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
+import { ProviderButton, RETURN_KEY } from "@/components/auth/ProviderButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   useAuth,
   useLogin,
   useMfaAuthenticate,
+  useRefreshSession,
   useSignup,
   useVerifyEmail,
   type AuthResult,
@@ -73,19 +75,22 @@ function CredentialsForm({
   }
 
   return (
-    <form onSubmit={submit} noValidate className="grid gap-4">
-      <FormField label="Email" error={errors.fields.email}>
-        {(p) => <Input {...p} name="email" type="email" autoComplete="email" />}
-      </FormField>
-      <FormField label="Password" error={errors.fields.password}>
-        {(p) => <Input {...p} name="password" type="password" autoComplete={autoComplete} />}
-      </FormField>
-      <FormError message={errors.form} />
-      <Button type="submit" disabled={busy}>
-        {submitLabel}
-      </Button>
+    <div className="grid gap-4">
+      <form onSubmit={submit} noValidate className="grid gap-4">
+        <FormField label="Email" error={errors.fields.email}>
+          {(p) => <Input {...p} name="email" type="email" autoComplete="email" />}
+        </FormField>
+        <FormField label="Password" error={errors.fields.password}>
+          {(p) => <Input {...p} name="password" type="password" autoComplete={autoComplete} />}
+        </FormField>
+        <FormError message={errors.form} />
+        <Button type="submit" disabled={busy}>
+          {submitLabel}
+        </Button>
+      </form>
+      <ProviderButton process="login" label="Continue with Google" />
       <p className="text-sm text-muted-foreground">{footer}</p>
-    </form>
+    </div>
   );
 }
 
@@ -134,7 +139,8 @@ export function LoginPage() {
   const { next, raw } = useNext();
   const navigate = useNavigate();
   const login = useLogin();
-  const [needsCode, setNeedsCode] = useState(false);
+  const [params] = useSearchParams();
+  const [needsCode, setNeedsCode] = useState(params.get("mfa") === "1");
 
   if (isAuthenticated) return <Navigate to={next} replace />;
   if (needsCode) return <CodeForm next={next} />;
@@ -270,4 +276,46 @@ export function VerifyEmailPage() {
       </div>
     </>
   );
+}
+
+/** Where the browser lands after Google. allauth adds ?error= on failure; otherwise the session says what is next. */
+export function ProviderCallbackPage() {
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const refresh = useRefreshSession();
+  const failed = params.has("error");
+  const [offline, setOffline] = useState(false);
+
+  useEffect(() => {
+    if (failed) return;
+    const back = sessionStorage.getItem(RETURN_KEY);
+    sessionStorage.removeItem(RETURN_KEY);
+    refresh().then(
+      (r) => {
+        if (r.pending.includes("mfa_authenticate"))
+          void navigate("/login?mfa=1", { replace: true });
+        else if (r.pending.includes("verify_email"))
+          void navigate("/check-email", { replace: true });
+        else void navigate(r.authenticated ? (back ?? "/") : "/login", { replace: true });
+      },
+      () => setOffline(true),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on arrival
+  }, []);
+
+  if (failed || offline)
+    return (
+      <>
+        <Heading title="Google sign-in did not finish" />
+        <p className="text-sm">
+          {offline
+            ? "We couldn't reach the server. Check your connection and try again."
+            : "Google did not let us sign you in. You may have cancelled, or this Google account cannot be used. Try again, or sign in with your email and password."}
+        </p>
+        <Button asChild className="mt-4">
+          <Link to="/login">Back to sign in</Link>
+        </Button>
+      </>
+    );
+  return <p className="text-sm text-muted-foreground">Finishing sign-in...</p>;
 }

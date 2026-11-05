@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from "react";
+import { RelativeTime } from "@/components/shared/RelativeTime";
 import { toast } from "sonner";
 import { DetailPanel } from "@/components/shared/DetailPanel";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRestoreRevision, useRevision, useRevisions } from "@/hooks/documents";
 import { personName } from "@/lib/api-types";
-import { when } from "@/lib/format";
 import { formErrors } from "@/lib/forms";
 import { cn } from "@/lib/utils";
 
@@ -106,7 +106,7 @@ export function RevisionsPanel({
               >
                 <span className="font-medium">Version {r.version}</span>
                 <span className="block text-xs text-muted-foreground">
-                  {personName(r.created_by)}, {when(r.created_at)}
+                  {personName(r.created_by)}, <RelativeTime value={r.created_at} />
                 </span>
               </button>
             </li>

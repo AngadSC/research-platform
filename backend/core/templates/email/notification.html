@@ -1,0 +1,6 @@
+{% extends "email/base.html" %}
+{% block heading %}{{ title }}{% endblock %}
+{% block content %}
+                <p style="margin:0 0 16px 0;">{{ body|linebreaksbr }}</p>
+{% endblock %}
+{% block footer %}You received this because you are a member of a lab on {{ product_name }} and this update concerns its activity.{% endblock %}

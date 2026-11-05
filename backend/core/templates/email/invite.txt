@@ -1,0 +1,4 @@
+{% autoescape off %}{{ inviter }} invited you to join {{ lab }} as {{ role }}.
+
+Accept the invite (expires in 7 days): {{ url }}
+{% endautoescape %}

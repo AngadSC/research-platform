@@ -1,5 +1,6 @@
-import { FolderKanban, Plus, Users } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { FolderKanban, Plus } from "lucide-react";
+import { RelativeTime } from "@/components/shared/RelativeTime";
+import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/shared/DataTable";
@@ -15,7 +16,6 @@ import { useCreateProject, useProjects } from "@/hooks/projects";
 import { ProjectFormDialog } from "@/pages/project/ProjectFormDialog";
 import type { Project } from "@/lib/api-types";
 import { useLab, useUpdateLab } from "@/hooks/workspace";
-import { useRegisterCommands } from "@/lib/commands";
 import { formErrors, type FormErrors } from "@/lib/forms";
 import { roleLabel } from "@/lib/api-types";
 
@@ -61,28 +61,13 @@ export function LabHomePage() {
   const setCreating = (open: boolean) =>
     setParams(open ? { new: "project" } : {}, { replace: true });
 
-  useRegisterCommands(
-    useMemo(
-      () => [
-        {
-          id: `lab:${labId}:members`,
-          label: "Go to lab members",
-          group: "Navigate",
-          icon: Users,
-          onSelect: () => void navigate(`/labs/${labId}/members`),
-        },
-      ],
-      [labId, navigate],
-    ),
-  );
-
   const cols: Column<Project>[] = [
     { key: "name", header: "Project", cell: (p) => <span className="font-medium">{p.name}</span> },
     { key: "status", header: "Status", cell: (p) => <StatusBadge status={p.status} /> },
     {
       key: "updated",
       header: "Updated",
-      cell: (p) => new Date(p.updated_at).toLocaleDateString(undefined, { dateStyle: "medium" }),
+      cell: (p) => <RelativeTime value={p.updated_at} />,
     },
   ];
 

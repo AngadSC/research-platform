@@ -82,7 +82,11 @@ For all of these, `project_path="project"`. Every M2M target must be in the **sa
 - M2M: one `m2m_changed` receiver, registered for every M2M field between `LabScopedModel`s, rejects `pre_add` if any object in `pk_set` has a different `lab_id`, or a different `project_id` for provenance models.
 - `LabScopedQuerySet.update()` raises if its kwargs include `lab` or any `lab_parents` field. `bulk_create` and `bulk_update` are banned for lab models outside services, and services validate the rows first.
 - Serializer FK inputs use `ScopedPrimaryKeyRelatedField`, which resolves IDs through `visible_to(request.user, request.lab)`. An ID from another lab returns the same 400 "does not exist" as an ID that doesn't exist.
-- Upgrade path, deferred: composite FKs `(lab_id, project_id) → project(lab_id, id)` via `RunSQL`.
+- **Database level (Postgres only, D15; migration `labs/0002_db_lab_consistency`).** `core/lab_db.py` holds two migration operations; any app adding lab-scoped models reuses them in its own migration:
+  - `LabForeignKey(table, column, parent_table, on_delete)`: composite FK `(column, lab_id) → parent(id, lab_id)` (`DEFERRABLE INITIALLY DEFERRED`, like Django's), creating `UNIQUE (id, lab_id)` on the parent if absent. `on_delete` is `CASCADE`, `PROTECT` (NO ACTION) or `SET_NULL` (sets only the FK column). Nullable FKs stay nullable (MATCH SIMPLE).
+  - `LabM2MTrigger(through_table, (left_table, left_col), (right_table, right_col), left_project, right_project)`: `BEFORE INSERT OR UPDATE` trigger on the through table calling `core_m2m_same_lab()`; it rejects a row whose sides differ in `lab_id`, and, when both project columns are given (`"project_id"`, or `"id"` for `projects_project`), in project (a NULL project fails, as in `_same_project`). Violations raise `check_violation`, which Django surfaces as `IntegrityError`.
+  - Both first check existing rows and abort the migration naming the table, the row ids and both lab ids. Both are no-ops on SQLite. The trigger does not re-check links when a parent's `project_id` is later changed (the composite FKs already block a changed `lab_id`).
+  - `tests/test_lab_db_constraints.py` introspects every FK and M2M between `LabScopedModel`s and fails if one has no composite FK or trigger, so a new model must add the operations. The app-level checks above stay.
 
 ## 2. Tenancy enforcement (`backend/core/tenancy.py`)
 
@@ -121,7 +125,8 @@ class LabScopedQuerySet(QuerySet):
 ```
 class Perm(StrEnum):  # lab-level
     VIEW_LAB, MANAGE_LAB, MANAGE_MEMBERS, MANAGE_BILLING, VIEW_AUDIT_LOG,
-    CREATE_PROJECT, VIEW_ETHICS, EDIT_ETHICS, VIEW_RETENTION
+    CREATE_PROJECT, VIEW_ETHICS, EDIT_ETHICS, VIEW_RETENTION,
+    MANAGE_INTEGRATIONS, MANAGE_LAB_INTEGRATIONS          # section 9
                       # project-level
     VIEW_PROJECT, EDIT_PROJECT, EDIT_CONTENT, MANAGE_PROJECT_MEMBERS, EXPORT, DELETE_PROJECT
     # pseudo: PUBLIC, AUTHENTICATED
@@ -157,6 +162,8 @@ class HasPerm(BasePermission)   # DRF; reads view.perms
 | edit_ethics | Y | Y | Y | - |
 | view_retention | Y | Y | - | - |
 | delete_project | Y | Y | - | - |
+| manage_integrations (connect and disconnect your own accounts, section 9) | Y | Y | Y | Y |
+| manage_lab_integrations (see and revoke any member's connected account) | Y | Y | - | - |
 
 Only a PI can grant, change or remove the `pi` role. A lab must always have at least one PI (the service rejects the change with 400).
 
@@ -196,6 +203,8 @@ def record(action: AuditAction, *, actor: User | None, lab: Lab | None,
 | `attachment.uploaded` (metadata `notice_acknowledged_at`), `attachment.downloaded`, `attachment.deleted` | `documents.services.upload_attachment`, download view, `delete_attachment` |
 | `<model>.deleted` for `task`, `deadline`, `dataset`, `analysis`, `result`, `decision`, `manuscript`, `ethics_approval` | the delete service for each |
 | `audit_log.viewed` | audit list view |
+| `integration.connected`, `integration.disconnected` (own account), `integration.revoked` (someone else's, or lifecycle with actor null), `integration.refresh_failed` (actor null, `actor_label="integrations:refresh"`) | `integrations.services` (section 9) |
+| `external_link.created`, `external_link.removed` | the external-link services (next phase, section 9) |
 | `handover.generated` | handover views |
 
 Creating and editing ordinary content is not audited, because revisions and `updated_by` already cover it. Role changes are the "permission changes" that SPEC §2 phase 2 asks for.
@@ -283,8 +292,10 @@ The tokens are `2` (any 2xx), `401`, `403` and `404`. One test is parametrized o
 ## 7. Auth module boundary (`backend/core/auth.py`)
 
 - **allauth headless, session mode** (D6): `HEADLESS_ONLY=True`, and the SPA calls `/_allauth/browser/v1/...`. Login is by email (`ACCOUNT_LOGIN_METHODS={"email"}`), and `ACCOUNT_EMAIL_VERIFICATION="mandatory"`. Invites rely on verified emails (D25). allauth's default rate limits stay on.
-- `core/auth.py` holds the `AccountAdapter` and `HeadlessAdapter`, the audit signal receivers, the `SessionAuthentication` subclass that returns 401, and `login_methods_for_email(email)`. That last function returns `["password"]` for now and is the hook for SSO routing. **No other module imports allauth.** App code only reads `request.user`.
-- **SSO and SAML later:** add `allauth.socialaccount` with the SAML provider (python3-saml and xmlsec are MIT; check the licenses when adding them). Add `Institution.sso_config` (JSON) and `Institution.email_domains`, and have `login_methods_for_email` route institutional domains to the IdP. Nothing outside `core/auth.py` and the settings needs to change.
+- `core/auth.py` holds the `AccountAdapter`, `HeadlessAdapter` and `SocialAccountAdapter`, the audit signal receivers, the `SessionAuthentication` subclass that returns 401, `has_verified_email(user, email)` (D25), and `login_methods_for_email(email)`. That last function returns `["password"]` for now and is the hook for SSO routing. **No other module imports allauth.** App code only reads `request.user`.
+- **Google sign-in** (`allauth.socialaccount` + the Google provider, D62): scopes `openid email profile` only, with no provider tokens stored. The app comes from `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`. When those are unset there's no app, the headless config lists no provider, and the SPA hides the button. Provider callbacks are served under `/accounts/` (`allauth.urls`, which is only provider URLs when `HEADLESS_ONLY` is on), and Vite proxies `/accounts` like `/_allauth`. That makes the redirect URI `{FRONTEND_URL}/accounts/google/login/callback/`. The SPA starts the flow with a top-level form POST (not fetch) to `/_allauth/browser/v1/auth/provider/redirect` with `provider=google`, `process=login|connect`, `callback_url=/account/provider/callback` and `csrfmiddlewaretoken`. Google then redirects back through `/accounts/...` to `callback_url`, with `?error=...` on failure (`HEADLESS_FRONTEND_URLS["socialaccount_login_error"]` is the same route). The SPA then reads `GET /auth/session`, which returns either an authenticated session or a pending stage such as `verify_email`. Linking, in `SocialAccountAdapter.authenticate_by_email`, happens only when Google's email is verified and matches a *verified* local address, primary or secondary. Every other case creates a new account or goes through D62. Connected accounts are listed and disconnected at `/_allauth/browser/v1/account/providers` (GET, DELETE). allauth refuses to disconnect the last provider from an account without a usable password.
+- **Extra email addresses:** allauth headless `/_allauth/browser/v1/account/email` handles list (GET), add (POST, which sends a verification mail), set primary (PATCH, verified addresses only), resend (PUT) and remove (DELETE). Verification goes through `/auth/email/verify`. A verified address belongs to one account at most (allauth's `unique_verified_email` constraint plus `can_set_verified`). Audit: `auth.email_added`/`auth.email_removed` and `auth.social_connected`/`auth.social_disconnected` (connect, or a new account created by Google).
+- **SSO and SAML later:** add the SAML provider to `allauth.socialaccount` (python3-saml and xmlsec are MIT; check the licenses when adding them). Add `Institution.sso_config` (JSON) and `Institution.email_domains`, and have `login_methods_for_email` route institutional domains to the IdP. Nothing outside `core/auth.py` and the settings needs to change.
 - **MFA:** `allauth.mfa` with `MFA_SUPPORTED_TYPES=["totp","recovery_codes"]`. It is optional per user. A later per-lab "require MFA" setting would be a `Lab` field that `get_lab_or_404` checks.
 - **Cookies:** session and CSRF cookies are `Secure` in production and `SameSite=Lax`. The session cookie is HttpOnly. The CSRF cookie is readable by the SPA. `SESSION_COOKIE_AGE` is 7 days.
 
@@ -300,3 +311,78 @@ The tokens are `2` (any 2xx), `401`, `403` and `404`. One test is parametrized o
 
   No presigned or public URL is ever issued. The limit of this approach is that large files hold a worker while they stream. The upgrade path is `X-Accel-Redirect` or a presigned URL lasting 60 seconds or less, issued after the same checks.
 - **Upload:** the server enforces the 50 MB limit, computes `sha256`, and stores the content type the client declared. The file is never executed or rendered on the server.
+
+## 9. Integrations (`backend/integrations/`)
+
+The framework for outside services: Google Drive first, then Microsoft, Overleaf, REDCap and Qualtrics. The security core (registry, models, crypto, HTTP client, OAuth flow services) exists. Endpoints, the permission-matrix rows, lifecycle hooks, the UI and Drive itself are the next phase and follow this section.
+
+### Registry (`integrations/registry.py`)
+Providers are code, not a database table. `Provider` is a frozen dataclass: `name` (the key stored on rows), `label`, `auth_type` (`oauth2 | api_key | link_only`), `scopes` (the **only** scopes that can ever be requested), `icon`, `authorize_url`, `token_url`, `revoke_url`, `identity_url` + `parse_identity(json) -> (external_id, email)`, `api_hosts` (the hosts a token may be sent to) and `authorize_params` (fixed extra authorize-URL params). Client credentials come from `settings.INTEGRATION_CLIENTS[name]`; a provider without them is "not configured" and can't be connected. `PROVIDERS` holds `google` today. Tests register `integrations/tests/fake.py::FAKE` with `monkeypatch.setitem(PROVIDERS, ...)` and swap `integrations.http._session` for `FakeTransport`.
+
+### Models
+| Model | Fields | Constraints / notes |
+|---|---|---|
+| `ConnectedAccount` | `user` FK User PROTECT, `provider` char(40), `external_account_id`, `external_email`, `granted_scopes` JSON list, `status` `active\|expired\|revoked\|error`, `access_token_ct`, `refresh_token_ct` (Fernet ciphertext, `editable=False`), `token_expires_at`, `connected_at`, `last_used_at` (last successful provider call) | `permission_domain="lab"`. Unique `(lab, user, provider, external_account_id)`; partial unique `(lab, user, provider)` where active (D69). `visible_rows`: own rows, or all with `manage_lab_integrations` (D54 pattern). Never deleted: a revoked row keeps its links' history, tokens wiped. |
+| `ExternalLink` | `project` FK CASCADE; at most one of `document`, `dataset`, `analysis`, `result`, `manuscript` (FKs SET_NULL, DB check `externallink_at_most_one_target`); `provider`, `connected_account` FK PROTECT null (the linker's account, used for freshness; null for link_only), `external_id`, `url` (http/https only), `title`, `mime_type`, `linked_by` FK User PROTECT, `linked_modified_at`/`linked_version` (baseline at link time), `remote_modified_at`/`remote_version`/`remote_checksum` (last seen), `last_checked_at`, `unavailable_since` | `permission_domain="project"`, `project_path="project"`, `lab_parents` = project, the five targets, `connected_account`, so the target is in the same project and the account in the same lab (D31). Composite `(fk, lab_id)` FKs via `core.lab_db.LabForeignKey` in `integrations/0001`. `changed_since_linked`: versions differ, or (no versions) remote modified time is later than the baseline. "No longer available" = `unavailable_since` set. |
+
+Statuses: `expired` means the provider refused a refresh (`invalid_grant`, or no refresh token): the user must reconnect. `revoked` means we wiped the tokens (disconnect, admin revoke, lifecycle). `error` means our side is wrong (client rejected, provider not configured). Only `active` accounts are ever used.
+
+### Token storage and rotation (D63)
+- Tokens are encrypted with `MultiFernet` over `INTEGRATION_ENCRYPTION_KEYS` (comma-separated, newest first). New ciphertext uses the first key; any listed key decrypts.
+- Outside DEBUG a missing value refuses startup. In DEBUG a random dev key comes from the git-ignored `backend/.dev_integration_key` (the D49 pattern). `IntegrationsConfig.ready()` builds the MultiFernet, so a malformed key fails at startup, and the error never echoes key material.
+- Rotation: put the new key first, deploy, run `manage.py rotate_integration_keys` (re-encrypts every token under the first key), then drop the old key.
+- Plaintext exists only in the return value of `account.access_token()` / `refresh_token()`. Ciphertext lives in `editable=False` fields, so ModelForms, the admin and generic serializers never get even the ciphertext. `__str__` is `provider: email`.
+- Tokens never appear in API responses, logs, audit metadata, notification text, exception messages, reprs or the admin. Functions that hold tokens use `@sensitive_variables`, so Django error reports mask them. `integrations/tests/test_token_leaks.py` enforces this (below). The one planned exception is the Picker token (D70).
+
+### HTTP client (`integrations/http.py`, D67)
+`send(method, url, *, provider, account=None, **requests_kwargs) -> Response` is the only way out:
+- HTTPS only, and only to a host in `provider.api_hosts`; anything else raises before a socket opens. Redirects are never followed automatically: a redirect to another scheme, host or port raises, and same-origin redirects are followed (max 3) for GET and HEAD only.
+- Timeouts `(5, 20)` seconds. GET, HEAD, OPTIONS, PUT and DELETE retry up to 3 attempts on network errors and 429/500/502/503/504, backing off 0.5 s doubling, honouring `Retry-After`, capped at 8 s. POST is never retried.
+- With `account`: it must be `active` (else `AccountUnavailable`). A token expiring within 60 s is refreshed first; a 401 triggers one refresh and one retry. Refresh runs under `select_for_update`, so concurrent callers refresh once. Successful calls update `last_used_at`.
+- Refresh outcomes: success stores the new access token (and a rotated refresh token if the provider sends one). `invalid_grant` or no refresh token: `expired`. Other 4xx: `error`. Either way the tokens are wiped, `integration.refresh_failed` is audited (metadata `provider`, `reason`, `status`) and the owner gets an `integration_issue` notification (deduped per connection). Network errors, 429 and 5xx are transient: nothing changes and `IntegrationError` is raised.
+- Logs carry method, host, path and status. Never headers, bodies or query strings. Exceptions carry a fixed message; provider error codes are passed on only if they match `^[a-z_]{1,40}$`, and requests' exceptions (which hold the prepared request) are dropped with `from None`.
+- Callers get the response for any status and decide what it means (for Drive, 404 means "no longer available").
+
+### OAuth2 connect flow (`integrations/services.py`, D65, D66)
+Separate from Google sign-in (allauth, `openid email profile` only, section 7). Callback: **`/api/integrations/oauth/callback/`** for every provider, under `/api/` so the Vite proxy covers it. `settings.INTEGRATION_OAUTH_REDIRECT_URI = FRONTEND_URL + that path`, so the local redirect URI to register is **`http://localhost:5173/api/integrations/oauth/callback/`**.
+1. `start_connect(request, lab, provider_name, scopes=None) -> authorization_url`: `require(manage_integrations, lab)`; scopes must be a subset of the registry's (default: all of them). Creates a 256-bit `state` and a PKCE verifier and stores `{user, lab, provider, scopes, verifier, at}` under `session["integrations.oauth"][state]` (at most 5 pending, 10 minute lifetime). The URL carries `code_challenge` (S256), the redirect URI, the scopes, the provider's fixed params (Google: `access_type=offline`, `prompt=consent`, `include_granted_scopes=true` for incremental authorization) and `login_hint` = the email of the user's current account, so a scope upgrade lands on the same account.
+2. `complete_connect(request, *, state, code, error) -> ConnectedAccount`: pops the state (single use, even on failure). It fails with `invalid_state` unless the state exists in **this session**, is fresh, and belongs to `request.user`. Then it re-runs `get_lab_or_404` and `require(manage_integrations)`, because the role may have changed. It exchanges the code with the verifier and client secret, checks every requested scope was granted (`scope_not_granted` otherwise), and fetches the identity. Then, under a row lock: if another external account of this provider is active for the user in this lab, it refuses (`other_account_connected`: disconnect first). The same external account reuses its row (tokens, scopes, status active); otherwise a new row is created. Audits `integration.connected` with metadata `provider` and `scopes`.
+3. `OAuthError.code` is one of `invalid_state`, `access_denied`, `provider_error`, `invalid_request`, `invalid_scope`, `unknown_provider`, `provider_not_configured`, `scope_not_granted`, `identity_failed`, `other_account_connected`. It is safe to put in a redirect query string.
+4. A token from a failed connect is discarded, never stored, and not revoked (D68).
+
+Security properties: state is unguessable, single-use, short-lived and bound to the server-side session, the user, the lab and the provider (login CSRF and code injection fail). PKCE binds the code to the browser that started the flow. The provider (so the token endpoint) comes from the stored state, never from the callback request (no mix-up). The redirect URI is fixed in settings. Scopes come only from the registry. The SPA never sees a code or a token. The PKCE verifier sits in the server-side session until the callback consumes it.
+
+### Disconnect and revoke
+`disconnect(account, *, actor, request=None, actor_label="")`: the owner needs `manage_integrations` (audit `integration.disconnected`); anyone else needs `manage_lab_integrations` (audit `integration.revoked`); `actor=None` is a system revoke with `actor_label`. Under a row lock it calls the provider's revoke URL with the refresh token (or the access token), best effort. It then marks the row `revoked` and wipes the tokens whatever the provider said, and audits with metadata `provider_revoked: bool`. The provider call is skipped when the same external account is active for this user in another lab, because Google revokes the whole grant (D68). It is idempotent.
+
+### Lifecycle
+- **Member removed from a lab, or user deactivated:** call `integrations.services.revoke_member_accounts(lab, user, reason="member_removed" | "user_deactivated")` for each affected lab, via `transaction.on_commit` (it makes HTTP calls). Their `ExternalLink`s stay. Freshness checks for them stop, because the linker's account is revoked.
+- **Handover** (section 5, phase 6) lists the person's external links (`linked_by = user`) in that lab, so someone else can re-link them under their own account.
+
+### Endpoints (next phase)
+`L = /api/labs/<lab_id>`, `P = L/projects/<project_id>`. Rows go into the permission matrix by hand (D32). Responses use the serializers in `integrations/serializers.py` (explicit field lists, no token fields).
+
+| Method | Path | Perm |
+|---|---|---|
+| GET | `L/integrations/providers/` (registry: name, label, auth_type, icon, scopes, configured, plus my account's status) | view_lab |
+| GET | `L/integrations/accounts/` (own rows; all members' with manage_lab_integrations) | manage_integrations |
+| POST | `L/integrations/<provider>/connect/` (body `{scopes?}`, returns `{authorization_url}`) | manage_integrations |
+| GET | `/api/integrations/oauth/callback/?state&code\|error` redirects to `FRONTEND_URL/labs/<lab_id>/settings/integrations?connected=<provider>` or `?error=<OAuthError.code>` (`/integrations/error?code=` when the state, and so the lab, is unknown) | AUTHENTICATED (state check inside) |
+| DELETE | `L/integrations/accounts/<connectedaccount_id>/` (own: disconnect; another member's: revoke; invisible: 404) | manage_integrations / manage_lab_integrations |
+| GET | `L/integrations/google/picker-token/` (D70) | manage_integrations, own active account only |
+| GET / POST | `P/external-links/` (POST validates via the provider, records the baseline, audits `external_link.created`) | view_project / edit_content |
+| GET / DELETE | `L/external-links/<externallink_id>/` (DELETE audits `external_link.removed`) | view_project / edit_content |
+| POST | `L/external-links/<externallink_id>/check/` (freshness check now, with the linker's account) | view_project |
+| POST | `L/external-links/<externallink_id>/accept-change/` (copy `remote_*` to `linked_*`) | edit_content |
+
+When a service accepts `connected_account` for a link, it must be the requester's own **active** account in this lab. `external_link.*` audit metadata holds `provider` and `external_id`, never a URL query string.
+
+### Google Drive specifics
+- Scope **`https://www.googleapis.com/auth/drive.file` only** (D64): per-file access to files the user picks in the Google Picker. Identity comes from `GET drive/v3/about?fields=user(permissionId,emailAddress)`, which works with `drive.file`, so no `openid`/`email` scope is requested. External account id = `permissionId`.
+- **Picker:** the SPA loads the Google Picker with the integration client's API key and the access token from `picker-token`. Picked file ids come back to `P/external-links/`. The server then reads metadata with the linker's token: `files.get?fields=id,name,mimeType,modifiedTime,version,md5Checksum,webViewLink,trashed`.
+- **Metadata only:** never download, export or cache file contents (`alt=media` and `files.export` are never called). Store `version` and `md5Checksum` (as `md5:<hex>`) when given.
+- **Freshness:** a daily Celery job loops over labs and checks each link with its linker's active account, at a bounded rate. 404, or `trashed=true`, sets `unavailable_since`; a later success clears it. A changed `version` or `modifiedTime` shows "changed since linked". Links whose account isn't active are skipped, and the UI says "can't check: the linker's connection is inactive".
+- **Incremental authorization:** a later feature needing another Drive scope adds it to `GOOGLE.scopes` (with a DECISIONS entry) and calls `start_connect(..., scopes=[new])`. `include_granted_scopes=true` merges it into the existing grant.
+
+### Token-leak test (`integrations/tests/test_token_leaks.py`)
+It seeds canary tokens, the client secret, the auth code and the PKCE verifiers. They go through connect, refresh with rotation, a refused refresh that echoes the token, a network error carrying the token, a token-endpoint error code equal to the token, reconnect, and a disconnect whose revoke response echoes the token. Each `@surface` function returns text that must contain no canary: model reprs and `__dict__`, admin changelist and change pages, captured logs, audit events, notifications, raised exceptions (with their chains), serializer output and `dumpdata`. **Each new endpoint adds a surface** that returns its response body (`w.client(user).get(...)`).

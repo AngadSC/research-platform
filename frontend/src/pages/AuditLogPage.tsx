@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { DetailPanel } from "@/components/shared/DetailPanel";
+import { RelativeTime } from "@/components/shared/RelativeTime";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuditEvents, useLab, useMembers, type AuditFilters } from "@/hooks/workspace";
 import { ApiError } from "@/lib/api";
 import type { AuditEvent } from "@/lib/api-types";
@@ -59,25 +59,6 @@ const ACTIONS: Record<string, string> = {
 };
 const actionLabel = (a: string) => ACTIONS[a] ?? a;
 const who = (e: AuditEvent) => e.actor?.display_name || e.actor?.email || "System";
-const exact = (iso: string) =>
-  new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium" });
-
-const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
-  ["year", 31536000],
-  ["month", 2592000],
-  ["day", 86400],
-  ["hour", 3600],
-  ["minute", 60],
-];
-function relative(iso: string) {
-  const secs = (new Date(iso).getTime() - Date.now()) / 1000;
-  const [unit, size] = UNITS.find(([, s]) => Math.abs(secs) >= s) ?? ["second", 1];
-  return new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(
-    Math.round(secs / size),
-    unit,
-  );
-}
-
 const show = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v));
 const humanKey = (k: string) => k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 
@@ -94,7 +75,9 @@ function EventDetails({ e }: { e: AuditEvent }) {
   const meta = e.metadata && typeof e.metadata === "object" ? Object.entries(e.metadata) : [];
   return (
     <dl className="grid gap-4 py-4">
-      <Field label="When">{exact(e.created_at)}</Field>
+      <Field label="When">
+        <RelativeTime value={e.created_at} />
+      </Field>
       <Field label="Who">{who(e)}</Field>
       <Field label="Action">
         {actionLabel(e.action)} <span className="text-xs text-muted-foreground">({e.action})</span>
@@ -121,14 +104,7 @@ const columns: Column<AuditEvent>[] = [
   {
     key: "when",
     header: "When",
-    cell: (e) => (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <time dateTime={e.created_at}>{relative(e.created_at)}</time>
-        </TooltipTrigger>
-        <TooltipContent>{exact(e.created_at)}</TooltipContent>
-      </Tooltip>
-    ),
+    cell: (e) => <RelativeTime value={e.created_at} />,
   },
   { key: "who", header: "Who", cell: who },
   { key: "action", header: "Action", cell: (e) => actionLabel(e.action) },

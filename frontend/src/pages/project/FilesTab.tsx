@@ -1,4 +1,5 @@
 import { Download, Eye, Paperclip, Trash2, Upload } from "lucide-react";
+import { RelativeTime } from "@/components/shared/RelativeTime";
 import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
@@ -45,7 +46,7 @@ export default function FilesTab({ labId, projectId, project }: ProjectTabProps)
     {
       key: "date",
       header: "Date",
-      cell: (a) => new Date(a.created_at).toLocaleDateString(undefined, { dateStyle: "medium" }),
+      cell: (a) => <RelativeTime value={a.created_at} />,
     },
     {
       key: "actions",

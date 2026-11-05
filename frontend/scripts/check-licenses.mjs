@@ -17,6 +17,7 @@ const ALLOWED = new Set([
   "PSF-2.0",
   "Python-2.0",
   "0BSD",
+  "MIT-0",
   "CC0-1.0",
   "Unlicense",
   "BlueOak-1.0.0",

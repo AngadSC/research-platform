@@ -82,7 +82,12 @@ export interface AuthFlow {
 export interface AuthEnvelope {
   status: number;
   data?: {
-    user?: { id: string | number; email?: string; display?: string };
+    user?: {
+      id: string | number;
+      email?: string;
+      display?: string;
+      has_usable_password?: boolean;
+    };
     flows?: AuthFlow[];
     [k: string]: unknown;
   };

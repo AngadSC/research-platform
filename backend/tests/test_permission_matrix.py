@@ -40,6 +40,7 @@ PERSONAS = ["anon", "outsider", "pi", "admin", "lead", "contrib", "pviewer", "no
 # Each exemption needs a reason.
 EXEMPT_PREFIXES = [
     "/_allauth/",  # allauth headless: its own views, covered by core/tests/test_auth.py
+    "/accounts/",  # allauth OAuth provider callbacks, covered by core/tests/test_google_auth.py
     "/admin/",  # Django admin: staff only, not part of the API
 ]
 

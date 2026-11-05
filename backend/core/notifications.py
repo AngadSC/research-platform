@@ -1,17 +1,28 @@
-"""In-app notifications first, email as a console-backend stub (SPEC phase 5, D14, D30)."""
+"""In-app notifications first, each also emailed through core.email (SPEC phase 5, D14, D30)."""
 
 from itertools import islice
 
 from django.apps import apps
-from django.core.mail import send_mail
 
+from core.email import send_email
 from core.models import Notification, NotificationKind
 from core.permissions import Perm, can, forget
 
 
-def notify(*, lab, recipient, kind, title, body="", target=None, dedupe_key) -> bool:
+def notify(
+    *,
+    lab,
+    recipient,
+    kind,
+    title,
+    body="",
+    target=None,
+    dedupe_key,
+    email_template="notification",
+    email_context=None
+) -> bool:
     """Create the notification unless `(recipient, dedupe_key)` already exists. Returns True
-    when a new one was created (and emails it)."""
+    when a new one was created (and emails it with `email_template`)."""
     _, created = Notification.objects.for_lab(lab).get_or_create(
         recipient=recipient,
         dedupe_key=dedupe_key,
@@ -25,7 +36,11 @@ def notify(*, lab, recipient, kind, title, body="", target=None, dedupe_key) -> 
         },
     )
     if created:
-        send_mail(title, body, None, [recipient.email], fail_silently=True)
+        send_email(
+            email_template,
+            recipient.email,
+            email_context or {"title": title[:200], "body": body},
+        )
     return created
 
 

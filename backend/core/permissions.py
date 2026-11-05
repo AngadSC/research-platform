@@ -41,6 +41,8 @@ class Perm(StrEnum):
     EDIT_ETHICS = "edit_ethics"
     VIEW_RETENTION = "view_retention"
     DELETE_PROJECT = "delete_project"  # granted by lab role, checked on a Project
+    MANAGE_INTEGRATIONS = "manage_integrations"  # connect/disconnect your own accounts
+    MANAGE_LAB_INTEGRATIONS = "manage_lab_integrations"  # see and revoke any member's
     # project-level
     VIEW_PROJECT = "view_project"
     EDIT_PROJECT = "edit_project"
@@ -74,13 +76,17 @@ _ALL_LAB = frozenset(
         _P.EDIT_ETHICS,
         _P.VIEW_RETENTION,
         _P.DELETE_PROJECT,
+        _P.MANAGE_INTEGRATIONS,
+        _P.MANAGE_LAB_INTEGRATIONS,
     }
 )
 LAB_ROLE_PERMS: dict[str, frozenset[Perm]] = {
     LabRole.PI: _ALL_LAB | {_P.MANAGE_BILLING},
     LabRole.LAB_ADMIN: _ALL_LAB,
-    LabRole.MEMBER: frozenset({_P.VIEW_LAB, _P.CREATE_PROJECT, _P.VIEW_ETHICS, _P.EDIT_ETHICS}),
-    LabRole.VIEWER: frozenset({_P.VIEW_LAB, _P.VIEW_ETHICS}),
+    LabRole.MEMBER: frozenset(
+        {_P.VIEW_LAB, _P.CREATE_PROJECT, _P.VIEW_ETHICS, _P.EDIT_ETHICS, _P.MANAGE_INTEGRATIONS}
+    ),
+    LabRole.VIEWER: frozenset({_P.VIEW_LAB, _P.VIEW_ETHICS, _P.MANAGE_INTEGRATIONS}),
 }
 PROJECT_ROLE_PERMS: dict[str, frozenset[Perm]] = {
     ProjectRole.LEAD: frozenset(

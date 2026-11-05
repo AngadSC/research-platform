@@ -1,0 +1,6 @@
+{% autoescape off %}{{ title }}
+
+{{ body }}
+
+Review it in the platform: {{ frontend_url }}
+{% endautoescape %}

@@ -19,16 +19,16 @@ test("new user signs up, confirms by emailed link, and cannot see another lab's 
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
 
-  // Dev email goes to the console backend: read the confirmation link from the backend log.
+  // Dev email goes to the console backend in the Celery worker (core/email.py): read the link from its log.
   let link = "";
   await expect
     .poll(
       () => {
-        const log = execSync("docker compose logs backend --no-log-prefix --tail 300", {
+        const log = execSync("docker compose logs worker --no-log-prefix --tail 300", {
           encoding: "utf8",
           cwd: "..",
         });
-        const at = log.lastIndexOf(email);
+        const at = log.lastIndexOf(`To: ${email}`);
         link = (log.slice(at).match(/http:\/\/localhost:5173\/account\/verify-email\/[\w%-]+/) ?? [
           "",
         ])[0];

@@ -156,14 +156,17 @@ def test_placeholder_secret_key_refused_when_debug_off(env):
     assert "ImproperlyConfigured" in result.stderr
 
 
+PROD_KEYS = {"SECRET_KEY": "x" * 50, "INTEGRATION_ENCRYPTION_KEYS": "A" * 43 + "="}  # D63
+
+
 def test_real_secret_key_accepted_and_debug_dev_key_still_works():
-    assert run_py("import config.settings", DEBUG="False", SECRET_KEY="x" * 50).returncode == 0
+    assert run_py("import config.settings", DEBUG="False", **PROD_KEYS).returncode == 0
     assert run_py("import config.settings", DEBUG="True").returncode == 0
 
 
 def test_settings_module_default_is_closed():
     code = "import config.settings as s; print(s.DEBUG)"
-    assert run_py(code, SECRET_KEY="x" * 50).stdout.strip() == "False"
+    assert run_py(code, **PROD_KEYS).stdout.strip() == "False"
 
 
 # ---- 4 / D38: unresolvable owner is denied, never lab-level
@@ -228,7 +231,7 @@ def test_raw_raises_on_scoped_managers(make_lab):
 
 def test_admin_not_mounted_when_debug_off():
     code = "import django; django.setup()\nfrom django.urls import resolve; resolve('/admin/')"
-    off = run_py(code, DEBUG="False", SECRET_KEY="x" * 50)
+    off = run_py(code, DEBUG="False", **PROD_KEYS)
     assert off.returncode != 0 and "Resolver404" in off.stderr
     assert run_py(code, DEBUG="True").returncode == 0
 
@@ -265,7 +268,7 @@ def test_invite_mail_failure_after_commit_keeps_invite(lab_pi):
     lab, pi = lab_pi
     client = api(pi)
     client.raise_request_exception = False
-    with mock.patch("labs.services.send_mail", side_effect=OSError("smtp down")):
+    with mock.patch("core.email._render_and_send", side_effect=OSError("smtp down")):
         with TestCase.captureOnCommitCallbacks(execute=True):
             resp = client.post(
                 f"/api/labs/{lab.pk}/invites/", {"email": "v@example.com", "role": "member"}, "json"

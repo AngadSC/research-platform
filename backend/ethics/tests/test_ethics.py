@@ -138,10 +138,11 @@ def test_25_days_gives_one_30_day_reminder_to_leads_and_pis_only(w):
         assert n.read_at is None and "30-day" in n.body
 
 
-def test_running_twice_does_not_duplicate(w, mailoutbox):
+def test_running_twice_does_not_duplicate(w, mailoutbox, django_capture_on_commit_callbacks):
     make_approval(w, days=25)
-    assert send_expiry_reminders() == 3
-    assert send_expiry_reminders() == 0
+    with django_capture_on_commit_callbacks(execute=True):
+        assert send_expiry_reminders() == 3
+        assert send_expiry_reminders() == 0
     assert Notification.objects.for_lab(w.lab).count() == 3
     assert len(mailoutbox) == 3  # the email stub only fires for new notifications
 

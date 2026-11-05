@@ -1,4 +1,5 @@
 import { UserPlus } from "lucide-react";
+import { RelativeTime } from "@/components/shared/RelativeTime";
 import { useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router";
 import { toast } from "sonner";
@@ -37,7 +38,6 @@ import { ROLES, roleLabel, type Invite, type Membership, type Role } from "@/lib
 import { formErrors, type FormErrors } from "@/lib/forms";
 
 const fail = (e: unknown) => toast.error(formErrors(e, []).form ?? "Something went wrong.");
-const date = (iso: string) => new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function RoleSelect({
@@ -206,7 +206,7 @@ export function MembersPage() {
           roleLabel(m.role)
         ),
     },
-    { key: "joined", header: "Joined", cell: (m) => date(m.created_at) },
+    { key: "joined", header: "Joined", cell: (m) => <RelativeTime value={m.created_at} /> },
     {
       key: "actions",
       header: "Actions",
@@ -245,7 +245,7 @@ export function MembersPage() {
   const inviteCols: Column<Invite>[] = [
     { key: "email", header: "Email", cell: (i) => i.email },
     { key: "role", header: "Role", cell: (i) => roleLabel(i.role) },
-    { key: "expires", header: "Expires", cell: (i) => date(i.expires_at) },
+    { key: "expires", header: "Expires", cell: (i) => <RelativeTime value={i.expires_at} /> },
     {
       key: "actions",
       header: "Actions",

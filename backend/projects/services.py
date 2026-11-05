@@ -7,8 +7,9 @@ from rest_framework.exceptions import ValidationError
 
 from audit.models import AuditAction
 from audit.services import record
-from core.models import User
-from core.permissions import Perm, can, forget
+from core.models import NotificationKind, User
+from core.notifications import notify
+from core.permissions import Perm, can, forget, users_with
 from core.retention import audit_retention, guard_retention, retention_changes
 from labs.models import LabMembership
 from projects.models import (
@@ -99,6 +100,7 @@ def change_member_role(*, membership, by, role, request=None) -> ProjectMembersh
         return membership
     membership.role = role
     membership.save(update_fields=["role", "updated_at"])
+    forget(membership.user)
     record(
         AuditAction.PROJECT_MEMBERSHIP_ROLE_CHANGED,
         actor=by,
@@ -106,6 +108,9 @@ def change_member_role(*, membership, by, role, request=None) -> ProjectMembersh
         target=membership,
         request=request,
         metadata={"user_id": str(membership.user_id), "old_role": old, "new_role": role},
+    )
+    unassign_lost_access(
+        membership.user, lab=membership.lab, by=by, request=request, reason="project_role_changed"
     )
     return membership
 
@@ -121,6 +126,9 @@ def remove_member(*, membership, by, request=None) -> None:
         metadata={"user_id": str(membership.user_id), "role": membership.role},
     )
     membership.delete()
+    unassign_lost_access(
+        membership.user, lab=membership.lab, by=by, request=request, reason="removed_from_project"
+    )
 
 
 # ---------------------------------------------------------------- deadlines
@@ -155,9 +163,48 @@ def _resolve_assignee(project, assignee_id):
     if assignee_id is None:
         return None
     user = User.objects.filter(pk=assignee_id, is_active=True).first()
-    if user is None or not can(user, Perm.VIEW_PROJECT, project):
-        raise ValidationError({"assignee": "The assignee must be able to view this project."})
+    if user is None or not can(user, Perm.EDIT_CONTENT, project):
+        raise ValidationError({"assignee": "The assignee must be able to edit this project."})
     return user
+
+
+def unassign_lost_access(user, *, lab, by=None, reason, request=None) -> int:
+    """Unassign `user`'s open tasks (status not done) in every project of `lab`
+    where they can no longer edit content. Call after the access change, in its transaction.
+    `by=None` records a system actor. Notifies the project's leads, never `user`."""
+    forget(user)
+    tasks = (
+        Task.objects.for_lab(lab)
+        .filter(assignee=user, project__deleted_at__isnull=True)
+        .exclude(status=TaskStatus.DONE)
+    )
+    count = 0
+    for task in tasks.select_related("project", "lab").order_by("created_at", "id"):
+        if can(user, Perm.EDIT_CONTENT, task.project):
+            continue
+        task.assignee = None
+        task.save(update_fields=["assignee", "updated_at"])
+        event = record(
+            AuditAction.TASK_UNASSIGNED,
+            actor=by,
+            actor_label="" if by else "system",
+            lab=task.lab,
+            target=task,
+            request=request,
+            metadata={"previous_assignee_id": str(user.pk), "reason": reason},
+        )
+        for lead in users_with(Perm.EDIT_PROJECT, task.project).exclude(pk=user.pk):
+            notify(
+                lab=task.lab,
+                recipient=lead,
+                kind=NotificationKind.TASK_UNASSIGNED,
+                title=f"Task unassigned: {task.title}",
+                body=f"{user.display_name or user.email} lost access to {task.project.name}.",
+                target=task,
+                dedupe_key=f"task_unassigned:{event.pk}",
+            )
+        count += 1
+    return count
 
 
 def _place(task, status, position) -> None:

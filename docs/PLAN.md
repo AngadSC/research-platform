@@ -67,3 +67,41 @@ Status: `todo` | `doing` | `done` | `failed` | `escalated`. Model/effort per orc
 |---|---|---|---|
 | W.1 | Playwright click-through + screenshots to `docs/screenshots/` | sonnet / medium | done |
 | W.2 | `docs/HANDOFF.md` | orchestrator | done |
+
+---
+
+# Plan: Build Run 2
+
+Same status values. Model and effort follow orchestrator section 8. Shared-tree rules: each agent tests with its own `TEST_DB_NAME` (D58); new audit actions and notification kinds already exist (D59).
+
+## Setup (orchestrator)
+| ID | Task | Model / effort | Status |
+|---|---|---|---|
+| S.1 | Section 1 decisions in DECISIONS.md, backend deps (D60), MIT-0 in the Python license check, audit and notification migrations | orchestrator | done |
+
+## Wave 1 (parallel)
+| ID | Task | Model / effort | Status |
+|---|---|---|---|
+| A1 | Unassign open tasks on access loss, audit, notify leads, handover section | sonnet / medium | done |
+| A2 | DB-level lab consistency: composite FKs, M2M triggers, pre-checks, guard test | sonnet / high | done |
+| A3 | UI polish (plurals, relative dates, duplicate entry, sidebar drawer, mobile e2e) and D34 jsdom switch | haiku / low | done |
+| B1 | Google sign-in backend: provider config, linking rules, any-verified-email invites (D25), `/accounts/` proxy | opus / high | done |
+| C1 | Email service `core/email.py`, anymail config, route every email, export notice (D28) | sonnet / medium | done |
+| D1 | Integration framework design and security core: registry, models, MultiFernet tokens, HTTP client, OAuth2 connect flow, token-leak test | opus / high | doing |
+
+## Wave 2
+| ID | Task | Model / effort | Status |
+|---|---|---|---|
+| B2 | Google sign-in UI: buttons, connected accounts, email addresses in account settings | sonnet / medium | done |
+| C2 | HTML email templates with the accent colour | haiku / low | done |
+| B3 | Security review: Phase B | opus / high | doing |
+| D2 | Integration endpoints, permissions, matrix, lifecycle, handover links, Integrations page | sonnet / medium | todo |
+| D3 | Security review: Phase D | opus / high | todo |
+
+## Wave 3
+| ID | Task | Model / effort | Status |
+|---|---|---|---|
+| E1 | Google Drive: drive.file, Picker, links on Files and research records, refresh job, dataset provenance | sonnet / medium | todo |
+| E2 | Security review: Phase E | opus / high | todo |
+| F1 | Production Dockerfile, `/healthz`, reverse proxy example, prod settings checklist test, DEPLOY.md | haiku / low | todo |
+| W2 | Screenshots, HANDOFF.md | sonnet / medium, orchestrator | todo |

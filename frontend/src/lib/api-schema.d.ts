@@ -1218,9 +1218,20 @@ export interface components {
          *     * `retention.changed` - Retention Changed
          *     * `audit_log.viewed` - Audit Log Viewed
          *     * `handover.generated` - Handover Generated
+         *     * `task.unassigned` - Task Unassigned
+         *     * `auth.social_connected` - Auth Social Connected
+         *     * `auth.social_disconnected` - Auth Social Disconnected
+         *     * `auth.email_added` - Auth Email Added
+         *     * `auth.email_removed` - Auth Email Removed
+         *     * `integration.connected` - Integration Connected
+         *     * `integration.disconnected` - Integration Disconnected
+         *     * `integration.revoked` - Integration Revoked
+         *     * `integration.refresh_failed` - Integration Refresh Failed
+         *     * `external_link.created` - External Link Created
+         *     * `external_link.removed` - External Link Removed
          * @enum {string}
          */
-        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated";
+        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "external_link.created" | "external_link.removed";
         Analysis: {
             /** Format: uuid */
             readonly id: string;
@@ -1690,9 +1701,12 @@ export interface components {
          *     * `retention_due` - Retention Due
          *     * `invite_accepted` - Invite Accepted
          *     * `task_assigned` - Task Assigned
+         *     * `task_unassigned` - Task Unassigned
+         *     * `project_exported` - Project Exported
+         *     * `integration_issue` - Integration Issue
          * @enum {string}
          */
-        NotificationKindEnum: "ethics_expiry" | "retention_due" | "invite_accepted" | "task_assigned";
+        NotificationKindEnum: "ethics_expiry" | "retention_due" | "invite_accepted" | "task_assigned" | "task_unassigned" | "project_exported" | "integration_issue";
         PaginatedAuditEventList: {
             /**
              * Format: uri
@@ -2369,8 +2383,19 @@ export interface operations {
                  *     * `retention.changed` - Retention Changed
                  *     * `audit_log.viewed` - Audit Log Viewed
                  *     * `handover.generated` - Handover Generated
+                 *     * `task.unassigned` - Task Unassigned
+                 *     * `auth.social_connected` - Auth Social Connected
+                 *     * `auth.social_disconnected` - Auth Social Disconnected
+                 *     * `auth.email_added` - Auth Email Added
+                 *     * `auth.email_removed` - Auth Email Removed
+                 *     * `integration.connected` - Integration Connected
+                 *     * `integration.disconnected` - Integration Disconnected
+                 *     * `integration.revoked` - Integration Revoked
+                 *     * `integration.refresh_failed` - Integration Refresh Failed
+                 *     * `external_link.created` - External Link Created
+                 *     * `external_link.removed` - External Link Removed
                  */
-                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated";
+                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "external_link.created" | "external_link.removed";
                 actor?: string;
                 /** @description Pagination cursor */
                 cursor?: string;

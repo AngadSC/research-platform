@@ -105,6 +105,21 @@ def test_unverified_email_is_rejected(setup, make_user, verify_email):
     assert LabMembership.objects.for_lab(lab).count() == 1
 
 
+def test_any_verified_secondary_email_accepts_but_unverified_never_does(
+    setup, make_user, verify_email
+):
+    """D25: the invite matches any verified address on the account, not only the primary."""
+    lab, pi, _ = setup
+    _, token = send_invite(lab, pi, email="work@example.com")
+    user = make_user(email="home@example.com")
+    verify_email(user)
+    verify_email(user, verified=False, email="work@example.com")
+    assert api(user).post(CREATE, {"token": token}, "json").status_code == 403
+    user.emailaddress_set.filter(email="work@example.com").update(verified=True)
+    assert api(user).post(CREATE, {"token": token}, "json").status_code == 200
+    assert LabMembership.objects.for_lab(lab).filter(user=user).exists()
+
+
 def test_reuse_after_accept_is_rejected(setup, make_user, verify_email):
     lab, pi, invitee = setup
     _, token = send_invite(lab, pi)

@@ -8,6 +8,7 @@ The number of queries is constant: one per section plus a few for the "no other 
 from django.db.models import Count, Q
 from django.utils import timezone
 
+from audit.models import AuditAction, AuditEvent
 from documents.models import Document
 from ethics.models import EthicsApproval
 from labs.models import LabMembership, LabRole
@@ -16,6 +17,7 @@ from provenance.models import Analysis, DatasetRecord, Decision, Result
 
 SECTIONS = [
     ("open_tasks", "Open tasks"),
+    ("unassigned_tasks", "Unassigned after access change"),
     ("documents", "Documents"),
     ("analyses", "Analyses"),
     ("results", "Results"),
@@ -78,6 +80,19 @@ def build_report(*, requester, lab, membership, project=None) -> dict:
     tasks = (
         scoped(Task)
         .filter(assignee=target)
+        .exclude(status=TaskStatus.DONE)
+        .select_related("project")
+        .order_by("due_date", "id")
+    )
+    # Tasks taken from them by an access change that nobody has picked up yet.
+    lost = AuditEvent.objects.filter(
+        lab=lab,
+        action=AuditAction.TASK_UNASSIGNED,
+        metadata__previous_assignee_id=str(target.pk),
+    ).values("target_id")
+    unassigned = (
+        scoped(Task)
+        .filter(pk__in=lost, assignee__isnull=True)
         .exclude(status=TaskStatus.DONE)
         .select_related("project")
         .order_by("due_date", "id")
@@ -149,6 +164,12 @@ def build_report(*, requester, lab, membership, project=None) -> dict:
         "open_tasks": [
             _item(lid, "task", t, t.title, t.project, "{p}/tasks", f"Assigned to them ({t.status})")
             for t in tasks
+        ],
+        "unassigned_tasks": [
+            _item(
+                lid, "task", t, t.title, t.project, "{p}/tasks", "Unassigned after they lost access"
+            )
+            for t in unassigned
         ],
         "documents": documents,
         "analyses": research(Analysis, "ran_by", "analysis", "analyses", "Run by them"),
