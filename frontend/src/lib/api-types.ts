@@ -14,6 +14,7 @@ export const ROLES: { value: Role; label: string }[] = [
 export const roleLabel = (r: string) => ROLES.find((x) => x.value === r)?.label ?? r;
 
 export type User = Schemas["User"];
+export type LoginMethods = Schemas["LoginMethods"];
 export type Lab = Schemas["Lab"];
 export type Membership = Schemas["Membership"];
 export type Invite = Schemas["Invite"];
@@ -29,6 +30,10 @@ export type Task = Schemas["Task"];
 export type TaskInput = Schemas["TaskInput"];
 export type ChatMessage = Schemas["ChatMessage"];
 export type ChatUnread = Schemas["ChatUnread"];
+export type TaskPost = Schemas["TaskPost"];
+export type TaskDocument = Schemas["TaskDocument"];
+export type TaskAttachment = Schemas["TaskAttachment"];
+export type TaskView = "board" | "list";
 export type Attachment = Schemas["Attachment"];
 export type AttachmentRef = Schemas["AttachmentRef"];
 export type TaskStatus = Schemas["TaskStatusEnum"];
@@ -47,12 +52,16 @@ export type DatasetRef = Schemas["DatasetRef"];
 export type Analysis = Schemas["Analysis"];
 export type ResearchResult = Schemas["Result"];
 export type Decision = Schemas["Decision"];
+export type Reference = Schemas["Reference"];
+export type SearchHit = Schemas["SearchHit"];
 export type Manuscript = Schemas["Manuscript"];
 export type ConnectedAccount = Schemas["ConnectedAccount"];
 export type IntegrationProvider = Schemas["Provider"];
+export type PickerToken = Schemas["PickerToken"];
 export type ConnectOutput = Schemas["ConnectOutput"];
 export type ExternalLink = Schemas["ExternalLink"];
 export type ExternalLinkInput = Schemas["ExternalLinkInput"];
+export type ItemSearchResult = Schemas["ItemSearchResult"];
 export type Handover = Schemas["Handover"];
 export type HandoverItem = Schemas["HandoverItem"];
 export type ManuscriptStatus = Schemas["ManuscriptStatusEnum"];
@@ -118,3 +127,43 @@ export type EthicsApprovalInput = Schemas["EthicsApprovalInput"];
 export type ApprovalStatus = Schemas["ApprovalStatusEnum"];
 export type AppNotification = Schemas["Notification"];
 export type RetentionItem = Schemas["RetentionItem"];
+
+// Admin area (Run 4)
+export type InventoryItem = Schemas["Inventory"];
+export type InventoryInput = Schemas["InventoryInput"];
+export type OnboardingItem = Schemas["OnboardingItem"];
+export type OnboardingItemInput = Schemas["OnboardingItemInput"];
+export type InstitutionResource = Schemas["Resource"];
+export type InstitutionResourceInput = Schemas["ResourceInput"];
+export type ResourceCategory = InstitutionResourceInput["category"];
+export const RESOURCE_CATEGORIES: { value: ResourceCategory; label: string }[] = [
+  { value: "ethics", label: "Ethics" },
+  { value: "funding", label: "Funding" },
+  { value: "data_management", label: "Data management" },
+  { value: "other", label: "Other" },
+];
+
+// Project workflow (Run 4)
+export type Funding = Schemas["Funding"];
+export type FundingInput = Schemas["FundingInput"];
+export type ReviewItem = Schemas["ReviewItem"];
+export type ReviewItemInput = Schemas["ReviewItemInput"];
+export type RecruitmentEntry = Schemas["RecruitmentEntry"];
+export type RecruitmentEntryInput = Schemas["RecruitmentEntryInput"];
+export type RecruitmentPlan = Schemas["RecruitmentPlan"];
+export type DeadlinePriority = Schemas["PriorityEnum"];
+
+// Data management plan (Run 5, D180-D182)
+export type Dmp = Schemas["Dmp"];
+export type DmpInput = Schemas["PatchedDmpInput"];
+export type DmpRevision = Schemas["DmpRevision"];
+
+// Training (Run 5, D175-D179)
+export type TrainingRequirement = Schemas["TrainingRequirement"];
+export type TrainingRequirementInput = Schemas["TrainingRequirementInput"];
+export type TrainingRecord = Schemas["TrainingRecord"];
+export type TrainingRecordInput = Schemas["TrainingRecordCreate"];
+export type TrainingCompliance = Schemas["TrainingCompliance"];
+export type TrainingCell = Schemas["TrainingCell"];
+export type TrainingExpiring = Schemas["Expiring"];
+export type ComplianceStatus = Schemas["ComplianceStatusEnum"];

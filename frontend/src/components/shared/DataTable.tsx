@@ -46,7 +46,7 @@ export function DataTable<T>({
   };
 
   return (
-    <div className="overflow-hidden rounded-lg border bg-card text-card-foreground">
+    <div className="rounded-lg border">
       <Table aria-busy={loading || undefined}>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
@@ -76,7 +76,7 @@ export function DataTable<T>({
                   tabIndex={onRowClick ? 0 : undefined}
                   className={
                     onRowClick
-                      ? "cursor-pointer focus-visible:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                      ? "cursor-pointer focus-visible:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                       : undefined
                   }
                 >

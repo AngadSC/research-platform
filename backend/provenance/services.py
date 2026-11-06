@@ -19,17 +19,32 @@ from documents.models import Attachment, Document
 from documents.services import Conflict
 from labs.models import LabMembership, LabRole
 from projects.models import ProjectDeadline, Task
-from provenance.models import Analysis, DatasetRecord, Decision, ManuscriptLink, Result
+from provenance.models import (
+    Analysis,
+    DatasetRecord,
+    Decision,
+    FundingRecord,
+    ManuscriptLink,
+    RecruitmentEntry,
+    RecruitmentPlan,
+    Result,
+    ReviewItem,
+)
 
 
 class Spec:
     """What a kind links to. `fks` and `m2ms` map field -> (model, must_not_be_soft_deleted);
     `users` are user FKs (must be able to view the project); `owner` defaults to the actor."""
 
-    def __init__(self, model, created, updated, deleted, *, owner, fks=(), m2ms=(), users=()):
+    def __init__(
+        self, model, created, updated, deleted, *, owner, fks=(), m2ms=(), users=(), opt_users=()
+    ):
         self.model, self.owner = model, owner
         self.created, self.updated, self.deleted = created, updated, deleted
         self.fks, self.m2ms, self.users = dict(fks), dict(m2ms), tuple(users)
+        # optional people (a funding holder, a reviewer): no default, any lab member who can
+        # view the project, and naming someone else needs no lead (it is not a record of who did it)
+        self.opt_users = tuple(opt_users)
 
 
 A = AuditAction
@@ -85,7 +100,34 @@ SPECS = {
         owner="created_by",
         m2ms={"results": (Result, False)},
     ),
+    "funding": Spec(
+        FundingRecord,
+        A.FUNDING_CREATED,
+        A.FUNDING_UPDATED,
+        A.FUNDING_DELETED,
+        owner="created_by",
+        fks={"attachment": (Attachment, True)},
+        opt_users=("holder",),
+    ),
+    "review": Spec(
+        ReviewItem,
+        A.REVIEW_ITEM_CREATED,
+        A.REVIEW_ITEM_UPDATED,
+        A.REVIEW_ITEM_DELETED,
+        owner="created_by",
+        opt_users=("reviewer",),
+    ),
+    "recruitment": Spec(
+        RecruitmentEntry,
+        A.RECRUITMENT_ENTRY_CREATED,
+        A.RECRUITMENT_ENTRY_UPDATED,
+        A.RECRUITMENT_ENTRY_DELETED,
+        owner="created_by",
+    ),
 }
+
+# D133: grant money is for project leads (edit_project) to see and to write.
+FUNDING_LEAD_ONLY = ("amount", "currency")
 
 
 def _scoped(project, model, live):
@@ -137,9 +179,20 @@ def _resolve(spec, project, data, *, actor, creating):
             if str(data[field]) != str(actor.pk):
                 require(actor, Perm.EDIT_PROJECT, project)  # D50: naming someone else
             data[field] = _user(project, field, data[field])
+    for field in spec.opt_users:
+        if data.get(field) is not None:
+            data[field] = _user(project, field, data[field])
+    if spec.model is FundingRecord and any(f in data for f in FUNDING_LEAD_ONLY):
+        require(actor, Perm.EDIT_PROJECT, project)
     if creating and data.get(spec.owner) is None:
         data[spec.owner] = actor
     return data, m2m
+
+
+def _check_dates(obj):
+    if isinstance(obj, FundingRecord) and obj.start_date and obj.end_date:
+        if obj.end_date < obj.start_date:
+            raise ValidationError({"end_date": "The end date must not be before the start date."})
 
 
 def _save(obj):
@@ -161,6 +214,7 @@ def create(kind, *, project, user, data, request=None):
     obj = spec.model(lab=project.lab, project=project, **values)
     if kind == "analysis":
         _check_analysis(obj)
+    _check_dates(obj)
     _save(obj)
     for field, items in m2m.items():
         getattr(obj, field).set(items)
@@ -179,6 +233,7 @@ def update(kind, obj, *, user, data, request=None):
         setattr(obj, key, value)
     if kind == "analysis":
         _check_analysis(obj)
+    _check_dates(obj)
     _save(obj)
     for field, items in m2m.items():
         getattr(obj, field).set(items)
@@ -207,6 +262,37 @@ def delete(kind, obj, *, user, request=None) -> None:
         raise Conflict("This analysis has results. Delete the results first.") from exc
 
 
+# ---------------------------------------------------------------- recruitment plan (D136)
+
+
+def recruitment_plan(project):
+    """The project's plan, or an unsaved empty one (nothing is written by a read)."""
+    plan = RecruitmentPlan.objects.for_lab(project.lab_id).filter(project=project).first()
+    return plan or RecruitmentPlan(lab=project.lab, project=project)
+
+
+@transaction.atomic
+def update_recruitment_plan(*, project, user, data, request=None):
+    plan = (
+        RecruitmentPlan.objects.for_lab(project.lab_id)
+        .select_for_update()
+        .filter(project=project)
+        .first()
+    ) or RecruitmentPlan(lab=project.lab, project=project)
+    for key, value in data.items():
+        setattr(plan, key, value)
+    plan.save()
+    record(
+        A.RECRUITMENT_PLAN_UPDATED,
+        actor=user,
+        lab=project.lab,
+        target=plan,
+        request=request,
+        metadata={"fields": sorted(data)},
+    )
+    return plan
+
+
 # ---------------------------------------------------------------- export
 
 
@@ -230,6 +316,7 @@ def export_project(*, project, user, context, request=None) -> dict:
         .order_by("created_at", "id"),
         "attachments": mine(Attachment).filter(**live).select_related("uploaded_by"),
         **{PLURAL[kind]: queryset(kind, project, user) for kind in SPECS},
+        "recruitment_plan": recruitment_plan(project),
     }
     record(
         AuditAction.PROJECT_EXPORTED,
@@ -372,7 +459,7 @@ def lineage(project) -> dict:
     by_node = {}
     outside = ExternalLink.objects.for_lab(project.lab_id).filter(project=project)
     for link in outside.order_by("created_at", "id"):
-        for kind in ("dataset", "analysis", "result", "manuscript"):
+        for kind in ("dataset", "analysis", "result", "manuscript", "decision"):
             if getattr(link, f"{kind}_id"):
                 by_node.setdefault(f"{kind}:{getattr(link, f'{kind}_id')}", []).append(
                     {

@@ -176,7 +176,9 @@ def test_migration_check_names_table_rows_and_labs(world, make_user):
     with connection.cursor() as cur:
         cur.execute("SET CONSTRAINTS ALL IMMEDIATE")  # no pending trigger events before ALTER
         cur.execute(f'ALTER TABLE projects_task DROP CONSTRAINT "{fk}"')
-        cur.execute("UPDATE projects_task SET lab_id = %s", [world["lab_b"].pk])
+        cur.execute(
+            "UPDATE projects_task SET lab_id = %s WHERE id = %s", [world["lab_b"].pk, task.pk]
+        )
         with pytest.raises(DatabaseError) as exc, transaction.atomic():
             cur.execute(op.forwards_sql()[0])
     msg = str(exc.value)

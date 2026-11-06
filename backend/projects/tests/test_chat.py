@@ -1,4 +1,4 @@
-"""Project group chat (D77). Who can reach each endpoint is in the permission matrix; this covers
+"""Project group chat (D206). Who can reach each endpoint is in the permission matrix; this covers
 what the matrix can't: paging, validation, separation between projects, and delete rules."""
 
 import datetime
@@ -131,7 +131,7 @@ def test_a_deleted_project_hides_its_chat(room):
     assert api(a).get(url).status_code == 404
 
 
-# ---------------------------------------------------------------- unread counts (D78)
+# ---------------------------------------------------------------- unread counts (D207)
 
 
 def unread(user, lab):

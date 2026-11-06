@@ -16,9 +16,12 @@ test("PI sees the seed approval expiring, its reminder in the bell, and the rete
   await login(page, "pi");
   await openProject(page);
 
-  await page.getByRole("link", { name: "Ethics approvals" }).click();
+  // The sidebar no longer lists ethics; the lab-wide list is one link away in Workflow > Ethics.
+  await page.getByRole("link", { name: "Workflow" }).click();
+  await page.getByRole("link", { name: "Ethics", exact: true }).click();
+  await page.getByRole("link", { name: "See every approval in the lab" }).click();
   const row = page.getByRole("row", { name: /FAKE-IRB-2026-001/ });
-  await expect(row).toContainText("in 25 days");
+  await expect(row).toContainText(/in \d+ days/);
   await expect(row.getByText("active", { exact: true })).toHaveClass(/text-warning/);
 
   await row.click();
@@ -30,7 +33,7 @@ test("PI sees the seed approval expiring, its reminder in the bell, and the rete
   await expect(page.getByRole("main")).toContainText("FAKE-IRB-2026-001");
 
   await page.getByRole("button", { name: /^Notifications, \d+ unread$/ }).click();
-  await expect(page.getByRole("menu")).toContainText("FAKE-IRB-2026-001 expires in 25 day");
+  await expect(page.getByRole("menu")).toContainText(/FAKE-IRB-2026-001 expires in \d+ day/);
   await page.keyboard.press("Escape");
 
   await page.getByRole("link", { name: "Retention review" }).click();

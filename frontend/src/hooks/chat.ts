@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { ChatMessage, ChatUnread } from "@/lib/api-types";
 
-/** D77: chat polls while the tab is visible. Must match ChatMessageListCreateView.page_size. */
+/** D206: chat polls while the tab is visible. Must match ChatMessageListCreateView.page_size. */
 const POLL_MS = 4000;
 const UNREAD_POLL_MS = 15000; // badges can lag a little; this runs on every page
 export const CHAT_PAGE_SIZE = 100;

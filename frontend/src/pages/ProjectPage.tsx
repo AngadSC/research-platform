@@ -1,9 +1,10 @@
 import { useMemo, useState, type ComponentType } from "react";
-import { NavLink, Outlet, useNavigate, useOutletContext, useParams } from "react-router";
+import { TabNav } from "@/components/shared/TabNav";
+import { Outlet, useNavigate, useOutletContext, useParams } from "react-router";
 import { toast } from "sonner";
 import { FormError } from "@/components/shared/FormError";
-import { StatusPill } from "@/components/shared/StatusBadge";
-import { UnreadBadge } from "@/components/shared/UnreadBadge";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { UnreadBadge } from "@/components/layout/UnreadBadge";
 import { useUnreadChats } from "@/hooks/chat";
 import { useCreateDocument } from "@/hooks/documents";
 import { useProjectCommands } from "@/hooks/researchCommands";
@@ -20,10 +22,8 @@ import { saveJson, useExportProject } from "@/hooks/research";
 import { useDeleteProject, useProject, useUpdateProject } from "@/hooks/projects";
 import type { Project } from "@/lib/api-types";
 import { useRegisterCommands } from "@/lib/commands";
-import { vivid } from "@/lib/identity";
-import { PROJECT_SECTIONS } from "@/lib/nav";
-import { cn } from "@/lib/utils";
 import { formErrors } from "@/lib/forms";
+import { PROJECT_SECTIONS } from "@/lib/nav";
 import { ProjectFormDialog } from "@/pages/project/ProjectFormDialog";
 
 /** Props every project tab component receives. */
@@ -91,78 +91,55 @@ export function ProjectPage() {
       </div>
     );
   const can = (perm: string) => project.my_permissions.includes(perm);
-  const colour = vivid(project.id);
 
   return (
     <>
-      <header
-        className={cn(
-          "mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl px-5 py-4 text-on-vivid print:hidden",
-          colour.bg,
-        )}
-      >
-        <div className="flex min-w-0 items-center gap-3">
-          <h1 className="min-w-0 text-2xl font-bold tracking-tight break-words">{project.name}</h1>
-          <StatusPill status={project.status} className={colour.text} />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {can("export") && (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={exportProject.isPending}
-              onClick={() =>
-                exportProject.mutate(undefined, {
-                  onSuccess: (d) => {
-                    saveJson(d, `${project.name.replace(/[^\w-]+/g, "-")}-export.json`);
-                    toast.success("Project exported");
-                  },
-                  onError: (e) => toast.error(formErrors(e, []).form ?? "Export failed."),
-                })
-              }
-            >
-              Export project
-            </Button>
-          )}
-          {can("edit_project") && (
-            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-              Edit
-            </Button>
-          )}
-          {can("delete_project") && (
-            <Button variant="outline" size="sm" onClick={() => setDeleting(true)}>
-              Delete
-            </Button>
-          )}
-        </div>
-      </header>
-      {/* The sidebar dropdown holds these on larger screens; on a phone it sits in a drawer. */}
-      <nav
-        aria-label="Project sections"
-        className="mb-6 flex gap-1 overflow-x-auto pb-1 print:hidden md:hidden"
-      >
-        {PROJECT_SECTIONS.map(({ to, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              cn(
-                "shrink-0 rounded-full px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                isActive
-                  ? "bg-primary font-semibold text-primary-foreground"
-                  : "bg-secondary text-secondary-foreground",
-              )
-            }
-          >
-            {label}
-            {to === "chat" && unread > 0 && (
-              <span className="ml-1.5 inline-block">
-                <UnreadBadge count={unread} />
-              </span>
+      <PageHeader
+        title={project.name}
+        description={undefined}
+        actions={
+          <>
+            <StatusBadge status={project.status} />
+            {can("export") && (
+              <Button
+                variant="outline"
+                disabled={exportProject.isPending}
+                onClick={() =>
+                  exportProject.mutate(undefined, {
+                    onSuccess: (d) => {
+                      saveJson(d, `${project.name.replace(/[^\w-]+/g, "-")}-export.json`);
+                      toast.success("Project exported");
+                    },
+                    onError: (e) => toast.error(formErrors(e, []).form ?? "Export failed."),
+                  })
+                }
+              >
+                Export project
+              </Button>
             )}
-          </NavLink>
-        ))}
-      </nav>
+            {can("edit_project") && (
+              <Button variant="outline" onClick={() => setEditing(true)}>
+                Edit
+              </Button>
+            )}
+            {can("delete_project") && (
+              <Button variant="outline" onClick={() => setDeleting(true)}>
+                Delete
+              </Button>
+            )}
+          </>
+        }
+      />
+      {/* The sidebar dropdown holds these from md up; below that the sidebar is a drawer. */}
+      <TabNav
+        label="Project sections"
+        tabs={PROJECT_SECTIONS.map(({ to, label }) => [
+          to,
+          label,
+          to === "chat" ? <UnreadBadge count={unread} noun="message" /> : undefined,
+        ])}
+        className="mb-6 md:hidden"
+      />
       <Outlet context={{ labId, projectId, project } satisfies ProjectTabProps} />
       {editing && (
         <ProjectFormDialog

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from provenance import views
+from provenance import dmp, views
 
 app_name = "provenance"
 _P = "labs/<uuid:lab_id>/projects/<uuid:project_id>/"
@@ -31,6 +31,36 @@ urlpatterns = [
         _L + "manuscripts/<uuid:manuscriptlink_id>/",
         views.ManuscriptDetailView.as_view(),
         name="manuscript-detail",
+    ),
+    path(_P + "funding/", views.FundingListCreateView.as_view(), name="funding-list"),
+    path(
+        _L + "funding/<uuid:fundingrecord_id>/",
+        views.FundingDetailView.as_view(),
+        name="funding-detail",
+    ),
+    path(_P + "review-items/", views.ReviewListCreateView.as_view(), name="review-list"),
+    path(
+        _L + "review-items/<uuid:reviewitem_id>/",
+        views.ReviewDetailView.as_view(),
+        name="review-detail",
+    ),
+    path(
+        _P + "recruitment-entries/",
+        views.RecruitmentListCreateView.as_view(),
+        name="recruitment-list",
+    ),
+    path(
+        _L + "recruitment-entries/<uuid:recruitmententry_id>/",
+        views.RecruitmentDetailView.as_view(),
+        name="recruitment-detail",
+    ),
+    path(_P + "recruitment-plan/", views.RecruitmentPlanView.as_view(), name="recruitment-plan"),
+    path(_P + "data-management-plan/", dmp.DmpView.as_view(), name="dmp"),
+    path(_P + "data-management-plan/approve/", dmp.DmpApproveView.as_view(), name="dmp-approve"),
+    path(
+        _P + "data-management-plan/revisions/",
+        dmp.DmpRevisionsView.as_view(),
+        name="dmp-revisions",
     ),
     path(_P + "lineage/", views.LineageView.as_view(), name="lineage"),
     path(_P + "export/", views.ExportView.as_view(), name="export"),

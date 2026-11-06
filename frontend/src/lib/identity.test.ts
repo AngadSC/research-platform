@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { initials, vivid } from "./identity";
-
-describe("vivid", () => {
-  it("gives the same id the same colour", () => {
-    expect(vivid("project-1")).toEqual(vivid("project-1"));
-  });
-});
+import { initials } from "./identity";
 
 describe("initials", () => {
   it.each([

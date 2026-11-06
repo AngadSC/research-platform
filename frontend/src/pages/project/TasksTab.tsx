@@ -7,7 +7,6 @@ import { DetailPanel } from "@/components/shared/DetailPanel";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
-import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -24,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useProjectMembers, useTasks } from "@/hooks/projects";
+import { useProjectMembers, useTaskView, useTasks } from "@/hooks/projects";
 import {
   TASK_STATUSES,
   personName,
@@ -33,7 +32,9 @@ import {
   type TaskStatus,
 } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
+import { TASK_TONES } from "@/lib/taskColors";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
+import { TaskDrawer } from "@/pages/project/TaskDrawer";
 
 const day = (iso: string | null) =>
   iso ? new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { dateStyle: "medium" }) : "";
@@ -63,15 +64,11 @@ function MoveMenu({ task, tasks, move }: { task: Task; tasks: Task[]; move: Move
   );
 }
 
-function TaskPanel({
-  task,
+function NewTaskPanel({
   members,
   onClose,
   onSave,
-  onDelete,
 }: {
-  task: Task | "new";
-  onDelete?: () => void;
   members: { id: string; name: string }[];
   onClose: () => void;
   onSave: (v: {
@@ -82,11 +79,9 @@ function TaskPanel({
     status: TaskStatus;
   }) => Promise<unknown>;
 }) {
-  const existing = task === "new" ? undefined : task;
-  const [status, setStatus] = useState<TaskStatus>(existing?.status ?? "todo");
-  const [assignee, setAssignee] = useState(existing?.assignee?.id ?? NONE);
+  const [status, setStatus] = useState<TaskStatus>("todo");
+  const [assignee, setAssignee] = useState(NONE);
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
-  const [confirmDelete, setConfirmDelete] = useState(false);
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -110,17 +105,13 @@ function TaskPanel({
   }
 
   return (
-    <DetailPanel
-      open
-      onOpenChange={(o) => !o && onClose()}
-      title={existing ? "Edit task" : "New task"}
-    >
+    <DetailPanel open onOpenChange={(o) => !o && onClose()} title="New task">
       <form onSubmit={submit} noValidate className="grid gap-4 py-4">
         <FormField label="Title" error={errors.fields.title}>
-          {(p) => <Input {...p} name="title" defaultValue={existing?.title} autoComplete="off" />}
+          {(p) => <Input {...p} name="title" autoComplete="off" />}
         </FormField>
         <FormField label="Description" error={errors.fields.description}>
-          {(p) => <Textarea {...p} name="description" defaultValue={existing?.description} />}
+          {(p) => <Textarea {...p} name="description" />}
         </FormField>
         <FormField label="Assignee" error={errors.fields.assignee}>
           {(p) => (
@@ -156,9 +147,7 @@ function TaskPanel({
           )}
         </FormField>
         <FormField label="Due date" error={errors.fields.due_date}>
-          {(p) => (
-            <Input {...p} type="date" name="due_date" defaultValue={existing?.due_date ?? ""} />
-          )}
+          {(p) => <Input {...p} type="date" name="due_date" />}
         </FormField>
         <FormError message={errors.form} />
         <div className="flex justify-end gap-2">
@@ -168,28 +157,20 @@ function TaskPanel({
           <Button type="submit">Save</Button>
         </div>
       </form>
-      {existing && onDelete && (
-        <div className="border-t py-4">
-          {confirmDelete ? (
-            <div role="alertdialog" aria-label="Confirm delete" className="grid gap-3">
-              <p className="text-sm">Delete �{existing.title}�? This can't be undone.</p>
-              <div className="flex gap-2">
-                <Button variant="destructive" onClick={onDelete}>
-                  Confirm delete
-                </Button>
-                <Button variant="outline" onClick={() => setConfirmDelete(false)}>
-                  Keep task
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <Button variant="outline" onClick={() => setConfirmDelete(true)}>
-              Delete task
-            </Button>
-          )}
-        </div>
-      )}
     </DetailPanel>
+  );
+}
+
+/** Status chip in the status colours (D144). */
+function ToneChip({ status }: { status: TaskStatus }) {
+  const t = TASK_TONES[status];
+  return (
+    <span
+      className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold whitespace-nowrap"
+      style={{ backgroundColor: t.strong, color: t.onStrong }}
+    >
+      {taskStatusLabel(status)}
+    </span>
   );
 }
 
@@ -223,10 +204,22 @@ function Board({
             aria-label={s.label}
             onDragOver={canEdit ? (e) => e.preventDefault() : undefined}
             onDrop={canEdit ? () => dropAt(s.value) : undefined}
-            className="flex min-h-40 flex-col gap-2 rounded-lg border bg-muted/30 p-3"
+            data-status={s.value}
+            style={{
+              backgroundColor: TASK_TONES[s.value].column,
+              color: TASK_TONES[s.value].text,
+              borderColor: TASK_TONES[s.value].strong,
+            }}
+            className="flex min-h-40 flex-col gap-2 rounded-lg border-2 p-3"
           >
-            <h3 className="text-sm font-semibold">
-              {s.label} <span className="font-normal text-muted-foreground">{col.length}</span>
+            <h3
+              className="flex items-center justify-between rounded-md px-2 py-1 text-sm font-semibold"
+              style={{
+                backgroundColor: TASK_TONES[s.value].strong,
+                color: TASK_TONES[s.value].onStrong,
+              }}
+            >
+              <span>{s.label}</span> <span aria-label={`${col.length} tasks`}>{col.length}</span>
             </h3>
             {col.map((t) => (
               <article
@@ -241,7 +234,13 @@ function Board({
                       }
                     : undefined
                 }
-                className="flex items-start justify-between gap-2 rounded-md border bg-background p-3"
+                data-status={t.status}
+                style={{
+                  backgroundColor: TASK_TONES[t.status].card,
+                  color: TASK_TONES[t.status].text,
+                  borderLeft: `6px solid ${TASK_TONES[t.status].strong}`,
+                }}
+                className="flex items-start justify-between gap-2 rounded-md border border-black/10 p-3"
               >
                 <div className="min-w-0">
                   <button
@@ -251,8 +250,12 @@ function Board({
                   >
                     {t.title}
                   </button>
-                  <p className="text-xs text-muted-foreground">
-                    {[t.assignee && personName(t.assignee), day(t.due_date)]
+                  <p className="text-xs" style={{ color: TASK_TONES[t.status].muted }}>
+                    {[
+                      t.assignee && personName(t.assignee),
+                      day(t.due_date),
+                      t.post_count > 0 && `${t.post_count} update${t.post_count === 1 ? "" : "s"}`,
+                    ]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
@@ -272,12 +275,15 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
   const { list, create, update, remove, move } = useTasks(labId, projectId);
   const members = useProjectMembers(labId, projectId).list.data ?? [];
   const [params, setParams] = useSearchParams();
-  const [editing, setEditing] = useState<Task | null>(null);
   const [fStatus, setFStatus] = useState("all");
   const [fAssignee, setFAssignee] = useState("all");
   const canEdit = project.my_permissions.includes("edit_content");
-  const view = params.get("view") === "board" ? "board" : "list";
+  const pref = useTaskView();
+  const asked = params.get("view");
+  const view = asked === "list" || asked === "board" ? asked : pref.saved; // D143
   const creating = params.get("new") === "task";
+  const openId = params.get("task");
+  const isLead = project.my_permissions.includes("edit_project");
   const setParam = (k: string, v: string | null) =>
     setParams(
       (p) => {
@@ -289,6 +295,10 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
       { replace: true },
     );
 
+  const setView = (v: "board" | "list") => {
+    setParam("view", null); // the account setting is the source of truth, so no URL override
+    if (v !== pref.saved) pref.save(v);
+  };
   const all = [...(list.data ?? [])].sort((a, b) => a.position - b.position);
   const visible = all.filter(
     (t) =>
@@ -308,7 +318,7 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
 
   const cols: Column<Task>[] = [
     { key: "title", header: "Task", cell: (t) => <span className="font-medium">{t.title}</span> },
-    { key: "status", header: "Status", cell: (t) => <StatusBadge status={t.status} /> },
+    { key: "status", header: "Status", cell: (t) => <ToneChip status={t.status} /> },
     {
       key: "assignee",
       header: "Assignee",
@@ -340,10 +350,11 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
       action={newTask}
     />
   );
-  const closePanel = () => {
-    setEditing(null);
-    setParam("new", null);
-  };
+  const closePanel = () => setParam("new", null);
+  const editing = openId ? all.find((t) => t.id === openId) : undefined;
+  const assignable = members
+    .filter((m) => m.role !== "viewer")
+    .map((m) => ({ id: m.user.id, name: personName(m.user) }));
 
   return (
     <div className="grid gap-4">
@@ -353,7 +364,7 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
             variant={view === "list" ? "secondary" : "ghost"}
             size="sm"
             aria-pressed={view === "list"}
-            onClick={() => setParam("view", null)}
+            onClick={() => setView("list")}
           >
             <LayoutList aria-hidden /> List
           </Button>
@@ -361,7 +372,7 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
             variant={view === "board" ? "secondary" : "ghost"}
             size="sm"
             aria-pressed={view === "board"}
-            onClick={() => setParam("view", "board")}
+            onClick={() => setView("board")}
           >
             <SquareKanban aria-hidden /> Board
           </Button>
@@ -405,7 +416,7 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
           rows={listRows}
           getRowKey={(t) => t.id}
           loading={list.isLoading}
-          onRowClick={(t) => setEditing(t)}
+          onRowClick={(t) => setParam("task", t.id)}
           empty={
             all.length ? (
               <EmptyState
@@ -424,28 +435,33 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
       ) : all.length === 0 ? (
         empty
       ) : (
-        <Board tasks={all} canEdit={canEdit} move={doMove} onOpen={setEditing} />
+        <Board tasks={all} canEdit={canEdit} move={doMove} onOpen={(t) => setParam("task", t.id)} />
       )}
-      {(creating || editing) && canEdit && (
-        <TaskPanel
-          key={editing?.id ?? "new"}
-          task={editing ?? "new"}
-          members={members.map((m) => ({ id: m.user.id, name: personName(m.user) }))}
+      {creating && canEdit && (
+        <NewTaskPanel
+          members={assignable}
           onClose={closePanel}
-          onDelete={
-            editing
-              ? () => {
-                  remove.mutate(editing.id, {
-                    onSuccess: () => toast.success("Task deleted"),
-                    onError: () => toast.error("Couldn't delete the task, so it was put back."),
-                  });
-                  closePanel();
-                }
-              : undefined
-          }
-          onSave={(v) =>
-            editing ? update.mutateAsync({ id: editing.id, patch: v }) : create.mutateAsync(v)
-          }
+          onSave={(v) => create.mutateAsync(v)}
+        />
+      )}
+      {editing && !creating && (
+        <TaskDrawer
+          key={editing.id}
+          labId={labId}
+          projectId={projectId}
+          task={editing}
+          assignable={assignable}
+          canEdit={canEdit}
+          isLead={isLead}
+          onClose={() => setParam("task", null)}
+          onPatch={(patch) => update.mutateAsync({ id: editing.id, patch })}
+          onDelete={() => {
+            remove.mutate(editing.id, {
+              onSuccess: () => toast.success("Task deleted"),
+              onError: () => toast.error("Couldn't delete the task, so it was put back."),
+            });
+            setParam("task", null);
+          }}
         />
       )}
     </div>

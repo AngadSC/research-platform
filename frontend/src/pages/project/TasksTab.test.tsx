@@ -28,6 +28,9 @@ const task = (id: string, title: string, status = "todo", position = 0) => ({
   status,
   position,
   created_by: user,
+  documents: [],
+  attachments: [],
+  post_count: 0,
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
 });
@@ -119,15 +122,21 @@ describe("tasks", () => {
     expect(col("Done")).not.toHaveTextContent("Seed");
   });
 
-  it("toggles between list and board", async () => {
-    mockFetch(base(["edit_content"], [task("t1", "Seed")]));
+  it("opens the board by default and toggles to the list, saving the choice", async () => {
+    const calls = mockFetch({
+      ...base(["edit_content"], [task("t1", "Seed")]),
+      "PATCH /api/me/": { body: { ...user, preferences: { task_view: "list" } } },
+    });
     const router = renderRoute(TASKS);
-    expect(await screen.findByRole("table")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Board" }));
     expect(await screen.findByRole("region", { name: "To do" })).toBeInTheDocument();
-    expect(router.state.location.search).toBe("?view=board");
     await userEvent.click(screen.getByRole("button", { name: "List" }));
     expect(await screen.findByRole("table")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "PATCH" && c.path === "/api/me/")?.body).toEqual({
+        preferences: { task_view: "list" },
+      }),
+    );
+    expect(router.state.location.search).toBe("");
   });
 
   it("shows an empty state", async () => {
@@ -140,7 +149,7 @@ describe("tasks", () => {
 describe("task delete", () => {
   const open = async (perms: string[], extra = {}) => {
     mockFetch({ ...base(perms, [task("t1", "Write intro")]), ...extra });
-    renderRoute(TASKS);
+    renderRoute(`${TASKS}?view=list`);
     const u = userEvent.setup();
     await u.click(await screen.findByRole("cell", { name: "Write intro" }));
     return u;

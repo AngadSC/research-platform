@@ -27,7 +27,9 @@ def validate_commit(value):
 
 def validate_checksum(value):
     if value and not CHECKSUM_RE.match(value):
-        raise ValidationError("Use the form algorithm:hex, for example sha256:ab12... or md5:ab12...")
+        raise ValidationError(
+            "Use the form algorithm:hex, for example sha256:ab12... or md5:ab12..."
+        )
 
 
 class ManuscriptStatus(models.TextChoices):
@@ -171,3 +173,197 @@ class ManuscriptLink(ProvenanceModel):
 
     def __str__(self):
         return self.title
+
+
+# ---------------------------------------------------------------- Workflow records (Run 4)
+
+
+class FundingStatus(models.TextChoices):
+    APPLIED = "applied"
+    AWARDED = "awarded"
+    ACTIVE = "active"
+    CLOSED = "closed"
+    DECLINED = "declined"
+
+
+class FundingRecord(ProvenanceModel):
+    """A grant or award behind the project (D133). `amount` and `currency` are shown to and
+    written by project leads only; everything else follows the other provenance records."""
+
+    funder = models.CharField(max_length=200)
+    program = models.CharField(max_length=300, blank=True)  # program or grant name
+    award_number = models.CharField(max_length=100, blank=True)
+    amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    currency = models.CharField(max_length=3, default="CAD")
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    status = models.CharField(
+        max_length=16, choices=FundingStatus.choices, default=FundingStatus.APPLIED
+    )
+    holder = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    notes = models.TextField(blank=True)
+    attachment = models.ForeignKey(
+        "documents.Attachment", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+
+    lab_parents = ("project", "attachment")
+
+    class Meta(ProvenanceModel.Meta):
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(end_date__isnull=True)
+                | Q(start_date__isnull=True)
+                | Q(end_date__gte=models.F("start_date")),
+                name="funding_end_after_start",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.funder} {self.program}".strip()
+
+
+class ReviewStatus(models.TextChoices):
+    REQUESTED = "requested"
+    IN_REVIEW = "in_review"
+    CHANGES_REQUESTED = "changes_requested"
+    APPROVED = "approved"
+
+
+class ReviewItem(ProvenanceModel):
+    """A project review or sign-off request (D138)."""
+
+    title = models.CharField(max_length=300)
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    status = models.CharField(
+        max_length=20, choices=ReviewStatus.choices, default=ReviewStatus.REQUESTED
+    )
+    due_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+
+    lab_parents = ("project",)
+
+    def __str__(self):
+        return self.title
+
+
+class RecruitmentPlan(ProvenanceModel):
+    """One per project: the enrolment target and free notes. Counts only, never people (D136)."""
+
+    project = models.OneToOneField(
+        "projects.Project", on_delete=models.CASCADE, related_name="recruitment_plan"
+    )
+    target_enrolment = models.PositiveIntegerField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    lab_parents = ("project",)
+
+
+class RecruitmentStatus(models.TextChoices):
+    SCREENED = "screened"
+    ENROLLED = "enrolled"
+    WITHDRAWN = "withdrawn"
+    COMPLETED = "completed"
+
+
+class RecruitmentEntry(ProvenanceModel):
+    """A dated increment to one count: "on this day, N more people were screened". The running
+    totals are the sums per status. No names, ids or other personal data (D136)."""
+
+    entry_date = models.DateField()
+    status = models.CharField(max_length=16, choices=RecruitmentStatus.choices)
+    count = models.PositiveIntegerField()
+    notes = models.CharField(max_length=500, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+
+    lab_parents = ("project",)
+
+    class Meta(ProvenanceModel.Meta):
+        indexes = [models.Index(fields=["project", "entry_date"], name="recruit_project_date_idx")]
+
+    def __str__(self):
+        return f"{self.entry_date} {self.status} {self.count}"
+
+
+# ---------------------------------------------------------------- Data management plan (Run 5)
+
+DMP_SECTIONS = (
+    "data_description",
+    "collection",
+    "documentation",
+    "storage",
+    "preservation",
+    "sharing",
+    "responsibilities",
+    "ethics_legal",
+)
+
+
+class DmpStatus(models.TextChoices):
+    DRAFT = "draft"
+    SUBMITTED = "submitted"
+    APPROVED = "approved"
+
+
+class DataManagementPlan(ProvenanceModel):
+    """One per project (D180): the Tri-Agency RDM / DMP Assistant sections as free text, a
+    status, the last review date, an optional external DMP link and one attachment."""
+
+    project = models.OneToOneField(
+        "projects.Project", on_delete=models.CASCADE, related_name="data_management_plan"
+    )
+    data_description = models.TextField(blank=True)
+    collection = models.TextField(blank=True)
+    documentation = models.TextField(blank=True)
+    storage = models.TextField(blank=True)
+    preservation = models.TextField(blank=True)
+    sharing = models.TextField(blank=True)
+    responsibilities = models.TextField(blank=True)
+    ethics_legal = models.TextField(blank=True)
+    status = models.CharField(max_length=12, choices=DmpStatus.choices, default=DmpStatus.DRAFT)
+    last_reviewed = models.DateField(null=True, blank=True)
+    external_url = models.CharField(max_length=500, blank=True, validators=[validate_web_url])
+    attachment = models.ForeignKey(
+        "documents.Attachment", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, related_name="+"
+    )
+
+    lab_parents = ("project", "attachment")
+
+    def __str__(self):
+        return f"DMP {self.project_id}"
+
+
+class DataManagementPlanRevision(LabScopedModel):
+    """A snapshot after every save (D181): numbered per plan, never edited."""
+
+    plan = models.ForeignKey(DataManagementPlan, on_delete=models.CASCADE, related_name="revisions")
+    number = models.PositiveIntegerField()
+    snapshot = models.JSONField(default=dict)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+
+    lab_parents = ("plan",)
+    permission_domain = "project"
+    project_path = "plan__project"
+
+    class Meta(LabScopedModel.Meta):
+        constraints = [models.UniqueConstraint(fields=["plan", "number"], name="dmp_rev_number")]

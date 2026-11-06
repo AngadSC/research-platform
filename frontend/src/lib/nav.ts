@@ -1,28 +1,30 @@
 import {
   Archive,
   Bell,
+  Boxes,
   CheckSquare,
-  FileCheck2,
   FileText,
-  FlaskConical,
   Folder,
   GitBranch,
+  GraduationCap,
   History,
-  Home,
   LayoutDashboard,
+  Home,
   MessagesSquare,
   Plug,
+  Settings,
   ShieldCheck,
   Users,
+  Workflow,
 } from "lucide-react";
 
-/** The sections of a project, shown in its sidebar dropdown (and as pills below md). */
+/** The sections of a project: a dropdown in the sidebar, and tabs below md. */
 export const PROJECT_SECTIONS = [
   { to: "overview", label: "Overview", icon: LayoutDashboard },
   { to: "tasks", label: "Tasks", icon: CheckSquare },
   { to: "documents", label: "Documents", icon: FileText },
   { to: "files", label: "Files", icon: Folder },
-  { to: "research", label: "Research", icon: FlaskConical },
+  { to: "workflow", label: "Workflow", icon: Workflow },
   { to: "lineage", label: "Lineage", icon: GitBranch },
   { to: "chat", label: "Chat", icon: MessagesSquare },
 ] as const;
@@ -31,9 +33,18 @@ export const PROJECT_SECTIONS = [
 export function navItems(labId?: string, permissions: string[] = []) {
   return [
     { to: "/", label: "Home", icon: Home, end: true },
+    ...(labId && permissions.includes("manage_lab")
+      ? [{ to: `/labs/${labId}/dashboard`, label: "Dashboard", icon: LayoutDashboard, end: false }]
+      : []),
     ...(labId ? [{ to: `/labs/${labId}/members`, label: "Members", icon: Users, end: false }] : []),
-    ...(labId && permissions.includes("view_ethics")
-      ? [{ to: `/labs/${labId}/ethics`, label: "Ethics approvals", icon: FileCheck2, end: false }]
+    ...(labId
+      ? [{ to: `/labs/${labId}/inventory`, label: "Inventory", icon: Boxes, end: false }]
+      : []),
+    ...(labId
+      ? [{ to: `/labs/${labId}/training`, label: "My training", icon: GraduationCap, end: false }]
+      : []),
+    ...(labId && permissions.includes("manage_lab")
+      ? [{ to: `/labs/${labId}/admin`, label: "Admin", icon: ShieldCheck, end: false }]
       : []),
     ...(labId
       ? [{ to: `/labs/${labId}/notifications`, label: "Notifications", icon: Bell, end: false }]
@@ -54,6 +65,6 @@ export function navItems(labId?: string, permissions: string[] = []) {
           },
         ]
       : []),
-    { to: "/account", label: "Account", icon: ShieldCheck, end: false },
+    { to: "/settings", label: "Settings", icon: Settings, end: false },
   ];
 }

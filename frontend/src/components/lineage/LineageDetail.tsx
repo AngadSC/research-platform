@@ -1,4 +1,4 @@
-import { Copy, ExternalLink } from "lucide-react";
+import { Copy, ExternalLink, HardDrive } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
@@ -52,7 +52,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ExtLink({ url }: { url: string }) {
+function ExtLink({ url, label }: { url: string; label?: string }) {
   const href = safeHttpUrl(url);
   if (!url) return <span className="text-muted-foreground">Not recorded</span>;
   if (!href) return <span className="break-all">{url}</span>;
@@ -63,14 +63,59 @@ function ExtLink({ url }: { url: string }) {
       rel="noopener noreferrer"
       className="inline-flex items-center gap-1 break-all text-primary underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
     >
-      {url}
+      {label ?? url}
       <ExternalLink className="size-3 shrink-0" aria-hidden />
     </a>
   );
 }
 
+const LINK_STATUS: Record<string, string> = {
+  ok: "Up to date",
+  changed: "Changed since linked",
+  unavailable: "No longer available",
+};
+interface OutsideLink {
+  id: string;
+  provider: string;
+  title: string;
+  url: string;
+  status: string;
+}
+
+/** Outside files (for example Google Drive) linked to this node, with their status. */
+function OutsideLinks({ node }: { node: LineageNode }) {
+  const links = (node.meta.external_links ?? []) as OutsideLink[];
+  if (!links.length) return null;
+  return (
+    <dl className="grid gap-2">
+      <Field label="Linked files">
+        <ul className="grid gap-1">
+          {links.map((l) => (
+            <li key={l.id} className="flex flex-wrap items-center gap-x-2">
+              <HardDrive className="size-3.5 text-muted-foreground" aria-hidden />
+              <ExtLink url={l.url} label={l.title} />
+              <span className="text-xs text-muted-foreground">
+                {LINK_STATUS[l.status] ?? l.status}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </Field>
+    </dl>
+  );
+}
+
 /** Key facts for one node, by kind. */
 function Facts({ node }: { node: LineageNode }) {
+  return (
+    <>
+      <KindFacts node={node} />
+      <OutsideLinks node={node} />
+    </>
+  );
+}
+
+function KindFacts({ node }: { node: LineageNode }) {
   const m = (k: string) => metaStr(node, k);
   switch (node.kind) {
     case "dataset":

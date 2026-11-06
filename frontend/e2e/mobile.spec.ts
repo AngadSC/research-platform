@@ -47,8 +47,8 @@ test("Escape and a backdrop click close the drawer", async ({ page }) => {
 test("navigating from the drawer closes it", async ({ page }) => {
   await openProject(page);
   await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.locator("#app-sidebar").getByRole("link", { name: "Account" }).click();
-  await expect(page).toHaveURL(/\/account/);
+  await page.locator("#app-sidebar").getByRole("link", { name: "Settings" }).click();
+  await expect(page).toHaveURL(/\/settings/);
   await expect(page.locator("#app-sidebar")).toBeHidden();
 });
 

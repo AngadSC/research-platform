@@ -29,6 +29,11 @@ class Project(LabScopedModel):
     retain_until = models.DateField(null=True, blank=True)
     retention_note = models.TextField(blank=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
+    # D139: the latest change by a signed-in user to the project or anything in it.
+    last_activity_at = models.DateTimeField(null=True, blank=True)
+    last_activity_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
 
     permission_domain = "project"
     project_path = ""  # itself
@@ -62,11 +67,20 @@ class ProjectMembership(LabScopedModel):
         return f"{self.user_id} is {self.role}"
 
 
+class DeadlinePriority(models.TextChoices):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
 class ProjectDeadline(LabScopedModel):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="deadlines")
     title = models.CharField(max_length=200)
     due_date = models.DateField()
     done = models.BooleanField(default=False)
+    priority = models.CharField(
+        max_length=8, choices=DeadlinePriority.choices, default=DeadlinePriority.MEDIUM
+    )
 
     lab_parents = ("project",)
     permission_domain = "project"
@@ -98,6 +112,9 @@ class Task(LabScopedModel):
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
     )
+    # D141: same-project links, enforced by core.lab_db triggers in migration 0003.
+    documents = models.ManyToManyField("documents.Document", blank=True, related_name="+")
+    attachments = models.ManyToManyField("documents.Attachment", blank=True, related_name="+")
 
     lab_parents = ("project",)
     permission_domain = "project"
@@ -132,7 +149,7 @@ class ChatMessage(LabScopedModel):
 
 
 class ChatReadState(LabScopedModel):
-    """How far one person has read one project's chat (D78). No row means nothing read yet."""
+    """How far one person has read one project's chat (D207). No row means nothing read yet."""
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="+")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
@@ -149,3 +166,23 @@ class ChatReadState(LabScopedModel):
 
     def __str__(self):
         return f"{self.user_id} read to {self.last_read_at}"
+
+
+class TaskPost(LabScopedModel):
+    """One update on a task's thread (D142). Plain text with simple markdown; the client
+    renders it safely."""
+
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="posts")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    body = models.TextField()
+    edited_at = models.DateTimeField(null=True, blank=True)
+
+    lab_parents = ("task",)
+    permission_domain = "project"
+    project_path = "task__project"
+
+    class Meta(LabScopedModel.Meta):
+        indexes = [models.Index(fields=["task", "created_at"], name="taskpost_thread_idx")]
+
+    def __str__(self):
+        return self.body[:50]

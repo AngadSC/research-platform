@@ -16,12 +16,16 @@ from core.models import User
 from documents.services import create_document, save_document, upload_attachment
 from ethics import services as ethics_services
 from ethics.models import EthicsApproval
+from integrations.models import AccountStatus, ConnectedAccount, ExternalLink
 from labs.models import Lab, LabMembership, LabRole
 from labs.services import create_lab
 from projects import services as project_services
-from projects.models import ProjectRole, TaskStatus
+from projects.models import Project, ProjectRole, TaskStatus
 from provenance import services as prov
+from provenance.models import Analysis, DatasetRecord, Decision, ManuscriptLink
+from training import services as services_training
 
+PROJECT_NAME = "Pilot Attention Study (FAKE)"
 LAB_NAME = "Example Cognition Lab (FAKE)"
 PASSWORD = "seed-password-not-secret"  # noqa: S105 (dev-only, printed on purpose)
 FRONTEND_URL = "http://localhost:5173"
@@ -73,7 +77,25 @@ class Command(BaseCommand):
             with transaction.atomic():
                 self.seed()
             self.stdout.write("Seeded pilot data.")
+        self.seed_institution()
+        self.seed_drive()
+        self.seed_links()
+        self.seed_training()
+        self.seed_dmp()
+        self.seed_oauth_client()
         self.summary()
+
+    def seed_institution(self):
+        """Point the demo lab at the University of Alberta."""
+        from core.institution_starters import UALBERTA
+        from core.models import Institution
+        from labs.admin_services import apply_starter_resources
+
+        lab = Lab.objects.get(name=LAB_NAME)
+        if lab.institution.name != UALBERTA:
+            lab.institution, _ = Institution.objects.get_or_create(name=UALBERTA)
+            lab.save()
+        apply_starter_resources(lab)
 
     def make_user(self, email, display_name, lab=None, role=None):
         user = User.objects.create_user(email=email, password=PASSWORD, display_name=display_name)
@@ -304,6 +326,259 @@ class Command(BaseCommand):
             title="Survey items (FAKE)",
             content=[block("paragraph", "Fake survey item text.")],
         )
+
+    def seed_dmp(self):
+        """A fake draft data management plan on the pilot project (Run 5, D180). Idempotent:
+        skipped when the project already has a plan."""
+        from provenance import dmp
+
+        lab = Lab.objects.filter(name=LAB_NAME).first()
+        project = lab and Project.objects.for_lab(lab).filter(name__startswith="Pilot").first()
+        if project is None or not dmp.get_plan(project)._state.adding:
+            return
+        dmp.save_plan(
+            project=project,
+            user=User.objects.get(email="lead@example.test"),
+            data={
+                "data_description": "Fake response-time and questionnaire data (FAKE).",
+                "collection": "Collected in the lab with a fake task script (FAKE).",
+                "storage": "Lab shared drive, access limited to project members (FAKE).",
+                "preservation": "Deposit in a fake repository for 7 years (FAKE).",
+                "last_reviewed": timezone.localdate() - datetime.timedelta(days=30),
+            },
+        )
+
+    def seed_oauth_client(self):
+        """A fake registered AI app so the consent screen can be shown (D161). No tokens."""
+        from assistant.models import ClientKind, OAuthClient
+
+        OAuthClient.objects.get_or_create(
+            client_id="example-ai-app-fake",
+            defaults={
+                "kind": ClientKind.DCR,
+                "name": "Example AI app (FAKE)",
+                "redirect_uris": ["https://claude.ai/api/mcp/auth_callback"],
+            },
+        )
+
+    def seed_training(self):
+        """Fake training requirements and records (Run 5, D175-D179). Idempotent: requirements
+        are matched by name, records by (member, requirement), so a rerun adds nothing."""
+        from labs.models import OnboardingItem
+        from training.models import AppliesTo, TrainingRecord, TrainingRequirement
+
+        lab = Lab.objects.filter(name=LAB_NAME).first()
+        if lab is None:
+            return
+        today = timezone.localdate()
+        by_email = {u.email: u for u in User.objects.filter(email__endswith="@example.test")}
+        pi = by_email["pi@example.test"]
+        project = Project.objects.for_lab(lab).filter(name__startswith="Pilot Attention").first()
+        reqs = {}
+        for name, category, months, applies, roles in [
+            ("TCPS 2: CORE (FAKE)", "ethics", None, AppliesTo.ALL, []),
+            ("WHMIS (FAKE)", "safety", 12, AppliesTo.ROLES, ["pi", "lab_admin", "member"]),
+            ("Biosafety (FAKE)", "biosafety", 12, AppliesTo.PROJECTS, []),
+        ]:
+            req, made = TrainingRequirement.objects.for_lab(lab).get_or_create(
+                name=name,
+                defaults={
+                    "lab": lab,
+                    "category": category,
+                    "validity_months": months,
+                    "applies_to": applies,
+                    "roles": roles,
+                    "notes": "Fake requirement for the demo.",
+                },
+            )
+            if made and applies == AppliesTo.PROJECTS and project is not None:
+                req.projects.add(project)
+            reqs[name.split(" ")[0]] = req
+        day = datetime.timedelta
+        # (member, requirement, days since completed, verified)
+        for email, key, ago, verified in [
+            ("pi@example.test", "TCPS", 900, True),
+            ("pi@example.test", "WHMIS", 100, True),
+            ("admin@example.test", "TCPS", 700, True),
+            ("admin@example.test", "WHMIS", 400, False),  # expired 35 days ago
+            ("lead@example.test", "TCPS", 800, True),
+            ("lead@example.test", "WHMIS", 340, True),  # expires in about 25 days
+            ("student@example.test", "TCPS", 200, False),
+            ("student@example.test", "Biosafety", 380, True),  # expired; WHMIS stays missing
+            ("viewer@example.test", "TCPS", 50, False),
+        ]:
+            user, req = by_email[email], reqs[key]
+            if TrainingRecord.objects.for_lab(lab).filter(user=user, requirement=req).exists():
+                continue
+            done = today - day(days=ago)
+            expires = services_training.computed_expiry(req, done)
+            TrainingRecord.objects.create(
+                lab=lab,
+                requirement=req,
+                user=user,
+                completed_on=done,
+                expires_on=expires,
+                notes="Fake record.",
+                verified_by=pi if verified else None,
+                verified_at=timezone.now() if verified else None,
+            )
+        OnboardingItem.objects.for_lab(lab).get_or_create(
+            kind="new_member",
+            title="Complete WHMIS (FAKE)",
+            defaults={"lab": lab, "training_requirement": reqs["WHMIS"], "order": 90},
+        )
+
+    def seed_drive(self):
+        """Fake Drive connection and two links, for screenshots. Never contacts Google: rows are
+        written directly (no tokens, which the model allows) and the .invalid hosts can't
+        resolve. Safe to re-run, and also fills in seed labs made before this existed."""
+        lab = Lab.objects.filter(name=LAB_NAME).first()
+        project = lab and Project.objects.for_lab(lab).filter(name=PROJECT_NAME).first()
+        dataset = (
+            project
+            and DatasetRecord.objects.for_lab(lab)
+            .filter(project=project, version_label="v2")
+            .first()
+        )
+        lead = User.objects.filter(email="lead@example.test").first()
+        if not (dataset and lead):
+            return
+        now = timezone.now()
+        account, _ = ConnectedAccount.objects.for_lab(lab).get_or_create(
+            user=lead,
+            provider="google_drive",
+            external_account_id="fake-drive-account-0001",
+            defaults={
+                "lab": lab,
+                "external_email": "lead@example.invalid",
+                "granted_scopes": ["https://www.googleapis.com/auth/drive.file"],
+                "status": AccountStatus.ACTIVE,
+                "connected_at": now - datetime.timedelta(days=12),
+                "last_used_at": now - datetime.timedelta(days=2),
+            },
+        )
+        base = {
+            "lab": lab,
+            "project": project,
+            "provider": "google_drive",
+            "connected_account": account,
+            "linked_by": lead,
+            "linked_modified_at": now - datetime.timedelta(days=10),
+            "last_checked_at": now - datetime.timedelta(hours=3),
+        }
+        # Files tab: changed since linked (the remote version moved on).
+        ExternalLink.objects.for_lab(lab).get_or_create(
+            project=project,
+            external_id="fake-drive-file-changed",
+            defaults={
+                **base,
+                "url": "https://drive.example.invalid/file/fake-drive-file-changed",
+                "title": "Recruitment tracker (FAKE).xlsx",
+                "mime_type": "application/vnd.ms-excel",
+                "linked_version": "3",
+                "remote_version": "5",
+                "remote_modified_at": now - datetime.timedelta(days=1),
+            },
+        )
+        # Dataset record: no longer available (the file was deleted or unshared).
+        ExternalLink.objects.for_lab(lab).get_or_create(
+            project=project,
+            external_id="fake-drive-file-gone",
+            defaults={
+                **base,
+                "dataset": dataset,
+                "url": "https://drive.example.invalid/file/fake-drive-file-gone",
+                "title": "attention-responses-export (FAKE).csv",
+                "mime_type": "text/csv",
+                "linked_version": "2",
+                "remote_version": "2",
+                "unavailable_since": now - datetime.timedelta(days=2),
+            },
+        )
+
+    def seed_links(self):
+        """Tokenless, no-account links (GitHub, Overleaf, Zotero, Zenodo) and one Zotero
+        reference. Nothing is fetched; hosts are .invalid, ids are fake. Re-runnable."""
+        lab = Lab.objects.filter(name=LAB_NAME).first()
+        project = lab and Project.objects.for_lab(lab).filter(name=PROJECT_NAME).first()
+        lead = User.objects.filter(email="lead@example.test").first()
+        if not (project and lead):
+            return
+        now = timezone.now()
+        # A tokenless GitHub connection, so the search dialog is reachable (screenshots mock the
+        # search reply in the browser; the server never calls GitHub).
+        pi = User.objects.get(email="pi@example.test")
+        ConnectedAccount.objects.for_lab(lab).get_or_create(
+            user=pi,
+            provider="github",
+            external_account_id="example-lab-fake",
+            defaults={
+                "lab": lab,
+                "external_email": "",
+                "status": AccountStatus.ACTIVE,
+                "connected_at": now - datetime.timedelta(days=5),
+            },
+        )
+        analysis = Analysis.objects.for_lab(lab).filter(project=project).first()
+        manuscript = ManuscriptLink.objects.for_lab(lab).filter(project=project).first()
+        decision = Decision.objects.for_lab(lab).filter(project=project).first()
+        dataset = (
+            DatasetRecord.objects.for_lab(lab).filter(project=project, version_label="v1").first()
+        )
+        ref = {
+            "title": "Fake reference on response-time trimming (FAKE)",
+            "url": "https://zotero.example.invalid/items/FAKE0001",
+            "doi": "",
+        }
+        if decision and ref not in decision.references:
+            decision.references = [*decision.references, ref]
+            decision.save(update_fields=["references", "updated_at"])
+        for target, provider, ext_id, url, title in [
+            (
+                "analysis",
+                "github",
+                "example-lab-fake/attention-analysis@" + FAKE_COMMIT,
+                "https://github.example.invalid/example-lab-fake/attention-analysis/commit/"
+                + FAKE_COMMIT,
+                "example-lab-fake/attention-analysis (FAKE)",
+            ),
+            (
+                "manuscript",
+                "overleaf",
+                "a1b2c3d4e5f60718293a4b5c",
+                "https://overleaf.example.invalid/project/a1b2c3d4e5f60718293a4b5c",
+                "Attention manuscript source (FAKE)",
+            ),
+            ("decision", "zotero", "u0:FAKE0001", ref["url"], ref["title"]),
+            (
+                "dataset",
+                "zenodo",
+                "999999999999",
+                "https://zenodo.example.invalid/records/999999999999",
+                "Attention task responses, archived copy (FAKE)",
+            ),
+        ]:
+            obj = {
+                "analysis": analysis,
+                "manuscript": manuscript,
+                "decision": decision,
+                "dataset": dataset,
+            }[target]
+            if obj is None:
+                continue
+            ExternalLink.objects.for_lab(lab).get_or_create(
+                project=project,
+                provider=provider,
+                external_id=ext_id,
+                defaults={
+                    "lab": lab,
+                    "linked_by": lead,
+                    "url": url,
+                    "title": title,
+                    "last_checked_at": now,
+                    target: obj,
+                },
+            )
 
     def summary(self):
         self.stdout.write(f"Frontend: {FRONTEND_URL}")

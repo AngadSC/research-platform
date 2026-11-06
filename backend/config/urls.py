@@ -15,6 +15,13 @@ urlpatterns = [
     # Provider callbacks only (HEADLESS_ONLY), e.g. /accounts/google/login/callback/.
     # D73: the One Tap token endpoint is unused; answer 404 before allauth's route can match.
     path("accounts/google/login/token/", lambda request: HttpResponseNotFound()),
+    # D201: SAML single logout is off. allauth's /sls/ logs the visitor out on an *unsigned*
+    # LogoutRequest (anyone can send a victim a link), and signing every message would also
+    # refuse IdPs that sign only the assertion. We register no IdP logout endpoint anyway (D158).
+    path(
+        "accounts/saml/<str:organization_slug>/sls/",
+        lambda request, organization_slug: HttpResponseNotFound(),
+    ),
     path("accounts/", include("allauth.urls")),
     path("api/", include("core.urls")),
     path("api/", include("labs.urls")),
@@ -32,6 +39,8 @@ urlpatterns = [
     path("api/", include("ethics.urls")),
     # --- end ethics (Phase 5) ---
     path("api/", include("integrations.urls")),
+    path("", include("assistant.urls")),  # Run 5, D160: /mcp, /.well-known/*, /api/oauth, /api/ai
+    path("api/", include("training.urls")),  # Run 5, D175
 ]
 
 if settings.DEBUG:  # ARCHITECTURE section 6 / D41: schema and Django admin only in dev

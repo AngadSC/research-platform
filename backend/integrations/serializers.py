@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from core.serializers import UserSerializer
-from integrations import registry
+from integrations import registry, services
 from integrations.models import TARGET_FIELDS, ConnectedAccount, ExternalLink
 
 
@@ -17,6 +17,7 @@ class ConnectedAccountSerializer(serializers.ModelSerializer):
             "provider",
             "user",
             "external_email",
+            "instance_url",
             "granted_scopes",
             "status",
             "connected_at",
@@ -29,18 +30,42 @@ class ProviderAccountSerializer(serializers.Serializer):
     id = serializers.UUIDField()
     status = serializers.CharField()
     external_email = serializers.CharField()
+    instance_url = serializers.CharField()
+
+
+class ConnectFieldSerializer(serializers.Serializer):
+    """One field of an API-key connect form; `secret` fields are write-only (never echoed)."""
+
+    name = serializers.ChoiceField(choices=registry.CONNECT_FIELDS)
+    label = serializers.CharField()
+    help_text = serializers.CharField()
+    required = serializers.BooleanField()
+    secret = serializers.BooleanField()
 
 
 class ProviderSerializer(serializers.Serializer):
-    """One registry entry plus the requester's own account there. Built from a dict."""
+    """One registry entry plus the requester's own account there: everything the generic UI
+    needs (D80). Built from a dict (`views.provider_entry`)."""
 
     name = serializers.CharField()
     label = serializers.CharField()
-    auth_type = serializers.CharField()
+    auth_type = serializers.ChoiceField(choices=[a.value for a in registry.AuthType])
+    category = serializers.ChoiceField(choices=[c.value for c in registry.Category])
     icon = serializers.CharField()
+    metadata_only = serializers.BooleanField()
     scopes = serializers.ListField(child=serializers.CharField())
     configured = serializers.BooleanField()
     public_config = serializers.DictField(child=serializers.CharField())
+    link_targets = serializers.ListField(child=serializers.ChoiceField(choices=registry.TARGETS))
+    link_methods = serializers.ListField(
+        child=serializers.ChoiceField(choices=registry.LINK_METHODS)
+    )
+    needs_instance_url = serializers.BooleanField()
+    connect_fields = ConnectFieldSerializer(many=True)
+    external_id_pattern = serializers.CharField()
+    url_pattern = serializers.CharField()
+    link_hosts = serializers.ListField(child=serializers.CharField())
+    can_check = serializers.BooleanField()  # offers freshness checks (fetch_item)
     account = ProviderAccountSerializer(allow_null=True)
 
 
@@ -53,31 +78,48 @@ class PickerTokenSerializer(serializers.Serializer):
 
 
 class ConnectInputSerializer(serializers.Serializer):
+    """oauth2: optional `scopes`. api_key: the connect form (D81). Secrets are write-only and
+    no validation message ever repeats a value."""
+
     scopes = serializers.ListField(child=serializers.CharField(), required=False)
+    api_key = serializers.CharField(write_only=True, required=False, max_length=4096)
+    secret = serializers.CharField(write_only=True, required=False, max_length=4096)
+    instance_url = serializers.CharField(write_only=True, required=False, max_length=500)
 
 
 class ConnectOutputSerializer(serializers.Serializer):
-    authorization_url = serializers.CharField()
+    """oauth2: `authorization_url` to send the browser to (`account` null). api_key: the stored
+    `account` (`authorization_url` empty)."""
+
+    authorization_url = serializers.CharField(allow_blank=True)
+    account = ConnectedAccountSerializer(allow_null=True)
 
 
 class ExternalLinkInputSerializer(serializers.Serializer):
-    """`url`, `title` and `mime_type` are only used by link_only providers; for the others
-    the provider is asked for them."""
+    """Name the item by `external_id` (picker, search result) or by a pasted `url` the provider
+    parses. Everything else about the item is read from the provider server-side (D85); only a
+    link_only provider stores the pasted `url` and the person's `title`."""
 
     provider = serializers.CharField(max_length=40)
-    external_id = serializers.CharField(max_length=255)
+    external_id = serializers.CharField(max_length=255, required=False)
     url = serializers.URLField(max_length=2000, required=False)
     title = serializers.CharField(max_length=500, required=False)
-    mime_type = serializers.CharField(max_length=255, required=False, allow_blank=True)
     document = serializers.UUIDField(required=False)
     dataset = serializers.UUIDField(required=False)
     analysis = serializers.UUIDField(required=False)
     result = serializers.UUIDField(required=False)
     manuscript = serializers.UUIDField(required=False)
+    decision = serializers.UUIDField(required=False)
 
     def validate(self, attrs):
         provider = registry.PROVIDERS.get(attrs["provider"])
-        if provider is not None and not provider.valid_external_id(attrs["external_id"]):
+        if not (attrs.get("external_id") or attrs.get("url")):
+            raise serializers.ValidationError({"external_id": "Pick an item or paste its link."})
+        if (
+            provider is not None
+            and "external_id" in attrs
+            and not provider.valid_external_id(attrs["external_id"])
+        ):
             raise serializers.ValidationError({"external_id": "This is not a valid item id."})
         if sum(attrs.get(f) is not None for f in TARGET_FIELDS) > 1:
             raise serializers.ValidationError("Link to one item at most.")
@@ -131,11 +173,35 @@ class ExternalLinkSerializer(serializers.ModelSerializer):
         return obj.connected_account.status if obj.connected_account_id else None
 
     def get_check_blocked(self, obj) -> str:
-        """Why a freshness check can't run: "" when it can."""
-        if obj.connected_account_id and obj.connected_account.status != "active":
-            return "linker_inactive"
-        return ""
+        """Why a freshness check can't run: "" when it can (linker_inactive |
+        linker_access_lost, D78)."""
+        return services.check_blocked(obj)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        provider = registry.PROVIDERS.get(instance.provider)
+        account = instance.connected_account if instance.connected_account_id else None
+        if provider and not provider.link_url_ok(
+            instance.url, getattr(account, "instance_host", "")
+        ):
+            data["url"] = ""  # never hand the browser a link outside the provider's hosts (D78)
+        return data
 
     def get_version_note(self, obj) -> str:
         """Set on a just-created dataset link: copied | same | kept | none (D76)."""
         return getattr(obj, "version_note", "")
+
+
+class ItemSearchQuerySerializer(serializers.Serializer):
+    q = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+    target = serializers.ChoiceField(choices=registry.TARGETS, default="project")
+
+
+class ItemSearchResultSerializer(serializers.Serializer):
+    """A candidate to link (D85). Linking it sends only `id`: the server re-reads the rest."""
+
+    id = serializers.CharField()
+    title = serializers.CharField()
+    subtitle = serializers.CharField()
+    modified = serializers.DateTimeField(allow_null=True)
+    url = serializers.CharField()

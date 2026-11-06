@@ -2,6 +2,8 @@
 `editable=False` fields, so forms, the admin and generic serializers never see them; plaintext
 exists only in the return value of `access_token()` / `refresh_token()`."""
 
+from urllib.parse import urlsplit
+
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
@@ -32,6 +34,9 @@ class ConnectedAccount(LabScopedModel):
     access_token_ct = models.TextField(blank=True, editable=False)
     refresh_token_ct = models.TextField(blank=True, editable=False)
     token_expires_at = models.DateTimeField(null=True, blank=True)
+    # Self-hosted providers (D82): the base URL the person entered, checked and normalised by
+    # `http.validate_instance_url`. Credentials go only to this host (or the provider's).
+    instance_url = models.URLField(max_length=500, blank=True)
     connected_at = models.DateTimeField()
     last_used_at = models.DateTimeField(null=True, blank=True)  # last successful provider call
 
@@ -62,10 +67,16 @@ class ConnectedAccount(LabScopedModel):
     def __str__(self):
         return f"{self.provider}: {self.external_email or self.external_account_id}"
 
+    @property
+    def instance_host(self) -> str:
+        return (urlsplit(self.instance_url).hostname or "") if self.instance_url else ""
+
     def access_token(self) -> str:
+        """The OAuth access token, or the API key (D81)."""
         return crypto.decrypt(self.access_token_ct)
 
     def refresh_token(self) -> str:
+        """The OAuth refresh token, or the API key's secret half when the provider has one."""
         return crypto.decrypt(self.refresh_token_ct)
 
     def set_tokens(self, *, access: str, refresh: str | None, expires_at) -> None:
@@ -80,7 +91,7 @@ class ConnectedAccount(LabScopedModel):
         self.token_expires_at = None
 
 
-TARGET_FIELDS = ("document", "dataset", "analysis", "result", "manuscript")
+TARGET_FIELDS = ("document", "dataset", "analysis", "result", "manuscript", "decision")
 
 
 def _at_most_one(fields):
@@ -120,9 +131,12 @@ class ExternalLink(LabScopedModel):
         blank=True,
         related_name="+",
     )
+    decision = models.ForeignKey(
+        "provenance.Decision", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
     provider = models.CharField(max_length=40)
     # The linker's account, used for freshness checks (drive.file grants are per user).
-    # Null for link_only providers.
+    # Null for link_only and public providers.
     connected_account = models.ForeignKey(
         ConnectedAccount, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
     )

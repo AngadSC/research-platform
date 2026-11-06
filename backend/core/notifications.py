@@ -1,4 +1,5 @@
-"""In-app notifications first, each also emailed through core.email (SPEC phase 5, D14, D30)."""
+"""In-app notifications first; the kinds in EMAIL_KINDS are also emailed through core.email
+(SPEC phase 5, D14, D30, D71)."""
 
 from itertools import islice
 
@@ -7,6 +8,18 @@ from django.apps import apps
 from core.email import send_email
 from core.models import Notification, NotificationKind
 from core.permissions import Perm, can, forget
+
+# D71: only notices someone must act on, or that matter for compliance, are emailed.
+EMAIL_KINDS = frozenset(
+    {
+        NotificationKind.ETHICS_EXPIRY,
+        NotificationKind.RETENTION_DUE,
+        NotificationKind.PROJECT_EXPORTED,
+        NotificationKind.INTEGRATION_ISSUE,
+        NotificationKind.TRAINING_EXPIRY,  # D178
+        NotificationKind.TRAINING_DIGEST,
+    }
+)
 
 
 def notify(
@@ -19,10 +32,10 @@ def notify(
     target=None,
     dedupe_key,
     email_template="notification",
-    email_context=None
+    email_context=None,
 ) -> bool:
     """Create the notification unless `(recipient, dedupe_key)` already exists. Returns True
-    when a new one was created (and emails it with `email_template`)."""
+    when a new one was created (and emails it with `email_template` if `kind` is in EMAIL_KINDS)."""
     _, created = Notification.objects.for_lab(lab).get_or_create(
         recipient=recipient,
         dedupe_key=dedupe_key,
@@ -35,7 +48,7 @@ def notify(
             "target_id": target.pk if target is not None else None,
         },
     )
-    if created:
+    if created and kind in EMAIL_KINDS:
         send_email(
             email_template,
             recipient.email,
@@ -64,6 +77,11 @@ def _still_allowed(user, lab, n) -> bool:
                 or any(can(user, Perm.EDIT_PROJECT, p) for p in approval.projects.all())
             )
         )
+    if n.kind == NotificationKind.TASK_POST:  # D142: the reader must still see the project
+        task = (
+            apps.get_model("projects", "Task").objects.for_lab(lab).filter(pk=n.target_id).first()
+        )
+        return task is not None and can(user, Perm.VIEW_PROJECT, task)
     return can(user, Perm.VIEW_LAB, lab)
 
 

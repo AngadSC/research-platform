@@ -9,26 +9,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Separator } from "@/components/ui/separator";
-import { NotificationBell } from "@/components/layout/NotificationBell";
-import { ThemeToggle } from "@/components/shared/ThemeToggle";
-import { UnreadBadge } from "@/components/shared/UnreadBadge";
+import { UnreadBadge, useUnreadCount } from "@/components/layout/UnreadBadge";
 import { useLogout } from "@/hooks/auth";
 import { useUnreadChats } from "@/hooks/chat";
 import { useCurrentLabId, useCurrentProjectId } from "@/hooks/crumbs";
 import { useProjects } from "@/hooks/projects";
 import { useLabs } from "@/hooks/workspace";
 import type { Lab, Project } from "@/lib/api-types";
-import { vivid } from "@/lib/identity";
 import { navItems, PROJECT_SECTIONS } from "@/lib/nav";
+import { APP_NAME } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import { BrandMark } from "./BrandMark";
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4",
+    "flex items-center gap-2 rounded-md px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4",
     isActive
-      ? "bg-primary font-semibold text-primary-foreground"
+      ? "bg-primary/10 font-semibold text-primary"
       : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
   );
 
@@ -55,12 +51,7 @@ function ProjectItem({
   const listId = `project-sections-${project.id}`;
   return (
     <li>
-      <div
-        className={cn(
-          "flex items-center gap-0.5 rounded-md hover:bg-accent",
-          isCurrent && "bg-accent",
-        )}
-      >
+      <div className="flex items-center gap-0.5 rounded-md hover:bg-accent">
         <NavLink
           to={base}
           onClick={() => {
@@ -68,19 +59,12 @@ function ProjectItem({
             onNavigate();
           }}
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-            isCurrent ? "font-semibold text-accent-foreground" : "text-muted-foreground",
+            "flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-sm hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            isCurrent ? "font-semibold text-foreground" : "text-muted-foreground",
           )}
         >
-          <span
-            aria-hidden
-            className={cn(
-              "size-2.5 shrink-0 rounded-full ring-1 ring-on-vivid/70",
-              vivid(project.id).bg,
-            )}
-          />
           <span className="truncate">{project.name}</span>
-          {!open && <UnreadBadge count={unread} />}
+          {!open && <UnreadBadge count={unread} noun="message" className="ml-auto shrink-0" />}
         </NavLink>
         <button
           type="button"
@@ -94,13 +78,15 @@ function ProjectItem({
         </button>
       </div>
       {open && (
-        <ul id={listId} className="mt-0.5 ml-3.5 grid grid-cols-1 gap-0.5 border-l-2 pl-2">
+        <ul id={listId} className="mt-0.5 ml-3 grid grid-cols-1 gap-0.5 border-l pl-2">
           {PROJECT_SECTIONS.map(({ to, label, icon: Icon }) => (
             <li key={to}>
               <NavLink to={`${base}/${to}`} className={linkClass} onClick={onNavigate}>
                 <Icon aria-hidden />
                 {label}
-                {to === "chat" && <UnreadBadge count={unread} />}
+                {to === "chat" && (
+                  <UnreadBadge count={unread} noun="message" className="ml-auto shrink-0" />
+                )}
               </NavLink>
             </li>
           ))}
@@ -114,19 +100,22 @@ function LabSwitcher({
   labs,
   current,
   onNavigate,
+  unread,
 }: {
   labs: Lab[];
   current: Lab | undefined;
   onNavigate: () => void;
+  unread: number;
 }) {
   const navigate = useNavigate();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Switch lab"
-        className="flex w-full items-center justify-between gap-2 rounded-md border px-2 py-2 text-left text-sm font-semibold hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <span className="truncate">{current?.name ?? "Select a lab"}</span>
+        <UnreadBadge count={unread} className="ml-auto" />
         <ChevronsUpDown className="size-4 shrink-0 opacity-60" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
@@ -159,39 +148,30 @@ function LabSwitcher({
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: labs = [] } = useLabs();
   const labId = useCurrentLabId();
-  const projectId = useCurrentProjectId();
   const logout = useLogout();
+  const projectId = useCurrentProjectId();
   const { data: projects = [] } = useProjects(labId);
-  const unread = useUnreadChats(labId);
+  const chatUnread = useUnreadChats(labId);
   const navigate = useNavigate();
   const current = labs.find((l) => l.id === labId);
+  const unread = useUnreadCount(labId);
   return (
     <aside
       id="app-sidebar"
       className={cn(
-        "sidebar-scope w-64 shrink-0 flex-col gap-4 overflow-y-auto p-3 print:hidden",
+        "w-64 shrink-0 flex-col gap-6 overflow-y-auto bg-sidebar p-4 print:hidden",
         // Below md the sidebar is a drawer that only exists while open.
         open ? "fixed inset-y-0 left-0 z-50 flex md:static md:z-auto" : "hidden md:flex",
       )}
     >
       <div>
-        <div className="px-2 pb-2">
-          <BrandMark />
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="min-w-0 flex-1">
-            <LabSwitcher labs={labs} current={current} onNavigate={onClose} />
-          </div>
-          {labId && <NotificationBell labId={labId} />}
-        </div>
+        <p className="px-2 pb-1 text-xs text-muted-foreground">{APP_NAME}</p>
+        <LabSwitcher labs={labs} current={current} onNavigate={onClose} unread={unread} />
       </div>
-      <Separator />
       {labId && (
         <nav aria-label="Projects" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
           <div className="flex items-center justify-between px-2 pb-1">
-            <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Projects
-            </span>
+            <span className="text-xs text-muted-foreground">Projects</span>
             {current?.my_permissions.includes("create_project") && (
               <button
                 type="button"
@@ -200,7 +180,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                   onClose();
                   void navigate(`/labs/${labId}?new=project`);
                 }}
-                className={iconButton}
+                className="rounded-md p-1 text-muted-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4"
               >
                 <Plus aria-hidden />
               </button>
@@ -213,7 +193,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                 labId={labId}
                 project={p}
                 isCurrent={p.id === projectId}
-                unread={unread[p.id] ?? 0}
+                unread={chatUnread[p.id] ?? 0}
                 onNavigate={onClose}
               />
             ))}
@@ -225,6 +205,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           <NavLink key={to} to={to} end={end} className={linkClass} onClick={onClose}>
             <Icon aria-hidden />
             {label}
+            {to.endsWith("/notifications") && <UnreadBadge count={unread} className="ml-auto" />}
           </NavLink>
         ))}
         <button
@@ -236,10 +217,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           Sign out
         </button>
       </nav>
-      <div className="mt-auto flex items-center justify-between">
-        <span className="px-2 text-xs text-muted-foreground">Ctrl K to search</span>
-        <ThemeToggle />
-      </div>
     </aside>
   );
 }

@@ -1,6 +1,9 @@
+import re
+
 from django.db.models import Prefetch
 from rest_framework import serializers
 
+from core.permissions import Perm, can
 from core.serializers import UserSerializer, no_control_chars
 from documents.models import Attachment, Document
 from documents.serializers import (
@@ -12,10 +15,17 @@ from provenance.models import (
     Analysis,
     DatasetRecord,
     Decision,
+    FundingRecord,
+    FundingStatus,
     LineageKind,
     ManuscriptLink,
     ManuscriptStatus,
+    RecruitmentEntry,
+    RecruitmentPlan,
+    RecruitmentStatus,
     Result,
+    ReviewItem,
+    ReviewStatus,
     validate_checksum,
     validate_commit,
     validate_web_url,
@@ -70,14 +80,24 @@ class AttachmentRefSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+DOI_RE = re.compile(r"^10\.\d{4,9}/\S+$")
+MAX_REFERENCES = 50
+
+
 class ReferenceSerializer(serializers.Serializer):
-    title = serializers.CharField(
-        max_length=300, allow_blank=True, required=False, validators=[no_control_chars]
-    )
+    """D95: a title is required; url is http(s) only; doi looks like 10.1234/abc."""
+
+    title = serializers.CharField(max_length=300, validators=[no_control_chars])
     url = serializers.CharField(
         max_length=500, allow_blank=True, required=False, validators=[validate_web_url]
     )
-    doi = serializers.CharField(max_length=200, allow_blank=True, required=False)
+    doi = serializers.RegexField(
+        DOI_RE,
+        max_length=200,
+        allow_blank=True,
+        required=False,
+        error_messages={"invalid": "Enter a DOI like 10.1234/abcd."},
+    )
 
 
 # ---------------------------------------------------------------- output
@@ -209,12 +229,101 @@ class ManuscriptSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class FundingSerializer(serializers.ModelSerializer):
+    """D133: `amount` and `currency` are null for anyone who is not a project lead."""
+
+    holder = UserSerializer(read_only=True)
+    created_by = UserSerializer(read_only=True)
+    attachment = AttachmentRefSerializer(read_only=True)
+
+    class Meta:
+        model = FundingRecord
+        fields = [
+            "id",
+            "project",
+            "funder",
+            "program",
+            "award_number",
+            "amount",
+            "currency",
+            "start_date",
+            "end_date",
+            "status",
+            "holder",
+            "notes",
+            "attachment",
+            "created_by",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        user = self.context["request"].user
+        if not self.context.setdefault("_funding_lead", {}).setdefault(
+            instance.project_id, can(user, Perm.EDIT_PROJECT, instance.project)
+        ):
+            data["amount"] = data["currency"] = None
+        return data
+
+
+class ReviewItemSerializer(serializers.ModelSerializer):
+    reviewer = UserSerializer(read_only=True)
+    created_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = ReviewItem
+        fields = [
+            "id",
+            "project",
+            "title",
+            "reviewer",
+            "status",
+            "due_date",
+            "notes",
+            "created_by",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class RecruitmentEntrySerializer(serializers.ModelSerializer):
+    created_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = RecruitmentEntry
+        fields = [
+            "id",
+            "project",
+            "entry_date",
+            "status",
+            "count",
+            "notes",
+            "created_by",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class RecruitmentPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RecruitmentPlan
+        fields = ["target_enrolment", "notes"]
+        read_only_fields = fields
+
+
 OUTPUT = {
     "dataset": DatasetSerializer,
     "analysis": AnalysisSerializer,
     "result": ResultSerializer,
     "decision": DecisionSerializer,
     "manuscript": ManuscriptSerializer,
+    "funding": FundingSerializer,
+    "review": ReviewItemSerializer,
+    "recruitment": RecruitmentEntrySerializer,
 }
 PLURAL = {
     "dataset": "datasets",
@@ -222,6 +331,9 @@ PLURAL = {
     "result": "results",
     "decision": "decisions",
     "manuscript": "manuscripts",
+    "funding": "funding",
+    "review": "review_items",
+    "recruitment": "recruitment_entries",
 }
 SELECT = {
     "dataset": ("controlled_by", "created_by", "previous_version"),
@@ -229,6 +341,9 @@ SELECT = {
     "result": ("created_by", "analysis"),
     "decision": ("decided_by",),
     "manuscript": ("created_by",),
+    "funding": ("holder", "created_by", "attachment", "project"),
+    "review": ("reviewer", "created_by"),
+    "recruitment": ("created_by",),
 }
 PREFETCH = {  # plain names, or (name, model) for soft-deletable targets (hidden once deleted)
     "dataset": ("analyses",),
@@ -242,6 +357,9 @@ PREFETCH = {  # plain names, or (name, model) for soft-deletable targets (hidden
         "datasets",
     ),
     "manuscript": ("results",),
+    "funding": (),
+    "review": (),
+    "recruitment": (),
 }
 
 
@@ -329,7 +447,7 @@ class DecisionInputSerializer(serializers.Serializer):
     decided_by = serializers.UUIDField(required=False)
     supporting_documents = _ids()
     supporting_attachments = _ids()
-    references = ReferenceSerializer(many=True, required=False)
+    references = ReferenceSerializer(many=True, required=False, max_length=MAX_REFERENCES)
     analyses = _ids()
     results = _ids()
     datasets = _ids()
@@ -342,12 +460,68 @@ class ManuscriptInputSerializer(serializers.Serializer):
     results = _ids()
 
 
+EMAIL_RE = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
+
+
+def no_email(value):
+    """D136: a cheap guard, not a filter. Names cannot be detected; an address can."""
+    if EMAIL_RE.search(value):
+        raise serializers.ValidationError(
+            "Don't enter names or identifying details here (that looks like an email address)."
+        )
+
+
+class FundingInputSerializer(serializers.Serializer):
+    funder = _text(200)
+    program = serializers.CharField(max_length=300, allow_blank=True, required=False)
+    award_number = serializers.CharField(max_length=100, allow_blank=True, required=False)
+    amount = serializers.DecimalField(
+        max_digits=14, decimal_places=2, min_value=0, allow_null=True, required=False
+    )
+    currency = serializers.RegexField(r"^[A-Z]{3}$", required=False)
+    start_date = serializers.DateField(allow_null=True, required=False)
+    end_date = serializers.DateField(allow_null=True, required=False)
+    status = serializers.ChoiceField(choices=FundingStatus.choices, required=False)
+    holder = serializers.UUIDField(allow_null=True, required=False)
+    notes = serializers.CharField(allow_blank=True, required=False)
+    attachment = serializers.UUIDField(allow_null=True, required=False)
+
+
+class ReviewItemInputSerializer(serializers.Serializer):
+    title = _text(300)
+    reviewer = serializers.UUIDField(allow_null=True, required=False)
+    status = serializers.ChoiceField(choices=ReviewStatus.choices, required=False)
+    due_date = serializers.DateField(allow_null=True, required=False)
+    notes = serializers.CharField(allow_blank=True, required=False)
+
+
+class RecruitmentEntryInputSerializer(serializers.Serializer):
+    entry_date = serializers.DateField()
+    status = serializers.ChoiceField(choices=RecruitmentStatus.choices)
+    count = serializers.IntegerField(min_value=0, max_value=1_000_000)
+    notes = serializers.CharField(
+        max_length=500, allow_blank=True, required=False, validators=[no_control_chars, no_email]
+    )
+
+
+class RecruitmentPlanInputSerializer(serializers.Serializer):
+    target_enrolment = serializers.IntegerField(
+        min_value=0, max_value=1_000_000, allow_null=True, required=False
+    )
+    notes = serializers.CharField(
+        allow_blank=True, required=False, max_length=5000, validators=[no_email]
+    )
+
+
 INPUT = {
     "dataset": DatasetInputSerializer,
     "analysis": AnalysisInputSerializer,
     "result": ResultInputSerializer,
     "decision": DecisionInputSerializer,
     "manuscript": ManuscriptInputSerializer,
+    "funding": FundingInputSerializer,
+    "review": ReviewItemInputSerializer,
+    "recruitment": RecruitmentEntryInputSerializer,
 }
 
 # ---------------------------------------------------------------- lineage and export
@@ -386,3 +560,7 @@ class ExportSerializer(serializers.Serializer):
     results = ResultSerializer(many=True)
     decisions = DecisionSerializer(many=True)
     manuscripts = ManuscriptSerializer(many=True)
+    funding = FundingSerializer(many=True)
+    review_items = ReviewItemSerializer(many=True)
+    recruitment_entries = RecruitmentEntrySerializer(many=True)
+    recruitment_plan = RecruitmentPlanSerializer()

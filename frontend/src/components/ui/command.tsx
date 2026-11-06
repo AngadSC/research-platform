@@ -17,17 +17,18 @@ export function CommandDialog({
   open,
   onOpenChange,
   children,
+  ...commandProps
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
-}) {
+} & Pick<React.ComponentProps<typeof CommandPrimitive>, "value" | "onValueChange">) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="top-[20%] translate-y-0 gap-0 overflow-hidden p-0">
         <DialogTitle className="sr-only">Command palette</DialogTitle>
         <DialogDescription className="sr-only">Search for a page or action</DialogDescription>
-        <Command>{children}</Command>
+        <Command {...commandProps}>{children}</Command>
       </DialogContent>
     </Dialog>
   );

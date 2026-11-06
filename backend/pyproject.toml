@@ -8,6 +8,11 @@ extend-exclude = ["*/migrations/*"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "DJ"]
 
+[tool.ruff.lint.per-file-ignores]
+# these files import fixtures from sibling test modules, which pytest sees as redefinitions
+"assistant/tests/test_review_fixes.py" = ["F811"]
+"core/tests/test_review_fixes5.py" = ["F811"]
+
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings"
 addopts = "-q"

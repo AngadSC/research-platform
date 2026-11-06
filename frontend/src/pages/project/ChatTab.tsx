@@ -27,7 +27,7 @@ import { CHAT_PAGE_SIZE, fetchOlderMessages, useChat } from "@/hooks/chat";
 import { personName, type ChatMessage } from "@/lib/api-types";
 import { fullDate } from "@/lib/format";
 import { formErrors } from "@/lib/forms";
-import { initials, vivid } from "@/lib/identity";
+import { initials } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 
@@ -45,14 +45,11 @@ function startsGroup(m: ChatMessage, prev: ChatMessage | undefined) {
   return gap > GROUP_GAP_MS || dayLabel(prev.created_at) !== dayLabel(m.created_at);
 }
 
-function Avatar({ id, name }: { id: string; name: string }) {
+function Avatar({ name }: { name: string }) {
   return (
     <span
       aria-hidden
-      className={cn(
-        "grid size-8 shrink-0 place-items-center rounded-full text-xs font-bold text-on-vivid",
-        vivid(id).bg,
-      )}
+      className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold text-muted-foreground"
     >
       {initials(name)}
     </span>
@@ -81,7 +78,7 @@ function MessageRow({
         mine && "flex-row-reverse",
       )}
     >
-      {!mine && (first ? <Avatar id={message.author.id} name={name} /> : <span className="w-8" />)}
+      {!mine && (first ? <Avatar name={name} /> : <span className="w-8" />)}
       <div className={cn("flex max-w-[80%] min-w-0 flex-col", mine && "items-end")}>
         {first && (
           <p className="mb-1 flex items-baseline gap-2 px-1 text-xs">
@@ -172,7 +169,7 @@ function Chat({ labId, projectId, project }: ProjectTabProps) {
     }
   }, [newest]);
 
-  // D78: only what reached the screen counts as read. Scrolled up, new messages stay unread
+  // D207: only what reached the screen counts as read. Scrolled up, new messages stay unread
   // until the reader comes back down, which clears `unseen` and runs this again.
   useEffect(() => {
     if (newestAt && pinned.current && !unseen) markRead(newestAt);

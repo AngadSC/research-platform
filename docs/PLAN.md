@@ -103,7 +103,55 @@ Same status values. Model and effort follow orchestrator section 8. Shared-tree 
 ## Wave 3
 | ID | Task | Model / effort | Status |
 |---|---|---|---|
-| E1 | Google Drive: drive.file, Picker, links on Files and research records, refresh job, dataset provenance | sonnet / medium | doing |
-| E2 | Security review: Phase E | opus / high | todo |
+| E1 | Google Drive: drive.file, Picker, links on Files and research records, refresh job, dataset provenance | sonnet / medium | done |
+| E2 | Security review: Phase E | opus / high | done |
+| E3 | Fix Phase E review findings | sonnet / medium | done |
 | F1 | Production Dockerfile, `/healthz`, reverse proxy example, prod settings checklist test, DEPLOY.md | haiku / low | done |
-| W2 | Screenshots, HANDOFF.md | sonnet / medium, orchestrator | todo |
+| W2 | Screenshots, HANDOFF.md | sonnet / medium, orchestrator | done |
+
+---
+
+# Plan: Build Run 3 (overnight)
+
+| ID | Task | Model / effort | Status |
+|---|---|---|---|
+| R0 | D71: email only actionable notification kinds | orchestrator | done |
+| F | Integration framework v2: api-key and instance-URL accounts (SSRF-safe), link-only and public providers, item search, one module per provider | opus / high | done |
+| DL | Signed-URL downloads in S3 mode | sonnet / medium | done |
+| S | Lab-wide search endpoint and palette; editable decision references | sonnet / medium | done |
+| U | Generic integration UI: connect dialogs, link dialog with search and paste | sonnet / medium | done |
+| P1 | OneDrive/SharePoint, Dropbox, Box | sonnet / medium | done (unverified) |
+| P2 | GitHub, GitLab, Overleaf | sonnet / medium | done |
+| P3 | REDCap, Qualtrics, protocols.io | sonnet / medium | done (unverified) |
+| P4 | Zotero, Zenodo, Figshare, OSF | sonnet / medium | done (unverified) |
+| R | Security review of Run 3 | opus / high | done |
+| V | Verify and fix all providers (serial test runs) | sonnet / medium | done |
+| RF | Review fixes | sonnet / medium | done |
+| W3 | Screenshots, HANDOFF, push | sonnet / medium, orchestrator | done |
+
+---
+
+# Plan: Run 4 (founder's change list)
+
+| ID | Task | Model / effort | Status |
+|---|---|---|---|
+| R4.0 | User preferences on /api/me (D125), scope decisions (D126) | orchestrator | done |
+| L1 | High-contrast look, dark mode polish, product landing page, Ctrl+F search, unread badges | sonnet / medium | done |
+| W1 | Project Workflow tab (Funding, Ethics, Participants, Data, Analysis, Manuscript, Review), deadline priority, last edited | sonnet / medium | done |
+| T1 | Task drawer, attached docs/files, task thread, coloured board, board default + preference | sonnet / medium | done |
+| A1 | Admin tab (lab details, onboarding, inventory), Settings hub, University of Alberta resources | sonnet / medium | done |
+| G4 | Integrate: tab restyle, cross-agent fixes, full gate, screenshots | sonnet / medium | done |
+
+---
+
+# Plan: Run 5
+
+| ID | Task | Model / effort | Status |
+|---|---|---|---|
+| S5 | Institutional SSO (SAML, University of Alberta CCID ready), domain routing | opus / high | done |
+| M5 | AI tool layer + remote MCP server (OAuth/PAT) for users' own Claude/ChatGPT | opus / high | done |
+| P5 | PI dashboard | sonnet / medium | done |
+| T5 | Training and certification tracking | sonnet / medium | done |
+| D5 | Data management plans, Borealis and FRDR providers | sonnet / medium | done |
+| B5 | In-app bring-your-own-key assistant (Claude, OpenAI) | sonnet / medium | done |
+| R5 | Security review + fixes, screenshots, notes, push | opus / sonnet / orchestrator | done |

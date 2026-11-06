@@ -1,13 +1,16 @@
 import { FlaskConical, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { Link, NavLink, Navigate, Outlet, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { DetailPanel } from "@/components/shared/DetailPanel";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
+import { LinkedFiles } from "@/components/shared/LinkedFiles";
+import type { LinkTarget } from "@/components/shared/LinkMenu";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { ReferenceList } from "@/components/shared/References";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,42 +34,39 @@ import {
   type ResearchResult,
 } from "@/lib/api-types";
 import { formErrors } from "@/lib/forms";
-import { isKind, KIND_LIST, KINDS, recordTitle, type AnyRecord, type Kind } from "@/lib/research";
-import { cn } from "@/lib/utils";
+import { isKind, KINDS, recordTitle, type AnyRecord, type Kind } from "@/lib/research";
+import { recordPath, SECTION_KINDS, sectionOf, type ResearchSection } from "@/lib/workflow";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { ResearchForm } from "@/pages/project/ResearchForm";
 
 const short = (c: string) => c.slice(0, 7) || "None";
 const date = (s: string) => new Date(s).toLocaleDateString(undefined, { dateStyle: "medium" });
-const rootPath = (p: ProjectTabProps) => `/labs/${p.labId}/projects/${p.projectId}/research`;
+const projectBase = (p: ProjectTabProps) => `/labs/${p.labId}/projects/${p.projectId}`;
 
-export function ResearchLayout(props: ProjectTabProps) {
+/** The records of one Workflow section (Data, Analysis, Manuscript), each kind in its own list. */
+export function SectionLists({
+  section,
+  ...props
+}: ProjectTabProps & { section: ResearchSection }) {
+  const navigate = useNavigate();
+  const kinds = SECTION_KINDS[section];
   return (
-    <div className="grid gap-6">
-      <nav aria-label="Research records" className="flex gap-1">
-        {KIND_LIST.map((k) => (
-          <NavLink
-            key={k}
-            to={k}
-            className={({ isActive }) =>
-              cn(
-                "rounded-md px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                isActive
-                  ? "bg-muted font-medium"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-              )
-            }
-          >
-            {KINDS[k].label}
-          </NavLink>
-        ))}
-      </nav>
-      <Outlet context={props} />
+    <div className="grid gap-8">
+      {kinds.map((kind) => (
+        <section key={kind} aria-label={KINDS[kind].label} className="grid gap-3">
+          {kinds.length > 1 && <h2 className="text-base font-semibold">{KINDS[kind].label}</h2>}
+          <List
+            {...props}
+            kind={kind}
+            navigate={navigate}
+            canEdit={props.project.my_permissions.includes("edit_content")}
+            base={projectBase(props)}
+          />
+        </section>
+      ))}
     </div>
   );
 }
-
-export const ResearchIndex = () => <Navigate to="datasets" replace />;
 
 function useKind(): Kind | undefined {
   const { kind } = useParams();
@@ -108,20 +108,6 @@ const COLUMNS: { [K in Kind]: Column<AnyRecord>[] } = {
   ],
 };
 
-export function ResearchList(props: ProjectTabProps) {
-  const { labId, projectId, project } = props;
-  const kind = useKind();
-  const navigate = useNavigate();
-  if (!kind) return <NotFound />;
-  return (
-    <List
-      {...{ labId, projectId, kind, navigate }}
-      canEdit={project.my_permissions.includes("edit_content")}
-      base={rootPath(props)}
-    />
-  );
-}
-
 function List({
   labId,
   projectId,
@@ -141,7 +127,7 @@ function List({
   const k = KINDS[kind];
   const add = canEdit ? (
     <Button asChild>
-      <Link to={`${base}/${kind}/new`}>
+      <Link to={recordPath(base, kind, "new")}>
         <Plus aria-hidden /> New {k.one}
       </Link>
     </Button>
@@ -154,7 +140,7 @@ function List({
         rows={list.data ?? []}
         getRowKey={(r) => r.id}
         loading={list.isLoading}
-        onRowClick={(r) => void navigate(`${base}/${kind}/${r.id}`)}
+        onRowClick={(r) => void navigate(recordPath(base, kind, r.id))}
         empty={
           <EmptyState
             icon={FlaskConical}
@@ -174,7 +160,8 @@ export function ResearchNew(props: ProjectTabProps) {
   if (!kind) return <NotFound />;
   if (!props.project.my_permissions.includes("edit_content"))
     return <FormError message="You don't have permission to add records here." />;
-  const back = `${rootPath(props)}/${kind}`;
+  const base = projectBase(props);
+  const back = `${base}/workflow/${sectionOf(kind)}`;
   return (
     <div className="grid max-w-xl gap-4">
       <PageHeader title={`New ${KINDS[kind].one}`} />
@@ -182,7 +169,7 @@ export function ResearchNew(props: ProjectTabProps) {
         labId={props.labId}
         projectId={props.projectId}
         kind={kind}
-        onSaved={(r) => void navigate(`${back}/${r.id}`)}
+        onSaved={(r) => void navigate(recordPath(base, kind, r.id))}
         onCancel={() => void navigate(back)}
       />
     </div>
@@ -195,7 +182,7 @@ function Refs({
   items,
 }: {
   base: string;
-  kind: Kind | "documents";
+  kind: Kind;
   items?: { id: string; label: string }[];
 }) {
   if (!items?.length) return <span className="text-muted-foreground">None</span>;
@@ -205,7 +192,7 @@ function Refs({
         <li key={i.id}>
           <Link
             className="text-primary underline-offset-2 hover:underline"
-            to={`${base}/${kind}/${i.id}`}
+            to={recordPath(base, kind, i.id)}
           >
             {i.label}
           </Link>
@@ -217,7 +204,7 @@ function Refs({
 
 function Files({ labId, base, items }: { labId: string; base: string; items?: AttachmentRef[] }) {
   if (!items?.length) return <span className="text-muted-foreground">None</span>;
-  const files = base.replace(/\/research$/, "/files");
+  const files = `${base}/files`;
   return (
     <ul className="grid gap-1">
       {items.map((a) => (
@@ -325,10 +312,7 @@ function fields(kind: Kind, r: AnyRecord, labId: string, base: string): [string,
           <ul key="sd">
             {d.supporting_documents.map((x) => (
               <li key={x.id}>
-                <Link
-                  className="text-primary hover:underline"
-                  to={`${base.replace(/\/research$/, "/documents")}/${x.id}`}
-                >
+                <Link className="text-primary hover:underline" to={`${base}/documents/${x.id}`}>
                   {x.title}
                 </Link>
               </li>
@@ -339,14 +323,7 @@ function fields(kind: Kind, r: AnyRecord, labId: string, base: string): [string,
           "Supporting files",
           <Files key="sf" labId={labId} base={base} items={d.supporting_attachments} />,
         ],
-        [
-          "References",
-          <ul key="rf">
-            {d.references.map((x, i) => (
-              <li key={i}>{[x.title, x.doi, x.url].filter(Boolean).join(" ")}</li>
-            ))}
-          </ul>,
-        ],
+        ["References", <ReferenceList key="rf" items={d.references} />],
         ["Datasets", <Refs key="d" base={base} kind="datasets" items={ds(d.datasets)} />],
         ["Analyses", <Refs key="a" base={base} kind="analyses" items={t(d.analyses)} />],
         ["Results", <Refs key="r" base={base} kind="results" items={t(d.results)} />],
@@ -363,6 +340,14 @@ function fields(kind: Kind, r: AnyRecord, labId: string, base: string): [string,
     }
   }
 }
+
+const LINK_FIELD = {
+  datasets: "dataset",
+  analyses: "analysis",
+  results: "result",
+  manuscripts: "manuscript",
+  decisions: "decision",
+} as const satisfies Partial<Record<Kind, LinkTarget>>;
 
 export function ResearchDetail(props: ProjectTabProps) {
   const { id = "" } = useParams();
@@ -385,7 +370,7 @@ function Detail({
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string>();
   const canEdit = project.my_permissions.includes("edit_content");
-  const base = `/labs/${labId}/projects/${projectId}/research`;
+  const base = `/labs/${labId}/projects/${projectId}`;
 
   if (rec.error) return <FormError message={formErrors(rec.error, []).form} />;
   if (!rec.data) return <Skeleton aria-busy="true" aria-label="Loading" className="h-40 w-full" />;
@@ -426,6 +411,19 @@ function Detail({
           </div>
         ))}
       </dl>
+      {kind in LINK_FIELD && (
+        <section aria-labelledby="linked-files" className="grid max-w-3xl gap-2">
+          <h2 id="linked-files" className="text-sm font-medium">
+            Linked files
+          </h2>
+          <LinkedFiles
+            labId={labId}
+            projectId={projectId}
+            canEdit={canEdit}
+            target={{ field: LINK_FIELD[kind as keyof typeof LINK_FIELD], id }}
+          />
+        </section>
+      )}
       <DetailPanel open={editing} onOpenChange={setEditing} title={`Edit ${KINDS[kind].one}`}>
         {editing && (
           <ResearchForm
@@ -456,7 +454,7 @@ function Detail({
                 del.mutate(id, {
                   onSuccess: () => {
                     toast.success("Deleted");
-                    void navigate(`${base}/${kind}`);
+                    void navigate(`${base}/workflow/${sectionOf(kind)}`);
                   },
                   onError: (e) =>
                     setError(

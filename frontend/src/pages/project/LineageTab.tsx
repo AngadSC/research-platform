@@ -56,7 +56,7 @@ export default function LineageTab({ labId, projectId }: ProjectTabProps) {
         description="Once you add datasets, analyses, results and manuscripts, you can follow any result back to the exact data and code behind it."
         action={
           <Button asChild>
-            <Link to={`/labs/${labId}/projects/${projectId}/research/datasets`}>Add a dataset</Link>
+            <Link to={`/labs/${labId}/projects/${projectId}/workflow/data`}>Add a dataset</Link>
           </Button>
         }
       />

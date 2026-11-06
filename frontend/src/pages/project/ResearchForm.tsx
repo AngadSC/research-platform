@@ -4,13 +4,14 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
+import { ReferencesEditor } from "@/components/shared/References";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { root, useSaveRecord } from "@/hooks/research";
 import { useAttachments } from "@/hooks/projects";
 import { api } from "@/lib/api";
-import { personName } from "@/lib/api-types";
+import { personName, type Decision, type Reference } from "@/lib/api-types";
 import { formErrors } from "@/lib/forms";
 import {
   isCommit,
@@ -19,6 +20,7 @@ import {
   type AnyRecord,
   type Kind,
 } from "@/lib/research";
+import { cleanReferences, validateReferences, type RefErrors } from "@/lib/references";
 import { UploadDialog } from "@/pages/project/UploadDialog";
 
 type Source = Kind | "documents" | "attachments" | "members";
@@ -162,6 +164,10 @@ export function ResearchForm({ labId, projectId, kind, record, onSaved, onCancel
   const [v, setV] = useState<Values>(() => initial(kind, record));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string>();
+  const [refs, setRefs] = useState<Reference[]>(() =>
+    kind === "decisions" ? ((record as Decision | undefined)?.references ?? []) : [],
+  );
+  const [refErrors, setRefErrors] = useState<RefErrors[]>([]);
   const [uploading, setUploading] = useState(false);
   const save = useSaveRecord<{ id: string }>(labId, projectId, kind, record?.id);
   const { uploadFile } = useAttachments(labId, projectId);
@@ -171,15 +177,18 @@ export function ResearchForm({ labId, projectId, kind, record, onSaved, onCancel
   function submit(ev: FormEvent) {
     ev.preventDefault();
     const errs = validate(kind, v);
+    const rerrs = kind === "decisions" ? validateReferences(refs) : [];
     setErrors(errs);
+    setRefErrors(rerrs);
     setFormError(undefined);
-    if (Object.keys(errs).length) return;
+    if (Object.keys(errs).length || rerrs.some((e) => Object.keys(e).length)) return;
     const body: Record<string, unknown> = {};
     for (const f of FIELDS[kind]) {
       const x = v[f.name];
       if (f.type === "date" && !x) continue;
       body[f.name] = NULLABLE.has(f.name) && !x ? null : typeof x === "string" ? x.trim() : x;
     }
+    if (kind === "decisions") body.references = cleanReferences(refs);
     save.mutate(body, {
       onSuccess: (r) => {
         toast.success("Saved");
@@ -254,6 +263,9 @@ export function ResearchForm({ labId, projectId, kind, record, onSaved, onCancel
           }
         </FormField>
       ))}
+      {kind === "decisions" && (
+        <ReferencesEditor rows={refs} errors={refErrors} onChange={setRefs} />
+      )}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel

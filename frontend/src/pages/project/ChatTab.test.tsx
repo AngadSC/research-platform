@@ -171,7 +171,7 @@ describe("read state", () => {
     });
     renderRoute("/labs/lab1/projects/p1/tasks");
     expect((await screen.findAllByText("99+")).length).toBeGreaterThan(0);
-    expect(screen.getAllByText("240 unread messages").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("img", { name: "240 unread messages" }).length).toBeGreaterThan(0);
   });
 });
 
@@ -182,7 +182,7 @@ describe("project sidebar dropdown", () => {
     const nav = within(await screen.findByRole("navigation", { name: "Projects" }));
     const toggle = await nav.findByRole("button", { name: "Sleep sections" });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    for (const name of ["Overview", "Tasks", "Documents", "Files", "Research", "Lineage"])
+    for (const name of ["Overview", "Tasks", "Documents", "Files", "Workflow", "Lineage"])
       expect(nav.getByRole("link", { name })).toBeInTheDocument();
     expect(nav.getByRole("link", { name: "Chat" })).toHaveAttribute(
       "href",

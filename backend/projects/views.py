@@ -1,4 +1,5 @@
 from django.core.exceptions import PermissionDenied
+from django.db.models import Case, Count, IntegerField, When
 from django.http import Http404
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
@@ -11,9 +12,10 @@ from audit.services import record
 from core.permissions import Perm, can
 from core.tenancy import project_of
 from core.views import LabScopedViewMixin
+from documents.models import Attachment, Document
 from labs.models import LabMembership
 from projects import handover, services
-from projects.models import ChatMessage, Project, ProjectDeadline, ProjectMembership, Task
+from projects.models import ChatMessage, Project, ProjectDeadline, ProjectMembership, Task, TaskPost
 from projects.serializers import (
     ChatMessageFilterSerializer,
     ChatMessageInputSerializer,
@@ -31,6 +33,9 @@ from projects.serializers import (
     RetentionItemSerializer,
     TaskFilterSerializer,
     TaskInputSerializer,
+    TaskLinkInputSerializer,
+    TaskPostInputSerializer,
+    TaskPostSerializer,
     TaskSerializer,
 )
 
@@ -84,7 +89,12 @@ class ProjectListCreateView(ProjectScopedMixin, generics.GenericAPIView):
     perms = {"GET": Perm.VIEW_LAB, "POST": Perm.CREATE_PROJECT}
 
     def get_queryset(self):
-        return super().get_queryset().select_related("created_by").order_by("name", "id")
+        return (
+            super()
+            .get_queryset()
+            .select_related("created_by", "last_activity_by")
+            .order_by("name", "id")
+        )
 
     @extend_schema(responses=ProjectSerializer(many=True))
     def get(self, request, lab_id):
@@ -107,7 +117,7 @@ class ProjectDetailView(ProjectScopedMixin, generics.GenericAPIView):
     perms = {"GET": Perm.VIEW_PROJECT, "PATCH": Perm.EDIT_PROJECT, "DELETE": Perm.DELETE_PROJECT}
 
     def get_queryset(self):
-        return super().get_queryset().select_related("created_by")
+        return super().get_queryset().select_related("created_by", "last_activity_by")
 
     @extend_schema(responses=ProjectSerializer)
     def get(self, request, lab_id, project_id):
@@ -182,6 +192,14 @@ class ProjectMemberDetailView(ProjectScopedMixin, generics.GenericAPIView):
 
 # ---------------------------------------------------------------- deadlines
 
+# high, then medium, then low (D137)
+PRIORITY_ORDER = Case(
+    When(priority="high", then=0),
+    When(priority="medium", then=1),
+    default=2,
+    output_field=IntegerField(),
+)
+
 
 class DeadlineListCreateView(ProjectScopedMixin, generics.GenericAPIView):
     model = ProjectDeadline
@@ -190,7 +208,7 @@ class DeadlineListCreateView(ProjectScopedMixin, generics.GenericAPIView):
     perms = {"GET": Perm.VIEW_PROJECT, "POST": Perm.EDIT_PROJECT}
 
     def get_queryset(self):
-        return super().get_queryset().order_by("due_date", "id")
+        return super().get_queryset().order_by(PRIORITY_ORDER, "due_date", "id")
 
     @extend_schema(responses=DeadlineSerializer(many=True))
     def get(self, request, lab_id, project_id):
@@ -235,6 +253,8 @@ class TaskListCreateView(ProjectScopedMixin, generics.GenericAPIView):
             super()
             .get_queryset()
             .select_related("assignee", "created_by")
+            .prefetch_related("documents", "attachments")
+            .annotate(post_count=Count("posts"))
             .order_by("status", "position", "created_at", "id")
         )
 
@@ -264,7 +284,13 @@ class TaskDetailView(ProjectScopedMixin, generics.GenericAPIView):
     perms = {"GET": Perm.VIEW_PROJECT, "PATCH": Perm.EDIT_CONTENT, "DELETE": Perm.EDIT_CONTENT}
 
     def get_queryset(self):
-        return super().get_queryset().select_related("assignee", "created_by")
+        return (
+            super()
+            .get_queryset()
+            .select_related("assignee", "created_by")
+            .prefetch_related("documents", "attachments")
+            .annotate(post_count=Count("posts"))
+        )
 
     @extend_schema(responses=TaskSerializer)
     def get(self, request, lab_id, task_id):
@@ -273,7 +299,8 @@ class TaskDetailView(ProjectScopedMixin, generics.GenericAPIView):
     @extend_schema(request=TaskInputSerializer, responses=TaskSerializer)
     def patch(self, request, lab_id, task_id):
         data = self.body(TaskInputSerializer, partial=True)
-        return self.out(services.update_task(task=self.get_object(), data=data))
+        services.update_task(task=self.get_object(), data=data)
+        return self.out(self.get_queryset().get(pk=task_id))
 
     @extend_schema(responses={204: None})
     def delete(self, request, lab_id, task_id):
@@ -285,7 +312,7 @@ class TaskDetailView(ProjectScopedMixin, generics.GenericAPIView):
 
 
 class ChatMessageListCreateView(ProjectScopedMixin, generics.GenericAPIView):
-    """D77: everyone on the project can read and post, viewers included. Clients poll this."""
+    """D206: everyone on the project can read and post, viewers included. Clients poll this."""
 
     model = ChatMessage
     serializer_class = ChatMessageSerializer
@@ -353,7 +380,7 @@ class ChatReadView(ProjectScopedMixin, generics.GenericAPIView):
 
 
 class ChatUnreadView(LabScopedViewMixin, generics.GenericAPIView):
-    """Unread counts for the sidebar badges (D78). Clients poll this."""
+    """Unread counts for the sidebar badges (D207). Clients poll this."""
 
     serializer_class = ChatUnreadSerializer
     pagination_class = None
@@ -363,6 +390,124 @@ class ChatUnreadView(LabScopedViewMixin, generics.GenericAPIView):
     def get(self, request, lab_id):
         rows = services.unread_chat_counts(user=request.user, lab=request.lab)
         return Response(self.get_serializer(rows, many=True).data)
+
+
+class TaskChildMixin(ProjectScopedMixin):
+    """Routes under `L/tasks/<task_id>/...` (thread, links): the task is resolved first, so a
+    task the user cannot see is a 404, and its project drives the permission check."""
+
+    task = None
+
+    def check_permissions(self, request):
+        self.task = (
+            Task.objects.visible_to(request.user, request.lab)
+            .select_related("project", "assignee")
+            .filter(pk=self.kwargs["task_id"])
+            .first()
+        )
+        if self.task is None:
+            raise Http404
+        self.project = self.task.project
+        super(ProjectScopedMixin, self).check_permissions(request)  # HasPerm, on self.project
+
+
+class TaskPostListCreateView(TaskChildMixin, generics.GenericAPIView):
+    model = TaskPost
+    serializer_class = TaskPostSerializer
+    perms = {"GET": Perm.VIEW_PROJECT, "POST": Perm.EDIT_CONTENT}  # D142
+
+    @extend_schema(responses=TaskPostSerializer(many=True))
+    def get(self, request, lab_id, task_id):
+        qs = self.get_queryset().filter(task=self.task).select_related("author")
+        return Response(self.get_serializer(qs.order_by("created_at", "id"), many=True).data)
+
+    @extend_schema(request=TaskPostInputSerializer, responses={201: TaskPostSerializer})
+    def post(self, request, lab_id, task_id):
+        body = self.body(TaskPostInputSerializer)["body"]
+        post = services.create_post(task=self.task, author=request.user, body=body)
+        return self.out(post, status.HTTP_201_CREATED)
+
+
+class TaskPostDetailView(ProjectScopedMixin, generics.GenericAPIView):
+    model = TaskPost
+    serializer_class = TaskPostSerializer
+    lookup_url_kwarg = "taskpost_id"
+    perms = {"PATCH": Perm.EDIT_CONTENT, "DELETE": Perm.EDIT_CONTENT}
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("author", "task__project")
+
+    @extend_schema(request=TaskPostInputSerializer, responses=TaskPostSerializer)
+    def patch(self, request, lab_id, taskpost_id):
+        body = self.body(TaskPostInputSerializer)["body"]
+        return self.out(services.edit_post(post=self.get_object(), by=request.user, body=body))
+
+    @extend_schema(responses={204: None})
+    def delete(self, request, lab_id, taskpost_id):
+        services.delete_post(post=self.get_object(), by=request.user, request=request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class _TaskLinkMixin(TaskChildMixin, generics.GenericAPIView):
+    kind = ""  # "documents" or "attachments"
+    link_model = None
+    serializer_class = TaskSerializer
+    perms = {"POST": Perm.EDIT_CONTENT, "DELETE": Perm.EDIT_CONTENT}
+
+    def _in_project(self, pk):
+        item = self.link_model.objects.visible_to(self.request.user, self.request.lab)
+        item = item.filter(pk=pk, project=self.project).first()
+        if item is None:
+            raise Http404
+        return item
+
+    def _out(self):
+        task = (
+            Task.objects.visible_to(self.request.user, self.request.lab)
+            .select_related("assignee", "created_by")
+            .prefetch_related("documents", "attachments")
+            .annotate(post_count=Count("posts"))
+            .get(pk=self.task.pk)
+        )
+        return Response(TaskSerializer(task).data)
+
+
+class TaskDocumentAddView(_TaskLinkMixin):
+    kind, link_model = "documents", Document
+
+    @extend_schema(request=TaskLinkInputSerializer, responses={200: TaskSerializer})
+    def post(self, request, lab_id, task_id):
+        pk = self.body(TaskLinkInputSerializer)["id"]
+        try:
+            item = self._in_project(pk)
+        except Http404:  # a body id is a 400, like every other scoped FK input
+            raise serializers.ValidationError({"id": "That item is not in this project."}) from None
+        services.link_to_task(task=self.task, kind=self.kind, obj=item)
+        return self._out()
+
+
+class TaskAttachmentAddView(TaskDocumentAddView):
+    kind, link_model = "attachments", Attachment
+
+
+class TaskDocumentRemoveView(_TaskLinkMixin):
+    kind, link_model = "documents", Document
+
+    @extend_schema(responses={200: TaskSerializer})
+    def delete(self, request, lab_id, task_id, document_id):
+        services.unlink_from_task(task=self.task, kind=self.kind, obj=self._in_project(document_id))
+        return self._out()
+
+
+class TaskAttachmentRemoveView(_TaskLinkMixin):
+    kind, link_model = "attachments", Attachment
+
+    @extend_schema(responses={200: TaskSerializer})
+    def delete(self, request, lab_id, task_id, attachment_id):
+        services.unlink_from_task(
+            task=self.task, kind=self.kind, obj=self._in_project(attachment_id)
+        )
+        return self._out()
 
 
 # ---------------------------------------------------------------- retention

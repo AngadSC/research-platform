@@ -1,4 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/auth";
+import { api } from "@/lib/api";
+import type { User } from "@/lib/api-types";
 
 export type Theme = "light" | "dark" | "system";
 const KEY = "theme";
@@ -14,16 +18,37 @@ export function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", dark);
 }
 
-export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(getStoredTheme);
+// One shared value, so the header toggle and the account sync always agree.
+let current = getStoredTheme();
+const listeners = new Set<() => void>();
+const subscribe = (cb: () => void) => (listeners.add(cb), () => void listeners.delete(cb));
 
-  const setTheme = useCallback((t: Theme) => {
-    localStorage.setItem(KEY, t);
-    setThemeState(t);
-  }, []);
+/** Applies a theme here only (localStorage is the fast first paint; the account is the source of truth). */
+export function setThemeLocal(t: Theme) {
+  localStorage.setItem(KEY, t);
+  current = t;
+  applyTheme(t);
+  listeners.forEach((l) => l());
+}
+
+export function useTheme() {
+  const theme = useSyncExternalStore(subscribe, () => current);
+  const { isAuthenticated } = useAuth();
+  const qc = useQueryClient();
+
+  const setTheme = useCallback(
+    (t: Theme) => {
+      setThemeLocal(t);
+      if (!isAuthenticated) return;
+      api<User>("/api/me/", { method: "PATCH", body: { preferences: { theme: t } } }).then(
+        (u) => qc.setQueryData(["me"], u),
+        () => undefined, // saved on this device either way
+      );
+    },
+    [isAuthenticated, qc],
+  );
 
   useEffect(() => {
-    applyTheme(theme);
     if (theme !== "system") return;
     const mq = matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => applyTheme("system");
@@ -32,4 +57,12 @@ export function useTheme() {
   }, [theme]);
 
   return { theme, setTheme };
+}
+
+/** Adopts the theme saved on the account when it differs from this device's. Mount once, signed in. */
+export function useAccountTheme(saved: unknown) {
+  const t = (saved as { theme?: Theme } | null | undefined)?.theme;
+  useEffect(() => {
+    if (t && t !== current) setThemeLocal(t);
+  }, [t]);
 }

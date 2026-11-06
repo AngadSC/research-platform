@@ -85,3 +85,19 @@ def test_schema_is_mounted_only_in_debug():
     finally:
         importlib.reload(config.urls)
         clear_url_caches()
+
+
+@pytest.mark.django_db
+def test_me_preferences_are_validated_and_merged(make_user):
+    """D125: only known keys and values; PATCH merges into what's there."""
+    from rest_framework.test import APIClient
+
+    user = make_user()
+    c = APIClient()
+    c.force_authenticate(user)
+    assert c.get("/api/me/").json()["preferences"] == {}
+    assert c.patch("/api/me/", {"preferences": {"theme": "dark"}}, format="json").status_code == 200
+    resp = c.patch("/api/me/", {"preferences": {"task_view": "list"}}, format="json")
+    assert resp.json()["preferences"] == {"theme": "dark", "task_view": "list"}
+    for bad in ({"theme": "neon"}, {"evil": "x"}, ["theme"]):
+        assert c.patch("/api/me/", {"preferences": bad}, format="json").status_code == 400

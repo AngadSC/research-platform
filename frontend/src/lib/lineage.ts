@@ -1,5 +1,7 @@
 // Pure lineage logic (D13 layout, D44 chains). No React, no React Flow.
 import type { Lineage, LineageKind, LineageNode } from "@/lib/api-types";
+import type { Kind } from "@/lib/research";
+import { sectionOf } from "@/lib/workflow";
 
 export const COLUMN_KINDS = ["dataset", "analysis", "result", "manuscript"] as const;
 export const COLUMN_TITLES: Record<string, string> = {
@@ -16,7 +18,7 @@ export const KIND_LABEL: Record<LineageKind, string> = {
   manuscript: "Manuscript",
   decision: "Decision",
 };
-const PLURAL: Record<LineageKind, string> = {
+const PLURAL: Record<LineageKind, Kind> = {
   dataset: "datasets",
   analysis: "analyses",
   result: "results",
@@ -25,7 +27,7 @@ const PLURAL: Record<LineageKind, string> = {
 };
 /** Route below the project for a node's full record. */
 export const recordPath = (n: Pick<LineageNode, "kind" | "href_id">) =>
-  `research/${PLURAL[n.kind]}/${n.href_id}`;
+  `workflow/${sectionOf(PLURAL[n.kind])}/${PLURAL[n.kind]}/${n.href_id}`;
 
 export const NODE_W = 232;
 export const NODE_H = 68;

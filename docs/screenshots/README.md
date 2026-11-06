@@ -28,3 +28,49 @@ Regenerate with `make screenshots` (dev stack up and seeded). 1440x900, light mo
 - 24-dark-lineage.png: lineage graph, dark mode
 - 25-dark-project-overview.png: project overview, dark mode
 - 26-viewer-document.png: document as `viewer@` (read-only)
+- 27-integrations-pi.png: Integrations page as `pi@` (all provider categories, everyone's connections)
+- 28-integrations-lead.png: Integrations page as `lead@` (own Drive connection)
+- 29-security-settings.png: account security with Email addresses (Connected accounts shows only when Google sign-in is configured)
+- 30-files-drive-links.png: Files tab with a Drive link, "Changed since linked" (as `lead@`)
+- 31-dataset-drive-link.png: dataset record with a Drive link, "No longer available"
+- 32-notifications-relative.png: notification bell list with relative times
+- 33-lineage-panel-drive-link.png: lineage panel for a dataset with a Drive link
+- 34-handover-sections.png: handover report for `lead@` with the external links section
+- 35-mobile-drawer.png: mobile drawer open, 390x844
+- 36-connect-api-key.png: API-key connect dialog (GitLab: address and token fields)
+- 37-link-from-menu.png: "Link from..." menu open on a dataset
+- 38-search-link-dialog.png: search link dialog with a result list (GitHub, on a dataset)
+- 39-overleaf-paste-dialog.png: Overleaf paste-URL dialog (link and title) on a manuscript
+- 40-palette-search.png: command palette showing lab-wide search results for "attention"
+- 41-decision-references.png: decision with its References and the Zotero link
+- 42-dataset-zenodo-link.png: dataset with a Zenodo link
+- 43-analysis-github-link.png: analysis with the GitHub link (repo@commit)
+
+Drive rows come from `seed_pilot` (fake connection, `example.invalid` URLs, no tokens).
+GitHub, Overleaf, Zotero and Zenodo rows come from `seed_pilot` too (tokenless links, `.invalid` hosts, fake ids such as `example-lab-fake`), plus a tokenless GitHub connection for `pi@` so the search dialog opens. No connected provider can search offline, so 38 mocks the search reply in the browser (`page.route`); the two results are fake and the server never calls GitHub.
+
+Run 4 (founder's change list; the dark ones switch the header toggle, because the account theme beats localStorage, D128):
+
+- 44-landing.png: signed-out landing page
+- 45-overview-priorities-last-edited.png: project overview with deadline priorities and "Last edited"
+- 46-workflow-funding.png, 47-workflow-ethics-ualberta.png (University of Alberta resources), 48-workflow-participants.png, 49-workflow-review.png: Workflow sub-tabs
+- 50-tasks-coloured-board.png: coloured task board
+- 51-task-drawer-thread-files.png: task drawer with attached document and thread
+- 52-admin.png: Admin (lab details, onboarding, inventory, institution resources)
+- 53-inventory.png: Inventory page
+- 54-settings.png: Settings
+- 55-unread-badge.png: unread badges on the bell, sidebar and lab switcher (notifications mocked)
+- 56-dark-workflow-ethics.png, 57-dark-tasks-board.png: dark mode
+
+Run 5 (all as `pi@`, from `seed_pilot`; nothing real: no keys, tokens or IdP). The sign-in step needs a fake SSO row, made once with `manage.py configure_sso` from a JSON file for the fake institution "Example Test University (FAKE)" with domain `sso.example.test` (fake IdP URLs, never contacted). The consent screen uses the seeded fake app `example-ai-app-fake`; it is never approved. 59, 62, 65 and 67 are cropped to their section.
+
+- 58-pi-dashboard.png: PI dashboard
+- 59-training-compliance.png: Admin > Training compliance matrix and requirements
+- 60-my-training.png: My training
+- 61-email-first-login.png: login after entering an SSO-domain email ("Continue with ...")
+- 62-settings-ai-connected-apps.png: Settings > Connected AI apps (empty)
+- 63-oauth-consent.png: consent screen for the fake app (unverified-app warning, one lab, read only)
+- 64-assistant-panel.png: assistant drawer with no key saved ("add your own API key")
+- 65-assistant-settings-keys.png: Assistant API keys, both providers "Not saved"
+- 66-workflow-data-dmp.png: Workflow > Data with the draft data management plan
+- 67-lab-ai-policy.png: "AI assistants in <lab>" policy (lives in Settings > AI, not Admin)

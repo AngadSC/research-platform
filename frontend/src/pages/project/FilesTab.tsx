@@ -5,6 +5,7 @@ import { Link } from "react-router";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { LinkedFiles } from "@/components/shared/LinkedFiles";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -108,6 +109,12 @@ export default function FilesTab({ labId, projectId, project }: ProjectTabProps)
           />
         }
       />
+      <section aria-labelledby="linked-files" className="grid gap-2">
+        <h2 id="linked-files" className="text-sm font-medium">
+          Linked files
+        </h2>
+        <LinkedFiles labId={labId} projectId={projectId} canEdit={canEdit} />
+      </section>
       <UploadDialog
         open={uploading}
         onOpenChange={setUploading}

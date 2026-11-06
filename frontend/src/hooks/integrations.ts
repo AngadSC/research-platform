@@ -6,6 +6,8 @@ import type {
   ExternalLink,
   ExternalLinkInput,
   IntegrationProvider,
+  ItemSearchResult,
+  PickerToken,
 } from "@/lib/api-types";
 
 const base = (labId: string) => `/api/labs/${labId}`;
@@ -30,15 +32,20 @@ export function useAccounts(labId: string, all: boolean, enabled = true) {
   });
 }
 
-/** Asks the server for the provider's consent URL, then sends the browser there. */
+/** oauth2: asks for the consent URL and sends the browser there. api_key: `body` carries the
+ * key (and secret, instance URL); the account is stored and the lists refresh. */
 export function useConnect(labId: string) {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: (provider: string) =>
-      api<ConnectOutput>(`${base(labId)}/integrations/${provider}/connect/`, {
+    mutationFn: (v: { provider: string; body?: Record<string, string> }) =>
+      api<ConnectOutput>(`${base(labId)}/integrations/${v.provider}/connect/`, {
         method: "POST",
-        body: {},
+        body: v.body ?? {},
       }),
-    onSuccess: (r) => window.location.assign(r.authorization_url),
+    onSuccess: (r) => {
+      if (r.authorization_url) window.location.assign(r.authorization_url);
+      else void qc.invalidateQueries({ queryKey: root(labId) });
+    },
   });
 }
 
@@ -79,5 +86,51 @@ export function useRemoveExternalLink(labId: string, projectId: string) {
   return useMutation({
     mutationFn: (id: string) => api(`${base(labId)}/external-links/${id}/`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: [...root(labId), "links", projectId] }),
+  });
+}
+
+/** The only call that returns an access token (D70). Used right before opening the Picker. */
+export const fetchPickerToken = (labId: string) =>
+  api<PickerToken>(`${base(labId)}/integrations/google/picker-token/`);
+
+export function useCheckExternalLink(labId: string, projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<ExternalLink>(`${base(labId)}/external-links/${id}/check/`, { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...root(labId), "links", projectId] }),
+  });
+}
+
+export function useAcceptExternalChange(labId: string, projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<ExternalLink>(`${base(labId)}/external-links/${id}/accept-change/`, { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...root(labId), "links", projectId] }),
+  });
+}
+
+/** Candidates from a provider's search (D85). Empty `q` asks for recent items. A newer `q`
+ * aborts the older request through the query's signal. */
+export function useItemSearch(
+  labId: string,
+  projectId: string,
+  provider: string,
+  target: string,
+  q: string,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: [...root(labId), "search", projectId, provider, target, q],
+    queryFn: ({ signal }) =>
+      api<ItemSearchResult[]>(
+        `${base(labId)}/projects/${projectId}/integrations/${provider}/search/?q=${encodeURIComponent(q)}&target=${target}`,
+        { signal },
+      ),
+    enabled: enabled && !!labId && !!projectId,
+    staleTime: 0,
+    gcTime: 0, // results are never kept (D85)
+    retry: false,
   });
 }

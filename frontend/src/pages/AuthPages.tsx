@@ -14,6 +14,8 @@ import {
   useVerifyEmail,
   type AuthResult,
 } from "@/hooks/auth";
+import { api } from "@/lib/api";
+import type { LoginMethods } from "@/lib/api-types";
 import { formErrors, safeNext, type FormErrors } from "@/lib/forms";
 
 const FIELDS = ["email", "password", "code"];
@@ -44,12 +46,15 @@ function CredentialsForm({
   run,
   onPending,
   footer,
+  email: initialEmail,
 }: {
   submitLabel: string;
   autoComplete: string;
   run: (v: { email: string; password: string }) => Promise<AuthResult>;
   onPending: (r: AuthResult, email: string) => void;
   footer: React.ReactNode;
+  /** Prefilled by the login page's email step. */
+  email?: string;
 }) {
   const [errors, setErrors] = useState<FormErrors>(NO_ERRORS);
   const [busy, setBusy] = useState(false);
@@ -78,10 +83,26 @@ function CredentialsForm({
     <div className="grid gap-4">
       <form onSubmit={submit} noValidate className="grid gap-4">
         <FormField label="Email" error={errors.fields.email}>
-          {(p) => <Input {...p} name="email" type="email" autoComplete="email" />}
+          {(p) => (
+            <Input
+              {...p}
+              name="email"
+              type="email"
+              autoComplete="email"
+              defaultValue={initialEmail}
+            />
+          )}
         </FormField>
         <FormField label="Password" error={errors.fields.password}>
-          {(p) => <Input {...p} name="password" type="password" autoComplete={autoComplete} />}
+          {(p) => (
+            <Input
+              {...p}
+              name="password"
+              type="password"
+              autoComplete={autoComplete}
+              autoFocus={!!initialEmail}
+            />
+          )}
         </FormField>
         <FormError message={errors.form} />
         <Button type="submit" disabled={busy}>
@@ -134,6 +155,54 @@ function CodeForm({ next }: { next: string }) {
   );
 }
 
+type LoginStep = LoginMethods & { email: string };
+
+/** Email first (D156): the address's domain decides between institution SSO and a password. */
+function EmailStep({
+  onNext,
+  footer,
+}: {
+  onNext: (s: LoginStep) => void;
+  footer: React.ReactNode;
+}) {
+  const [error, setError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const email = String(new FormData(e.currentTarget).get("email") ?? "").trim();
+    if (!email) return setError("Enter your email address");
+    setError(undefined);
+    setBusy(true);
+    let methods: LoginMethods = { methods: ["password"], institution: null };
+    try {
+      methods = await api<LoginMethods>("/api/auth/login-methods/", {
+        method: "POST",
+        body: { email },
+      });
+    } catch {
+      // Unknown or unreachable: fall back to the password form, which reports its own errors.
+    }
+    setBusy(false);
+    onNext({ email, ...methods });
+  }
+
+  return (
+    <div className="grid gap-4">
+      <form onSubmit={submit} noValidate className="grid gap-4">
+        <FormField label="Email" error={error}>
+          {(p) => <Input {...p} name="email" type="email" autoComplete="email" />}
+        </FormField>
+        <Button type="submit" disabled={busy}>
+          Continue
+        </Button>
+      </form>
+      <ProviderButton process="login" label="Continue with Google" />
+      <p className="text-sm text-muted-foreground">{footer}</p>
+    </div>
+  );
+}
+
 export function LoginPage() {
   const { isAuthenticated } = useAuth();
   const { next, raw } = useNext();
@@ -141,14 +210,62 @@ export function LoginPage() {
   const login = useLogin();
   const [params] = useSearchParams();
   const [needsCode, setNeedsCode] = useState(params.get("mfa") === "1");
+  const [step, setStep] = useState<LoginStep | null>(null);
+  const [usePassword, setUsePassword] = useState(false);
 
   if (isAuthenticated) return <Navigate to={next} replace />;
   if (needsCode) return <CodeForm next={next} />;
 
+  const heading = (
+    <Heading title="Sign in">Welcome back. Sign in to see your labs and projects.</Heading>
+  );
+  const footer = (
+    <>
+      New here?{" "}
+      <Link className="font-medium text-primary underline" to={withNext("/signup", raw)}>
+        Create an account
+      </Link>
+    </>
+  );
+  if (!step)
+    return (
+      <>
+        {heading}
+        <EmailStep onNext={setStep} footer={footer} />
+      </>
+    );
+
+  const sso = step.methods.find((m) => m.startsWith("saml:"));
+  if (sso && !usePassword) {
+    const name = step.institution ?? "your institution";
+    return (
+      <>
+        <Heading title="Sign in">{`${step.email} signs in with ${name}.`}</Heading>
+        <div className="grid gap-3">
+          <ProviderButton
+            provider={sso}
+            process="login"
+            label={`Continue with ${name}`}
+            returnTo={next}
+          />
+          {step.methods.includes("password") && (
+            <Button variant="ghost" onClick={() => setUsePassword(true)}>
+              Use a password instead
+            </Button>
+          )}
+          <Button variant="ghost" onClick={() => setStep(null)}>
+            Use a different email
+          </Button>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
-      <Heading title="Sign in">Welcome back. Sign in to see your labs and projects.</Heading>
+      {heading}
       <CredentialsForm
+        email={step.email}
         submitLabel="Sign in"
         autoComplete="current-password"
         run={(v) => login.mutateAsync(v)}
@@ -159,14 +276,7 @@ export function LoginPage() {
               `${withNext("/check-email", raw)}${raw ? "&" : "?"}email=${encodeURIComponent(email)}`,
             );
         }}
-        footer={
-          <>
-            New here?{" "}
-            <Link className="font-medium text-primary underline" to={withNext("/signup", raw)}>
-              Create an account
-            </Link>
-          </>
-        }
+        footer={footer}
       />
     </>
   );
@@ -278,7 +388,7 @@ export function VerifyEmailPage() {
   );
 }
 
-/** Where the browser lands after Google. allauth adds ?error= on failure; otherwise the session says what is next. */
+/** Where the browser lands after Google or institution SSO. allauth adds ?error= on failure; otherwise the session says what is next. */
 export function ProviderCallbackPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -306,11 +416,11 @@ export function ProviderCallbackPage() {
   if (failed || offline)
     return (
       <>
-        <Heading title="Google sign-in did not finish" />
+        <Heading title="Sign-in did not finish" />
         <p className="text-sm">
           {offline
             ? "We couldn't reach the server. Check your connection and try again."
-            : "Google did not let us sign you in. You may have cancelled, or this Google account cannot be used. Try again, or sign in with your email and password."}
+            : "We could not sign you in. You may have cancelled, or this account cannot be used here. Try again, or sign in another way."}
         </p>
         <Button asChild className="mt-4">
           <Link to="/login">Back to sign in</Link>

@@ -58,7 +58,7 @@ function Section({
   );
 }
 
-function NameSection() {
+export function NameSection() {
   const { data: me } = useMe();
   const update = useUpdateMe();
   const [error, setError] = useState<string>();
@@ -389,18 +389,29 @@ function EmailSection({ run: reauthRun }: { run: Reauth["run"] }) {
   );
 }
 
-export function SecurityPage() {
+/** Email, connected accounts and two-step verification; embedded in Settings (Run 4). */
+export function SecuritySections() {
   const reauth = useReauth();
   return (
     <>
       {reauth.dialog}
-      <PageHeader title="Account" description="Your name and sign-in security." />
       <div className="grid max-w-2xl gap-8">
-        <NameSection />
         <EmailSection run={reauth.run} />
         <ConnectedAccountsSection reauth={reauth} />
         <TotpSection run={reauth.run} />
       </div>
+    </>
+  );
+}
+
+export function SecurityPage() {
+  return (
+    <>
+      <PageHeader title="Account" description="Your name and sign-in security." />
+      <div className="mb-8 max-w-2xl">
+        <NameSection />
+      </div>
+      <SecuritySections />
     </>
   );
 }

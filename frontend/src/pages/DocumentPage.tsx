@@ -2,7 +2,9 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useBlocker, useParams } from "react-router";
 import { toast } from "sonner";
 import { ConflictDialog } from "@/components/documents/ConflictDialog";
+import { StaleDocumentBanner } from "@/components/documents/StaleDocumentBanner";
 import { RevisionsPanel } from "@/components/documents/RevisionsPanel";
+import { LinkedFiles } from "@/components/shared/LinkedFiles";
 import { FormField } from "@/components/shared/FormField";
 import { FormError } from "@/components/shared/FormError";
 import { Button } from "@/components/ui/button";
@@ -22,12 +24,14 @@ const RichEditor = lazy(() => import("@/components/documents/RichEditor"));
 function DocumentEditor({
   doc,
   labId,
+  projectId,
   canEdit,
   canRetention,
   onReload,
 }: {
   doc: DocumentFull;
   labId: string;
+  projectId: string;
   canEdit: boolean;
   /** view_retention: without it the retention fields are read-only and never sent (D55). */
   canRetention: boolean;
@@ -43,6 +47,7 @@ function DocumentEditor({
   const [initial] = useState<unknown[]>(() => (Array.isArray(doc.content) ? doc.content : []));
   const content = useRef<unknown[]>(initial);
   const version = useRef(doc.version);
+  const [savedVersion, setSavedVersion] = useState(doc.version);
 
   const send = useCallback(
     (baseVersion: number) =>
@@ -59,6 +64,7 @@ function DocumentEditor({
         {
           onSuccess: (d) => {
             version.current = d.version;
+            setSavedVersion(d.version);
             setDirty(false);
             setConflict(null);
             toast.success("Saved");
@@ -140,6 +146,14 @@ function DocumentEditor({
           </Button>
         )}
       </div>
+      <StaleDocumentBanner
+        labId={labId}
+        projectId={projectId}
+        documentId={doc.id}
+        localVersion={savedVersion}
+        dirty={dirty}
+        onReload={() => void reload()}
+      />
       {!canEdit && (
         <p className="text-xs text-muted-foreground">You have read-only access to this document.</p>
       )}
@@ -186,6 +200,12 @@ function DocumentEditor({
           }}
         />
       </Suspense>
+      <LinkedFiles
+        labId={labId}
+        projectId={projectId}
+        canEdit={canEdit}
+        target={{ field: "document", id: doc.id }}
+      />
       <ConflictDialog
         conflict={conflict}
         labId={labId}
@@ -251,6 +271,7 @@ export default function DocumentPage() {
       key={`${doc.id}-${epoch}`}
       doc={doc}
       labId={labId}
+      projectId={projectId}
       canEdit={project.my_permissions.includes("edit_content")}
       canRetention={project.my_permissions.includes("view_retention")}
       onReload={reload}

@@ -65,6 +65,7 @@ Generate each secret once:
 | `LAB_FILES_BUCKET` | Bucket name. Without it the app writes files to local disk, which is not for production. |
 | `LAB_FILES_REGION` | Bucket region, for example `eu-west-1`. |
 | `LAB_FILES_ENDPOINT_URL` | Empty for AWS. Set it for other S3-compatible providers. |
+| `LAB_FILES_STREAM_DOWNLOADS` | Leave empty. PDFs always stream through Django and other files redirect to a 60 second presigned URL (D90, D123). `True` streams everything; use it only if your provider ignores response header overrides. |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Credentials for the bucket. The app also reads them for SES. |
 | `DEFAULT_FROM_EMAIL` | Sender, for example `Research Platform <noreply@your-domain>`. |
 | `EMAIL_BACKEND` | `anymail.backends.postmark.EmailBackend` or `anymail.backends.amazon_ses.EmailBackend`. |
@@ -106,6 +107,35 @@ tags the backend image as `research-backend:prod` for the worker and beat servic
 
 The backend image runs gunicorn as a non-root user and checks `/healthz` every 30 seconds. The
 frontend image is a static build served by Caddy.
+
+### Lab file downloads (D90, D123)
+
+Downloads check access in Django first. What happens next depends on the file:
+
+- **PDFs (shown inline by the viewer) stream through Django**, with `nosniff` and
+  `Content-Security-Policy: sandbox`. A bucket URL cannot carry those headers, so anything shown
+  inline never gets one.
+- **Everything else redirects (302) to a presigned bucket URL** that lasts 60 seconds and forces
+  `Content-Disposition: attachment`.
+- Every new object is also written with `Content-Type: application/octet-stream`,
+  `Content-Disposition: attachment` and `Cache-Control: private, no-store` as object metadata
+  (`documents.storage.LabFilesS3Storage`). A provider that ignores the `response-*` overrides
+  therefore still serves a download, never a page on the bucket origin.
+
+What you must do:
+
+1. **Keep the bucket private** and serve nothing else from it. No bucket CORS rule and no bucket
+   entry in the Caddy `connect-src` are needed any more: the viewer reads PDFs from the app
+   origin, and other files are plain downloads. (Earlier versions needed both; you may remove
+   them. Leaving them does no harm.)
+2. **Objects uploaded before this change** (D90 era) lack the metadata. Rewrite it once, for
+   example `aws s3 cp s3://BUCKET/labs/ s3://BUCKET/labs/ --recursive --metadata-directive
+   REPLACE --content-type application/octet-stream --content-disposition attachment
+   --cache-control "private, no-store"` (on a versioned bucket this adds versions). Until then they
+   rely on the presigned URL's overrides alone.
+
+`LAB_FILES_STREAM_DOWNLOADS=True` streams everything through Django, for a provider that ignores
+`response-content-disposition`.
 
 ## 4. First start
 
@@ -260,3 +290,6 @@ Send one test sign-up to a real inbox and confirm the link works before you invi
 
 To go back, restore the backup from before the upgrade. Migrations are not reversed
 automatically.
+
+## Content-Security-Policy and the Google Picker
+`script-src` in `deploy/Caddyfile` names the Picker's script paths (`apis.google.com/js/api.js`, `apis.google.com/_/scs/`, `www.gstatic.com/_/`), not whole Google hosts (D78). Google changes the paths it loads, and they could not be confirmed offline. Before go-live, open the Picker in a real browser with real Drive credentials, watch the console for CSP violations, and widen only the exact path reported.

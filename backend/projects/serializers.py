@@ -1,15 +1,18 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from core.permissions import PROJECT_PERMS, Perm, can, project_role
 from core.serializers import UserSerializer, no_control_chars
 from projects.models import (
     ChatMessage,
+    DeadlinePriority,
     Project,
     ProjectDeadline,
     ProjectMembership,
     ProjectRole,
     ProjectStatus,
     Task,
+    TaskPost,
     TaskStatus,
 )
 
@@ -19,6 +22,7 @@ from projects.models import (
 
 class ProjectSerializer(serializers.ModelSerializer):
     created_by = UserSerializer(read_only=True)
+    last_activity_by = UserSerializer(read_only=True)
     my_project_role = serializers.SerializerMethodField()
     my_permissions = serializers.SerializerMethodField()
 
@@ -35,6 +39,8 @@ class ProjectSerializer(serializers.ModelSerializer):
             "created_by",
             "created_at",
             "updated_at",
+            "last_activity_at",
+            "last_activity_by",
             "my_project_role",
             "my_permissions",
         ]
@@ -79,7 +85,16 @@ class ProjectMembershipRoleSerializer(serializers.Serializer):
 class DeadlineSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProjectDeadline
-        fields = ["id", "project", "title", "due_date", "done", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "project",
+            "title",
+            "due_date",
+            "done",
+            "priority",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = fields
 
 
@@ -87,11 +102,37 @@ class DeadlineInputSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=200, validators=[no_control_chars])
     due_date = serializers.DateField()
     done = serializers.BooleanField(required=False)
+    priority = serializers.ChoiceField(choices=DeadlinePriority.choices, required=False)
+
+
+class TaskDocumentSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    title = serializers.CharField()
+    version = serializers.IntegerField()
+
+
+class TaskAttachmentSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    original_filename = serializers.CharField()
+    content_type = serializers.CharField()
+    size_bytes = serializers.IntegerField()
 
 
 class TaskSerializer(serializers.ModelSerializer):
     assignee = UserSerializer(read_only=True)
     created_by = UserSerializer(read_only=True)
+    documents = serializers.SerializerMethodField()
+    attachments = TaskAttachmentSerializer(many=True, read_only=True)
+    post_count = serializers.SerializerMethodField()
+
+    @extend_schema_field(TaskDocumentSerializer(many=True))
+    def get_documents(self, obj):
+        docs = [d for d in obj.documents.all() if d.deleted_at is None]
+        return TaskDocumentSerializer(docs, many=True).data
+
+    def get_post_count(self, obj) -> int:
+        n = getattr(obj, "post_count", None)  # annotated by the views; avoids a query per task
+        return n if n is not None else obj.posts.count()
 
     class Meta:
         model = Task
@@ -105,6 +146,9 @@ class TaskSerializer(serializers.ModelSerializer):
             "status",
             "position",
             "created_by",
+            "documents",
+            "attachments",
+            "post_count",
             "created_at",
             "updated_at",
         ]
@@ -200,3 +244,20 @@ class ChatReadInputSerializer(serializers.Serializer):
 class ChatUnreadSerializer(serializers.Serializer):
     project = serializers.UUIDField()
     count = serializers.IntegerField()
+
+
+class TaskPostSerializer(serializers.ModelSerializer):
+    author = UserSerializer(read_only=True)
+
+    class Meta:
+        model = TaskPost
+        fields = ["id", "task", "author", "body", "edited_at", "created_at"]
+        read_only_fields = fields
+
+
+class TaskPostInputSerializer(serializers.Serializer):
+    body = serializers.CharField(max_length=5000, trim_whitespace=True)
+
+
+class TaskLinkInputSerializer(serializers.Serializer):
+    id = serializers.UUIDField()

@@ -380,3 +380,38 @@ def test_export_contains_no_other_project_data(w):
         assert key not in body
     assert "LAB-B-SECRET" not in body
     assert "P2" not in body
+
+
+# ---- D95: decision references
+
+
+GOOD_REF = {"title": "Smith 2020", "url": "https://example.org/p", "doi": "10.1234/abc.5"}
+
+
+@pytest.mark.parametrize(
+    "refs",
+    [
+        [{"url": "https://example.org"}],  # title missing
+        [{"title": "   "}],  # blank title
+        [{"title": "t", "url": "ftp://example.org/x"}],
+        [{"title": "t", "doi": "11.1234/abc"}],
+        [{"title": "t", "doi": "10.12/abc"}],
+        [{"title": "t", "doi": "10.1234/has space"}],
+        [GOOD_REF] * 51,
+    ],
+)
+def test_bad_references_are_rejected(w, refs):
+    assert w.post("decision-list", {"title": "D", "references": refs}).status_code == 400
+
+
+def test_references_are_saved_in_order_and_can_be_replaced(w):
+    refs = [GOOD_REF, {"title": "No link"}]
+    r = w.post("decision-list", {"title": "D", "references": refs})
+    assert r.status_code == 201, r.content
+    assert [x["title"] for x in r.json()["references"]] == ["Smith 2020", "No link"]
+    url = w.url("decision-detail", decision_id=r.json()["id"])
+    r = w.client().patch(url, {"references": refs[::-1]}, format="json")
+    assert r.status_code == 200 and r.json()["references"][0]["title"] == "No link"
+    r = w.client().patch(url, {"references": []}, format="json")
+    assert r.json()["references"] == []
+    assert w.post("decision-list", {"title": "D", "references": [GOOD_REF] * 50}).status_code == 201

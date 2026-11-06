@@ -1,4 +1,4 @@
-import { renderHook, screen, waitFor } from "@testing-library/react";
+import { renderHook, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCommands } from "@/lib/commands";
@@ -78,7 +78,7 @@ describe("Research tab", () => {
 
   it("explains an empty list in plain words", async () => {
     mockFetch(base(["view_project"]));
-    renderRoute("/labs/lab1/projects/p1/research/datasets");
+    renderRoute("/labs/lab1/projects/p1/workflow/data");
     expect(
       await screen.findByText(
         "A dataset record points to where data lives. We never store the data itself.",
@@ -88,9 +88,9 @@ describe("Research tab", () => {
 
   it("shows analysis datasets with versions as links", async () => {
     mockFetch(base(["view_project"]));
-    renderRoute("/labs/lab1/projects/p1/research/analyses/a1");
+    renderRoute("/labs/lab1/projects/p1/workflow/analysis/analyses/a1");
     const link = await screen.findByRole("link", { name: "Stool (v2)" });
-    expect(link).toHaveAttribute("href", "/labs/lab1/projects/p1/research/datasets/d1");
+    expect(link).toHaveAttribute("href", "/labs/lab1/projects/p1/workflow/data/datasets/d1");
     expect(screen.getByRole("link", { name: "View in lineage" })).toHaveAttribute(
       "href",
       "/labs/lab1/projects/p1/lineage?focus=analysis:a1",
@@ -99,7 +99,7 @@ describe("Research tab", () => {
 
   it("hides export without permission", async () => {
     mockFetch(base(["view_project"]));
-    renderRoute("/labs/lab1/projects/p1/research/analyses");
+    renderRoute("/labs/lab1/projects/p1/workflow/analysis");
     await screen.findByText("Alpha diversity");
     expect(screen.queryByRole("button", { name: "Export project" })).not.toBeInTheDocument();
   });
@@ -109,7 +109,7 @@ describe("Research tab", () => {
       base(["view_project", "export"], { [`POST ${P}/export/`]: { body: { exported_at: "now" } } }),
     );
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
-    renderRoute("/labs/lab1/projects/p1/research/analyses");
+    renderRoute("/labs/lab1/projects/p1/workflow/analysis");
     await userEvent.click(await screen.findByRole("button", { name: "Export project" }));
     await waitFor(() => expect(click).toHaveBeenCalled());
     expect(calls.some((c) => c.method === "POST" && c.path === `${P}/export/`)).toBe(true);
@@ -127,5 +127,62 @@ describe("Research tab", () => {
       expect(labels).toContain("New analysis");
       expect(labels).toContain("Go to project: Gut study");
     });
+  });
+});
+
+describe("Decision references form (D95)", () => {
+  const decision = {
+    id: "dc1",
+    project: "p1",
+    title: "Use rarefaction",
+    rationale: "",
+    decided_on: "2026-03-01",
+    decided_by: user,
+    supporting_documents: [],
+    supporting_attachments: [],
+    references: [{ title: "Old paper", url: "https://example.org/old", doi: "10.1234/old" }],
+    analyses: [],
+    results: [],
+    datasets: [],
+    created_at: "2026-03-01T00:00:00Z",
+    updated_at: "2026-03-01T00:00:00Z",
+  };
+
+  it("shows safe links on the detail panel and saves edited references", async () => {
+    const calls = mockFetch(
+      base(["view_project", "edit_content"], {
+        [`GET ${P}/decisions/`]: { body: [decision] },
+        "GET /api/labs/lab1/decisions/dc1/": { body: decision },
+        "PATCH /api/labs/lab1/decisions/dc1/": { body: decision },
+      }),
+    );
+    renderRoute("/labs/lab1/projects/p1/workflow/review/decisions/dc1");
+    expect(await screen.findByRole("link", { name: "Old paper" })).toHaveAttribute(
+      "href",
+      "https://example.org/old",
+    );
+    expect(screen.getByRole("link", { name: "DOI 10.1234/old" })).toHaveAttribute(
+      "href",
+      "https://doi.org/10.1234/old",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Add a reference" }));
+    const row = screen.getByRole("group", { name: "Reference 2" });
+    await userEvent.type(within(row).getByLabelText("DOI"), "bad");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findAllByText("Enter a title")).not.toHaveLength(0);
+    expect(calls.some((c) => c.method === "PATCH")).toBe(false); // blocked client-side
+    await userEvent.type(within(row).getByLabelText("Title"), "New one");
+    await userEvent.clear(within(row).getByLabelText("DOI"));
+    await userEvent.click(screen.getByRole("button", { name: "Move reference 2 up" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "PATCH")).toBe(true));
+    const sent = calls.find((c) => c.method === "PATCH")!.body as {
+      references: { title: string; url: string; doi: string }[];
+    };
+    expect(sent.references).toEqual([
+      { title: "New one", url: "", doi: "" },
+      { title: "Old paper", url: "https://example.org/old", doi: "10.1234/old" },
+    ]);
   });
 });

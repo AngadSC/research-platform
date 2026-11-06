@@ -20,7 +20,25 @@ research.example.org {
 
 	# API, allauth headless, provider callbacks and the health probe go to gunicorn.
 	# No /admin route: the Django admin is mounted only when DEBUG is on (D41).
-	@backend path /api/* /_allauth/* /accounts/* /healthz
+	# /mcp and /.well-known/* (OAuth metadata) are the MCP server for AI apps (D161).
+	# D190: the in-app assistant streams its answer as server-sent events. Flush every write at
+	# once (no buffering) and allow a long response; gunicorn runs gthread workers with a 330 s
+	# timeout (docker-compose.prod.yml). This must come before the general @backend handler.
+	# D196: the app stops every stream after 300 s (ASSISTANT_STREAM_DEADLINE), so the 330 s
+	# timeouts below are only a backstop; keep them above the deadline, and keep the number of
+	# concurrent streams (ASSISTANT_MAX_STREAMS) well below gunicorn's workers x threads.
+	@assistant_stream path_regexp ^/api/labs/[^/]+/assistant/conversations/[^/]+/(messages|approvals)/$
+	handle @assistant_stream {
+		reverse_proxy backend:8000 {
+			flush_interval -1
+			transport http {
+				response_header_timeout 330s
+				read_timeout 330s
+			}
+		}
+	}
+
+	@backend path /api/* /_allauth/* /accounts/* /healthz /mcp /.well-known/*
 	handle @backend {
 		reverse_proxy backend:8000
 	}
@@ -32,8 +50,11 @@ research.example.org {
 		try_files {path} /index.html
 		file_server
 
-		# Google Picker (Drive integration) and Google sign-in. Nothing else external.
+		# D90/D91: downloads redirect to a presigned bucket URL and the PDF viewer fetch()es it, so
+		# connect-src names the bucket origin (replace BUCKET.s3.REGION.amazonaws.com with your
+		# endpoint; docs/DEPLOY.md has the bucket CORS rule).
+		# Google Picker (Drive integration) and Google sign-in.
 		# form-action needs accounts.google.com because the sign-in form POST redirects there.
-		header Content-Security-Policy "default-src 'self'; script-src 'self' https://apis.google.com; frame-src https://docs.google.com https://drive.google.com https://accounts.google.com; connect-src 'self' https://apis.google.com https://docs.google.com https://drive.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com; frame-ancestors 'none'"
+		header Content-Security-Policy "default-src 'self'; script-src 'self' https://apis.google.com/js/api.js https://apis.google.com/_/scs/ https://www.gstatic.com/_/; frame-src https://content.googleapis.com https://docs.google.com https://drive.google.com https://accounts.google.com; connect-src 'self' https://BUCKET.s3.REGION.amazonaws.com https://content.googleapis.com https://apis.google.com https://docs.google.com https://drive.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.googleusercontent.com https://ssl.gstatic.com; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com; frame-ancestors 'none'"
 	}
 }

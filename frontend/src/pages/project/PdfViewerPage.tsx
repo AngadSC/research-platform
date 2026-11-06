@@ -85,7 +85,7 @@ export default function PdfViewerPage() {
   }
 
   return (
-    <div className="grid gap-4" onKeyDown={onKey}>
+    <div className="grid gap-4" onKeyDown={onKey} data-native-find>
       <PageHeader
         title={att?.original_filename ?? "File"}
         actions={

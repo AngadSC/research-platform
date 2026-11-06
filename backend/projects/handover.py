@@ -16,6 +16,13 @@ from labs.models import LabMembership, LabRole
 from projects.models import Project, ProjectMembership, ProjectRole, Task, TaskStatus
 from provenance.models import Analysis, DatasetRecord, Decision, Result
 
+# D132: where each research kind lives in the project's Workflow tab
+WORKFLOW_SECTION = {
+    "analyses": "analysis",
+    "results": "analysis",
+    "decisions": "review",
+    "manuscripts": "manuscript",
+}
 SECTIONS = [
     ("open_tasks", "Open tasks"),
     ("unassigned_tasks", "Unassigned after access change"),
@@ -63,7 +70,15 @@ def build_report(*, requester, lab, membership, project=None) -> dict:
     def research(model, field, kind, plural, reason):
         qs = scoped(model).filter(**{field: target}).select_related("project")
         return [
-            _item(lid, kind, o, o.title, o.project, f"{{p}}/research/{plural}/{o.pk}", reason)
+            _item(
+                lid,
+                kind,
+                o,
+                o.title,
+                o.project,
+                f"{{p}}/workflow/{WORKFLOW_SECTION[plural]}/{plural}/{o.pk}",
+                reason,
+            )
             for o in qs.order_by("created_at", "id")
         ]
 
@@ -143,7 +158,7 @@ def build_report(*, requester, lab, membership, project=None) -> dict:
             d,
             f"{d.name} {d.version_label}",
             d.project,
-            f"{{p}}/research/datasets/{d.pk}",
+            f"{{p}}/workflow/data/datasets/{d.pk}",
             "Controlled by them",
         )
         for d in datasets

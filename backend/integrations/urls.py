@@ -25,6 +25,11 @@ urlpatterns = [
         name="external-link-list",
     ),
     path(
+        L + "projects/<uuid:project_id>/integrations/<slug:provider>/search/",
+        views.ItemSearchView.as_view(),
+        name="item-search",
+    ),
+    path(
         L + "external-links/<uuid:externallink_id>/check/",
         views.ExternalLinkCheckView.as_view(),
         name="external-link-check",

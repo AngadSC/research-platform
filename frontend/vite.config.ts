@@ -19,6 +19,9 @@ export default defineConfig({
       "/_allauth": { target: apiProxyTarget, changeOrigin: false },
       // OAuth provider callbacks (Google redirect URI: http://localhost:5173/accounts/google/login/callback/).
       "/accounts": { target: apiProxyTarget, changeOrigin: false },
+      // D161: the MCP endpoint and its OAuth metadata (http://localhost:5173/mcp in dev).
+      "/mcp": { target: apiProxyTarget, changeOrigin: false },
+      "/.well-known": { target: apiProxyTarget, changeOrigin: false },
     },
   },
   test: {

@@ -7,6 +7,8 @@ from labs.models import Lab
 from projects.models import Project, ProjectMembership, ProjectRole
 from provenance.models import ManuscriptLink
 
+pytestmark = pytest.mark.django_db
+
 
 @pytest.fixture
 def debug_on(settings):
@@ -67,3 +69,43 @@ def test_ethics_approval_expires_in_25_days_and_viewer_sees_the_pilot_project(de
     assert archived.retain_until < today
     overdue_docs = Document.objects.for_lab(lab).filter(project=project, retain_until__lt=today)
     assert overdue_docs.count() == 1
+
+
+def test_drive_seed_is_idempotent_fake_and_has_both_states(debug_on):
+    from integrations.models import ConnectedAccount, ExternalLink
+
+    call_command("seed_pilot")
+    call_command("seed_pilot")
+    lab = Lab.objects.get(name=LAB_NAME)
+    accounts = ConnectedAccount.objects.for_lab(lab)
+    assert sorted((a.provider, a.user.email) for a in accounts) == [
+        ("github", "pi@example.test"),
+        ("google_drive", "lead@example.test"),
+    ]
+    assert not any(a.access_token_ct or a.refresh_token_ct for a in accounts)
+    links = ExternalLink.objects.for_lab(lab)
+    assert sorted(link.provider for link in links) == [
+        "github",
+        "google_drive",
+        "google_drive",
+        "overleaf",
+        "zenodo",
+        "zotero",
+    ]
+    drive = links.filter(provider="google_drive")
+    assert sorted(link.status for link in drive) == ["changed", "unavailable"]
+    assert (
+        links.get(provider="zotero").decision.references[0]["url"]
+        == links.get(provider="zotero").url
+    )
+    assert all("example.invalid" in link.url for link in links)
+
+
+def test_dmp_draft_is_seeded_once(debug_on):
+    from provenance.models import DataManagementPlan
+
+    call_command("seed_pilot")
+    call_command("seed_pilot")
+    plans = DataManagementPlan.objects.for_lab(Lab.objects.get(name=LAB_NAME))
+    assert [p.status for p in plans] == ["draft"]
+    assert plans[0].revisions.count() == 1

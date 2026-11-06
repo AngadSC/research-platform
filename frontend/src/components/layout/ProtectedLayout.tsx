@@ -2,6 +2,7 @@ import { Navigate, useLocation } from "react-router";
 import { AppShell } from "@/components/layout/AppShell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/auth";
+import { LandingPage } from "@/pages/LandingPage";
 
 /** Sends signed-out visitors to /login and brings them back afterwards. */
 export function ProtectedLayout() {
@@ -14,6 +15,7 @@ export function ProtectedLayout() {
         <Skeleton className="h-4 w-80" />
       </div>
     );
+  if (!isAuthenticated && pathname === "/") return <LandingPage />;
   if (!isAuthenticated)
     return <Navigate to={`/login?next=${encodeURIComponent(pathname + search)}`} replace />;
   return <AppShell />;

@@ -14,7 +14,7 @@ test("two project members talk: a message reaches the other person without a rel
   await expect(page).toHaveURL(/\/chat$/);
 
   const other = await (await browser.newContext()).newPage();
-  await login(other, "viewer"); // viewers can post too (D77)
+  await login(other, "viewer"); // viewers can post too (D206)
   await openProject(other);
   await other.locator("#app-sidebar").getByRole("link", { name: "Chat" }).click();
 
@@ -49,12 +49,13 @@ test("a badge shows unread messages until the chat is opened", async ({ page, br
   await box.press("Enter");
   await expect(box).toHaveValue("");
 
-  await expect(chatLink).toContainText("unread message", { timeout: 20_000 }); // badge polls
+  const badge = chatLink.getByRole("img", { name: /unread message/ });
+  await expect(badge).toBeVisible({ timeout: 20_000 }); // badge polls
   await chatLink.click();
-  await expect(chatLink).not.toContainText("unread message");
+  await expect(badge).toHaveCount(0);
   await page.reload(); // cleared on the server, not just on this screen
   await expect(page.getByRole("log", { name: "Messages" })).toBeVisible();
-  await expect(chatLink).not.toContainText("unread message");
+  await expect(badge).toHaveCount(0);
 });
 
 test("messages stay unread while you are scrolled up, until you come back down", async ({
@@ -79,7 +80,8 @@ test("messages stay unread while you are scrolled up, until you come back down",
   await chatLink.click();
   const log = page.getByRole("log", { name: "Messages" });
   await expect(log.getByText("Scroll filler 24 (FAKE)")).toBeVisible();
-  await expect(chatLink).not.toContainText("unread message");
+  const badge = chatLink.getByRole("img", { name: /unread message/ });
+  await expect(badge).toHaveCount(0);
 
   await log.hover();
   await page.mouse.wheel(0, -1000);
@@ -88,8 +90,10 @@ test("messages stay unread while you are scrolled up, until you come back down",
   await post(`While scrolled up ${Date.now()} (FAKE)`);
   const jump = page.getByRole("button", { name: "New messages" });
   await expect(jump).toBeVisible({ timeout: 10_000 });
-  await expect(chatLink).toContainText("1 unread message", { timeout: 20_000 });
+  await expect(chatLink.getByRole("img", { name: "1 unread message" })).toBeVisible({
+    timeout: 20_000,
+  });
 
   await jump.click();
-  await expect(chatLink).not.toContainText("unread message");
+  await expect(badge).toHaveCount(0);
 });

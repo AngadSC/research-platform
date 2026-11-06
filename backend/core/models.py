@@ -37,6 +37,8 @@ class User(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
     display_name = models.CharField(max_length=120, blank=True)
+    # Personal UI settings; only these keys, validated by MeSerializer (D125).
+    preferences = models.JSONField(default=dict, blank=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
@@ -62,6 +64,82 @@ class Institution(models.Model):
         return self.name
 
 
+def default_saml_attributes():
+    """eduPerson/LDAP attribute OIDs (what Shibboleth sends), then the friendly names. The first
+    one present wins. `uid` falls back to the NameID when none is sent."""
+    return {
+        "uid": ["urn:oid:1.3.6.1.4.1.5923.1.1.1.6", "eduPersonPrincipalName"]
+        + ["urn:oid:0.9.2342.19200300.100.1.1", "uid"],
+        "email": ["urn:oid:0.9.2342.19200300.100.1.3", "mail", "email"],
+        "first_name": ["urn:oid:2.5.4.42", "givenName"],
+        "last_name": ["urn:oid:2.5.4.4", "sn"],
+    }
+
+
+class InstitutionSSO(models.Model):
+    """SAML 2.0 sign-in for one institution (D152, D153). Edited by Django superusers only (admin
+    in dev, `manage.py configure_sso` anywhere), never through the API, because it decides who
+    the app trusts to vouch for an email address. `core.auth` turns enabled rows into allauth
+    SAML apps; the SP URLs are /accounts/saml/<slug>/{metadata,acs}/."""
+
+    institution = models.OneToOneField(Institution, on_delete=models.CASCADE, related_name="sso")
+    slug = models.SlugField(max_length=50, unique=True, help_text="URL part, e.g. ualberta")
+    enabled = models.BooleanField(default=False)
+    email_domains = models.JSONField(
+        default=list, help_text='Exact domains this IdP vouches for, e.g. ["ualberta.ca"]'
+    )
+    idp_entity_id = models.CharField("IdP entity ID", max_length=500, blank=True)
+    idp_sso_url = models.URLField("IdP SSO URL (HTTP-Redirect)", max_length=500, blank=True)
+    idp_x509cert = models.TextField("IdP signing certificate (PEM)", blank=True)
+    idp_metadata_url = models.URLField(
+        "IdP metadata URL",
+        max_length=500,
+        blank=True,
+        help_text="Optional, https only. Each save fetches it into the IdP fields.",
+    )
+    attribute_mapping = models.JSONField(default=default_saml_attributes)
+    require_sso = models.BooleanField(
+        default=False, help_text="Refuse password sign-in and signup for these domains (D156)."
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "institution SSO (SAML)"
+
+    def __str__(self):
+        return f"{self.institution.name} ({self.slug})"
+
+    @property
+    def provider_id(self) -> str:
+        return f"saml:{self.slug}"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        domains = self.email_domains
+        if not isinstance(domains, list) or not all(isinstance(d, str) for d in domains):
+            raise ValidationError({"email_domains": 'A JSON list of domains, e.g. ["ualberta.ca"]'})
+        self.email_domains = sorted({d.strip().lower().lstrip("@") for d in domains if d.strip()})
+        for d in self.email_domains:
+            if "." not in d or "@" in d or "/" in d or " " in d:
+                raise ValidationError({"email_domains": f"Not a domain: {d}"})
+        taken = InstitutionSSO.objects.exclude(pk=self.pk).filter(enabled=True)
+        clash = {d for o in taken for d in o.email_domains} & set(self.email_domains)
+        if self.enabled and clash:
+            raise ValidationError({"email_domains": f"Already routed elsewhere: {sorted(clash)}"})
+        if self.enabled and not self.email_domains:
+            raise ValidationError({"email_domains": "Add at least one domain before enabling."})
+        for url in (self.idp_sso_url, self.idp_metadata_url):
+            if url and not url.startswith("https://"):
+                raise ValidationError("IdP URLs must be https.")
+        if self.idp_metadata_url:  # every save refetches, so re-saving is "refresh metadata"
+            from core.auth import fetch_idp_metadata
+
+            fetch_idp_metadata(self)
+        if self.enabled and not (self.idp_entity_id and self.idp_sso_url and self.idp_x509cert):
+            raise ValidationError("Enabling needs the IdP entity ID, SSO URL and certificate.")
+
+
 class NotificationKind(models.TextChoices):
     ETHICS_EXPIRY = "ethics_expiry"
     RETENTION_DUE = "retention_due"
@@ -71,6 +149,11 @@ class NotificationKind(models.TextChoices):
     TASK_UNASSIGNED = "task_unassigned"
     PROJECT_EXPORTED = "project_exported"
     INTEGRATION_ISSUE = "integration_issue"
+    # Run 4
+    TASK_POST = "task_post"
+    # Run 5 (training, D178)
+    TRAINING_EXPIRY = "training_expiry"
+    TRAINING_DIGEST = "training_digest"
 
 
 class Notification(LabScopedModel):
