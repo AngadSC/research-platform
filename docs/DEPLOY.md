@@ -6,6 +6,30 @@ for HTTPS. Nothing here is automated: you run each step yourself.
 The files are in `deploy/` and `backend/Dockerfile.prod`, `frontend/Dockerfile.prod`.
 The development stack (`docker-compose.yml`) is separate and is not for production.
 
+## The test server (2026-11-07)
+
+`https://research.angadchahil.com` runs this stack for testing, with fake data only.
+
+- **Host:** CanHost VPS (Canada), Ubuntu 24.04, 2 vCPU, 4 GB RAM plus 4 GB swap, 40 GB disk, IP `66.209.180.131`.
+  - SSH login is user `angad` with a key only: password and root login are off.
+  - The firewall allows 22, 80 and 443.
+- **DNS:** an A record in Cloudflare, set to DNS only (grey cloud), so long assistant streams are not cut off at 100 s.
+- **Code:** in `~/app`, copied from the committed `HEAD`. There's no git checkout and no GitHub credentials on the server.
+- **Secrets:** generated on the server, in `~/app/deploy/.env.prod` (mode 600). `~/app/deploy/.env` holds only `SITE_DOMAIN`.
+- **Not set yet:**
+  - **Email:** the console backend, so emails only appear in `docker compose -f docker-compose.prod.yml logs worker`.
+  - **File bucket:** uploads go to the `labfiles` volume on the server.
+  - **Google and other OAuth apps:** not configured.
+  - **Backups:** none.
+  - **The audit-table role (section 7):** not applied.
+- **Accounts:** the seed accounts (`pi@`, `admin@`, `lead@`, `student@` and `viewer@example.test`) have a random password set on the server, not the one in `seed_pilot.py`. The seed was loaded once with `run --rm -e DEBUG=True`.
+- **Redeploy after committing:** `sh deploy/push.sh`. It copies `HEAD`, rebuilds, migrates and restarts.
+- **Before real data goes on it:**
+  - set up email
+  - set up a bucket or backups
+  - apply the audit role
+  - remove the seed lab
+
 ## 1. What you need
 
 - **A server** with Docker Engine and the Compose plugin. Two vCPU and 4 GB RAM is enough for a

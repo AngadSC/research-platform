@@ -1,5 +1,7 @@
 # Handoff
 
+**Test server (2026-11-07):** `https://research.angadchahil.com`. Setup, limits and how to redeploy are at the top of `docs/DEPLOY.md`.
+
 ## Run 5: SSO, bring-your-own AI, PI dashboard, training, data management (2026-11-05)
 
 Built, tested, reviewed and pushed. **Full notes, every issue and every design choice are in `docs/RUN5_NOTES.md`.** Decisions are D152–D204 in `docs/DECISIONS.md`. Nothing has touched a real university sign-in server, a real Claude or ChatGPT connector, or a real API key.
