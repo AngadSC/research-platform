@@ -16,12 +16,15 @@ The development stack (`docker-compose.yml`) is separate and is not for producti
 - **DNS:** an A record in Cloudflare, set to DNS only (grey cloud), so long assistant streams are not cut off at 100 s.
 - **Code:** in `~/app`, copied from the committed `HEAD`. There's no git checkout and no GitHub credentials on the server.
 - **Secrets:** generated on the server, in `~/app/deploy/.env.prod` (mode 600). `~/app/deploy/.env` holds only `SITE_DOMAIN`.
+- **Set up (2026-11-07):**
+  - **Email:** Postmark, sending as `noreply@angadchahil.com`. That domain is verified in Postmark; the `research.` subdomain is not, so sending from it is refused.
+  - **Google:** sign-in and Drive, with separate OAuth clients in one Cloud project, plus the Picker API key.
 - **Not set yet:**
-  - **Email:** the console backend, so emails only appear in `docker compose -f docker-compose.prod.yml logs worker`.
   - **File bucket:** uploads go to the `labfiles` volume on the server.
-  - **Google and other OAuth apps:** not configured.
+  - **OneDrive, Dropbox, Box:** OAuth apps not created.
   - **Backups:** none.
   - **The audit-table role (section 7):** not applied.
+- **Secrets go only in `~/app/deploy/.env.prod` on the server,** never in `.env.prod.example`. The example file is tracked by git.
 - **Accounts:** the seed accounts (`pi@`, `admin@`, `lead@`, `student@` and `viewer@example.test`) have a random password set on the server, not the one in `seed_pilot.py`. The seed was loaded once with `run --rm -e DEBUG=True`.
 - **Redeploy after committing:** `sh deploy/push.sh`. It copies `HEAD`, rebuilds, migrates and restarts.
 - **Before real data goes on it:**
