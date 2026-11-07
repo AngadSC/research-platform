@@ -69,6 +69,9 @@ services:
     restart: unless-stopped
     volumes:
       - labfiles:/data/lab_files
+    # The image's HEALTHCHECK probes gunicorn, which only the backend runs.
+    healthcheck:
+      disable: true
     command: ["celery", "-A", "config", "worker", "-l", "info"]
     depends_on:
       postgres:
@@ -81,6 +84,9 @@ services:
     <<: *env
     restart: unless-stopped
     # The app user cannot write /app, so the schedule file goes to /tmp.
+    # The image's HEALTHCHECK probes gunicorn, which only the backend runs.
+    healthcheck:
+      disable: true
     command: ["celery", "-A", "config", "beat", "-l", "info", "-s", "/tmp/celerybeat-schedule"]
     depends_on:
       postgres:
