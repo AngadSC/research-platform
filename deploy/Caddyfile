@@ -1,6 +1,7 @@
-# Production reverse proxy (docs/DEPLOY.md). Replace the placeholder domain with yours. Caddy gets
-# and renews the TLS certificate itself once DNS points at this server and ports 80 and 443 are open.
-research.example.org {
+# Production reverse proxy (docs/DEPLOY.md). The domain comes from SITE_DOMAIN in deploy/.env (read by
+# docker compose). Caddy gets and renews the TLS certificate itself once DNS points at this server
+# and ports 80 and 443 are open.
+{$SITE_DOMAIN} {
 	encode zstd gzip
 
 	# D53 (docs/DECISIONS.md): stop oversized bodies before gunicorn. The app allows

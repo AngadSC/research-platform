@@ -43,6 +43,9 @@ services:
     image: research-backend:prod
     <<: *env
     restart: unless-stopped
+    # Uploaded files when no LAB_FILES_BUCKET is set (local disk storage).
+    volumes:
+      - labfiles:/data/lab_files
     # D190: the in-app assistant streams answers (server-sent events) that can run for minutes.
     # gthread keeps one open stream from using up a whole worker, and the timeout is raised from
     # the 30 s default so a long answer is not killed. Caddy must not buffer them (see Caddyfile).
@@ -64,6 +67,8 @@ services:
     image: research-backend:prod
     <<: *env
     restart: unless-stopped
+    volumes:
+      - labfiles:/data/lab_files
     command: ["celery", "-A", "config", "worker", "-l", "info"]
     depends_on:
       postgres:
@@ -88,6 +93,9 @@ services:
       context: ../frontend
       dockerfile: Dockerfile.prod
     restart: unless-stopped
+    # deploy/.env (not committed) holds SITE_DOMAIN=your.domain; compose reads it automatically.
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?set SITE_DOMAIN in deploy/.env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddydata:/data  # certificates; back this up or Caddy re-requests them
@@ -100,6 +108,7 @@ services:
 
 volumes:
   pgdata:
+  labfiles:
   valkeydata:
   caddydata:
   caddyconfig:
