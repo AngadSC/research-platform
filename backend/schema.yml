@@ -1208,6 +1208,34 @@ paths:
                 items:
                   $ref: '#/components/schemas/ChatUnread'
           description: ''
+  /api/labs/{lab_id}/contributions/:
+    get:
+      operationId: labs_contributions_retrieve
+      description: A year of daily activity counts for the whole lab or one member
+        (the contribution graph).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: user
+        schema:
+          type: string
+        description: A lab member's id. Leave out for the whole lab.
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contributions'
+          description: ''
   /api/labs/{lab_id}/dashboard/:
     get:
       operationId: labs_dashboard_retrieve
@@ -7981,6 +8009,82 @@ components:
       - id
       - name
       - role
+    ContributionDay:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        count:
+          type: integer
+        by_kind:
+          $ref: '#/components/schemas/ContributionKinds'
+      required:
+      - by_kind
+      - count
+      - date
+    ContributionKinds:
+      type: object
+      properties:
+        documents:
+          type: integer
+          description: Documents edited (each document once a day).
+        files:
+          type: integer
+          description: Files uploaded.
+        tasks:
+          type: integer
+          description: Tasks created.
+        task_updates:
+          type: integer
+          description: Updates posted on tasks.
+        chat:
+          type: integer
+          description: Project chat messages.
+        records:
+          type: integer
+          description: Projects, datasets, analyses, results, decisions, manuscripts,
+            funding, reviews, recruitment entries, data management plan edits and
+            ethics approvals.
+      required:
+      - chat
+      - documents
+      - files
+      - records
+      - task_updates
+      - tasks
+    Contributions:
+      type: object
+      properties:
+        start:
+          type: string
+          format: date
+          description: A Sunday; the first day of the grid.
+        end:
+          type: string
+          format: date
+          description: Today, the last day of the grid.
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null for the whole lab.
+        total:
+          type: integer
+        by_kind:
+          $ref: '#/components/schemas/ContributionKinds'
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContributionDay'
+          description: Only days with activity, oldest first.
+      required:
+      - by_kind
+      - days
+      - end
+      - start
+      - total
+      - user_id
     Conversation:
       type: object
       properties:

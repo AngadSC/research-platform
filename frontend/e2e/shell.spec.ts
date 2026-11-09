@@ -1,17 +1,21 @@
 import { expect, test } from "@playwright/test";
 import { login } from "./helpers";
 
-test("landing page has Sign in and Register at the top right", async ({ page }) => {
+test("marketing home has Sign in at the top right, leading to the sign-in page", async ({
+  page,
+}) => {
   await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Run your entire lab on one platform." }),
+  ).toBeVisible();
   const signIn = page.getByRole("banner").getByRole("link", { name: "Sign in" });
-  const register = page.getByRole("banner").getByRole("link", { name: "Register" });
   await expect(signIn).toBeVisible();
-  await expect(register).toBeVisible();
-  const box = (await register.boundingBox())!;
+  await expect(page.getByRole("banner").getByRole("link", { name: "Contact us" })).toBeVisible();
+  const box = (await signIn.boundingBox())!;
   expect(box.x).toBeGreaterThan(page.viewportSize()!.width / 2);
-  expect(box.y).toBeLessThan(100);
-  await register.click();
-  await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
+  expect(box.y).toBeLessThan(140);
+  await signIn.click();
+  await expect(page).toHaveURL(/\/login/);
 });
 
 test("dark mode persists across a reload and is saved to the account", async ({ page }) => {

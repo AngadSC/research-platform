@@ -2,7 +2,9 @@ import { FileCheck2, GitBranch, Plug, UserRoundCheck } from "lucide-react";
 import { Link } from "react-router";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { Button } from "@/components/ui/button";
-import { APP_NAME } from "@/lib/constants";
+import logo from "@/assets/brand/labbenchos-logo.png";
+import logoOnDark from "@/assets/brand/labbenchos-logo-dark-bg.png";
+import { MarketingHome } from "@/pages/landing/MarketingHome";
 
 const FEATURES = [
   {
@@ -31,8 +33,9 @@ const FEATURES = [
 export function LandingHeader() {
   return (
     <header className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-4 md:px-8">
-      <Link to="/" className="text-base font-semibold">
-        {APP_NAME}
+      <Link to="/" aria-label="labbenchos home">
+        <img src={logo} alt="labbenchos" className="h-8 w-auto dark:hidden" />
+        <img src={logoOnDark} alt="labbenchos" className="hidden h-8 w-auto dark:block" />
       </Link>
       <div className="ml-auto flex items-center gap-2">
         <ThemeToggle />
@@ -65,33 +68,17 @@ export function HeroText({ as: H = "p" }: { as?: "h1" | "p" }) {
   return (
     <div className="grid gap-4">
       <H className="text-4xl font-semibold tracking-tight text-balance md:text-5xl">
-        Your lab&rsquo;s research, in one traceable place.
+        Run your entire lab on one platform.
       </H>
       <p className="max-w-xl text-lg text-muted-foreground">
-        Keep projects, documents, data files and results together, with a clear record of where
-        everything came from and who approved it.
+        From ethics approval and funding to experiments and publication, labbenchos connects every
+        step of your research with the tools and AI your lab already uses.
       </p>
     </div>
   );
 }
 
-/** Signed-out home at "/". */
+/** Signed-out home at "/": the labbenchos marketing page. Sign in leads into the app. */
 export function LandingPage() {
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <LandingHeader />
-      <main className="mx-auto grid max-w-5xl gap-16 px-4 py-16 md:px-8">
-        <HeroText as="h1" />
-        <div className="flex gap-3">
-          <Button asChild size="lg">
-            <Link to="/signup">Register</Link>
-          </Button>
-          <Button asChild size="lg" variant="outline">
-            <Link to="/login">Sign in</Link>
-          </Button>
-        </div>
-        <Features />
-      </main>
-    </div>
-  );
+  return <MarketingHome />;
 }

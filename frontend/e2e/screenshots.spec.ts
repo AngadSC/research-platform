@@ -343,7 +343,7 @@ test.describe("@screenshots", () => {
 
   test("run 4: landing, workflow, overview, tasks, admin, settings, dark", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("link", { name: "Register" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Sign in" }).first()).toBeVisible();
     await shot(page, "44-landing");
 
     await login(page, "pi");
