@@ -1,5 +1,10 @@
 /** Copy for the public home page, kept apart from the layout so it is easy to edit. */
 
+/** Where every "Contact us" button goes: the contact block at the bottom of the pricing page. */
+export const CONTACT_PATH = "/pricing#contact";
+/** Address shown in that block. Fill in before launch; the page shows a placeholder until then. */
+export const CONTACT_EMAIL = "";
+
 export const STEPS = [
   {
     label: "Plan",
@@ -48,7 +53,7 @@ export const STEPS = [
     title: "Build and train the team",
     body: "Bring people on board quickly and keep everyone certified for the work they do.",
     points: [
-      { t: "Invite by lab code", d: "New members join the right lab and projects in seconds." },
+      { t: "Invite by email", d: "New members join the right lab with the right role in seconds." },
       { t: "Onboarding checklists", d: "A starter list of protocols and training for each role." },
       { t: "Training records", d: "Certificates on file with reminders before they lapse." },
       { t: "Roles and permissions", d: "Everyone sees exactly what they need, nothing more." },
@@ -61,8 +66,11 @@ export const STEPS = [
     points: [
       { t: "Lab notebook", d: "Record entries linked to protocols, samples and people." },
       { t: "Protocols and SOPs", d: "Always the latest version, with full history." },
-      { t: "Inventory and equipment", d: "Check stock, find locations and book equipment." },
-      { t: "Tasks and scheduling", d: "Sessions and tasks synced to Google Calendar." },
+      {
+        t: "Inventory and orders",
+        d: "Check stock, find locations and track orders until they arrive.",
+      },
+      { t: "Tasks and calendar", d: "Tasks, deadlines and lab events on one shared calendar." },
     ],
   },
   {
@@ -110,7 +118,7 @@ export const ROLES = [
     title: "Keep the lab running smoothly",
     body: "Inventory, equipment and onboarding in one place instead of five spreadsheets.",
     points: [
-      "Low-stock alerts and equipment booking",
+      "Inventory, orders and the lab calendar",
       "Onboarding checklists for new members",
       "Roles and permissions by lab",
     ],
@@ -134,9 +142,9 @@ export const PLANS = [
     desc: "For a single researcher, student or independent project.",
     featured: false,
     features: [
-      "Personal projects and notebook",
-      "Tasks and protocols",
-      "Google Workspace integration",
+      "Projects, tasks and documents",
+      "Datasets, analyses and lineage",
+      "Connect Drive, GitHub, Zotero and more",
       "Bring your own AI",
       "Email support",
     ],
@@ -147,10 +155,10 @@ export const PLANS = [
     featured: true,
     features: [
       "Everything in Individual",
-      "Unlimited lab members",
-      "Ethics and funding tracking",
-      "Training records and inventory",
-      "Roles, permissions and lab codes",
+      "Invite your whole lab by email",
+      "Ethics, funding and data plans",
+      "Training records, inventory and orders",
+      "Handover reports when people leave",
     ],
   },
   {
@@ -159,9 +167,9 @@ export const PLANS = [
     featured: false,
     features: [
       "Everything in Lab, for every lab",
-      "University single sign-on",
-      "Admin and compliance reporting",
-      "Approved AI models across labs",
+      "University single sign-on (SAML)",
+      "Your institution's ethics and funding links built in",
+      "Lab-level control over AI use",
       "Dedicated onboarding and support",
     ],
   },
@@ -169,22 +177,24 @@ export const PLANS = [
 
 export const INTEGRATIONS = [
   "Google Drive",
-  "Google Docs",
-  "Google Sheets",
-  "Google Calendar",
-  "Gmail",
+  "OneDrive",
+  "Dropbox",
+  "GitHub",
+  "GitLab",
+  "Overleaf",
   "Zotero",
-  "ORCID",
   "REDCap",
-  "Slack",
-  "Microsoft 365",
+  "Qualtrics",
+  "OSF",
+  "Zenodo",
+  "Borealis",
 ];
 
 export const AI_MODELS = [
   { name: "Claude", tag: "Supported" },
   { name: "ChatGPT", tag: "Supported" },
-  { name: "Gemini", tag: "Supported" },
-  { name: "Your own model", tag: "Custom" },
+  { name: "Other MCP apps", tag: "Connector" },
+  { name: "Your own API key", tag: "In-app" },
 ];
 
 export const MODULES = [
@@ -220,12 +230,12 @@ export const MODULES = [
   },
   {
     title: "Inventory",
-    body: "Reagents, supplies and equipment with locations and low-stock alerts.",
+    body: "Equipment, reagents and licences with locations, orders and CSV export.",
     icon: "M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8",
   },
   {
     title: "Integrations",
-    body: "Connect Google Workspace and other lab resources your team relies on.",
+    body: "Link files from Drive, OneDrive, GitHub, Zotero, REDCap and more.",
     icon: "M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7",
   },
   {

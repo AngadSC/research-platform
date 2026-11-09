@@ -50,8 +50,27 @@ import { PapersPage } from "@/pages/papers/PapersPage";
 import { MyTrainingPage } from "@/pages/training/MyTrainingPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { OAuthConsentPage } from "@/pages/OAuthConsentPage";
+import { MarketingLayout } from "@/pages/landing/MarketingLayout";
+import { FeaturesPage } from "@/pages/landing/pages/FeaturesPage";
+import { InstitutionsPage } from "@/pages/landing/pages/InstitutionsPage";
+import { LabsPage } from "@/pages/landing/pages/LabsPage";
+import { PricingPage } from "@/pages/landing/pages/PricingPage";
+import { StudentsPage } from "@/pages/landing/pages/StudentsPage";
+import { WorkflowPage } from "@/pages/landing/pages/WorkflowPage";
 
 export const routes: RouteObject[] = [
+  {
+    // Public marketing pages. Open to everyone, signed in or not; the home page is "/" below.
+    element: <MarketingLayout />,
+    children: [
+      { path: "/features", element: <FeaturesPage /> },
+      { path: "/workflow", element: <WorkflowPage /> },
+      { path: "/for-labs", element: <LabsPage /> },
+      { path: "/for-students", element: <StudentsPage /> },
+      { path: "/for-institutions", element: <InstitutionsPage /> },
+      { path: "/pricing", element: <PricingPage /> },
+    ],
+  },
   {
     element: <AuthLayout />,
     children: [
