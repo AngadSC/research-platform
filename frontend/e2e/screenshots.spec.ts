@@ -86,7 +86,8 @@ test.describe("@screenshots", () => {
     await shot(page, "06-documents-list");
     await page.getByText("Study protocol draft (FAKE)").click();
     await expect(page.getByLabel("Document content")).toBeVisible();
-    await page.getByRole("button", { name: "History" }).click();
+    await page.getByRole("button", { name: "Document options" }).click();
+    await page.getByRole("menuitem", { name: "History" }).click();
     await page.getByRole("button", { name: /^Version 1\b/ }).click();
     await shot(page, "07-document-revisions");
 

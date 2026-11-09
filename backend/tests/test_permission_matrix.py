@@ -34,6 +34,7 @@ from labs.models import (  # admin area (Run 4)
     LabRole,
     OnboardingItem,
 )
+from papers import services as paper_services  # paper library
 from projects.models import (  # projects/tasks (Phase 3)
     ChatMessage,
     Project,
@@ -163,6 +164,12 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "documents:attachment-detail"): "401 404 2 2 2 2 2 404 2",
     ("DELETE", "documents:attachment-detail"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:attachment-download"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "documents:document-move"): "401 404 2 2 2 2 403 404 403",
+    ("POST",   "documents:attachment-move"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "documents:folder-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "documents:folder-list"): "401 404 2 2 2 2 403 404 403",
+    ("PATCH",  "documents:folder-detail"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "documents:folder-detail"): "401 404 2 2 2 2 403 404 403",
     # --- end documents/attachments (Phase 3) ---
     # --- provenance (Phase 4) ---
     # Same shape as documents: reads need view_project (everyone on P1, the capped lab viewer
@@ -296,6 +303,7 @@ MATRIX: dict[tuple[str, str], str] = {
     # viewer gets 403 (D147). Another lab's ids are 404 for everyone (cross-lab swap test).
     ("GET",    "labs:resource-list"): "401 404 2 2 2 2 2 2 2",
     ("POST",   "labs:resource-list"): "401 404 2 2 403 403 403 403 403",
+    ("POST",   "labs:resource-load-starters"): "401 404 2 2 403 403 403 403 403",
     ("PATCH",  "labs:resource-detail"): "401 404 2 2 403 403 403 403 403",
     ("DELETE", "labs:resource-detail"): "401 404 2 2 403 403 403 403 403",
     ("GET",    "labs:onboarding-list"): "401 404 2 2 403 403 403 403 403",
@@ -333,6 +341,22 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "training:my-training"): "401 404 2 2 2 2 2 2 2",
     ("GET",    "training:expiring"): "401 404 2 2 403 403 403 403 403",
     # --- end training (Run 5) ---
+    # --- paper library ---
+    # Every member reads; contribute_lab (not the lab viewer) adds. The fixture paper and note are
+    # contrib's: an author edits only their own note; the author, pi or admin removes it.
+    ("GET",    "papers:paper-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "papers:paper-list"): "401 404 2 2 2 2 2 2 403",
+    ("GET",    "papers:doi-lookup"): "401 404 2 2 2 2 2 2 403",
+    ("GET",    "papers:paper-detail"): "401 404 2 2 2 2 2 2 2",
+    ("PATCH",  "papers:paper-detail"): "401 404 2 2 2 2 2 2 403",
+    ("DELETE", "papers:paper-detail"): "401 404 2 2 403 2 403 403 403",
+    ("GET",    "papers:paper-pdf"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "papers:paper-pdf"): "401 404 2 2 2 2 2 2 403",
+    ("GET",    "papers:paper-citation"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "papers:paper-notes"): "401 404 2 2 2 2 2 2 403",
+    ("PATCH",  "papers:note-detail"): "401 404 403 403 403 2 403 403 403",
+    ("DELETE", "papers:note-detail"): "401 404 2 2 403 2 403 403 403",
+    # --- end paper library ---
     # --- AI access (Run 5, D160-D169) ---
     # The consent API and your own grants need only a login (they are the user's own); the
     # payloads consent for, or create a token on, the persona's own lab. The fixture grant is
@@ -394,6 +418,10 @@ def _doc_fixtures(lab, project, user, tag):
     )
     attachment = document_services.upload_attachment(project=project, user=user, file=pdf)
     return doc, attachment
+
+
+def _folder_fixture(project, user, tag):
+    return document_services.create_folder(project=project, user=user, name=f"Folder {tag}")
 
 
 # --- end documents/attachments (Phase 3) ---
@@ -580,6 +608,18 @@ def _training_fixtures(lab, owner, tag):
 # --- end training (Run 5) ---
 
 
+def _paper_fixtures(lab, owner, tag):  # paper library
+    paper = paper_services.create_paper(
+        lab, user=owner, data={"title": f"Paper {tag}", "abstract": f"Abstract {tag}"}
+    )
+    note = paper_services.add_note(paper, author=owner, body=f"Paper note {tag}")
+    pdf = SimpleUploadedFile(
+        f"paper-{tag}.pdf", f"%PDF-1.4 bytes of {tag}".encode(), content_type="application/pdf"
+    )
+    paper_services.upload_pdf(paper, user=owner, file=pdf)
+    return paper, note
+
+
 @pytest.fixture(autouse=True)
 def _matrix_fake_provider(monkeypatch, settings):
     """The fake provider is configured, and reads items without any network."""
@@ -733,6 +773,7 @@ def build_world():
     )  # integrations (Run 2)
     res_a, onb_a, inv_a = _admin_fixtures(lab_a, "lab-a")  # admin area (Run 4)
     tr_free_a, tr_rec_a = _training_fixtures(lab_a, users["contrib"], "lab-a")  # training (Run 5)
+    paper_a, paper_note_a = _paper_fixtures(lab_a, users["contrib"], "lab-a")
     ai_a = _ai_fixtures(lab_a, users["contrib"], "lab-a")  # AI access (Run 5)
     for persona_user in users.values():  # in-app assistant (Run 5): everyone holds a key
         row = AIProviderKey(user=persona_user, provider="anthropic")
@@ -776,6 +817,7 @@ def build_world():
     )  # integrations (Run 2)
     res_b, onb_b, inv_b = _admin_fixtures(lab_b, "LAB-B-SECRET")  # admin area (Run 4)
     tr_free_b, tr_rec_b = _training_fixtures(lab_b, secret_pi, "LAB-B-SECRET")  # training (Run 5)
+    paper_b, paper_note_b = _paper_fixtures(lab_b, secret_pi, "LAB-B-SECRET")
     ai_b = _ai_fixtures(lab_b, secret_pi, "LAB-B-SECRET")  # AI access (Run 5)
     conv_b = _assistant_fixtures(lab_b, secret_pi, p1_b, "LAB-B-SECRET")  # assistant (Run 5)
     invite_b, _ = Invite.issue(
@@ -803,6 +845,7 @@ def build_world():
             "document_id": doc_a.pk,
             "version": 1,
             "attachment_id": attachment_a.pk,
+            "folder_id": _folder_fixture(p1, users["pi"], "lab-a").pk,
             **prov_a,  # provenance (Phase 4)
             "ethicsapproval_id": eth_a.pk,  # ethics and notifications (Phase 5)
             "notification_id": note_a.pk,
@@ -815,6 +858,8 @@ def build_world():
             "inventoryitem_id": inv_a.pk,
             "trainingrequirement_id": tr_free_a.pk,  # training (Run 5)
             "trainingrecord_id": tr_rec_a.pk,
+            "paper_id": paper_a.pk,
+            "papernote_id": paper_note_a.pk,
             "aigrant_id": ai_a.pk,  # AI access (Run 5)
             "ai_provider": "anthropic",  # in-app assistant (Run 5)
             "conversation_id": conv_a.pk,
@@ -834,6 +879,7 @@ def build_world():
             "document_id": doc_b.pk,
             "version": 1,
             "attachment_id": attachment_b.pk,
+            "folder_id": _folder_fixture(p1_b, secret_pi, "LAB-B-SECRET").pk,
             **prov_b,  # provenance (Phase 4)
             "ethicsapproval_id": eth_b.pk,  # ethics and notifications (Phase 5)
             "notification_id": note_b.pk,
@@ -846,6 +892,8 @@ def build_world():
             "inventoryitem_id": inv_b.pk,
             "trainingrequirement_id": tr_free_b.pk,  # training (Run 5)
             "trainingrecord_id": tr_rec_b.pk,
+            "paper_id": paper_b.pk,
+            "papernote_id": paper_note_b.pk,
             "aigrant_id": ai_b.pk,  # AI access (Run 5)
             "ai_provider": "anthropic",  # in-app assistant (Run 5)
             "conversation_id": conv_b.pk,
@@ -860,6 +908,7 @@ def build_world():
             "Post LAB-B-SECRET",  # task thread (Run 4)
             # --- documents/attachments (Phase 3): titles, filename and the file's bytes ---
             "Doc LAB-B-SECRET",
+            "Folder LAB-B-SECRET",
             "file-LAB-B-SECRET.pdf",
             "bytes of LAB-B-SECRET",
             # --- provenance (Phase 4): every title and the repo URL carry the tag ---
@@ -892,6 +941,9 @@ def build_world():
             "Notes LAB-B-SECRET",
             "cert-LAB-B-SECRET.pdf",
             "cert bytes of LAB-B-SECRET",
+            "Paper LAB-B-SECRET",
+            "Paper note LAB-B-SECRET",
+            "paper-LAB-B-SECRET.pdf",
             "AI grant LAB-B-SECRET",  # AI access (Run 5)
             "Chat LAB-B-SECRET",  # in-app assistant (Run 5)
             "Question LAB-B-SECRET",
@@ -1000,6 +1052,10 @@ PAYLOADS = {
         "file": SimpleUploadedFile("up.pdf", b"%PDF-1.4 upload", content_type="application/pdf"),
         "acknowledged_notice": "true",
     },
+    ("POST", "documents:document-move"): lambda user, w: {"folder": None},
+    ("POST", "documents:attachment-move"): lambda user, w: {"folder": None},
+    ("POST", "documents:folder-list"): lambda user, w: {"name": "New folder"},
+    ("PATCH", "documents:folder-detail"): lambda user, w: {"name": "Renamed folder"},
     # --- end documents/attachments (Phase 3) ---
     # --- provenance (Phase 4): links point at Lab A / P1 fixtures, so allowed calls return 2xx ---
     ("POST", "provenance:dataset-list"): lambda user, w: {
@@ -1085,6 +1141,7 @@ PAYLOADS = {
     },
     # --- end ethics and notifications (Phase 5) ---
     # --- admin area (Run 4) ---
+    ("POST", "labs:resource-load-starters"): lambda user, w: {},
     ("POST", "labs:resource-list"): lambda user, w: {
         "category": "ethics",
         "title": "New resource",
@@ -1118,6 +1175,16 @@ PAYLOADS = {
         "acknowledged_notice": "true",
     },
     # --- end training (Run 5) ---
+    # --- paper library ---
+    ("POST", "papers:paper-list"): lambda user, w: {"title": f"New paper {next(_n)}"},
+    ("PATCH", "papers:paper-detail"): lambda user, w: {"venue": "Edited"},
+    ("POST", "papers:paper-pdf"): lambda user, w: {
+        "file": SimpleUploadedFile("up.pdf", b"%PDF-1.4 upload", content_type="application/pdf"),
+        "acknowledged_notice": "true",
+    },
+    ("POST", "papers:paper-notes"): lambda user, w: {"body": "New note"},
+    ("PATCH", "papers:note-detail"): lambda user, w: {"body": "Edited"},
+    # --- end paper library ---
     # --- AI access (Run 5) ---
     ("POST", "assistant:authorize"): _ai_consent,
     ("POST", "assistant:grant-list"): lambda user, w: {

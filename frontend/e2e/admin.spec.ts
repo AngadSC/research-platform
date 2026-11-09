@@ -20,7 +20,8 @@ test("an admin sees Admin and a member does not", async ({ browser }) => {
 
 test("Settings saves the theme and the default task view", async ({ page }) => {
   await login(page, "lead");
-  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Account menu" }).click();
+  await page.getByRole("menuitem", { name: "Settings" }).click();
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
 
   const appearance = page.getByRole("region", { name: "Appearance" });

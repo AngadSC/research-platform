@@ -1,5 +1,6 @@
+import { useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useLabs, useMe } from "@/hooks/workspace";
@@ -74,6 +75,11 @@ export function SettingsPage() {
   const lab = useLabs().data?.[0];
   const taskView = me?.preferences?.task_view ?? "board";
   const isAdmin = lab?.my_permissions.includes("manage_lab") ?? false;
+  const { hash } = useLocation();
+  // The account menu links to #profile and #security; a client-side route change won't scroll.
+  useEffect(() => {
+    if (hash) document.getElementById(hash.slice(1))?.scrollIntoView();
+  }, [hash]);
 
   return (
     <>

@@ -1,6 +1,7 @@
 import {
   Archive,
   Bell,
+  BookOpen,
   Boxes,
   CheckSquare,
   FileText,
@@ -39,6 +40,9 @@ export function navItems(labId?: string, permissions: string[] = []) {
     ...(labId ? [{ to: `/labs/${labId}/members`, label: "Members", icon: Users, end: false }] : []),
     ...(labId
       ? [{ to: `/labs/${labId}/inventory`, label: "Inventory", icon: Boxes, end: false }]
+      : []),
+    ...(labId
+      ? [{ to: `/labs/${labId}/papers`, label: "Papers", icon: BookOpen, end: false }]
       : []),
     ...(labId
       ? [{ to: `/labs/${labId}/training`, label: "My training", icon: GraduationCap, end: false }]

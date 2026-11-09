@@ -24,6 +24,7 @@ import type { Project } from "@/lib/api-types";
 import { useRegisterCommands } from "@/lib/commands";
 import { formErrors } from "@/lib/forms";
 import { PROJECT_SECTIONS } from "@/lib/nav";
+import { projectColorStyle } from "@/lib/projectColors";
 import { ProjectFormDialog } from "@/pages/project/ProjectFormDialog";
 
 /** Props every project tab component receives. */
@@ -94,6 +95,11 @@ export function ProjectPage() {
 
   return (
     <>
+      <div
+        aria-hidden
+        style={projectColorStyle(project.color)}
+        className="mb-3 h-1 w-16 rounded-full bg-(--project)"
+      />
       <PageHeader
         title={project.name}
         description={undefined}

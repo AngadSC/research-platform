@@ -101,3 +101,47 @@ def test_me_preferences_are_validated_and_merged(make_user):
     assert resp.json()["preferences"] == {"theme": "dark", "task_view": "list"}
     for bad in ({"theme": "neon"}, {"evil": "x"}, ["theme"]):
         assert c.patch("/api/me/", {"preferences": bad}, format="json").status_code == 400
+
+
+@pytest.mark.django_db
+def test_me_saved_links_are_validated(make_user):
+    """Pins and recents are size-capped and only hold paths on this site."""
+    from rest_framework.test import APIClient
+
+    c = APIClient()
+    c.force_authenticate(make_user())
+    pin = {"url": "/labs/1/projects/2", "label": "Sleep"}
+    recent = {**pin, "kind": "project", "at": "2026-11-08T12:00:00.000Z"}
+
+    def status(**prefs):
+        return c.patch("/api/me/", {"preferences": prefs}, format="json").status_code
+
+    assert status(pins=[pin], recents=[recent]) == 200
+    assert c.get("/api/me/").json()["preferences"] == {"pins": [pin], "recents": [recent]}
+    for url in (
+        "https://evil.example",
+        "//evil.example",
+        "/\\evil.example",
+        "/\t/evil.example",
+        "javascript:alert(1)",
+        "relative",
+        "/" + "x" * 500,
+    ):
+        assert status(pins=[{**pin, "url": url}]) == 400, url
+    for bad in (
+        [pin] * 21,
+        [{**pin, "label": ""}],
+        [{**pin, "label": "x" * 301}],
+        [{**pin, "label": "a\nb"}],
+        [{**pin, "extra": 1}],
+        [{"url": 1, "label": "x"}],
+        "nope",
+    ):
+        assert status(pins=bad) == 400, bad
+    for bad in (
+        [recent] * 13,
+        [{**recent, "kind": "evil"}],
+        [{**recent, "at": "soon"}],
+        [{**recent, "at": "2026-13-45T00:00:00Z"}],
+    ):
+        assert status(recents=bad) == 400, bad

@@ -403,7 +403,7 @@ function Detail({
           </>
         }
       />
-      <dl className="grid max-w-3xl gap-4 text-sm">
+      <dl className="grid gap-4 text-sm">
         {fields(kind, r, labId, base).map(([k, v]) => (
           <div key={k} className="grid gap-1 sm:grid-cols-[12rem_1fr]">
             <dt className="text-muted-foreground">{k}</dt>
@@ -412,7 +412,7 @@ function Detail({
         ))}
       </dl>
       {kind in LINK_FIELD && (
-        <section aria-labelledby="linked-files" className="grid max-w-3xl gap-2">
+        <section aria-labelledby="linked-files" className="grid gap-2">
           <h2 id="linked-files" className="text-sm font-medium">
             Linked files
           </h2>

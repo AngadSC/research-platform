@@ -43,6 +43,8 @@ import { NotificationsPage, RetentionPage } from "@/pages/ethics/LabPages";
 import { IntegrationsErrorPage, IntegrationsPage } from "@/pages/IntegrationsPage";
 import { AdminPage } from "@/pages/admin/AdminPage";
 import { InventoryPage } from "@/pages/admin/InventoryPage";
+import { PaperDetailPage } from "@/pages/papers/PaperDetailPage";
+import { PapersPage } from "@/pages/papers/PapersPage";
 import { MyTrainingPage } from "@/pages/training/MyTrainingPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { OAuthConsentPage } from "@/pages/OAuthConsentPage";
@@ -268,6 +270,21 @@ export const routes: RouteObject[] = [
               { path: "audit-log", element: <AuditLogPage />, handle: { crumb: "Audit log" } },
               { path: "admin", element: <AdminPage />, handle: { crumb: "Admin" } },
               { path: "inventory", element: <InventoryPage />, handle: { crumb: "Inventory" } },
+              {
+                path: "papers",
+                handle: { crumb: "Papers" },
+                children: [
+                  { index: true, element: <PapersPage /> },
+                  {
+                    path: ":paperId",
+                    handle: { crumb: "@paper" },
+                    children: [
+                      { index: true, element: <PaperDetailPage /> },
+                      { path: "pdf", element: <PdfViewerRoute />, handle: { crumb: "View PDF" } },
+                    ],
+                  },
+                ],
+              },
               { path: "training", element: <MyTrainingPage />, handle: { crumb: "My training" } },
               {
                 path: "settings/integrations",

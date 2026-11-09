@@ -16,15 +16,17 @@ export function CreateLabPage() {
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const name = String(new FormData(e.currentTarget).get("name") ?? "").trim();
+    const fd = new FormData(e.currentTarget);
+    const name = String(fd.get("name") ?? "").trim();
+    const institution_name = String(fd.get("institution_name") ?? "").trim();
     if (!name) return setErrors({ fields: { name: "Enter a name for your lab" } });
     setErrors({ fields: {} });
     try {
-      const lab = await create.mutateAsync({ name });
+      const lab = await create.mutateAsync(institution_name ? { name, institution_name } : { name });
       toast.success("Lab created");
       void navigate(`/labs/${lab.id}`);
     } catch (err) {
-      setErrors(formErrors(err, ["name"]));
+      setErrors(formErrors(err, ["name", "institution_name"]));
     }
   }
 
@@ -41,6 +43,13 @@ export function CreateLabPage() {
           error={errors.fields.name}
         >
           {(p) => <Input {...p} name="name" autoComplete="off" />}
+        </FormField>
+        <FormField
+          label="University (optional)"
+          hint="We add your university's ethics and funding forms when we recognise it."
+          error={errors.fields.institution_name}
+        >
+          {(p) => <Input {...p} name="institution_name" autoComplete="off" />}
         </FormField>
         <FormError message={errors.form} />
         <Button type="submit" className="justify-self-start" disabled={create.isPending}>

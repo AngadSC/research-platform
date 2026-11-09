@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import uuid
+from datetime import timedelta
 
 from django.conf import settings
 from django.core.files.storage import storages
@@ -18,9 +19,11 @@ from audit.models import AuditAction
 from audit.services import record
 from core.retention import audit_retention, guard_retention, retention_changes
 from core.serializers import UserSerializer
-from documents.models import Attachment, Document, DocumentRevision
+from documents import embed
+from documents.models import Attachment, Document, DocumentRevision, Folder
 
 MAX_CONTENT_BYTES = 1024 * 1024
+AUTOSAVE_WINDOW = timedelta(minutes=15)
 CONTENT_TYPE_RE = re.compile(r"^[\w.+-]+/[\w.+-]+$")
 
 
@@ -46,12 +49,33 @@ def lab_files():
 # ---------------------------------------------------------------- documents
 
 
-def _revise(doc, *, title, content, user, restored_from=None, retention=None):
+def _absorbs_autosave(latest, user) -> bool:
+    """An autosave updates the latest revision in place only if it is this user's own, recent, and
+    not a restore (those stay exactly as restored). The window is from the revision's creation, so
+    long sessions still leave one revision every 15 minutes."""
+    return (
+        latest is not None
+        and latest.created_by_id == user.pk
+        and latest.restored_from_id is None
+        and timezone.now() - latest.created_at < AUTOSAVE_WINDOW
+    )
+
+
+def _revise(doc, *, title, content, user, restored_from=None, retention=None, autosave=False):
+    """Bump the version and write a revision. The caller holds the row lock (`_lock`), and
+    `doc.version` is one past every existing revision, so moving the latest revision to it cannot
+    collide with `revision_doc_version`."""
     doc.title, doc.content, doc.updated_by = title, content, user
     for key, value in (retention or {}).items():
         setattr(doc, key, value)
     doc.version += 1
     doc.save()
+    if autosave:
+        latest = doc.revisions.order_by("-version").first()
+        if _absorbs_autosave(latest, user):
+            latest.version, latest.title, latest.content = doc.version, title, content
+            latest.save(update_fields=["version", "title", "content", "updated_at"])
+            return latest
     return DocumentRevision.objects.create(
         document=doc,
         version=doc.version,
@@ -63,12 +87,18 @@ def _revise(doc, *, title, content, user, restored_from=None, retention=None):
 
 
 @transaction.atomic
-def create_document(*, project, user, title, content) -> Document:
+def create_document(*, project, user, title, content, embed_url="", folder=None) -> Document:
+    """A non-empty `embed_url` makes a document that frames an outside file (documents.embed)."""
     validate_content(content)
+    _check_folder(folder, project.pk)
+    frame, open_url = embed.normalise(embed_url) if embed_url else ("", "")
     doc = Document.objects.create(
         project=project,
         title=title,
         content=content,
+        embed_url=frame,
+        embed_open_url=open_url,
+        folder=folder,
         version=1,
         created_by=user,
         updated_by=user,
@@ -105,16 +135,17 @@ def _conflict(doc):
 
 @transaction.atomic
 def save_document(
-    doc, *, title, content, base_version, user, request=None, **retention
+    doc, *, title, content, base_version, user, request=None, autosave=False, **retention
 ) -> Document:
-    """`retention` may carry `retain_until` and `retention_note` (D55: view_retention to change)."""
+    """`retention` may carry `retain_until` and `retention_note` (D55: view_retention to change).
+    `autosave` may fold this save into the latest revision instead of adding one (`_revise`)."""
     validate_content(content)
     doc = _lock(doc)
     if base_version != doc.version:
         raise _conflict(doc)
     changes = retention_changes(doc, retention)
     guard_retention(user, doc.lab, changes)
-    _revise(doc, title=title, content=content, user=user, retention=retention)
+    _revise(doc, title=title, content=content, user=user, retention=retention, autosave=autosave)
     audit_retention(user, doc.lab, doc, changes, request)
     return doc
 
@@ -158,14 +189,23 @@ def _safe_content_type(declared) -> str:
 
 
 def upload_attachment(
-    *, user, file, project=None, approval=None, training_record=None, request=None
+    *,
+    user,
+    file,
+    project=None,
+    approval=None,
+    training_record=None,
+    paper=None,
+    request=None,
+    folder=None,
 ) -> Attachment:
     """The caller has already checked `acknowledged_notice` (the serializer) and access to the
-    owner: exactly one of `project`, an ethics `approval` or a `training_record` (D38, D175). The
-    key is built here and never taken from the client (D26)."""
-    if sum(o is not None for o in (project, approval, training_record)) != 1:
+    owner: exactly one of `project`, an ethics `approval`, a `training_record` or a `paper` (D38,
+    D175). The key is built here and never taken from the client (D26)."""
+    if sum(o is not None for o in (project, approval, training_record, paper)) != 1:
         raise ValueError("an attachment has exactly one owner")
-    owner = project or approval or training_record
+    owner = project or approval or training_record or paper
+    _check_folder(folder, project.pk if project else None)
     if file.size > settings.ATTACHMENT_MAX_BYTES:
         raise ValidationError({"file": "File is too large (50 MB maximum)."})
     digest = hashlib.sha256()
@@ -183,6 +223,8 @@ def upload_attachment(
                 project=project,
                 ethics_approval=approval,
                 training_record=training_record,
+                paper=paper,
+                folder=folder,
                 storage_key=saved,
                 original_filename="".join(c for c in file.name if c.isprintable())[:255] or "file",
                 content_type=_safe_content_type(file.content_type),
@@ -200,6 +242,7 @@ def upload_attachment(
                 metadata={
                     "ethics_approval": str(approval.pk) if approval else None,
                     "training_record": str(training_record.pk) if training_record else None,
+                    "paper": str(paper.pk) if paper else None,
                     "notice_acknowledged_at": now.isoformat(),
                     "size_bytes": attachment.size_bytes,
                     "sha256": attachment.sha256,
@@ -223,3 +266,45 @@ def delete_attachment(attachment, *, user, request=None) -> None:
         target=attachment,
         request=request,
     )
+
+
+# ---------------------------------------------------------------- folders
+
+
+def _check_folder(folder, project_id) -> None:
+    if folder is not None and folder.project_id != project_id:
+        raise ValidationError({"folder": "That folder is not in this project."})
+
+
+def create_folder(*, project, user, name, parent=None) -> Folder:
+    _check_folder(parent, project.pk)
+    return Folder.objects.create(project=project, parent=parent, name=name, created_by=user)
+
+
+def rename_folder(folder, *, name) -> Folder:
+    folder.name = name
+    folder.save(update_fields=["name", "updated_at"])
+    return folder
+
+
+def move_to_folder(item, folder) -> None:
+    """`item` is a Document or an Attachment; `folder` None is the project's top level."""
+    _check_folder(folder, item.project_id)
+    item.folder = folder
+    item.save(update_fields=["folder"])  # not updated_at: a move is not an edit
+
+
+@transaction.atomic
+def delete_folder(folder) -> None:
+    """Contents and subfolders move up to the parent, deleted items included. Nothing is lost.
+    Rows are saved one by one because `update()` may not change a lab_parents field."""
+    folder = Folder.objects.for_lab(folder.lab_id).select_for_update().get(pk=folder.pk)
+    parent = folder.parent
+    for model in (Document, Attachment):
+        for item in model.objects.for_lab(folder.lab_id).filter(folder=folder):
+            item.folder = parent
+            item.save(update_fields=["folder"])
+    for child in Folder.objects.for_lab(folder.lab_id).filter(parent=folder):
+        child.parent = parent
+        child.save(update_fields=["parent", "updated_at"])
+    folder.delete()

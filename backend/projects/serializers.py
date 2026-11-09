@@ -7,6 +7,7 @@ from projects.models import (
     ChatMessage,
     DeadlinePriority,
     Project,
+    ProjectColor,
     ProjectDeadline,
     ProjectMembership,
     ProjectRole,
@@ -31,6 +32,7 @@ class ProjectSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name",
+            "color",
             "description",
             "status",
             "start_date",
@@ -57,6 +59,7 @@ class ProjectSerializer(serializers.ModelSerializer):
 
 class ProjectInputSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=200, validators=[no_control_chars])
+    color = serializers.ChoiceField(choices=ProjectColor.choices, required=False)
     description = serializers.CharField(allow_blank=True, required=False)
     status = serializers.ChoiceField(choices=ProjectStatus.choices, required=False)
     start_date = serializers.DateField(allow_null=True, required=False)

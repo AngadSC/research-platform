@@ -20,12 +20,12 @@ ON_DELETE = {
 }
 
 
-def fk_name(table, column):
-    return f"{table}_{column}_lab_fk"[:63]
+def fk_name(table, column, scope="lab_id"):
+    return f"{table}_{column}_{scope.removesuffix('_id')}_fk"[:63]
 
 
-def unique_name(table):
-    return f"{table}_id_lab_uniq"[:63]
+def unique_name(table, scope="lab_id"):
+    return f"{table}_id_{scope.removesuffix('_id')}_uniq"[:63]
 
 
 def trigger_name(table):
@@ -65,21 +65,25 @@ class _PgOperation(Operation):
 
 
 class LabForeignKey(_PgOperation):
-    def __init__(self, table, column, parent_table, on_delete="PROTECT"):
-        self.table, self.column, self.parent_table, self.on_delete = (
+    """`scope` is the column both tables must agree on. `lab_id` by default; `project_id` keeps a
+    child in the same project as its parent."""
+
+    def __init__(self, table, column, parent_table, on_delete="PROTECT", scope="lab_id"):
+        self.table, self.column, self.parent_table, self.on_delete, self.scope = (
             table,
             column,
             parent_table,
             on_delete,
+            scope,
         )
 
     def forwards_sql(self):
-        t, c, p = self.table, self.column, self.parent_table
-        uq = unique_name(p)
+        t, c, p, s = self.table, self.column, self.parent_table, self.scope
+        uq = unique_name(p, s)
         action = ON_DELETE[self.on_delete].format(col=c)
         check = _mismatch_check(
-            f'SELECT c.id, c.lab_id AS lab_a, p.lab_id AS lab_b FROM "{t}" c '
-            f'JOIN "{p}" p ON p.id = c."{c}" WHERE c.lab_id <> p.lab_id',
+            f'SELECT c.id, c."{s}" AS lab_a, p."{s}" AS lab_b FROM "{t}" c '
+            f'JOIN "{p}" p ON p.id = c."{c}" WHERE c."{s}" <> p."{s}"',
             f"{t}.{c} -> {p}",
         )
         return [
@@ -87,16 +91,17 @@ class LabForeignKey(_PgOperation):
             f"""
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = '{uq}') THEN
-    ALTER TABLE "{p}" ADD CONSTRAINT "{uq}" UNIQUE (id, lab_id);
+    ALTER TABLE "{p}" ADD CONSTRAINT "{uq}" UNIQUE (id, "{s}");
   END IF;
 END $$;""",
-            f'ALTER TABLE "{t}" ADD CONSTRAINT "{fk_name(t, c)}" FOREIGN KEY ("{c}", lab_id) '
-            f'REFERENCES "{p}" (id, lab_id) {action} DEFERRABLE INITIALLY DEFERRED',
+            f'ALTER TABLE "{t}" ADD CONSTRAINT "{fk_name(t, c, s)}" FOREIGN KEY ("{c}", "{s}") '
+            f'REFERENCES "{p}" (id, "{s}") {action} DEFERRABLE INITIALLY DEFERRED',
         ]
 
     def backwards_sql(self):
-        # the parent's UNIQUE (id, lab_id) is left in place: other FKs may use it.
-        return [f'ALTER TABLE "{self.table}" DROP CONSTRAINT "{fk_name(self.table, self.column)}"']
+        # the parent's UNIQUE (id, scope) is left in place: other FKs may use it.
+        name = fk_name(self.table, self.column, self.scope)
+        return [f'ALTER TABLE "{self.table}" DROP CONSTRAINT "{name}"']
 
 
 FUNCTION_SQL = """

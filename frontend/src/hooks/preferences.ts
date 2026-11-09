@@ -1,0 +1,65 @@
+import { useCallback, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import type { Crumb } from "@/components/shared/Breadcrumbs";
+import { useMe } from "@/hooks/workspace";
+import { api } from "@/lib/api";
+import type { User } from "@/lib/api-types";
+import { addRecent, isLocalUrl, MAX_PINS, togglePin, type Pin, type Recent } from "@/lib/pins";
+
+interface Lists {
+  pins?: Pin[];
+  recents?: Recent[];
+}
+type Me = User & { preferences?: Lists };
+const ME = ["me"];
+
+/** Shows the change at once, then saves it. A failed save reloads what the account really has. */
+function useSaveLists() {
+  const qc = useQueryClient();
+  return useCallback(
+    (patch: Lists) => {
+      qc.setQueryData<Me>(ME, (m) => m && { ...m, preferences: { ...m.preferences, ...patch } });
+      void api<User>("/api/me/", { method: "PATCH", body: { preferences: patch } }).then(
+        (u) => qc.setQueryData(ME, u),
+        () => qc.invalidateQueries({ queryKey: ME }),
+      );
+    },
+    [qc],
+  );
+}
+
+export function usePins() {
+  const saved = (useMe().data as Me | undefined)?.preferences?.pins ?? [];
+  const save = useSaveLists();
+  const toggle = (pin: Pin) => {
+    const pins = togglePin(saved, pin);
+    if (pins) save({ pins });
+    else toast.error(`You can pin up to ${MAX_PINS} pages. Unpin one first.`);
+  };
+  return { pins: saved.filter((p) => isLocalUrl(p.url)), toggle };
+}
+
+export function useRecents(): Recent[] {
+  const saved = (useMe().data as Me | undefined)?.preferences?.recents ?? [];
+  return saved.filter((r) => isLocalUrl(r.url));
+}
+
+/** Records the project, document or record the page belongs to, once its name has loaded. */
+export function useTrackRecent(crumbs: Crumb[]) {
+  const qc = useQueryClient();
+  const save = useSaveLists();
+  const loaded = !!useMe().data;
+  const item = crumbs.filter((c) => c.kind).at(-1);
+  const ready = loaded && item && !item.pending;
+  const url = ready ? item.to : undefined;
+  const label = item?.label;
+  const kind = item?.kind;
+
+  useEffect(() => {
+    if (!url || !label || !kind) return;
+    const recents = qc.getQueryData<Me>(ME)?.preferences?.recents ?? [];
+    const next = addRecent(recents, { url, label, kind, at: new Date().toISOString() });
+    if (next) save({ recents: next });
+  }, [qc, save, url, label, kind]);
+}

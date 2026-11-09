@@ -18,8 +18,24 @@ class ProjectRole(models.TextChoices):
     VIEWER = "viewer"
 
 
+class ProjectColor(models.TextChoices):
+    """Order matters: the next colour picked is the first of the least used."""
+
+    BLUE = "blue"
+    ORANGE = "orange"
+    GREEN = "green"
+    PINK = "pink"
+    TEAL = "teal"
+    YELLOW = "yellow"
+    VIOLET = "violet"
+    RED = "red"
+    LIME = "lime"
+    BROWN = "brown"
+
+
 class Project(LabScopedModel):
     name = models.CharField(max_length=200)
+    color = models.CharField(max_length=16, choices=ProjectColor.choices, default=ProjectColor.BLUE)
     description = models.TextField(blank=True)
     status = models.CharField(
         max_length=16, choices=ProjectStatus.choices, default=ProjectStatus.PLANNING

@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { Recents } from "@/components/shared/Recents";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -99,6 +100,7 @@ export function LabHomePage() {
         }
       />
       {lab.my_permissions.includes("manage_lab") && <RenameForm labId={lab.id} name={lab.name} />}
+      <Recents />
       <section className="grid gap-3">
         <h2 className="text-base font-semibold">Projects</h2>
         <DataTable

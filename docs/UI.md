@@ -46,7 +46,9 @@ Shared (`src/components/shared/`):
 
 Project sections are listed once, in `PROJECT_SECTIONS` (`lib/nav.ts`): a dropdown in the sidebar, and `TabNav` tabs below `md` (D205). `UnreadBadge` (`src/components/layout/`) takes `noun` for what it counts, and `TabNav` tabs take an optional badge.
 
-Layout (`src/components/layout/`): `AppShell` (sidebar, breadcrumbs, `Toaster`, palette), `Sidebar` (lab switcher, projects, nav), `CommandPalette` (Ctrl/Cmd+K or Ctrl/Cmd+F; the browser keeps Ctrl+F in text fields, editors and the PDF viewer via `data-native-find`, D130), `UnreadBadge` (D131). Signed-out pages use `LandingHeader`, `HeroText` and `Features` from `pages/LandingPage` (D129).
+Project colours are tokens (`--project-blue` and so on in `index.css`, one value per theme); `projectColorStyle(project.color)` from `lib/projectColors` sets `--project` on an element for its children.
+
+Layout (`src/components/layout/`): `AppShell` (sidebar with a remembered hide toggle, breadcrumbs, pin button, `Toaster`, palette), `Sidebar` (lab switcher, pinned pages, projects, nav, then the clock and account menu), `CommandPalette` (Ctrl/Cmd+K or Ctrl/Cmd+F; the browser keeps Ctrl+F in text fields, editors and the PDF viewer via `data-native-find`, D130), `UnreadBadge` (D131). Signed-out pages use `LandingHeader`, `HeroText` and `Features` from `pages/LandingPage` (D129).
 
 Primitives (`src/components/ui/`, shadcn style): button, input, textarea, label, select, dialog, sheet, dropdown-menu, badge, skeleton, sonner, command, tooltip, separator, table. Add new ones only when a page needs them, and keep them in this style.
 
@@ -54,7 +56,7 @@ Command palette: call `useRegisterCommands(useMemo(() => [{ id, label, group, on
 
 ## Spacing and typography
 
-- Spacing uses the 4px Tailwind scale. Between sections `gap-8`, between related items `gap-2` to `gap-4`, card and panel padding `p-6`, page padding `px-8 py-6`. Page content max width is `max-w-5xl`.
+- Spacing uses the 4px Tailwind scale. Between sections `gap-8`, between related items `gap-2` to `gap-4`, card and panel padding `p-6`, page padding `px-8 py-6`. Pages use the full width of the content area; only long forms stay narrow (`max-w-xl` to `max-w-2xl`).
 - Font is Inter then the system font. Page title `text-2xl font-semibold`, section title `text-base font-semibold`, body `text-sm`, hint and meta `text-xs text-muted-foreground`. Use two weights only: 400 and 500/600.
 - Radius is `rounded-md` (8px) for controls, `rounded-lg` (12px) for panels and tables. Button variants: default, secondary, outline, ghost, success, warning, destructive; badge variants add info.
 

@@ -1,9 +1,9 @@
-"""Add the starter links (core/institution_starters.py) to every lab whose institution has some.
+"""Add the starter and national links (core/institution_starters.py) to every lab.
 Idempotent (D149). `--set-lab <name>` first points that lab at the University of Alberta."""
 
 from django.core.management.base import BaseCommand, CommandError
 
-from core.institution_starters import STARTER_RESOURCES, UALBERTA
+from core.institution_starters import UALBERTA
 from core.models import Institution
 from labs.admin_services import apply_starter_resources
 from labs.models import Lab
@@ -23,8 +23,6 @@ class Command(BaseCommand):
             lab.institution, _ = Institution.objects.get_or_create(name=UALBERTA)
             lab.save()
         added = 0
-        for lab in Lab.objects.filter(institution__name__in=STARTER_RESOURCES).select_related(
-            "institution"
-        ):
+        for lab in Lab.objects.select_related("institution"):
             added += apply_starter_resources(lab)
         self.stdout.write(f"Added {added} starter link(s).")

@@ -36,6 +36,17 @@
   --input: #d4d4d8;
   --ring: #4f46e5;
   --sidebar: #f6f6f9;
+  /* Project colours (Project.color). projectColors.test.ts checks them against the sidebar. */
+  --project-blue: #2563eb;
+  --project-orange: #c2410c;
+  --project-green: #15803d;
+  --project-pink: #db2777;
+  --project-teal: #0f766e;
+  --project-yellow: #a16207;
+  --project-violet: #7c3aed;
+  --project-red: #dc2626;
+  --project-lime: #4d7c0f;
+  --project-brown: #78350f;
 }
 
 .dark {
@@ -69,6 +80,16 @@
   --input: #3f3f46;
   --ring: #818cf8;
   --sidebar: #0d0d10;
+  --project-blue: #60a5fa;
+  --project-orange: #fb923c;
+  --project-green: #4ade80;
+  --project-pink: #f472b6;
+  --project-teal: #2dd4bf;
+  --project-yellow: #facc15;
+  --project-violet: #a78bfa;
+  --project-red: #f87171;
+  --project-lime: #a3e635;
+  --project-brown: #d6a77a;
 }
 
 @theme inline {

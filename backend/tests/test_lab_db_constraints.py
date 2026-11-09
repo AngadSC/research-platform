@@ -184,3 +184,36 @@ def test_migration_check_names_table_rows_and_labs(world, make_user):
     msg = str(exc.value)
     assert "projects_task.project_id" in msg and str(task.pk) in msg
     assert str(world["lab_a"].pk) in msg and str(world["lab_b"].pk) in msg
+
+
+@pytest.fixture
+def folders(world, make_user):
+    from documents.models import Document, Folder
+
+    user = make_user()
+    lab = world["lab_a"]
+    return {
+        "a": Folder.objects.create(lab=lab, project=world["pa"], name="a", created_by=user),
+        "other_project": Folder.objects.create(
+            lab=lab, project=world["pa2"], name="b", created_by=user
+        ),
+        "doc": Document.objects.create(
+            lab=lab, project=world["pa"], title="d", created_by=user, updated_by=user
+        ),
+    }
+
+
+def test_folder_links_cannot_cross_projects(folders):
+    other = folders["other_project"].pk
+    with pytest.raises(IntegrityError):
+        sql("UPDATE documents_document SET folder_id = %s WHERE id = %s", other, folders["doc"].pk)
+    with pytest.raises(IntegrityError):
+        sql("UPDATE documents_folder SET parent_id = %s WHERE id = %s", other, folders["a"].pk)
+
+
+def test_folder_link_inside_a_project_is_allowed(folders):
+    sql(
+        "UPDATE documents_document SET folder_id = %s WHERE id = %s",
+        folders["a"].pk,
+        folders["doc"].pk,
+    )

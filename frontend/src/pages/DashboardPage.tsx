@@ -13,6 +13,7 @@ import { Link, Navigate, useParams } from "react-router";
 import { FormError } from "@/components/shared/FormError";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { Recents } from "@/components/shared/Recents";
 import { RelativeTime } from "@/components/shared/RelativeTime";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Badge } from "@/components/ui/badge";
@@ -443,6 +444,7 @@ export function DashboardPage() {
           </Button>
         }
       />
+      <Recents />
       {isLoading || !data || !a || !s ? (
         <DashboardSkeleton />
       ) : (

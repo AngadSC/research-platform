@@ -6,8 +6,29 @@ from django.core.management import call_command
 from rest_framework.test import APIClient
 
 from audit.models import AuditAction, AuditEvent
-from core.institution_starters import STARTER_RESOURCES, UALBERTA
-from labs.models import InstitutionResource, InventoryItem, LabRole, OnboardingCompletion
+from core.institution_starters import (
+    ALIASES,
+    MCGILL,
+    NATIONAL_RESOURCES,
+    QUEENS,
+    STARTER_RESOURCES,
+    UALBERTA,
+    UBC,
+    UMONTREAL,
+    UOTTAWA,
+    UTORONTO,
+    match_institution,
+)
+from core.models import Institution
+from labs.admin_serializers import https_url
+from labs.models import (
+    InstitutionResource,
+    InventoryItem,
+    Lab,
+    LabRole,
+    OnboardingCompletion,
+    ResourceCategory,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -72,17 +93,108 @@ def test_picking_ualberta_loads_starters_once(world):
     )
     lab.refresh_from_db()
     assert lab.institution.name == UALBERTA
-    expected = len(STARTER_RESOURCES[UALBERTA])
+    expected = len(STARTER_RESOURCES[UALBERTA]) + len(NATIONAL_RESOURCES)
     assert InstitutionResource.objects.for_lab(lab).count() == expected
     call_command("load_institution_resources")
     call_command("load_institution_resources")
     assert InstitutionResource.objects.for_lab(lab).count() == expected
 
 
-def test_other_institution_gets_no_starters(world):
+def test_other_institution_gets_only_national_links(world):
     lab, u = world
     api(u["pi"]).patch(url(lab, ""), {"institution_name": "Elsewhere University"}, "json")
-    assert InstitutionResource.objects.for_lab(lab).count() == 0
+    assert InstitutionResource.objects.for_lab(lab).count() == len(NATIONAL_RESOURCES)
+
+
+@pytest.mark.parametrize(
+    "typed, expected",
+    [
+        ("UBC", UBC),
+        ("u.b.c.", UBC),
+        ("University of British Columbia", UBC),
+        ("The University of British Columbia", UBC),
+        ("U of T", UTORONTO),
+        ("UofT", UTORONTO),
+        ("McGill", MCGILL),
+        ("  mcgill university ", MCGILL),
+        ("Queen’s", QUEENS),
+        ("QUEENS UNIVERSITY", QUEENS),
+        ("Universite de Montreal", UMONTREAL),
+        ("Université d'Ottawa", UOTTAWA),
+        ("Elsewhere University", None),
+        ("Western Sydney University", None),
+        ("U of C", None),
+        ("", None),
+    ],
+)
+def test_match_institution(typed, expected):
+    assert match_institution(typed) == expected
+
+
+def test_every_starter_url_is_https_and_unique_per_institution():
+    assert set(STARTER_RESOURCES) == set(ALIASES)
+    for rows in [*STARTER_RESOURCES.values(), NATIONAL_RESOURCES]:
+        urls = [r["url"] for r in rows]
+        assert len(urls) == len(set(urls))
+        for r in rows:
+            assert https_url(r["url"]) == r["url"]
+            assert r["category"] in ResourceCategory.values and r["title"]
+    national = {r["url"] for r in NATIONAL_RESOURCES}
+    assert not any(r["url"] in national for rows in STARTER_RESOURCES.values() for r in rows)
+
+
+def test_new_lab_gets_national_and_curated_links(make_user):
+    c = api(make_user())
+    r = c.post("/api/labs/", {"name": "Plain"}, "json")
+    assert r.status_code == 201
+    plain = Lab.objects.get(pk=r.json()["id"])
+    assert InstitutionResource.objects.for_lab(plain).count() == len(NATIONAL_RESOURCES)
+
+    r = c.post("/api/labs/", {"name": "Curated", "institution_name": "UBC"}, "json")
+    assert r.status_code == 201 and r.json()["institution"]["name"] == UBC
+    curated = Lab.objects.get(pk=r.json()["id"])
+    assert InstitutionResource.objects.for_lab(curated).count() == (
+        len(STARTER_RESOURCES[UBC]) + len(NATIONAL_RESOURCES)
+    )
+
+
+def test_load_starters_for_existing_lab_is_idempotent_and_keeps_edits(world):
+    lab, u = world  # made without starters, like a lab that predates this feature
+    lab.institution = Institution.objects.create(name="ubc")
+    lab.save()
+    c = api(u["pi"])
+    expected = len(STARTER_RESOURCES[UBC]) + len(NATIONAL_RESOURCES)
+    r = c.post(url(lab, "institution-resources/load-starters/"))
+    assert r.status_code == 200
+    assert r.json() == {"added": expected, "institution": "ubc", "curated_institution": UBC}
+
+    edited = InstitutionResource.objects.for_lab(lab).order_by("url").first()
+    edited.title = "Our own title"
+    edited.save()
+    r = c.post(url(lab, "institution-resources/load-starters/"))
+    assert r.json()["added"] == 0
+    assert InstitutionResource.objects.for_lab(lab).count() == expected
+    edited.refresh_from_db()
+    assert edited.title == "Our own title"
+
+
+def test_load_starters_reports_no_curated_set(world):
+    lab, u = world
+    r = api(u["pi"]).post(url(lab, "institution-resources/load-starters/"))
+    assert r.json() == {
+        "added": len(NATIONAL_RESOURCES),
+        "institution": lab.institution.name,
+        "curated_institution": None,
+    }
+
+
+@pytest.mark.parametrize("who, code", [("pi", 200), ("member", 403), ("viewer", 403)])
+def test_load_starters_needs_manage_lab(world, who, code):
+    lab, u = world
+    r = api(u[who]).post(url(lab, "institution-resources/load-starters/"))
+    assert r.status_code == code
+    if code == 403:
+        assert InstitutionResource.objects.for_lab(lab).count() == 0
 
 
 # ---------------------------------------------------------------- resources

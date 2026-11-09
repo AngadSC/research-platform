@@ -1,6 +1,8 @@
 """Project business logic (ARCHITECTURE section 0). Views validate and call these; write
 actions record their audit event in the same transaction."""
 
+from collections import Counter
+
 from django.db import IntegrityError, transaction
 from django.db.models import Count, F, OuterRef, Q, Subquery
 from django.utils import timezone
@@ -17,6 +19,7 @@ from projects.models import (
     ChatMessage,
     ChatReadState,
     Project,
+    ProjectColor,
     ProjectDeadline,
     ProjectMembership,
     ProjectRole,
@@ -28,10 +31,19 @@ from projects.models import (
 # ---------------------------------------------------------------- projects
 
 
+def next_project_color(lab) -> str:
+    """The colour least used by the lab's live projects, so neighbours differ."""
+    used = Counter(
+        Project.objects.for_lab(lab).filter(deleted_at__isnull=True).values_list("color", flat=True)
+    )
+    return min(ProjectColor.values, key=lambda color: used[color])
+
+
 @transaction.atomic
 def create_project(*, lab, user, data, request=None) -> Project:
     changes = retention_changes(Project(), data)
     guard_retention(user, lab, changes)
+    data = {"color": next_project_color(lab), **data}
     project = Project.objects.create(lab=lab, created_by=user, **data)
     audit_retention(user, lab, project, changes, request)
     ProjectMembership.objects.create(lab=lab, project=project, user=user, role=ProjectRole.LEAD)

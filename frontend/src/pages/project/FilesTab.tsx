@@ -1,8 +1,9 @@
-import { Download, Eye, Paperclip, Trash2, Upload } from "lucide-react";
+import { Download, Eye, FolderInput, Paperclip, Trash2, Upload } from "lucide-react";
 import { RelativeTime } from "@/components/shared/RelativeTime";
 import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
+import { FolderBrowser, MoveDialog, type Movable } from "@/components/documents/Folders";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LinkedFiles } from "@/components/shared/LinkedFiles";
@@ -14,6 +15,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useCurrentFolder } from "@/hooks/documents";
 import { downloadUrl, useAttachments } from "@/hooks/projects";
 import { personName, type Attachment } from "@/lib/api-types";
 import { formErrors } from "@/lib/forms";
@@ -33,7 +35,10 @@ export default function FilesTab({ labId, projectId, project }: ProjectTabProps)
   const { list, uploadFile, remove } = useAttachments(labId, projectId);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<Attachment | null>(null);
+  const [moving, setMoving] = useState<Movable | null>(null);
   const canEdit = project.my_permissions.includes("edit_content");
+  const folder = useCurrentFolder();
+  const rows = (list.data ?? []).filter((a) => (a.folder ?? null) === folder);
 
   const cols: Column<Attachment>[] = [
     {
@@ -75,6 +80,23 @@ export default function FilesTab({ labId, projectId, project }: ProjectTabProps)
             <Button
               variant="ghost"
               size="sm"
+              aria-label={`Move ${a.original_filename}`}
+              onClick={() =>
+                setMoving({
+                  kind: "attachments",
+                  id: a.id,
+                  name: a.original_filename,
+                  folder: a.folder ?? null,
+                })
+              }
+            >
+              <FolderInput aria-hidden />
+            </Button>
+          )}
+          {canEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
               aria-label={`Delete ${a.original_filename}`}
               onClick={() => setDeleting(a)}
             >
@@ -94,20 +116,26 @@ export default function FilesTab({ labId, projectId, project }: ProjectTabProps)
 
   return (
     <div className="grid gap-4">
-      {(list.data?.length ?? 0) > 0 && <div className="flex justify-end">{uploadBtn}</div>}
+      {canEdit && <div className="flex justify-end">{uploadBtn}</div>}
+      <FolderBrowser labId={labId} projectId={projectId} canEdit={canEdit} />
       <DataTable
         columns={cols}
-        rows={list.data ?? []}
+        rows={rows}
         getRowKey={(a) => a.id}
         loading={list.isLoading}
         empty={
           <EmptyState
             icon={Paperclip}
-            title="No files yet"
+            title={folder ? "No files in this folder" : "No files yet"}
             description="Add anonymized or aggregate data, protocols and papers for this project. PDFs open right here."
-            action={uploadBtn}
           />
         }
+      />
+      <MoveDialog
+        labId={labId}
+        projectId={projectId}
+        item={moving}
+        onClose={() => setMoving(null)}
       />
       <section aria-labelledby="linked-files" className="grid gap-2">
         <h2 id="linked-files" className="text-sm font-medium">
@@ -118,7 +146,7 @@ export default function FilesTab({ labId, projectId, project }: ProjectTabProps)
       <UploadDialog
         open={uploading}
         onOpenChange={setUploading}
-        send={(file, onProgress) => uploadFile.mutateAsync({ file, onProgress })}
+        send={(file, onProgress) => uploadFile.mutateAsync({ file, onProgress, folder })}
       />
       <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
         <DialogContent>

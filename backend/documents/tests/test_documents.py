@@ -1,12 +1,17 @@
 import hashlib
+import uuid
+from datetime import timedelta
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 from rest_framework.test import APIClient
 
 from audit.models import AuditAction, AuditEvent
-from documents.models import Attachment, Document
+from documents import embed
+from documents.models import Attachment, Document, DocumentRevision, Folder
 from labs.models import LabRole
 from projects.models import ProjectMembership, ProjectRole
 
@@ -289,3 +294,254 @@ def test_media_url_does_not_expose_files(setup, settings):
     anon = APIClient()  # nothing is mounted under MEDIA_URL, static or any file prefix
     for prefix in (settings.MEDIA_URL, "/media/", "/static/", "/files/", "/data/lab_files/"):
         assert anon.get(f"{prefix.rstrip('/')}/{key}").status_code == 404
+
+
+# ---------------------------------------------------------------- autosave
+
+
+def autosave(client, lab, doc_id, version, content=BLOCKS, title="T"):
+    return client.put(
+        url("document-detail", lab, document_id=doc_id),
+        {"title": title, "content": content, "base_version": version, "autosave": True},
+        format="json",
+    )
+
+
+def revisions(client, lab, doc_id):
+    return client.get(url("revision-list", lab, document_id=doc_id)).json()
+
+
+def test_autosave_folds_into_own_recent_revision_and_bumps_version(setup):
+    lab, _, project, client = setup
+    doc = make_doc(client, lab, project)  # revision 1, by this user, just now
+    resp = autosave(client, lab, doc["id"], 1, [{"type": "heading"}], title="New")
+    assert resp.status_code == 200 and resp.json()["version"] == 2
+    assert resp.json()["title"] == "New" and resp.json()["content"] == [{"type": "heading"}]
+    revs = revisions(client, lab, doc["id"])
+    assert [r["version"] for r in revs] == [2]  # moved to the new version, unique constraint held
+    latest = client.get(url("revision-detail", lab, document_id=doc["id"], version=2)).json()
+    assert latest["content"] == [{"type": "heading"}] and latest["title"] == "New"
+
+
+def test_autosave_chain_keeps_one_revision_and_conflicts_like_any_save(setup):
+    lab, _, project, client = setup
+    doc = make_doc(client, lab, project)
+    assert autosave(client, lab, doc["id"], 1).json()["version"] == 2
+    assert autosave(client, lab, doc["id"], 2).json()["version"] == 3
+    assert [r["version"] for r in revisions(client, lab, doc["id"])] == [3]
+    assert autosave(client, lab, doc["id"], 2).status_code == 409  # stale
+
+
+def test_manual_save_always_creates_a_revision(setup):
+    lab, _, project, client = setup
+    doc = make_doc(client, lab, project)
+    assert put(client, lab, doc["id"], 1).status_code == 200
+    assert [r["version"] for r in revisions(client, lab, doc["id"])] == [2, 1]
+
+
+def test_autosave_makes_a_new_revision_after_the_window(setup):
+    lab, _, project, client = setup
+    doc = make_doc(client, lab, project)
+    DocumentRevision.objects.for_lab(lab).filter(document_id=doc["id"]).update(
+        created_at=timezone.now() - timedelta(minutes=16)
+    )
+    assert autosave(client, lab, doc["id"], 1).status_code == 200
+    assert [r["version"] for r in revisions(client, lab, doc["id"])] == [2, 1]
+
+
+def test_autosave_makes_a_new_revision_when_someone_else_wrote_the_latest(setup, make_user, join):
+    lab, _, project, client = setup
+    doc = make_doc(client, lab, project)  # by client's user
+    other = make_user()
+    join(other, lab, LabRole.PI)
+    other_client = APIClient()
+    other_client.force_login(other)
+    assert autosave(other_client, lab, doc["id"], 1).status_code == 200
+    assert [r["version"] for r in revisions(client, lab, doc["id"])] == [2, 1]
+
+
+def test_autosave_never_rewrites_a_restore(setup):
+    lab, _, project, client = setup
+    doc = make_doc(client, lab, project)
+    assert put(client, lab, doc["id"], 1, [{"type": "heading"}]).status_code == 200
+    restore = url("revision-restore", lab, document_id=doc["id"], version=1)
+    assert client.post(restore).status_code == 200  # version 3, restored_from revision 1
+    assert autosave(client, lab, doc["id"], 3).status_code == 200
+    revs = revisions(client, lab, doc["id"])
+    assert [r["version"] for r in revs] == [4, 3, 2, 1]
+    assert revs[1]["restored_from_version"] == 1
+
+
+# ---------------------------------------------------------------- folders
+
+
+def folder_url(lab, **kw):
+    if "folder_id" in kw:
+        return url("folder-detail", lab, **kw)
+    return url("folder-list", lab, **kw)
+
+
+def make_folder(client, lab, project, name="F", parent=None):
+    resp = client.post(
+        folder_url(lab, project_id=project.pk),
+        {"name": name, "parent": str(parent) if parent else None},
+        format="json",
+    )
+    assert resp.status_code == 201, resp.content
+    return resp.json()
+
+
+def move(client, lab, kind, item_id, folder_id):
+    return client.post(
+        url(f"{kind}-move", lab, **{f"{kind}_id": item_id}),
+        {"folder": str(folder_id) if folder_id else None},
+        format="json",
+    )
+
+
+def test_folder_tree_and_moves(setup, lab_files):
+    lab, _, project, client = setup
+    top = make_folder(client, lab, project, "Top")
+    sub = make_folder(client, lab, project, "Sub", parent=top["id"])
+    assert sub["parent"] == top["id"]
+    doc = make_doc(client, lab, project)
+    attachment = upload(client, lab, project).json()
+    assert move(client, lab, "document", doc["id"], sub["id"]).status_code == 204
+    assert move(client, lab, "attachment", attachment["id"], top["id"]).status_code == 204
+    docs = client.get(url("document-list", lab, project_id=project.pk)).json()
+    assert docs[0]["folder"] == sub["id"]
+    files = client.get(url("attachment-list", lab, project_id=project.pk)).json()
+    assert files[0]["folder"] == top["id"]
+    assert move(client, lab, "document", doc["id"], None).status_code == 204  # back to the top
+    resp = client.patch(folder_url(lab, folder_id=sub["id"]), {"name": "Renamed"}, format="json")
+    assert resp.status_code == 200 and resp.json()["name"] == "Renamed"
+    assert resp.json()["parent"] == top["id"]  # never re-parented
+
+
+def test_delete_folder_lifts_contents_and_children_to_its_parent(setup, lab_files):
+    lab, _, project, client = setup
+    top = make_folder(client, lab, project, "Top")
+    mid = make_folder(client, lab, project, "Mid", parent=top["id"])
+    deep = make_folder(client, lab, project, "Deep", parent=mid["id"])
+    doc = make_doc(client, lab, project)
+    attachment = upload(client, lab, project).json()
+    move(client, lab, "document", doc["id"], mid["id"])
+    move(client, lab, "attachment", attachment["id"], mid["id"])
+    assert client.delete(folder_url(lab, folder_id=mid["id"])).status_code == 204
+    top_id = uuid.UUID(top["id"])
+    assert Folder.objects.for_lab(lab).get(pk=deep["id"]).parent_id == top_id
+    assert Document.objects.for_lab(lab).get(pk=doc["id"]).folder_id == top_id
+    assert Attachment.objects.for_lab(lab).get(pk=attachment["id"]).folder_id == top_id
+    # A top-level folder hands its contents to the project's top level, not to nowhere.
+    assert client.delete(folder_url(lab, folder_id=top["id"])).status_code == 204
+    assert Document.objects.for_lab(lab).get(pk=doc["id"]).folder_id is None
+    assert Folder.objects.for_lab(lab).get(pk=deep["id"]).parent_id is None
+
+
+def test_a_folder_of_another_project_is_refused(setup, make_project, lab_files):
+    lab, user, project, client = setup
+    other = make_project(lab, "Other")
+    theirs = Folder.objects.create(lab=lab, project=other, name="T", created_by=user)
+    doc = make_doc(client, lab, project)
+    attachment = upload(client, lab, project).json()
+    assert move(client, lab, "document", doc["id"], theirs.pk).status_code == 400
+    assert move(client, lab, "attachment", attachment["id"], theirs.pk).status_code == 400
+    resp = client.post(
+        folder_url(lab, project_id=project.pk),
+        {"name": "x", "parent": str(theirs.pk)},
+        format="json",
+    )
+    assert resp.status_code == 400
+    resp = client.post(
+        url("document-list", lab, project_id=project.pk),
+        {"title": "x", "folder": str(theirs.pk)},
+        format="json",
+    )
+    assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------- embeds
+
+GOOGLE_ID = "195j9eDD3ccgjQRttHhJPymLJUCOUjs-jmwTrekvdjFE"
+
+
+@pytest.mark.parametrize(
+    ("pasted", "frame", "opener"),
+    [
+        (
+            f"https://docs.google.com/document/d/{GOOGLE_ID}/edit?usp=sharing",
+            f"https://docs.google.com/document/d/{GOOGLE_ID}/preview",
+            f"https://docs.google.com/document/d/{GOOGLE_ID}/edit",
+        ),
+        (
+            f"https://docs.google.com/spreadsheets/u/1/d/{GOOGLE_ID}/edit#gid=0",
+            f"https://docs.google.com/spreadsheets/d/{GOOGLE_ID}/preview",
+            f"https://docs.google.com/spreadsheets/d/{GOOGLE_ID}/edit",
+        ),
+        (
+            f"https://docs.google.com/presentation/d/{GOOGLE_ID}",
+            f"https://docs.google.com/presentation/d/{GOOGLE_ID}/preview",
+            f"https://docs.google.com/presentation/d/{GOOGLE_ID}/edit",
+        ),
+        (
+            "https://view.officeapps.live.com/op/view.aspx?src=https://x.org/a.docx",
+            "https://view.officeapps.live.com/op/embed.aspx?src=https%3A%2F%2Fx.org%2Fa.docx",
+            "https://view.officeapps.live.com/op/view.aspx?src=https%3A%2F%2Fx.org%2Fa.docx",
+        ),
+        (
+            "https://onedrive.live.com/edit.aspx?resid=ABC!123&authkey=zzz",
+            "https://onedrive.live.com/embed?resid=ABC%21123&em=2&authkey=zzz",
+            "https://onedrive.live.com/edit.aspx?resid=ABC!123&authkey=zzz",
+        ),
+        (
+            "https://uni.sharepoint.com/:w:/g/personal/ada/Eabc?e=xy1",
+            "https://uni.sharepoint.com/:w:/g/personal/ada/Eabc?e=xy1&action=embedview",
+            "https://uni.sharepoint.com/:w:/g/personal/ada/Eabc?e=xy1",
+        ),
+    ],
+)
+def test_embed_links_normalise(pasted, frame, opener):
+    assert embed.normalise(pasted) == (frame, opener)
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        f"http://docs.google.com/document/d/{GOOGLE_ID}/edit",  # not https
+        f"https://user@docs.google.com/document/d/{GOOGLE_ID}/edit",  # userinfo
+        f"https://docs.google.com:8443/document/d/{GOOGLE_ID}/edit",  # odd port
+        f"https://docs.google.com.evil.org/document/d/{GOOGLE_ID}/edit",  # lookalike host
+        f"https://evilsharepoint.com/document/d/{GOOGLE_ID}/edit",
+        "https://docs.google.com/document/d/e/2PACX-abc/pub",  # published, not a share link
+        "https://docs.google.com/forms/d/x/viewform",  # not a kind we embed
+        "https://1drv.ms/w/s!Abc",  # short links need resolving
+        "https://onedrive.live.com/about",  # no file id
+        "https://view.officeapps.live.com/op/embed.aspx?src=http://x.org/a.docx",  # http file
+        "https://uni.sharepoint.com/",
+        "javascript:alert(1)",
+        "https://example.com/x",
+    ],
+)
+def test_embed_links_refused(bad):
+    with pytest.raises(ValidationError):
+        embed.normalise(bad)
+
+
+def test_embedded_document_stores_frame_and_open_urls(setup):
+    lab, _, project, client = setup
+    pasted = f"https://docs.google.com/document/d/{GOOGLE_ID}/edit"
+    resp = client.post(
+        url("document-list", lab, project_id=project.pk),
+        {"title": "Shared notes", "embed_url": pasted},
+        format="json",
+    )
+    assert resp.status_code == 201, resp.content
+    body = resp.json()
+    assert body["embed_url"] == f"https://docs.google.com/document/d/{GOOGLE_ID}/preview"
+    assert body["embed_open_url"] == pasted
+    resp = client.post(
+        url("document-list", lab, project_id=project.pk),
+        {"title": "No", "embed_url": "https://evil.example/x"},
+        format="json",
+    )
+    assert resp.status_code == 400 and "embed_url" in resp.json()

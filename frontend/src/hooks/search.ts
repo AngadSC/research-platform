@@ -14,6 +14,8 @@ const TYPE_LABELS: Record<string, string> = {
   manuscript: "Manuscripts",
   ethics: "Ethics approvals",
   link: "Linked files",
+  paper: "Papers",
+  paper_note: "Paper notes",
 };
 
 /** Hits grouped by type, in the order the server sent them. */

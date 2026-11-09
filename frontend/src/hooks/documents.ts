@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router";
 import { api } from "@/lib/api";
 import type {
   DocumentFull,
   DocumentRow,
   DocumentSaveInput,
+  Folder,
   Revision,
   RevisionRow,
 } from "@/lib/api-types";
@@ -22,16 +24,78 @@ export function useDocuments(labId: string, projectId: string, pollMs?: number) 
   });
 }
 
+export interface DocumentCreate {
+  title: string;
+  folder?: string | null;
+  /** A pasted Google or Microsoft link: the server normalises it into a frame URL. */
+  embed_url?: string;
+}
+
 export function useCreateDocument(labId: string, projectId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (title: string) =>
+    mutationFn: (input: string | DocumentCreate) =>
       api<DocumentFull>(`${base(labId)}/projects/${projectId}/documents/`, {
         method: "POST",
-        body: { title, content: [] },
+        body: { content: [], ...(typeof input === "string" ? { title: input } : input) },
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: listKey(labId, projectId) }),
   });
+}
+
+/** Soft delete (D24). `edit_content`. */
+export function useDeleteDocument(labId: string, projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api(`${base(labId)}/documents/${id}/`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: listKey(labId, projectId) }),
+  });
+}
+
+/** The folder being browsed is in the URL (`?folder=`), so the back button and links work. */
+export function useCurrentFolder(): string | null {
+  const [params] = useSearchParams();
+  return params.get("folder");
+}
+
+/** The project's folder tree, shared by the Documents and Files tabs. */
+export function useFolders(labId: string, projectId: string) {
+  return useQuery({
+    queryKey: [...listKey(labId, projectId).slice(0, 4), "folders"],
+    queryFn: () => api<Folder[]>(`${base(labId)}/projects/${projectId}/folders/`),
+  });
+}
+
+export function useFolderActions(labId: string, projectId: string) {
+  const qc = useQueryClient();
+  const onSuccess = () => qc.invalidateQueries({ queryKey: listKey(labId, projectId).slice(0, 4) });
+  return {
+    create: useMutation({
+      mutationFn: (v: { name: string; parent: string | null }) =>
+        api<Folder>(`${base(labId)}/projects/${projectId}/folders/`, { method: "POST", body: v }),
+      onSuccess,
+    }),
+    rename: useMutation({
+      mutationFn: (v: { id: string; name: string }) =>
+        api<Folder>(`${base(labId)}/folders/${v.id}/`, {
+          method: "PATCH",
+          body: { name: v.name },
+        }),
+      onSuccess,
+    }),
+    remove: useMutation({
+      mutationFn: (id: string) => api(`${base(labId)}/folders/${id}/`, { method: "DELETE" }),
+      onSuccess,
+    }),
+    move: useMutation({
+      mutationFn: (v: { kind: "documents" | "attachments"; id: string; folder: string | null }) =>
+        api(`${base(labId)}/${v.kind}/${v.id}/move/`, {
+          method: "POST",
+          body: { folder: v.folder },
+        }),
+      onSuccess,
+    }),
+  };
 }
 
 export function useDocument(labId: string, id: string) {

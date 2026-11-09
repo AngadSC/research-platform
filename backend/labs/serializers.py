@@ -14,6 +14,13 @@ class InstitutionSerializer(serializers.ModelSerializer):
 
 class LabSerializer(serializers.ModelSerializer):
     institution = InstitutionSerializer(read_only=True)
+    institution_name = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        max_length=200,
+        validators=[no_control_chars],
+    )  # only read on create; PATCH uses LabDetailsInputSerializer
     my_role = serializers.SerializerMethodField()
     my_permissions = serializers.SerializerMethodField()
 
@@ -23,6 +30,7 @@ class LabSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "institution",
+            "institution_name",
             "department",
             "description",
             "address",

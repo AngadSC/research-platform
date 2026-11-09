@@ -54,10 +54,13 @@ The invite token is `secrets.token_urlsafe(32)` and appears only in the emailed 
 | Model | Fields | Constraints / indexes |
 |---|---|---|
 | `Document` | `project` FK CASCADE, `title` char(300), `content` JSON (BlockNote blocks, max 2 MB), `version` int default 1 (D11), `created_by` FK User PROTECT (the owner), `updated_by` FK User PROTECT, `retain_until` date null, `retention_note` text, `deleted_at` null | `lab_parents=("project",)`; index `(project, deleted_at)`, `(lab, retain_until)` |
+| `Folder` | `project` FK CASCADE, `parent` self-FK SET_NULL null (set at creation only, never re-parented), `name` char(200), `created_by` FK User PROTECT | `lab_parents=("project","parent")`. `Document.folder` and `Attachment.folder` are nullable FKs (SET_NULL). Composite `(folder, lab_id)` and `(folder, project_id)` FKs keep links inside one project even by raw SQL; deleting a folder moves its contents and subfolders to its parent (`delete_folder`). One tree per project, shared by the Documents and Files tabs. |
 | `DocumentRevision` | `document` FK CASCADE, `version` int, `title`, `content` JSON, `created_by` FK User PROTECT, `restored_from` FK self SET_NULL null | `lab_parents=("document",)`, `project_path="document__project"`; unique `(document, version)` |
 | `Attachment` | `project` FK CASCADE null, `ethics_approval` FK (Phase 5) null; DB check: exactly one of the two is set (D38), `storage_key` char(512) unique, `original_filename` char(255), `content_type` char(100), `size_bytes` bigint, `sha256` char(64), `uploaded_by` FK User PROTECT, `notice_acknowledged_at` datetime (non-null) | `lab_parents=("project",)`; `permission_domain="project"`, with ethics-owned files checked through their approval (`"lab"` domain, ethics perms); index `(project)`; max size 50 MB |
 
-Every save goes through `documents.services.save_document(doc, *, title, content, base_version, user)`. It runs `select_for_update`, raises `Conflict` (HTTP 409) if `base_version != doc.version`, increments `version`, and writes a `DocumentRevision` with the new version. Creating a document writes revision 1. Restoring revision N saves N's content as a new revision with `restored_from` set. Restoring never rewrites history.
+Every save goes through `documents.services.save_document(doc, *, title, content, base_version, user)`. It runs `select_for_update`, raises `Conflict` (HTTP 409) if `base_version != doc.version`, increments `version`, and writes a `DocumentRevision` with the new version. Creating a document writes revision 1. Restoring revision N saves N's content as a new revision with `restored_from` set. Restoring never rewrites history. A save with `autosave=true` (the editor, 3 s after the last edit and on leaving) folds into the latest revision instead of adding one when that revision is the saver's own, is under 15 minutes old and is not a restore: it moves to the bumped version and its content changes. Manual saves (Ctrl+S) and restores always add a revision.
+
+An embedded document (`embed_url`, `embed_open_url`, both set once at creation by `documents.embed`, https on allowlisted Google and Microsoft hosts only) shows a sandboxed frame instead of the editor, plus an always-visible Open link.
 
 An upload is rejected (400) unless the form contains `acknowledged_notice=true`. The acknowledgement is stored on the row and in the audit metadata.
 
@@ -274,6 +277,9 @@ Creating and editing ordinary content is not audited, because revisions and `upd
 | 3 | GET / PUT, DELETE | `L/documents/<document_id>/` (PUT takes `base_version`; a stale save gets 409) | view_project / edit_content |
 | 3 | GET | `L/documents/<document_id>/revisions/` and `.../revisions/<int:version>/` | view_project |
 | 3 | POST | `L/documents/<document_id>/revisions/<int:version>/restore/` | edit_content |
+| 3 | POST | `L/documents/<document_id>/move/`, `L/attachments/<attachment_id>/move/` (body `{folder}`, null is the project's top level) | edit_content |
+| 3 | GET / POST | `P/folders/` (flat list; the tree is built client-side) | view_project / edit_content |
+| 3 | PATCH, DELETE | `L/folders/<folder_id>/` (PATCH: name only) | edit_content |
 | 3 | GET / POST | `P/attachments/` (multipart, `acknowledged_notice=true`) | view_project / edit_content |
 | 3 | GET / DELETE | `L/attachments/<attachment_id>/` | view_project / edit_content |
 | 3 | GET | `L/attachments/<attachment_id>/download/` | view_project (ethics files: view_ethics) |

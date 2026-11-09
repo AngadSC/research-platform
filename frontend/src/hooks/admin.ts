@@ -70,6 +70,36 @@ export const useResources = (labId: string, category?: string, enabled = true) =
     category ? `?category=${encodeURIComponent(category)}` : "",
   );
 
+export interface StartersLoaded {
+  added: number;
+  institution: string;
+  curated_institution: string | null;
+}
+
+/** What loading the university's links did, in words. */
+export function startersMessage(r: StartersLoaded) {
+  const links = r.added === 1 ? "1 link" : `${r.added} links`;
+  return r.curated_institution
+    ? `Added ${links} for ${r.curated_institution}.`
+    : `No curated forms for ${r.institution} yet. Added ${links} from the national funders.`;
+}
+
+/** "Get my university's forms" (D149): idempotent; needs manage_lab. */
+export function useLoadStarters(labId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api<StartersLoaded>(`${base(labId)}/institution-resources/load-starters/`, {
+        method: "POST",
+      }),
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: ["labs", labId, "resources"] }),
+        qc.invalidateQueries({ queryKey: ["labs", labId, "institution-resources"] }),
+      ]),
+  });
+}
+
 export function useOnboarding(labId: string, enabled = true) {
   const c = useCollection<OnboardingItem, OnboardingItemInput>(
     labId,

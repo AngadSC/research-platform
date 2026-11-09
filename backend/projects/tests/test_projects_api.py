@@ -216,3 +216,33 @@ def test_deadline_delete_audit_and_project_update_audit(lab, people):
     assert one(AuditAction.DEADLINE_DELETED).project_id == project.pk
     c.patch(f"{base(lab)}/projects/{project.pk}/", {"status": "active"}, "json")
     assert one(AuditAction.PROJECT_UPDATED).metadata == {"fields": ["status"]}
+
+
+def test_new_projects_take_the_least_used_colour(lab, people):
+    c = api(people["pi"])
+    url = f"{base(lab)}/projects/"
+    first = c.post(url, {"name": "A"}, "json").json()  # P already holds the first colour
+    assert first["color"] == "orange"
+    assert c.post(url, {"name": "B", "color": "red"}, "json").json()["color"] == "red"
+    assert c.post(url, {"name": "C"}, "json").json()["color"] == "green"
+    assert c.post(url, {"name": "D", "color": "#ff0000"}, "json").status_code == 400
+    resp = c.patch(f"{url}{first['id']}/", {"color": "teal"}, "json")
+    assert resp.json()["color"] == "teal"
+
+
+def test_migration_spreads_colours_within_each_lab(lab, people, make_lab):
+    from importlib import import_module
+
+    from django.db import connection
+    from django.db.migrations.executor import MigrationExecutor
+
+    second = Project.objects.create(lab=lab, name="Q", created_by=people["pi"])
+    elsewhere = Project.objects.create(lab=make_lab("B"), name="R", created_by=people["pi"])
+    node = ("projects", "0007_project_color")
+    apps = MigrationExecutor(connection).loader.project_state(node).apps
+    import_module("projects.migrations.0007_project_color").assign_colors(apps, None)
+    for project in (people["project"], second, elsewhere):
+        project.refresh_from_db()
+    assert people["project"].color == "blue"
+    assert second.color == "orange"
+    assert elsewhere.color == "blue"

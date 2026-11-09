@@ -1,16 +1,28 @@
 import { ChevronRight } from "lucide-react";
 import { Link } from "react-router";
+import type { RecentKind } from "@/lib/pins";
 
 export interface Crumb {
   label: string;
   to?: string;
+  /** This crumb is a named item, which can appear in Recents. */
+  kind?: RecentKind;
+  /** The label is still a placeholder: the item's name has not loaded. */
+  pending?: boolean;
 }
 
 /** The last crumb is the current page and is not a link. */
-export function Breadcrumbs({ items }: { items: Crumb[] }) {
+export function Breadcrumbs({
+  items,
+  label = "Breadcrumb",
+}: {
+  items: Crumb[];
+  /** Give a second breadcrumb on one page its own landmark name. */
+  label?: string;
+}) {
   if (items.length === 0) return null;
   return (
-    <nav aria-label="Breadcrumb">
+    <nav aria-label={label}>
       <ol className="flex items-center gap-1.5 text-sm text-muted-foreground">
         {items.map((item, i) => {
           const last = i === items.length - 1;

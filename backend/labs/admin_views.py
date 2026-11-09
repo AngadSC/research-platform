@@ -23,6 +23,7 @@ from labs.admin_serializers import (
     OnboardingItemSerializer,
     ResourceInputSerializer,
     ResourceSerializer,
+    StartersLoadedSerializer,
 )
 from labs.models import InstitutionResource, InventoryItem, OnboardingItem
 
@@ -85,6 +86,19 @@ class ResourceDetailView(LabScopedViewMixin, generics.GenericAPIView):
     def delete(self, request, lab_id, institutionresource_id):
         svc.delete_resource(self.get_object(), user=request.user, request=request)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ResourceLoadStartersView(LabScopedViewMixin, generics.GenericAPIView):
+    """Copy the lab's university links and the national links into the lab (D149)."""
+
+    serializer_class = StartersLoadedSerializer
+    pagination_class = None
+    perms = {"POST": Perm.MANAGE_LAB}
+
+    @extend_schema(request=None, responses=StartersLoadedSerializer)
+    def post(self, request, lab_id):
+        result = svc.load_starter_resources(request.lab, user=request.user, request=request)
+        return Response(self.get_serializer(result).data)
 
 
 # ---------------------------------------------------------------- onboarding

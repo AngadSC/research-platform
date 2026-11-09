@@ -20,7 +20,14 @@ import {
 } from "@/hooks/assistant";
 import { useProject } from "@/hooks/projects";
 import { useLabs } from "@/hooks/workspace";
-import { estimateCost, formatCost, streamPost, tokensIn, type ChatEvent } from "@/lib/assistant";
+import {
+  ASSISTANT_PREFILL,
+  estimateCost,
+  formatCost,
+  streamPost,
+  tokensIn,
+  type ChatEvent,
+} from "@/lib/assistant";
 import { Markdown } from "@/lib/markdown";
 import { NativeSelect } from "@/pages/admin/common";
 
@@ -162,7 +169,7 @@ function Item({ item, config }: { item: TimelineItem; config?: AssistantConfig }
   );
 }
 
-function Setup({ config }: { config: AssistantConfig }) {
+export function Setup({ config }: { config: AssistantConfig }) {
   if (!config.can_use)
     return (
       <p role="alert" className="rounded-md border p-3 text-sm">
@@ -182,7 +189,15 @@ function Setup({ config }: { config: AssistantConfig }) {
   );
 }
 
-function AssistantPanel({ labId, projectId }: { labId: string; projectId?: string }) {
+function AssistantPanel({
+  labId,
+  projectId,
+  initialText = "",
+}: {
+  labId: string;
+  projectId?: string;
+  initialText?: string;
+}) {
   const qc = useQueryClient();
   const config = useAssistantConfig(labId, true);
   const convs = useConversations(labId, true);
@@ -194,7 +209,7 @@ function AssistantPanel({ labId, projectId }: { labId: string; projectId?: strin
   const remove = useDeleteConversation(labId);
   const [provider, setProvider] = useState<Provider | null>(null);
   const [model, setModel] = useState("");
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialText);
   const [live, setLive] = useState<Live | null>(null);
   const [streaming, setStreaming] = useState(false);
   const [dismissedFor, setDismissedFor] = useState("");
@@ -491,11 +506,26 @@ function AssistantPanel({ labId, projectId }: { labId: string; projectId?: strin
  * project when the page is inside one; a new chat starts whenever that scope changes. */
 export function AssistantDrawer({ labId }: { labId: string }) {
   const [open, setOpen] = useState(false);
+  const [prefill, setPrefill] = useState("");
   const projectId = useMatches()
     .map((m) => m.params.projectId)
     .find(Boolean);
+  useEffect(() => {
+    const onPrefill = (e: Event) => {
+      setPrefill((e as CustomEvent<string>).detail);
+      setOpen(true);
+    };
+    window.addEventListener(ASSISTANT_PREFILL, onPrefill);
+    return () => window.removeEventListener(ASSISTANT_PREFILL, onPrefill);
+  }, []);
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) setPrefill("");
+      }}
+    >
       <SheetTrigger asChild>
         <Button variant="secondary" size="sm" aria-label="Assistant">
           <Sparkles aria-hidden />
@@ -503,7 +533,12 @@ export function AssistantDrawer({ labId }: { labId: string }) {
         </Button>
       </SheetTrigger>
       <SheetContent className="max-w-xl gap-3 p-4" aria-describedby={undefined}>
-        <AssistantPanel key={`${labId}:${projectId ?? ""}`} labId={labId} projectId={projectId} />
+        <AssistantPanel
+          key={`${labId}:${projectId ?? ""}`}
+          labId={labId}
+          projectId={projectId}
+          initialText={prefill}
+        />
       </SheetContent>
     </Sheet>
   );

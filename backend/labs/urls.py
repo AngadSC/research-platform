@@ -26,6 +26,11 @@ urlpatterns = [
         name="resource-list",
     ),
     path(
+        "labs/<uuid:lab_id>/institution-resources/load-starters/",
+        av.ResourceLoadStartersView.as_view(),
+        name="resource-load-starters",
+    ),
+    path(
         "labs/<uuid:lab_id>/institution-resources/<uuid:institutionresource_id>/",
         av.ResourceDetailView.as_view(),
         name="resource-detail",

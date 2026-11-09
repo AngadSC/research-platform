@@ -875,6 +875,45 @@ paths:
                 type: string
                 format: binary
           description: ''
+  /api/labs/{lab_id}/attachments/{attachment_id}/move/:
+    post:
+      operationId: labs_attachments_move_create
+      description: |-
+        HasPerm reads `view.project`. Collection routes take the project from the URL (404 if
+        not visible); item routes take it from the visible object the URL names, so an invisible
+        object is a 404 before any 403 (D21).
+      parameters:
+      - in: path
+        name: attachment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemMove'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ItemMove'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ItemMove'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/audit-events/:
     get:
       operationId: labs_audit_events_list
@@ -988,6 +1027,8 @@ paths:
           - dmp.updated
           - dmp.approved
           - dmp.deleted
+          - paper.deleted
+          - paper_note.deleted
           type: string
           minLength: 1
         description: |-
@@ -1094,6 +1135,8 @@ paths:
           * `dmp.updated` - Dmp Updated
           * `dmp.approved` - Dmp Approved
           * `dmp.deleted` - Dmp Deleted
+          * `paper.deleted` - Paper Deleted
+          * `paper_note.deleted` - Paper Note Deleted
       - in: query
         name: actor
         schema:
@@ -1556,6 +1599,43 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/documents/{document_id}/move/:
+    post:
+      operationId: labs_documents_move_create
+      description: Routes under `documents/<document_id>/`, and the project's document
+        collection.
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemMove'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ItemMove'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ItemMove'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/documents/{document_id}/revisions/:
     get:
       operationId: labs_documents_revisions_list
@@ -1978,6 +2058,74 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExternalLink'
           description: ''
+  /api/labs/{lab_id}/folders/{folder_id}/:
+    patch:
+      operationId: labs_folders_partial_update
+      description: |-
+        HasPerm reads `view.project`. Collection routes take the project from the URL (404 if
+        not visible); item routes take it from the visible object the URL names, so an invisible
+        object is a 404 before any 403 (D21).
+      parameters:
+      - in: path
+        name: folder_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFolderRename'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedFolderRename'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedFolderRename'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Folder'
+          description: ''
+    delete:
+      operationId: labs_folders_destroy
+      description: |-
+        HasPerm reads `view.project`. Collection routes take the project from the URL (404 if
+        not visible); item routes take it from the visible object the URL names, so an invisible
+        object is a 404 before any 403 (D21).
+      parameters:
+      - in: path
+        name: folder_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/funding/{fundingrecord_id}/:
     get:
       operationId: labs_funding_retrieve
@@ -2208,6 +2356,29 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/institution-resources/load-starters/:
+    post:
+      operationId: labs_institution_resources_load_starters_create
+      description: Copy the lab's university links and the national links into the
+        lab (D149).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartersLoaded'
+          description: ''
   /api/labs/{lab_id}/integrations/{provider}/connect/:
     post:
       operationId: labs_integrations_connect_create
@@ -3140,6 +3311,396 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OnboardingItem'
+          description: ''
+  /api/labs/{lab_id}/paper-notes/{papernote_id}/:
+    patch:
+      operationId: labs_paper_notes_partial_update
+      description: 'PATCH: the author only. DELETE: the author, or a PI or lab admin
+        (checked in the service).'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: papernote_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedNoteInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedNoteInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedNoteInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperNote'
+          description: ''
+    delete:
+      operationId: labs_paper_notes_destroy
+      description: 'PATCH: the author only. DELETE: the author, or a PI or lab admin
+        (checked in the service).'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: papernote_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/papers/:
+    get:
+      operationId: labs_papers_list
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Words to look for.
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Paper'
+          description: ''
+    post:
+      operationId: labs_papers_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaperInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PaperInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PaperInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperDetail'
+          description: ''
+  /api/labs/{lab_id}/papers/{paper_id}/:
+    get:
+      operationId: labs_papers_retrieve
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: paper_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperDetail'
+          description: ''
+    patch:
+      operationId: labs_papers_partial_update
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: paper_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPaperInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPaperInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPaperInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperDetail'
+          description: ''
+    delete:
+      operationId: labs_papers_destroy
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: paper_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/papers/{paper_id}/citation/:
+    get:
+      operationId: labs_papers_citation_retrieve
+      description: 'All four styles at once: the UI switches between them without
+        another request.'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: paper_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperCitation'
+          description: ''
+  /api/labs/{lab_id}/papers/{paper_id}/notes/:
+    post:
+      operationId: labs_papers_notes_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: paper_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NoteInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NoteInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NoteInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperNote'
+          description: ''
+  /api/labs/{lab_id}/papers/{paper_id}/pdf/:
+    get:
+      operationId: labs_papers_pdf_retrieve
+      description: 'One live PDF per paper: GET streams it (audited), POST replaces
+        it.'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: paper_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          description: ''
+    post:
+      operationId: labs_papers_pdf_create
+      description: 'One live PDF per paper: GET streams it (audited), POST replaces
+        it.'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: paper_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AttachmentUpload'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AttachmentUpload'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attachment'
+          description: ''
+  /api/labs/{lab_id}/papers/doi-lookup/:
+    get:
+      operationId: labs_papers_doi_lookup_retrieve
+      description: 'Autofill for the add-paper form. Unknown or malformed DOI: `found:
+        false`.'
+      parameters:
+      - in: query
+        name: doi
+        schema:
+          type: string
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperDoiLookup'
           description: ''
   /api/labs/{lab_id}/project-members/{projectmembership_id}/:
     patch:
@@ -4114,6 +4675,81 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ExternalLink'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/folders/:
+    get:
+      operationId: labs_projects_folders_list
+      description: |-
+        HasPerm reads `view.project`. Collection routes take the project from the URL (404 if
+        not visible); item routes take it from the visible object the URL names, so an invisible
+        object is a 404 before any 403 (D21).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Folder'
+          description: ''
+    post:
+      operationId: labs_projects_folders_create
+      description: |-
+        HasPerm reads `view.project`. Collection routes take the project from the URL (404 if
+        not visible); item routes take it from the visible object the URL names, so an invisible
+        object is a 404 before any 403 (D21).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FolderCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FolderCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FolderCreate'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Folder'
           description: ''
   /api/labs/{lab_id}/projects/{project_id}/funding/:
     get:
@@ -5314,7 +5950,7 @@ paths:
         schema:
           type: string
         description: 'Comma-separated: project, task, document, dataset, analysis,
-          result, decision, manuscript, funding, review, ethics, link'
+          result, decision, manuscript, funding, review, ethics, link, paper, paper_note'
       tags:
       - labs
       security:
@@ -6547,6 +7183,8 @@ components:
       - dmp.updated
       - dmp.approved
       - dmp.deleted
+      - paper.deleted
+      - paper_note.deleted
       type: string
       description: |-
         * `auth.login` - Auth Login
@@ -6652,6 +7290,8 @@ components:
         * `dmp.updated` - Dmp Updated
         * `dmp.approved` - Dmp Approved
         * `dmp.deleted` - Dmp Deleted
+        * `paper.deleted` - Paper Deleted
+        * `paper_note.deleted` - Paper Note Deleted
     AiAccessEnum:
       enum:
       - read
@@ -6853,6 +7493,11 @@ components:
           format: uuid
           readOnly: true
           nullable: true
+        folder:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
         original_filename:
           type: string
           readOnly: true
@@ -6881,6 +7526,7 @@ components:
       - content_type
       - created_at
       - ethics_approval
+      - folder
       - id
       - notice_acknowledged_at
       - original_filename
@@ -6911,7 +7557,13 @@ components:
       - size_bytes
     AttachmentUpload:
       type: object
+      description: The view resolves it inside the project; an unknown id is a 400
+        either way.
       properties:
+        folder:
+          type: string
+          format: uuid
+          nullable: true
         file:
           type: string
           format: uri
@@ -7112,6 +7764,30 @@ components:
       required:
       - count
       - project
+    ColorEnum:
+      enum:
+      - blue
+      - orange
+      - green
+      - pink
+      - teal
+      - yellow
+      - violet
+      - red
+      - lime
+      - brown
+      type: string
+      description: |-
+        * `blue` - Blue
+        * `orange` - Orange
+        * `green` - Green
+        * `pink` - Pink
+        * `teal` - Teal
+        * `yellow` - Yellow
+        * `violet` - Violet
+        * `red` - Red
+        * `lime` - Lime
+        * `brown` - Brown
     CompletionInput:
       type: object
       properties:
@@ -8332,8 +9008,17 @@ components:
           type: string
           format: uuid
           readOnly: true
+        folder:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
         title:
           type: string
+          readOnly: true
+        embed_url:
+          type: string
+          format: uri
           readOnly: true
         version:
           type: integer
@@ -8364,10 +9049,17 @@ components:
           allOf:
           - $ref: '#/components/schemas/User'
           readOnly: true
+        embed_open_url:
+          type: string
+          format: uri
+          readOnly: true
       required:
       - content
       - created_at
       - created_by
+      - embed_open_url
+      - embed_url
+      - folder
       - id
       - project
       - retain_until
@@ -8378,11 +9070,20 @@ components:
       - version
     DocumentCreate:
       type: object
+      description: The view resolves it inside the project; an unknown id is a 400
+        either way.
       properties:
+        folder:
+          type: string
+          format: uuid
+          nullable: true
         title:
           type: string
           maxLength: 300
         content: {}
+        embed_url:
+          type: string
+          maxLength: 2000
       required:
       - title
     DocumentList:
@@ -8396,8 +9097,17 @@ components:
           type: string
           format: uuid
           readOnly: true
+        folder:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
         title:
           type: string
+          readOnly: true
+        embed_url:
+          type: string
+          format: uri
           readOnly: true
         version:
           type: integer
@@ -8424,6 +9134,8 @@ components:
           readOnly: true
       required:
       - created_at
+      - embed_url
+      - folder
       - id
       - project
       - retain_until
@@ -8455,6 +9167,9 @@ components:
         base_version:
           type: integer
           minimum: 1
+        autosave:
+          type: boolean
+          default: false
         retain_until:
           type: string
           format: date
@@ -8875,6 +9590,52 @@ components:
           format: uuid
       required:
       - provider
+    Folder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        project:
+          type: string
+          format: uuid
+          readOnly: true
+        parent:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        name:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - name
+      - parent
+      - project
+      - updated_at
+    FolderCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        parent:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - name
     Funding:
       type: object
       description: 'D133: `amount` and `currency` are null for anyone who is not a
@@ -9367,6 +10128,16 @@ components:
       - email
       - lab_name
       - role
+    ItemMove:
+      type: object
+      description: '`folder: null` moves the item to the project''s top level.'
+      properties:
+        folder:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - folder
     ItemSearchResult:
       type: object
       description: 'A candidate to link (D85). Linking it sends only `id`: the server
@@ -9446,6 +10217,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/Institution'
           readOnly: true
+        institution_name:
+          type: string
+          writeOnly: true
+          maxLength: 200
         department:
           type: string
           readOnly: true
@@ -9873,6 +10648,14 @@ components:
         * `api_key` - api_key
         * `secret` - secret
         * `instance_url` - instance_url
+    NoteInput:
+      type: object
+      properties:
+        body:
+          type: string
+          maxLength: 20000
+      required:
+      - body
     Notification:
       type: object
       properties:
@@ -10042,6 +10825,243 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AuditEvent'
+    Paper:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        authors:
+          type: array
+          items:
+            type: string
+          readOnly: true
+        year:
+          type: integer
+          readOnly: true
+          nullable: true
+        venue:
+          type: string
+          readOnly: true
+        doi:
+          type: string
+          readOnly: true
+        url:
+          type: string
+          format: uri
+          readOnly: true
+        added_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        has_pdf:
+          type: boolean
+          readOnly: true
+        note_count:
+          type: integer
+          readOnly: true
+          default: 0
+      required:
+      - added_by
+      - authors
+      - created_at
+      - doi
+      - has_pdf
+      - id
+      - note_count
+      - title
+      - url
+      - venue
+      - year
+    PaperCitation:
+      type: object
+      properties:
+        apa:
+          type: string
+        mla:
+          type: string
+        chicago:
+          type: string
+        bibtex:
+          type: string
+      required:
+      - apa
+      - bibtex
+      - chicago
+      - mla
+    PaperDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        authors:
+          type: array
+          items:
+            type: string
+          readOnly: true
+        year:
+          type: integer
+          readOnly: true
+          nullable: true
+        venue:
+          type: string
+          readOnly: true
+        doi:
+          type: string
+          readOnly: true
+        url:
+          type: string
+          format: uri
+          readOnly: true
+        added_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        has_pdf:
+          type: boolean
+          readOnly: true
+        note_count:
+          type: integer
+          readOnly: true
+          default: 0
+        abstract:
+          type: string
+          readOnly: true
+        notes:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaperNote'
+          readOnly: true
+        pdf:
+          allOf:
+          - $ref: '#/components/schemas/Attachment'
+          nullable: true
+          readOnly: true
+      required:
+      - abstract
+      - added_by
+      - authors
+      - created_at
+      - doi
+      - has_pdf
+      - id
+      - note_count
+      - notes
+      - pdf
+      - title
+      - url
+      - venue
+      - year
+    PaperDoiLookup:
+      type: object
+      properties:
+        found:
+          type: boolean
+        title:
+          type: string
+        authors:
+          type: array
+          items:
+            type: string
+        year:
+          type: integer
+          nullable: true
+        venue:
+          type: string
+        doi:
+          type: string
+        url:
+          type: string
+        abstract:
+          type: string
+      required:
+      - found
+    PaperInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 500
+        authors:
+          type: array
+          items:
+            type: string
+            maxLength: 200
+          maxItems: 200
+        year:
+          type: integer
+          maximum: 2100
+          minimum: 1000
+          nullable: true
+        venue:
+          type: string
+          maxLength: 300
+        doi:
+          type: string
+          maxLength: 200
+        url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 500
+          - type: string
+            maxLength: 0
+        abstract:
+          type: string
+          maxLength: 20000
+      required:
+      - title
+    PaperNote:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        paper:
+          type: string
+          format: uuid
+          readOnly: true
+        author:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        body:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        edited_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - author
+      - body
+      - created_at
+      - edited_at
+      - id
+      - paper
     PatCreate:
       type: object
       properties:
@@ -10328,6 +11348,12 @@ components:
           $ref: '#/components/schemas/ApprovalStatusEnum'
         restricted:
           type: boolean
+    PatchedFolderRename:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
     PatchedFundingInput:
       type: object
       properties:
@@ -10473,6 +11499,12 @@ components:
           type: string
           maxLength: 120
         preferences: {}
+    PatchedNoteInput:
+      type: object
+      properties:
+        body:
+          type: string
+          maxLength: 20000
     PatchedOnboardingItemInput:
       type: object
       properties:
@@ -10497,6 +11529,39 @@ components:
           type: string
           format: uuid
           nullable: true
+    PatchedPaperInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 500
+        authors:
+          type: array
+          items:
+            type: string
+            maxLength: 200
+          maxItems: 200
+        year:
+          type: integer
+          maximum: 2100
+          minimum: 1000
+          nullable: true
+        venue:
+          type: string
+          maxLength: 300
+        doi:
+          type: string
+          maxLength: 200
+        url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 500
+          - type: string
+            maxLength: 0
+        abstract:
+          type: string
+          maxLength: 20000
     PatchedPolicy:
       type: object
       properties:
@@ -10508,6 +11573,8 @@ components:
         name:
           type: string
           maxLength: 200
+        color:
+          $ref: '#/components/schemas/ColorEnum'
         description:
           type: string
         status:
@@ -10774,6 +11841,10 @@ components:
         name:
           type: string
           readOnly: true
+        color:
+          allOf:
+          - $ref: '#/components/schemas/ColorEnum'
+          readOnly: true
         description:
           type: string
           readOnly: true
@@ -10825,6 +11896,7 @@ components:
             type: string
           readOnly: true
       required:
+      - color
       - created_at
       - created_by
       - description
@@ -10845,6 +11917,8 @@ components:
         name:
           type: string
           maxLength: 200
+        color:
+          $ref: '#/components/schemas/ColorEnum'
         description:
           type: string
         status:
@@ -11557,6 +12631,20 @@ components:
             $ref: '#/components/schemas/SearchHit'
       required:
       - results
+    StartersLoaded:
+      type: object
+      properties:
+        added:
+          type: integer
+        institution:
+          type: string
+        curated_institution:
+          type: string
+          nullable: true
+      required:
+      - added
+      - curated_institution
+      - institution
     Status1eeEnum:
       enum:
       - applied

@@ -7,12 +7,44 @@ from core.tenancy import LabScopedModel
 # Content is capped in documents.services; the file limit lives in settings.ATTACHMENT_MAX_BYTES.
 
 
+class Folder(LabScopedModel):
+    """One tree per project, shared by documents and files. `parent` is set once at creation and
+    never changes, so cycles cannot happen. Deleting moves the contents up (services)."""
+
+    project = models.ForeignKey(
+        "projects.Project", on_delete=models.CASCADE, related_name="folders"
+    )
+    parent = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="children"
+    )
+    name = models.CharField(max_length=200)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+
+    lab_parents = ("project", "parent")
+    permission_domain = "project"
+    project_path = "project"
+
+    class Meta(LabScopedModel.Meta):
+        indexes = [models.Index(fields=["project", "parent"], name="folder_project_parent_idx")]
+
+    def __str__(self):
+        return self.name
+
+
 class Document(LabScopedModel):
     project = models.ForeignKey(
         "projects.Project", on_delete=models.CASCADE, related_name="documents"
     )
+    folder = models.ForeignKey(
+        Folder, on_delete=models.SET_NULL, null=True, blank=True, related_name="documents"
+    )
     title = models.CharField(max_length=300)
     content = models.JSONField(default=list)  # BlockNote blocks
+    # Set once at creation by documents.embed (allowlisted hosts). Blank for a normal document.
+    embed_url = models.URLField(max_length=2000, blank=True, default="")
+    embed_open_url = models.URLField(max_length=2000, blank=True, default="")  # "Open in ..."
     version = models.PositiveIntegerField(default=1)  # D11: bumped by save_document only
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
@@ -25,7 +57,7 @@ class Document(LabScopedModel):
     deleted_at = models.DateTimeField(null=True, blank=True)
     search_text = models.TextField(blank=True, editable=False)  # D93: derived from content
 
-    lab_parents = ("project",)
+    lab_parents = ("project", "folder")
     permission_domain = "project"
     project_path = "project"
 
@@ -72,9 +104,9 @@ class DocumentRevision(LabScopedModel):
 
 
 class Attachment(LabScopedModel):
-    """D38, D175: exactly one owner, a project, an ethics approval or a training record (DB
-    check). Project views see only project-owned files; ethics files are served through the
-    approval (D48) and training certificates through their record."""
+    """D38, D175: exactly one owner, a project, an ethics approval, a training record or a paper
+    (DB check). Project views see only project-owned files; ethics files are served through the
+    approval (D48), training certificates through their record, paper PDFs through their paper."""
 
     project = models.ForeignKey(
         "projects.Project", on_delete=models.CASCADE, null=True, related_name="attachments"
@@ -84,6 +116,9 @@ class Attachment(LabScopedModel):
     )
     training_record = models.ForeignKey(  # D175: a member's certificate, private to them
         "training.TrainingRecord", on_delete=models.PROTECT, null=True, related_name="attachments"
+    )
+    paper = models.ForeignKey(  # a paper's PDF, lab-wide, served through its paper
+        "papers.Paper", on_delete=models.PROTECT, null=True, related_name="attachments"
     )
     storage_key = models.CharField(max_length=512, unique=True)  # set server-side only
     original_filename = models.CharField(max_length=255)
@@ -95,8 +130,11 @@ class Attachment(LabScopedModel):
     )
     notice_acknowledged_at = models.DateTimeField()
     deleted_at = models.DateTimeField(null=True, blank=True)  # soft delete; bytes are kept
+    folder = models.ForeignKey(  # only on project-owned files
+        Folder, on_delete=models.SET_NULL, null=True, blank=True, related_name="attachments"
+    )
 
-    lab_parents = ("project", "ethics_approval", "training_record")
+    lab_parents = ("project", "ethics_approval", "training_record", "folder", "paper")
     permission_domain = "project"
     project_path = "project"
 
@@ -107,19 +145,33 @@ class Attachment(LabScopedModel):
                     project__isnull=False,
                     ethics_approval__isnull=True,
                     training_record__isnull=True,
+                    paper__isnull=True,
                 )
                 | Q(
                     project__isnull=True,
                     ethics_approval__isnull=False,
                     training_record__isnull=True,
+                    paper__isnull=True,
                 )
                 | Q(
                     project__isnull=True,
                     ethics_approval__isnull=True,
                     training_record__isnull=False,
+                    paper__isnull=True,
+                )
+                | Q(
+                    project__isnull=True,
+                    ethics_approval__isnull=True,
+                    training_record__isnull=True,
+                    paper__isnull=False,
                 ),
                 name="attachment_has_one_owner",
-            )
+            ),
+            # With a null project the composite (folder, project) FK would not apply (MATCH SIMPLE).
+            models.CheckConstraint(
+                condition=Q(folder__isnull=True) | Q(project__isnull=False),
+                name="attachment_folder_needs_project",
+            ),
         ]
 
     def __str__(self):

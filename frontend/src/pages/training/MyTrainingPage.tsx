@@ -66,7 +66,7 @@ export function MyTrainingPage() {
         title="My training"
         description="Trainings the lab requires of you, and your own records. Only you and the PI or lab admins can see them."
       />
-      <div className="grid max-w-4xl gap-8">
+      <div className="grid gap-8">
         <Section title="Required trainings" description="Where you stand today.">
           {mine.isLoading ? (
             <Skeleton className="h-24 w-full" />

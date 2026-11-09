@@ -6,6 +6,7 @@ import { Link, useParams } from "react-router";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { paperPdfUrl, usePaper } from "@/hooks/papers";
 import { downloadUrl, useAttachment } from "@/hooks/projects";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
@@ -13,12 +14,21 @@ GlobalWorkerOptions.workerSrc = workerUrl;
 type Zoom = number | "fit";
 
 export default function PdfViewerPage() {
-  const { labId = "", projectId = "", approvalId = "", attachmentId = "" } = useParams();
-  const back = approvalId
-    ? { to: `/labs/${labId}/ethics/${approvalId}`, label: "Back to approval" }
-    : { to: `/labs/${labId}/projects/${projectId}/files`, label: "Back to files" };
-  const url = downloadUrl(labId, attachmentId);
+  const {
+    labId = "",
+    projectId = "",
+    approvalId = "",
+    attachmentId = "",
+    paperId = "",
+  } = useParams();
+  const back = paperId
+    ? { to: `/labs/${labId}/papers/${paperId}`, label: "Back to paper" }
+    : approvalId
+      ? { to: `/labs/${labId}/ethics/${approvalId}`, label: "Back to approval" }
+      : { to: `/labs/${labId}/projects/${projectId}/files`, label: "Back to files" };
+  const url = paperId ? paperPdfUrl(labId, paperId) : downloadUrl(labId, attachmentId);
   const { data: att } = useAttachment(labId, attachmentId);
+  const { data: paper } = usePaper(labId, paperId);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [failed, setFailed] = useState(false);
   const [page, setPage] = useState(1);
@@ -87,7 +97,7 @@ export default function PdfViewerPage() {
   return (
     <div className="grid gap-4" onKeyDown={onKey} data-native-find>
       <PageHeader
-        title={att?.original_filename ?? "File"}
+        title={att?.original_filename ?? paper?.title ?? "File"}
         actions={
           <>
             <Button variant="outline" asChild>

@@ -76,6 +76,7 @@ INSTALLED_APPS = [
     "provenance",
     "ethics",
     "training",
+    "papers",
     "audit",
     "integrations",
     "assistant",  # Run 5, D160: AI tool layer and MCP server

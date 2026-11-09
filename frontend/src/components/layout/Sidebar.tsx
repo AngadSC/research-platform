@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, ChevronsUpDown, LogOut, Plus } from "lucide-react";
+import { ChevronRight, ChevronsUpDown, Plus } from "lucide-react";
 import { NavLink, useNavigate } from "react-router";
 import {
   DropdownMenu,
@@ -9,8 +9,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  hoverTint,
+  iconButton,
+  linkClass,
+  PinnedNav,
+  SidebarFooter,
+} from "@/components/layout/SidebarSections";
 import { UnreadBadge, useUnreadCount } from "@/components/layout/UnreadBadge";
-import { useLogout } from "@/hooks/auth";
 import { useUnreadChats } from "@/hooks/chat";
 import { useCurrentLabId, useCurrentProjectId } from "@/hooks/crumbs";
 import { useProjects } from "@/hooks/projects";
@@ -18,18 +24,8 @@ import { useLabs } from "@/hooks/workspace";
 import type { Lab, Project } from "@/lib/api-types";
 import { navItems, PROJECT_SECTIONS } from "@/lib/nav";
 import { APP_NAME } from "@/lib/constants";
+import { projectColorStyle } from "@/lib/projectColors";
 import { cn } from "@/lib/utils";
-
-const linkClass = ({ isActive }: { isActive: boolean }) =>
-  cn(
-    "flex items-center gap-2 rounded-md px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4",
-    isActive
-      ? "bg-primary/10 font-semibold text-primary"
-      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-  );
-
-const iconButton =
-  "shrink-0 rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4";
 
 /** A project row that opens into its sections. The project you are in opens by itself. */
 function ProjectItem({
@@ -50,8 +46,8 @@ function ProjectItem({
   const base = `/labs/${labId}/projects/${project.id}`;
   const listId = `project-sections-${project.id}`;
   return (
-    <li>
-      <div className="flex items-center gap-0.5 rounded-md hover:bg-accent">
+    <li style={projectColorStyle(project.color)}>
+      <div className="flex items-center gap-0.5 rounded-md hover:bg-[color-mix(in_srgb,var(--project)_18%,transparent)]">
         <NavLink
           to={base}
           onClick={() => {
@@ -59,10 +55,11 @@ function ProjectItem({
             onNavigate();
           }}
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-sm hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            "flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-sm hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
             isCurrent ? "font-semibold text-foreground" : "text-muted-foreground",
           )}
         >
+          <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-(--project)" />
           <span className="truncate">{project.name}</span>
           {!open && <UnreadBadge count={unread} noun="message" className="ml-auto shrink-0" />}
         </NavLink>
@@ -72,7 +69,7 @@ function ProjectItem({
           aria-expanded={open}
           aria-controls={listId}
           onClick={() => setChoice(!open)}
-          className={iconButton}
+          className={cn(iconButton, "hover:bg-transparent")}
         >
           <ChevronRight aria-hidden className={cn("transition-transform", open && "rotate-90")} />
         </button>
@@ -112,7 +109,7 @@ function LabSwitcher({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Switch lab"
-        className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold ${hoverTint} focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none`}
       >
         <span className="truncate">{current?.name ?? "Select a lab"}</span>
         <UnreadBadge count={unread} className="ml-auto" />
@@ -145,10 +142,18 @@ function LabSwitcher({
   );
 }
 
-export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function Sidebar({
+  open,
+  desktopHidden,
+  onClose,
+}: {
+  open: boolean;
+  /** md and up: the user tucked the sidebar away. The drawer below md ignores this. */
+  desktopHidden: boolean;
+  onClose: () => void;
+}) {
   const { data: labs = [] } = useLabs();
   const labId = useCurrentLabId();
-  const logout = useLogout();
   const projectId = useCurrentProjectId();
   const { data: projects = [] } = useProjects(labId);
   const chatUnread = useUnreadChats(labId);
@@ -161,13 +166,18 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
       className={cn(
         "w-64 shrink-0 flex-col gap-6 overflow-y-auto bg-sidebar p-4 print:hidden",
         // Below md the sidebar is a drawer that only exists while open.
-        open ? "fixed inset-y-0 left-0 z-50 flex md:static md:z-auto" : "hidden md:flex",
+        open
+          ? "fixed inset-y-0 left-0 z-50 flex md:static md:z-auto"
+          : desktopHidden
+            ? "hidden"
+            : "hidden md:flex",
       )}
     >
       <div>
         <p className="px-2 pb-1 text-xs text-muted-foreground">{APP_NAME}</p>
         <LabSwitcher labs={labs} current={current} onNavigate={onClose} unread={unread} />
       </div>
+      <PinnedNav onNavigate={onClose} />
       {labId && (
         <nav aria-label="Projects" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
           <div className="flex items-center justify-between px-2 pb-1">
@@ -180,7 +190,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                   onClose();
                   void navigate(`/labs/${labId}?new=project`);
                 }}
-                className="rounded-md p-1 text-muted-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4"
+                className={iconButton}
               >
                 <Plus aria-hidden />
               </button>
@@ -201,22 +211,17 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         </nav>
       )}
       <nav aria-label="Main" className="grid gap-0.5">
-        {navItems(labId, current?.my_permissions).map(({ to, label, icon: Icon, end }) => (
-          <NavLink key={to} to={to} end={end} className={linkClass} onClick={onClose}>
-            <Icon aria-hidden />
-            {label}
-            {to.endsWith("/notifications") && <UnreadBadge count={unread} className="ml-auto" />}
-          </NavLink>
-        ))}
-        <button
-          type="button"
-          onClick={() => logout.mutate()}
-          className={cn(linkClass({ isActive: false }), "w-full text-left")}
-        >
-          <LogOut aria-hidden />
-          Sign out
-        </button>
+        {navItems(labId, current?.my_permissions)
+          .filter(({ to }) => to !== "/settings") // in the account menu; the palette keeps it
+          .map(({ to, label, icon: Icon, end }) => (
+            <NavLink key={to} to={to} end={end} className={linkClass} onClick={onClose}>
+              <Icon aria-hidden />
+              {label}
+              {to.endsWith("/notifications") && <UnreadBadge count={unread} className="ml-auto" />}
+            </NavLink>
+          ))}
       </nav>
+      <SidebarFooter onNavigate={onClose} />
     </aside>
   );
 }

@@ -77,7 +77,10 @@ def test_legacy_initialize_list_call_with_a_pat(world):
     tools_, h = legacy_session(token)
     names = [t["name"] for t in tools_]
     assert names[:2] == ["list_labs", "list_projects"] and "create_task" in names
+    assert {"list_papers", "read_paper", "cite_paper", "add_paper_note"} <= set(names)
     by = {t["name"]: t for t in tools_}
+    assert by["read_paper"]["annotations"]["readOnlyHint"] is True
+    assert by["add_paper_note"]["annotations"]["readOnlyHint"] is False
     assert by["list_tasks"]["annotations"]["readOnlyHint"] is True
     assert by["create_task"]["annotations"] == {
         "title": "Create a task",

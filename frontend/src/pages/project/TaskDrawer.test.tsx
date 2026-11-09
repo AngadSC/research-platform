@@ -114,20 +114,18 @@ describe("task drawer", () => {
       ...base(["view_project", "edit_content"]),
       [`PATCH ${LAB}/tasks/t1/`]: { body: task({ status: "done" }) },
     });
+    const taskPatches = () =>
+      calls.filter((c) => c.path === `${LAB}/tasks/t1/` && c.method === "PATCH");
     renderRoute(TASKS);
     const drawer = await screen.findByRole("dialog");
     await userEvent.click(within(drawer).getByRole("combobox", { name: "Assignee" }));
     const names = (await screen.findAllByRole("option")).map((o) => o.textContent);
     expect(names).toEqual(["Unassigned", "Ada", "Grace"]); // Vera is a viewer
     await userEvent.click(screen.getByRole("option", { name: "Grace" }));
-    await waitFor(() =>
-      expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ assignee: "u2" }),
-    );
+    await waitFor(() => expect(taskPatches().at(0)?.body).toEqual({ assignee: "u2" }));
     await userEvent.click(within(drawer).getByRole("combobox", { name: "Status" }));
     await userEvent.click(await screen.findByRole("option", { name: "Done" }));
-    await waitFor(() =>
-      expect(calls.filter((c) => c.method === "PATCH").at(-1)?.body).toEqual({ status: "done" }),
-    );
+    await waitFor(() => expect(taskPatches().at(-1)?.body).toEqual({ status: "done" }));
   });
 
   it("deletes only after confirming", async () => {

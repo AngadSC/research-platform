@@ -20,6 +20,7 @@ import {
   type ProjectStatus,
 } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
+import { PROJECT_COLORS, projectColorStyle } from "@/lib/projectColors";
 
 interface Props {
   open: boolean;
@@ -42,9 +43,11 @@ export function ProjectFormDialog({ open, onOpenChange, project, canRetention, o
     const name = String(f.get("name") ?? "").trim();
     if (!name) return setErrors({ fields: { name: "Enter a project name" } });
     setErrors({ fields: {} });
+    const color = f.get("color") as ProjectInput["color"] | null;
     try {
       await onSave({
         name,
+        ...(color && { color }),
         description: String(f.get("description") ?? ""),
         status,
         start_date: String(f.get("start_date") ?? "") || null,
@@ -73,6 +76,32 @@ export function ProjectFormDialog({ open, onOpenChange, project, canRetention, o
           <FormField label="Name" error={errors.fields.name}>
             {(p) => <Input {...p} name="name" defaultValue={project?.name} autoComplete="off" />}
           </FormField>
+          <fieldset className="grid gap-2">
+            <legend className="text-sm font-medium">Colour</legend>
+            <div className="flex flex-wrap gap-2.5 p-1">
+              {PROJECT_COLORS.map((c) => (
+                <label key={c} className="cursor-pointer" style={projectColorStyle(c)}>
+                  <input
+                    type="radio"
+                    name="color"
+                    value={c}
+                    defaultChecked={project?.color === c}
+                    className="peer sr-only"
+                  />
+                  <span className="sr-only">{c.charAt(0).toUpperCase() + c.slice(1)}</span>
+                  <span
+                    aria-hidden
+                    className="block size-6 rounded-full bg-(--project) ring-offset-2 ring-offset-background peer-checked:ring-2 peer-checked:ring-foreground peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-ring"
+                  />
+                </label>
+              ))}
+            </div>
+            {!project && (
+              <p className="text-xs text-muted-foreground">
+                Leave this and the project gets the colour least used in your lab.
+              </p>
+            )}
+          </fieldset>
           <FormField label="Description" error={errors.fields.description}>
             {(p) => <Textarea {...p} name="description" defaultValue={project?.description} />}
           </FormField>

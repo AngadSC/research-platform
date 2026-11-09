@@ -5,7 +5,7 @@ from rest_framework.exceptions import ValidationError
 
 from audit.models import AuditAction as A
 from audit.services import record
-from core.institution_starters import STARTER_RESOURCES
+from core.institution_starters import NATIONAL_RESOURCES, STARTER_RESOURCES, match_institution
 from core.models import Institution, User
 from labs.models import (
     InstitutionResource,
@@ -43,16 +43,11 @@ def update_lab_details(*, lab, user, data, request=None):
     for f in changed:
         setattr(lab, f, data[f])
     new_name = data.get("institution_name")
-    if new_name is not None:  # the canonical spelling wins, so starters match by exact name
-        new_name = next(
-            (k for k in STARTER_RESOURCES if k.lower() == new_name.strip().lower()),
-            new_name.strip(),
-        )
-    if new_name is not None and new_name.lower() != lab.institution.name.lower():
-        inst = Institution.objects.filter(name__iexact=new_name).first()
-        inst = inst or Institution.objects.create(name=new_name)
-        lab.institution = inst
-        changed.append("institution")
+    if new_name is not None:
+        inst = institution_for(new_name)
+        if inst.pk != lab.institution_id:
+            lab.institution = inst
+            changed.append("institution")
     if changed:
         lab.save()
     record(
@@ -67,27 +62,51 @@ def update_lab_details(*, lab, user, data, request=None):
     return lab
 
 
+def institution_for(name):
+    """The Institution for a typed name; a recognised name takes its canonical spelling."""
+    name = match_institution(name) or name.strip()
+    return Institution.objects.filter(name__iexact=name).first() or Institution.objects.create(
+        name=name
+    )
+
+
 def apply_starter_resources(lab, *, user=None, request=None) -> int:
-    """Idempotent: adds the institution's starter links the lab does not have yet (matched by
-    URL, so a link the lab deleted comes back only if this runs again)."""
-    starters = STARTER_RESOURCES.get(lab.institution.name, [])
-    have = set(InstitutionResource.objects.for_lab(lab).values_list("url", flat=True))
+    """Idempotent: adds the institution's starter links and the national links that the lab does
+    not have yet, matched by URL, and leaves existing rows alone so a lab's edits survive.
+    ponytail: deletions are not tracked, so a link the lab removed comes back the next time
+    this runs; add a dismissed-URL list if labs complain."""
+    rows = [
+        *STARTER_RESOURCES.get(match_institution(lab.institution.name), []),
+        *NATIONAL_RESOURCES,
+    ]
     added = 0
-    for i, row in enumerate(starters):
-        if row["url"] in have:
+    for i, row in enumerate(rows):
+        res, created = InstitutionResource.objects.for_lab(lab).get_or_create(
+            url=row["url"], defaults={**row, "lab": lab, "order": i}
+        )  # get_or_create, not a prior read: two clicks at once must not hit the unique constraint
+        if not created:
             continue
-        res = InstitutionResource.objects.create(lab=lab, order=i, **row)
         record(
             A.INSTITUTION_RESOURCE_CREATED,
             actor=user,
             lab=lab,
             target=res,
             request=request,
-            metadata={"source": "starter"} if user is None else {"source": "starter"},
+            metadata={"source": "starter"},
             actor_label="" if user else "job:institution_resources",
         )
         added += 1
     return added
+
+
+@transaction.atomic
+def load_starter_resources(lab, *, user, request=None) -> dict:
+    """The "Get my university's forms" action (D149)."""
+    return {
+        "added": apply_starter_resources(lab, user=user, request=request),
+        "institution": lab.institution.name,
+        "curated_institution": match_institution(lab.institution.name),
+    }
 
 
 # ---------------------------------------------------------------- generic CRUD

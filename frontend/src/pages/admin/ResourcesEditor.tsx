@@ -4,7 +4,7 @@ import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useResources } from "@/hooks/admin";
+import { startersMessage, useLoadStarters, useResources } from "@/hooks/admin";
 import { RESOURCE_CATEGORIES, type ResourceCategory } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
 import { formValue, NativeSelect, Section } from "./common";
@@ -14,6 +14,7 @@ const label = (c: string) => RESOURCE_CATEGORIES.find((x) => x.value === c)?.lab
 /** Admin editor for the lab's institution links (D149). Every lab member reads them elsewhere. */
 export function ResourcesEditor({ labId }: { labId: string }) {
   const { list, create, remove } = useResources(labId);
+  const load = useLoadStarters(labId);
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
 
   async function add(e: FormEvent<HTMLFormElement>) {
@@ -45,6 +46,25 @@ export function ResourcesEditor({ labId }: { labId: string }) {
       title="Institution resources"
       description="Links to your university's ethics, funding and data management pages, shown in each project's Workflow tab."
     >
+      <div className="grid gap-1">
+        <Button
+          variant="outline"
+          className="justify-self-start"
+          disabled={load.isPending}
+          onClick={() =>
+            load.mutate(undefined, {
+              onError: () => toast.error("Could not load your university's forms."),
+            })
+          }
+        >
+          Get my university's forms
+        </Button>
+        <p className="text-xs text-muted-foreground" role="status">
+          {load.data
+            ? startersMessage(load.data)
+            : "Adds your institution's forms and the national funder links. Links you already have are left as they are, and a link you removed is added back."}
+        </p>
+      </div>
       {(list.data ?? []).length === 0 ? (
         <p className="text-sm text-muted-foreground">No links yet.</p>
       ) : (

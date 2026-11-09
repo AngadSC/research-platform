@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Menu, Search } from "lucide-react";
-import { Outlet, useNavigate } from "react-router";
-import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
+import { Menu, PanelLeft, Pin, PinOff, Search } from "lucide-react";
+import { Outlet, useLocation, useNavigate } from "react-router";
+import { Breadcrumbs, type Crumb } from "@/components/shared/Breadcrumbs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { useUnreadChats } from "@/hooks/chat";
 import { useCrumbs, useCurrentLabId } from "@/hooks/crumbs";
+import { usePins, useTrackRecent } from "@/hooks/preferences";
 import { useProjects } from "@/hooks/projects";
 import { useLabs } from "@/hooks/workspace";
 import { useRegisterCommands, type Command } from "@/lib/commands";
@@ -20,14 +21,61 @@ import { AssistantDrawer } from "@/components/assistant/AssistantDrawer";
 import { NotificationBell } from "./NotificationBell";
 import { Sidebar } from "./Sidebar";
 
+const SIDEBAR_KEY = "sidebar-hidden";
+
+function readSidebarHidden() {
+  try {
+    return localStorage.getItem(SIDEBAR_KEY) === "1";
+  } catch {
+    return false; // storage is blocked: the sidebar just starts open
+  }
+}
+
+/** A page's pin name: its own, after the project or document it sits in. */
+function pinLabel(crumbs: Crumb[]) {
+  const last = crumbs.at(-1)?.label ?? "";
+  const owner = crumbs.filter((c) => c.kind).at(-1);
+  return owner && owner !== crumbs.at(-1) ? `${owner.label} · ${last}` : last;
+}
+
+function PinButton({ crumbs }: { crumbs: Crumb[] }) {
+  const { pathname } = useLocation();
+  const { pins, toggle } = usePins();
+  if (crumbs.length === 0) return null;
+  const pinned = pins.some((p) => p.url === pathname);
+  const Icon = pinned ? PinOff : Pin;
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label={pinned ? "Unpin this page" : "Pin this page"}
+      aria-pressed={pinned}
+      disabled={crumbs.some((c) => c.pending)}
+      onClick={() => toggle({ url: pathname, label: pinLabel(crumbs) })}
+    >
+      <Icon aria-hidden />
+    </Button>
+  );
+}
+
 export function AppShell() {
   const navigate = useNavigate();
   const crumbs = useCrumbs();
+  useTrackRecent(crumbs);
   const labId = useCurrentLabId();
   const { data: labs } = useLabs();
   const { data: projects } = useProjects(labId);
   const hasUnread = Object.keys(useUnreadChats(labId)).length > 0;
   const [navOpen, setNavOpen] = useState(false);
+  const [sidebarHidden, setSidebarHidden] = useState(readSidebarHidden);
+  const toggleSidebar = () => {
+    setSidebarHidden(!sidebarHidden);
+    try {
+      localStorage.setItem(SIDEBAR_KEY, sidebarHidden ? "0" : "1");
+    } catch {
+      // storage is blocked: the choice lasts until the page reloads
+    }
+  };
   useAccountTheme((useMe().data as { preferences?: unknown } | undefined)?.preferences);
 
   // Below md the sidebar is a drawer: Escape closes it.
@@ -73,7 +121,7 @@ export function AppShell() {
   return (
     <TooltipProvider>
       <div className="flex h-screen bg-background text-foreground print:block print:h-auto">
-        <Sidebar open={navOpen} onClose={() => setNavOpen(false)} />
+        <Sidebar open={navOpen} desktopHidden={sidebarHidden} onClose={() => setNavOpen(false)} />
         {navOpen && (
           <div
             aria-hidden
@@ -100,8 +148,20 @@ export function AppShell() {
                 />
               )}
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden md:inline-flex"
+              aria-label={sidebarHidden ? "Show sidebar" : "Hide sidebar"}
+              aria-controls="app-sidebar"
+              aria-expanded={!sidebarHidden}
+              onClick={toggleSidebar}
+            >
+              <PanelLeft aria-hidden />
+            </Button>
             <span className="text-sm font-semibold md:hidden">{APP_NAME}</span>
             <div className="ml-auto flex items-center gap-2">
+              <PinButton crumbs={crumbs} />
               <Button
                 variant="secondary"
                 size="sm"
@@ -120,7 +180,7 @@ export function AppShell() {
             </div>
           </header>
           <main className="min-h-0 flex-1 overflow-y-auto print:overflow-visible">
-            <div className="mx-auto max-w-5xl px-4 py-4 md:px-8 print:max-w-none print:px-0">
+            <div className="px-4 py-4 md:px-8 print:px-0">
               <div className="mb-4 print:hidden">
                 <Breadcrumbs items={crumbs} />
               </div>

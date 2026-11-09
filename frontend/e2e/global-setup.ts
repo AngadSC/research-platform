@@ -17,7 +17,9 @@ export default async function globalSetup(config: FullConfig) {
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).not.toHaveURL(/login/, { timeout: 20_000 });
     // Signed-in shell rendered: the session cookie is settled before it is saved.
-    await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible({
+      timeout: 20_000,
+    });
     await page.context().storageState({ path: authFile(who) });
   }
   await browser.close();

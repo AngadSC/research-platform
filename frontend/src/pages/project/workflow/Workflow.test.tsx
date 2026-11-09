@@ -240,6 +240,39 @@ describe("Ethics", () => {
     expect(screen.queryByText(/Ethics resources at your institution/)).not.toBeInTheDocument();
   });
 
+  it("offers the university's forms when there are no links, to lab managers only", async () => {
+    const calls = mockFetch(
+      base(CONTRIB, LAB, {
+        "GET /api/labs/lab1/ethics-approvals/?project=p1": { body: [] },
+        "GET /api/labs/lab1/institution-resources/?category=ethics": { body: [] },
+        "POST /api/labs/lab1/institution-resources/load-starters/": {
+          body: { added: 5, institution: "UBC", curated_institution: "UBC" },
+        },
+      }),
+    );
+    renderRoute(`${W}/ethics`);
+    await userEvent.click(await screen.findByRole("button", { name: "Get my university's forms" }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.path.endsWith("/load-starters/") && c.method === "POST")).toBe(
+        true,
+      ),
+    );
+  });
+
+  it("hides the forms action from people who cannot manage the lab", async () => {
+    mockFetch(
+      base(CONTRIB, ["view_lab", "view_ethics"], {
+        "GET /api/labs/lab1/ethics-approvals/?project=p1": { body: [] },
+        "GET /api/labs/lab1/institution-resources/?category=ethics": { body: [] },
+      }),
+    );
+    renderRoute(`${W}/ethics`);
+    expect(await screen.findByText("No ethics approvals linked yet")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Get my university's forms" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("links a new approval to the project", async () => {
     const calls = mockFetch(
       base(CONTRIB, LAB, {

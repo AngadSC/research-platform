@@ -53,7 +53,7 @@ export function AdminPage() {
   return (
     <>
       {header}
-      <div className="grid max-w-4xl gap-8">
+      <div className="grid gap-8">
         <Section title="Admin tools" description="Everything that manages the lab, in one place.">
           <ul className="grid gap-2 sm:grid-cols-2">
             {LINKS.map((l) => (

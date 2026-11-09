@@ -1,5 +1,6 @@
+import { MoreHorizontal } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useBlocker, useParams } from "react-router";
+import { useBlocker, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { ConflictDialog } from "@/components/documents/ConflictDialog";
 import { StaleDocumentBanner } from "@/components/documents/StaleDocumentBanner";
@@ -8,18 +9,107 @@ import { LinkedFiles } from "@/components/shared/LinkedFiles";
 import { FormField } from "@/components/shared/FormField";
 import { FormError } from "@/components/shared/FormError";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useDocument, useSaveDocument } from "@/hooks/documents";
+import { useDeleteDocument, useDocument, useSaveDocument } from "@/hooks/documents";
 import { useProject } from "@/hooks/projects";
 import { ApiError } from "@/lib/api";
 import type { DocumentConflict, DocumentFull } from "@/lib/api-types";
 import { blocksToText } from "@/lib/blocks";
 import { formErrors } from "@/lib/forms";
+import { cn } from "@/lib/utils";
 
 const RichEditor = lazy(() => import("@/components/documents/RichEditor"));
+
+/** Save this long after the last edit. */
+const AUTOSAVE_MS = 3000;
+/** The editor and the embed frame fill what the shell and the project header leave. */
+const FILL_HEIGHT = "min-h-[calc(100dvh-16rem)]";
+
+type Panel = "history" | "retention" | "links" | "delete";
+type SaveState = "idle" | "saving" | "saved" | "failed";
+
+function RetentionDialog({
+  open,
+  onClose,
+  canEdit,
+  canRetention,
+  retainUntil,
+  retentionNote,
+  onSave,
+  saving,
+}: {
+  open: boolean;
+  onClose: () => void;
+  canEdit: boolean;
+  /** view_retention: without it the fields are read-only and never sent (D55). */
+  canRetention: boolean;
+  retainUntil: string;
+  retentionNote: string;
+  onSave: (until: string, note: string) => void;
+  saving: boolean;
+}) {
+  const [until, setUntil] = useState(retainUntil);
+  const [note, setNote] = useState(retentionNote);
+  const editable = canEdit && canRetention;
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogTitle className="text-base font-semibold">Retention</DialogTitle>
+        <DialogDescription className="sr-only">How long this document is kept.</DialogDescription>
+        <div className="grid gap-3">
+          <FormField label="Keep until">
+            {(p) => (
+              <Input
+                {...p}
+                type="date"
+                value={until}
+                readOnly={!editable}
+                onChange={(e) => setUntil(e.target.value)}
+              />
+            )}
+          </FormField>
+          <FormField label="Retention note">
+            {(p) => (
+              <Textarea
+                {...p}
+                value={note}
+                readOnly={!editable}
+                onChange={(e) => setNote(e.target.value)}
+              />
+            )}
+          </FormField>
+        </div>
+        <div className="flex justify-end gap-2">
+          <DialogClose asChild>
+            <Button variant="outline">{editable ? "Cancel" : "Close"}</Button>
+          </DialogClose>
+          {editable && (
+            <Button disabled={saving} onClick={() => onSave(until, note)}>
+              Save
+            </Button>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function DocumentEditor({
   doc,
@@ -37,73 +127,158 @@ function DocumentEditor({
   canRetention: boolean;
   onReload: () => Promise<void>;
 }) {
+  const navigate = useNavigate();
   const save = useSaveDocument(labId, doc.id);
+  const { mutateAsync } = save;
+  const remove = useDeleteDocument(labId, projectId);
   const [title, setTitle] = useState(doc.title);
   const [dirty, setDirty] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
   const [conflict, setConflict] = useState<DocumentConflict | null>(null);
-  const [history, setHistory] = useState(false);
+  const [panel, setPanel] = useState<Panel | null>(null);
   const [retainUntil, setRetainUntil] = useState(doc.retain_until ?? "");
   const [retentionNote, setRetentionNote] = useState(doc.retention_note);
   const [initial] = useState<unknown[]>(() => (Array.isArray(doc.content) ? doc.content : []));
   const content = useRef<unknown[]>(initial);
   const version = useRef(doc.version);
   const [savedVersion, setSavedVersion] = useState(doc.version);
+  // Everything a timer or a blocker reads later lives in refs, so a save always sends the latest
+  // state, and autosave timers never re-arm from a render.
+  const titleRef = useRef(title);
+  const retention = useRef({ until: retainUntil, note: retentionNote });
+  const dirtyRef = useRef(false);
+  const edits = useRef(0); // bumped on every edit; a save only clears `dirty` if nothing came after
+  const baseline = useRef(JSON.stringify(initial)); // BlockNote can echo unchanged blocks
+  const flight = useRef<Promise<boolean> | null>(null);
+  const conflictOpen = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const [leaveFailed, setLeaveFailed] = useState(false);
+
+  const markDirty = useCallback((value: boolean) => {
+    dirtyRef.current = value;
+    setDirty(value);
+  }, []);
 
   const send = useCallback(
-    (baseVersion: number) =>
-      save.mutate(
-        {
-          title: title.trim() || "Untitled document",
-          content: content.current,
-          base_version: baseVersion,
-          ...(canRetention && {
-            retain_until: retainUntil || null,
-            retention_note: retentionNote,
-          }),
-        },
-        {
-          onSuccess: (d) => {
+    (autosave: boolean, baseVersion: number = version.current): Promise<boolean> => {
+      const sentEdits = edits.current;
+      const sentBaseline = JSON.stringify(content.current);
+      setSaveState("saving");
+      const done = mutateAsync({
+        title: titleRef.current.trim() || "Untitled document",
+        content: content.current,
+        base_version: baseVersion,
+        autosave,
+        ...(canRetention && {
+          retain_until: retention.current.until || null,
+          retention_note: retention.current.note,
+        }),
+      })
+        .then(
+          (d) => {
             version.current = d.version;
+            baseline.current = sentBaseline;
             setSavedVersion(d.version);
-            setDirty(false);
+            conflictOpen.current = false;
             setConflict(null);
-            toast.success("Saved");
+            if (edits.current === sentEdits) {
+              markDirty(false);
+              setSaveState("saved");
+            } else {
+              setSaveState("idle"); // a newer edit has its own timer running
+            }
+            return true;
           },
-          onError: (e) => {
-            if (e instanceof ApiError && e.status === 409) setConflict(e.body as DocumentConflict);
-            else toast.error(formErrors(e, []).form ?? "Something went wrong.");
+          (e) => {
+            if (e instanceof ApiError && e.status === 409) {
+              conflictOpen.current = true;
+              setConflict(e.body as DocumentConflict);
+              setSaveState("idle");
+            } else {
+              setSaveState("failed");
+              if (!autosave) toast.error(formErrors(e, []).form ?? "Something went wrong.");
+            }
+            return false;
           },
-        },
-      ),
-    [save, title, retainUntil, retentionNote, canRetention],
+        )
+        .finally(() => {
+          flight.current = null;
+        });
+      flight.current = done;
+      return done;
+    },
+    [mutateAsync, canRetention, markDirty],
   );
-  const doSave = useCallback(() => {
-    if (canEdit) send(version.current);
-  }, [canEdit, send]);
 
-  // Cmd/Ctrl+S saves instead of the browser's "save page" dialog.
+  /** Resolves true when nothing is left to save. Autosave pauses while a conflict is open. */
+  const flush = useCallback(
+    async (autosave: boolean): Promise<boolean> => {
+      while (flight.current) await flight.current; // one save at a time, always the latest state
+      if (!dirtyRef.current) return true;
+      if (!canEdit || conflictOpen.current) return false;
+      return send(autosave);
+    },
+    [canEdit, send],
+  );
+
+  const schedule = useCallback(() => {
+    edits.current += 1;
+    markDirty(true);
+    setSaveState((s) => (s === "failed" ? "idle" : s));
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => void flush(true), AUTOSAVE_MS);
+  }, [flush, markDirty]);
+
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  // Cmd/Ctrl+S saves now, instead of the browser's "save page" dialog.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        doSave();
+        clearTimeout(timer.current);
+        void flush(false);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [doSave]);
+  }, [flush]);
 
-  // Leaving with unsaved changes: in-app (router blocker) and tab close (beforeunload).
-  const blocker = useBlocker(dirty);
+  // Tab close: warn (the browser's own prompt) while anything is outstanding; try a save once
+  // when the tab is hidden, which often lands before the page goes away.
   useEffect(() => {
     if (!dirty) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    const onHide = () => {
+      if (document.visibilityState === "hidden") void flush(true);
+    };
     window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("beforeunload", warn);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, [dirty, flush]);
+
+  // In-app navigation: save on the way out. Only a real failure shows the dialog.
+  const blocker = useBlocker(() => dirtyRef.current || !!flight.current);
+  const leaving = useRef(false);
+  useEffect(() => {
+    if (blocker.state !== "blocked" || leaving.current) return;
+    leaving.current = true;
+    clearTimeout(timer.current);
+    void flush(true).then((ok) => {
+      leaving.current = false;
+      if (ok) blocker.proceed?.();
+      else if (conflictOpen.current) blocker.reset?.();
+      else setLeaveFailed(true);
+    });
+  }, [blocker, flush]);
 
   const reload = async () => {
-    setDirty(false);
+    clearTimeout(timer.current);
+    markDirty(false);
+    conflictOpen.current = false;
     setConflict(null);
     await onReload();
   };
@@ -122,29 +297,84 @@ function DocumentEditor({
     await reload();
   };
 
+  const deleteDocument = () => {
+    clearTimeout(timer.current);
+    remove.mutate(doc.id, {
+      onSuccess: () => {
+        markDirty(false);
+        toast.success("Document deleted");
+        void navigate(`/labs/${labId}/projects/${projectId}/documents`);
+      },
+      onError: (e) => toast.error(formErrors(e, []).form ?? "Something went wrong."),
+    });
+  };
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-3">
+    <div className={cn("flex flex-col gap-2", FILL_HEIGHT)}>
+      <div className="flex items-start gap-2">
         <Input
           aria-label="Title"
           value={title}
           readOnly={!canEdit}
-          maxLength={200}
-          className="h-11 flex-1 text-xl font-semibold"
+          maxLength={300}
+          placeholder="Untitled document"
+          className="h-auto flex-1 rounded-sm border-0 bg-transparent px-0 py-1 text-3xl font-semibold focus-visible:ring-1 focus-visible:ring-border"
           onChange={(e) => {
             setTitle(e.target.value);
-            setDirty(true);
+            titleRef.current = e.target.value;
+            schedule();
           }}
         />
-        {dirty && <span className="text-xs text-muted-foreground">Unsaved changes</span>}
-        <Button variant="outline" onClick={() => setHistory(true)}>
-          History
-        </Button>
-        {canEdit && (
-          <Button disabled={save.isPending || !dirty} onClick={doSave}>
-            Save
+        <span aria-live="polite" className="shrink-0 pt-3 text-xs text-muted-foreground">
+          {saveState === "saving" && "Saving…"}
+          {saveState === "saved" && !dirty && "Saved"}
+          {saveState === "failed" && (
+            <>
+              Couldn’t save.{" "}
+              <button type="button" className="underline" onClick={() => void flush(false)}>
+                Try again
+              </button>
+            </>
+          )}
+        </span>
+        {doc.embed_url && doc.embed_open_url && (
+          <Button variant="outline" size="sm" asChild className="mt-1 shrink-0">
+            <a href={doc.embed_open_url} target="_blank" rel="noopener noreferrer">
+              {doc.embed_url.includes("docs.google.com")
+                ? "Open in Google Docs"
+                : "Open in Microsoft Office"}
+            </a>
           </Button>
         )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Document options"
+              className="mt-1 shrink-0"
+            >
+              <MoreHorizontal aria-hidden />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {!canEdit && (
+              <>
+                <DropdownMenuLabel>You have read-only access.</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+              </>
+            )}
+            <DropdownMenuItem onSelect={() => setPanel("history")}>History</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setPanel("retention")}>Retention</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setPanel("links")}>Linked files</DropdownMenuItem>
+            {canEdit && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setPanel("delete")}>Delete</DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <StaleDocumentBanner
         labId={labId}
@@ -154,87 +384,142 @@ function DocumentEditor({
         dirty={dirty}
         onReload={() => void reload()}
       />
-      {!canEdit && (
-        <p className="text-xs text-muted-foreground">You have read-only access to this document.</p>
-      )}
-      <details className="rounded-md border px-3 py-2 text-sm">
-        <summary className="cursor-pointer font-medium">Retention</summary>
-        <div className="mt-3 grid max-w-md gap-3">
-          <FormField label="Keep until">
-            {(p) => (
-              <Input
-                {...p}
-                type="date"
-                value={retainUntil}
-                readOnly={!canEdit || !canRetention}
-                onChange={(e) => {
-                  setRetainUntil(e.target.value);
-                  setDirty(true);
-                }}
-              />
-            )}
-          </FormField>
-          <FormField label="Retention note">
-            {(p) => (
-              <Textarea
-                {...p}
-                value={retentionNote}
-                readOnly={!canEdit || !canRetention}
-                onChange={(e) => {
-                  setRetentionNote(e.target.value);
-                  setDirty(true);
-                }}
-              />
-            )}
-          </FormField>
-        </div>
-      </details>
-      <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-        <RichEditor
-          initialContent={initial}
-          editable={canEdit}
-          label="Document content"
-          onChange={(b) => {
-            content.current = b;
-            setDirty(true);
-          }}
+      {doc.embed_url ? (
+        <iframe
+          title={doc.title}
+          src={doc.embed_url}
+          // Google and Office need scripts, same-origin storage and forms; sign-in prompts and
+          // links open in a new, unsandboxed tab.
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+          referrerPolicy="no-referrer"
+          className={cn("w-full flex-1 rounded-lg border", FILL_HEIGHT)}
         />
-      </Suspense>
-      <LinkedFiles
-        labId={labId}
-        projectId={projectId}
-        canEdit={canEdit}
-        target={{ field: "document", id: doc.id }}
-      />
+      ) : (
+        <Suspense fallback={<Skeleton className={cn("w-full flex-1", FILL_HEIGHT)} />}>
+          <RichEditor
+            initialContent={initial}
+            editable={canEdit}
+            label="Document content"
+            className={cn(
+              "flex-1 rounded-none border-0 bg-transparent py-0",
+              "[&_.bn-editor]:min-h-[calc(100dvh-16rem)]", // the whole area takes the click
+            )}
+            onChange={(b) => {
+              content.current = b;
+              if (JSON.stringify(b) !== baseline.current) schedule();
+            }}
+          />
+        </Suspense>
+      )}
       <ConflictDialog
         conflict={conflict}
         labId={labId}
         documentId={doc.id}
         saving={save.isPending}
         onCopyAndReload={(f) => void copyAndReload(f)}
-        onOverwrite={() => conflict && send(conflict.current_version)}
-        onDismiss={() => setConflict(null)}
+        onOverwrite={() => conflict && send(false, conflict.current_version)}
+        onDismiss={() => {
+          conflictOpen.current = false;
+          setConflict(null);
+        }}
       />
       <RevisionsPanel
         labId={labId}
         documentId={doc.id}
-        open={history}
-        onOpenChange={setHistory}
+        open={panel === "history"}
+        onOpenChange={(o) => setPanel(o ? "history" : null)}
         canEdit={canEdit}
         hasUnsaved={dirty}
         onRestored={() => void reload()}
       />
-      <Dialog open={blocker.state === "blocked"} onOpenChange={(o) => !o && blocker.reset?.()}>
+      {panel === "retention" && (
+        <RetentionDialog
+          open
+          onClose={() => setPanel(null)}
+          canEdit={canEdit}
+          canRetention={canRetention}
+          retainUntil={retainUntil}
+          retentionNote={retentionNote}
+          saving={save.isPending}
+          onSave={(until, note) => {
+            if (until === retainUntil && note === retentionNote) {
+              setPanel(null);
+              return;
+            }
+            setRetainUntil(until);
+            setRetentionNote(note);
+            retention.current = { until, note };
+            edits.current += 1;
+            markDirty(true);
+            clearTimeout(timer.current);
+            void flush(false).then((ok) => {
+              if (ok) setPanel(null);
+            });
+          }}
+        />
+      )}
+      <Dialog open={panel === "links"} onOpenChange={(o) => !o && setPanel(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogTitle className="text-base font-semibold">Linked files</DialogTitle>
+          <DialogDescription className="sr-only">
+            Outside files linked to this document.
+          </DialogDescription>
+          <LinkedFiles
+            labId={labId}
+            projectId={projectId}
+            canEdit={canEdit}
+            target={{ field: "document", id: doc.id }}
+          />
+        </DialogContent>
+      </Dialog>
+      <Dialog open={panel === "delete"} onOpenChange={(o) => !o && setPanel(null)}>
+        <DialogContent>
+          <DialogTitle className="text-base font-semibold">Delete {title}?</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            The document will be removed from this project.
+          </DialogDescription>
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button variant="destructive" disabled={remove.isPending} onClick={deleteDocument}>
+              Delete document
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={blocker.state === "blocked" && leaveFailed}
+        onOpenChange={(o) => {
+          if (!o) {
+            setLeaveFailed(false);
+            blocker.reset?.();
+          }
+        }}
+      >
         <DialogContent>
           <DialogTitle className="text-base font-semibold">Leave without saving?</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            You have unsaved changes. If you leave now they will be lost.
+            Your latest changes could not be saved. If you leave now they will be lost.
           </DialogDescription>
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => blocker.reset?.()}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setLeaveFailed(false);
+                blocker.reset?.();
+              }}
+            >
               Stay
             </Button>
-            <Button variant="destructive" onClick={() => blocker.proceed?.()}>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setLeaveFailed(false);
+                markDirty(false);
+                blocker.proceed?.();
+              }}
+            >
               Leave
             </Button>
           </div>

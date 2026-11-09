@@ -200,4 +200,18 @@ describe("institution resources editor", () => {
     });
     expect(calls.some((c) => c.method === "DELETE")).toBe(true);
   });
+
+  it("says when only national links are available", async () => {
+    const calls = mockFetch(
+      base(ADMIN, {
+        "POST /api/labs/lab1/institution-resources/load-starters/": {
+          body: { added: 8, institution: "Elsewhere", curated_institution: null },
+        },
+      }),
+    );
+    renderRoute("/labs/lab1/admin");
+    await userEvent.click(await screen.findByRole("button", { name: "Get my university's forms" }));
+    expect(await screen.findByText(/No curated forms for Elsewhere yet/)).toBeInTheDocument();
+    expect(calls.some((c) => c.method === "POST")).toBe(true);
+  });
 });

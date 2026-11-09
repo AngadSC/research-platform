@@ -129,6 +129,18 @@ describe("files", () => {
     expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled();
   });
 
+  it("deletes a file only after the confirmation dialog", async () => {
+    const calls = mockFetch({
+      ...base(["edit_content"], [att]),
+      "DELETE /api/labs/lab1/attachments/a1/": { body: {} },
+    });
+    renderRoute(FILES);
+    await userEvent.click(await screen.findByRole("button", { name: /delete paper/i }));
+    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+    await userEvent.click(await screen.findByRole("button", { name: "Delete file" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "DELETE")).toBe(true));
+  });
+
   it("hides upload and delete without edit_content", async () => {
     mockFetch(base(["view_project"], [att]));
     renderRoute(FILES);

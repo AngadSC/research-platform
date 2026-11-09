@@ -18,6 +18,7 @@ from core.models import PLACEHOLDER_INSTITUTION, Institution
 from core.permissions import LAB_ROLE_PERMS, Perm, forget, lab_role
 from core.tenancy import by_secret
 from integrations.services import revoke_member_accounts
+from labs.admin_services import apply_starter_resources, institution_for
 from labs.models import Invite, Lab, LabMembership, LabRole, hash_token
 from projects.models import ProjectMembership
 from projects.services import unassign_lost_access
@@ -51,11 +52,16 @@ def _revoke_stale_invites(*, lab, user, by, request, new_role=None) -> None:
 
 
 @transaction.atomic
-def create_lab(*, user, name, request=None) -> Lab:
-    institution, _ = Institution.objects.get_or_create(name=PLACEHOLDER_INSTITUTION)
+def create_lab(*, user, name, institution_name="", request=None) -> Lab:
+    institution = (
+        institution_for(institution_name)
+        if institution_name
+        else Institution.objects.get_or_create(name=PLACEHOLDER_INSTITUTION)[0]
+    )
     lab = Lab.objects.create(institution=institution, name=name, created_by=user)
     LabMembership.objects.create(lab=lab, user=user, role=LabRole.PI)
     record(AuditAction.LAB_CREATED, actor=user, lab=lab, request=request)
+    apply_starter_resources(lab, user=user, request=request)
     forget(user)
     return lab
 

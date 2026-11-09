@@ -22,3 +22,4 @@ cryptography==50.0.2
 # D187: in-app assistant. Official provider SDKs, one adapter module each (assistant/ai/).
 anthropic==1.17.0  # MIT; its HTTP layer is httpx2 (BSD-3-Clause)
 openai==3.46.0  # Apache-2.0
+pypdf==6.21.4  # BSD-3-Clause; text of uploaded papers, only ever run in papers.pdftext's child

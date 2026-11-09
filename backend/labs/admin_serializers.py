@@ -63,6 +63,12 @@ class ResourceInputSerializer(serializers.Serializer):
     order = serializers.IntegerField(min_value=0, max_value=100000, required=False)
 
 
+class StartersLoadedSerializer(serializers.Serializer):
+    added = serializers.IntegerField()
+    institution = serializers.CharField()
+    curated_institution = serializers.CharField(allow_null=True)
+
+
 class OnboardingItemSerializer(serializers.ModelSerializer):
     completed_user_ids = serializers.SerializerMethodField()
     # D179: a linked training counts as done for anyone whose current record is not expired

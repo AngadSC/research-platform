@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from core.serializers import UserSerializer, no_control_chars
 from documents import services
-from documents.models import Attachment, Document, DocumentRevision
+from documents.models import Attachment, Document, DocumentRevision, Folder
 
 NOTICE = "Do not upload participant identifiers. Upload only anonymized or aggregate data."
 
@@ -15,7 +15,9 @@ class DocumentListSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "project",
+            "folder",
             "title",
+            "embed_url",
             "version",
             "updated_by",
             "retain_until",
@@ -30,21 +32,52 @@ class DocumentSerializer(DocumentListSerializer):
     created_by = UserSerializer(read_only=True)
 
     class Meta(DocumentListSerializer.Meta):
-        fields = [*DocumentListSerializer.Meta.fields, "content", "created_by"]
+        fields = [*DocumentListSerializer.Meta.fields, "content", "created_by", "embed_open_url"]
         read_only_fields = fields
 
 
-class DocumentCreateSerializer(serializers.Serializer):
+class FolderRefMixin(serializers.Serializer):
+    """The view resolves it inside the project; an unknown id is a 400 either way."""
+
+    folder = serializers.UUIDField(allow_null=True, required=False)
+
+
+class DocumentCreateSerializer(FolderRefMixin):
     title = serializers.CharField(max_length=300, validators=[no_control_chars])
     content = serializers.JSONField(default=list, validators=[services.validate_content])
+    embed_url = serializers.CharField(max_length=2000, required=False, allow_blank=True)
 
 
-class DocumentSaveSerializer(DocumentCreateSerializer):
+class DocumentSaveSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=300, validators=[no_control_chars])
     content = serializers.JSONField(validators=[services.validate_content])
     base_version = serializers.IntegerField(min_value=1)
+    autosave = serializers.BooleanField(default=False)
     # Changing retention needs view_retention (D55); the service checks it.
     retain_until = serializers.DateField(allow_null=True, required=False)
     retention_note = serializers.CharField(allow_blank=True, required=False)
+
+
+class ItemMoveSerializer(serializers.Serializer):
+    """`folder: null` moves the item to the project's top level."""
+
+    folder = serializers.UUIDField(allow_null=True)
+
+
+class FolderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Folder
+        fields = ["id", "project", "parent", "name", "created_at", "updated_at"]
+        read_only_fields = fields
+
+
+class FolderCreateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=200, validators=[no_control_chars])
+    parent = serializers.UUIDField(allow_null=True, required=False)
+
+
+class FolderRenameSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=200, validators=[no_control_chars])
 
 
 class ConflictSerializer(serializers.Serializer):
@@ -82,6 +115,7 @@ class AttachmentSerializer(serializers.ModelSerializer):
             "id",
             "project",
             "ethics_approval",
+            "folder",
             "original_filename",
             "content_type",
             "size_bytes",
@@ -93,7 +127,7 @@ class AttachmentSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class AttachmentUploadSerializer(serializers.Serializer):
+class AttachmentUploadSerializer(FolderRefMixin):
     file = serializers.FileField()
     acknowledged_notice = serializers.BooleanField(default=False)
 

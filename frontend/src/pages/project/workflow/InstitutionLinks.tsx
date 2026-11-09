@@ -1,8 +1,12 @@
 import { ExternalLink } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { startersMessage, useLoadStarters } from "@/hooks/admin";
 import { useInstitutionLinks } from "@/hooks/workflow";
+import { useLab } from "@/hooks/workspace";
 
-/** The institution's links for a category (University of Alberta starters and the lab's own,
- * D135). Renders nothing while loading, when the list is empty, or when the endpoint is absent. */
+/** The institution's links for a category (D135, D149). Empty, it renders nothing for most
+ * people; someone who can manage the lab gets the "Get my university's forms" action. */
 export function InstitutionLinks({
   labId,
   category,
@@ -13,7 +17,31 @@ export function InstitutionLinks({
   title: string;
 }) {
   const { data } = useInstitutionLinks(labId, category);
-  if (!data?.length) return null;
+  const canManage = !!useLab(labId).data?.my_permissions.includes("manage_lab");
+  const load = useLoadStarters(labId);
+  if (!data) return null;
+  if (!data.length) {
+    if (!canManage) return null;
+    return (
+      <p className="text-sm text-muted-foreground">
+        No university links yet.{" "}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-auto p-0 font-medium text-primary underline-offset-4 hover:underline"
+          disabled={load.isPending}
+          onClick={() =>
+            load.mutate(undefined, {
+              onSuccess: (r) => toast.success(startersMessage(r)),
+              onError: () => toast.error("Could not load your university's forms."),
+            })
+          }
+        >
+          Get my university's forms
+        </Button>
+      </p>
+    );
+  }
   return (
     <section aria-label={title} className="grid gap-2">
       <h2 className="text-sm font-medium">{title}</h2>

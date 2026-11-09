@@ -31,8 +31,8 @@ SERVER_INFO = {"name": "research-workspace", "title": settings.PRODUCT_NAME, "ve
 INSTRUCTIONS = (
     f"Tools for {settings.PRODUCT_NAME}, a research lab workspace. Call list_labs first; every "
     "other tool takes a lab_id. You only ever see what the signed-in person can see in the app. "
-    "Write tools (create_task, add_task_update, create_decision_draft) change the lab's records: "
-    "confirm with the person before calling them."
+    "Write tools (create_task, add_task_update, create_decision_draft, add_paper, add_paper_note) "
+    "change the lab's records: confirm with the person before calling them."
 )
 MAX_BODY = 1024 * 1024
 RATE = 120  # requests per minute per grant (D166)

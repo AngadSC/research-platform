@@ -16,6 +16,7 @@ from core.permissions import Perm, can, scope
 from documents.models import Document
 from ethics.models import EthicsApproval
 from integrations.models import ExternalLink
+from papers.models import Paper, PaperNote
 from projects.models import Project, Task
 from provenance.models import (
     Analysis,
@@ -41,6 +42,7 @@ class Spec:
     url: Callable  # obj -> SPA route
     perm: Perm = Perm.VIEW_PROJECT
     deleted: bool = False  # has a soft-delete column
+    label: Callable | None = None  # obj -> hit title, when `title` is a path across a relation
 
 
 def _p(o):
@@ -87,11 +89,28 @@ SPECS = [
         deleted=True,
     ),
     Spec("link", ExternalLink, "title", (), _p),
+    Spec(
+        "paper",
+        Paper,
+        "title",
+        ("venue", "abstract"),
+        lambda o: f"/labs/{o.lab_id}/papers/{o.pk}",
+        perm=Perm.VIEW_LAB,
+    ),
+    Spec(
+        "paper_note",
+        PaperNote,
+        "paper__title",
+        ("body",),
+        lambda o: f"/labs/{o.lab_id}/papers/{o.paper_id}",
+        perm=Perm.VIEW_LAB,
+        label=lambda o: f"Note on {o.paper.title}",
+    ),
 ]
 TYPES = {s.type: s for s in SPECS}
 
 
-def _match(qs, fields, q):
+def match(qs, fields, q):
     cond = Q()
     for f in fields:
         cond |= Q(**{f"{f}__icontains": q})
@@ -129,9 +148,9 @@ def search(user, lab, q: str, types=None) -> list[dict]:
         qs = scope(spec.model, user, lab)
         if spec.deleted:
             qs = qs.filter(deleted_at__isnull=True)
-        if spec.type not in ("project", "ethics"):
+        if hasattr(spec.model, "project"):
             qs = qs.select_related("project")
-        qs = _match(qs, (spec.title, *spec.text), q).order_by("-updated_at", "pk")
+        qs = match(qs, (spec.title, *spec.text), q).order_by("-updated_at", "pk")
         for obj in qs[:PER_TYPE]:
             if not can(user, spec.perm, obj):
                 continue
@@ -140,7 +159,7 @@ def search(user, lab, q: str, types=None) -> list[dict]:
                 {
                     "type": spec.type,
                     "id": obj.pk,
-                    "title": getattr(obj, spec.title),
+                    "title": spec.label(obj) if spec.label else getattr(obj, spec.title),
                     "snippet": _snippet(obj, spec, q),
                     "project": {"id": project.pk, "name": project.name} if project else None,
                     "url": spec.url(obj),

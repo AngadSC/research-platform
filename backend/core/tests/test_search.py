@@ -12,6 +12,7 @@ from documents.services import create_document, save_document
 from documents.text import extract_text
 from ethics.models import EthicsApproval
 from labs.models import LabRole
+from papers import services as paper_services
 from projects.models import ProjectMembership, ProjectRole, Task
 from provenance import services as prov
 
@@ -109,6 +110,8 @@ def test_every_type_is_found_with_a_spa_url(w):
     )
     prov.create("funding", project=w.p1, user=u, data={"funder": f"{WORD} fund"})
     prov.create("review", project=w.p1, user=u, data={"title": f"{WORD} signoff"})
+    paper = paper_services.create_paper(w.lab, user=u, data={"title": f"{WORD} in vivo"})
+    paper_services.add_note(paper, author=u, body=f"the {WORD} result")
     approval(w, "Z-1")
     hits = run(w, "pi")
     assert {h["type"] for h in hits} == {s.type for s in SPECS if s.type != "link"}
@@ -118,6 +121,8 @@ def test_every_type_is_found_with_a_spa_url(w):
     assert by["ethics"]["project"] is None
     assert by["ethics"]["url"].startswith(f"/labs/{w.lab.pk}/ethics/")
     assert by["document"]["project"] == {"id": str(w.p1.pk), "name": w.p1.name}
+    assert by["paper_note"]["title"] == f"Note on {paper.title}"
+    assert by["paper_note"]["url"] == f"/labs/{w.lab.pk}/papers/{paper.pk}"
     assert WORD in by["document"]["snippet"]
     assert {h["type"] for h in run(w, "pi", types="task")} == {"task"}
 

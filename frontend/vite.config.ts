@@ -32,5 +32,7 @@ export default defineConfig({
     maxWorkers: 4,
     setupFiles: ["./src/test/setup.ts"],
     exclude: ["e2e/**", "node_modules/**"],
+    // Vitest blanks CSS by default; projectColors.test.ts reads the theme tokens.
+    css: { include: [/index\.css/] },
   },
 });

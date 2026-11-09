@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/shadcn";
 import "@blocknote/shadcn/style.css";
+import { cn } from "@/lib/utils";
 
 export type Blocks = unknown[];
 
@@ -22,10 +23,17 @@ interface Props {
   editable: boolean;
   onChange?: (blocks: Blocks) => void;
   label: string;
+  className?: string;
 }
 
 /** The only place BlockNote is used. Stock BlockNote (core, react, shadcn), unmodified. */
-export default function RichEditor({ initialContent, editable, onChange, label }: Props) {
+export default function RichEditor({
+  initialContent,
+  editable,
+  onChange,
+  label,
+  className,
+}: Props) {
   const editor = useCreateBlockNote({
     // BlockNote rejects an empty array; undefined gives one blank paragraph.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,7 +41,11 @@ export default function RichEditor({ initialContent, editable, onChange, label }
   });
   const dark = useIsDark();
   return (
-    <div role="group" aria-label={label} className="rounded-lg border bg-background py-2">
+    <div
+      role="group"
+      aria-label={label}
+      className={cn("rounded-lg border bg-background py-2", className)}
+    >
       <BlockNoteView
         editor={editor}
         editable={editable}

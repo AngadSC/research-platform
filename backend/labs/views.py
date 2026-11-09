@@ -36,8 +36,12 @@ class LabListCreateView(generics.GenericAPIView):
     def post(self, request):
         ser = self.get_serializer(data=request.data)
         ser.is_valid(raise_exception=True)
-        name = ser.validated_data["name"]
-        lab = services.create_lab(user=request.user, name=name, request=request)
+        lab = services.create_lab(
+            user=request.user,
+            name=ser.validated_data["name"],
+            institution_name=ser.validated_data.get("institution_name", ""),
+            request=request,
+        )
         return Response(self.get_serializer(lab).data, status=status.HTTP_201_CREATED)
 
 

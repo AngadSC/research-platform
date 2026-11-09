@@ -4,7 +4,7 @@ from django.http import FileResponse, Http404, HttpResponseRedirect
 from django.utils.http import content_disposition_header
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.generics import get_object_or_404
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
@@ -16,7 +16,7 @@ from core.permissions import Perm, can_view_ethics_files, visible_projects
 from core.tenancy import project_of
 from core.views import LabScopedViewMixin
 from documents import services
-from documents.models import Attachment, Document, DocumentRevision
+from documents.models import Attachment, Document, DocumentRevision, Folder
 from documents.serializers import (
     AttachmentSerializer,
     AttachmentUploadSerializer,
@@ -25,6 +25,10 @@ from documents.serializers import (
     DocumentListSerializer,
     DocumentSaveSerializer,
     DocumentSerializer,
+    FolderCreateSerializer,
+    FolderRenameSerializer,
+    FolderSerializer,
+    ItemMoveSerializer,
     RevisionListSerializer,
     RevisionSerializer,
 )
@@ -47,6 +51,19 @@ class ProjectPermMixin(LabScopedViewMixin):
     def get_queryset(self):
         qs = super().get_queryset()
         return qs.filter(project=self.project) if "project_id" in self.kwargs else qs
+
+    def resolve_folder(self, folder_id):
+        """A folder of this view's project, or None. Any other id is the same 400 (no leak)."""
+        if folder_id is None:
+            return None
+        folder = (
+            Folder.objects.visible_to(self.request.user, self.request.lab)
+            .filter(pk=folder_id, project=self.project)
+            .first()
+        )
+        if folder is None:
+            raise ValidationError({"folder": "That folder does not exist in this project."})
+        return folder
 
 
 class DocumentMixin(ProjectPermMixin):
@@ -87,8 +104,10 @@ class DocumentListCreateView(DocumentMixin, generics.GenericAPIView):
     def post(self, request, lab_id, project_id):
         ser = DocumentCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
+        data = dict(ser.validated_data)
+        folder = self.resolve_folder(data.pop("folder", None))
         doc = services.create_document(
-            project=self.project, user=request.user, **ser.validated_data
+            project=self.project, user=request.user, folder=folder, **data
         )
         return Response(DocumentSerializer(doc).data, status=status.HTTP_201_CREATED)
 
@@ -124,6 +143,21 @@ class DocumentDetailView(DocumentMixin, generics.GenericAPIView):
     @extend_schema(responses={204: None})
     def delete(self, request, lab_id, document_id):
         services.delete_document(self.get_object(), user=request.user, request=request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DocumentMoveView(DocumentMixin, generics.GenericAPIView):
+    serializer_class = ItemMoveSerializer
+    lookup_url_kwarg = "document_id"
+    perms = {"POST": Perm.EDIT_CONTENT}
+
+    @extend_schema(request=ItemMoveSerializer, responses={204: None})
+    def post(self, request, lab_id, document_id):
+        ser = self.get_serializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        services.move_to_folder(
+            self.get_object(), self.resolve_folder(ser.validated_data["folder"])
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -213,6 +247,7 @@ class AttachmentListCreateView(AttachmentMixin, generics.GenericAPIView):
             project=self.project,
             user=request.user,
             file=ser.validated_data["file"],
+            folder=self.resolve_folder(ser.validated_data.get("folder")),
             request=request,
         )
         return Response(self.get_serializer(attachment).data, status=status.HTTP_201_CREATED)
@@ -230,6 +265,21 @@ class AttachmentDetailView(AttachmentMixin, generics.GenericAPIView):
     @extend_schema(responses={204: None})
     def delete(self, request, lab_id, attachment_id):
         services.delete_attachment(self.get_object(), user=request.user, request=request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AttachmentMoveView(AttachmentMixin, generics.GenericAPIView):
+    serializer_class = ItemMoveSerializer
+    lookup_url_kwarg = "attachment_id"
+    perms = {"POST": Perm.EDIT_CONTENT}
+
+    @extend_schema(request=ItemMoveSerializer, responses={204: None})
+    def post(self, request, lab_id, attachment_id):
+        ser = self.get_serializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        services.move_to_folder(
+            self.get_object(), self.resolve_folder(ser.validated_data["folder"])
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -263,6 +313,58 @@ class AttachmentDownloadView(AttachmentMixin, generics.GenericAPIView):
         else:
             attachment = self.get_object()
         return download_response(request, attachment)
+
+
+# ---------------------------------------------------------------- folders
+
+
+class FolderMixin(ProjectPermMixin):
+    model = Folder
+
+    def get_permission_owner(self):
+        if "folder_id" in self.kwargs:
+            return get_object_or_404(self.get_queryset(), pk=self.kwargs["folder_id"])
+        return super().get_permission_owner()
+
+
+class FolderListCreateView(FolderMixin, generics.GenericAPIView):
+    serializer_class = FolderSerializer
+    pagination_class = None
+    perms = {"GET": Perm.VIEW_PROJECT, "POST": Perm.EDIT_CONTENT}
+
+    @extend_schema(responses=FolderSerializer(many=True))
+    def get(self, request, lab_id, project_id):
+        return Response(self.get_serializer(self.get_queryset().order_by("name"), many=True).data)
+
+    @extend_schema(request=FolderCreateSerializer, responses={201: FolderSerializer})
+    def post(self, request, lab_id, project_id):
+        ser = FolderCreateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        folder = services.create_folder(
+            project=self.project,
+            user=request.user,
+            name=ser.validated_data["name"],
+            parent=self.resolve_folder(ser.validated_data.get("parent")),
+        )
+        return Response(self.get_serializer(folder).data, status=status.HTTP_201_CREATED)
+
+
+class FolderDetailView(FolderMixin, generics.GenericAPIView):
+    serializer_class = FolderSerializer
+    lookup_url_kwarg = "folder_id"
+    perms = {"PATCH": Perm.EDIT_CONTENT, "DELETE": Perm.EDIT_CONTENT}
+
+    @extend_schema(request=FolderRenameSerializer, responses=FolderSerializer)
+    def patch(self, request, lab_id, folder_id):
+        ser = FolderRenameSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        folder = services.rename_folder(self.get_object(), name=ser.validated_data["name"])
+        return Response(self.get_serializer(folder).data)
+
+    @extend_schema(responses={204: None})
+    def delete(self, request, lab_id, folder_id):
+        services.delete_folder(self.get_object())
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 def download_response(request, attachment):

@@ -16,6 +16,21 @@ urlpatterns = [
         name="document-detail",
     ),
     path(
+        L + "documents/<uuid:document_id>/move/",
+        views.DocumentMoveView.as_view(),
+        name="document-move",
+    ),
+    path(
+        L + "projects/<uuid:project_id>/folders/",
+        views.FolderListCreateView.as_view(),
+        name="folder-list",
+    ),
+    path(
+        L + "folders/<uuid:folder_id>/",
+        views.FolderDetailView.as_view(),
+        name="folder-detail",
+    ),
+    path(
         L + "documents/<uuid:document_id>/revisions/",
         views.RevisionListView.as_view(),
         name="revision-list",
@@ -39,6 +54,11 @@ urlpatterns = [
         L + "attachments/<uuid:attachment_id>/",
         views.AttachmentDetailView.as_view(),
         name="attachment-detail",
+    ),
+    path(
+        L + "attachments/<uuid:attachment_id>/move/",
+        views.AttachmentMoveView.as_view(),
+        name="attachment-move",
     ),
     path(
         L + "attachments/<uuid:attachment_id>/download/",

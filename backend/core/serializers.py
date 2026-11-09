@@ -1,5 +1,7 @@
+import re
 import unicodedata
 
+from django.utils.dateparse import parse_datetime
 from rest_framework import serializers
 
 from core.models import Notification, User
@@ -25,6 +27,41 @@ PREFERENCE_CHOICES = {
     "theme": ("light", "dark", "system"),
     "task_view": ("board", "list"),
 }
+# Saved links: key -> (most entries, keys each entry carries).
+PREFERENCE_LINKS = {
+    "pins": (20, {"url", "label"}),
+    "recents": (12, {"url", "label", "kind", "at"}),
+}
+RECENT_KINDS = ("project", "document", "record", "approval")
+# A path on this site. Browsers read "/\x" and "/<tab>/x" as "//x", which leaves the site.
+LOCAL_URL = re.compile(r"/(?![/\\])[^\s\\]*")
+
+
+def _valid_link(item, keys) -> bool:
+    if not isinstance(item, dict) or set(item) != keys:
+        return False
+    url, label = item["url"], item["label"]
+    if not (isinstance(url, str) and isinstance(label, str)):
+        return False
+    if len(url) > 500 or not 0 < len(label) <= 300 or not LOCAL_URL.fullmatch(url):
+        return False
+    try:
+        no_control_chars(url)
+        no_control_chars(label)
+    except serializers.ValidationError:
+        return False
+    if "kind" not in keys:
+        return True
+    at = item["at"]
+    try:
+        return (
+            item["kind"] in RECENT_KINDS
+            and isinstance(at, str)
+            and len(at) <= 40
+            and parse_datetime(at) is not None
+        )
+    except ValueError:  # parse_datetime raises on a well-formed but impossible date
+        return False
 
 
 class MeSerializer(UserSerializer):
@@ -39,8 +76,18 @@ class MeSerializer(UserSerializer):
         if not isinstance(value, dict):
             raise serializers.ValidationError("Must be an object.")
         for key, val in value.items():
-            if val not in PREFERENCE_CHOICES.get(key, ()):
+            if key in PREFERENCE_LINKS:
+                cap, keys = PREFERENCE_LINKS[key]
+                ok = (
+                    isinstance(val, list)
+                    and len(val) <= cap
+                    and all(_valid_link(item, keys) for item in val)
+                )
+            else:
+                ok = val in PREFERENCE_CHOICES.get(key, ())
+            if not ok:
                 raise serializers.ValidationError(f"Unsupported preference: {key}.")
+        # ponytail: concurrent PATCHes can overwrite each other's key; lock the row if that bites.
         return {**(self.instance.preferences if self.instance else {}), **value}
 
 
