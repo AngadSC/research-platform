@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import logo from "@/assets/brand/labbenchos-logo.png";
-import logoOnDark from "@/assets/brand/labbenchos-logo-dark-bg.png";
-import { AI_MODELS, INTEGRATIONS, MODULES, PLANS, ROLES, STEPS } from "./content";
-import "./landing.css";
+import { AI_MODELS, CONTACT_PATH, INTEGRATIONS, MODULES, PLANS, ROLES, STEPS } from "./content";
+import { MarketingShell } from "./MarketingLayout";
 
 const ACCENT = "#02851E";
 const MINT = "#4ADE80";
@@ -40,42 +38,6 @@ const CHECK = "M5 12l5 5 9-10";
 const SPARKLE =
   "M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z";
 
-function Header() {
-  return (
-    <>
-      <div className="lb-announce">
-        New: bring your own AI to your lab&rsquo;s workspace.
-        <a href="#d-ai">Learn more →</a>
-      </div>
-      <header className="lb-header">
-        <nav className="lb-wrap lb-nav" aria-label="Main">
-          <div className="lb-nav-left">
-            <a href="#d-top">
-              <img src={logo} alt="labbenchos" className="lb-logo" />
-            </a>
-            <div className="lb-nav-links">
-              <a href="#d-platform">Features</a>
-              <a href="#d-workflow">Workflow</a>
-              <a href="#d-roles">For labs</a>
-              <a href="#d-roles">For students</a>
-              <a href="#d-roles">For institutions</a>
-              <a href="#d-pricing">Pricing</a>
-            </div>
-          </div>
-          <div className="lb-nav-right">
-            <Link to="/login" className="lb-signin">
-              Sign in
-            </Link>
-            <a href="#d-pricing" className="lb-btn lb-btn-sm lb-btn-dark">
-              Contact us
-            </a>
-          </div>
-        </nav>
-      </header>
-    </>
-  );
-}
-
 function Hero() {
   return (
     <section id="d-top" className="lb-wrap lb-hero">
@@ -87,12 +49,12 @@ function Hero() {
           step of your research with the tools and AI your lab already uses.
         </p>
         <div className="lb-actions">
-          <a href="#d-pricing" className="lb-btn lb-btn-accent">
+          <Link to={CONTACT_PATH} className="lb-btn lb-btn-accent">
             Contact us
-          </a>
-          <a href="#d-workflow" className="lb-btn lb-btn-outline">
+          </Link>
+          <Link to="/workflow" className="lb-btn lb-btn-outline">
             See the workflow
-          </a>
+          </Link>
         </div>
       </div>
 
@@ -197,6 +159,9 @@ function Platform() {
           </div>
         ))}
       </div>
+      <Link to="/features" className="lbp-more-link">
+        Explore every feature →
+      </Link>
     </section>
   );
 }
@@ -266,6 +231,9 @@ function Workflow() {
                 Next step →
               </button>
             </div>
+            <Link to="/workflow" className="lbp-more-link" style={{ color: MINT }}>
+              See the full workflow →
+            </Link>
           </div>
           <ul>
             {step.points.map((p) => (
@@ -302,21 +270,21 @@ function Integrations() {
               </span>
             ))}
           </div>
-          <a
-            href="#d-pricing"
+          <Link
+            to="/features#integrations"
             style={{ fontSize: 15, fontWeight: 700, textDecoration: "none", marginTop: 4 }}
           >
-            Need another integration? Contact us →
-          </a>
+            See every integration →
+          </Link>
         </div>
 
         <div id="d-ai" className="lb-card lb-card-green">
           <p className="lb-eyebrow">Bring your own AI</p>
           <h2 className="lb-h2-sm">Use the AI your lab trusts.</h2>
           <p className="lb-card-text" style={{ color: "#3B424D" }}>
-            Plug in Claude, ChatGPT, Gemini or your institution&rsquo;s approved model. Your AI
-            works across your lab&rsquo;s notes, protocols and data, and only sees what each member
-            has permission to see.
+            Connect Claude, ChatGPT or another AI app, or add your own API key to the built-in
+            assistant. Your AI works across your lab&rsquo;s notes, protocols and data, and only
+            sees what each member has permission to see.
           </p>
           <div className="lb-models">
             {AI_MODELS.map((a) => (
@@ -327,10 +295,13 @@ function Integrations() {
             ))}
           </div>
           <ul className="lb-checks">
-            <li>✓ Summarize notebooks and meeting notes</li>
-            <li>✓ Draft ethics applications, grant sections and methods</li>
-            <li>✓ Ask questions about your protocols and data</li>
+            <li>✓ Ask about your lab&rsquo;s projects, tasks and records</li>
+            <li>✓ Summarize documents and notes</li>
+            <li>✓ Draft tasks and decisions, approved by you before saving</li>
           </ul>
+          <Link to="/for-institutions#ai" className="lbp-more-link">
+            How AI access is controlled →
+          </Link>
         </div>
       </div>
     </section>
@@ -373,6 +344,9 @@ function Roles() {
             <p className="lb-lead" style={{ marginTop: 14 }}>
               {role.body}
             </p>
+            <Link to={role.id === "stu" ? "/for-students" : "/for-labs"} className="lbp-more-link">
+              {role.id === "stu" ? "More for students →" : "More for labs →"}
+            </Link>
           </div>
           <ul>
             {role.points.map((p) => (
@@ -402,6 +376,9 @@ function Pricing() {
           Every plan is tailored to how you work. Contact us and we&rsquo;ll put together the right
           fit.
         </p>
+        <Link to="/pricing#compare" className="lbp-more-link">
+          Compare plans in detail →
+        </Link>
       </div>
       <div className="lb-plans">
         {PLANS.map((pl) => (
@@ -410,12 +387,12 @@ function Pricing() {
             <h3>{pl.name}</h3>
             <p className="lb-plan-desc">{pl.desc}</p>
             <p className="lb-plan-price">Contact us</p>
-            <a
-              href="#d-pricing"
+            <Link
+              to={CONTACT_PATH}
               className={`lb-btn lb-btn-block ${pl.featured ? "lb-btn-mint" : "lb-btn-dark"}`}
             >
               Contact sales
-            </a>
+            </Link>
             <ul>
               {pl.features.map((f) => (
                 <li key={f}>
@@ -446,9 +423,9 @@ function Closing() {
         <h2 className="lb-h2">See your lab in labbenchos.</h2>
         <p>Tell us about your lab or institution and we&rsquo;ll walk you through it.</p>
         <div className="lb-actions">
-          <a href="#d-pricing" className="lb-btn lb-btn-white">
+          <Link to={CONTACT_PATH} className="lb-btn lb-btn-white">
             Contact us
-          </a>
+          </Link>
           <Link to="/login" className="lb-btn lb-btn-ghost-white">
             Sign in
           </Link>
@@ -458,64 +435,18 @@ function Closing() {
   );
 }
 
-function Footer() {
-  return (
-    <footer className="lb-footer">
-      <div className="lb-wrap lb-footer-cols">
-        <div className="lb-footer-col">
-          <img
-            src={logoOnDark}
-            alt="labbenchos"
-            style={{ height: 32, width: "auto", alignSelf: "flex-start" }}
-          />
-          <span>The lab operating system.</span>
-        </div>
-        <div className="lb-footer-col">
-          <span className="lb-footer-head">Product</span>
-          <a href="#d-platform">Features</a>
-          <a href="#d-workflow">Workflow</a>
-          <a href="#d-integrations">Integrations</a>
-          <a href="#d-ai">Bring your own AI</a>
-        </div>
-        <div className="lb-footer-col">
-          <span className="lb-footer-head">Plans</span>
-          <a href="#d-pricing">Individual</a>
-          <a href="#d-pricing">Lab</a>
-          <a href="#d-pricing">Institution</a>
-        </div>
-        <div className="lb-footer-col">
-          <span className="lb-footer-head">Company</span>
-          <a href="#d-top">About</a>
-          <a href="#d-pricing">Contact</a>
-          <Link to="/login">Sign in</Link>
-        </div>
-      </div>
-      <div className="lb-wrap lb-footer-bottom">
-        <span>© {new Date().getFullYear()} labbenchos</span>
-        <span>
-          <a href="#d-top">Privacy</a> · <a href="#d-top">Terms</a>
-        </span>
-      </div>
-    </footer>
-  );
-}
-
 /** Public marketing home shown at "/" to signed-out visitors. Signing in leads into the app. */
 export function MarketingHome() {
   return (
-    <div className="lb">
-      <Header />
-      <main>
-        <Hero />
-        <Trust />
-        <Platform />
-        <Workflow />
-        <Integrations />
-        <Roles />
-        <Pricing />
-        <Closing />
-      </main>
-      <Footer />
-    </div>
+    <MarketingShell>
+      <Hero />
+      <Trust />
+      <Platform />
+      <Workflow />
+      <Integrations />
+      <Roles />
+      <Pricing />
+      <Closing />
+    </MarketingShell>
   );
 }
