@@ -255,3 +255,4 @@ Ranges: SSO D152-D159, MCP and AI tool layer D160-D169, PI dashboard D170-D174, 
 - D215. Lab chat follows D206 and D207 at lab level, so viewers can post. Its unread count is a row with `project: null` in the existing unread response, so there is no second poll.
 - D216. The calendar merges lab events, deadlines, tasks, inventory due dates, ethics expiry and funding end dates through `visible_to`, up to 92 days per request. Withdrawn approvals, retired or lost inventory, and funding that is not awarded or active are left out.
 - D217. Orders are never deleted; use the cancelled status. A received order is frozen except for its notes and adds stock exactly once, with no unit conversion.
+- D218. Pushes to `main` deploy the test server. The repo is public, so the CI key cannot send code: a forced command makes the server fetch `main` itself. It takes no commit argument, because a commit hash could name code from a fork. Tests do not gate the deploy yet.

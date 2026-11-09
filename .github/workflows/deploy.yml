@@ -1,0 +1,21 @@
+# Redeploys the test server on every push to main. Never add a pull_request trigger here.
+# The key can only run the forced command in the server's authorized_keys (docs/DEPLOY.md).
+name: Deploy
+on:
+  push:
+    branches: [main]
+permissions: {}
+concurrency: deploy
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Redeploy the test server
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          echo "66.209.180.131 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMtNbXL6EFGZYL3UKrkNCI0vyInfyIa+SUzDLpLDubCU" > known_hosts
+          umask 077
+          printf '%s\n' "$KEY" > key
+          ssh -i key -o IdentitiesOnly=yes -o UserKnownHostsFile=known_hosts -o ServerAliveInterval=30 angad@66.209.180.131 deploy

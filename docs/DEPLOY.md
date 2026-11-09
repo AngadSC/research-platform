@@ -26,7 +26,7 @@ The development stack (`docker-compose.yml`) is separate and is not for producti
   - **The audit-table role (section 7):** not applied.
 - **Secrets go only in `~/app/deploy/.env.prod` on the server,** never in `.env.prod.example`. The example file is tracked by git.
 - **Accounts:** the seed accounts (`pi@`, `admin@`, `lead@`, `student@` and `viewer@example.test`) have a random password set on the server, not the one in `seed_pilot.py`. The seed was loaded once with `run --rm -e DEBUG=True`.
-- **Redeploy after committing:** `sh deploy/push.sh`. It copies `HEAD`, rebuilds, migrates and restarts.
+- **Redeploy:** every push to `main` deploys through `.github/workflows/deploy.yml`, including migrations. Its `ci-deploy` SSH key is limited by a forced command in the server's `authorized_keys` to fetching `main` from GitHub and running `deploy/rebuild.sh`. To deploy something else by hand, commit it and run `sh deploy/push.sh`, which copies `HEAD` and runs the same rebuild.
 - **Before real data goes on it:**
   - set up email
   - set up a bucket or backups
