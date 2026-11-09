@@ -22,7 +22,9 @@ export function CreateLabPage() {
     if (!name) return setErrors({ fields: { name: "Enter a name for your lab" } });
     setErrors({ fields: {} });
     try {
-      const lab = await create.mutateAsync(institution_name ? { name, institution_name } : { name });
+      const lab = await create.mutateAsync(
+        institution_name ? { name, institution_name } : { name },
+      );
       toast.success("Lab created");
       void navigate(`/labs/${lab.id}`);
     } catch (err) {
