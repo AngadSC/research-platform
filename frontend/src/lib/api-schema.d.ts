@@ -458,6 +458,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/contributions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A year of daily activity counts for the whole lab or one member (the contribution graph). */
+        get: operations["labs_contributions_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/dashboard/": {
         parameters: {
             query?: never;
@@ -2956,6 +2973,47 @@ export interface components {
             id: string;
             name: string;
             role: string;
+        };
+        ContributionDay: {
+            /** Format: date */
+            date: string;
+            count: number;
+            by_kind: components["schemas"]["ContributionKinds"];
+        };
+        ContributionKinds: {
+            /** @description Documents edited (each document once a day). */
+            documents: number;
+            /** @description Files uploaded. */
+            files: number;
+            /** @description Tasks created. */
+            tasks: number;
+            /** @description Updates posted on tasks. */
+            task_updates: number;
+            /** @description Project chat messages. */
+            chat: number;
+            /** @description Projects, datasets, analyses, results, decisions, manuscripts, funding, reviews, recruitment entries, data management plan edits and ethics approvals. */
+            records: number;
+        };
+        Contributions: {
+            /**
+             * Format: date
+             * @description A Sunday; the first day of the grid.
+             */
+            start: string;
+            /**
+             * Format: date
+             * @description Today, the last day of the grid.
+             */
+            end: string;
+            /**
+             * Format: uuid
+             * @description Null for the whole lab.
+             */
+            user_id: string | null;
+            total: number;
+            by_kind: components["schemas"]["ContributionKinds"];
+            /** @description Only days with activity, oldest first. */
+            days: components["schemas"]["ContributionDay"][];
         };
         Conversation: {
             /** Format: uuid */
@@ -5725,6 +5783,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChatUnread"][];
+                };
+            };
+        };
+    };
+    labs_contributions_retrieve: {
+        parameters: {
+            query?: {
+                /** @description A lab member's id. Leave out for the whole lab. */
+                user?: string;
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Contributions"];
                 };
             };
         };

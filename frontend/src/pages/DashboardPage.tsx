@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link, Navigate, useParams } from "react-router";
+import { ContributionGraph } from "@/components/dashboard/ContributionGraph";
 import { FormError } from "@/components/shared/FormError";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -697,6 +698,8 @@ export function DashboardPage() {
             </div>
             <PeopleTable people={data.people} />
           </section>
+
+          <ContributionGraph labId={labId} people={data.people} />
         </div>
       )}
     </>

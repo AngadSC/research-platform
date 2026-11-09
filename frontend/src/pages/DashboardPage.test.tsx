@@ -91,6 +91,27 @@ const dash = (over: Record<string, unknown> = {}) => ({
   ],
   ...over,
 });
+const kinds = (over: Record<string, number> = {}) => ({
+  documents: 0,
+  files: 0,
+  tasks: 0,
+  task_updates: 0,
+  chat: 0,
+  records: 0,
+  ...over,
+});
+const contributions = (over: Record<string, unknown> = {}) => ({
+  start: "2025-11-09",
+  end: "2026-11-09",
+  user_id: null,
+  total: 5,
+  by_kind: kinds({ tasks: 3, documents: 2 }),
+  days: [
+    { date: "2026-11-02", count: 3, by_kind: kinds({ tasks: 3 }) },
+    { date: "2026-11-09", count: 2, by_kind: kinds({ documents: 2 }) },
+  ],
+  ...over,
+});
 const base = (body: unknown, perms = PI) => ({
   [SESSION]: signedIn,
   "GET /api/labs/": { body: [makeLab(perms)] },
@@ -99,6 +120,7 @@ const base = (body: unknown, perms = PI) => ({
   "GET /api/labs/lab1/notifications/": { body: [] },
   "GET /api/labs/lab1/dashboard/": { body },
   "GET /api/labs/lab1/training/expiring/": { status: 404, body: { detail: "Not found." } },
+  "GET /api/labs/lab1/contributions/": { body: contributions() },
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -204,11 +226,42 @@ describe("Dashboard", () => {
     await screen.findByRole("region", { name: "Summary" });
   });
 
+  it("shows the lab's activity graph and switches to one person", async () => {
+    const calls = mockFetch({
+      ...base(dash()),
+      "GET /api/labs/lab1/contributions/?user=u1": {
+        body: contributions({
+          user_id: "u1",
+          total: 1,
+          by_kind: kinds({ chat: 1 }),
+          days: [{ date: "2026-11-05", count: 1, by_kind: kinds({ chat: 1 }) }],
+        }),
+      },
+    });
+    renderRoute("/labs/lab1/dashboard");
+    const graph = await screen.findByRole("img", { name: /The lab: 5 contributions/ });
+    expect(graph).toHaveAccessibleName(/2 documents edited, 3 tasks created/);
+    expect(graph.querySelectorAll("[data-date]")).toHaveLength(53 * 7);
+    expect(graph.querySelector('[data-date="2026-11-02"]')).toHaveAttribute("data-level", "4");
+    expect(graph.querySelector('[data-date="2026-11-09"]')).toHaveAttribute(
+      "title",
+      expect.stringMatching(/^2 contributions on /),
+    );
+    expect(graph.querySelector('[data-date="2026-11-10"]')).not.toHaveAttribute("title"); // future
+    expect(screen.getByText("In total: 2 documents edited, 3 tasks created.")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("combobox", { name: "Person" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Ada" }));
+    expect(await screen.findByText("Ada: 1 contribution in the last year")).toBeInTheDocument();
+    expect(calls.some((c) => c.path === "/api/labs/lab1/contributions/?user=u1")).toBe(true);
+  });
+
   it("does not offer the dashboard to a member, and keeps their project list", async () => {
     const calls = mockFetch(base(dash(), ["view_lab", "create_project"]));
     renderRoute("/labs/lab1");
     expect(await screen.findByRole("heading", { name: "Projects" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument();
     expect(calls.some((c) => c.path.endsWith("/dashboard/"))).toBe(false);
+    expect(calls.some((c) => c.path.includes("/contributions/"))).toBe(false);
   });
 });

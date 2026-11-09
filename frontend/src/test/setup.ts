@@ -36,3 +36,9 @@ if (!("ResizeObserver" in globalThis)) {
 
 // jsdom has no scrollIntoView (cmdk calls it when the selection moves).
 if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = () => {};
+
+// jsdom has no pointer capture (Radix Select calls it when it opens on a click).
+if (!Element.prototype.hasPointerCapture) {
+  Element.prototype.hasPointerCapture = () => false;
+  Element.prototype.releasePointerCapture = () => {};
+}

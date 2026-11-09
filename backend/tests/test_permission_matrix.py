@@ -90,6 +90,8 @@ MATRIX: dict[tuple[str, str], str] = {
     ("PATCH",  "labs:lab-detail"):       "401 404      2  2     403  403     403     403     403",
     # D170: PI dashboard, pi and lab_admin only
     ("GET",    "labs:dashboard"):        "401 404      2  2     403  403     403     403     403",
+    # Contribution graph on the dashboard: same audience
+    ("GET",    "labs:contributions"):    "401 404      2  2     403  403     403     403     403",
     ("GET",    "labs:member-list"):      "401 404      2  2     2    2       2       2       2",
     ("PATCH",  "labs:member-detail"):    "401 404      2  2     403  403     403     403     403",
     ("DELETE", "labs:member-detail"):    "401 404      2  2     403  403     403     403     403",
