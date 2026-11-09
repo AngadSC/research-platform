@@ -1619,37 +1619,6 @@
 .lbp-match {
   background: #fde68a;
 }
-.lbp-table-wrap {
-  position: relative;
-  margin-top: 40px;
-  overflow-x: auto;
-  background: #fff;
-  border-radius: 20px;
-  border: 1px solid var(--lb-line);
-}
-.lbp-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 15px;
-  min-width: 560px;
-}
-.lbp-table th,
-.lbp-table td {
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--lb-line);
-  text-align: center;
-}
-.lbp-table tbody th {
-  text-align: left;
-  font-weight: 500;
-}
-.lbp-table thead th {
-  font-size: 16px;
-  font-weight: 700;
-}
-.lbp-table [data-picked="true"] {
-  background: #ecf8ef;
-}
 .lbp-contact {
   display: flex;
   flex-wrap: wrap;

@@ -376,8 +376,8 @@ function Pricing() {
           Every plan is tailored to how you work. Contact us and we&rsquo;ll put together the right
           fit.
         </p>
-        <Link to="/pricing#compare" className="lbp-more-link">
-          Compare plans in detail →
+        <Link to="/pricing" className="lbp-more-link">
+          More about plans →
         </Link>
       </div>
       <div className="lb-plans">

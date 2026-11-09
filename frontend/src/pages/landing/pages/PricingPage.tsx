@@ -1,28 +1,12 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { CONTACT_EMAIL, PLANS } from "../content";
-import { Check, Faq, Icon, ICONS, PageHero, SectionHead } from "../shared";
+import { Faq, Icon, ICONS, PageHero, SectionHead } from "../shared";
 
 const WHO = [
   { id: "me", label: "Just me", plan: "Individual" },
   { id: "lab", label: "My lab or research group", plan: "Lab" },
   { id: "many", label: "A department or institution", plan: "Institution" },
-];
-
-const ROWS: { label: string; plans: [boolean, boolean, boolean] }[] = [
-  { label: "Projects, tasks and documents", plans: [true, true, true] },
-  { label: "Datasets, analyses, results and lineage", plans: [true, true, true] },
-  { label: "Integrations (Drive, GitHub, Zotero and more)", plans: [true, true, true] },
-  { label: "Bring your own AI", plans: [true, true, true] },
-  { label: "Invite lab members with roles", plans: [false, true, true] },
-  { label: "Ethics, funding and data management plans", plans: [false, true, true] },
-  { label: "PI dashboard", plans: [false, true, true] },
-  { label: "Training records, inventory and orders", plans: [false, true, true] },
-  { label: "Handover reports and onboarding checklists", plans: [false, true, true] },
-  { label: "Audit log and retention review", plans: [false, true, true] },
-  { label: "University single sign-on (SAML)", plans: [false, false, true] },
-  { label: "Your institution's resources loaded for every lab", plans: [false, false, true] },
-  { label: "Dedicated onboarding and support", plans: [false, false, true] },
 ];
 
 const FAQS = [
@@ -47,7 +31,6 @@ const FAQS = [
 export function PricingPage() {
   const [who, setWho] = useState<string | null>(null);
   const match = WHO.find((w) => w.id === who)?.plan;
-  const names = PLANS.map((p) => p.name);
 
   return (
     <>
@@ -57,10 +40,10 @@ export function PricingPage() {
         title="A plan for every scale of research."
         lead="From one researcher to a whole institution. Tell us how you work and we'll put together the right plan."
         primary={{ to: "#contact", label: "Contact us" }}
-        secondary={{ to: "#compare", label: "Compare plans" }}
+        secondary={{ to: "#plans", label: "See the plans" }}
       />
 
-      <section className="lb-wrap lb-section">
+      <section id="plans" className="lb-wrap lb-section">
         <div className="lbp-finder">
           <p className="lbp-kicker">Which plan fits?</p>
           <h2 className="lb-h2-sm">Who will use labbenchos?</h2>
@@ -127,40 +110,6 @@ export function PricingPage() {
               </div>
             );
           })}
-        </div>
-      </section>
-
-      <section id="compare" className="lbp-band lbp-band-soft">
-        <div className="lb-wrap lb-section">
-          <SectionHead eyebrow="Compare" title="What's in each plan." center />
-          <div className="lbp-table-wrap">
-            <table className="lbp-table">
-              <thead>
-                <tr>
-                  <th scope="col">
-                    <span className="lbp-sr">Feature</span>
-                  </th>
-                  {names.map((n) => (
-                    <th key={n} scope="col" data-picked={match === n}>
-                      {n}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {ROWS.map((r) => (
-                  <tr key={r.label}>
-                    <th scope="row">{r.label}</th>
-                    {r.plans.map((ok, n) => (
-                      <td key={names[n]} data-picked={match === names[n]}>
-                        <Check ok={ok} />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </div>
       </section>
 
