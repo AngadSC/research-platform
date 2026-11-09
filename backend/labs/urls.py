@@ -1,7 +1,7 @@
 from django.urls import path
 
 from labs import admin_views as av
-from labs import contributions, dashboard, views
+from labs import contributions, dashboard, lab_calendar, views
 
 app_name = "labs"
 urlpatterns = [
@@ -62,6 +62,43 @@ urlpatterns = [
         "labs/<uuid:lab_id>/inventory/export/",
         av.InventoryExportView.as_view(),
         name="inventory-export",
+    ),
+    path(
+        "labs/<uuid:lab_id>/inventory/orders/",
+        av.OrderListCreateView.as_view(),
+        name="order-list",
+    ),
+    path(
+        "labs/<uuid:lab_id>/inventory/orders/export/",
+        av.OrderExportView.as_view(),
+        name="order-export",
+    ),
+    path(
+        "labs/<uuid:lab_id>/inventory/orders/<uuid:inventoryorder_id>/",
+        av.OrderDetailView.as_view(),
+        name="order-detail",
+    ),
+    path("labs/<uuid:lab_id>/chat/messages/", views.LabChatListView.as_view(), name="labchat-list"),
+    path(
+        "labs/<uuid:lab_id>/chat/messages/read/",
+        views.LabChatReadView.as_view(),
+        name="labchat-read",
+    ),
+    path(
+        "labs/<uuid:lab_id>/chat/messages/<uuid:labchatmessage_id>/",
+        views.LabChatDetailView.as_view(),
+        name="labchat-detail",
+    ),
+    path("labs/<uuid:lab_id>/calendar/", lab_calendar.CalendarView.as_view(), name="calendar"),
+    path(
+        "labs/<uuid:lab_id>/calendar/events/",
+        lab_calendar.LabEventCreateView.as_view(),
+        name="labevent-list",
+    ),
+    path(
+        "labs/<uuid:lab_id>/calendar/events/<uuid:labevent_id>/",
+        lab_calendar.LabEventDetailView.as_view(),
+        name="labevent-detail",
     ),
     path(
         "labs/<uuid:lab_id>/inventory/<uuid:inventoryitem_id>/",

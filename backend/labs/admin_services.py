@@ -1,6 +1,8 @@
 """Admin-area business logic (D146-D151). Writes audit in the same transaction."""
 
-from django.db import IntegrityError, transaction
+from django.db import DataError, IntegrityError, transaction
+from django.db.models import F
+from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from audit.models import AuditAction as A
@@ -10,9 +12,12 @@ from core.models import Institution, User
 from labs.models import (
     InstitutionResource,
     InventoryItem,
+    InventoryOrder,
+    LabEvent,
     LabMembership,
     OnboardingCompletion,
     OnboardingItem,
+    OrderStatus,
 )
 
 DETAIL_FIELDS = ["name", "department", "description", "address", "contact_email", "website"]
@@ -236,3 +241,100 @@ def update_inventory_item(obj, *, user, data, request=None):
 @transaction.atomic
 def delete_inventory_item(obj, *, user, request=None):
     _delete(obj, A.INVENTORY_ITEM_DELETED, user=user, request=request)
+
+
+# ---------------------------------------------------------------- inventory orders
+
+
+def _with_item(lab, data):
+    """Swap the item id for the lab's own item (a foreign id reads as unknown)."""
+    if "item" not in data:
+        return data
+    data = dict(data)
+    if (item_id := data["item"]) is not None:
+        data["item"] = InventoryItem.objects.for_lab(lab).filter(pk=item_id).first()
+        if data["item"] is None:
+            raise ValidationError({"item": "This inventory item does not exist."})
+    return data
+
+
+def _add_to_stock(order, *, user, request):
+    """Only called on the move into received, under the order's row lock (or on creation).
+    ponytail: adds `order.quantity` as is, with no unit conversion from the order's unit to the
+    item's; compare units here if labs order in different units from the ones they stock."""
+    if order.item_id is None:
+        return
+    try:
+        InventoryItem.objects.for_lab(order.lab_id).filter(pk=order.item_id).update(
+            quantity=F("quantity") + order.quantity, updated_at=timezone.now()
+        )
+    except DataError as exc:  # past the column's 12 digits; the surrounding atomic rolls back
+        raise ValidationError({"quantity": "That would overflow the item's quantity."}) from exc
+    record(
+        A.INVENTORY_ITEM_UPDATED,
+        actor=user,
+        lab=order.lab,
+        target=order.item,
+        request=request,
+        metadata={"changed": ["quantity"], "order": str(order.pk), "added": str(order.quantity)},
+    )
+
+
+@transaction.atomic
+def create_inventory_order(*, lab, user, data, request=None):
+    data = {**_with_item(lab, data), "requested_by": user}
+    order = _create(
+        InventoryOrder, A.INVENTORY_ORDER_CREATED, lab=lab, user=user, data=data, request=request
+    )
+    if order.status == OrderStatus.RECEIVED:
+        _add_to_stock(order, user=user, request=request)
+    return order
+
+
+@transaction.atomic
+def update_inventory_order(order, *, user, data, request=None):
+    """The row lock, plus a received order being frozen, is what makes stock go up exactly once:
+    a repeat or concurrent "received" waits here, then sees the status already set."""
+    order = InventoryOrder.objects.for_lab(order.lab_id).select_for_update().get(pk=order.pk)
+    data = _with_item(order.lab, data)
+    was_received = order.status == OrderStatus.RECEIVED
+    if was_received and any(k != "notes" and getattr(order, k) != v for k, v in data.items()):
+        raise ValidationError(
+            {"status": "This order was received and added to stock; only its notes can change."}
+        )
+    order = _update(order, A.INVENTORY_ORDER_UPDATED, user=user, data=data, request=request)
+    if order.status == OrderStatus.RECEIVED and not was_received:
+        _add_to_stock(order, user=user, request=request)
+    return order
+
+
+# ---------------------------------------------------------------- calendar events
+
+
+def _check_event_dates(date, end_date):
+    if end_date is not None and end_date < date:
+        raise ValidationError({"end_date": "The end date is before the start date."})
+
+
+@transaction.atomic
+def create_lab_event(*, lab, user, data, request=None):
+    _check_event_dates(data["date"], data.get("end_date"))
+    return _create(
+        LabEvent,
+        A.LAB_EVENT_CREATED,
+        lab=lab,
+        user=user,
+        data={**data, "created_by": user},
+        request=request,
+    )
+
+
+@transaction.atomic
+def update_lab_event(obj, *, user, data, request=None):
+    _check_event_dates(data.get("date", obj.date), data.get("end_date", obj.end_date))
+    return _update(obj, A.LAB_EVENT_UPDATED, user=user, data=data, request=request)
+
+
+@transaction.atomic
+def delete_lab_event(obj, *, user, request=None):
+    _delete(obj, A.LAB_EVENT_DELETED, user=user, request=request)

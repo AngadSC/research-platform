@@ -116,11 +116,33 @@ function MessageRow({
 }
 
 /** Keyed by project, so a draft or scroll position never carries over to another project. */
-export default function ChatTab(props: ProjectTabProps) {
-  return <Chat key={props.projectId} {...props} />;
+export default function ChatTab({ labId, projectId, project }: ProjectTabProps) {
+  return (
+    <ChatPanel
+      key={projectId}
+      labId={labId}
+      projectId={projectId}
+      canModerate={project.my_permissions.includes("edit_project")}
+      label="Project chat"
+      audience="this project"
+    />
+  );
 }
 
-function Chat({ labId, projectId, project }: ProjectTabProps) {
+/** One group chat: a project's, or with no `projectId` the whole lab's. */
+export function ChatPanel({
+  labId,
+  projectId,
+  canModerate,
+  label,
+  audience,
+}: {
+  labId: string;
+  projectId?: string;
+  canModerate: boolean;
+  label: string;
+  audience: string;
+}) {
   const { email } = useAuth();
   const { messages, send, remove, markRead } = useChat(labId, projectId);
   const [draft, setDraft] = useState("");
@@ -141,7 +163,6 @@ function Chat({ labId, projectId, project }: ProjectTabProps) {
   const newest = all[all.length - 1]?.id;
   const newestAt = all[all.length - 1]?.created_at;
   const hasOlder = (latest?.length ?? 0) >= CHAT_PAGE_SIZE && !olderExhausted;
-  const canModerate = project.my_permissions.includes("edit_project");
 
   const toBottom = () => {
     const el = scroller.current;
@@ -242,7 +263,7 @@ function Chat({ labId, projectId, project }: ProjectTabProps) {
   return (
     <section
       ref={panel}
-      aria-label="Project chat"
+      aria-label={label}
       className="relative flex h-[calc(100dvh-5.5rem)] min-h-96 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground md:h-[calc(100dvh-13.5rem)]"
     >
       <div
@@ -265,7 +286,7 @@ function Chat({ labId, projectId, project }: ProjectTabProps) {
           <EmptyState
             icon={MessagesSquare}
             title="No messages yet"
-            description="Say hello. Everyone on this project can read and reply here."
+            description={`Say hello. Everyone in ${audience} can read and reply here.`}
             className="h-full border-0"
           />
         ) : (

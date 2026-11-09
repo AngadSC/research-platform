@@ -1,6 +1,7 @@
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import { localDateISO } from "@/lib/format";
 import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
 
 const ADMIN = ["view_lab", "manage_lab", "manage_inventory", "view_audit_log", "view_ethics"];
@@ -28,6 +29,7 @@ const base = (perms: string[], extra: Record<string, unknown> = {}) => ({
   },
   "GET /api/labs/lab1/onboarding-items/": { body: [] },
   "GET /api/labs/lab1/inventory/?ordering=name": { body: [] },
+  "GET /api/labs/lab1/inventory/orders/": { body: [] },
   "GET /api/labs/lab1/institution-resources/": { body: [] },
   "GET /api/labs/lab1/training/requirements/": { body: [] },
   "GET /api/labs/lab1/training/compliance/": {
@@ -146,6 +148,16 @@ describe("admin area", () => {
       "href",
       "/api/labs/lab1/inventory/export/?ordering=name",
     );
+  });
+
+  it("picks today's local date when a date field is double-clicked", async () => {
+    mockFetch(base(["view_lab", "manage_inventory"]));
+    renderRoute("/labs/lab1/inventory");
+    await userEvent.click(await screen.findByRole("button", { name: "Add item" }));
+    const field = await screen.findByLabelText("Purchase date");
+    fireEvent.dblClick(field);
+    expect(field).toHaveValue(localDateISO());
+    expect(screen.getByLabelText("Calibration or maintenance due")).toHaveValue("");
   });
 
   it("hides inventory editing from a viewer", async () => {

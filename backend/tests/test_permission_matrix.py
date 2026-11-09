@@ -28,8 +28,11 @@ from integrations.tests.fake import FAKE  # integrations (Run 2)
 from labs.models import (  # admin area (Run 4)
     InstitutionResource,
     InventoryItem,
+    InventoryOrder,
     Invite,
     Lab,
+    LabChatMessage,
+    LabEvent,
     LabMembership,
     LabRole,
     OnboardingItem,
@@ -319,7 +322,26 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "labs:inventory-detail"): "401 404 2 2 2 2 2 2 2",
     ("PATCH",  "labs:inventory-detail"): "401 404 2 2 2 2 2 2 403",
     ("DELETE", "labs:inventory-detail"): "401 404 2 2 2 2 2 2 403",
+    # Orders: everyone in the lab reads and exports, manage_inventory writes, so viewers get 403.
+    ("GET",    "labs:order-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "labs:order-list"): "401 404 2 2 2 2 2 2 403",
+    ("GET",    "labs:order-export"): "401 404 2 2 2 2 2 2 2",
+    ("PATCH",  "labs:order-detail"): "401 404 2 2 2 2 2 2 403",
     # --- end admin area (Run 4) ---
+    # --- lab chat and calendar ---
+    # Lab chat is D206 for the whole lab: every member reads and posts, the lab viewer included.
+    # The fixture message is contrib's: its author or manage_lab (pi, admin) may delete it.
+    ("GET",    "labs:labchat-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "labs:labchat-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "labs:labchat-read"): "401 404 2 2 2 2 2 2 2",
+    ("DELETE", "labs:labchat-detail"): "401 404 2 2 403 2 403 403 403",
+    # The calendar is a read for every member (rows are filtered: test_lab_tools.py); events need
+    # contribute_lab, which the lab viewer lacks.
+    ("GET",    "labs:calendar"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "labs:labevent-list"): "401 404 2 2 2 2 2 2 403",
+    ("PATCH",  "labs:labevent-detail"): "401 404 2 2 2 2 2 2 403",
+    ("DELETE", "labs:labevent-detail"): "401 404 2 2 2 2 2 2 403",
+    # --- end lab chat and calendar ---
     # --- training (Run 5, D175-D179) ---
     # Requirements are read by every lab member and managed with manage_training (pi, admin).
     # Records: the fixture one is contrib's. Everyone may call the endpoints, but the queryset is
@@ -582,6 +604,21 @@ def _admin_fixtures(lab, tag):
 # --- end admin area (Run 4) ---
 
 
+def _lab_tool_fixtures(lab, user, inv, tag):
+    """An inventory order, a lab chat message and a calendar event, all made by `user`."""
+    return {
+        "inventoryorder_id": InventoryOrder.objects.create(
+            lab=lab, item=inv, name=f"Order {tag}", requested_by=user
+        ).pk,
+        "labchatmessage_id": LabChatMessage.objects.create(
+            lab=lab, author=user, body=f"Lab chat {tag}"
+        ).pk,
+        "labevent_id": LabEvent.objects.create(
+            lab=lab, title=f"Event {tag}", date="2030-01-01", created_by=user
+        ).pk,
+    }
+
+
 # --- training (Run 5) ---
 def _training_fixtures(lab, owner, tag):
     """`free` has no records (the URL's DELETE can succeed); `used` has the owner's record, with a
@@ -774,6 +811,7 @@ def build_world():
         lab_a, p1, {n: users[n] for n in ("pi", "admin", "lead", "contrib")}, "lab-a"
     )  # integrations (Run 2)
     res_a, onb_a, inv_a = _admin_fixtures(lab_a, "lab-a")  # admin area (Run 4)
+    tools_a = _lab_tool_fixtures(lab_a, users["contrib"], inv_a, "lab-a")
     tr_free_a, tr_rec_a = _training_fixtures(lab_a, users["contrib"], "lab-a")  # training (Run 5)
     paper_a, paper_note_a = _paper_fixtures(lab_a, users["contrib"], "lab-a")
     ai_a = _ai_fixtures(lab_a, users["contrib"], "lab-a")  # AI access (Run 5)
@@ -818,6 +856,7 @@ def build_world():
         lab_b, p1_b, {"outsider": secret_pi}, "LAB-B-SECRET"
     )  # integrations (Run 2)
     res_b, onb_b, inv_b = _admin_fixtures(lab_b, "LAB-B-SECRET")  # admin area (Run 4)
+    tools_b = _lab_tool_fixtures(lab_b, secret_pi, inv_b, "LAB-B-SECRET")
     tr_free_b, tr_rec_b = _training_fixtures(lab_b, secret_pi, "LAB-B-SECRET")  # training (Run 5)
     paper_b, paper_note_b = _paper_fixtures(lab_b, secret_pi, "LAB-B-SECRET")
     ai_b = _ai_fixtures(lab_b, secret_pi, "LAB-B-SECRET")  # AI access (Run 5)
@@ -858,6 +897,7 @@ def build_world():
             "institutionresource_id": res_a.pk,  # admin area (Run 4)
             "onboardingitem_id": onb_a.pk,
             "inventoryitem_id": inv_a.pk,
+            **tools_a,
             "trainingrequirement_id": tr_free_a.pk,  # training (Run 5)
             "trainingrecord_id": tr_rec_a.pk,
             "paper_id": paper_a.pk,
@@ -892,6 +932,7 @@ def build_world():
             "institutionresource_id": res_b.pk,  # admin area (Run 4)
             "onboardingitem_id": onb_b.pk,
             "inventoryitem_id": inv_b.pk,
+            **tools_b,
             "trainingrequirement_id": tr_free_b.pk,  # training (Run 5)
             "trainingrecord_id": tr_rec_b.pk,
             "paper_id": paper_b.pk,
@@ -937,6 +978,9 @@ def build_world():
             "Resource LAB-B-SECRET",
             "Onboarding LAB-B-SECRET",
             "Inventory LAB-B-SECRET",
+            "Order LAB-B-SECRET",
+            "Lab chat LAB-B-SECRET",
+            "Event LAB-B-SECRET",
             # --- training (Run 5) ---
             "Training LAB-B-SECRET",
             "Training free LAB-B-SECRET",
@@ -1158,7 +1202,16 @@ PAYLOADS = {
     },
     ("POST", "labs:inventory-list"): lambda user, w: {"name": "New item", "category": "reagent"},
     ("PATCH", "labs:inventory-detail"): lambda user, w: {"notes": "Edited"},
+    ("POST", "labs:order-list"): lambda user, w: {"name": "New order", "quantity": "2"},
+    ("PATCH", "labs:order-detail"): lambda user, w: {"status": "ordered"},
     # --- end admin area (Run 4) ---
+    # --- lab chat and calendar (GET payloads are query strings) ---
+    ("POST", "labs:labchat-list"): lambda user, w: {"body": "Hello"},
+    ("POST", "labs:labchat-read"): lambda user, w: {"last_read_at": "2030-01-01T00:00:00Z"},
+    ("GET", "labs:calendar"): lambda user, w: {"from": "2030-01-01", "to": "2030-01-31"},
+    ("POST", "labs:labevent-list"): lambda user, w: {"title": "New", "date": "2030-02-01"},
+    ("PATCH", "labs:labevent-detail"): lambda user, w: {"notes": "Edited"},
+    # --- end lab chat and calendar ---
     # --- training (Run 5) ---
     ("POST", "training:requirement-list"): lambda user, w: {
         "name": f"New training {next(_n)}",
@@ -1289,6 +1342,8 @@ def _request(client, method, url, payload):
             return getattr(client, method.lower())(url, payload, format="multipart")
         # --- end documents/attachments (Phase 3) ---
         return getattr(client, method.lower())(url, payload, format="json")
+    if method == "GET":
+        return client.get(url, payload or {})  # a GET payload is its query string
     return getattr(client, method.lower())(url)
 
 

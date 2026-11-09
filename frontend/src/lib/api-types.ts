@@ -132,6 +132,12 @@ export type RetentionItem = Schemas["RetentionItem"];
 // Admin area (Run 4)
 export type InventoryItem = Schemas["Inventory"];
 export type InventoryInput = Schemas["InventoryInput"];
+export type InventoryOrder = Schemas["InventoryOrder"];
+export type InventoryOrderInput = Schemas["InventoryOrderInput"];
+export type OrderStatus = InventoryOrder["status"];
+export type CalendarItem = Schemas["CalendarItem"];
+export type LabEvent = Schemas["LabEvent"];
+export type LabEventInput = Schemas["LabEventInput"];
 export type OnboardingItem = Schemas["OnboardingItem"];
 export type OnboardingItemInput = Schemas["OnboardingItemInput"];
 export type InstitutionResource = Schemas["Resource"];

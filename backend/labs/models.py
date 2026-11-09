@@ -131,6 +131,65 @@ class Invite(LabScopedModel):
         )
 
 
+# ---------------------------------------------------------------- lab-wide chat and calendar
+
+
+class LabChatMessage(LabScopedModel):
+    """One message in the lab's group chat: project chat's rules (D206), for every lab member."""
+
+    permission_domain = "lab"
+
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    body = models.TextField()
+
+    class Meta(LabScopedModel.Meta):
+        indexes = [models.Index(fields=["lab", "created_at"], name="labchat_recent_idx")]
+
+    def __str__(self):
+        return f"{self.author_id}: {self.body[:40]}"
+
+
+class LabChatReadState(LabScopedModel):
+    """How far one person has read the lab chat (D207). No row means nothing read yet."""
+
+    permission_domain = "lab"
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    last_read_at = models.DateTimeField()
+
+    class Meta(LabScopedModel.Meta):
+        constraints = [models.UniqueConstraint(fields=["lab", "user"], name="labchatread_unique")]
+
+    def __str__(self):
+        return f"{self.user_id} read to {self.last_read_at}"
+
+
+class LabEvent(LabScopedModel):
+    """A lab-wide calendar entry. `contribute_lab` writes; every lab member reads."""
+
+    permission_domain = "lab"
+
+    title = models.CharField(max_length=200)
+    date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)  # blank means a single day
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+
+    class Meta(LabScopedModel.Meta):
+        indexes = [models.Index(fields=["lab", "date"], name="labevent_lab_date_idx")]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(end_date__isnull=True) | Q(end_date__gte=models.F("date")),
+                name="labevent_end_after_start",
+            )
+        ]
+
+    def __str__(self):
+        return self.title
+
+
 # ---------------------------------------------------------------- Run 4: admin area (D146-D151)
 
 
@@ -174,6 +233,47 @@ class InventoryItem(LabScopedModel):
         indexes = [models.Index(fields=["lab", "category"], name="inventory_lab_cat_idx")]
         constraints = [
             models.CheckConstraint(condition=Q(quantity__gte=0), name="inventory_quantity_gte0")
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class OrderStatus(models.TextChoices):
+    REQUESTED = "requested"
+    ORDERED = "ordered"
+    RECEIVED = "received"
+    CANCELLED = "cancelled"
+
+
+class InventoryOrder(LabScopedModel):
+    """A purchase request. `manage_inventory` writes; every lab member reads. Moving to received
+    adds `quantity` to the linked item once; a received order is then frozen (admin_services)."""
+
+    permission_domain = "lab"
+    lab_parents = ("item",)
+
+    item = models.ForeignKey(
+        InventoryItem, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    name = models.CharField(max_length=200)
+    vendor = models.CharField(max_length=200, blank=True)
+    catalog_number = models.CharField(max_length=100, blank=True)
+    url = models.URLField(max_length=500, blank=True)  # https only; validated in the serializer
+    quantity = models.DecimalField(max_digits=12, decimal_places=2, default=1)
+    unit = models.CharField(max_length=32, blank=True)
+    status = models.CharField(
+        max_length=16, choices=OrderStatus.choices, default=OrderStatus.REQUESTED
+    )
+    notes = models.TextField(blank=True)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+
+    class Meta(LabScopedModel.Meta):
+        indexes = [models.Index(fields=["lab", "created_at"], name="inventoryorder_lab_idx")]
+        constraints = [
+            models.CheckConstraint(condition=Q(quantity__gt=0), name="inventoryorder_quantity_gt0")
         ]
 
     def __str__(self):

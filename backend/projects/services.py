@@ -14,7 +14,7 @@ from core.models import NotificationKind, User
 from core.notifications import notify
 from core.permissions import Perm, can, forget, users_with
 from core.retention import audit_retention, guard_retention, retention_changes
-from labs.models import LabMembership
+from labs.models import LabChatMessage, LabChatReadState, LabMembership
 from projects.models import (
     ChatMessage,
     ChatReadState,
@@ -315,14 +315,14 @@ def mark_chat_read(*, project, user, read_to) -> None:
 
 
 def unread_chat_counts(*, user, lab) -> list[dict]:
-    """Per project the user can see: messages from other people newer than their read position.
-    Projects with nothing unread are left out."""
+    """Per project the user can see, plus the lab chat as a row with `project` None: messages from
+    other people newer than their read position. Chats with nothing unread are left out."""
     read_at = (
         ChatReadState.objects.for_lab(lab)
         .filter(user=user, project=OuterRef("project"))
         .values("last_read_at")[:1]
     )
-    return list(
+    rows = list(
         ChatMessage.objects.visible_to(user, lab)
         .exclude(author=user)
         .annotate(read_at=Subquery(read_at))
@@ -331,6 +331,13 @@ def unread_chat_counts(*, user, lab) -> list[dict]:
         .values("project")
         .annotate(count=Count("id"))
     )
+    lab_read = LabChatReadState.objects.for_lab(lab).filter(user=user).first()
+    lab_unread = LabChatMessage.objects.visible_to(user, lab).exclude(author=user)
+    if lab_read:
+        lab_unread = lab_unread.filter(created_at__gt=lab_read.last_read_at)
+    if count := lab_unread.count():
+        rows.append({"project": None, "count": count})
+    return rows
 
 
 # ---------------------------------------------------------------- task links and thread (Run 4)

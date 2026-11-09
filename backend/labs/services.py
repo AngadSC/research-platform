@@ -15,13 +15,53 @@ from audit.services import record
 from core.auth import has_verified_email
 from core.email import send_email
 from core.models import PLACEHOLDER_INSTITUTION, Institution
-from core.permissions import LAB_ROLE_PERMS, Perm, forget, lab_role
+from core.permissions import LAB_ROLE_PERMS, Perm, can, forget, lab_role
 from core.tenancy import by_secret
 from integrations.services import revoke_member_accounts
 from labs.admin_services import apply_starter_resources, institution_for
-from labs.models import Invite, Lab, LabMembership, LabRole, hash_token
+from labs.models import (
+    Invite,
+    Lab,
+    LabChatMessage,
+    LabChatReadState,
+    LabMembership,
+    LabRole,
+    hash_token,
+)
 from projects.models import ProjectMembership
 from projects.services import unassign_lost_access
+
+
+def post_lab_message(*, lab, by, body) -> LabChatMessage:
+    return LabChatMessage.objects.create(lab=lab, author=by, body=body)
+
+
+@transaction.atomic
+def delete_lab_message(*, message, by, request=None) -> None:
+    """D206 for the lab chat: authors remove their own, manage_lab anyone's. A real delete; the
+    audit event keeps who and when, never the text."""
+    if message.author_id != by.pk and not can(by, Perm.MANAGE_LAB, message):
+        raise PermissionDenied
+    record(
+        AuditAction.CHAT_MESSAGE_DELETED,
+        actor=by,
+        lab=message.lab,
+        target=message,
+        request=request,
+        metadata={"author": str(message.author_id)},
+    )
+    message.delete()
+
+
+def mark_lab_chat_read(*, lab, user, read_to) -> None:
+    """D207: only moves forward, and never past now."""
+    read_to = min(read_to, timezone.now())
+    states = LabChatReadState.objects.for_lab(lab).filter(user=user)
+    _, created = states.get_or_create(lab=lab, user=user, defaults={"last_read_at": read_to})
+    if not created:
+        states.filter(last_read_at__lt=read_to).update(
+            last_read_at=read_to, updated_at=timezone.now()
+        )
 
 
 def _require_pi_for_pi_role(actor, lab, *roles):

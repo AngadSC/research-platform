@@ -17,7 +17,7 @@ import {
   SidebarFooter,
 } from "@/components/layout/SidebarSections";
 import { UnreadBadge, useUnreadCount } from "@/components/layout/UnreadBadge";
-import { useUnreadChats } from "@/hooks/chat";
+import { LAB_CHAT, useUnreadChats } from "@/hooks/chat";
 import { useCurrentLabId, useCurrentProjectId } from "@/hooks/crumbs";
 import { useProjects } from "@/hooks/projects";
 import { useLabs } from "@/hooks/workspace";
@@ -218,6 +218,9 @@ export function Sidebar({
               <Icon aria-hidden />
               {label}
               {to.endsWith("/notifications") && <UnreadBadge count={unread} className="ml-auto" />}
+              {to.endsWith("/chat") && (
+                <UnreadBadge count={chatUnread[LAB_CHAT] ?? 0} noun="message" className="ml-auto" />
+              )}
             </NavLink>
           ))}
       </nav>

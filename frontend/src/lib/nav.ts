@@ -3,6 +3,7 @@ import {
   Bell,
   BookOpen,
   Boxes,
+  CalendarDays,
   CheckSquare,
   FileText,
   Folder,
@@ -36,6 +37,12 @@ export function navItems(labId?: string, permissions: string[] = []) {
     { to: "/", label: "Home", icon: Home, end: true },
     ...(labId && permissions.includes("manage_lab")
       ? [{ to: `/labs/${labId}/dashboard`, label: "Dashboard", icon: LayoutDashboard, end: false }]
+      : []),
+    ...(labId
+      ? [{ to: `/labs/${labId}/chat`, label: "Lab chat", icon: MessagesSquare, end: false }]
+      : []),
+    ...(labId
+      ? [{ to: `/labs/${labId}/calendar`, label: "Calendar", icon: CalendarDays, end: false }]
       : []),
     ...(labId ? [{ to: `/labs/${labId}/members`, label: "Members", icon: Users, end: false }] : []),
     ...(labId

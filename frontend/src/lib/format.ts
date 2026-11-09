@@ -5,6 +5,10 @@ export const when = (iso: string) =>
 export const fullDate = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { dateStyle: "long", timeStyle: "short" });
 
+/** YYYY-MM-DD in the user's own timezone (`toISOString` would give the date in UTC). */
+export const localDateISO = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
 /** "1 day" or "2 days". Pass the plural form when it is irregular. */
 export const plural = (n: number, singular: string, pluralForm = `${singular}s`) =>
   `${n} ${Math.abs(n) === 1 ? singular : pluralForm}`;

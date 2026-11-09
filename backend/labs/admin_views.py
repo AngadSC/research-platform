@@ -18,6 +18,8 @@ from labs import admin_services as svc
 from labs.admin_serializers import (
     CompletionInputSerializer,
     InventoryInputSerializer,
+    InventoryOrderInputSerializer,
+    InventoryOrderSerializer,
     InventorySerializer,
     OnboardingItemInputSerializer,
     OnboardingItemSerializer,
@@ -25,7 +27,7 @@ from labs.admin_serializers import (
     ResourceSerializer,
     StartersLoadedSerializer,
 )
-from labs.models import InstitutionResource, InventoryItem, OnboardingItem
+from labs.models import InstitutionResource, InventoryItem, InventoryOrder, OnboardingItem
 
 
 def _body(serializer_class, request, partial=False):
@@ -244,45 +246,40 @@ def _safe_cell(value):
     return "'" + text if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
 
 
+def _csv_export(request, filename, header, rows, **metadata):
+    resp = HttpResponse(content_type="text/csv; charset=utf-8")
+    resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+    w = csv.writer(resp)
+    w.writerow(header)
+    count = 0
+    for row in rows:
+        w.writerow(_safe_cell(v) for v in row)
+        count += 1
+    record(
+        AuditAction.INVENTORY_EXPORTED,
+        actor=request.user,
+        lab=request.lab,
+        request=request,
+        metadata={"rows": count, **metadata},
+    )
+    return resp
+
+
 class InventoryExportView(InventoryMixin, generics.GenericAPIView):
     perms = {"GET": Perm.VIEW_LAB}
 
     @extend_schema(parameters=Q_PARAMS, responses=OpenApiTypes.BINARY)
     def get(self, request, lab_id):
-        qs = _filtered(self.get_queryset(), request.query_params)
-        resp = HttpResponse(content_type="text/csv; charset=utf-8")
-        resp["Content-Disposition"] = 'attachment; filename="inventory.csv"'
-        w = csv.writer(resp)
-        w.writerow(
-            [
-                "Name",
-                "Category",
-                "Location",
-                "Quantity",
-                "Unit",
-                "Owner",
-                "Serial number",
-                "Purchase date",
-                "Due date",
-                "Status",
-                "Notes",
-            ]
-        )
-        count = 0
-        for i in qs:
-            owner = (i.owner.display_name or i.owner.email) if i.owner else ""
-            row = [i.name, i.category, i.location, i.quantity, i.unit, owner, i.serial_number]
-            row += [i.purchase_date, i.due_date, i.status, i.notes]
-            w.writerow(_safe_cell(v) for v in row)
-            count += 1
-        record(
-            AuditAction.INVENTORY_EXPORTED,
-            actor=request.user,
-            lab=request.lab,
-            request=request,
-            metadata={"rows": count},
-        )
-        return resp
+        header = ["Name", "Category", "Location", "Quantity", "Unit", "Owner", "Serial number"]
+        header += ["Purchase date", "Due date", "Status", "Notes"]
+
+        def rows():
+            for i in _filtered(self.get_queryset(), request.query_params):
+                owner = (i.owner.display_name or i.owner.email) if i.owner else ""
+                row = [i.name, i.category, i.location, i.quantity, i.unit, owner, i.serial_number]
+                yield row + [i.purchase_date, i.due_date, i.status, i.notes]
+
+        return _csv_export(request, "inventory.csv", header, rows())
 
 
 class InventoryDetailView(InventoryMixin, generics.GenericAPIView):
@@ -307,3 +304,70 @@ class InventoryDetailView(InventoryMixin, generics.GenericAPIView):
     def delete(self, request, lab_id, inventoryitem_id):
         svc.delete_inventory_item(self.get_object(), user=request.user, request=request)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------- inventory orders
+
+
+class OrderMixin(LabScopedViewMixin):
+    model = InventoryOrder
+    serializer_class = InventoryOrderSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("requested_by", "item")
+
+    def out(self, obj, code=status.HTTP_200_OK):
+        return Response(self.get_serializer(self.get_queryset().get(pk=obj.pk)).data, status=code)
+
+
+class OrderListCreateView(OrderMixin, generics.GenericAPIView):
+    perms = {"GET": Perm.VIEW_LAB, "POST": Perm.MANAGE_INVENTORY}
+
+    @extend_schema(responses=InventoryOrderSerializer(many=True))
+    def get(self, request, lab_id):
+        qs = self.get_queryset().order_by("-created_at", "id")
+        return Response(self.get_serializer(qs, many=True).data)
+
+    @extend_schema(request=InventoryOrderInputSerializer, responses={201: InventoryOrderSerializer})
+    def post(self, request, lab_id):
+        obj = svc.create_inventory_order(
+            lab=request.lab,
+            user=request.user,
+            data=_body(InventoryOrderInputSerializer, request),
+            request=request,
+        )
+        return self.out(obj, status.HTTP_201_CREATED)
+
+
+class OrderExportView(OrderMixin, generics.GenericAPIView):
+    perms = {"GET": Perm.VIEW_LAB}
+
+    @extend_schema(responses=OpenApiTypes.BINARY)
+    def get(self, request, lab_id):
+        header = ["Name", "Vendor", "Catalog number", "Link", "Quantity", "Unit", "Status"]
+        header += ["Inventory item", "Requested by", "Requested on", "Notes"]
+
+        def rows():
+            for o in self.get_queryset().order_by("-created_at", "id"):
+                by = o.requested_by.display_name or o.requested_by.email
+                item = o.item.name if o.item else ""
+                row = [o.name, o.vendor, o.catalog_number, o.url, o.quantity, o.unit, o.status]
+                yield row + [item, by, o.created_at.date(), o.notes]
+
+        return _csv_export(request, "orders.csv", header, rows(), kind="orders")
+
+
+class OrderDetailView(OrderMixin, generics.GenericAPIView):
+    lookup_url_kwarg = "inventoryorder_id"
+    perms = {"PATCH": Perm.MANAGE_INVENTORY}
+
+    @extend_schema(request=InventoryOrderInputSerializer, responses=InventoryOrderSerializer)
+    def patch(self, request, lab_id, inventoryorder_id):
+        obj = svc.update_inventory_order(
+            self.get_object(),
+            user=request.user,
+            data=_body(InventoryOrderInputSerializer, request, True),
+            request=request,
+        )
+        return self.out(obj)

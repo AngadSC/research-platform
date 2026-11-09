@@ -1,10 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { plural, relativeTime } from "@/lib/format";
+import { localDateISO, plural, relativeTime } from "@/lib/format";
 import { daysUntil, relativeDays } from "@/lib/ethics";
 
 const NOW = Date.parse("2026-11-04T12:00:00Z");
 const ago = (secs: number) => new Date(NOW - secs * 1000).toISOString();
 const ahead = (secs: number) => new Date(NOW + secs * 1000).toISOString();
+
+describe("localDateISO", () => {
+  it("uses the local calendar day, not the UTC one", () => {
+    // Evening in the Americas: UTC has already moved to the next day.
+    const evening = {
+      getFullYear: () => 2026,
+      getMonth: () => 0,
+      getDate: () => 5,
+      toISOString: () => "2026-01-06T02:00:00.000Z",
+    } as Date;
+    expect(localDateISO(evening)).toBe("2026-01-05");
+  });
+});
 
 describe("plural", () => {
   it("uses the singular only for 1", () => {

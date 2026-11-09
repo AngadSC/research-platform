@@ -5,7 +5,12 @@ import type {
   InstitutionResourceInput,
   InventoryInput,
   InventoryItem,
+  InventoryOrder,
+  InventoryOrderInput,
+  CalendarItem,
   Lab,
+  LabEvent,
+  LabEventInput,
   OnboardingItem,
   OnboardingItemInput,
 } from "@/lib/api-types";
@@ -139,3 +144,36 @@ export const useInventory = (labId: string, p: InventoryQuery) =>
     true,
     inventoryQs(p),
   );
+
+export const ordersExportUrl = (labId: string) => `${base(labId)}/inventory/orders/export/`;
+
+export function useOrders(labId: string) {
+  const qc = useQueryClient();
+  const c = useCollection<InventoryOrder, InventoryOrderInput>(
+    labId,
+    "inventory/orders",
+    "inventory-orders",
+  );
+  // Receiving an order changes an item's quantity.
+  const refreshStock = () => qc.invalidateQueries({ queryKey: ["labs", labId, "inventory"] });
+  return { ...c, refreshStock };
+}
+
+/** The month on screen: `list` is the merged calendar, the mutations are for lab events only. */
+export function useCalendar(labId: string, from: string, to: string) {
+  const list = useQuery({
+    queryKey: ["labs", labId, "calendar", from, to],
+    queryFn: () =>
+      api<CalendarItem[]>(
+        `${base(labId)}/calendar/?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+      ),
+  });
+  // No GET on calendar/events/; a save refreshes the calendar queries above.
+  const events = useCollection<LabEvent, LabEventInput>(
+    labId,
+    "calendar/events",
+    "calendar",
+    false,
+  );
+  return { list, create: events.create, update: events.update, remove: events.remove };
+}

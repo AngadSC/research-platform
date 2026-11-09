@@ -994,6 +994,11 @@ paths:
           - inventory_item.updated
           - inventory_item.deleted
           - inventory.exported
+          - inventory_order.created
+          - inventory_order.updated
+          - lab_event.created
+          - lab_event.updated
+          - lab_event.deleted
           - onboarding_item.created
           - onboarding_item.updated
           - onboarding_item.deleted
@@ -1102,6 +1107,11 @@ paths:
           * `inventory_item.updated` - Inventory Item Updated
           * `inventory_item.deleted` - Inventory Item Deleted
           * `inventory.exported` - Inventory Exported
+          * `inventory_order.created` - Inventory Order Created
+          * `inventory_order.updated` - Inventory Order Updated
+          * `lab_event.created` - Lab Event Created
+          * `lab_event.updated` - Lab Event Updated
+          * `lab_event.deleted` - Lab Event Deleted
           * `onboarding_item.created` - Onboarding Item Created
           * `onboarding_item.updated` - Onboarding Item Updated
           * `onboarding_item.deleted` - Onboarding Item Deleted
@@ -1184,6 +1194,269 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedAuditEventList'
           description: ''
+  /api/labs/{lab_id}/calendar/:
+    get:
+      operationId: labs_calendar_list
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CalendarItem'
+          description: ''
+  /api/labs/{lab_id}/calendar/events/:
+    post:
+      operationId: labs_calendar_events_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LabEventInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LabEventInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LabEventInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabEvent'
+          description: ''
+  /api/labs/{lab_id}/calendar/events/{labevent_id}/:
+    patch:
+      operationId: labs_calendar_events_partial_update
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: labevent_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedLabEventInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedLabEventInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedLabEventInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabEvent'
+          description: ''
+    delete:
+      operationId: labs_calendar_events_destroy
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: labevent_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/chat/messages/:
+    get:
+      operationId: labs_chat_messages_list
+      description: The newest page, oldest first; `before` (a message's created_at)
+        pages back.
+      parameters:
+      - in: query
+        name: before
+        schema:
+          type: string
+          format: date-time
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatMessage'
+          description: ''
+    post:
+      operationId: labs_chat_messages_create
+      description: |-
+        The project chat's API (D206, D207) for the whole lab. Same message shape, so the same
+        serializers: they only read `id`, `author`, `body` and `created_at`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessageInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChatMessageInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChatMessageInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessage'
+          description: ''
+  /api/labs/{lab_id}/chat/messages/{labchatmessage_id}/:
+    delete:
+      operationId: labs_chat_messages_destroy
+      description: |-
+        The project chat's API (D206, D207) for the whole lab. Same message shape, so the same
+        serializers: they only read `id`, `author`, `body` and `created_at`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: labchatmessage_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/chat/messages/read/:
+    post:
+      operationId: labs_chat_messages_read_create
+      description: |-
+        The project chat's API (D206, D207) for the whole lab. Same message shape, so the same
+        serializers: they only read `id`, `author`, `body` and `created_at`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatReadInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChatReadInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChatReadInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/chat/unread/:
     get:
       operationId: labs_chat_unread_list
@@ -2745,6 +3018,133 @@ paths:
         schema:
           type: string
         description: Search name, location, serial number, notes
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/labs/{lab_id}/inventory/orders/:
+    get:
+      operationId: labs_inventory_orders_list
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InventoryOrder'
+          description: ''
+    post:
+      operationId: labs_inventory_orders_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryOrderInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InventoryOrderInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InventoryOrderInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryOrder'
+          description: ''
+  /api/labs/{lab_id}/inventory/orders/{inventoryorder_id}/:
+    patch:
+      operationId: labs_inventory_orders_partial_update
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: inventoryorder_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryOrderInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryOrderInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryOrderInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryOrder'
+          description: ''
+  /api/labs/{lab_id}/inventory/orders/export/:
+    get:
+      operationId: labs_inventory_orders_export_retrieve
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
       tags:
       - labs
       security:
@@ -7178,6 +7578,11 @@ components:
       - inventory_item.updated
       - inventory_item.deleted
       - inventory.exported
+      - inventory_order.created
+      - inventory_order.updated
+      - lab_event.created
+      - lab_event.updated
+      - lab_event.deleted
       - onboarding_item.created
       - onboarding_item.updated
       - onboarding_item.deleted
@@ -7285,6 +7690,11 @@ components:
         * `inventory_item.updated` - Inventory Item Updated
         * `inventory_item.deleted` - Inventory Item Deleted
         * `inventory.exported` - Inventory Exported
+        * `inventory_order.created` - Inventory Order Created
+        * `inventory_order.updated` - Inventory Order Updated
+        * `lab_event.created` - Lab Event Created
+        * `lab_event.updated` - Lab Event Updated
+        * `lab_event.deleted` - Lab Event Deleted
         * `onboarding_item.created` - Onboarding Item Created
         * `onboarding_item.updated` - Onboarding Item Updated
         * `onboarding_item.deleted` - Onboarding Item Deleted
@@ -7716,6 +8126,65 @@ components:
           type: string
         error_description:
           type: string
+    CalendarItem:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/CalendarItemKindEnum'
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        project_id:
+          type: string
+          format: uuid
+          nullable: true
+        project_name:
+          type: string
+          nullable: true
+        project_color:
+          type: string
+          nullable: true
+        done:
+          type: boolean
+        notes:
+          type: string
+          description: Lab events only; empty for everything else.
+      required:
+      - date
+      - done
+      - end_date
+      - id
+      - kind
+      - notes
+      - project_color
+      - project_id
+      - project_name
+      - title
+    CalendarItemKindEnum:
+      enum:
+      - event
+      - deadline
+      - task
+      - inventory
+      - ethics
+      - funding
+      type: string
+      description: |-
+        * `event` - event
+        * `deadline` - deadline
+        * `task` - task
+        * `inventory` - inventory
+        * `ethics` - ethics
+        * `funding` - funding
     Category9e5Enum:
       enum:
       - equipment
@@ -7787,6 +8256,8 @@ components:
         project:
           type: string
           format: uuid
+          nullable: true
+          description: Null for the lab-wide chat.
         count:
           type: integer
       required:
@@ -10173,6 +10644,108 @@ components:
       required:
       - category
       - name
+    InventoryOrder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        item:
+          type: string
+          format: uuid
+          nullable: true
+        item_name:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        vendor:
+          type: string
+          readOnly: true
+        catalog_number:
+          type: string
+          readOnly: true
+        url:
+          type: string
+          format: uri
+          readOnly: true
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        unit:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/Status149Enum'
+          readOnly: true
+        notes:
+          type: string
+          readOnly: true
+        requested_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - catalog_number
+      - created_at
+      - id
+      - item
+      - item_name
+      - name
+      - notes
+      - quantity
+      - requested_by
+      - status
+      - unit
+      - updated_at
+      - url
+      - vendor
+    InventoryOrderInput:
+      type: object
+      properties:
+        item:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+          maxLength: 200
+        vendor:
+          type: string
+          maxLength: 200
+        catalog_number:
+          type: string
+          maxLength: 100
+        url:
+          type: string
+          maxLength: 500
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        unit:
+          type: string
+          maxLength: 32
+        status:
+          $ref: '#/components/schemas/Status149Enum'
+        notes:
+          type: string
+          maxLength: 5000
+      required:
+      - name
     Invite:
       type: object
       properties:
@@ -10362,6 +10935,63 @@ components:
       - my_role
       - name
       - website
+    LabEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        date:
+          type: string
+          format: date
+          readOnly: true
+        end_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        notes:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - date
+      - end_date
+      - id
+      - notes
+      - title
+      - updated_at
+    LabEventInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          maxLength: 5000
+      required:
+      - date
+      - title
     LabGrant:
       type: object
       description: |-
@@ -11536,6 +12166,37 @@ components:
         notes:
           type: string
           maxLength: 5000
+    PatchedInventoryOrderInput:
+      type: object
+      properties:
+        item:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+          maxLength: 200
+        vendor:
+          type: string
+          maxLength: 200
+        catalog_number:
+          type: string
+          maxLength: 100
+        url:
+          type: string
+          maxLength: 500
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        unit:
+          type: string
+          maxLength: 32
+        status:
+          $ref: '#/components/schemas/Status149Enum'
+        notes:
+          type: string
+          maxLength: 5000
     PatchedKeyUpdate:
       type: object
       properties:
@@ -11568,6 +12229,22 @@ components:
         website:
           type: string
           maxLength: 300
+    PatchedLabEventInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          maxLength: 5000
     PatchedManuscriptInput:
       type: object
       properties:
@@ -12749,6 +13426,18 @@ components:
       - added
       - curated_institution
       - institution
+    Status149Enum:
+      enum:
+      - requested
+      - ordered
+      - received
+      - cancelled
+      type: string
+      description: |-
+        * `requested` - Requested
+        * `ordered` - Ordered
+        * `received` - Received
+        * `cancelled` - Cancelled
     Status1eeEnum:
       enum:
       - applied

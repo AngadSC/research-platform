@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type MouseEvent } from "react";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { inventoryExportUrl, useInventory } from "@/hooks/admin";
 import { useMembers } from "@/hooks/workspace";
 import type { InventoryInput, InventoryItem } from "@/lib/api-types";
+import { localDateISO } from "@/lib/format";
 import { formErrors, type FormErrors } from "@/lib/forms";
 import { formValue, NativeSelect, Section } from "./common";
 
@@ -56,6 +57,11 @@ const KNOWN = [
   "status",
   "notes",
 ];
+
+const PICK_TODAY_HINT = "Double-click to pick today";
+const pickToday = (e: MouseEvent<HTMLInputElement>) => {
+  e.currentTarget.value = localDateISO();
+};
 
 function ItemDialog({
   labId,
@@ -178,13 +184,22 @@ function ItemDialog({
                   {...p}
                   name="purchase_date"
                   type="date"
+                  title={PICK_TODAY_HINT}
+                  onDoubleClick={pickToday}
                   defaultValue={item?.purchase_date ?? ""}
                 />
               )}
             </FormField>
             <FormField label="Calibration or maintenance due" error={f.due_date}>
               {(p) => (
-                <Input {...p} name="due_date" type="date" defaultValue={item?.due_date ?? ""} />
+                <Input
+                  {...p}
+                  name="due_date"
+                  type="date"
+                  title={PICK_TODAY_HINT}
+                  onDoubleClick={pickToday}
+                  defaultValue={item?.due_date ?? ""}
+                />
               )}
             </FormField>
           </div>
@@ -206,7 +221,16 @@ function ItemDialog({
   );
 }
 
-export function InventorySection({ labId, canEdit }: { labId: string; canEdit: boolean }) {
+export function InventorySection({
+  labId,
+  canEdit,
+  onReorder,
+}: {
+  labId: string;
+  canEdit: boolean;
+  /** The Inventory page passes this to show a Reorder action; Admin leaves it out. */
+  onReorder?: (item: InventoryItem) => void;
+}) {
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
   const [ordering, setOrdering] = useState("name");
@@ -235,6 +259,16 @@ export function InventorySection({ labId, canEdit }: { labId: string; canEdit: b
             className: "text-right",
             cell: (i: InventoryItem) => (
               <div className="flex justify-end gap-1">
+                {onReorder && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Reorder ${i.name}`}
+                    onClick={() => onReorder(i)}
+                  >
+                    Reorder
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"

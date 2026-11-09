@@ -252,3 +252,6 @@ Ranges: SSO D152-D159, MCP and AI tool layer D160-D169, PI dashboard D170-D174, 
 - D212. Google embeds use `/preview`, which is read-only; editing goes through the Open link. OneDrive links normalise to `/embed`, because `/edit` refuses framing.
 - D213. Papers are lab-wide, and a PDF is an `Attachment` owned by the paper (as D175). pypdf runs only in a short-lived child process with memory, CPU and time limits, and PDF text reaches models as untrusted content with invisible characters stripped.
 - D214. Citations come from one server-side formatter. In-app "Generate" buttons open the existing assistant drawer rather than adding a second model path.
+- D215. Lab chat follows D206 and D207 at lab level, so viewers can post. Its unread count is a row with `project: null` in the existing unread response, so there is no second poll.
+- D216. The calendar merges lab events, deadlines, tasks, inventory due dates, ethics expiry and funding end dates through `visible_to`, up to 92 days per request. Withdrawn approvals, retired or lost inventory, and funding that is not awarded or active are left out.
+- D217. Orders are never deleted; use the cancelled status. A received order is frozen except for its notes and adds stock exactly once, with no unit conversion.

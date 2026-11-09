@@ -1,5 +1,6 @@
 """Input and output serializers for the admin area (D146-D151). Inputs are plain (D33)."""
 
+from decimal import Decimal
 from urllib.parse import urlsplit
 
 from rest_framework import serializers
@@ -10,9 +11,11 @@ from labs.models import (
     InstitutionResource,
     InventoryCategory,
     InventoryItem,
+    InventoryOrder,
     InventoryStatus,
     OnboardingItem,
     OnboardingKind,
+    OrderStatus,
     ResourceCategory,
 )
 
@@ -163,3 +166,53 @@ class InventoryInputSerializer(serializers.Serializer):
     due_date = serializers.DateField(allow_null=True, required=False)
     status = serializers.ChoiceField(choices=InventoryStatus.choices, required=False)
     notes = serializers.CharField(max_length=5000, allow_blank=True, required=False)
+
+
+class InventoryOrderSerializer(serializers.ModelSerializer):
+    requested_by = UserSerializer(read_only=True)
+    item = serializers.UUIDField(source="item_id", allow_null=True)
+    item_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InventoryOrder
+        fields = [
+            "id",
+            "item",
+            "item_name",
+            "name",
+            "vendor",
+            "catalog_number",
+            "url",
+            "quantity",
+            "unit",
+            "status",
+            "notes",
+            "requested_by",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_item_name(self, order) -> str:
+        return order.item.name if order.item else ""
+
+
+class InventoryOrderInputSerializer(serializers.Serializer):
+    item = serializers.UUIDField(allow_null=True, required=False)  # resolved in the service
+    name = serializers.CharField(max_length=200, validators=[no_control_chars])
+    vendor = serializers.CharField(
+        max_length=200, allow_blank=True, required=False, validators=[no_control_chars]
+    )
+    catalog_number = serializers.CharField(
+        max_length=100, allow_blank=True, required=False, validators=[no_control_chars]
+    )
+    url = serializers.CharField(max_length=500, allow_blank=True, required=False)
+    quantity = serializers.DecimalField(
+        max_digits=12, decimal_places=2, min_value=Decimal("0.01"), required=False
+    )
+    unit = serializers.CharField(max_length=32, allow_blank=True, required=False)
+    status = serializers.ChoiceField(choices=OrderStatus.choices, required=False)
+    notes = serializers.CharField(max_length=5000, allow_blank=True, required=False)
+
+    def validate_url(self, value):
+        return https_url(value) if value else value

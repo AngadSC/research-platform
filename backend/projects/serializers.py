@@ -245,7 +245,7 @@ class ChatReadInputSerializer(serializers.Serializer):
 
 
 class ChatUnreadSerializer(serializers.Serializer):
-    project = serializers.UUIDField()
+    project = serializers.UUIDField(allow_null=True, help_text="Null for the lab-wide chat.")
     count = serializers.IntegerField()
 
 

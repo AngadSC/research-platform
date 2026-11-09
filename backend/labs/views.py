@@ -7,7 +7,7 @@ from core.permissions import Perm, labs_for
 from core.views import LabScopedViewMixin
 from labs import admin_services, services
 from labs.admin_serializers import LabDetailsInputSerializer
-from labs.models import Invite, LabMembership
+from labs.models import Invite, LabChatMessage, LabMembership
 from labs.serializers import (
     InviteCreateSerializer,
     InvitePreviewSerializer,
@@ -16,6 +16,12 @@ from labs.serializers import (
     MembershipSerializer,
     RoleSerializer,
     TokenSerializer,
+)
+from projects.serializers import (
+    ChatMessageFilterSerializer,
+    ChatMessageInputSerializer,
+    ChatMessageSerializer,
+    ChatReadInputSerializer,
 )
 
 
@@ -60,6 +66,74 @@ class LabDetailView(LabScopedViewMixin, generics.GenericAPIView):
             lab=request.lab, user=request.user, data=ser.validated_data, request=request
         )
         return Response(self.get_serializer(lab).data)
+
+
+class LabChatMixin(LabScopedViewMixin):
+    """The project chat's API (D206, D207) for the whole lab. Same message shape, so the same
+    serializers: they only read `id`, `author`, `body` and `created_at`."""
+
+    model = LabChatMessage
+    serializer_class = ChatMessageSerializer
+    pagination_class = None
+    page_size = 100  # must match CHAT_PAGE_SIZE in the client
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("author")
+
+
+class LabChatListView(LabChatMixin, generics.GenericAPIView):
+    perms = {"GET": Perm.VIEW_LAB, "POST": Perm.VIEW_LAB}  # viewers too, as project chat (D206)
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "chat"
+
+    def get_throttles(self):  # sending only; polling is not rate limited
+        return super().get_throttles() if self.request.method == "POST" else []
+
+    @extend_schema(
+        parameters=[ChatMessageFilterSerializer], responses=ChatMessageSerializer(many=True)
+    )
+    def get(self, request, lab_id):
+        """The newest page, oldest first; `before` (a message's created_at) pages back."""
+        filters = ChatMessageFilterSerializer(data=request.query_params)
+        filters.is_valid(raise_exception=True)
+        qs = self.get_queryset()
+        if "before" in filters.validated_data:
+            qs = qs.filter(created_at__lt=filters.validated_data["before"])
+        page = list(qs.order_by("-created_at", "-id")[: self.page_size])
+        return Response(self.get_serializer(reversed(page), many=True).data)
+
+    @extend_schema(request=ChatMessageInputSerializer, responses={201: ChatMessageSerializer})
+    def post(self, request, lab_id):
+        ser = ChatMessageInputSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        message = services.post_lab_message(
+            lab=request.lab, by=request.user, body=ser.validated_data["body"]
+        )
+        return Response(self.get_serializer(message).data, status=status.HTTP_201_CREATED)
+
+
+class LabChatDetailView(LabChatMixin, generics.GenericAPIView):
+    lookup_url_kwarg = "labchatmessage_id"
+    perms = {"DELETE": Perm.VIEW_LAB}  # services.delete_lab_message narrows this
+
+    @extend_schema(responses={204: None})
+    def delete(self, request, lab_id, labchatmessage_id):
+        services.delete_lab_message(message=self.get_object(), by=request.user, request=request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class LabChatReadView(LabChatMixin, generics.GenericAPIView):
+    serializer_class = ChatReadInputSerializer
+    perms = {"POST": Perm.VIEW_LAB}
+
+    @extend_schema(request=ChatReadInputSerializer, responses={204: None})
+    def post(self, request, lab_id):
+        ser = self.get_serializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        services.mark_lab_chat_read(
+            lab=request.lab, user=request.user, read_to=ser.validated_data["last_read_at"]
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class MemberListView(LabScopedViewMixin, generics.ListAPIView):

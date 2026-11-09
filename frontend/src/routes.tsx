@@ -16,7 +16,9 @@ import { DocumentPage } from "@/pages/LazyDocumentPage";
 import { LazyLineageTab } from "@/pages/project/LazyLineageTab";
 import { LabHomePage } from "@/pages/LabHomePage";
 import { DashboardPage, LabIndexPage } from "@/pages/DashboardPage";
+import { CalendarPage } from "@/pages/CalendarPage";
 import { HandoverPage } from "@/pages/HandoverPage";
+import { LabChatPage } from "@/pages/LabChatPage";
 import { MembersPage } from "@/pages/MembersPage";
 import { ProjectPage, ProjectTab } from "@/pages/ProjectPage";
 import ChatTab from "@/pages/project/ChatTab";
@@ -270,6 +272,8 @@ export const routes: RouteObject[] = [
               { path: "audit-log", element: <AuditLogPage />, handle: { crumb: "Audit log" } },
               { path: "admin", element: <AdminPage />, handle: { crumb: "Admin" } },
               { path: "inventory", element: <InventoryPage />, handle: { crumb: "Inventory" } },
+              { path: "chat", element: <LabChatPage />, handle: { crumb: "Lab chat" } },
+              { path: "calendar", element: <CalendarPage />, handle: { crumb: "Calendar" } },
               {
                 path: "papers",
                 handle: { crumb: "Papers" },
