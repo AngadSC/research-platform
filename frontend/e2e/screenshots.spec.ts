@@ -142,7 +142,7 @@ test.describe("@screenshots", () => {
     await shot(page, "20-audit-log");
 
     await page.goto(`${l}/members`);
-    await page.getByRole("link", { name: /Generate handover for student@example.test/ }).click();
+    await page.getByRole("link", { name: /Work to pass on for student@example.test/ }).click();
     await expect(page.getByRole("heading", { name: /Handover: Sam Student/ })).toBeVisible();
     await shot(page, "21-handover");
 
@@ -197,7 +197,7 @@ test.describe("@screenshots", () => {
     await shot(page, "33-lineage-panel-drive-link");
 
     await page.goto(`${l}/members`);
-    await page.getByRole("link", { name: /Generate handover for lead@/ }).click();
+    await page.getByRole("link", { name: /Work to pass on for lead@/ }).click();
     await expect(page.getByRole("heading", { name: /Handover: Lee Lead/ })).toBeVisible();
     await expect(page.getByText("attention-responses-export (FAKE).csv")).toBeVisible();
     await shot(page, "34-handover-sections");
@@ -390,7 +390,7 @@ test.describe("@screenshots", () => {
     await expect(thread.getByText("Model fit is running")).toHaveCount(0);
 
     await page.goto(`${lab(page)}/admin`);
-    await expect(page.getByRole("heading", { name: "Admin", level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Lab details", level: 1 })).toBeVisible();
     await shot(page, "52-admin");
     await page.goto(`${lab(page)}/inventory`);
     await expect(page.getByRole("heading", { name: "Inventory", level: 1 })).toBeVisible();
@@ -458,10 +458,10 @@ test.describe("@screenshots", () => {
     await region(training, "59-training-compliance");
 
     await page.goto(`${l}/training`);
-    await expect(page.getByRole("heading", { name: "My training", level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Training", level: 1 })).toBeVisible();
     await shot(page, "60-my-training");
 
-    await page.goto("/settings");
+    await page.goto("/settings#ai");
     await expect(page.getByRole("region", { name: "Connected AI apps" })).toBeVisible();
     await region(
       page.getByRole("region", { name: "Connected AI apps" }),
@@ -471,6 +471,7 @@ test.describe("@screenshots", () => {
       page.getByRole("region", { name: "Assistant API keys" }),
       "65-assistant-settings-keys",
     );
+    await page.goto(`${l}/admin#ai`);
     await region(page.getByRole("region", { name: /^AI assistants in / }), "67-lab-ai-policy");
 
     // Consent screen for the fake registered app (seed_pilot); nothing is approved.

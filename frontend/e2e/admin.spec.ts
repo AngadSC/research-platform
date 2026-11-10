@@ -1,21 +1,20 @@
 import { expect, test } from "@playwright/test";
 import { login } from "./helpers";
 
-test("an admin sees Admin and a member does not", async ({ browser }) => {
+test("an admin sees the Admin group and a member does not", async ({ browser }) => {
   const pi = await (await browser.newContext()).newPage();
   await login(pi, "pi");
-  await expect(pi.getByRole("link", { name: "Admin", exact: true })).toBeVisible();
-  await pi.getByRole("link", { name: "Admin", exact: true }).click();
-  await expect(pi.getByRole("heading", { name: "Lab details" })).toBeVisible();
-  await expect(pi.getByRole("heading", { name: "Institution resources" })).toBeVisible();
+  await pi.getByRole("link", { name: "Lab details", exact: true }).click();
+  await expect(pi.getByRole("heading", { name: "Lab details", level: 1 })).toBeVisible();
+  await expect(pi.getByRole("heading", { name: "About this lab" })).toBeVisible();
 
   const lead = await (await browser.newContext()).newPage();
   await login(lead, "lead");
   await expect(lead.getByRole("link", { name: "Inventory" })).toBeVisible();
-  await expect(lead.getByRole("link", { name: "Admin", exact: true })).toHaveCount(0);
+  await expect(lead.getByRole("navigation", { name: "Admin" })).toHaveCount(0);
   const labPath = new URL(pi.url()).pathname.replace(/\/admin$/, "");
   await lead.goto(`${labPath}/admin`);
-  await expect(lead.getByText("You don't have access to Admin")).toBeVisible();
+  await expect(lead.getByText("You don't have access to Lab details")).toBeVisible();
 });
 
 test("Settings saves the theme and the default task view", async ({ page }) => {
@@ -23,6 +22,7 @@ test("Settings saves the theme and the default task view", async ({ page }) => {
   await page.getByRole("button", { name: "Account menu" }).click();
   await page.getByRole("menuitem", { name: "Settings" }).click();
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+  await page.getByRole("link", { name: "Appearance" }).click();
 
   const appearance = page.getByRole("region", { name: "Appearance" });
   await appearance.getByRole("radio", { name: "Dark" }).click();

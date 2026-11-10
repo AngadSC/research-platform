@@ -3,7 +3,7 @@ import { login, openProject } from "./helpers";
 
 async function openDoc(page: Page, title: string) {
   await openProject(page);
-  await page.getByRole("link", { name: "Documents" }).click();
+  await page.getByRole("link", { name: "Documents and files" }).click();
   await page.getByText(title).click();
   await expect(page.getByLabel("Document content")).toBeVisible();
 }
@@ -50,14 +50,19 @@ test("a document autosaves and a folder takes it", async ({ page }) => {
   await expect(editor(page)).toContainText(marker);
 
   const folderName = `Folder ${Date.now()}`;
-  await page.getByRole("link", { name: "Documents" }).click();
+  // The breadcrumb has the same link, so use the sidebar's.
+  await page
+    .getByRole("navigation", { name: "Main" })
+    .getByRole("link", { name: "Documents and files" })
+    .click();
   await page.getByRole("button", { name: "New folder" }).click();
   await page.getByLabel("Name").fill(folderName);
   await page.getByRole("button", { name: "Save" }).click();
   await page.getByRole("button", { name: "Actions for Meeting notes (FAKE)" }).click();
   await page.getByRole("menuitem", { name: "Move to folder" }).click();
-  await page.getByLabel("Folder").selectOption({ label: folderName });
+  await page.getByRole("dialog").getByLabel("Folder").selectOption({ label: folderName });
   await page.getByRole("button", { name: "Move", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
   await expect(page.getByText("Meeting notes (FAKE)")).toBeHidden();
   await page.getByRole("link", { name: folderName }).click();
   await expect(page.getByText("Meeting notes (FAKE)")).toBeVisible();

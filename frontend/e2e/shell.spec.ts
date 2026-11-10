@@ -20,7 +20,7 @@ test("marketing home has Sign in at the top right, leading to the sign-in page",
 
 test("dark mode persists across a reload and is saved to the account", async ({ page }) => {
   await login(page, "pi");
-  await page.goto("/settings");
+  await page.goto("/settings#appearance");
   const html = page.locator("html");
   const saved = page.waitForResponse(
     (r) => r.url().includes("/api/me/") && r.request().method() === "PATCH",
@@ -40,6 +40,8 @@ test("dark mode persists across a reload and is saved to the account", async ({ 
 
 test("Ctrl+K opens search and Ctrl+F is left to the browser", async ({ page }) => {
   await login(page, "pi");
+  // The shortcut listener mounts with the signed-in shell.
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible();
   await page.keyboard.press("Control+k");
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");

@@ -6,9 +6,9 @@ test("PI generates the departing student's handover", async ({ page }) => {
   const errors = watchErrors(page);
   await openProject(page); // selects the lab, so the sidebar shows Members
   await page.getByRole("link", { name: "Members" }).first().click();
-  await page.getByRole("link", { name: /Generate handover for student@example.test/ }).click();
+  await page.getByRole("link", { name: /Work to pass on for student@example.test/ }).click();
 
-  await expect(page.getByRole("heading", { name: /Handover: Sam Student/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Work to pass on: Sam Student/ })).toBeVisible();
   const callout = page.getByRole("region", { name: /No other owner/ });
   await expect(callout.getByText("Archived Survey (FAKE)").first()).toBeVisible();
 

@@ -73,7 +73,8 @@ test("messages stay unread while you are scrolled up, until you come back down",
     await box.press("Enter");
     await expect(box).toHaveValue("");
   };
-  for (let i = 0; i < 25; i++) await post(`Scroll filler ${i} (FAKE)`); // enough to scroll
+  const run = Date.now(); // the dev database keeps earlier runs' messages
+  for (let i = 0; i < 25; i++) await post(`Scroll filler ${i} ${run} (FAKE)`); // enough to scroll
 
   await login(page, "pi");
   await openProject(page);
@@ -81,13 +82,13 @@ test("messages stay unread while you are scrolled up, until you come back down",
   const chatLink = page.getByRole("button", { name: /^Chat/, includeHidden: true });
   await chatLink.click();
   const log = page.getByRole("log", { name: "Messages" });
-  await expect(log.getByText("Scroll filler 24 (FAKE)")).toBeVisible();
+  await expect(log.getByText(`Scroll filler 24 ${run} (FAKE)`)).toBeVisible();
   const badge = chatLink.getByRole("img", { name: /unread message/, includeHidden: true });
   await expect(badge).toHaveCount(0);
 
   await log.hover();
   await page.mouse.wheel(0, -1000);
-  await expect(log.getByText("Scroll filler 24 (FAKE)")).not.toBeInViewport();
+  await expect(log.getByText(`Scroll filler 24 ${run} (FAKE)`)).not.toBeInViewport();
 
   await post(`While scrolled up ${Date.now()} (FAKE)`);
   const jump = page.getByRole("button", { name: "New messages" });

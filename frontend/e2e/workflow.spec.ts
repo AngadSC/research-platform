@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { login, openProject, watchErrors } from "./helpers";
 
-const TABS = ["Funding", "Ethics", "Participants", "Data", "Analysis", "Manuscript", "Review"];
+// The lead is not a PI, so Funding is hidden (D226).
+const TABS = ["Ethics", "Participants", "Data", "Analysis", "Manuscript", "Review"];
 
 test("Workflow sub-tabs, record pages and the old Research addresses", async ({ page }) => {
   await login(page, "lead");

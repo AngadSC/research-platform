@@ -10,7 +10,8 @@ test("trace a result and a manuscript back to dataset version and commit in two 
   const errors = watchErrors(page);
   await openProject(page);
 
-  // Click 1: Lineage tab. Click 2: the result.
+  // Lineage is a view inside Workflow (D225). Then click 1: Lineage. Click 2: the result.
+  await page.getByRole("link", { name: "Workflow" }).click();
   await page.getByRole("link", { name: "Lineage" }).click();
   await page.getByRole("button", { name: "Result: Reaction time effect (FAKE)" }).click();
   const panel = page.getByRole("dialog");

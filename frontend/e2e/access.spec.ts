@@ -61,10 +61,12 @@ test("viewer sees no edit controls on a document or the task board", async ({ pa
   await expect(page.getByRole("button", { name: /^Move / })).toHaveCount(0);
   await expect(page.locator("[draggable=true]")).toHaveCount(0);
 
-  await page.getByRole("link", { name: "Documents" }).click();
+  await page.getByRole("link", { name: "Documents and files" }).click();
   await expect(page.getByRole("button", { name: "New document" })).toHaveCount(0);
   await page.getByText("Study protocol draft (FAKE)").click();
-  await expect(page.getByText("You have read-only access to this document.")).toBeVisible();
+  await page.getByRole("button", { name: "Document options" }).click();
+  await expect(page.getByText("You have read-only access.")).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Title")).not.toBeEditable();
   await expect(page.getByLabel("Document content").locator("[contenteditable=true]")).toHaveCount(
