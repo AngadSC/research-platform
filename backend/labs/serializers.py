@@ -3,6 +3,7 @@ from rest_framework import serializers
 from core.models import Institution
 from core.permissions import LAB_ROLE_PERMS, lab_role
 from core.serializers import UserSerializer, no_control_chars
+from labs.admin_serializers import web_url
 from labs.models import Invite, Lab, LabMembership, LabRole
 
 
@@ -21,6 +22,11 @@ class LabSerializer(serializers.ModelSerializer):
         max_length=200,
         validators=[no_control_chars],
     )  # only read on create; PATCH uses LabDetailsInputSerializer
+    # D237: filled from the institution picked when the lab is made. PATCH does not use these.
+    address = serializers.CharField(required=False, allow_blank=True, max_length=1000)
+    website = serializers.CharField(
+        required=False, allow_blank=True, max_length=300, validators=[web_url]
+    )
     my_role = serializers.SerializerMethodField()
     my_permissions = serializers.SerializerMethodField()
 
@@ -44,9 +50,7 @@ class LabSerializer(serializers.ModelSerializer):
             "id",
             "department",
             "description",
-            "address",
             "contact_email",
-            "website",
             "inventory_enabled",
         ]
         extra_kwargs = {"name": {"validators": [no_control_chars]}}

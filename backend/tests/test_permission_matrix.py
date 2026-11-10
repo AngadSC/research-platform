@@ -97,6 +97,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "core:login-methods"):    "2   2        2  2     2    2       2       2       2",
     ("GET",    "labs:lab-list"):         "401 2        2  2     2    2       2       2       2",
     ("POST",   "labs:lab-list"):         "401 2        2  2     2    2       2       2       2",
+    ("GET",    "labs:institution-search"): "401 2      2  2     2    2       2       2       2",
     ("GET",    "labs:lab-detail"):       "401 404      2  2     2    2       2       2       2",
     ("PATCH",  "labs:lab-detail"):       "401 404      2  2     403  403     403     403     403",
     # D170: PI dashboard, pi and lab_admin only

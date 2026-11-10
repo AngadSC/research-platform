@@ -1,12 +1,13 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
+import { InstitutionInput } from "@/components/shared/InstitutionInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useUpdateLabDetails } from "@/hooks/admin";
-import type { Lab } from "@/lib/api-types";
+import type { InstitutionHit, Lab } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
 import { formValue, Section } from "./common";
 
@@ -23,6 +24,18 @@ const KNOWN = [
 export function LabDetailsSection({ lab }: { lab: Lab }) {
   const update = useUpdateLabDetails(lab.id);
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
+  const form = useRef<HTMLFormElement>(null);
+
+  /** A pick only fills what is empty, so it never overwrites what someone typed. */
+  function fillBlanks(hit: InstitutionHit) {
+    for (const [name, value] of [
+      ["address", hit.address],
+      ["website", hit.website],
+    ] as const) {
+      const field = form.current?.elements.namedItem(name) as HTMLInputElement | null;
+      if (field && !field.value && value) field.value = value;
+    }
+  }
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -52,7 +65,13 @@ export function LabDetailsSection({ lab }: { lab: Lab }) {
   const f = errors.fields;
   return (
     <Section title="Lab details" description="Shown to everyone in the lab.">
-      <form onSubmit={submit} noValidate aria-label="Lab details" className="grid max-w-2xl gap-4">
+      <form
+        ref={form}
+        onSubmit={submit}
+        noValidate
+        aria-label="Lab details"
+        className="grid max-w-2xl gap-4"
+      >
         <FormField label="Lab name" error={f.name}>
           {(p) => <Input {...p} name="name" defaultValue={lab.name} />}
         </FormField>
@@ -61,7 +80,14 @@ export function LabDetailsSection({ lab }: { lab: Lab }) {
           error={f.institution_name}
           hint="Choosing University of Alberta adds its starter links under Institution resources."
         >
-          {(p) => <Input {...p} name="institution_name" defaultValue={lab.institution.name} />}
+          {(p) => (
+            <InstitutionInput
+              {...p}
+              name="institution_name"
+              defaultValue={lab.institution.name}
+              onPick={fillBlanks}
+            />
+          )}
         </FormField>
         <FormField label="Department" error={f.department}>
           {(p) => <Input {...p} name="department" defaultValue={lab.department} />}

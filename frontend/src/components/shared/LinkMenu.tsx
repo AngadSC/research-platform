@@ -1,5 +1,5 @@
 import { ChevronDown, Link2 } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { ProviderIcon } from "@/components/shared/ExternalLinkItem";
 import { FormError } from "@/components/shared/FormError";
@@ -21,6 +21,7 @@ import {
   useItemSearch,
   useProviders,
 } from "@/hooks/integrations";
+import { useDebounced } from "@/hooks/useDebounced";
 import { ApiError } from "@/lib/api";
 import type { ExternalLinkInput, IntegrationProvider } from "@/lib/api-types";
 import { pickDriveFile } from "@/lib/drive";
@@ -207,16 +208,6 @@ function LinkBody({
       {methods.includes("paste_url") && <PasteLinker p={p} go={go} />}
     </div>
   );
-}
-
-/** Waits for a pause in typing before the value is used. */
-function useDebounced(value: string, ms = 250) {
-  const [v, setV] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setV(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return v;
 }
 
 function SearchLinker({

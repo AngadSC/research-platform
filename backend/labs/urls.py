@@ -6,6 +6,7 @@ from labs import contributions, dashboard, lab_calendar, protocols, views
 app_name = "labs"
 urlpatterns = [
     path("labs/", views.LabListCreateView.as_view(), name="lab-list"),
+    path("institutions/search/", views.InstitutionSearchView.as_view(), name="institution-search"),
     path("labs/<uuid:lab_id>/", views.LabDetailView.as_view(), name="lab-detail"),
     path("labs/<uuid:lab_id>/dashboard/", dashboard.DashboardView.as_view(), name="dashboard"),
     path(

@@ -62,6 +62,7 @@ export type IntegrationProvider = Schemas["Provider"];
 export type PickerToken = Schemas["PickerToken"];
 export type ConnectOutput = Schemas["ConnectOutput"];
 export type ExternalLink = Schemas["ExternalLink"];
+export type InstitutionHit = Schemas["InstitutionHit"];
 export type ExternalLinkInput = Schemas["ExternalLinkInput"];
 export type ItemSearchResult = Schemas["ItemSearchResult"];
 export type Handover = Schemas["Handover"];

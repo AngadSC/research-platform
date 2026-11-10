@@ -439,6 +439,32 @@ def test_picker_token_reports_granted_scopes_audits_and_throttles(world, transpo
     assert [client.get(url).status_code for _ in range(3)] == [200, 200, 429]
 
 
+@pytest.mark.parametrize(
+    ("mime", "editor"),
+    [
+        ("application/vnd.google-apps.document", f"document/d/{FILE_ID}/edit"),
+        ("application/vnd.google-apps.spreadsheet", f"spreadsheets/d/{FILE_ID}/edit"),
+        ("application/vnd.google-apps.presentation", None),
+        ("text/csv", None),
+    ],
+)
+def test_only_docs_and_sheets_get_an_editor_frame(world, transport, mime, editor):
+    lab, users, project, client = world
+    connect_drive(client, lab, transport)
+    transport.on(
+        "GET",
+        FILE_URL,
+        response(200, drive_file(mimeType=mime, webViewLink="https://docs.google.com/x")),
+    )
+    link = link_file(client, lab, project).json()
+    assert link["editor_url"] == (f"https://docs.google.com/{editor}" if editor else "")
+    # a file that is gone has nothing to open
+    ExternalLink.objects.for_lab(lab).update(unavailable_since=timezone.now())
+    assert (
+        client.get(api(lab, f"projects/{project.pk}/external-links/")).json()[0]["editor_url"] == ""
+    )
+
+
 def test_link_hosts_are_pinned_to_google_and_never_rendered_otherwise(world, transport):
     lab, users, project, client = world
     connect_drive(client, lab, transport)

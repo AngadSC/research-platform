@@ -10,9 +10,11 @@ import {
   Link2,
   PenLine,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { RelativeTime } from "@/components/shared/RelativeTime";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import type { ExternalLink } from "@/lib/api-types";
 import { personName } from "@/lib/api-types";
 import { linkState, sharingNote } from "@/lib/integrations";
@@ -60,6 +62,7 @@ export function ExternalLinkItem({
   const state = linkState(link);
   const href = safeHttpUrl(link.url); // null: blank or not http(s), so never rendered as a link
   const modified = link.remote_modified_at ?? link.linked_modified_at;
+  const [editing, setEditing] = useState(false);
   return (
     <li className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-2 text-sm">
       <div className="flex min-w-0 items-center gap-2">
@@ -97,8 +100,57 @@ export function ExternalLinkItem({
       </div>
       <div className="flex items-center gap-2">
         <Badge variant={state.tone}>{state.label}</Badge>
+        {link.editor_url && (
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label={`Edit ${link.title} here`}
+            onClick={() => setEditing(true)}
+          >
+            Edit here
+          </Button>
+        )}
         {actions}
       </div>
+      {editing && <GoogleEditor link={link} onClose={() => setEditing(false)} />}
     </li>
+  );
+}
+
+/** A Doc or Sheet in Google's own editor (D239). The frame runs on the person's own Google
+ * sign-in, and nothing passes through our server. A page cannot tell when Google refuses to be
+ * framed, so the way out is always on screen. */
+function GoogleEditor({ link, onClose }: { link: ExternalLink; onClose: () => void }) {
+  const app = link.editor_url.includes("/spreadsheets/") ? "Google Sheets" : "Google Docs";
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="h-[calc(100dvh-2rem)] max-w-6xl grid-rows-[auto_minmax(0,1fr)] gap-3 p-4">
+        <div className="grid gap-1 pr-8">
+          <DialogTitle className="truncate text-base font-semibold">{link.title}</DialogTitle>
+          <DialogDescription className="text-xs">
+            This uses your own Google account, so what you can do here is what Google allows you. If
+            it stays blank or asks you to sign in, Google will not show it inside this site:{" "}
+            <a
+              href={link.editor_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium underline underline-offset-4"
+            >
+              Open in {app}
+              <span className="sr-only"> (opens in a new tab)</span>
+            </a>
+            .
+          </DialogDescription>
+        </div>
+        <iframe
+          title={link.title}
+          src={link.editor_url}
+          // The same sandbox as embedded documents (DocumentPage), plus downloads for File > Download.
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
+          referrerPolicy="no-referrer"
+          className="size-full rounded-md border"
+        />
+      </DialogContent>
+    </Dialog>
   );
 }

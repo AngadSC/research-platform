@@ -253,6 +253,7 @@ Creating and editing ordinary content is not audited, because revisions and `upd
 |---|---|---|---|
 | 1 | GET, PATCH | `/api/me/` | AUTHENTICATED |
 | 1 | GET, POST | `/api/labs/` (lists own labs; creating a lab makes you PI) | AUTHENTICATED |
+| - | GET | `/api/institutions/search/?q=` (type-ahead from ROR through `integrations.http`, cached a day, D237) | AUTHENTICATED, throttled |
 | 1 | GET / PATCH | `L/` | view_lab / manage_lab |
 | 1 | GET | `L/members/` | view_lab |
 | 1 | PATCH, DELETE | `L/members/<membership_id>/` | manage_members |
@@ -486,6 +487,7 @@ Security properties: state is unguessable, single-use, short-lived and bound to 
 - Scope **`https://www.googleapis.com/auth/drive.file` only** (D64): per-file access to files the user picks in the Google Picker. Identity comes from `GET drive/v3/about?fields=user(permissionId,emailAddress)`, which works with `drive.file`, so no `openid`/`email` scope is requested. External account id = `permissionId`. `link_methods = ("picker",)`: `drive.file` cannot search or open a pasted URL.
 - **Picker:** the SPA loads Google's script only on click, then opens the Picker with the public API key and app id (`public_config` on the providers endpoint, D77) and the access token from `picker-token`. Picked file ids come back to `P/external-links/`. The server then reads metadata with the linker's token: `files.get?fields=id,name,mimeType,modifiedTime,version,md5Checksum,webViewLink,trashed`.
 - **Metadata only:** never download, export or cache file contents (`alt=media` and `files.export` are never called). Store `version` and `md5Checksum` (as `md5:<hex>`) when given. 404, 403 (access lost) or `trashed=true` is "no longer available"; a 403 rate-limit reason is transient.
+- **Editor frame:** `ExternalLinkSerializer.editor_url` is `google_drive.editor_url` for a Doc or Sheet that is still available, built from the checked file id; the SPA frames only that (D239). Nothing else about the link or the person's Google session reaches our server.
 - **Dataset records:** `apply_to_target` fills an empty `checksum` with `md5:<hex>`, else `drive-version:<n>` (D76).
 - **Incremental authorization:** a later feature needing another Drive scope adds it to the provider's `scopes` (with a DECISIONS entry) and calls `start_connect(..., scopes=[new])`. That needs `include_granted_scopes=true` back on that one request; D221 explains why it is off, and the scope check must allow the merged set.
 

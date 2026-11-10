@@ -1,4 +1,4 @@
-import { Download, Presentation, Upload } from "lucide-react";
+import { Download, Presentation, Sparkles, Upload } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/shared/DataTable";
@@ -6,9 +6,12 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { FormField } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAssistantConfig } from "@/hooks/assistant";
 import { downloadUrl, useAttachments } from "@/hooks/projects";
 import { useExternalOutputs } from "@/hooks/workflow";
+import { useLab } from "@/hooks/workspace";
 import type { ExternalOutput, ExternalOutputInput } from "@/lib/api-types";
+import { openAssistant } from "@/lib/assistant";
 import { isHttpUrl } from "@/lib/research";
 import { EXTERNAL_TYPES, label } from "@/lib/workflow";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
@@ -23,6 +26,33 @@ import {
 } from "@/pages/project/workflow/parts";
 
 const FIELDS = ["title", "type", "date", "place", "url", "attachment"];
+
+/** Opens the assistant with a question ready to send, on the person's own key (no second LLM
+ * path, D214). Hidden, not explained, when the lab's AI policy or a missing key rules it out. */
+function ConferenceSuggestions({ labId, projectId }: { labId: string; projectId: string }) {
+  const { data: cfg } = useAssistantConfig(labId, true);
+  const lab = useLab(labId).data;
+  if (!cfg?.can_use || !cfg.providers.some((p) => p.has_key)) return null;
+  const near = lab?.address || lab?.institution.name;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+      <p className="min-w-0 flex-1 text-muted-foreground">
+        The assistant can suggest conferences for this project. It can get names, dates and links
+        wrong, so check each one yourself. Nothing is added here unless you add it.
+      </p>
+      <Button
+        variant="secondary"
+        onClick={() =>
+          openAssistant(
+            `Use project_overview for project_id ${projectId} to find this project's main topic. Then suggest conferences on that topic in three groups: local${near ? ` (near ${near})` : ""}, national and international. Start your answer with the line "Suggestions to verify: these come from an AI and may be wrong, so check each one on the conference's own website." For each one give its name and what it covers and, only if you are sure, the usual time of year, the city and the official website. Say "unknown" instead of guessing. Do not add anything to the project.`,
+          )
+        }
+      >
+        <Sparkles aria-hidden /> Suggest conferences
+      </Button>
+    </div>
+  );
+}
 
 /** Posters, presentations and conferences. Files stay in the project's permission-checked storage. */
 export default function ExternalTab({ labId, projectId, project }: ProjectTabProps) {
@@ -104,6 +134,7 @@ export default function ExternalTab({ labId, projectId, project }: ProjectTabPro
   const add = canEdit ? <Button onClick={() => setEditing("new")}>Add item</Button> : undefined;
   return (
     <section aria-label="External" className="grid gap-3">
+      <ConferenceSuggestions labId={labId} projectId={projectId} />
       {(list.data?.length ?? 0) > 0 && <div className="flex justify-end">{add}</div>}
       <DataTable
         columns={cols}

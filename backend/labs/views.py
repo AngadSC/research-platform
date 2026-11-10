@@ -1,11 +1,18 @@
-from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import generics, status
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    extend_schema,
+    extend_schema_view,
+    inline_serializer,
+)
+from rest_framework import generics, serializers, status
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.views import APIView
 
 from core.permissions import Perm, labs_for
 from core.views import LabScopedViewMixin
-from labs import admin_services, services
+from integrations.http import IntegrationError
+from labs import admin_services, ror, services
 from labs.admin_serializers import LabDetailsInputSerializer
 from labs.models import Invite, LabChatMessage, LabMembership
 from labs.serializers import (
@@ -46,9 +53,45 @@ class LabListCreateView(generics.GenericAPIView):
             user=request.user,
             name=ser.validated_data["name"],
             institution_name=ser.validated_data.get("institution_name", ""),
+            address=ser.validated_data.get("address", ""),
+            website=ser.validated_data.get("website", ""),
             request=request,
         )
         return Response(self.get_serializer(lab).data, status=status.HTTP_201_CREATED)
+
+
+class InstitutionSearchView(APIView):
+    """Type-ahead for the institution field (D237). Not lab data, so any signed-in person may
+    use it, before they have a lab. If ROR is down the field is still plain free text."""
+
+    perms = {"GET": Perm.AUTHENTICATED}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "institution_search"
+
+    @extend_schema(
+        parameters=[OpenApiParameter("q", str, description="What has been typed so far.")],
+        responses=inline_serializer(
+            "InstitutionSearch",
+            {
+                "results": inline_serializer(
+                    "InstitutionHit",
+                    {
+                        "id": serializers.CharField(),
+                        "name": serializers.CharField(),
+                        "address": serializers.CharField(),
+                        "website": serializers.CharField(),
+                    },
+                    many=True,
+                )
+            },
+        ),
+    )
+    def get(self, request):
+        try:
+            results = ror.search(request.query_params.get("q", ""))
+        except IntegrationError:
+            results = []
+        return Response({"results": results})
 
 
 class LabDetailView(LabScopedViewMixin, generics.GenericAPIView):

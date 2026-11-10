@@ -119,6 +119,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/institutions/search/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Type-ahead for the institution field (D237). Not lab data, so any signed-in person may
+         *     use it, before they have a lab. If ROR is down the field is still plain free text.
+         */
+        get: operations["institutions_search_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/integrations/oauth/callback/": {
         parameters: {
             query?: never;
@@ -4418,6 +4438,7 @@ export interface components {
             /** @description Set on a just-created dataset link: copied | same | kept | none (D76). */
             readonly version_note: string;
             readonly linker_connection_status: string | null;
+            readonly editor_url: string;
             /** Format: date-time */
             readonly created_at: string;
         };
@@ -4607,6 +4628,15 @@ export interface components {
             readonly id: string;
             name: string;
         };
+        InstitutionHit: {
+            id: string;
+            name: string;
+            address: string;
+            website: string;
+        };
+        InstitutionSearch: {
+            results: components["schemas"]["InstitutionHit"][];
+        };
         Inventory: {
             /** Format: uuid */
             readonly id: string;
@@ -4791,11 +4821,10 @@ export interface components {
             institution_name?: string;
             readonly department: string;
             readonly description: string;
-            readonly address: string;
+            address?: string;
             /** Format: email */
             readonly contact_email: string;
-            /** Format: uri */
-            readonly website: string;
+            website?: string;
             readonly inventory_enabled: boolean;
             readonly my_role: string | null;
             readonly my_permissions: string[];
@@ -6383,6 +6412,28 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    institutions_search_retrieve: {
+        parameters: {
+            query?: {
+                /** @description What has been typed so far. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstitutionSearch"];
                 };
             };
         };

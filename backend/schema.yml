@@ -214,6 +214,29 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
+  /api/institutions/search/:
+    get:
+      operationId: institutions_search_retrieve
+      description: |-
+        Type-ahead for the institution field (D237). Not lab data, so any signed-in person may
+        use it, before they have a lab. If ROR is down the field is still plain free text.
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: What has been typed so far.
+      tags:
+      - institutions
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstitutionSearch'
+          description: ''
   /api/integrations/oauth/callback/:
     get:
       operationId: integrations_oauth_callback_retrieve
@@ -10983,6 +11006,9 @@ components:
           type: string
           nullable: true
           readOnly: true
+        editor_url:
+          type: string
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -10995,6 +11021,7 @@ components:
       - dataset
       - decision
       - document
+      - editor_url
       - external_id
       - id
       - last_checked_at
@@ -11507,6 +11534,31 @@ components:
       required:
       - id
       - name
+    InstitutionHit:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        address:
+          type: string
+        website:
+          type: string
+      required:
+      - address
+      - id
+      - name
+      - website
+    InstitutionSearch:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/InstitutionHit'
+      required:
+      - results
     Inventory:
       type: object
       properties:
@@ -12001,15 +12053,14 @@ components:
           readOnly: true
         address:
           type: string
-          readOnly: true
+          maxLength: 1000
         contact_email:
           type: string
           format: email
           readOnly: true
         website:
           type: string
-          format: uri
-          readOnly: true
+          maxLength: 300
         inventory_enabled:
           type: boolean
           readOnly: true
@@ -12023,7 +12074,6 @@ components:
             type: string
           readOnly: true
       required:
-      - address
       - contact_email
       - department
       - description
@@ -12033,7 +12083,6 @@ components:
       - my_permissions
       - my_role
       - name
-      - website
     LabEvent:
       type: object
       properties:

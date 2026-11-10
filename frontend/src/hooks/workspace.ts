@@ -37,7 +37,12 @@ export function useLab(labId: string | undefined) {
 export function useCreateLab() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { name: string; institution_name?: string }) =>
+    mutationFn: (v: {
+      name: string;
+      institution_name?: string;
+      address?: string;
+      website?: string;
+    }) =>
       api<Lab>("/api/labs/", { method: "POST", ...j(v) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["labs"] }),
   });

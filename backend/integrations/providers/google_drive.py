@@ -13,6 +13,21 @@ FIELDS = "id,name,mimeType,modifiedTime,md5Checksum,version,webViewLink,trashed"
 _RATE_REASONS = {"rateLimitExceeded", "userRateLimitExceeded", "dailyLimitExceeded"}
 
 
+# D239: Docs and Sheets are the two kinds that open in Google's editor inside a frame here.
+_EDITORS = {
+    "application/vnd.google-apps.document": "document",
+    "application/vnd.google-apps.spreadsheet": "spreadsheets",
+}
+
+
+def editor_url(mime_type, external_id) -> str:
+    """The Google editor for a linked Doc or Sheet, else ''. Built from the file id (checked by
+    `external_id_pattern` when it was linked), never the stored link. Access is whatever the
+    person's own Google account has: nothing of ours is sent to that page."""
+    kind = _EDITORS.get(mime_type)
+    return f"https://docs.google.com/{kind}/d/{quote(external_id, safe='')}/edit" if kind else ""
+
+
 def _identity(data: dict) -> tuple[str, str]:
     # Drive `about` works with drive.file alone, so no openid/email scope is needed (D64).
     user = data["user"]

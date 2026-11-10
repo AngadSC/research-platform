@@ -346,6 +346,7 @@ REST_FRAMEWORK = {
         "search": "120/minute",
         "integration_connect": "30/hour",  # D81: each API-key connect calls the provider
         "integration_search": "30/minute",  # D85
+        "institution_search": "60/minute",  # D237: each new text may call ROR
         "login_methods": "60/minute",  # D156, per IP
         "ai_token": "20/hour",  # D164: personal access tokens created
         "ai_key": "20/hour",  # D187: each key save makes one provider call

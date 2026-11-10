@@ -3,6 +3,7 @@ from rest_framework import serializers
 from core.serializers import UserSerializer
 from integrations import registry, services
 from integrations.models import TARGET_FIELDS, ConnectedAccount, ExternalLink
+from integrations.providers import google_drive
 
 
 class ConnectedAccountSerializer(serializers.ModelSerializer):
@@ -134,6 +135,7 @@ class ExternalLinkSerializer(serializers.ModelSerializer):
     status = serializers.CharField(read_only=True)  # ok | changed | unavailable
     check_blocked = serializers.SerializerMethodField()
     version_note = serializers.SerializerMethodField()
+    editor_url = serializers.SerializerMethodField()
 
     class Meta:
         model = ExternalLink
@@ -161,9 +163,15 @@ class ExternalLinkSerializer(serializers.ModelSerializer):
             "check_blocked",
             "version_note",
             "linker_connection_status",
+            "editor_url",
             "created_at",
         ]
         read_only_fields = fields
+
+    def get_editor_url(self, obj) -> str:
+        if obj.provider != google_drive.PROVIDER.name or obj.unavailable_since:
+            return ""
+        return google_drive.editor_url(obj.mime_type, obj.external_id)
 
     def get_provider_label(self, obj) -> str:
         provider = registry.PROVIDERS.get(obj.provider)

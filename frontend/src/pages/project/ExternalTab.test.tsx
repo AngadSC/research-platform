@@ -1,6 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import { ASSISTANT_PREFILL } from "@/lib/assistant";
 import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
 
 const user = { id: "u1", email: "ada@uni.edu", display_name: "Ada" };
@@ -33,6 +34,39 @@ const base = (perms: string[], extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 const PATH = "/labs/lab1/projects/p1/external";
+
+const config = (can_use: boolean, has_key: boolean, ai_policy = "assistant") => ({
+  [`GET /api/labs/lab1/assistant/config/`]: {
+    body: { can_use, ai_policy, providers: [{ provider: "anthropic", has_key, models: [] }] },
+  },
+});
+
+describe("conference suggestions", () => {
+  it.each([
+    ["the AI policy forbids it", config(false, true, "off")],
+    ["there is no key", config(true, false)],
+  ])("are hidden when %s", async (_why, extra) => {
+    mockFetch(base(["view_project"], { [`GET ${P}/external/`]: { body: [] }, ...extra }));
+    renderRoute(PATH);
+    expect(await screen.findByText("No posters or talks yet")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Suggest conferences" })).toBeNull();
+  });
+
+  it("open the assistant with a question that is not sent", async () => {
+    const calls = mockFetch(
+      base(["view_project"], { [`GET ${P}/external/`]: { body: [] }, ...config(true, true) }),
+    );
+    const prefilled: string[] = [];
+    const listen = (e: Event) => prefilled.push((e as CustomEvent<string>).detail);
+    window.addEventListener(ASSISTANT_PREFILL, listen);
+    renderRoute(PATH);
+    await userEvent.click(await screen.findByRole("button", { name: "Suggest conferences" }));
+    window.removeEventListener(ASSISTANT_PREFILL, listen);
+    expect(prefilled[0]).toMatch(/Suggestions to verify/);
+    expect(prefilled[0]).toMatch(/Do not add anything/);
+    expect(calls.some((c) => c.method === "POST")).toBe(false);
+  });
+});
 
 describe("External tab", () => {
   it("shows records with the file through the checked download endpoint", async () => {

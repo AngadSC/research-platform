@@ -92,13 +92,15 @@ def _revoke_stale_invites(*, lab, user, by, request, new_role=None) -> None:
 
 
 @transaction.atomic
-def create_lab(*, user, name, institution_name="", request=None) -> Lab:
+def create_lab(*, user, name, institution_name="", address="", website="", request=None) -> Lab:
     institution = (
         institution_for(institution_name)
         if institution_name
         else Institution.objects.get_or_create(name=PLACEHOLDER_INSTITUTION)[0]
     )
-    lab = Lab.objects.create(institution=institution, name=name, created_by=user)
+    lab = Lab.objects.create(
+        institution=institution, name=name, address=address, website=website, created_by=user
+    )
     LabMembership.objects.create(lab=lab, user=user, role=LabRole.PI)
     record(AuditAction.LAB_CREATED, actor=user, lab=lab, request=request)
     apply_starter_resources(lab, user=user, request=request)
