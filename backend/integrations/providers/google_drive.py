@@ -82,12 +82,9 @@ PROVIDER = Provider(
     revoke_url="https://oauth2.googleapis.com/revoke",
     identity_url="https://www.googleapis.com/drive/v3/about?fields=user(permissionId,emailAddress)",
     api_hosts=frozenset({"www.googleapis.com", "oauth2.googleapis.com"}),
-    # offline + consent: always get a refresh token; include_granted_scopes: incremental auth.
-    authorize_params={
-        "access_type": "offline",
-        "prompt": "consent",
-        "include_granted_scopes": "true",
-    },
+    # offline + consent: always get a refresh token. No include_granted_scopes: it makes Google
+    # add every scope this client was ever given, which the connect then refuses (D221).
+    authorize_params={"access_type": "offline", "prompt": "consent"},
     parse_identity=_identity,
     fetch_item=fetch_item,
     external_id_pattern=r"^[A-Za-z0-9_-]+$",

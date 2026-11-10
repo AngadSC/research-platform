@@ -391,6 +391,15 @@ def _grant(transport, scope):
     transport.on("POST", DRIVE.token_url, response(200, {**body, "scope": scope}))
 
 
+def test_connect_does_not_ask_google_to_merge_earlier_grants(world, transport):
+    lab, users, project, client = world
+    url = client.post(
+        api(lab, "integrations/google_drive/connect/"), {}, "application/json"
+    ).json()["authorization_url"]
+    query = parse_qs(urlsplit(url).query)
+    assert query["scope"] == [SCOPE] and "include_granted_scopes" not in query
+
+
 def test_extra_granted_scopes_are_refused_on_connect_and_refresh(world, transport):
     lab, users, project, client = world
     url = client.post(
