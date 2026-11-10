@@ -217,7 +217,8 @@ def _validate(t: Tool, args) -> dict:
             continue
         kind = spec["type"]
         if not isinstance(value, _TYPES[kind]) or (kind == "integer" and isinstance(value, bool)):
-            raise ToolError(f"{name} must be a {kind}.")
+            article = "an" if kind[0] in "aeiou" else "a"
+            raise ToolError(f"{name} must be {article} {kind}.")
         if kind == "string" and len(value) > spec.get("maxLength", 200):
             raise ToolError(f"{name} is too long (at most {spec.get('maxLength', 200)}).")
         if kind == "string" and len(value.strip()) < spec.get("_min", 0):

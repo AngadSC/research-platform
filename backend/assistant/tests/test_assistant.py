@@ -154,6 +154,7 @@ def test_request_parameters_follow_the_claude_api_rules(keyed, monkeypatch):
     [
         ("claude-opus-5-5", True, True),
         ("claude-sonnet-5-5", True, True),
+        ("claude-fable-5-2", True, True),
         ("claude-opus-5-5", False, False),  # the person turned it off
         ("claude-haiku-5-5", True, False),  # Haiku has no server-side fallback
     ],

@@ -42,6 +42,13 @@ def rpc(token, method, params=None, *, rid=1, headers=None, client=None):
     return (client or Client()).post(MCP, json.dumps(body), "application/json", **extra)
 
 
+def data(resp):
+    """A successful tools/call result's JSON (sent once, as text: D245)."""
+    result = resp.json()["result"]
+    assert result["isError"] is False, result
+    return json.loads(result["content"][0]["text"])
+
+
 def pat(user, *labs, access="read"):
     _, token = services.create_pat(
         user, name="CLI", lab_ids=[lab.pk for lab in labs], access=access, days=30
@@ -93,10 +100,10 @@ def test_legacy_initialize_list_call_with_a_pat(world):
     resp = rpc(token, "tools/call", {"name": "list_labs", "arguments": {}}, rid=3, headers=h)
     result = resp.json()["result"]
     assert result["isError"] is False and "resultType" not in result
-    assert result["structuredContent"]["labs"] == [
+    assert "structuredContent" not in result  # D245: the JSON is sent once, as text
+    assert data(resp)["labs"] == [
         {"id": str(world.lab_a.pk), "name": "Lab A", "your_role": "member"}
     ]
-    assert json.loads(result["content"][0]["text"]) == result["structuredContent"]
     assert rpc(token, "ping", {}, rid=4, headers=h).json()["result"] == {}
 
 
@@ -129,9 +136,7 @@ def test_modern_discover_list_call_with_a_pat(world):
         {"name": "list_projects", "arguments": {"lab_id": str(world.lab_a.pk)}, "_meta": META},
         headers=modern_headers("tools/call", "list_projects"),
     )
-    assert [p["name"] for p in call.json()["result"]["structuredContent"]["projects"]] == [
-        "P1 open"
-    ]
+    assert [p["name"] for p in data(call)["projects"]] == ["P1 open"]
     encoded = "=?base64?" + base64.b64encode(b"list_labs").decode() + "?="
     ok = rpc(
         token,
@@ -582,6 +587,6 @@ def test_lab_manager_removes_their_lab_from_a_members_grant(world, make_lab, joi
     member.force_login(world.u.contrib)
     assert member.get(f"/api/labs/{world.lab_a.pk}/ai-grants/").status_code == 403
     assert pi.delete(f"/api/labs/{world.lab_a.pk}/ai-grants/{listed[0]['id']}/").status_code == 204
-    labs = rpc(token, "tools/call", {"name": "list_labs", "arguments": {}}).json()["result"]
-    assert [lab["name"] for lab in labs["structuredContent"]["labs"]] == ["Lab C"]
+    labs = data(rpc(token, "tools/call", {"name": "list_labs", "arguments": {}}))
+    assert [lab["name"] for lab in labs["labs"]] == ["Lab C"]
     assert pi.get(f"/api/labs/{world.lab_a.pk}/ai-grants/").json() == []

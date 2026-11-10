@@ -413,13 +413,33 @@ def canonical(uri: str) -> str:
 @sensitive_variables("code")
 def approve(user, client, *, lab_ids, access, redirect_uri, challenge, request=None) -> str:
     """The user consented (D161): replace their earlier grant for this client, record the new
-    one, and return a single-use authorization code."""
+    one, and return a single-use authorization code.
+
+    D245: the same authorization request (same PKCE challenge) approved again, by a double click,
+    a retried request or a second tab, keeps its grant and only takes the latest choice of labs
+    and access. Replacing it would revoke the tokens the app may already have received."""
     labs = _member_labs(user, lab_ids)
-    for old in AIGrant.objects.filter(user=user, client=client, revoked_at__isnull=True):
-        revoke(old, by=user, request=request)
-    grant = AIGrant.objects.create(
-        user=user, kind=GrantKind.OAUTH, client=client, name=client.name, access=access
+    repeat = (
+        AIToken.objects.filter(
+            kind=TokenKind.CODE,
+            grant__user=user,
+            grant__client=client,
+            grant__revoked_at__isnull=True,
+            data__challenge=challenge,
+        )
+        .select_related("grant")
+        .first()
     )
+    if repeat is not None:
+        grant = repeat.grant
+        grant.access = access
+        grant.save(update_fields=["access"])
+    else:
+        for old in AIGrant.objects.filter(user=user, client=client, revoked_at__isnull=True):
+            revoke(old, by=user, request=request)
+        grant = AIGrant.objects.create(
+            user=user, kind=GrantKind.OAUTH, client=client, name=client.name, access=access
+        )
     grant.labs.set(labs)
     code = _issue(
         grant,

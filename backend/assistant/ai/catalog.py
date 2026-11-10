@@ -1,6 +1,9 @@
 """Providers, models and the knobs we send (D187, D189). One place to change a model id.
 
-Claude ids are exactly the strings in Anthropic's docs, with no date suffix. OpenAI ids were read
+Claude ids are exactly the strings in Anthropic's docs, with no date suffix, checked again on
+2026-11-10 (D245): Opus 5.5, Sonnet 5.5 and Haiku 5.5 are current, and Fable 5.2 replaced Fable
+5.1 at a lower price. Fable takes the same request as the others here (adaptive thinking, an
+explicit effort, auto tool choice, the server-side fallback). OpenAI ids were read
 from developers.openai.com/api/docs/models on 2026-11-05 (the docs say GPT-6 models need the
 Responses API for tool calling, which is what the OpenAI adapter uses). Prices are USD per million
 tokens, list price, used only for the "about $x" estimate shown next to a message."""
@@ -12,6 +15,7 @@ MODELS = {
         {"id": "claude-opus-5-5", "label": "Claude Opus 5.5", "input": 4.0, "output": 20.0},
         {"id": "claude-sonnet-5-5", "label": "Claude Sonnet 5.5", "input": 2.0, "output": 10.0},
         {"id": "claude-haiku-5-5", "label": "Claude Haiku 5.5", "input": 0.10, "output": 0.50},
+        {"id": "claude-fable-5-2", "label": "Claude Fable 5.2", "input": 8.0, "output": 40.0},
     ],
     Provider.OPENAI: [
         {"id": "gpt-6.1-sol", "label": "GPT-6.1 Sol", "input": 2.0, "output": 10.0},

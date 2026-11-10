@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from assistant.tests.test_mcp import pat, rpc
+from assistant.tests.test_mcp import data, pat, rpc
 from labs.models import AiPolicy
 
 pytestmark = pytest.mark.django_db
@@ -13,11 +13,7 @@ pytestmark = pytest.mark.django_db
 
 def list_labs(token):
     r = rpc(token, "tools/call", {"name": "list_labs", "arguments": {}})
-    return r, (
-        [x["id"] for x in r.json()["result"]["structuredContent"]["labs"]]
-        if r.status_code == 200
-        else None
-    )
+    return r, ([x["id"] for x in data(r)["labs"]] if r.status_code == 200 else None)
 
 
 def test_mcp_is_403_when_the_only_granted_lab_turned_ai_off(world):

@@ -302,13 +302,8 @@ def _call_tool(rid, params, modern, grant, ctx):
         return _result(
             rid, {"content": [{"type": "text", "text": str(exc)}], "isError": True}, modern
         )
+    # D245: the JSON once, as text. No `structuredContent` copy (we declare no outputSchema): a
+    # second copy doubled every result the model reads and could push a big one past the 150,000
+    # character limit clients put on a tool result.
     text = json.dumps(result, ensure_ascii=False)
-    return _result(
-        rid,
-        {
-            "content": [{"type": "text", "text": text}],
-            "structuredContent": result,
-            "isError": False,
-        },
-        modern,
-    )
+    return _result(rid, {"content": [{"type": "text", "text": text}], "isError": False}, modern)
