@@ -1,4 +1,5 @@
 .env
+.env.qa
 node_modules
 __pycache__
 .venv

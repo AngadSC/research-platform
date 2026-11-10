@@ -25,7 +25,7 @@ The development stack (`docker-compose.yml`) is separate and is not for producti
   - **Backups:** none.
   - **The audit-table role (section 7):** not applied.
 - **Secrets go only in `~/app/deploy/.env.prod` on the server,** never in `.env.prod.example`. The example file is tracked by git.
-- **Accounts:** the seed accounts (`pi@`, `admin@`, `lead@`, `student@` and `viewer@example.test`) have a random password set on the server, not the one in `seed_pilot.py`. The seed was loaded once with `run --rm -e DEBUG=True`.
+- **QA accounts (D246):** the seed accounts (`pi@`, `admin@`, `lead@`, `student@` and `viewer@example.test`) share the password in `QA_PASSWORD` in `.env.prod`, and have no two-step verification. To reset them before a test pass, run `docker compose -f docker-compose.prod.yml run --rm backend python manage.py seed_pilot` in `~/app/deploy`. It sets all five to `QA_PASSWORD` again, removes any two-step setup and adds back any missing seed data. It does not delete what testers added. The app never sends email to `.test` addresses, so these accounts can't reach Postmark. The owner's copy of the password is in `.env.qa` at the repo root, which git ignores.
 - **Redeploy:** every push to `main` deploys through `.github/workflows/deploy.yml`, including migrations. Its `ci-deploy` SSH key is limited by a forced command in the server's `authorized_keys` to fetching `main` from GitHub and running `deploy/rebuild.sh`. To deploy something else by hand, commit it and run `sh deploy/push.sh`, which copies `HEAD` and runs the same rebuild.
 - **Before real data goes on it:**
   - set up email

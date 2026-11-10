@@ -37,6 +37,16 @@ def test_sends_one_message_per_recipient_with_html(django_capture_on_commit_call
     assert_multipart(mail.outbox[0], "T")
 
 
+def test_reserved_addresses_are_never_sent(django_capture_on_commit_callbacks):
+    with django_capture_on_commit_callbacks(execute=True):
+        send_email(
+            "notification",
+            ["pi@example.test", "x@a.invalid", "y@host.localhost", "z@x.example", "ok@x.org"],
+            {"title": "T", "body": "B"},
+        )
+    assert [m.to for m in mail.outbox] == [["ok@x.org"]]
+
+
 def test_not_sent_before_commit(django_capture_on_commit_callbacks):
     with django_capture_on_commit_callbacks(execute=False) as callbacks:
         send_email("notification", "a@x.org", {"title": "T", "body": "B"})

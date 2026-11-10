@@ -1,9 +1,14 @@
 """Fill a dev database with obviously fake pilot data (D46). Objects go through the service
 layer. Users, lab memberships and email addresses have no service, so they are created
-directly. Re-running is a no-op once the seed lab exists."""
+directly. Re-running is a no-op once the seed lab exists, apart from resetting the logins.
+
+On a test server (DEBUG off) it runs only when QA_PASSWORD is set (D246). Every run sets the
+five seed logins to that password and removes any two-step setup, so a test pass starts with
+known accounts. The addresses use .test, which core.email never sends to."""
 
 import base64
 import datetime
+import os
 
 from allauth.account.models import EmailAddress
 from django.conf import settings
@@ -28,7 +33,13 @@ from training import services as services_training
 PROJECT_NAME = "Pilot Attention Study (FAKE)"
 LAB_NAME = "Example Cognition Lab (FAKE)"
 PASSWORD = "seed-password-not-secret"  # noqa: S105 (dev-only, printed on purpose)
-FRONTEND_URL = "http://localhost:5173"
+SEED_LOGINS = [
+    ("pi@example.test", "pi"),
+    ("admin@example.test", "lab_admin"),
+    ("lead@example.test", "member, project lead"),
+    ("student@example.test", "member, departing student"),
+    ("viewer@example.test", "viewer, read-only on the pilot project"),
+]
 APPROVAL_NUMBER = "FAKE-IRB-2026-001"
 FAKE_COMMIT = "3f2c9a1e7b4d" + "0" * 28  # 40 hex characters, visibly padded
 
@@ -69,8 +80,10 @@ class Command(BaseCommand):
     help = "Seed a dev database with fake pilot data (only when DEBUG is on)."
 
     def handle(self, *args, **options):
-        if not settings.DEBUG:
-            raise CommandError("seed_pilot only runs with DEBUG=True.")
+        qa_password = os.environ.get("QA_PASSWORD", "")
+        if not settings.DEBUG and not qa_password:
+            raise CommandError("seed_pilot runs with DEBUG=True, or with QA_PASSWORD set.")
+        self.password = qa_password or PASSWORD
         if Lab.objects.filter(name=LAB_NAME).exists():
             self.stdout.write(f"Seed lab already exists ({LAB_NAME}); nothing to do.")
         else:
@@ -83,7 +96,18 @@ class Command(BaseCommand):
         self.seed_training()
         self.seed_dmp()
         self.seed_oauth_client()
+        self.reset_logins()
         self.summary()
+
+    def reset_logins(self):
+        from allauth.mfa.models import Authenticator
+
+        for email, _ in SEED_LOGINS:
+            user = User.objects.filter(email=email).first()
+            if user:
+                user.set_password(self.password)
+                user.save(update_fields=["password"])
+                Authenticator.objects.filter(user=user).delete()
 
     def seed_institution(self):
         """Point the demo lab at the University of Alberta."""
@@ -98,7 +122,9 @@ class Command(BaseCommand):
         apply_starter_resources(lab)
 
     def make_user(self, email, display_name, lab=None, role=None):
-        user = User.objects.create_user(email=email, password=PASSWORD, display_name=display_name)
+        user = User.objects.create_user(
+            email=email, password=self.password, display_name=display_name
+        )
         EmailAddress.objects.create(user=user, email=email, verified=True, primary=True)
         if lab is not None:
             LabMembership.objects.create(lab=lab, user=user, role=role)
@@ -581,16 +607,11 @@ class Command(BaseCommand):
             )
 
     def summary(self):
-        self.stdout.write(f"Frontend: {FRONTEND_URL}")
-        self.stdout.write(f"Password: {PASSWORD}")
+        self.stdout.write(f"Frontend: {settings.FRONTEND_URL}")
+        shown = PASSWORD if self.password == PASSWORD else "the QA_PASSWORD setting"
+        self.stdout.write(f"Password: {shown}")
         self.stdout.write("Logins (all share the password above):")
-        for email, role in [
-            ("pi@example.test", "pi"),
-            ("admin@example.test", "lab_admin"),
-            ("lead@example.test", "member, project lead"),
-            ("student@example.test", "member, departing student"),
-            ("viewer@example.test", "viewer, read-only on the pilot project"),
-        ]:
+        for email, role in SEED_LOGINS:
             self.stdout.write(f"  {email}  ({role})")
         lab = Lab.objects.filter(name=LAB_NAME).first()
         approval = (

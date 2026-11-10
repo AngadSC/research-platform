@@ -42,10 +42,31 @@ def test_student_is_only_lead_of_archived_project(debug_on):
     assert [m.user.email for m in leads] == ["student@example.test"]
 
 
-def test_refuses_without_debug(settings):
+def test_refuses_without_debug(settings, monkeypatch):
     settings.DEBUG = False
+    monkeypatch.delenv("QA_PASSWORD", raising=False)
     with pytest.raises(CommandError):
         call_command("seed_pilot")
+
+
+def test_qa_password_runs_without_debug_and_resets_logins(settings, monkeypatch):
+    from allauth.mfa.models import Authenticator
+
+    from core.models import User
+
+    settings.DEBUG = False
+    monkeypatch.setenv("QA_PASSWORD", "qa-first-pass")
+    call_command("seed_pilot")
+    pi = User.objects.get(email="pi@example.test")
+    assert pi.check_password("qa-first-pass")
+    Authenticator.objects.create(user=pi, type=Authenticator.Type.TOTP, data={})
+
+    monkeypatch.setenv("QA_PASSWORD", "qa-second-pass")
+    call_command("seed_pilot")  # the second run only resets
+    pi.refresh_from_db()
+    assert pi.check_password("qa-second-pass")
+    assert not Authenticator.objects.filter(user=pi).exists()
+    assert User.objects.filter(email__endswith="@example.test").count() == 5
 
 
 def test_ethics_approval_expires_in_25_days_and_viewer_sees_the_pilot_project(debug_on):

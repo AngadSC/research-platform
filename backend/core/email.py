@@ -18,10 +18,16 @@ MAX_RETRIES = 5
 BACKOFF_SECONDS = 30  # 30s, 1m, 2m, 4m, 8m, capped at an hour
 
 
+# Reserved names (RFC 2606, 6761) can never receive mail. Seed and QA accounts use them, so a
+# test pass on the live server never hands the mail provider an address that will bounce.
+RESERVED_TLDS = (".test", ".example", ".invalid", ".localhost")
+
+
 def send_email(template: str, to, context: dict | None = None) -> None:
     """Queue `template` for each address in `to`, after the surrounding transaction commits.
     One task per recipient, so a retry never re-sends to someone already served."""
     recipients = [to] if isinstance(to, str) else list(to)
+    recipients = [a for a in recipients if not a.lower().rstrip(".").endswith(RESERVED_TLDS)]
     context = dict(context or {})
 
     def enqueue():
