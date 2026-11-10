@@ -2,6 +2,45 @@
 
 **Test server (2026-11-07):** `https://labbenchos.com`. Setup, limits and how to redeploy are at the top of `docs/DEPLOY.md`.
 
+## Overnight feedback run (branch claude/ux-overhaul)
+
+Everything is committed on `claude/ux-overhaul`. Nothing was pushed or deployed. Decisions are D220 to D244 in `docs/DECISIONS.md`.
+
+Final checks on this branch: backend 4311 passed and 128 skipped, ruff clean, no missing migrations, schema and API types up to date; frontend 425 tests passed, type check, lint and production build clean; Playwright 35 of 35 passed against the local dev stack.
+
+### What changed
+
+- **Bugs from your list:** two-step setup hides the QR code until you click, the name is labbenchos everywhere, audit log wording, Ctrl/Cmd+F is the browser's again (Ctrl/Cmd+K opens search), Google Drive connect no longer fails with `unexpected_scope`, the sidebar keeps your lab on Settings, sign out goes to the home page, and the theme switch lives only in Settings > Appearance (D220, D221).
+- **Phones and tablets:** no page scrolls sideways at 375 to 1024px; page headers, breadcrumbs, dialogs and the task board fit (D222).
+- **Navigation:** a new sidebar order with an Admin group, Home and Dashboard merged, the summary tiles removed, an All labs page, Ethics in the sidebar (D223).
+- **Settings and Lab details** are split into tabs. The lab AI switch moved to Lab details > AI. New users are asked for their name once instead of getting the start of their email. "Handover" is now "Work to pass on". Role names explain themselves on hover. You can make your own colour themes. Settings > AI has a Connect to Claude button and ChatGPT steps (D224).
+- **Project page:** five sections, a Workflow progress bar with "Do this next", chat as a side panel, an External tab for posters and talks, and saving a full set of results at once (D225).
+- **Funding is PI-only** everywhere, including search, exports, the AI tools and files linked to a grant (D226, D244). Labs can turn inventory off (dry lab), protocols take stock out safely, and inventory imports from CSV (D227 to D229).
+- **My work, meetings and calendars:** a My work page, a personal calendar, meetings, and `.ics` links you can subscribe to from Google Calendar (D230 to D232).
+- **Getting started:** a checklist on Home, a short tour, a Help page, project templates (honours thesis, survey, secondary data) and lab-wide documents such as a lab manual (D233 to D236).
+- **Lookups and Google:** university type-ahead from ROR, conference suggestions through the assistant, and editing a linked Google Doc or Sheet inside the site (D237 to D239).
+- **Automation:** outgoing webhooks for Zapier and Slack, Zotero import into Papers, and task import from Todoist, Trello and monday.com (D240 to D243).
+
+### Not done, and why
+
+- **OneDrive verification with University of Alberta IT:** this is your task, not code. It needs you to talk to their IT department.
+- **The text-box change:** your note refers to a picture that was never attached, so we could not tell which text box you meant. Send the picture and it can be done.
+- **Google Keep, Zoho and Teamwork:** not built. Keep has no way for a person to connect their own notes, Zoho needs an OAuth app registered by you, and Teamwork's reply format could not be confirmed (D243).
+- **Real Zoom or Meet accounts and two-way Google Calendar sync:** not built. Pasted join links and the one-way `.ics` link cover it (D232).
+- **XLSX inventory import:** CSV only, because no installed library reads XLSX (D229).
+- **Uploading a PDF or Word file as a lab-wide document:** lab documents are rich text or a Google or Microsoft link for now (D233).
+- **Nothing has been tried against a real outside account:** Google Drive, Google Calendar, Claude, ChatGPT, Zotero, Slack, Zapier, Todoist, Trello and monday.com were all tested with fakes only.
+
+### What you need to do
+
+1. Review the branch and merge it into `main`, then deploy. The deploy must run migrations: this branch adds new ones in audit, core, documents, integrations, labs, projects and provenance.
+2. After the deploy, anyone whose saved name was just the start of their email is asked for a name once (migration core 0010).
+3. Try these with real accounts: connecting Google Drive, the Connect to Claude button and the ChatGPT steps in Settings > AI (ChatGPT needs Developer mode, which not every plan has), an `.ics` link in Google Calendar, Edit here on a linked Google Doc, and each import or webhook you care about.
+4. To show Todoist, Trello and monday.com, set `INTEGRATION_OPTIONAL_PROVIDERS=todoist,trello,monday`. If `INTEGRATION_ALLOWED_INSTANCE_HOSTS` is set, add `hooks.zapier.com` and `hooks.slack.com` to it. Webhooks need the Celery worker running.
+5. Decide where feedback goes: the Help page links to a public GitHub issue form (`FEEDBACK_URL` in `frontend/src/lib/constants.ts`).
+6. Check the project template timelines in `backend/projects/templates.py`; the dates are estimates.
+7. Confirm you want D226 as built: lab admins and project leads lose all funding access, and a file linked to a grant is hidden from everyone but PIs.
+
 ## Run 5: SSO, bring-your-own AI, PI dashboard, training, data management (2026-11-05)
 
 Built, tested, reviewed and pushed. **Full notes, every issue and every design choice are in `docs/RUN5_NOTES.md`.** Decisions are D152–D204 in `docs/DECISIONS.md`. Nothing has touched a real university sign-in server, a real Claude or ChatGPT connector, or a real API key.
