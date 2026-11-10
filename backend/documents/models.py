@@ -34,8 +34,14 @@ class Folder(LabScopedModel):
 
 
 class Document(LabScopedModel):
+    # D233: no project means a lab-wide document (a lab manual, an SOP). Project code never sees
+    # one: `visible_to` filters on project, and only `services.lab_documents` returns them.
     project = models.ForeignKey(
-        "projects.Project", on_delete=models.CASCADE, related_name="documents"
+        "projects.Project",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="documents",
     )
     folder = models.ForeignKey(
         Folder, on_delete=models.SET_NULL, null=True, blank=True, related_name="documents"
@@ -61,6 +67,10 @@ class Document(LabScopedModel):
     permission_domain = "project"
     project_path = "project"
 
+    @property
+    def lab_wide(self) -> bool:
+        return self.project_id is None
+
     def save(self, *args, **kwargs):
         from documents.text import extract_text
 
@@ -74,6 +84,13 @@ class Document(LabScopedModel):
         indexes = [
             models.Index(fields=["project", "deleted_at"], name="document_project_deleted_idx"),
             models.Index(fields=["lab", "retain_until"], name="document_lab_retain_idx"),
+        ]
+        constraints = [
+            # With a null project the composite (folder, project) FK would not apply (MATCH SIMPLE).
+            models.CheckConstraint(
+                condition=Q(folder__isnull=True) | Q(project__isnull=False),
+                name="document_folder_needs_project",
+            ),
         ]
 
     def __str__(self):
@@ -93,6 +110,10 @@ class DocumentRevision(LabScopedModel):
     lab_parents = ("document",)
     permission_domain = "project"
     project_path = "document__project"
+
+    @property
+    def lab_wide(self) -> bool:
+        return self.document.lab_wide
 
     class Meta(LabScopedModel.Meta):
         constraints = [
@@ -133,6 +154,7 @@ class Attachment(LabScopedModel):
     folder = models.ForeignKey(  # only on project-owned files
         Folder, on_delete=models.SET_NULL, null=True, blank=True, related_name="attachments"
     )
+    pi_only = models.BooleanField(default=False)  # D244: a grant letter; never cleared
 
     lab_parents = ("project", "ethics_approval", "training_record", "folder", "paper")
     permission_domain = "project"
@@ -140,14 +162,11 @@ class Attachment(LabScopedModel):
 
     @classmethod
     def visible_rows(cls, qs, user, lab):
-        """D226: a file linked to a funding record (a grant letter) is PI-only as well."""
+        """D226, D244: a grant letter is PI-only. The flag is set when the file is linked to
+        funding and never cleared, so removing that link does not reopen the file."""
         from core.permissions import can_access_funding
-        from provenance.models import FundingRecord
 
-        if can_access_funding(user, lab):
-            return qs
-        linked = FundingRecord.objects.for_lab(lab).filter(attachment__isnull=False)
-        return qs.exclude(pk__in=linked.values("attachment"))
+        return qs if can_access_funding(user, lab) else qs.filter(pi_only=False)
 
     class Meta(LabScopedModel.Meta):
         constraints = [

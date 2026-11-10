@@ -8,19 +8,23 @@ from django.views.decorators.debug import sensitive_variables
 from integrations import http
 from integrations.providers import AuthType, Category, ConnectField, Provider
 from integrations.providers._refs import clean_text
-from integrations.providers._tasks import MAX_TASKS, task, tasks
+from integrations.providers._tasks import MAX_PAGES, PAGE_SIZE, task, tasks
 
 API = "https://api.monday.com/v2"
 _BOARD = re.compile(r"^[0-9]{1,20}$")
 _ME = "query { me { id email } }"
 _BOARDS = "query { boards(limit: 200, state: active) { id name } }"
-_ITEMS = """query ($board: [ID!], $limit: Int!) {
-  boards(ids: $board) {
-    items_page(limit: $limit) {
-      items { name column_values(types: [date]) { ... on DateValue { date } } }
-    }
-  }
-}"""
+_PAGE = "cursor items { name column_values(types: [date]) { ... on DateValue { date } } }"
+_ITEMS = (
+    "query ($board: [ID!], $limit: Int!) { boards(ids: $board) { items_page(limit: $limit) { "
+    + _PAGE
+    + " } } }"
+)
+_NEXT = (
+    "query ($cursor: String!, $limit: Int!) { next_items_page(cursor: $cursor, limit: $limit) { "
+    + _PAGE
+    + " } }"
+)
 
 
 @sensitive_variables("key")
@@ -65,8 +69,17 @@ def _due(item):
 def fetch_tasks(account, source_id):
     if not _BOARD.match(source_id):
         raise http.IntegrationError("monday.com board id is not valid")
-    boards = _query(account, _ITEMS, {"board": [source_id], "limit": MAX_TASKS})["boards"]
-    items = boards[0]["items_page"]["items"] if boards else []
+    boards = _query(account, _ITEMS, {"board": [source_id], "limit": PAGE_SIZE})["boards"]
+    if not boards:
+        return []
+    page, items = boards[0]["items_page"], []
+    for _ in range(MAX_PAGES):
+        items += page["items"]
+        if not page.get("cursor"):
+            break
+        page = _query(account, _NEXT, {"cursor": page["cursor"], "limit": PAGE_SIZE})[
+            "next_items_page"
+        ]
     return tasks([task(i.get("name"), "", _due(i)) for i in items])
 
 

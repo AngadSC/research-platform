@@ -9182,6 +9182,9 @@ components:
         acknowledged_notice:
           type: boolean
           default: false
+        pi_only:
+          type: boolean
+          default: false
       required:
       - file
     AuditEvent:

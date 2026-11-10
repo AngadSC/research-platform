@@ -130,6 +130,7 @@ class AttachmentSerializer(serializers.ModelSerializer):
 class AttachmentUploadSerializer(FolderRefMixin):
     file = serializers.FileField()
     acknowledged_notice = serializers.BooleanField(default=False)
+    pi_only = serializers.BooleanField(default=False)  # D244: honoured on project files only
 
     def validate_acknowledged_notice(self, value):
         if not value:

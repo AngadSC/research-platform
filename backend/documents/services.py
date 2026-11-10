@@ -198,6 +198,7 @@ def upload_attachment(
     paper=None,
     request=None,
     folder=None,
+    pi_only=False,
 ) -> Attachment:
     """The caller has already checked `acknowledged_notice` (the serializer) and access to the
     owner: exactly one of `project`, an ethics `approval`, a `training_record` or a `paper` (D38,
@@ -232,9 +233,11 @@ def upload_attachment(
                 sha256=digest.hexdigest(),
                 uploaded_by=user,
                 notice_acknowledged_at=now,
+                pi_only=pi_only,
             )
             record(
-                AuditAction.ATTACHMENT_UPLOADED,
+                # D244: lab admins read the audit log, and funding.* is hidden from them
+                AuditAction.FUNDING_UPDATED if pi_only else AuditAction.ATTACHMENT_UPLOADED,
                 actor=user,
                 lab=owner.lab,
                 target=attachment,

@@ -248,6 +248,9 @@ def create_inventory_item(*, lab, user, data, request=None):
 
 @transaction.atomic
 def update_inventory_item(obj, *, user, data, request=None):
+    """D244: `_update` writes every column, so it must start from the row as it is now, held
+    until commit, or a use recorded since this request read the item would be undone."""
+    obj = InventoryItem.objects.for_lab(obj.lab_id).select_for_update().get(pk=obj.pk)
     data = dict(data)
     if "owner" in data:
         data["owner"] = _members_only_owner(obj.lab, data["owner"])
@@ -332,19 +335,20 @@ def read_inventory_file(lab, upload) -> dict:
         ser = InventoryInputSerializer(data=data)
         errors = {} if ser.is_valid() else {k: str(v[0]) for k, v in ser.errors.items()}
         name = data.get("name", "")
+        warnings = []
+        if name.casefold() in existing | seen:
+            warnings.append("An item with this name already exists, so this adds another one.")
+        if "quantity" not in data:  # D244: the model's default, so say so before it is added
+            warnings.append("No quantity given, so this will be added with a quantity of 1.")
         rows.append(
             {
                 "row": line,
                 "name": name,
                 "category": data.get("category", ""),
-                "quantity": data.get("quantity", ""),
+                "quantity": data.get("quantity", "1"),
                 "unit": data.get("unit", ""),
                 "errors": errors,
-                "warning": (
-                    "An item with this name already exists, so this adds another one."
-                    if name.casefold() in existing | seen
-                    else ""
-                ),
+                "warning": " ".join(warnings),
             }
         )
         seen.add(name.casefold())

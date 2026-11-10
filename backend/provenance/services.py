@@ -6,7 +6,7 @@ import datetime
 import uuid
 
 from django.db import IntegrityError, transaction
-from django.db.models import ProtectedError, Sum
+from django.db.models import Prefetch, ProtectedError, Sum
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -216,6 +216,12 @@ def _save(obj):
         raise ValidationError({"detail": "An item with these details already exists."}) from exc
 
 
+def _keep_letter_private(obj):
+    """D244: the file stays PI-only even after this record stops pointing at it."""
+    if isinstance(obj, FundingRecord) and obj.attachment_id:
+        Attachment.objects.for_lab(obj.lab_id).filter(pk=obj.attachment_id).update(pi_only=True)
+
+
 @transaction.atomic
 def create(kind, *, project, user, data, request=None):
     spec = SPECS[kind]
@@ -229,6 +235,7 @@ def create(kind, *, project, user, data, request=None):
         _check_analysis(obj)
     _check_dates(obj)
     _save(obj)
+    _keep_letter_private(obj)
     for field, items in m2m.items():
         getattr(obj, field).set(items)
     record(spec.created, actor=user, lab=project.lab, target=obj, request=request)
@@ -248,6 +255,7 @@ def update(kind, obj, *, user, data, request=None):
         _check_analysis(obj)
     _check_dates(obj)
     _save(obj)
+    _keep_letter_private(obj)
     for field, items in m2m.items():
         getattr(obj, field).set(items)
     record(
@@ -346,7 +354,9 @@ def mark_workflow_stage(*, project, user, stage, done, request=None):
     locked.workflow_marked_done = marked
     locked.save(update_fields=["workflow_marked_done", "updated_at"])
     record(
-        A.PROJECT_UPDATED,
+        # D226: a stage marked done says whether a project has money, and the audit log hides
+        # only funding.* from people who are not PIs
+        A.FUNDING_UPDATED if stage == "funding" else A.PROJECT_UPDATED,
         actor=user,
         lab=project.lab,
         target=locked,
@@ -399,18 +409,20 @@ def export_project(*, project, user, context, request=None) -> dict:
         return model.objects.for_lab(project.lab_id).filter(project=project)
 
     live = {"deleted_at__isnull": True}
+    files = Attachment.objects.visible_to(user, project.lab_id)  # D226: no grant letters
     out = {
         "exported_at": timezone.now(),
         "project": project,
-        "tasks": mine(Task).select_related("assignee", "created_by").order_by("created_at", "id"),
+        "tasks": mine(Task)
+        .select_related("assignee", "created_by")
+        .prefetch_related(Prefetch("attachments", files))
+        .order_by("created_at", "id"),
         "deadlines": mine(ProjectDeadline).order_by("due_date", "id"),
         "documents": mine(Document)
         .filter(**live)
         .select_related("created_by", "updated_by")
         .order_by("created_at", "id"),
-        "attachments": Attachment.objects.visible_to(user, project.lab_id)
-        .filter(project=project, **live)
-        .select_related("uploaded_by"),
+        "attachments": files.filter(project=project, **live).select_related("uploaded_by"),
         **{PLURAL[kind]: queryset(kind, project, user) for kind in SPECS},
         "recruitment_plan": recruitment_plan(project),
     }

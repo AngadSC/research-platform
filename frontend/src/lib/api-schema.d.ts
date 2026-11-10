@@ -3744,6 +3744,8 @@ export interface components {
             file: string;
             /** @default false */
             acknowledged_notice: boolean;
+            /** @default false */
+            pi_only: boolean;
         };
         AuditEvent: {
             /** Format: uuid */

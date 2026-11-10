@@ -25,6 +25,7 @@ export default function ProtocolsTab({ labId, projectId, project }: ProjectTabPr
   const { list, usage, save, remove, use, reverse } = useProtocols(labId, projectId);
   const [editing, setEditing] = useState<Protocol | "new" | null>(null);
   const [using, setUsing] = useState<{ protocol: Protocol; reagent: Reagent } | null>(null);
+  const [deleting, setDeleting] = useState<Protocol | null>(null);
   const canEdit = project.my_permissions.includes("edit_content");
   const fail = (e: unknown) => toast.error(formErrors(e, []).form ?? "Something went wrong.");
 
@@ -95,12 +96,7 @@ export default function ProtocolsTab({ labId, projectId, project }: ProjectTabPr
                     variant="ghost"
                     size="sm"
                     aria-label={`Delete ${p.name}`}
-                    onClick={() =>
-                      remove.mutate(p.id, {
-                        onSuccess: () => toast.success("Protocol deleted"),
-                        onError: fail,
-                      })
-                    }
+                    onClick={() => setDeleting(p)}
                   >
                     Delete
                   </Button>
@@ -157,6 +153,35 @@ export default function ProtocolsTab({ labId, projectId, project }: ProjectTabPr
         />
       </section>
 
+      {deleting && (
+        <Dialog open onOpenChange={(o) => !o && setDeleting(null)}>
+          <DialogContent>
+            <DialogTitle className="text-base font-semibold">Delete {deleting.name}?</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              The protocol and its list of reagents will be gone for good. Stock and the record of
+              what was used stay as they are.
+            </DialogDescription>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeleting(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={remove.isPending}
+                onClick={() =>
+                  remove.mutate(deleting.id, {
+                    onSuccess: () => toast.success("Protocol deleted"),
+                    onError: fail,
+                    onSettled: () => setDeleting(null),
+                  })
+                }
+              >
+                Delete protocol
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
       {editing && (
         <ProtocolDialog
           labId={labId}

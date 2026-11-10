@@ -14,6 +14,7 @@ import { useFunding } from "@/hooks/workflow";
 import { personName, type Funding, type FundingInput } from "@/lib/api-types";
 import { FUNDING_STATUSES, label, money, WORKFLOW_TONE } from "@/lib/workflow";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
+import { UploadDialog } from "@/pages/project/UploadDialog";
 import { InstitutionLinks } from "@/pages/project/workflow/InstitutionLinks";
 import {
   day,
@@ -166,7 +167,10 @@ function FundingDialog({
   onClose: () => void;
   onSave: (v: Partial<FundingInput>) => Promise<unknown>;
 }) {
-  const files = useAttachments(labId, projectId).list.data ?? [];
+  const { list, uploadFile } = useAttachments(labId, projectId);
+  const files = list.data ?? [];
+  const [uploading, setUploading] = useState(false);
+  const [picked, setPicked] = useState<string>();
   return (
     <RecordDialog
       title={funding ? "Edit funding" : "Add funding"}
@@ -266,15 +270,15 @@ function FundingDialog({
           </FormField>
           <FormField
             label="Attachment (optional)"
-            hint="A file already in this project's Files. Only PIs will be able to open it after this."
+            hint="Once picked here, only PIs can open this file, even if you later remove it from this record. Anyone on the project can open it until then, so use the button below for a private letter."
             error={e.attachment}
           >
             {(p) => (
               <NativeSelect
                 {...p}
-                key={files.length}
+                key={`${files.length}-${picked}`}
                 name="attachment"
-                defaultValue={funding?.attachment?.id ?? ""}
+                defaultValue={picked ?? funding?.attachment?.id ?? ""}
               >
                 <option value="">None</option>
                 {files.map((a) => (
@@ -285,6 +289,20 @@ function FundingDialog({
               </NativeSelect>
             )}
           </FormField>
+          <div>
+            <Button type="button" variant="outline" size="sm" onClick={() => setUploading(true)}>
+              Upload a letter only PIs can open
+            </Button>
+          </div>
+          <UploadDialog
+            open={uploading}
+            onOpenChange={setUploading}
+            send={(file, onProgress) =>
+              uploadFile
+                .mutateAsync({ file, onProgress, piOnly: true })
+                .then((a) => setPicked(a.id))
+            }
+          />
         </>
       )}
     </RecordDialog>

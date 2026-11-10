@@ -12,7 +12,7 @@ from rest_framework.throttling import ScopedRateThrottle
 
 from audit.models import AuditAction
 from audit.services import record
-from core.permissions import Perm, can_view_ethics_files, visible_projects
+from core.permissions import Perm, can_view_ethics_files, require, visible_projects
 from core.tenancy import project_of
 from core.views import LabScopedViewMixin
 from documents import services
@@ -243,12 +243,16 @@ class AttachmentListCreateView(AttachmentMixin, generics.GenericAPIView):
     def post(self, request, lab_id, project_id):
         ser = AttachmentUploadSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
+        pi_only = ser.validated_data["pi_only"]
+        if pi_only:  # D244: a grant letter, private from the moment it arrives
+            require(request.user, Perm.ACCESS_FUNDING, self.project)
         attachment = services.upload_attachment(
             project=self.project,
             user=request.user,
             file=ser.validated_data["file"],
             folder=self.resolve_folder(ser.validated_data.get("folder")),
             request=request,
+            pi_only=pi_only,
         )
         return Response(self.get_serializer(attachment).data, status=status.HTTP_201_CREATED)
 

@@ -3,6 +3,7 @@ import re
 from django.db.models import Prefetch
 from rest_framework import serializers
 
+from core.permissions import can_access_funding
 from core.serializers import UserSerializer, no_control_chars
 from documents.models import Attachment, Document
 from documents.serializers import (
@@ -80,6 +81,16 @@ class AttachmentRefSerializer(serializers.ModelSerializer):
         model = Attachment
         fields = ["id", "original_filename", "content_type", "size_bytes"]
         read_only_fields = fields
+
+    def to_representation(self, attachment):
+        """D226: a one-file link (External, Analysis, the DMP) must not name a grant letter.
+        The many-file links are already filtered when they are fetched."""
+        request = self.context.get("request")
+        if attachment.pi_only and not (
+            request and can_access_funding(request.user, attachment.lab_id)
+        ):
+            return None
+        return super().to_representation(attachment)
 
 
 DOI_RE = re.compile(r"^10\.\d{4,9}/\S+$")

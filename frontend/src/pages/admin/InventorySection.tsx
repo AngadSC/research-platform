@@ -101,8 +101,12 @@ function ItemDialog({
       notes: v("notes"),
     };
     try {
-      if (item) await update.mutateAsync({ id: item.id, ...body });
-      else await create.mutateAsync(body);
+      if (item) {
+        // Stock moves while this form is open: only a number someone typed may replace it (D244).
+        const { quantity, ...rest } = body;
+        const typed = Number(quantity) !== Number(item.quantity);
+        await update.mutateAsync({ id: item.id, ...rest, ...(typed && { quantity }) });
+      } else await create.mutateAsync(body);
       setErrors({ fields: {} });
       toast.success(item ? "Item saved" : "Item added");
       onClose();
@@ -285,7 +289,8 @@ export function InventorySection({
                   onClick={() =>
                     remove.mutate(i.id, {
                       onSuccess: () => toast.success("Item deleted"),
-                      onError: () => toast.error("Could not delete the item."),
+                      onError: (e) =>
+                        toast.error(formErrors(e, []).form ?? "Could not delete the item."),
                     })
                   }
                 >

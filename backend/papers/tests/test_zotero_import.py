@@ -117,6 +117,16 @@ def test_no_key_is_a_404_and_another_members_key_is_not_used(world, transport, m
     assert transport.calls == []
 
 
+def test_zotero_failing_partway_imports_nothing(world, transport):
+    lab, user = world
+    connect(lab, user)
+    transport.on("GET", ITEM_URL, response(200, item()))
+    transport.on("GET", f"{API}/users/7/items/WXYZ2345", response(500, {}))
+    assert post(user, lab, [ITEM_ID, "u7:WXYZ2345"]).status_code == 502
+    assert Paper.objects.for_lab(lab).count() == 0
+    assert not AuditEvent.objects.filter(action=AuditAction.PAPERS_IMPORTED).exists()
+
+
 def test_zotero_being_down_is_a_clean_502(world, transport):
     lab, user = world
     connect(lab, user)

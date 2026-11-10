@@ -129,7 +129,7 @@ def test_a_stage_can_be_marked_done_and_undone(w):
     assert resp.status_code == 200
     assert resp.json()["next"] == "ethics"
     assert resp.json()["stages"][0] == {"key": "funding", "done": True, "marked": True}
-    assert AuditEvent.objects.filter(action="project.updated", target_id=w.project.pk).exists()
+    assert AuditEvent.objects.filter(action="funding.updated", target_id=w.project.pk).exists()
 
     resp = client.patch(progress_url(w), {"stage": "funding", "done": False}, format="json")
     assert resp.json()["next"] == "funding"

@@ -140,6 +140,92 @@ def test_funding_is_pi_only_everywhere(w):
     assert AuditEvent.objects.filter(action="funding.created").count() == 1
 
 
+def _letter(w, name="letter.pdf", **kw):
+    from documents import services as doc_services
+
+    upload = SimpleUploadedFile(name, b"%PDF-1.4 grant", content_type="application/pdf")
+    return doc_services.upload_attachment(project=w.project, user=w.pi, file=upload, **kw)
+
+
+def _files(w, user):
+    return w.client(user).get(reverse("documents:attachment-list", kwargs=pk(w))).content.decode()
+
+
+def test_a_grant_letter_stays_pi_only_after_the_link_goes(w):
+    """D244: deleting the funding record, or pointing it at another file, must not reopen it."""
+    member = w.member(ProjectRole.CONTRIBUTOR)
+    letter, other = _letter(w), _letter(w, "second.pdf")
+    made = post(w, "funding-list", {"funder": "A", "attachment": str(letter.pk)}).json()
+    assert str(letter.pk) not in _files(w, member)
+    one = url(w, "funding-detail", fundingrecord_id=made["id"])
+    assert w.client().patch(one, {"attachment": str(other.pk)}, format="json").status_code == 200
+    assert str(letter.pk) not in _files(w, member) and str(other.pk) not in _files(w, member)
+    assert w.client().delete(one).status_code == 204
+    assert str(letter.pk) not in _files(w, member) and str(other.pk) not in _files(w, member)
+    assert str(letter.pk) in _files(w, w.pi)  # the PI keeps it
+
+
+def test_a_pi_can_upload_a_letter_that_is_private_from_the_start(w):
+    member = w.member(ProjectRole.CONTRIBUTOR)
+    files = reverse("documents:attachment-list", kwargs=pk(w))
+
+    def send(user):
+        upload = SimpleUploadedFile("award.pdf", b"%PDF-1.4", content_type="application/pdf")
+        return w.client(user).post(
+            files, {"file": upload, "acknowledged_notice": "true", "pi_only": "true"}
+        )
+
+    assert send(member).status_code == 403  # edit_content alone is not enough
+    made = send(w.pi)
+    assert made.status_code == 201, made.content
+    assert made.json()["id"] not in _files(w, member) and made.json()["id"] in _files(w, w.pi)
+    actions = AuditEvent.objects.filter(target_id=made.json()["id"])
+    assert list(actions.values_list("action", flat=True)) == ["funding.updated"]
+
+
+def test_a_letter_on_a_task_is_not_named_in_the_export(w):
+    from projects.models import Task
+
+    admin = w.make_user()
+    w.join(admin, w.lab, LabRole.LAB_ADMIN)
+    letter = _letter(w)
+    Task.objects.create(lab=w.lab, project=w.project, title="T", created_by=w.pi).attachments.add(
+        letter
+    )
+    post(w, "funding-list", {"funder": "A", "attachment": str(letter.pk)})
+    export = reverse("provenance:export", kwargs=pk(w))
+    assert w.client(admin).post(export).json()["tasks"][0]["attachments"] == []
+    assert w.client().post(export).json()["tasks"][0]["attachments"][0]["id"] == str(letter.pk)
+
+
+def test_marking_the_funding_stage_is_hidden_from_a_lab_admin(w):
+    admin = w.make_user()
+    w.join(admin, w.lab, LabRole.LAB_ADMIN)
+    mark = reverse("provenance:workflow-progress", kwargs=pk(w))
+    assert (
+        w.client().patch(mark, {"stage": "funding", "done": True}, format="json").status_code == 200
+    )
+    audit_url = reverse("audit:audit-event-list", kwargs={"lab_id": w.lab.pk})
+
+    def seen(user):
+        return [r["metadata"] for r in w.client(user).get(audit_url).json()["results"]]
+
+    assert not [m for m in seen(admin) if m.get("stage") == "funding"]
+    assert [m for m in seen(w.pi) if m.get("stage") == "funding"]
+
+
+def test_a_one_file_link_never_names_a_letter(w):
+    """D226: the External record stays, but its reference to a grant letter does not."""
+    member = w.member(ProjectRole.CONTRIBUTOR)
+    letter = _letter(w)
+    body = {"type": "other", "title": "Talk", "date": "2030-01-01", "attachment": str(letter.pk)}
+    made = post(w, "external-list", body, member)
+    assert made.status_code == 201, made.content
+    post(w, "funding-list", {"funder": "A", "attachment": str(letter.pk)})
+    assert w.client(member).get(url(w, "external-list")).json()[0]["attachment"] is None
+    assert w.client().get(url(w, "external-list")).json()[0]["attachment"]["id"] == str(letter.pk)
+
+
 def test_funding_validation(w):
     def bad(body):
         return post(w, "funding-list", {"funder": "A", **body}).status_code

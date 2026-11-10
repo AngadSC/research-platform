@@ -96,7 +96,8 @@ def _revise(plan, user):
     last = plan.revisions.order_by("-number").values_list("number", flat=True).first() or 0
     snap = {f: getattr(plan, f) for f in SNAPSHOT_FIELDS}
     snap["last_reviewed"] = plan.last_reviewed.isoformat() if plan.last_reviewed else None
-    snap["attachment"] = plan.attachment.original_filename if plan.attachment_id else None
+    shown = plan.attachment_id and not plan.attachment.pi_only  # D226: every member reads this
+    snap["attachment"] = plan.attachment.original_filename if shown else None
     DataManagementPlanRevision.objects.create(
         lab=plan.lab, plan=plan, number=last + 1, snapshot=snap, created_by=user
     )

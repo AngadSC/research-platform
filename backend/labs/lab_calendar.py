@@ -467,6 +467,8 @@ class CalendarIcsView(views.APIView):
         mine = request.query_params.get("mine") == "1"
         today = timezone.now().date()
         items = build_calendar(feed.user, lab, today - FEED_PAST, today + FEED_FUTURE, mine=mine)
+        # D244: a subscribed calendar copies this to another company, so funding never goes
+        items = [i for i in items if i["kind"] != "funding"]
         body = render_ics(f"{lab.name} ({'mine' if mine else 'lab'})", items)
         return HttpResponse(
             body,

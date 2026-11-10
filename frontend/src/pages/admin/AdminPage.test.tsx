@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, waitFor, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { localDateISO } from "@/lib/format";
@@ -148,6 +148,40 @@ describe("admin area", () => {
       "href",
       "/api/labs/lab1/inventory/export/?ordering=name",
     );
+  });
+
+  it("does not overwrite stock when an edit leaves the quantity alone, and shows why a delete failed", async () => {
+    const row = {
+      id: "i1",
+      name: "Ethanol",
+      category: "reagent",
+      location: "",
+      quantity: "10.00",
+      unit: "mL",
+      owner: null,
+      serial_number: "",
+      purchase_date: null,
+      due_date: null,
+      status: "active",
+      notes: "",
+    };
+    const calls = mockFetch(
+      base(["view_lab", "manage_inventory"], {
+        "GET /api/labs/lab1/inventory/?ordering=name": { body: [row] },
+        "PATCH /api/labs/lab1/inventory/i1/": { body: row },
+        "DELETE /api/labs/lab1/inventory/i1/": {
+          status: 409,
+          body: { detail: "Mark the item as retired instead." },
+        },
+      }),
+    );
+    renderRoute("/labs/lab1/inventory");
+    await userEvent.click(await screen.findByRole("button", { name: "Edit Ethanol" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Save" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "PATCH")).toBe(true));
+    expect(calls.find((c) => c.method === "PATCH")!.body).not.toHaveProperty("quantity");
+    await userEvent.click(screen.getByRole("button", { name: "Delete Ethanol" }));
+    expect(await screen.findByText("Mark the item as retired instead.")).toBeInTheDocument();
   });
 
   it("picks today's local date when a date field is double-clicked", async () => {

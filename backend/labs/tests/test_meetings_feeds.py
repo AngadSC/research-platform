@@ -18,6 +18,7 @@ from core.models import User
 from ethics.models import EthicsApproval
 from labs import lab_calendar
 from labs.models import CalendarFeedToken, LabMembership, LabRole, Meeting, hash_token
+from labs.services import remove_member
 from projects.models import ProjectDeadline, ProjectMembership, ProjectRole, Task
 from provenance.models import FundingRecord
 
@@ -278,19 +279,40 @@ def test_making_a_link_needs_a_recent_sign_in(world):
 
 
 def test_feed_follows_the_owner_being_demoted_at_the_next_fetch(world):
-    lab, u, mine, _ = world
-    add_funding(lab, mine, u["pi"])
+    lab, u, _, other = world
+    EthicsApproval.objects.create(
+        lab=lab,
+        approval_number="E8",
+        board="B",
+        title="Restricted one",
+        approval_date="2025-01-01",
+        expiry_date=DAY,
+        restricted=True,
+        created_by=u["pi"],
+    ).projects.add(other)
     token = issue(u["pi"], lab)
-    assert b"Secret Funder" in get_feed(token).content
-    LabMembership.objects.for_lab(lab).filter(user=u["pi"]).update(role=LabRole.LAB_ADMIN)
+    assert b"Restricted one" in get_feed(token).content
+    LabMembership.objects.for_lab(lab).filter(user=u["pi"]).update(role=LabRole.MEMBER)
     response = get_feed(token)
-    assert response.status_code == 200 and b"Secret Funder" not in response.content
+    assert response.status_code == 200 and b"Restricted one" not in response.content
 
 
-def test_feed_shows_funding_only_to_pis(world):
+def test_funding_stays_in_the_app_and_never_goes_in_a_feed(world):
     lab, u, mine, _ = world
     add_funding(lab, mine, u["pi"])
+    kinds = {i["kind"] for i in lab_calendar.build_calendar(u["pi"], lab, DAY, DAY)}
+    assert "funding" in kinds  # the PI still sees it in the app
+    assert b"Secret Funder" not in get_feed(issue(u["pi"], lab)).content
     assert b"Secret Funder" not in get_feed(issue(u["member"], lab)).content
+
+
+def test_removing_a_member_ends_their_feed_for_good(world, join):
+    lab, u, _, _ = world
+    token = issue(u["member"], lab)
+    remove_member(membership=LabMembership.objects.for_lab(lab).get(user=u["member"]), by=u["pi"])
+    assert AuditEvent.objects.filter(action=AuditAction.CALENDAR_FEED_REVOKED).count() == 1
+    join(u["member"], lab, LabRole.MEMBER)  # rejoining does not bring the old link back
+    assert get_feed(token).status_code == 401
 
 
 def test_feed_never_holds_a_hidden_project_or_restricted_ethics(world):

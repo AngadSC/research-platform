@@ -53,14 +53,21 @@ function UploadForm({
     if (!files.length || !ack) return;
     setError(undefined);
     setProgress(0);
+    let done = 0;
     try {
-      for (const [i, file] of files.entries())
+      for (const [i, file] of files.entries()) {
         await send(file, (f) => setProgress((i + f) / files.length));
+        done = i + 1;
+      }
       toast.success(files.length > 1 ? `${files.length} files uploaded` : "File uploaded");
       onDone();
     } catch (e) {
       const { fields, form } = formErrors(e, ["file", "acknowledged_notice"]);
-      const msg = fields.file ?? fields.acknowledged_notice ?? form ?? "Upload failed.";
+      const reason = fields.file ?? fields.acknowledged_notice ?? form ?? "Upload failed.";
+      const msg = done
+        ? `${done} of ${files.length} files uploaded. ${files[done]!.name} failed: ${reason} Upload again to send the rest.`
+        : reason;
+      setFiles(files.slice(done)); // the ones that went through must not be sent twice
       setError(msg);
       toast.error(msg);
       setProgress(null);

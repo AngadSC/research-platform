@@ -9,6 +9,7 @@ from rest_framework.test import APIClient
 from audit.models import AuditAction, AuditEvent
 from integrations.models import ConnectedAccount
 from integrations.providers import monday, todoist, trello
+from integrations.providers._tasks import MAX_TASKS
 from integrations.tests.fake import response
 from projects.models import Task
 
@@ -110,6 +111,39 @@ def test_todoist_import_copies_tasks_once(world, transport):
     assert imp(user, lab, project, "todoist", "p1").json() == {"created": 0, "skipped": 2}
     event = AuditEvent.objects.filter(action=AuditAction.TASKS_IMPORTED).first()
     assert event.metadata["provider"] == "todoist" and "Book MRI" not in str(event.metadata)
+
+
+def test_todoist_reads_every_page(world, transport):
+    lab, user, project = world
+    account(lab, user)
+    page = lambda title, cursor: response(  # noqa: E731
+        200, {"results": [{"content": title}], "next_cursor": cursor}
+    )
+    transport.on("GET", TODOIST_TASKS, page("One", "c2"))
+    transport.on("GET", f"{TODOIST_TASKS}&cursor=c2", page("Two", None))
+    assert imp(user, lab, project, "todoist", "p1").json() == {"created": 2, "skipped": 0}
+
+
+def test_monday_reads_every_page(world, transport):
+    lab, user, project = world
+    account(lab, user, "monday")
+    first = {"boards": [{"items_page": {"cursor": "c2", "items": [{"name": "One"}]}}]}
+    second = {"next_items_page": {"cursor": None, "items": [{"name": "Two"}]}}
+    transport.on(
+        "POST", monday.API, response(200, {"data": first}), response(200, {"data": second})
+    )
+    assert imp(user, lab, project, "monday", "12345").json() == {"created": 2, "skipped": 0}
+    assert transport.calls[1][2]["json"]["variables"]["cursor"] == "c2"
+
+
+def test_a_list_past_the_limit_adds_nothing_and_says_so(world, transport):
+    lab, user, project = world
+    account(lab, user, "trello")
+    cards = [{"name": f"Card {i}"} for i in range(MAX_TASKS + 1)]
+    transport.on("GET", TRELLO_CARDS, response(200, cards))
+    got = imp(user, lab, project, "trello", BOARD)
+    assert got.status_code == 400 and "too many" in got.content.decode()
+    assert not Task.objects.for_lab(lab).exists()
 
 
 def test_import_needs_your_own_account(world, lab_users, transport):

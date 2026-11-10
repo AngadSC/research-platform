@@ -134,23 +134,25 @@ def import_from_zotero(lab, *, user, ids, request=None) -> dict:
 
     account = active_account_or_404(lab, user, registry.get("zotero"))
     live = Paper.objects.for_lab(lab).filter(deleted_at__isnull=True)
+    # Everything is read before anything is added: Zotero failing partway imports nothing (D244).
+    fetched = [zotero.paper_fields(account, external_id) for external_id in dict.fromkeys(ids)]
     created = skipped = 0
-    for external_id in dict.fromkeys(ids):
-        fields = zotero.paper_fields(account, external_id)
-        form = PaperInputSerializer(data=fields) if fields else None
-        if form is None or not form.is_valid() or live.filter(title__iexact=fields["title"]):
-            skipped += 1
-            continue
-        try:
-            create_paper(lab, user=user, data=form.validated_data)
-            created += 1
-        except ValidationError:  # the DOI is already in the library
-            skipped += 1
-    record(
-        AuditAction.PAPERS_IMPORTED,
-        actor=user,
-        lab=lab,
-        request=request,
-        metadata={"provider": "zotero", "created": created, "skipped": skipped},
-    )
+    with transaction.atomic():
+        for fields in fetched:
+            form = PaperInputSerializer(data=fields) if fields else None
+            if form is None or not form.is_valid() or live.filter(title__iexact=fields["title"]):
+                skipped += 1
+                continue
+            try:
+                create_paper(lab, user=user, data=form.validated_data)
+                created += 1
+            except ValidationError:  # the DOI is already in the library
+                skipped += 1
+        record(
+            AuditAction.PAPERS_IMPORTED,
+            actor=user,
+            lab=lab,
+            request=request,
+            metadata={"provider": "zotero", "created": created, "skipped": skipped},
+        )
     return {"created": created, "skipped": skipped}

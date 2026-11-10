@@ -67,6 +67,19 @@ describe("Protocols", () => {
     expect(typeof (post.body as { request_id: string }).request_id).toBe("string");
   });
 
+  it("asks before deleting a protocol", async () => {
+    const calls = mockFetch(
+      base(["view_project", "edit_content"], {
+        "DELETE /api/labs/lab1/protocols/pr1/": { status: 204 },
+      }),
+    );
+    renderRoute(`${W}/protocols`);
+    await userEvent.click(await screen.findByRole("button", { name: "Delete PCR" }));
+    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+    await userEvent.click(screen.getByRole("button", { name: "Delete protocol" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "DELETE")).toBe(true));
+  });
+
   it("hides recording from someone who can only view the project", async () => {
     mockFetch(base(["view_project"]));
     renderRoute(`${W}/protocols`);

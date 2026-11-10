@@ -18,8 +18,9 @@ from core.models import PLACEHOLDER_INSTITUTION, Institution
 from core.permissions import LAB_ROLE_PERMS, Perm, can, forget, lab_role
 from core.tenancy import by_secret
 from integrations.services import revoke_member_accounts
-from labs.admin_services import apply_starter_resources, institution_for
+from labs.admin_services import apply_starter_resources, institution_for, revoke_calendar_feed
 from labs.models import (
+    CalendarFeedToken,
     Invite,
     Lab,
     LabChatMessage,
@@ -242,6 +243,9 @@ def remove_member(*, membership, by, request=None) -> None:
     # D19: a removed lab member loses their project memberships too.
     ProjectMembership.objects.for_lab(lab).filter(user_id=membership.user_id).delete()
     membership.delete()
+    # D244: otherwise the old link would start working again if they rejoin
+    for feed in CalendarFeedToken.objects.for_lab(lab).filter(user_id=membership.user_id):
+        revoke_calendar_feed(feed, user=by, request=request)
     _revoke_stale_invites(lab=lab, user=membership.user, by=by, request=request)
     unassign_lost_access(
         membership.user, lab=lab, by=by, request=request, reason="removed_from_lab"

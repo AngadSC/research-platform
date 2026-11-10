@@ -9,6 +9,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from audit.models import AuditEvent
+from labs.admin_services import update_inventory_item
 from labs.models import InventoryItem, InventoryUsage, LabRole
 from projects.models import ProjectMembership, ProjectRole
 
@@ -158,6 +159,20 @@ def test_preview_reports_row_errors_and_writes_nothing(world):
     assert (body["valid"], body["invalid"], body["imported"]) == (1, 1, 0)
     assert body["rows"][1]["row"] == 3 and "category" in body["rows"][1]["errors"]
     assert InventoryItem.objects.for_lab(world[0]).count() == before
+
+
+def test_editing_an_item_keeps_stock_used_since_it_was_read(world):
+    lab, pi, member, project, item = world
+    stale = InventoryItem.objects.for_lab(lab).get(pk=item.pk)  # read while quantity is 10
+    assert use(world, make_protocol(world, amount="3"), member).status_code == 201
+    update_inventory_item(stale, user=pi, data={"notes": "New note"})
+    item.refresh_from_db()
+    assert (item.quantity, item.notes) == (7, "New note")
+
+
+def test_a_row_with_no_quantity_says_it_will_be_added_with_one(world):
+    body = post_import(world, "Name,Category\nPipette,equipment\n").json()
+    assert body["rows"][0]["quantity"] == "1" and "quantity of 1" in body["rows"][0]["warning"]
 
 
 def test_a_file_with_any_bad_row_imports_nothing(world):

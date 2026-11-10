@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 from integrations import http
 from integrations.providers import AuthType, Category, ConnectField, Provider
 from integrations.providers._refs import clean_text, read
-from integrations.providers._tasks import MAX_TASKS, task, tasks
+from integrations.providers._tasks import MAX_PAGES, PAGE_SIZE, task, tasks
 
 API = "https://api.todoist.com/api/v1"
 _SOURCE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
@@ -22,19 +22,26 @@ def identify(account):
 
 
 def task_sources(account):
-    data = read(PROVIDER, account, f"{API}/projects?limit={MAX_TASKS}", "Todoist") or {}
+    data = read(PROVIDER, account, f"{API}/projects?limit={PAGE_SIZE}", "Todoist") or {}
     return [{"id": str(p["id"]), "name": clean_text(p["name"], 200)} for p in data["results"]]
 
 
 def fetch_tasks(account, source_id):
     if not _SOURCE.match(source_id):
         raise http.IntegrationError("Todoist project id is not valid")
-    query = urlencode({"project_id": source_id, "limit": MAX_TASKS})
-    data = read(PROVIDER, account, f"{API}/tasks?{query}", "Todoist") or {"results": []}
+    rows, cursor = [], None
+    for _ in range(MAX_PAGES):
+        params = {"project_id": source_id, "limit": PAGE_SIZE}
+        query = urlencode({**params, "cursor": cursor} if cursor else params)
+        data = read(PROVIDER, account, f"{API}/tasks?{query}", "Todoist") or {"results": []}
+        rows += data["results"]
+        cursor = data.get("next_cursor")
+        if not cursor:
+            break
     return tasks(
         [
             task(t.get("content"), t.get("description"), (t.get("due") or {}).get("date"))
-            for t in data["results"]
+            for t in rows
         ]
     )
 

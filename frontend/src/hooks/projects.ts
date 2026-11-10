@@ -173,11 +173,17 @@ export function useAttachments(labId: string, projectId: string) {
   });
   // The notice is acknowledged by the caller on every upload; nothing is remembered here.
   const uploadFile = useMutation({
-    mutationFn: (v: { file: File; onProgress?: (f: number) => void; folder?: string | null }) => {
+    mutationFn: (v: {
+      file: File;
+      onProgress?: (f: number) => void;
+      folder?: string | null;
+      piOnly?: boolean;
+    }) => {
       const form = new FormData();
       form.append("file", v.file);
       form.append("acknowledged_notice", "true");
       if (v.folder) form.append("folder", v.folder);
+      if (v.piOnly) form.append("pi_only", "true");
       return upload<Attachment>(
         `${base(labId)}/projects/${projectId}/attachments/`,
         form,
