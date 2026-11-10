@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AssistantDrawer } from "@/components/assistant/AssistantDrawer";
-import { parseSse } from "@/lib/assistant";
+import { parseSse, reduceLive, type ChatEvent, type Live } from "@/lib/assistant";
 import { makeLab } from "@/test/utils";
 
 interface Call {
@@ -120,6 +120,93 @@ describe("assistant panel", () => {
     );
     expect(events).toEqual([{ type: "text", delta: "Hi" }]);
     expect(rest).toBe("event: do");
+  });
+
+  it("applies every streamed event to the live answer", () => {
+    const empty: Live = { user: "q", text: "", tools: [], notice: null, error: null };
+    const run = (...evs: ChatEvent[]) => evs.reduce(reduceLive, empty);
+    const firstTurn: ChatEvent[] = [
+      { type: "start", conversation_id: "c1" },
+      { type: "text", delta: "Checking." },
+      { type: "tool_start", name: "list_projects" },
+      { type: "ping" },
+      { type: "assistant", id: "m1" },
+      { type: "tool", id: "r1", name: "list_projects", title: "List projects", status: "done" },
+    ];
+    let live = run(...firstTurn);
+    expect(live.text).toBe("Checking.\n\n");
+    expect(live.tools).toEqual([{ label: "List projects", status: "done" }]);
+
+    // a retried turn throws away only its own half-streamed text and tool rows
+    live = run(
+      ...firstTurn,
+      { type: "text", delta: "Half an" },
+      { type: "tool_start", name: "create_task" },
+      { type: "retry" },
+      { type: "text", delta: "Whole answer." },
+    );
+    expect(live.text).toBe("Checking.\n\nWhole answer.");
+    expect(live.tools).toEqual([{ label: "List projects", status: "done" }]);
+
+    live = run(
+      { type: "tool_start", name: "create_task" },
+      { type: "approval_required", calls: [] },
+    );
+    expect(live.tools).toEqual([{ label: "Create task", status: "running" }]);
+    expect(run({ type: "notice", code: "refusal" }).notice).toEqual({
+      type: "notice",
+      code: "refusal",
+    });
+    expect(
+      run({ type: "error", code: "key_invalid", message: "Bad key.", retryable: false }).error,
+    ).toEqual({ message: "Bad key.", retryable: false });
+    expect(run({ type: "done" })).toEqual(empty);
+  });
+
+  it("shows a streamed refusal once, not again beside the saved one", async () => {
+    let saved = false;
+    stubFetch({
+      ...labs,
+      [`GET ${BASE}/config/`]: { body: config() },
+      [`GET ${BASE}/conversations/`]: () => ({ body: saved ? [answered] : [] }),
+      [`POST ${BASE}/conversations/`]: { status: 201, body: answered },
+      [`POST ${BASE}/conversations/c1/messages/`]: () => {
+        saved = true;
+        return {
+          sse: sse(
+            { type: "start", conversation_id: "c1" },
+            { type: "assistant", id: "m1", model: "claude-opus-5-5" },
+            { type: "notice", code: "refusal", refusal: { category: "cyber", explanation: null } },
+            { type: "done" },
+          ),
+        };
+      },
+      [`GET ${BASE}/conversations/c1/`]: () => ({
+        body: detail({
+          items: saved
+            ? [
+                { id: "u1", kind: "user", text: "q" },
+                {
+                  id: "m1",
+                  kind: "assistant",
+                  text: "",
+                  model: "claude-opus-5-5",
+                  usage: {},
+                  refusal: { category: "cyber", explanation: null },
+                },
+              ]
+            : [],
+        }),
+      }),
+    });
+    renderDrawer();
+    await open();
+    await userEvent.type(await screen.findByRole("textbox", { name: "Message" }), "q");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(await screen.findByText(/claude-opus-5-5 · 0 tokens in/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getAllByText(/declined to answer \(cyber\)/)).toHaveLength(1),
+    );
   });
 
   it("shows the privacy notice, the scope, and asks for a key when none is saved", async () => {

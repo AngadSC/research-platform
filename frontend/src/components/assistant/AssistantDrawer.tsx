@@ -24,55 +24,14 @@ import {
   ASSISTANT_PREFILL,
   estimateCost,
   formatCost,
+  reduceLive,
+  SAVED_NOTICES,
   streamPost,
   tokensIn,
-  type ChatEvent,
+  type Live,
 } from "@/lib/assistant";
 import { Markdown } from "@/lib/markdown";
 import { NativeSelect } from "@/pages/admin/common";
-
-interface Live {
-  user: string;
-  text: string;
-  tools: { label: string; status: string }[];
-  notice: ChatEvent | null;
-  error: { message: string; retryable: boolean } | null;
-}
-
-const humanize = (name: string) => name.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
-
-function reduce(live: Live, e: ChatEvent): Live {
-  switch (e.type) {
-    case "text":
-      return { ...live, text: live.text + String(e.delta ?? "") };
-    case "retry":
-      return { ...live, text: "" };
-    case "tool_start":
-      return {
-        ...live,
-        tools: [...live.tools, { label: humanize(String(e.name)), status: "running" }],
-      };
-    case "tool": {
-      const label = String(e.title ?? humanize(String(e.name)));
-      const tools = live.tools.map((t) => ({ ...t }));
-      const open = tools.find((t) => t.status === "running");
-      if (open) Object.assign(open, { label, status: String(e.status) });
-      else tools.push({ label, status: String(e.status) });
-      return { ...live, tools };
-    }
-    case "assistant":
-      return { ...live, text: live.text ? live.text + "\n\n" : "" };
-    case "notice":
-      return { ...live, notice: e };
-    case "error":
-      return {
-        ...live,
-        error: { message: String(e.message), retryable: Boolean(e.retryable) },
-      };
-    default:
-      return live;
-  }
-}
 
 function ToolStatus({ status }: { status: string }) {
   if (status === "running") return <Loader2 className="size-3.5 animate-spin" aria-hidden />;
@@ -248,7 +207,7 @@ function AssistantPanel({
     setLive({ user, text: "", tools: [], notice: null, error: null });
     setStreaming(true);
     try {
-      await streamPost(path, body, (e) => setLive((l) => (l ? reduce(l, e) : l)), ctrl.signal);
+      await streamPost(path, body, (e) => setLive((l) => (l ? reduceLive(l, e) : l)), ctrl.signal);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Something went wrong.";
       setLive((l) => (l ? { ...l, error: { message, retryable: false } } : l));
@@ -256,8 +215,19 @@ function AssistantPanel({
       setStreaming(false);
       await qc.invalidateQueries({ queryKey: conversationKey(labId, id) });
       void qc.invalidateQueries({ queryKey: ["assistant", labId, "conversations"] });
-      // the saved conversation now shows the text and tool rows; keep only what is not saved
-      setLive((l) => (l ? { ...l, user: "", text: "", tools: [] } : l));
+      // the saved conversation now shows the text, tool rows, refusals and cut-off answers; keep
+      // only what is not saved
+      setLive((l) =>
+        l
+          ? {
+              ...l,
+              user: "",
+              text: "",
+              tools: [],
+              notice: SAVED_NOTICES.has(String(l.notice?.code)) ? null : l.notice,
+            }
+          : l,
+      );
     }
   }
 

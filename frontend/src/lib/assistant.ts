@@ -12,6 +12,65 @@ export interface ChatEvent {
   [key: string]: unknown;
 }
 
+/** What the drawer shows while an answer streams, before the saved conversation is reloaded. */
+export interface Live {
+  user: string;
+  text: string;
+  tools: { label: string; status: string }[];
+  notice: ChatEvent | null;
+  error: { message: string; retryable: boolean } | null;
+  /** Where the current model turn's text and tool rows start, so a retried turn replaces only
+   * itself and keeps the turns before it. */
+  mark?: { text: number; tools: number };
+}
+
+/** Notices the saved conversation shows by itself once the answer ends (shown once, not twice). */
+export const SAVED_NOTICES = new Set(["refusal", "max_tokens"]);
+
+const humanize = (name: string) => name.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+
+/** Applies one streamed event to the live view. */
+export function reduceLive(live: Live, e: ChatEvent): Live {
+  switch (e.type) {
+    case "text":
+      return { ...live, text: live.text + String(e.delta ?? "") };
+    case "retry": {
+      const mark = live.mark ?? { text: 0, tools: 0 };
+      return {
+        ...live,
+        text: live.text.slice(0, mark.text),
+        tools: live.tools.slice(0, mark.tools),
+      };
+    }
+    case "tool_start":
+      return {
+        ...live,
+        tools: [...live.tools, { label: humanize(String(e.name)), status: "running" }],
+      };
+    case "tool": {
+      const label = String(e.title ?? humanize(String(e.name)));
+      const tools = live.tools.map((t) => ({ ...t }));
+      const open = tools.find((t) => t.status === "running");
+      if (open) Object.assign(open, { label, status: String(e.status) });
+      else tools.push({ label, status: String(e.status) });
+      return { ...live, tools };
+    }
+    case "assistant": {
+      const text = live.text ? live.text + "\n\n" : "";
+      return { ...live, text, mark: { text: text.length, tools: live.tools.length } };
+    }
+    case "notice":
+      return { ...live, notice: e };
+    case "error":
+      return {
+        ...live,
+        error: { message: String(e.message), retryable: Boolean(e.retryable) },
+      };
+    default:
+      return live;
+  }
+}
+
 /** Splits a text/event-stream body into events. Comment lines (": keepalive") are ignored. */
 export function parseSse(buffer: string): { events: ChatEvent[]; rest: string } {
   const parts = buffer.split("\n\n");
