@@ -49,4 +49,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD ["python", "-c", "import os, urllib.request; req = urllib.request.Request('http://127.0.0.1:8000/healthz', headers={'Host': os.environ['ALLOWED_HOSTS'].split(',')[0].strip()}); raise SystemExit(0 if urllib.request.urlopen(req, timeout=4).status == 200 else 1)"]
 
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--access-logfile", "-"]
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--access-logfile", "-", "--access-logformat", "%(h)s %(l)s %(u)s %(t)s \"%(m)s %(U)s %(H)s\" %(s)s %(b)s \"%(a)s\""]

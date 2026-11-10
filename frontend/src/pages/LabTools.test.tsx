@@ -102,6 +102,146 @@ describe("calendar", () => {
   });
 });
 
+describe("meetings and my work", () => {
+  const now = new Date();
+  const days = monthGrid(now.getFullYear(), now.getMonth());
+  const range = `from=${localDateISO(days[0]!)}&to=${localDateISO(days[days.length - 1]!)}`;
+  const meeting = {
+    kind: "meeting",
+    id: "m1",
+    title: "Thesis check-in",
+    date: localDateISO(now),
+    end_date: null,
+    project_id: null,
+    project_name: null,
+    project_color: null,
+    done: false,
+    notes: "",
+    starts_at: now.toISOString(),
+    ends_at: new Date(now.getTime() + 3600000).toISOString(),
+    join_url: "https://zoom.us/j/99",
+    attendees: ["u1"],
+  };
+
+  it("shows a Join link on a meeting, and My calendar asks for your own items", async () => {
+    const calls = mockFetch(
+      base(["view_lab"], {
+        [`GET ${L}/calendar/?${range}`]: { body: [meeting] },
+        [`GET ${L}/calendar/?${range}&mine=true`]: { body: [] },
+        [`GET ${L}/members/`]: { body: [] },
+      }),
+    );
+    renderRoute("/labs/lab1/calendar");
+    await userEvent.click(await screen.findByRole("button", { name: /Thesis check-in/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("link", { name: "Join meeting" })).toHaveAttribute(
+      "href",
+      "https://zoom.us/j/99",
+    );
+    expect(within(dialog).queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(screen.getByRole("button", { name: "My calendar" }));
+    await expect
+      .poll(() => calls.some((c) => c.path === `${L}/calendar/?${range}&mine=true`))
+      .toBe(true);
+  });
+
+  it("makes a secret link once and shows both calendar addresses", async () => {
+    let active = false;
+    mockFetch(
+      base(["view_lab"], {
+        [`GET ${L}/calendar/?${range}`]: { body: [] },
+        [`GET ${L}/calendar/feed/`]: () => ({
+          body: { active, updated_at: active ? "2026-11-09T10:00:00Z" : null },
+        }),
+        [`POST ${L}/calendar/feed/`]: () => {
+          active = true;
+          return {
+            status: 201,
+            body: { active, updated_at: "2026-11-09T10:00:00Z", token: "s3cret" },
+          };
+        },
+      }),
+    );
+    renderRoute("/labs/lab1/calendar");
+    await userEvent.click(await screen.findByRole("button", { name: "Subscribe" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Make a link" }));
+    expect(await screen.findByLabelText("My calendar link")).toHaveValue(
+      `${window.location.origin}/api/calendar.ics?token=s3cret&mine=1`,
+    );
+    expect(screen.getByLabelText("Lab calendar link")).toHaveValue(
+      `${window.location.origin}/api/calendar.ics?token=s3cret`,
+    );
+    expect(await screen.findByRole("button", { name: "Turn off link" })).toBeInTheDocument();
+  });
+
+  it("My work lists my tasks, the deadlines of my projects and my trainings", async () => {
+    const from = new Date();
+    from.setDate(from.getDate() - 30);
+    const to = new Date();
+    to.setDate(to.getDate() + 61);
+    mockFetch({
+      ...base(["view_lab"]),
+      [`GET ${L}/my-tasks/`]: {
+        body: [
+          {
+            id: "t1",
+            project: "p1",
+            project_name: "Sleep",
+            title: "Write ethics draft",
+            due_date: null,
+            status: "todo",
+          },
+        ],
+      },
+      [`GET ${L}/training/my/`]: {
+        body: {
+          requirements: [{ id: "r1", name: "Biosafety" }],
+          members: [
+            { user: { id: "u1" }, cells: { r1: { status: "expired", expires_on: "2026-01-01" } } },
+          ],
+          summary: {},
+        },
+      },
+      [`GET ${L}/calendar/?from=${localDateISO(from)}&to=${localDateISO(to)}&mine=true`]: {
+        body: [
+          {
+            ...meeting,
+            kind: "deadline",
+            id: "d1",
+            title: "Submit report",
+            project_id: "p1",
+            project_name: "Sleep",
+            starts_at: null,
+            ends_at: null,
+            join_url: "",
+          },
+          {
+            ...meeting,
+            kind: "deadline",
+            id: "d2",
+            title: "Finished one",
+            done: true,
+            starts_at: null,
+            ends_at: null,
+          },
+          meeting,
+        ],
+      },
+    });
+    renderRoute("/labs/lab1/my-work");
+    expect(await screen.findByRole("link", { name: "Write ethics draft" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Submit report" })).toHaveAttribute(
+      "href",
+      "/labs/lab1/projects/p1/overview",
+    );
+    expect(screen.queryByText("Finished one")).not.toBeInTheDocument();
+    expect(screen.queryByText("Thesis check-in")).not.toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Biosafety" })).toBeInTheDocument();
+    expect(screen.getByText("Expired", { selector: ".inline-flex, span" })).toBeInTheDocument();
+  });
+});
+
 describe("orders", () => {
   const item = {
     id: "i1",

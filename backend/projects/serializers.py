@@ -158,6 +158,15 @@ class TaskSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class MyTaskSerializer(serializers.ModelSerializer):
+    project_name = serializers.CharField(source="project.name", read_only=True)
+
+    class Meta:
+        model = Task
+        fields = ["id", "project", "project_name", "title", "due_date", "status"]
+        read_only_fields = fields
+
+
 class TaskInputSerializer(serializers.Serializer):
     """`status` + `position` also reorder: the task lands at that index of that column."""
 

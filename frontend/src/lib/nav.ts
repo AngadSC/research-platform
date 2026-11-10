@@ -10,6 +10,7 @@ import {
   History,
   LayoutDashboard,
   Home,
+  ListChecks,
   MessagesSquare,
   Plug,
   Presentation,
@@ -32,6 +33,9 @@ export const PROJECT_SECTIONS = [
 export function navItems(labId?: string, permissions: string[] = [], inventoryEnabled = true) {
   return [
     { to: labId ? `/labs/${labId}/projects` : "/", label: "Home", icon: Home, end: true },
+    ...(labId
+      ? [{ to: `/labs/${labId}/my-work`, label: "My work", icon: ListChecks, end: false }]
+      : []),
     ...(labId && permissions.includes("manage_lab")
       ? [{ to: `/labs/${labId}/dashboard`, label: "Dashboard", icon: LayoutDashboard, end: false }]
       : []),

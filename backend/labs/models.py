@@ -191,6 +191,65 @@ class LabEvent(LabScopedModel):
         return self.title
 
 
+class Meeting(LabScopedModel):
+    """A meeting on the calendar (D230). Only the people on it see it; its organiser always is."""
+
+    permission_domain = "lab"
+
+    @classmethod
+    def visible_rows(cls, qs, user, lab):
+        return qs.filter(attendees=user)
+
+    title = models.CharField(max_length=200)
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField()
+    join_url = models.URLField(max_length=500, blank=True)  # Zoom or Google Meet, pasted in
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    attendees = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="+")
+
+    class Meta(LabScopedModel.Meta):
+        indexes = [models.Index(fields=["lab", "starts_at"], name="meeting_lab_start_idx")]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(ends_at__gt=models.F("starts_at")), name="meeting_end_after_start"
+            )
+        ]
+
+    def __str__(self):
+        return self.title
+
+
+class CalendarFeedToken(LabScopedModel):
+    """One person's secret .ics link for one lab (D231). Only the hash is stored."""
+
+    permission_domain = "lab"
+
+    @classmethod
+    def visible_rows(cls, qs, user, lab):
+        return qs.filter(user=user)
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    token_hash = models.CharField(max_length=64, unique=True)
+
+    class Meta(LabScopedModel.Meta):
+        constraints = [models.UniqueConstraint(fields=["lab", "user"], name="calfeed_one_per_user")]
+
+    def __str__(self):
+        return f"calendar feed of {self.user_id}"
+
+    @classmethod
+    def issue(cls, *, lab, user):
+        """Make a new secret, replacing any earlier one; returns (row, token)."""
+        token = secrets.token_urlsafe(32)
+        feed, _ = cls.objects.for_lab(lab).update_or_create(
+            lab=lab, user=user, defaults={"token_hash": hash_token(token)}
+        )
+        return feed, token
+
+
 # ---------------------------------------------------------------- Run 4: admin area (D146-D151)
 
 

@@ -1005,6 +1005,11 @@ paths:
           - lab_event.created
           - lab_event.updated
           - lab_event.deleted
+          - meeting.created
+          - meeting.updated
+          - meeting.deleted
+          - calendar_feed.created
+          - calendar_feed.revoked
           - onboarding_item.created
           - onboarding_item.updated
           - onboarding_item.deleted
@@ -1127,6 +1132,11 @@ paths:
           * `lab_event.created` - Lab Event Created
           * `lab_event.updated` - Lab Event Updated
           * `lab_event.deleted` - Lab Event Deleted
+          * `meeting.created` - Meeting Created
+          * `meeting.updated` - Meeting Updated
+          * `meeting.deleted` - Meeting Deleted
+          * `calendar_feed.created` - Calendar Feed Created
+          * `calendar_feed.revoked` - Calendar Feed Revoked
           * `onboarding_item.created` - Onboarding Item Created
           * `onboarding_item.updated` - Onboarding Item Updated
           * `onboarding_item.deleted` - Onboarding Item Deleted
@@ -1231,6 +1241,12 @@ paths:
           type: string
           format: uuid
         required: true
+      - in: query
+        name: mine
+        schema:
+          type: boolean
+          default: false
+        description: 'Only your own: D230.'
       - in: query
         name: to
         schema:
@@ -1341,6 +1357,169 @@ paths:
         required: true
       - in: path
         name: labevent_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/calendar/feed/:
+    get:
+      operationId: labs_calendar_feed_retrieve
+      description: 'Your own secret link for this lab. Viewers may subscribe too:
+        the feed is read-only.'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalendarFeedStatus'
+          description: ''
+    post:
+      operationId: labs_calendar_feed_create
+      description: 'Your own secret link for this lab. Viewers may subscribe too:
+        the feed is read-only.'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalendarFeedCreated'
+          description: ''
+    delete:
+      operationId: labs_calendar_feed_destroy
+      description: 'Your own secret link for this lab. Viewers may subscribe too:
+        the feed is read-only.'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/calendar/meetings/:
+    post:
+      operationId: labs_calendar_meetings_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeetingInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MeetingInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MeetingInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+          description: ''
+  /api/labs/{lab_id}/calendar/meetings/{meeting_id}/:
+    patch:
+      operationId: labs_calendar_meetings_partial_update
+      description: Anyone on the meeting who may add lab content can change it; it
+        is a 404 for anyone else.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: meeting_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMeetingInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMeetingInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMeetingInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+          description: ''
+    delete:
+      operationId: labs_calendar_meetings_destroy
+      description: Anyone on the meeting who may add lab content can change it; it
+        is a 404 for anyone else.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: meeting_id
         schema:
           type: string
           format: uuid
@@ -3672,6 +3851,31 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/my-tasks/:
+    get:
+      operationId: labs_my_tasks_list
+      description: Open tasks assigned to you across the projects you can see, soonest
+        due first.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MyTask'
+          description: ''
   /api/labs/{lab_id}/notifications/:
     get:
       operationId: labs_notifications_list
@@ -8194,6 +8398,11 @@ components:
       - lab_event.created
       - lab_event.updated
       - lab_event.deleted
+      - meeting.created
+      - meeting.updated
+      - meeting.deleted
+      - calendar_feed.created
+      - calendar_feed.revoked
       - onboarding_item.created
       - onboarding_item.updated
       - onboarding_item.deleted
@@ -8315,6 +8524,11 @@ components:
         * `lab_event.created` - Lab Event Created
         * `lab_event.updated` - Lab Event Updated
         * `lab_event.deleted` - Lab Event Deleted
+        * `meeting.created` - Meeting Created
+        * `meeting.updated` - Meeting Updated
+        * `meeting.deleted` - Meeting Deleted
+        * `calendar_feed.created` - Calendar Feed Created
+        * `calendar_feed.revoked` - Calendar Feed Revoked
         * `onboarding_item.created` - Onboarding Item Created
         * `onboarding_item.updated` - Onboarding Item Updated
         * `onboarding_item.deleted` - Onboarding Item Deleted
@@ -8747,6 +8961,34 @@ components:
           type: string
         error_description:
           type: string
+    CalendarFeedCreated:
+      type: object
+      properties:
+        active:
+          type: boolean
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        token:
+          type: string
+          description: Shown once; only its hash is stored.
+      required:
+      - active
+      - token
+      - updated_at
+    CalendarFeedStatus:
+      type: object
+      properties:
+        active:
+          type: boolean
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - active
+      - updated_at
     CalendarItem:
       type: object
       properties:
@@ -8778,21 +9020,44 @@ components:
           type: boolean
         notes:
           type: string
-          description: Lab events only; empty for everything else.
+          description: Lab events and meetings; empty for the rest.
+        starts_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Meetings only.
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Meetings only.
+        join_url:
+          type: string
+          description: Meetings only; may be empty.
+        attendees:
+          type: array
+          items:
+            type: string
+            format: uuid
       required:
+      - attendees
       - date
       - done
       - end_date
+      - ends_at
       - id
+      - join_url
       - kind
       - notes
       - project_color
       - project_id
       - project_name
+      - starts_at
       - title
     CalendarItemKindEnum:
       enum:
       - event
+      - meeting
       - deadline
       - task
       - inventory
@@ -8801,6 +9066,7 @@ components:
       type: string
       description: |-
         * `event` - event
+        * `meeting` - meeting
         * `deadline` - deadline
         * `task` - task
         * `inventory` - inventory
@@ -12155,6 +12421,77 @@ components:
       required:
       - email
       - id
+    Meeting:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        starts_at:
+          type: string
+          format: date-time
+          readOnly: true
+        ends_at:
+          type: string
+          format: date-time
+          readOnly: true
+        join_url:
+          type: string
+          format: uri
+          readOnly: true
+        notes:
+          type: string
+          readOnly: true
+        attendees:
+          type: array
+          items:
+            type: string
+            format: uuid
+          readOnly: true
+      required:
+      - attendees
+      - ends_at
+      - id
+      - join_url
+      - notes
+      - starts_at
+      - title
+    MeetingInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        join_url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 500
+          - type: string
+            maxLength: 0
+        notes:
+          type: string
+          maxLength: 5000
+        attendees:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 500
+      required:
+      - ends_at
+      - starts_at
+      - title
     Membership:
       type: object
       properties:
@@ -12205,6 +12542,39 @@ components:
       - input
       - label
       - output
+    MyTask:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        project:
+          type: string
+          format: uuid
+          readOnly: true
+        project_name:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        due_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/TaskStatusEnum'
+          readOnly: true
+      required:
+      - due_date
+      - id
+      - project
+      - project_name
+      - status
+      - title
     NameEnum:
       enum:
       - api_key
@@ -13140,6 +13510,34 @@ components:
           type: string
           maxLength: 120
         preferences: {}
+    PatchedMeetingInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        join_url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 500
+          - type: string
+            maxLength: 0
+        notes:
+          type: string
+          maxLength: 5000
+        attendees:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 500
     PatchedNoteInput:
       type: object
       properties:

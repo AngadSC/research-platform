@@ -121,6 +121,22 @@ urlpatterns = [
     ),
     path("labs/<uuid:lab_id>/calendar/", lab_calendar.CalendarView.as_view(), name="calendar"),
     path(
+        "labs/<uuid:lab_id>/calendar/feed/",
+        lab_calendar.CalendarFeedTokenView.as_view(),
+        name="calendar-feed",
+    ),
+    path("calendar.ics", lab_calendar.CalendarIcsView.as_view(), name="calendar-ics"),
+    path(
+        "labs/<uuid:lab_id>/calendar/meetings/",
+        lab_calendar.MeetingCreateView.as_view(),
+        name="meeting-list",
+    ),
+    path(
+        "labs/<uuid:lab_id>/calendar/meetings/<uuid:meeting_id>/",
+        lab_calendar.MeetingDetailView.as_view(),
+        name="meeting-detail",
+    ),
+    path(
         "labs/<uuid:lab_id>/calendar/events/",
         lab_calendar.LabEventCreateView.as_view(),
         name="labevent-list",

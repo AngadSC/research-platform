@@ -1,5 +1,6 @@
 """Phase 3 projects, members, deadlines and tasks through the API."""
 
+import datetime
 import uuid
 
 import pytest
@@ -7,7 +8,7 @@ from rest_framework.test import APIClient
 
 from audit.models import AuditAction, AuditEvent
 from labs.models import LabRole
-from projects.models import Project, ProjectMembership, ProjectRole, Task
+from projects.models import Project, ProjectMembership, ProjectRole, Task, TaskStatus
 
 pytestmark = pytest.mark.django_db
 
@@ -246,3 +247,32 @@ def test_migration_spreads_colours_within_each_lab(lab, people, make_lab):
     assert people["project"].color == "blue"
     assert second.color == "orange"
     assert elsewhere.color == "blue"
+
+
+def test_my_tasks_lists_only_my_open_tasks_in_projects_i_can_see(
+    make_lab, make_project, make_user, join
+):
+    lab = make_lab()
+    mine, hidden = make_project(lab), make_project(lab)
+    me, other = make_user(), make_user()
+    for u in (me, other):
+        join(u, lab, LabRole.MEMBER)
+    ProjectMembership.objects.create(lab=lab, project=mine, user=me, role=ProjectRole.CONTRIBUTOR)
+
+    def task(title, project=mine, **kw):
+        kw.setdefault("assignee", me)
+        kw.setdefault("created_by", other)
+        return Task.objects.create(lab=lab, project=project, title=title, **kw)
+
+    task("Later", due_date=datetime.date(2026, 12, 1))
+    task("Soon", due_date=datetime.date(2026, 11, 1), status=TaskStatus.IN_PROGRESS)
+    task("No date")
+    task("Finished", status=TaskStatus.DONE)
+    task("Someone else's", assignee=other)
+    task("Project I cannot see", project=hidden)
+
+    client = APIClient()
+    client.force_login(me)
+    rows = client.get(f"/api/labs/{lab.pk}/my-tasks/").json()
+    assert [r["title"] for r in rows] == ["Soon", "Later", "No date"]
+    assert rows[0]["project_name"] == mine.name

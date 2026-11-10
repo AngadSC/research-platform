@@ -167,6 +167,9 @@ def revoke_all(user, *, reason, request=None) -> int:
     for grant in list(active_grants(user)):
         revoke(grant, by=None, request=request, label=f"assistant:{reason}", reason=reason)
         count += 1
+    from labs.admin_services import revoke_calendar_feeds  # avoids an import cycle
+
+    revoke_calendar_feeds(user, reason=reason, request=request)  # D231
     return count
 
 

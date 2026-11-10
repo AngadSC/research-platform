@@ -20,6 +20,7 @@ import { CalendarPage } from "@/pages/CalendarPage";
 import { HandoverPage } from "@/pages/HandoverPage";
 import { LabChatPage } from "@/pages/LabChatPage";
 import { MembersPage } from "@/pages/MembersPage";
+import { MyWorkPage } from "@/pages/MyWorkPage";
 import { FilesRedirect, ProjectPage, ProjectTab } from "@/pages/ProjectPage";
 import DocumentsTab from "@/pages/project/DocumentsTab";
 import ExternalTab from "@/pages/project/ExternalTab";
@@ -306,6 +307,7 @@ export const routes: RouteObject[] = [
               { path: "inventory", element: <InventoryPage />, handle: { crumb: "Inventory" } },
               { path: "chat", element: <LabChatPage />, handle: { crumb: "Lab chat" } },
               { path: "calendar", element: <CalendarPage />, handle: { crumb: "Calendar" } },
+              { path: "my-work", element: <MyWorkPage />, handle: { crumb: "My work" } },
               {
                 path: "papers",
                 handle: { crumb: "Papers" },

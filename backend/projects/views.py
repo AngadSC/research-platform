@@ -1,5 +1,5 @@
 from django.core.exceptions import PermissionDenied
-from django.db.models import Case, Count, IntegerField, Prefetch, When
+from django.db.models import Case, Count, F, IntegerField, Prefetch, When
 from django.http import Http404
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
@@ -15,7 +15,15 @@ from core.views import LabScopedViewMixin
 from documents.models import Attachment, Document
 from labs.models import LabMembership
 from projects import handover, services
-from projects.models import ChatMessage, Project, ProjectDeadline, ProjectMembership, Task, TaskPost
+from projects.models import (
+    ChatMessage,
+    Project,
+    ProjectDeadline,
+    ProjectMembership,
+    Task,
+    TaskPost,
+    TaskStatus,
+)
 from projects.serializers import (
     ChatMessageFilterSerializer,
     ChatMessageInputSerializer,
@@ -25,6 +33,7 @@ from projects.serializers import (
     DeadlineInputSerializer,
     DeadlineSerializer,
     HandoverSerializer,
+    MyTaskSerializer,
     ProjectInputSerializer,
     ProjectMembershipCreateSerializer,
     ProjectMembershipRoleSerializer,
@@ -394,6 +403,25 @@ class ChatUnreadView(LabScopedViewMixin, generics.GenericAPIView):
     @extend_schema(responses=ChatUnreadSerializer(many=True))
     def get(self, request, lab_id):
         rows = services.unread_chat_counts(user=request.user, lab=request.lab)
+        return Response(self.get_serializer(rows, many=True).data)
+
+
+class MyTaskListView(LabScopedViewMixin, generics.GenericAPIView):
+    """Open tasks assigned to you across the projects you can see, soonest due first."""
+
+    serializer_class = MyTaskSerializer
+    pagination_class = None
+    perms = {"GET": Perm.VIEW_LAB}
+
+    @extend_schema(responses=MyTaskSerializer(many=True))
+    def get(self, request, lab_id):
+        rows = (
+            Task.objects.visible_to(request.user, request.lab)
+            .filter(assignee=request.user)
+            .exclude(status=TaskStatus.DONE)
+            .select_related("project")
+            .order_by(F("due_date").asc(nulls_last=True), "created_at", "id")
+        )
         return Response(self.get_serializer(rows, many=True).data)
 
 

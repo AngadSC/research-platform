@@ -5,6 +5,7 @@ import type {
   Attachment,
   Deadline,
   DeadlineInput,
+  MyTask,
   Project,
   ProjectInput,
   ProjectMembership,
@@ -115,6 +116,14 @@ export function moveTask(tasks: Task[], id: string, status: TaskStatus, index: n
       .sort(byPos)
       .forEach((t, i) => out.set(t.id, { ...t, position: i }));
   return tasks.map((t) => out.get(t.id) ?? t);
+}
+
+/** Open tasks assigned to the signed-in person, across every project they can see. */
+export function useMyTasks(labId: string) {
+  return useQuery({
+    queryKey: ["labs", labId, "my-tasks"],
+    queryFn: () => api<MyTask[]>(`${base(labId)}/my-tasks/`),
+  });
 }
 
 export function useTasks(labId: string, projectId: string) {

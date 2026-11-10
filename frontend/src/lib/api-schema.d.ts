@@ -526,6 +526,63 @@ export interface paths {
         patch: operations["labs_calendar_events_partial_update"];
         trace?: never;
     };
+    "/api/labs/{lab_id}/calendar/feed/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Your own secret link for this lab. Viewers may subscribe too: the feed is read-only. */
+        get: operations["labs_calendar_feed_retrieve"];
+        put?: never;
+        /** @description Your own secret link for this lab. Viewers may subscribe too: the feed is read-only. */
+        post: operations["labs_calendar_feed_create"];
+        /** @description Your own secret link for this lab. Viewers may subscribe too: the feed is read-only. */
+        delete: operations["labs_calendar_feed_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/calendar/meetings/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        post: operations["labs_calendar_meetings_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/calendar/meetings/{meeting_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Anyone on the meeting who may add lab content can change it; it is a 404 for anyone else. */
+        delete: operations["labs_calendar_meetings_destroy"];
+        options?: never;
+        head?: never;
+        /** @description Anyone on the meeting who may add lab content can change it; it is a 404 for anyone else. */
+        patch: operations["labs_calendar_meetings_partial_update"];
+        trace?: never;
+    };
     "/api/labs/{lab_id}/chat/messages/": {
         parameters: {
             query?: never;
@@ -1542,6 +1599,23 @@ export interface paths {
          *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
          */
         delete: operations["labs_messages_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/my-tasks/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Open tasks assigned to you across the projects you can see, soonest due first. */
+        get: operations["labs_my_tasks_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3364,6 +3438,11 @@ export interface components {
          *     * `lab_event.created` - Lab Event Created
          *     * `lab_event.updated` - Lab Event Updated
          *     * `lab_event.deleted` - Lab Event Deleted
+         *     * `meeting.created` - Meeting Created
+         *     * `meeting.updated` - Meeting Updated
+         *     * `meeting.deleted` - Meeting Deleted
+         *     * `calendar_feed.created` - Calendar Feed Created
+         *     * `calendar_feed.revoked` - Calendar Feed Revoked
          *     * `onboarding_item.created` - Onboarding Item Created
          *     * `onboarding_item.updated` - Onboarding Item Updated
          *     * `onboarding_item.deleted` - Onboarding Item Deleted
@@ -3404,7 +3483,7 @@ export interface components {
          *     * `paper_note.deleted` - Paper Note Deleted
          * @enum {string}
          */
-        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "paper.deleted" | "paper_note.deleted";
+        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "paper.deleted" | "paper_note.deleted";
         /**
          * @description * `read` - Read
          *     * `write` - Write
@@ -3561,6 +3640,18 @@ export interface components {
             error?: string;
             error_description?: string;
         };
+        CalendarFeedCreated: {
+            active: boolean;
+            /** Format: date-time */
+            updated_at: string | null;
+            /** @description Shown once; only its hash is stored. */
+            token: string;
+        };
+        CalendarFeedStatus: {
+            active: boolean;
+            /** Format: date-time */
+            updated_at: string | null;
+        };
         CalendarItem: {
             kind: components["schemas"]["CalendarItemKindEnum"];
             /** Format: uuid */
@@ -3575,11 +3666,25 @@ export interface components {
             project_name: string | null;
             project_color: string | null;
             done: boolean;
-            /** @description Lab events only; empty for everything else. */
+            /** @description Lab events and meetings; empty for the rest. */
             notes: string;
+            /**
+             * Format: date-time
+             * @description Meetings only.
+             */
+            starts_at: string | null;
+            /**
+             * Format: date-time
+             * @description Meetings only.
+             */
+            ends_at: string | null;
+            /** @description Meetings only; may be empty. */
+            join_url: string;
+            attendees: string[];
         };
         /**
          * @description * `event` - event
+         *     * `meeting` - meeting
          *     * `deadline` - deadline
          *     * `task` - task
          *     * `inventory` - inventory
@@ -3587,7 +3692,7 @@ export interface components {
          *     * `funding` - funding
          * @enum {string}
          */
-        CalendarItemKindEnum: "event" | "deadline" | "task" | "inventory" | "ethics" | "funding";
+        CalendarItemKindEnum: "event" | "meeting" | "deadline" | "task" | "inventory" | "ethics" | "funding";
         /**
          * @description * `equipment` - Equipment
          *     * `reagent` - Reagent
@@ -4856,6 +4961,29 @@ export interface components {
             display_name?: string;
             preferences?: unknown;
         };
+        Meeting: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly title: string;
+            /** Format: date-time */
+            readonly starts_at: string;
+            /** Format: date-time */
+            readonly ends_at: string;
+            /** Format: uri */
+            readonly join_url: string;
+            readonly notes: string;
+            readonly attendees: string[];
+        };
+        MeetingInput: {
+            title: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            join_url?: string;
+            notes?: string;
+            attendees?: string[];
+        };
         Membership: {
             /** Format: uuid */
             readonly id: string;
@@ -4880,6 +5008,17 @@ export interface components {
              * @description USD per million output tokens (list price).
              */
             output: number;
+        };
+        MyTask: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly project: string;
+            readonly project_name: string;
+            readonly title: string;
+            /** Format: date */
+            readonly due_date: string | null;
+            readonly status: components["schemas"]["TaskStatusEnum"];
         };
         /**
          * @description * `api_key` - api_key
@@ -5229,6 +5368,16 @@ export interface components {
             readonly email?: string;
             display_name?: string;
             preferences?: unknown;
+        };
+        PatchedMeetingInput: {
+            title?: string;
+            /** Format: date-time */
+            starts_at?: string;
+            /** Format: date-time */
+            ends_at?: string;
+            join_url?: string;
+            notes?: string;
+            attendees?: string[];
         };
         PatchedNoteInput: {
             body?: string;
@@ -6902,6 +7051,11 @@ export interface operations {
                  *     * `lab_event.created` - Lab Event Created
                  *     * `lab_event.updated` - Lab Event Updated
                  *     * `lab_event.deleted` - Lab Event Deleted
+                 *     * `meeting.created` - Meeting Created
+                 *     * `meeting.updated` - Meeting Updated
+                 *     * `meeting.deleted` - Meeting Deleted
+                 *     * `calendar_feed.created` - Calendar Feed Created
+                 *     * `calendar_feed.revoked` - Calendar Feed Revoked
                  *     * `onboarding_item.created` - Onboarding Item Created
                  *     * `onboarding_item.updated` - Onboarding Item Updated
                  *     * `onboarding_item.deleted` - Onboarding Item Deleted
@@ -6941,7 +7095,7 @@ export interface operations {
                  *     * `paper.deleted` - Paper Deleted
                  *     * `paper_note.deleted` - Paper Note Deleted
                  */
-                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "paper.deleted" | "paper_note.deleted";
+                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "paper.deleted" | "paper_note.deleted";
                 actor?: string;
                 /** @description Pagination cursor */
                 cursor?: string;
@@ -6972,6 +7126,8 @@ export interface operations {
         parameters: {
             query: {
                 from: string;
+                /** @description Only your own: D230. */
+                mine?: boolean;
                 to: string;
             };
             header?: never;
@@ -7064,6 +7220,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LabEvent"];
+                };
+            };
+        };
+    };
+    labs_calendar_feed_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarFeedStatus"];
+                };
+            };
+        };
+    };
+    labs_calendar_feed_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarFeedCreated"];
+                };
+            };
+        };
+    };
+    labs_calendar_feed_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_calendar_meetings_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeetingInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["MeetingInput"];
+                "multipart/form-data": components["schemas"]["MeetingInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Meeting"];
+                };
+            };
+        };
+    };
+    labs_calendar_meetings_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                meeting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_calendar_meetings_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                meeting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedMeetingInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedMeetingInput"];
+                "multipart/form-data": components["schemas"]["PatchedMeetingInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Meeting"];
                 };
             };
         };
@@ -8803,6 +9097,27 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    labs_my_tasks_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTask"][];
+                };
             };
         };
     };

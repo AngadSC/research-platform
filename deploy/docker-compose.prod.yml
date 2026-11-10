@@ -56,7 +56,7 @@ services:
     # 330 s gunicorn --timeout here and the 330 s read_timeout in the Caddyfile, so the app ends a
     # stream cleanly before a proxy cuts it. ASSISTANT_LOCK_TTL (default 600 s) must exceed the
     # deadline plus the provider read timeout (120 s).
-    command: ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--worker-class", "gthread", "--threads", "8", "--timeout", "330", "--access-logfile", "-"]
+    command: ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--worker-class", "gthread", "--threads", "8", "--timeout", "330", "--access-logfile", "-", "--access-logformat", "%(h)s %(l)s %(u)s %(t)s \"%(m)s %(U)s %(H)s\" %(s)s %(b)s \"%(a)s\""]
     depends_on:
       postgres:
         condition: service_healthy

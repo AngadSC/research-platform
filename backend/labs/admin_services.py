@@ -12,14 +12,17 @@ from audit.models import AuditAction as A
 from audit.services import record
 from core.institution_starters import NATIONAL_RESOURCES, STARTER_RESOURCES, match_institution
 from core.models import Institution, User
+from core.permissions import calendar_feeds_of
 from documents.services import Conflict
 from labs.admin_serializers import InventoryInputSerializer
 from labs.models import (
+    CalendarFeedToken,
     InstitutionResource,
     InventoryItem,
     InventoryOrder,
     LabEvent,
     LabMembership,
+    Meeting,
     OnboardingCompletion,
     OnboardingItem,
     OrderStatus,
@@ -464,3 +467,87 @@ def update_lab_event(obj, *, user, data, request=None):
 @transaction.atomic
 def delete_lab_event(obj, *, user, request=None):
     _delete(obj, A.LAB_EVENT_DELETED, user=user, request=request)
+
+
+# ---------------------------------------------------------------- meetings and calendar feeds
+
+
+def _check_meeting_times(starts_at, ends_at):
+    if ends_at <= starts_at:
+        raise ValidationError({"ends_at": "The meeting must end after it starts."})
+
+
+def _set_attendees(meeting, ids):
+    wanted = set(ids)
+    members = LabMembership.objects.for_lab(meeting.lab_id).filter(user_id__in=wanted)
+    if members.count() != len(wanted):
+        raise ValidationError({"attendees": "Everyone on a meeting must be a member of the lab."})
+    meeting.attendees.set(wanted | {meeting.created_by_id})
+
+
+@transaction.atomic
+def create_meeting(*, lab, user, data, request=None):
+    fields = {k: v for k, v in data.items() if k != "attendees"}
+    _check_meeting_times(fields["starts_at"], fields["ends_at"])
+    meeting = _create(
+        Meeting,
+        A.MEETING_CREATED,
+        lab=lab,
+        user=user,
+        data={**fields, "created_by": user},
+        request=request,
+    )
+    _set_attendees(meeting, data.get("attendees", []))
+    return meeting
+
+
+@transaction.atomic
+def update_meeting(obj, *, user, data, request=None):
+    _check_meeting_times(data.get("starts_at", obj.starts_at), data.get("ends_at", obj.ends_at))
+    for key, value in data.items():
+        if key != "attendees":
+            setattr(obj, key, value)
+    _save(obj)
+    if "attendees" in data:
+        _set_attendees(obj, data["attendees"])
+    record(
+        A.MEETING_UPDATED,
+        actor=user,
+        lab=obj.lab,
+        target=obj,
+        request=request,
+        metadata={"changed": sorted(data)},
+    )
+    return obj
+
+
+@transaction.atomic
+def delete_meeting(obj, *, user, request=None):
+    _delete(obj, A.MEETING_DELETED, user=user, request=request)
+
+
+@transaction.atomic
+def issue_calendar_feed(*, lab, user, request=None):
+    """A new secret link; any earlier one stops working. The audit row never holds the secret."""
+    feed, token = CalendarFeedToken.issue(lab=lab, user=user)
+    record(A.CALENDAR_FEED_CREATED, actor=user, lab=lab, target=feed, request=request)
+    return feed, token
+
+
+@transaction.atomic
+def revoke_calendar_feed(feed, *, user, request=None, actor_label=""):
+    record(
+        A.CALENDAR_FEED_REVOKED,
+        actor=user,
+        lab=feed.lab,
+        target=feed,
+        request=request,
+        actor_label=actor_label,
+    )
+    feed.delete()
+
+
+def revoke_calendar_feeds(user, *, reason, request=None):
+    """D231: a security event ends every feed link, as it ends every AI connection (D195)."""
+    for feed in calendar_feeds_of(user):
+        revoke_calendar_feed(feed, user=None, request=request, actor_label=f"security:{reason}")

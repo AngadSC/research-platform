@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
@@ -24,9 +24,11 @@ import { formErrors, type FormErrors } from "@/lib/forms";
 import { projectColorStyle } from "@/lib/projectColors";
 import { cn } from "@/lib/utils";
 import { formValue } from "@/pages/admin/common";
+import { FeedDialog, MeetingDialog } from "@/pages/CalendarDialogs";
 
 const KIND: Record<CalendarItem["kind"], string> = {
   event: "Lab event",
+  meeting: "Meeting",
   deadline: "Deadline",
   task: "Task",
   inventory: "Inventory",
@@ -44,11 +46,11 @@ type Calendar = ReturnType<typeof useCalendar>;
 function Entry({
   labId,
   item,
-  onOpenEvent,
+  onOpen,
 }: {
   labId: string;
   item: CalendarItem;
-  onOpenEvent: (item: CalendarItem) => void;
+  onOpen: (item: CalendarItem) => void;
 }) {
   const href = calendarHref(labId, item);
   const label = [KIND[item.kind], item.project_name, item.title].filter(Boolean).join(": ");
@@ -63,6 +65,8 @@ function Entry({
       />
       <span className="sr-only">{KIND[item.kind]}: </span>
       <span className={cn("min-w-0 truncate", item.done && "text-muted-foreground line-through")}>
+        {item.starts_at &&
+          `${new Date(item.starts_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })} `}
         {item.title}
       </span>
     </>
@@ -76,7 +80,7 @@ function Entry({
           {content}
         </Link>
       ) : (
-        <button type="button" title={label} className={className} onClick={() => onOpenEvent(item)}>
+        <button type="button" title={label} className={className} onClick={() => onOpen(item)}>
           {content}
         </button>
       )}
@@ -200,12 +204,18 @@ export function CalendarPage() {
   const canEdit = !!lab?.my_permissions.includes("contribute_lab");
   const [cursor, setCursor] = useState(FIRST_OF_THIS_MONTH);
   const days = useMemo(() => monthGrid(cursor.getFullYear(), cursor.getMonth()), [cursor]);
-  const { list, create, update, remove } = useCalendar(
+  const [params, setParams] = useSearchParams();
+  const mine = params.get("view") === "mine";
+  const { list, create, update, remove, meetings } = useCalendar(
     labId,
     localDateISO(days[0]!),
     localDateISO(days[days.length - 1]!),
+    mine,
   );
-  const [dialog, setDialog] = useState<{ event?: CalendarItem } | null>(null);
+  const [dialog, setDialog] = useState<{ kind: "event" | "meeting"; item?: CalendarItem } | null>(
+    null,
+  );
+  const [subscribing, setSubscribing] = useState(false);
   const items = list.data ?? [];
   const today = localDateISO();
   const move = (months: number) =>
@@ -215,9 +225,45 @@ export function CalendarPage() {
     <>
       <PageHeader
         title="Calendar"
-        description={lab ? `Deadlines and events in ${lab.name}.` : undefined}
-        actions={canEdit && <Button onClick={() => setDialog({})}>Add event</Button>}
+        description={
+          mine
+            ? "Your meetings, your tasks and the deadlines of your projects."
+            : lab
+              ? `Deadlines and events in ${lab.name}.`
+              : undefined
+        }
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setSubscribing(true)}>
+              Subscribe
+            </Button>
+            {canEdit && !mine && (
+              <Button variant="outline" onClick={() => setDialog({ kind: "event" })}>
+                Add event
+              </Button>
+            )}
+            {canEdit && <Button onClick={() => setDialog({ kind: "meeting" })}>Add meeting</Button>}
+          </>
+        }
       />
+      <div role="group" aria-label="Which calendar" className="mb-3 flex gap-1">
+        <Button
+          size="sm"
+          variant={mine ? "outline" : "secondary"}
+          aria-pressed={!mine}
+          onClick={() => setParams({}, { replace: true })}
+        >
+          Lab calendar
+        </Button>
+        <Button
+          size="sm"
+          variant={mine ? "secondary" : "outline"}
+          aria-pressed={mine}
+          onClick={() => setParams({ view: "mine" }, { replace: true })}
+        >
+          My calendar
+        </Button>
+      </div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Button variant="outline" size="icon" aria-label="Previous month" onClick={() => move(-1)}>
           <ChevronLeft aria-hidden />
@@ -283,7 +329,12 @@ export function CalendarPage() {
                       key={`${item.kind}:${item.id}`}
                       labId={labId}
                       item={item}
-                      onOpenEvent={(event) => setDialog({ event })}
+                      onOpen={(open) =>
+                        setDialog({
+                          kind: open.kind === "meeting" ? "meeting" : "event",
+                          item: open,
+                        })
+                      }
                     />
                   ))}
                 </ul>
@@ -293,15 +344,25 @@ export function CalendarPage() {
         })}
       </ol>
       <EventDialog
-        key={dialog?.event?.id ?? (dialog ? "new" : "closed")}
-        event={dialog?.event}
-        open={!!dialog}
+        key={dialog?.kind === "event" ? (dialog.item?.id ?? "new") : "closed"}
+        event={dialog?.kind === "event" ? dialog.item : undefined}
+        open={dialog?.kind === "event"}
         canEdit={canEdit}
         onClose={() => setDialog(null)}
         create={create}
         update={update}
         remove={remove}
       />
+      {dialog?.kind === "meeting" && (
+        <MeetingDialog
+          labId={labId}
+          meeting={dialog.item}
+          canEdit={canEdit}
+          onClose={() => setDialog(null)}
+          actions={meetings}
+        />
+      )}
+      {subscribing && <FeedDialog labId={labId} onClose={() => setSubscribing(false)} />}
     </>
   );
 }

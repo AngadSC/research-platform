@@ -27,6 +27,7 @@ from integrations import registry  # integrations (Run 2)
 from integrations.models import ConnectedAccount, ExternalLink  # integrations (Run 2)
 from integrations.tests.fake import FAKE  # integrations (Run 2)
 from labs.models import (  # admin area (Run 4)
+    CalendarFeedToken,
     InstitutionResource,
     InventoryItem,
     InventoryOrder,
@@ -37,6 +38,7 @@ from labs.models import (  # admin area (Run 4)
     LabEvent,
     LabMembership,
     LabRole,
+    Meeting,
     OnboardingItem,
     Protocol,
     ProtocolReagent,
@@ -128,6 +130,8 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST", "projects:deadline-list"): "401 404 2 2 2 403 403 404 403",
     ("PATCH", "projects:deadline-detail"): "401 404 2 2 2 403 403 404 403",
     ("DELETE", "projects:deadline-detail"): "401 404 2 2 2 403 403 404 403",
+    # My tasks: your own, filtered to projects you can see, so nonproj gets a 2 with no P1 rows.
+    ("GET", "projects:my-tasks"): "401 404 2 2 2 2 2 2 2",
     ("GET", "projects:task-list"): "401 404 2 2 2 2 2 404 2",
     ("POST", "projects:task-list"): "401 404 2 2 2 2 403 404 403",
     ("GET", "projects:task-detail"): "401 404 2 2 2 2 2 404 2",
@@ -367,6 +371,17 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "labs:labevent-list"): "401 404 2 2 2 2 2 2 403",
     ("PATCH",  "labs:labevent-detail"): "401 404 2 2 2 2 2 2 403",
     ("DELETE", "labs:labevent-detail"): "401 404 2 2 2 2 2 2 403",
+    # D230: everyone is on the fixture meeting, so reaching it needs only the write permission;
+    # someone not on it gets a 404 (test_meetings_feeds.py).
+    ("POST",   "labs:meeting-list"): "401 404 2 2 2 2 2 2 403",
+    ("PATCH",  "labs:meeting-detail"): "401 404 2 2 2 2 2 2 403",
+    ("DELETE", "labs:meeting-detail"): "401 404 2 2 2 2 2 2 403",
+    # D231: your own feed link, for any member. The .ics URL takes a token, not a session: anon
+    # has none (401); outsider holds a real one but is not in the lab (404).
+    ("GET",    "labs:calendar-feed"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "labs:calendar-feed"): "401 404 2 2 2 2 2 2 2",
+    ("DELETE", "labs:calendar-feed"): "401 404 2 2 2 2 2 2 2",
+    ("GET",    "labs:calendar-ics"): "401 404 2 2 2 2 2 2 2",
     # --- end lab chat and calendar ---
     # --- training (Run 5, D175-D179) ---
     # Requirements are read by every lab member and managed with manage_training (pi, admin).
@@ -663,9 +678,19 @@ def _protocol_fixtures(lab, project, user, tag):
     return {"protocol_id": protocol.pk, "reagent_id": reagent.pk, "inventoryusage_id": usage.pk}
 
 
-def _lab_tool_fixtures(lab, user, inv, tag):
-    """An inventory order, a lab chat message and a calendar event, all made by `user`."""
+def _lab_tool_fixtures(lab, user, inv, tag, attendees=()):
+    """An inventory order, a lab chat message and a calendar event, all made by `user`, and a
+    meeting with `user` and everyone in `attendees` on it."""
+    meeting = Meeting.objects.create(
+        lab=lab,
+        title=f"Meeting {tag}",
+        starts_at="2030-01-01T10:00:00Z",
+        ends_at="2030-01-01T11:00:00Z",
+        created_by=user,
+    )
+    meeting.attendees.set([user, *attendees])
     return {
+        "meeting_id": meeting.pk,
         "inventoryorder_id": InventoryOrder.objects.create(
             lab=lab, item=inv, name=f"Order {tag}", requested_by=user
         ).pk,
@@ -870,7 +895,7 @@ def build_world():
         lab_a, p1, {n: users[n] for n in ("pi", "admin", "lead", "contrib")}, "lab-a"
     )  # integrations (Run 2)
     res_a, onb_a, inv_a = _admin_fixtures(lab_a, "lab-a")  # admin area (Run 4)
-    tools_a = _lab_tool_fixtures(lab_a, users["contrib"], inv_a, "lab-a")
+    tools_a = _lab_tool_fixtures(lab_a, users["contrib"], inv_a, "lab-a", users.values())
     protocol_a = _protocol_fixtures(lab_a, p1, users["lead"], "lab-a")
     tr_free_a, tr_rec_a = _training_fixtures(lab_a, users["contrib"], "lab-a")  # training (Run 5)
     paper_a, paper_note_a = _paper_fixtures(lab_a, users["contrib"], "lab-a")
@@ -1299,6 +1324,18 @@ PAYLOADS = {
     ("GET", "labs:calendar"): lambda user, w: {"from": "2030-01-01", "to": "2030-01-31"},
     ("POST", "labs:labevent-list"): lambda user, w: {"title": "New", "date": "2030-02-01"},
     ("PATCH", "labs:labevent-detail"): lambda user, w: {"notes": "Edited"},
+    ("POST", "labs:meeting-list"): lambda user, w: {
+        "title": "New",
+        "starts_at": "2030-02-01T10:00:00Z",
+        "ends_at": "2030-02-01T11:00:00Z",
+    },
+    ("PATCH", "labs:meeting-detail"): lambda user, w: {"notes": "Edited"},
+    ("POST", "labs:calendar-feed"): lambda user, w: {},
+    ("GET", "labs:calendar-ics"): lambda user, w: (
+        {"token": CalendarFeedToken.issue(lab=Lab.objects.get(pk=w.a["lab_id"]), user=user)[1]}
+        if user
+        else {}
+    ),
     # --- end lab chat and calendar ---
     # --- training (Run 5) ---
     ("POST", "training:requirement-list"): lambda user, w: {

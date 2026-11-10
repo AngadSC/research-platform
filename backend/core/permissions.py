@@ -25,7 +25,7 @@ from rest_framework.permissions import BasePermission
 
 from core.models import User
 from core.tenancy import LabScopedModel, project_of
-from labs.models import Lab, LabMembership, LabRole
+from labs.models import CalendarFeedToken, Lab, LabMembership, LabRole
 from projects.models import Project, ProjectMembership, ProjectRole
 
 
@@ -321,6 +321,11 @@ def labs_for(user):
         return Lab.objects.none()
     mine = LabMembership.unscoped.filter(user=user).values("lab_id")
     return Lab.objects.filter(pk__in=mine).select_related("institution").order_by("name")
+
+
+def calendar_feeds_of(user):
+    """Someone's feed links in every lab, for ending them after a security event (D231)."""
+    return CalendarFeedToken.unscoped.filter(user=user).select_related("lab")
 
 
 def scope(model, user, lab):

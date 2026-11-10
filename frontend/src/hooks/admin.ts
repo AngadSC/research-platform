@@ -9,10 +9,14 @@ import type {
   InventoryUsage,
   InventoryOrder,
   InventoryOrderInput,
+  CalendarFeedCreated,
+  CalendarFeedStatus,
   CalendarItem,
   Lab,
   LabEvent,
   LabEventInput,
+  Meeting,
+  MeetingInput,
   OnboardingItem,
   OnboardingItemInput,
   Protocol,
@@ -220,12 +224,12 @@ export function useOrders(labId: string) {
 }
 
 /** The month on screen: `list` is the merged calendar, the mutations are for lab events only. */
-export function useCalendar(labId: string, from: string, to: string) {
+export function useCalendar(labId: string, from: string, to: string, mine = false) {
   const list = useQuery({
-    queryKey: ["labs", labId, "calendar", from, to],
+    queryKey: ["labs", labId, "calendar", from, to, mine],
     queryFn: () =>
       api<CalendarItem[]>(
-        `${base(labId)}/calendar/?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+        `${base(labId)}/calendar/?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${mine ? "&mine=true" : ""}`,
       ),
   });
   // No GET on calendar/events/; a save refreshes the calendar queries above.
@@ -235,5 +239,33 @@ export function useCalendar(labId: string, from: string, to: string) {
     "calendar",
     false,
   );
-  return { list, create: events.create, update: events.update, remove: events.remove };
+  const meetings = useCollection<Meeting, MeetingInput>(
+    labId,
+    "calendar/meetings",
+    "calendar",
+    false,
+  );
+  return { list, create: events.create, update: events.update, remove: events.remove, meetings };
+}
+
+/** Your secret calendar link for this lab: whether one exists, make or replace it, turn it off. */
+export function useCalendarFeed(labId: string) {
+  const qc = useQueryClient();
+  const key = ["labs", labId, "calendar-feed"];
+  const url = `${base(labId)}/calendar/feed/`;
+  const done = () => qc.invalidateQueries({ queryKey: key });
+  return {
+    status: useQuery({
+      queryKey: key,
+      queryFn: () => api<CalendarFeedStatus>(url),
+    }),
+    issue: useMutation({
+      mutationFn: () => api<CalendarFeedCreated>(url, { method: "POST" }),
+      onSuccess: done,
+    }),
+    revoke: useMutation({
+      mutationFn: () => api(url, { method: "DELETE" }),
+      onSuccess: done,
+    }),
+  };
 }
