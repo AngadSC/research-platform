@@ -7,6 +7,7 @@ hand-written `MATRIX` row. The expected codes are never derived from the code or
 
 import dataclasses  # integrations (Run 2)
 import datetime  # integrations (Run 2)
+import uuid  # inventory protocols
 from types import SimpleNamespace
 
 import pytest
@@ -29,6 +30,7 @@ from labs.models import (  # admin area (Run 4)
     InstitutionResource,
     InventoryItem,
     InventoryOrder,
+    InventoryUsage,
     Invite,
     Lab,
     LabChatMessage,
@@ -36,6 +38,8 @@ from labs.models import (  # admin area (Run 4)
     LabMembership,
     LabRole,
     OnboardingItem,
+    Protocol,
+    ProtocolReagent,
 )
 from papers import services as paper_services  # paper library
 from projects.models import (  # projects/tasks (Phase 3)
@@ -205,14 +209,15 @@ MATRIX: dict[tuple[str, str], str] = {
     ("PATCH",  "provenance:decision-detail"): "401 404 2 2 2 2 403 404 403",
     ("DELETE", "provenance:decision-detail"): "401 404 2 2 2 2 403 404 403",
     # Workflow records (Run 4, D133 to D138) follow the same shape as the other provenance
-    # records: reads view_project, writes edit_content. The funding `amount` is lead-only in the
-    # body (tested in test_workflow.py), not in the status codes. Holder/reviewer in the payloads
-    # is the acting persona, who can view P1 (anon and outsiders never get that far).
-    ("GET",    "provenance:funding-list"): "401 404 2 2 2 2 2 404 2",
-    ("POST",   "provenance:funding-list"): "401 404 2 2 2 2 403 404 403",
-    ("GET",    "provenance:funding-detail"): "401 404 2 2 2 2 2 404 2",
-    ("PATCH",  "provenance:funding-detail"): "401 404 2 2 2 2 403 404 403",
-    ("DELETE", "provenance:funding-detail"): "401 404 2 2 2 2 403 404 403",
+    # records: reads view_project, writes edit_content. Holder/reviewer in the payloads is the
+    # acting persona, who can view P1 (anon and outsiders never get that far).
+    # Funding is the exception (D226): PIs only. Every other persona gets 403 on the project's
+    # list, and 404 on a record, because a record they may not see does not exist for them.
+    ("GET",    "provenance:funding-list"): "401 404 2 403 403 403 403 404 403",
+    ("POST",   "provenance:funding-list"): "401 404 2 403 403 403 403 404 403",
+    ("GET",    "provenance:funding-detail"): "401 404 2 404 404 404 404 404 404",
+    ("PATCH",  "provenance:funding-detail"): "401 404 2 404 404 404 404 404 404",
+    ("DELETE", "provenance:funding-detail"): "401 404 2 404 404 404 404 404 404",
     ("GET",    "provenance:review-list"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "provenance:review-list"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "provenance:review-detail"): "401 404 2 2 2 2 2 404 2",
@@ -235,6 +240,15 @@ MATRIX: dict[tuple[str, str], str] = {
     ("DELETE", "provenance:external-detail"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "provenance:workflow-progress"): "401 404 2 2 2 2 2 404 2",
     ("PATCH",  "provenance:workflow-progress"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "labs:protocol-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "labs:protocol-list"): "401 404 2 2 2 2 403 404 403",
+    ("PATCH",  "labs:protocol-detail"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "labs:protocol-detail"): "401 404 2 2 2 2 403 404 403",
+    ("POST",   "labs:protocol-use"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "labs:inventory-usage"): "401 404 2 2 2 2 2 404 2",
+    # Undoing a use needs a lead, or the person who recorded it (D228). `lead` recorded the
+    # fixture's usage; pi and admin are implicit leads; contrib did not record it.
+    ("POST",   "labs:inventory-usage-reverse"): "401 404 2 2 2 403 403 404 403",
     ("GET",    "provenance:manuscript-list"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "provenance:manuscript-list"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "provenance:manuscript-detail"): "401 404 2 2 2 2 2 404 2",
@@ -330,6 +344,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "labs:inventory-list"): "401 404 2 2 2 2 2 2 2",
     ("POST",   "labs:inventory-list"): "401 404 2 2 2 2 2 2 403",
     ("GET",    "labs:inventory-export"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "labs:inventory-import"): "401 404 2 2 2 2 2 2 403",
     ("GET",    "labs:inventory-detail"): "401 404 2 2 2 2 2 2 2",
     ("PATCH",  "labs:inventory-detail"): "401 404 2 2 2 2 2 2 403",
     ("DELETE", "labs:inventory-detail"): "401 404 2 2 2 2 2 2 403",
@@ -494,12 +509,11 @@ def _prov_fixtures(lab, project, user, doc, attachment, tag):
     decision.datasets.add(ds_free)
     decision.supporting_documents.add(doc)
     decision.supporting_attachments.add(attachment)
-    # Workflow records (Run 4): a funding record with a lab attachment, a review item, one entry
+    # Workflow records (Run 4): a funding record, a review item, one recruitment entry
     funding = FundingRecord.objects.create(
         funder=f"Funder {tag}",
         amount="1000.00",
         holder=user,
-        attachment=attachment,
         created_by=user,
         **kw,
     )
@@ -622,6 +636,31 @@ def _admin_fixtures(lab, tag):
 
 
 # --- end admin area (Run 4) ---
+
+
+def _protocol_fixtures(lab, project, user, tag):
+    """A protocol with one reagent and one recorded use by `user` (for inventory, D228)."""
+    reagent_item = InventoryItem.objects.create(
+        lab=lab, name=f"Reagent {tag}", category="reagent", quantity=100, unit="mL"
+    )
+    protocol = Protocol.objects.create(
+        lab=lab, project=project, name=f"Protocol {tag}", created_by=user
+    )
+    reagent = ProtocolReagent.objects.create(
+        lab=lab, protocol=protocol, item=reagent_item, amount=1, unit="mL"
+    )
+    usage = InventoryUsage.objects.create(
+        lab=lab,
+        project=project,
+        protocol=protocol,
+        protocol_name=protocol.name,
+        item=reagent_item,
+        amount=1,
+        unit="mL",
+        used_by=user,
+        request_id=uuid.uuid4(),
+    )
+    return {"protocol_id": protocol.pk, "reagent_id": reagent.pk, "inventoryusage_id": usage.pk}
 
 
 def _lab_tool_fixtures(lab, user, inv, tag):
@@ -832,6 +871,7 @@ def build_world():
     )  # integrations (Run 2)
     res_a, onb_a, inv_a = _admin_fixtures(lab_a, "lab-a")  # admin area (Run 4)
     tools_a = _lab_tool_fixtures(lab_a, users["contrib"], inv_a, "lab-a")
+    protocol_a = _protocol_fixtures(lab_a, p1, users["lead"], "lab-a")
     tr_free_a, tr_rec_a = _training_fixtures(lab_a, users["contrib"], "lab-a")  # training (Run 5)
     paper_a, paper_note_a = _paper_fixtures(lab_a, users["contrib"], "lab-a")
     ai_a = _ai_fixtures(lab_a, users["contrib"], "lab-a")  # AI access (Run 5)
@@ -877,6 +917,7 @@ def build_world():
     )  # integrations (Run 2)
     res_b, onb_b, inv_b = _admin_fixtures(lab_b, "LAB-B-SECRET")  # admin area (Run 4)
     tools_b = _lab_tool_fixtures(lab_b, secret_pi, inv_b, "LAB-B-SECRET")
+    protocol_b = _protocol_fixtures(lab_b, p1_b, secret_pi, "LAB-B-SECRET")
     tr_free_b, tr_rec_b = _training_fixtures(lab_b, secret_pi, "LAB-B-SECRET")  # training (Run 5)
     paper_b, paper_note_b = _paper_fixtures(lab_b, secret_pi, "LAB-B-SECRET")
     ai_b = _ai_fixtures(lab_b, secret_pi, "LAB-B-SECRET")  # AI access (Run 5)
@@ -918,6 +959,7 @@ def build_world():
             "onboardingitem_id": onb_a.pk,
             "inventoryitem_id": inv_a.pk,
             **tools_a,
+            **protocol_a,
             "trainingrequirement_id": tr_free_a.pk,  # training (Run 5)
             "trainingrecord_id": tr_rec_a.pk,
             "paper_id": paper_a.pk,
@@ -953,6 +995,7 @@ def build_world():
             "onboardingitem_id": onb_b.pk,
             "inventoryitem_id": inv_b.pk,
             **tools_b,
+            **protocol_b,
             "trainingrequirement_id": tr_free_b.pk,  # training (Run 5)
             "trainingrecord_id": tr_rec_b.pk,
             "paper_id": paper_b.pk,
@@ -998,6 +1041,8 @@ def build_world():
             "Resource LAB-B-SECRET",
             "Onboarding LAB-B-SECRET",
             "Inventory LAB-B-SECRET",
+            "Reagent LAB-B-SECRET",
+            "Protocol LAB-B-SECRET",
             "Order LAB-B-SECRET",
             "Lab chat LAB-B-SECRET",
             "Event LAB-B-SECRET",
@@ -1188,7 +1233,7 @@ PAYLOADS = {
         "attachment": str(w.a["attachment_id"]),
     },
     ("PATCH", "provenance:external-detail"): lambda user, w: {"place": "Halifax"},
-    ("PATCH", "provenance:workflow-progress"): lambda user, w: {"stage": "funding", "done": True},
+    ("PATCH", "provenance:workflow-progress"): lambda user, w: {"stage": "ethics", "done": True},
     ("PATCH", "provenance:dmp"): lambda user, w: {"storage": "Edited"},
     ("POST", "provenance:dmp-approve"): lambda user, w: {},
     # --- end workflow (Run 4) ---
@@ -1233,6 +1278,17 @@ PAYLOADS = {
         "done": True,
     },
     ("POST", "labs:inventory-list"): lambda user, w: {"name": "New item", "category": "reagent"},
+    ("POST", "labs:inventory-import"): lambda user, w: {
+        "file": SimpleUploadedFile("i.csv", b"Name,Category\nFlask,equipment\n", "text/csv"),
+        "commit": "true",
+    },
+    ("POST", "labs:protocol-list"): lambda user, w: {"name": "New protocol"},
+    ("PATCH", "labs:protocol-detail"): lambda user, w: {"name": "Renamed"},
+    ("POST", "labs:protocol-use"): lambda user, w: {
+        "reagent": w.a["reagent_id"],
+        "request_id": str(uuid.uuid4()),
+    },
+    ("POST", "labs:inventory-usage-reverse"): lambda user, w: {},
     ("PATCH", "labs:inventory-detail"): lambda user, w: {"notes": "Edited"},
     ("POST", "labs:order-list"): lambda user, w: {"name": "New order", "quantity": "2"},
     ("PATCH", "labs:order-detail"): lambda user, w: {"status": "ordered"},

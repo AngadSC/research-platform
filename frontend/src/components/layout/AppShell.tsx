@@ -87,7 +87,11 @@ export function AppShell() {
 
   const commands = useMemo<Command[]>(
     () => [
-      ...navItems(labId, labs?.find((l) => l.id === labId)?.my_permissions).map((n) => ({
+      ...navItems(
+        labId,
+        labs?.find((l) => l.id === labId)?.my_permissions,
+        labs?.find((l) => l.id === labId)?.inventory_enabled,
+      ).map((n) => ({
         id: `nav:${n.to}`,
         label: `Go to ${n.label}`,
         group: "Navigate",

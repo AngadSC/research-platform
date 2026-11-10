@@ -3,6 +3,7 @@
 from datetime import date
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from audit.models import AuditEvent
@@ -42,8 +43,8 @@ def post(w, name, body, user=None, project=None):
 # ---------------------------------------------------------------- funding
 
 
-def test_funding_crud_audited_and_amount_visible_to_leads(w):
-    lead = w.member(ProjectRole.LEAD)
+def test_funding_crud_is_audited_and_the_amount_is_returned(w):
+    lead = w.pi
     holder = w.member(ProjectRole.CONTRIBUTOR)
     body = {
         "funder": "NSERC",
@@ -72,23 +73,71 @@ def test_funding_crud_audited_and_amount_visible_to_leads(w):
     assert not FundingRecord.objects.for_lab(w.lab).exists()
 
 
-def test_funding_amount_is_lead_only_to_read_and_write(w):
-    lead, contrib = w.member(ProjectRole.LEAD), w.member(ProjectRole.CONTRIBUTOR)
-    viewer = w.member(ProjectRole.VIEWER)
-    made = post(w, "funding-list", {"funder": "CIHR", "amount": "99.00"}, lead)
-    assert made.status_code == 201
-    for user in (contrib, viewer):
-        row = w.client(user).get(url(w, "funding-list")).json()[0]
-        assert row["funder"] == "CIHR" and row["amount"] is None and row["currency"] is None
-        one = url(w, "funding-detail", fundingrecord_id=row["id"])
-        assert w.client(user).get(one).json()["amount"] is None
-    # a contributor may edit the record but not touch the money
-    one = url(w, "funding-detail", fundingrecord_id=made.json()["id"])
-    assert w.client(contrib).patch(one, {"notes": "n"}, format="json").status_code == 200
-    assert w.client(contrib).patch(one, {"amount": "1.00"}, format="json").status_code == 403
-    assert post(w, "funding-list", {"funder": "X", "currency": "USD"}, contrib).status_code == 403
-    assert str(FundingRecord.objects.for_lab(w.lab).get().amount) == "99.00"
-    assert w.client().get(url(w, "funding-list")).json()[0]["amount"] == "99.00"  # PI = lead
+def test_funding_is_pi_only_everywhere(w):
+    """D226: every way funding data leaves the server, for a lab admin and a project lead."""
+    from audit.models import AuditEvent
+    from core.search import search
+    from documents import services as doc_services
+    from labs.dashboard import build_dashboard
+    from labs.lab_calendar import build_calendar
+    from provenance.services import workflow_progress
+
+    lead, admin = w.member(ProjectRole.LEAD), w.make_user()
+    w.join(admin, w.lab, LabRole.LAB_ADMIN)
+    upload = SimpleUploadedFile("grant.pdf", b"%PDF-1.4 grant", content_type="application/pdf")
+    letter = doc_services.upload_attachment(project=w.project, user=w.pi, file=upload)
+    made = post(
+        w,
+        "funding-list",
+        {
+            "funder": "Wellcome",
+            "amount": "99.00",
+            "status": "active",
+            "end_date": str(date.today()),
+            "attachment": str(letter.pk),
+        },
+    ).json()
+    assert w.client().get(url(w, "funding-list")).json()[0]["amount"] == "99.00"  # the PI
+    assert search(w.pi, w.lab, "Wellcome")
+    one = url(w, "funding-detail", fundingrecord_id=made["id"])
+
+    def blocked(user):
+        c = w.client(user)
+        assert c.get(url(w, "funding-list")).status_code == 403
+        assert post(w, "funding-list", {"funder": "X"}, user).status_code == 403
+        assert c.get(one).status_code == 404
+        assert c.patch(one, {"notes": "n"}, format="json").status_code == 404
+        assert search(user, w.lab, "Wellcome") == []
+        stages = workflow_progress(w.project, user)["stages"]
+        assert "funding" not in [s["key"] for s in stages]
+        body = {"stage": "funding", "done": True}
+        mark = reverse("provenance:workflow-progress", kwargs=pk(w))
+        assert c.patch(mark, body, format="json").status_code == 403
+        # the grant letter disappears with the record: no list, no download, no export
+        files = reverse("documents:attachment-list", kwargs=pk(w))
+        assert str(letter.pk) not in c.get(files).content.decode()
+        grabbed = reverse(
+            "documents:attachment-download", kwargs={"lab_id": w.lab.pk, "attachment_id": letter.pk}
+        )
+        assert c.get(grabbed).status_code == 404
+        export = c.post(reverse("provenance:export", kwargs=pk(w)))
+        assert export.status_code == 200 and "Wellcome" not in export.content.decode()
+        assert str(letter.pk) not in export.content.decode()
+
+    blocked(lead)
+    blocked(admin)
+    day = date.today()
+    assert not [r for r in build_calendar(admin, w.lab, day, day) if r["kind"] == "funding"]
+    board = build_dashboard(admin, w.lab)
+    assert not board["attention"]["funding"]["items"] and board["summary"]["funding_ending"] == 0
+    assert {r["funding_end_date"] for r in board["projects"]} == {None}
+    assert build_dashboard(w.pi, w.lab)["attention"]["funding"]["items"]
+    # the audit log is read by lab admins too, and it names the funder
+    audit_url = reverse("audit:audit-event-list", kwargs={"lab_id": w.lab.pk})
+    actions = {r["action"] for r in w.client(admin).get(audit_url).json()["results"]}
+    assert "funding.created" not in actions
+    assert "funding.created" in {r["action"] for r in w.client().get(audit_url).json()["results"]}
+    assert AuditEvent.objects.filter(action="funding.created").count() == 1
 
 
 def test_funding_validation(w):

@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, upload } from "@/lib/api";
 import type {
   InstitutionResource,
   InstitutionResourceInput,
+  InventoryImportResult,
   InventoryInput,
   InventoryItem,
+  InventoryUsage,
   InventoryOrder,
   InventoryOrderInput,
   CalendarItem,
@@ -13,6 +15,8 @@ import type {
   LabEventInput,
   OnboardingItem,
   OnboardingItemInput,
+  Protocol,
+  ProtocolInput,
 } from "@/lib/api-types";
 
 const body = (v: unknown) => ({ body: v });
@@ -26,6 +30,7 @@ export interface LabDetailsInput {
   address?: string;
   contact_email?: string;
   website?: string;
+  inventory_enabled?: boolean;
 }
 
 export function useUpdateLabDetails(labId: string) {
@@ -144,6 +149,61 @@ export const useInventory = (labId: string, p: InventoryQuery) =>
     true,
     inventoryQs(p),
   );
+
+/** Preview a CSV of inventory items, or (commit=true) add every row. */
+export function importInventory(labId: string, file: File, commit: boolean) {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("commit", String(commit));
+  return upload<InventoryImportResult>(`${base(labId)}/inventory/import/`, form);
+}
+
+/** Protocols and records of use for a project (D228). */
+export function useProtocols(labId: string, projectId: string) {
+  const qc = useQueryClient();
+  const key = ["labs", labId, "protocols", projectId];
+  const list = useQuery({
+    queryKey: key,
+    queryFn: () => api<Protocol[]>(`${base(labId)}/projects/${projectId}/protocols/`),
+  });
+  const usage = useQuery({
+    queryKey: [...key, "usage"],
+    queryFn: () => api<InventoryUsage[]>(`${base(labId)}/projects/${projectId}/inventory-usage/`),
+  });
+  const done = () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: key }),
+      qc.invalidateQueries({ queryKey: ["labs", labId, "inventory"] }),
+    ]);
+  const save = useMutation({
+    mutationFn: (v: { id?: string; body: ProtocolInput }) =>
+      v.id
+        ? api<Protocol>(`${base(labId)}/protocols/${v.id}/`, { method: "PATCH", ...body(v.body) })
+        : api<Protocol>(`${base(labId)}/projects/${projectId}/protocols/`, {
+            method: "POST",
+            ...body(v.body),
+          }),
+    onSuccess: done,
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => api(`${base(labId)}/protocols/${id}/`, { method: "DELETE" }),
+    onSuccess: done,
+  });
+  const use = useMutation({
+    mutationFn: (v: { protocol: string; reagent: string; amount: string; request_id: string }) =>
+      api<InventoryUsage>(`${base(labId)}/protocols/${v.protocol}/use/`, {
+        method: "POST",
+        ...body({ reagent: v.reagent, amount: v.amount, request_id: v.request_id }),
+      }),
+    onSuccess: done,
+  });
+  const reverse = useMutation({
+    mutationFn: (id: string) =>
+      api<InventoryUsage>(`${base(labId)}/inventory-usage/${id}/reverse/`, { method: "POST" }),
+    onSuccess: done,
+  });
+  return { list, usage, save, remove, use, reverse };
+}
 
 export const ordersExportUrl = (labId: string) => `${base(labId)}/inventory/orders/export/`;
 

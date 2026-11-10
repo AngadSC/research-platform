@@ -46,6 +46,7 @@ class LabDetailsInputSerializer(serializers.Serializer):
     address = serializers.CharField(max_length=1000, allow_blank=True)
     contact_email = serializers.EmailField(allow_blank=True)
     website = serializers.CharField(max_length=300, allow_blank=True)
+    inventory_enabled = serializers.BooleanField(required=False)  # D227
 
     def validate_website(self, value):
         return web_url(value) if value else value
@@ -166,6 +167,29 @@ class InventoryInputSerializer(serializers.Serializer):
     due_date = serializers.DateField(allow_null=True, required=False)
     status = serializers.ChoiceField(choices=InventoryStatus.choices, required=False)
     notes = serializers.CharField(max_length=5000, allow_blank=True, required=False)
+
+
+class InventoryImportInputSerializer(serializers.Serializer):
+    file = serializers.FileField()
+    commit = serializers.BooleanField(required=False, default=False)  # false means preview only
+
+
+class InventoryImportRowSerializer(serializers.Serializer):
+    row = serializers.IntegerField(help_text="The line in the file (the header is line 1).")
+    name = serializers.CharField()
+    category = serializers.CharField()
+    quantity = serializers.CharField()
+    unit = serializers.CharField()
+    errors = serializers.DictField(child=serializers.CharField())
+    warning = serializers.CharField(help_text="Worth checking, but does not stop the import.")
+
+
+class InventoryImportResultSerializer(serializers.Serializer):
+    rows = InventoryImportRowSerializer(many=True)
+    valid = serializers.IntegerField()
+    invalid = serializers.IntegerField()
+    imported = serializers.IntegerField(help_text="Items added; 0 for a preview.")
+    ignored_columns = serializers.ListField(child=serializers.CharField())
 
 
 class InventoryOrderSerializer(serializers.ModelSerializer):

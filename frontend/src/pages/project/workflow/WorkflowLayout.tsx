@@ -1,9 +1,10 @@
 import { useIsMutating } from "@tanstack/react-query";
-import { Check, GitBranch } from "lucide-react";
+import { Check, FlaskConical, GitBranch } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Link, Navigate, NavLink, Outlet, useLocation, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useLab } from "@/hooks/workspace";
 import { useWorkflowProgress } from "@/hooks/workflow";
 import { isKind } from "@/lib/research";
 import { cn } from "@/lib/utils";
@@ -15,12 +16,17 @@ import { fail } from "@/pages/project/workflow/parts";
 
 const nameOf = (s: string) => SECTIONS.find(([k]) => k === s)?.[1] ?? s;
 
+/** Funding is for PIs only (D226); the server already leaves it out of `stages`. */
+const shownSections = (p: ProjectTabProps["project"]) =>
+  SECTIONS.filter(([key]) => key !== "funding" || p.my_permissions.includes("access_funding"));
+
 /** The Workflow tab: a progress bar over Funding through Review (D132), then the open stage. */
 export function WorkflowLayout(props: ProjectTabProps) {
   const { labId, projectId, project } = props;
   const { progress, mark } = useWorkflowProgress(labId, projectId);
   const { pathname } = useLocation();
   const canEdit = project.my_permissions.includes("edit_content");
+  const inventoryOn = useLab(labId).data?.inventory_enabled;
 
   // Saving a record on any stage can finish it, so check again when a save ends.
   const { refetch } = progress;
@@ -42,7 +48,7 @@ export function WorkflowLayout(props: ProjectTabProps) {
       <div className="grid gap-3">
         <nav aria-label="Workflow sections" className="overflow-x-auto py-1">
           <ol className="flex min-w-max">
-            {SECTIONS.map(([key, name]) => {
+            {shownSections(project).map(([key, name]) => {
               const stage = stages.find((s) => s.key === key);
               const isNext = key === next;
               return (
@@ -121,6 +127,13 @@ export function WorkflowLayout(props: ProjectTabProps) {
                 {openStage.marked ? "Mark as not done" : "Done or not needed"}
               </Button>
             )}
+            {inventoryOn && (
+              <Button size="sm" variant="outline" asChild>
+                <NavLink to="protocols">
+                  <FlaskConical aria-hidden /> Protocols
+                </NavLink>
+              </Button>
+            )}
             <Button size="sm" variant="outline" asChild>
               <NavLink to="lineage">
                 <GitBranch aria-hidden /> Lineage
@@ -137,7 +150,7 @@ export function WorkflowLayout(props: ProjectTabProps) {
 /** Opens on the first stage not done yet; the last stage once every stage is done. */
 export function WorkflowIndex({ labId, projectId }: ProjectTabProps) {
   const { data, isError } = useWorkflowProgress(labId, projectId).progress;
-  if (isError) return <Navigate to="funding" replace />;
+  if (isError) return <Navigate to="ethics" replace />;
   if (!data) return <Skeleton aria-label="Loading" className="h-40 w-full" />;
   return <Navigate to={data.next ?? "review"} replace />;
 }

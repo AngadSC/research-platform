@@ -5,7 +5,7 @@ from rest_framework.pagination import CursorPagination
 from audit.models import AuditAction, AuditEvent
 from audit.serializers import AuditEventSerializer, AuditFilterSerializer
 from audit.services import record
-from core.permissions import Perm
+from core.permissions import Perm, can_access_funding
 from core.views import LabScopedViewMixin
 
 
@@ -34,6 +34,8 @@ class AuditEventListView(LabScopedViewMixin, generics.ListAPIView):
         f.is_valid(raise_exception=True)
         q = f.validated_data
         qs = AuditEvent.objects.filter(lab=self.request.lab).select_related("actor")
+        if not can_access_funding(self.request.user, self.request.lab):  # D226: names the funder
+            qs = qs.exclude(action__startswith="funding.")
         for key in ("action", "target_type", "target_id"):
             if key in q:
                 qs = qs.filter(**{key: q[key]})

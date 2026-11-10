@@ -50,8 +50,8 @@ def test_reads_never_show_another_lab_or_an_invisible_project(world, ctx, who):
     for name, args in every_read(world, world.lab_a.pk):
         try:
             out = text(run(c, name, **args))
-        except tools.ToolError as exc:  # nonproj cannot see P1's objects
-            assert who == "nonproj", (name, exc)
+        except tools.ToolError as exc:  # nonproj cannot see P1's objects; funding is PIs only
+            assert who == "nonproj" or name == "list_funding", (name, exc)
             out = str(exc)
         assert SECRET not in out, (who, name, out)
 
@@ -123,10 +123,17 @@ def test_membership_is_rechecked_on_every_call(world, ctx):
         run(c, "list_projects", lab_id=str(world.lab_a.pk))
 
 
-def test_funding_amount_is_for_leads_only(world, ctx):
+def test_funding_is_pis_only(world, ctx):
     lab = str(world.lab_a.pk)
-    contrib = run(ctx(world.u.contrib, world.lab_a), "list_funding", lab_id=lab)["funding"]
-    assert [(f["funder"], f["amount"]) for f in contrib] == [("Funder open", None)]
+    project = str(world.p1.pk)
+    contrib = ctx(world.u.contrib, world.lab_a)
+    with pytest.raises(tools.ToolError, match="Only the lab's PIs"):
+        run(contrib, "list_funding", lab_id=lab)
+    assert "funding_records" not in str(
+        run(contrib, "project_overview", lab_id=lab, project_id=project)
+    )
+    assert not [h for h in run(contrib, "search", lab_id=lab, query="Funder")["results"]
+                if h["type"] == "funding"]  # fmt: skip
     pi = run(ctx(world.u.pi, world.lab_a), "list_funding", lab_id=lab)["funding"]
     assert {f["amount"] for f in pi} == {"5000.00"}
 

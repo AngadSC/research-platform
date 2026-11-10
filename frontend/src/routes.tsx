@@ -29,6 +29,7 @@ import { ResearchDetail, ResearchNew } from "@/pages/project/ResearchTab";
 import TasksTab from "@/pages/project/TasksTab";
 import EthicsTab from "@/pages/project/workflow/EthicsTab";
 import FundingTab from "@/pages/project/workflow/FundingTab";
+import ProtocolsTab from "@/pages/project/workflow/ProtocolsTab";
 import ParticipantsTab from "@/pages/project/workflow/ParticipantsTab";
 import ReviewTab from "@/pages/project/workflow/ReviewTab";
 import {
@@ -208,6 +209,11 @@ export const routes: RouteObject[] = [
                             path: "lineage",
                             element: <ProjectTab as={LazyLineageTab} />,
                             handle: { crumb: "Lineage" },
+                          },
+                          {
+                            path: "protocols",
+                            element: <ProjectTab as={ProtocolsTab} />,
+                            handle: { crumb: "Protocols" },
                           },
                           {
                             path: "funding",

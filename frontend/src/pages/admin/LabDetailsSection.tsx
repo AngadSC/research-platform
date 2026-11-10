@@ -40,6 +40,7 @@ export function LabDetailsSection({ lab }: { lab: Lab }) {
         address: v("address"),
         contact_email: v("contact_email"),
         website: v("website"),
+        inventory_enabled: fd.get("inventory_enabled") === "on",
       });
       setErrors({ fields: {} });
       toast.success("Lab details saved");
@@ -76,6 +77,21 @@ export function LabDetailsSection({ lab }: { lab: Lab }) {
             <Input {...p} name="contact_email" type="email" defaultValue={lab.contact_email} />
           )}
         </FormField>
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="inventory_enabled"
+            defaultChecked={lab.inventory_enabled}
+            className="mt-0.5"
+          />
+          <span>
+            This is a wet lab (keep an inventory)
+            <span className="block text-xs text-muted-foreground">
+              Turn off for a dry lab. Inventory and its orders and protocols disappear for everyone
+              in the lab until you turn it back on. Nothing is deleted.
+            </span>
+          </span>
+        </label>
         <FormField label="Website" error={f.website}>
           {(p) => <Input {...p} name="website" defaultValue={lab.website} />}
         </FormField>

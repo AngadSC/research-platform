@@ -8,7 +8,9 @@ from django.http import HttpResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, status
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from audit.models import AuditAction
 from audit.services import record
@@ -17,6 +19,8 @@ from core.views import LabScopedViewMixin
 from labs import admin_services as svc
 from labs.admin_serializers import (
     CompletionInputSerializer,
+    InventoryImportInputSerializer,
+    InventoryImportResultSerializer,
     InventoryInputSerializer,
     InventoryOrderInputSerializer,
     InventoryOrderSerializer,
@@ -213,6 +217,7 @@ class InventoryMixin(LabScopedViewMixin):
     model = InventoryItem
     serializer_class = InventorySerializer
     pagination_class = None
+    needs_inventory = True  # D227: HasPerm answers 403 while the lab has inventory turned off
 
     def get_queryset(self):
         return super().get_queryset().select_related("owner")
@@ -265,6 +270,30 @@ def _csv_export(request, filename, header, rows, **metadata):
     return resp
 
 
+class InventoryImportView(InventoryMixin, generics.GenericAPIView):
+    """Post a CSV to preview it; post the same file with commit=true to add every row (D229)."""
+
+    parser_classes = [MultiPartParser, FormParser]
+    perms = {"POST": Perm.MANAGE_INVENTORY}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "uploads"
+
+    @extend_schema(
+        request=InventoryImportInputSerializer, responses=InventoryImportResultSerializer
+    )
+    def post(self, request, lab_id):
+        data = _body(InventoryImportInputSerializer, request)
+        read = svc.read_inventory_file(request.lab, data["file"])
+        ready = read.pop("_ready")
+        if data["commit"]:
+            if read["invalid"]:  # no partial import: fix the file and try again
+                return Response(read, status=status.HTTP_400_BAD_REQUEST)
+            read["imported"] = svc.import_inventory(
+                lab=request.lab, user=request.user, ready=ready, request=request
+            )
+        return Response(InventoryImportResultSerializer(read).data)
+
+
 class InventoryExportView(InventoryMixin, generics.GenericAPIView):
     perms = {"GET": Perm.VIEW_LAB}
 
@@ -313,6 +342,7 @@ class OrderMixin(LabScopedViewMixin):
     model = InventoryOrder
     serializer_class = InventoryOrderSerializer
     pagination_class = None
+    needs_inventory = True  # D227
 
     def get_queryset(self):
         return super().get_queryset().select_related("requested_by", "item")

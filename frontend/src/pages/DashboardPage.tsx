@@ -217,7 +217,16 @@ const COLUMNS: { key: SortKey; header: string; right?: boolean }[] = [
   { key: "funding", header: "Funding ends" },
 ];
 
-function ProjectTable({ labId, projects }: { labId: string; projects: DashProject[] }) {
+function ProjectTable({
+  labId,
+  projects,
+  seesFunding,
+}: {
+  labId: string;
+  projects: DashProject[];
+  /** Funding is PIs only (D226); a lab admin would otherwise read "No funding" on every row. */
+  seesFunding: boolean;
+}) {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "health",
     dir: "asc",
@@ -245,7 +254,7 @@ function ProjectTable({ labId, projects }: { labId: string; projects: DashProjec
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            {COLUMNS.map((c) => {
+            {COLUMNS.filter((c) => seesFunding || c.key !== "funding").map((c) => {
               const active = sort.key === c.key;
               return (
                 <TableHead
@@ -328,16 +337,18 @@ function ProjectTable({ labId, projects }: { labId: string; projects: DashProjec
                   <span className="text-muted-foreground">No edits yet</span>
                 )}
               </TableCell>
-              <TableCell className="min-w-28">
-                {p.funding_end_date ? (
-                  <>
-                    {shortDate(p.funding_end_date)}
-                    <p className="text-xs text-muted-foreground capitalize">{p.funding_status}</p>
-                  </>
-                ) : (
-                  <span className="text-muted-foreground">No funding</span>
-                )}
-              </TableCell>
+              {seesFunding && (
+                <TableCell className="min-w-28">
+                  {p.funding_end_date ? (
+                    <>
+                      {shortDate(p.funding_end_date)}
+                      <p className="text-xs text-muted-foreground capitalize">{p.funding_status}</p>
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">No funding</span>
+                  )}
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>
@@ -685,7 +696,11 @@ export function DashboardPage() {
             <h2 id="projects" className="text-base font-semibold">
               Projects
             </h2>
-            <ProjectTable labId={labId} projects={data.projects} />
+            <ProjectTable
+                labId={labId}
+                projects={data.projects}
+                seesFunding={lab?.my_permissions.includes("access_funding") ?? false}
+              />
           </section>
 
           <section aria-labelledby="people" className="grid gap-3">

@@ -1,7 +1,7 @@
 from django.urls import path
 
 from labs import admin_views as av
-from labs import contributions, dashboard, lab_calendar, views
+from labs import contributions, dashboard, lab_calendar, protocols, views
 
 app_name = "labs"
 urlpatterns = [
@@ -62,6 +62,36 @@ urlpatterns = [
         "labs/<uuid:lab_id>/inventory/export/",
         av.InventoryExportView.as_view(),
         name="inventory-export",
+    ),
+    path(
+        "labs/<uuid:lab_id>/inventory/import/",
+        av.InventoryImportView.as_view(),
+        name="inventory-import",
+    ),
+    path(
+        "labs/<uuid:lab_id>/projects/<uuid:project_id>/protocols/",
+        protocols.ProtocolListCreateView.as_view(),
+        name="protocol-list",
+    ),
+    path(
+        "labs/<uuid:lab_id>/protocols/<uuid:protocol_id>/",
+        protocols.ProtocolDetailView.as_view(),
+        name="protocol-detail",
+    ),
+    path(
+        "labs/<uuid:lab_id>/protocols/<uuid:protocol_id>/use/",
+        protocols.ProtocolUseView.as_view(),
+        name="protocol-use",
+    ),
+    path(
+        "labs/<uuid:lab_id>/projects/<uuid:project_id>/inventory-usage/",
+        protocols.UsageListView.as_view(),
+        name="inventory-usage",
+    ),
+    path(
+        "labs/<uuid:lab_id>/inventory-usage/<uuid:inventoryusage_id>/reverse/",
+        protocols.UsageReverseView.as_view(),
+        name="inventory-usage-reverse",
     ),
     path(
         "labs/<uuid:lab_id>/inventory/orders/",

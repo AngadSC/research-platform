@@ -234,7 +234,7 @@ export function Sidebar({
         </nav>
       )}
       <nav aria-label="Main" className="grid gap-0.5">
-        {navItems(labId, current?.my_permissions)
+        {navItems(labId, current?.my_permissions, current?.inventory_enabled)
           .filter(({ to }) => to !== "/settings") // in the account menu; the palette keeps it
           .map(({ to, label, icon: Icon, end }) => (
             <NavLink key={to} to={to} end={end} className={linkClass} onClick={onClose}>

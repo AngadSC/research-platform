@@ -1,5 +1,5 @@
 from django.core.exceptions import PermissionDenied
-from django.db.models import Case, Count, IntegerField, When
+from django.db.models import Case, Count, IntegerField, Prefetch, When
 from django.http import Http404
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
@@ -38,6 +38,11 @@ from projects.serializers import (
     TaskPostSerializer,
     TaskSerializer,
 )
+
+
+def _task_attachments(request):
+    """A task never names a file the person cannot open, such as a grant letter (D226)."""
+    return Prefetch("attachments", Attachment.objects.visible_to(request.user, request.lab))
 
 
 class ProjectScopedMixin(LabScopedViewMixin):
@@ -253,7 +258,7 @@ class TaskListCreateView(ProjectScopedMixin, generics.GenericAPIView):
             super()
             .get_queryset()
             .select_related("assignee", "created_by")
-            .prefetch_related("documents", "attachments")
+            .prefetch_related("documents", _task_attachments(self.request))
             .annotate(post_count=Count("posts"))
             .order_by("status", "position", "created_at", "id")
         )
@@ -288,7 +293,7 @@ class TaskDetailView(ProjectScopedMixin, generics.GenericAPIView):
             super()
             .get_queryset()
             .select_related("assignee", "created_by")
-            .prefetch_related("documents", "attachments")
+            .prefetch_related("documents", _task_attachments(self.request))
             .annotate(post_count=Count("posts"))
         )
 
@@ -465,7 +470,7 @@ class _TaskLinkMixin(TaskChildMixin, generics.GenericAPIView):
         task = (
             Task.objects.visible_to(self.request.user, self.request.lab)
             .select_related("assignee", "created_by")
-            .prefetch_related("documents", "attachments")
+            .prefetch_related("documents", _task_attachments(self.request))
             .annotate(post_count=Count("posts"))
             .get(pk=self.task.pk)
         )

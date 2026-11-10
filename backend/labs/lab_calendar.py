@@ -100,12 +100,14 @@ def build_calendar(user, lab, start, end) -> list[dict]:
         .filter(due_date__range=window)
         .select_related("project")
     ]
-    items += [
-        _item("inventory", i, f"{i.name} (maintenance due)", i.due_date)
-        for i in InventoryItem.objects.visible_to(user, lab).filter(
-            due_date__range=window, status__in=(InventoryStatus.ACTIVE, InventoryStatus.IN_REPAIR)
-        )
-    ]
+    if lab.inventory_enabled:  # D227
+        items += [
+            _item("inventory", i, f"{i.name} (maintenance due)", i.due_date)
+            for i in InventoryItem.objects.visible_to(user, lab).filter(
+                due_date__range=window,
+                status__in=(InventoryStatus.ACTIVE, InventoryStatus.IN_REPAIR),
+            )
+        ]
     items += [
         _item("ethics", a, f"{a.title} (ethics expires)", a.expiry_date)
         for a in EthicsApproval.objects.visible_to(user, lab)

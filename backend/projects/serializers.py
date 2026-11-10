@@ -53,7 +53,7 @@ class ProjectSerializer(serializers.ModelSerializer):
 
     def get_my_permissions(self, project) -> list[str]:
         user = self.context["request"].user
-        perms = PROJECT_PERMS | {Perm.DELETE_PROJECT, Perm.VIEW_RETENTION}
+        perms = PROJECT_PERMS | {Perm.DELETE_PROJECT, Perm.VIEW_RETENTION, Perm.ACCESS_FUNDING}
         return sorted(p.value for p in perms if can(user, p, project))
 
 

@@ -92,7 +92,7 @@ export const WORKFLOW_TONE: Record<string, BadgeVariant> = {
 export const label = (list: readonly (readonly [string, string])[], v: string) =>
   list.find(([k]) => k === v)?.[1] ?? v;
 
-/** Money for display; the server sends a decimal string and hides it from non-leads. */
+/** Money for display; the server sends a decimal string. */
 export function money(amount: string | null, currency: string | null): string | null {
   if (amount === null) return null;
   try {

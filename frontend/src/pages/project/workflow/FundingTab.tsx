@@ -1,5 +1,6 @@
 import { Landmark } from "lucide-react";
 import { useState } from "react";
+import { Navigate } from "react-router";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -24,12 +25,17 @@ import {
   str,
 } from "@/pages/project/workflow/parts";
 
-/** Workflow > Funding (D133). Amounts are shown to, and written by, project leads only. */
-export default function FundingTab({ labId, projectId, project }: ProjectTabProps) {
+/** Workflow > Funding (D133, D226): PIs only, so everyone who reaches this page can edit it. */
+export default function FundingTab(props: ProjectTabProps) {
+  if (!props.project.my_permissions.includes("access_funding")) {
+    return <Navigate to="../ethics" replace />;
+  }
+  return <FundingPanel {...props} />;
+}
+
+function FundingPanel({ labId, projectId }: ProjectTabProps) {
   const { list, create, update, remove } = useFunding(labId, projectId);
   const [editing, setEditing] = useState<Funding | "new" | null>(null);
-  const canEdit = project.my_permissions.includes("edit_content");
-  const isLead = project.my_permissions.includes("edit_project");
 
   const cols: Column<Funding>[] = [
     {
@@ -43,15 +49,7 @@ export default function FundingTab({ labId, projectId, project }: ProjectTabProp
       ),
     },
     { key: "no", header: "Award number", cell: (f) => f.award_number || "" },
-    ...(isLead
-      ? [
-          {
-            key: "amount",
-            header: "Amount",
-            cell: (f: Funding) => money(f.amount, f.currency) ?? "",
-          },
-        ]
-      : []),
+    { key: "amount", header: "Amount", cell: (f) => money(f.amount, f.currency) ?? "" },
     {
       key: "dates",
       header: "Dates",
@@ -67,43 +65,39 @@ export default function FundingTab({ labId, projectId, project }: ProjectTabProp
       ),
     },
     { key: "holder", header: "Held by", cell: (f) => (f.holder ? personName(f.holder) : "") },
-    ...(canEdit
-      ? [
-          {
-            key: "actions",
-            header: "Actions",
-            className: "text-right",
-            cell: (f: Funding) => (
-              <div className="flex justify-end gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Edit ${f.funder}`}
-                  onClick={() => setEditing(f)}
-                >
-                  Edit
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Remove ${f.funder}`}
-                  onClick={() =>
-                    remove.mutate(f.id, {
-                      onSuccess: () => toast.success("Funding removed"),
-                      onError: fail,
-                    })
-                  }
-                >
-                  Remove
-                </Button>
-              </div>
-            ),
-          },
-        ]
-      : []),
+    {
+      key: "actions",
+      header: "Actions",
+      className: "text-right",
+      cell: (f) => (
+        <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={`Edit ${f.funder}`}
+            onClick={() => setEditing(f)}
+          >
+            Edit
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={`Remove ${f.funder}`}
+            onClick={() =>
+              remove.mutate(f.id, {
+                onSuccess: () => toast.success("Funding removed"),
+                onError: fail,
+              })
+            }
+          >
+            Remove
+          </Button>
+        </div>
+      ),
+    },
   ];
 
-  const add = canEdit ? <Button onClick={() => setEditing("new")}>Add funding</Button> : undefined;
+  const add = <Button onClick={() => setEditing("new")}>Add funding</Button>;
   return (
     <div className="grid gap-6">
       <section aria-label="Funding" className="grid gap-3">
@@ -122,11 +116,6 @@ export default function FundingTab({ labId, projectId, project }: ProjectTabProp
             />
           }
         />
-        {!isLead && (list.data?.length ?? 0) > 0 && (
-          <p className="text-xs text-muted-foreground">
-            Amounts are visible to project leads only.
-          </p>
-        )}
       </section>
       <InstitutionLinks
         labId={labId}
@@ -138,7 +127,6 @@ export default function FundingTab({ labId, projectId, project }: ProjectTabProp
           labId={labId}
           projectId={projectId}
           funding={editing === "new" ? undefined : editing}
-          isLead={isLead}
           onClose={() => setEditing(null)}
           onSave={(v) =>
             editing === "new"
@@ -169,14 +157,12 @@ function FundingDialog({
   labId,
   projectId,
   funding,
-  isLead,
   onClose,
   onSave,
 }: {
   labId: string;
   projectId: string;
   funding?: Funding;
-  isLead: boolean;
   onClose: () => void;
   onSave: (v: Partial<FundingInput>) => Promise<unknown>;
 }) {
@@ -199,11 +185,9 @@ function FundingDialog({
           holder: str(f, "holder") || null,
           notes: str(f, "notes"),
           attachment: str(f, "attachment") || null,
+          amount: str(f, "amount") || null,
+          currency: str(f, "currency").toUpperCase() || "CAD",
         };
-        if (isLead) {
-          body.amount = str(f, "amount") || null;
-          body.currency = str(f, "currency").toUpperCase() || "CAD";
-        }
         await onSave(body);
       }}
     >
@@ -220,30 +204,28 @@ function FundingDialog({
           <FormField label="Grant or award number" error={e.award_number}>
             {(p) => <Input {...p} name="award_number" defaultValue={funding?.award_number} />}
           </FormField>
-          {isLead && (
-            <div className="grid grid-cols-[1fr_6rem] gap-3">
-              <FormField label="Amount" error={e.amount}>
-                {(p) => (
-                  <Input
-                    {...p}
-                    name="amount"
-                    inputMode="decimal"
-                    defaultValue={funding?.amount ?? ""}
-                  />
-                )}
-              </FormField>
-              <FormField label="Currency" error={e.currency}>
-                {(p) => (
-                  <Input
-                    {...p}
-                    name="currency"
-                    maxLength={3}
-                    defaultValue={funding?.currency ?? "CAD"}
-                  />
-                )}
-              </FormField>
-            </div>
-          )}
+          <div className="grid grid-cols-[1fr_6rem] gap-3">
+            <FormField label="Amount" error={e.amount}>
+              {(p) => (
+                <Input
+                  {...p}
+                  name="amount"
+                  inputMode="decimal"
+                  defaultValue={funding?.amount ?? ""}
+                />
+              )}
+            </FormField>
+            <FormField label="Currency" error={e.currency}>
+              {(p) => (
+                <Input
+                  {...p}
+                  name="currency"
+                  maxLength={3}
+                  defaultValue={funding?.currency ?? "CAD"}
+                />
+              )}
+            </FormField>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Start date" error={e.start_date}>
               {(p) => (
@@ -284,7 +266,7 @@ function FundingDialog({
           </FormField>
           <FormField
             label="Attachment (optional)"
-            hint="A file already in this project's Files."
+            hint="A file already in this project's Files. Only PIs will be able to open it after this."
             error={e.attachment}
           >
             {(p) => (

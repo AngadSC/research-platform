@@ -33,6 +33,7 @@ Admin area (Run 4, D146-D151), all lab-level (`permission_domain = "lab"`):
 | Model | Fields | Constraints / indexes |
 |---|---|---|
 | `InventoryItem` | `name`, `category` choice `equipment`, `reagent`, `consumable`, `software_licence`, `other`; `location`, `quantity` decimal >= 0, `unit`, `owner` FK User PROTECT null (a lab member, checked in the service), `serial_number`, `purchase_date` null, `due_date` null (calibration or maintenance), `status` choice `active`, `in_repair`, `retired`, `lost`; `notes` | index `(lab, category)`; check `quantity >= 0` |
+| `Protocol`, `ProtocolReagent`, `InventoryUsage` | `Protocol`: project FK, `name`, `notes`. `ProtocolReagent`: protocol FK, item FK PROTECT, `amount`, `unit` (must match the item's). `InventoryUsage`: project, protocol (null), item, `amount`, `unit`, `used_by`, `request_id`, `reversed_at` (D228) | unique `(protocol, item)`, unique `(lab, request_id)`; checks `amount > 0` |
 | `OnboardingItem` | `kind` choice `new_member`, `departing`; `title`, `description`, `url` (https), `required` bool, `order` | index `(lab, kind, order)` |
 | `OnboardingCompletion` | `item` FK CASCADE, `user` FK User PROTECT, `completed_by` FK User PROTECT | `lab_parents=("item",)`; composite lab FK via `LabForeignKey`; unique `(item, user)` |
 | `InstitutionResource` | `category` choice `ethics`, `funding`, `data_management`, `other`; `title`, `url` (https only, no credentials), `description`, `order` | unique `(lab, url)`; index `(lab, category, order)` |
@@ -182,6 +183,7 @@ class HasPerm(BasePermission)   # DRF; reads view.perms
 | manage_lab | Y | Y | - | - |
 | manage_members (invite, role change, remove) | Y | Y | - | - |
 | manage_billing (no endpoint this run) | Y | - | - | - |
+| access_funding (see and change funding, everywhere, D226) | Y | - | - | - |
 | view_audit_log | Y | Y | - | - |
 | create_project (the creator becomes lead) | Y | Y | Y | - |
 | view_ethics | Y | Y | Y | Y |
@@ -237,6 +239,7 @@ def record(action: AuditAction, *, actor: User | None, lab: Lab | None,
 | `task_post.deleted` | `projects.services.delete_post` |
 | `handover.generated` | handover views |
 | `inventory_item.created`, `.updated`, `.deleted`, `inventory.exported` | `labs.admin_services`, inventory export view (D147) |
+| `inventory.imported`, `inventory.used`, `inventory.use_reversed`, `protocol.created`, `.updated`, `.deleted` | `labs.admin_services`, `labs.protocols` (D228, D229) |
 | `onboarding_item.created`, `.updated`, `.deleted`, `onboarding.completion_changed` | `labs.admin_services` (D148) |
 | `institution_resource.created`, `.updated`, `.deleted` | `labs.admin_services`; starter loads use `actor_label job:institution_resources` (D149) |
 
@@ -307,6 +310,12 @@ Creating and editing ordinary content is not audited, because revisions and `upd
 | R4 | GET / POST | `L/inventory/?q=&category=&ordering=` | view_lab / manage_inventory |
 | R4 | GET | `L/inventory/export/` (CSV) | view_lab |
 | R4 | GET / PATCH, DELETE | `L/inventory/<inventoryitem_id>/` | view_lab / manage_inventory |
+| R4 | POST | `L/inventory/import/` (CSV: preview, then `commit=true`, D229) | manage_inventory |
+| R5 | GET / POST | `P/protocols/` | view_project / edit_content (needs inventory on, D227) |
+| R5 | PATCH, DELETE | `L/protocols/<protocol_id>/` | edit_content |
+| R5 | POST | `L/protocols/<protocol_id>/use/` (once per `request_id`, D228) | edit_content |
+| R5 | GET | `P/inventory-usage/` | view_project |
+| R5 | POST | `L/inventory-usage/<inventoryusage_id>/reverse/` | edit_content, plus recorder or lead (`can_reverse_usage`) |
 | 6 | GET | `L/members/<membership_id>/handover/` | manage_members, or the target is the requester |
 | 6 | GET | `P/handover/?user=<user_id>` | manage_project_members |
 

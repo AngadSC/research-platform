@@ -9,7 +9,7 @@ Rules every tool follows (ARCHITECTURE section 3, "Future search and AI"):
 - writes go through the existing services, inside one transaction with an `ai_tool.write` audit
   event naming the tool, the transport (`via`) and the client (D167);
 - results are compact JSON with capped text and paginated lists; nothing returns tokens, keys,
-  participant data (recruitment notes are never read) or grant amounts to non-leads (D133).
+  participant data (recruitment notes are never read) or funding to anyone but PIs (D226).
 """
 
 import datetime
@@ -30,7 +30,16 @@ from audit.models import AuditAction
 from audit.services import record
 from core.models import Notification
 from core.notifications import visible_notifications
-from core.permissions import Perm, can, forget, get_lab_or_404, lab_role, labs_for, project_role
+from core.permissions import (
+    Perm,
+    can,
+    can_access_funding,
+    forget,
+    get_lab_or_404,
+    lab_role,
+    labs_for,
+    project_role,
+)
 from core.permissions import scope as _scope
 from core.search import TYPES as SEARCH_TYPES
 from core.search import match as text_match
@@ -449,7 +458,11 @@ def project_overview(ctx, lab_id, project_id):
             "results": count(Result),
             "decisions": count(Decision),
             "manuscripts": count(ManuscriptLink),
-            "funding_records": count(FundingRecord),
+            **(
+                {"funding_records": count(FundingRecord)}
+                if can(ctx.user, Perm.ACCESS_FUNDING, p)
+                else {}
+            ),
         },
         "ethics_approvals": [
             {"id": a.pk, "title": a.title, "status": a.status, "expiry_date": a.expiry_date}
@@ -733,7 +746,7 @@ def list_ethics_approvals(ctx, lab_id, project_id=None, expiring_within_days=Non
 @tool(
     "list_funding",
     "List funding",
-    "Grants and awards on projects you can see. Amounts are shown only to project leads (D133).",
+    "Grants and awards on projects in the lab. Only the lab's PIs can see funding (D226).",
     required=("lab_id",),
     returns_text=True,
     lab_id=LAB,
@@ -742,15 +755,16 @@ def list_ethics_approvals(ctx, lab_id, project_id=None, expiring_within_days=Non
 )
 def list_funding(ctx, lab_id, project_id=None, cursor=None):
     lab = _lab(ctx, lab_id)
+    if not can_access_funding(ctx.user, lab):
+        raise ToolError("Only the lab's PIs can see funding.")
     qs = _scope(FundingRecord, ctx.user, lab).filter(project__deleted_at__isnull=True)
     if project_id:
         qs = qs.filter(project=_get(ctx, lab, Project, project_id, "project"))
     rows, nxt = _page(qs.select_related("project", "holder").order_by("-start_date", "id"), cursor)
     out = []
     for f in rows:
-        if not can(ctx.user, Perm.VIEW_PROJECT, f):
+        if not can(ctx.user, Perm.ACCESS_FUNDING, f):
             continue
-        lead = can(ctx.user, Perm.EDIT_PROJECT, f.project)
         out.append(
             {
                 "id": f.pk,
@@ -762,8 +776,8 @@ def list_funding(ctx, lab_id, project_id=None, cursor=None):
                 "start_date": f.start_date,
                 "end_date": f.end_date,
                 "holder": _name(f.holder),
-                "amount": f.amount if lead else None,
-                "currency": f.currency if lead else None,
+                "amount": f.amount,
+                "currency": f.currency,
                 "notes": untrusted(_cut(f.notes, 500)),
             }
         )

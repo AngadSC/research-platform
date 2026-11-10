@@ -3,7 +3,6 @@ import re
 from django.db.models import Prefetch
 from rest_framework import serializers
 
-from core.permissions import Perm, can
 from core.serializers import UserSerializer, no_control_chars
 from documents.models import Attachment, Document
 from documents.serializers import (
@@ -233,8 +232,6 @@ class ManuscriptSerializer(serializers.ModelSerializer):
 
 
 class FundingSerializer(serializers.ModelSerializer):
-    """D133: `amount` and `currency` are null for anyone who is not a project lead."""
-
     holder = UserSerializer(read_only=True)
     created_by = UserSerializer(read_only=True)
     attachment = AttachmentRefSerializer(read_only=True)
@@ -260,15 +257,6 @@ class FundingSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = fields
-
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        user = self.context["request"].user
-        if not self.context.setdefault("_funding_lead", {}).setdefault(
-            instance.project_id, can(user, Perm.EDIT_PROJECT, instance.project)
-        ):
-            data["amount"] = data["currency"] = None
-        return data
 
 
 class ReviewItemSerializer(serializers.ModelSerializer):

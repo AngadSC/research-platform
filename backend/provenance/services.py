@@ -197,8 +197,6 @@ def _resolve(spec, project, data, *, actor, creating):
     for field in spec.opt_users:
         if data.get(field) is not None:
             data[field] = _user(project, field, data[field])
-    if spec.model is FundingRecord and any(f in data for f in FUNDING_LEAD_ONLY):
-        require(actor, Perm.EDIT_PROJECT, project)
     if creating and data.get(spec.owner) is None:
         data[spec.owner] = actor
     return data, m2m
@@ -311,8 +309,11 @@ def workflow_progress(project, user) -> dict:
     )
     reviews = mine(ReviewItem)
     found = {
-        "funding": mine(FundingRecord)
-        .filter(status__in=(FundingStatus.AWARDED, FundingStatus.ACTIVE, FundingStatus.CLOSED))
+        "funding": FundingRecord.objects.visible_to(user, project.lab_id)
+        .filter(
+            project=project,
+            status__in=(FundingStatus.AWARDED, FundingStatus.ACTIVE, FundingStatus.CLOSED),
+        )
         .exists(),
         "ethics": EthicsApproval.objects.visible_to(user, project.lab_id)
         .filter(
@@ -329,14 +330,17 @@ def workflow_progress(project, user) -> dict:
         "review": reviews.exists() and not reviews.exclude(status=ReviewStatus.APPROVED).exists(),
     }
     marked = set(project.workflow_marked_done)
-    stages = [
-        {"key": s, "done": found[s] or s in marked, "marked": s in marked} for s in WORKFLOW_STAGES
-    ]
+    shown = [
+        s for s in WORKFLOW_STAGES if s != "funding" or can(user, Perm.ACCESS_FUNDING, project)
+    ]  # D226: the funding stage says whether a project is funded, so it is PIs only as well
+    stages = [{"key": s, "done": found[s] or s in marked, "marked": s in marked} for s in shown]
     return {"stages": stages, "next": next((s["key"] for s in stages if not s["done"]), None)}
 
 
 @transaction.atomic
 def mark_workflow_stage(*, project, user, stage, done, request=None):
+    if stage == "funding":
+        require(user, Perm.ACCESS_FUNDING, project)
     locked = Project.objects.for_lab(project.lab_id).select_for_update().get(pk=project.pk)
     marked = [s for s in locked.workflow_marked_done if s != stage] + ([stage] if done else [])
     locked.workflow_marked_done = marked
@@ -404,7 +408,9 @@ def export_project(*, project, user, context, request=None) -> dict:
         .filter(**live)
         .select_related("created_by", "updated_by")
         .order_by("created_at", "id"),
-        "attachments": mine(Attachment).filter(**live).select_related("uploaded_by"),
+        "attachments": Attachment.objects.visible_to(user, project.lab_id)
+        .filter(project=project, **live)
+        .select_related("uploaded_by"),
         **{PLURAL[kind]: queryset(kind, project, user) for kind in SPECS},
         "recruitment_plan": recruitment_plan(project),
     }
@@ -414,7 +420,9 @@ def export_project(*, project, user, context, request=None) -> dict:
         lab=project.lab,
         target=project,
         request=request,
-        metadata={k: v.count() for k, v in out.items() if hasattr(v, "count")},
+        metadata={  # the audit log is also read by lab admins, so no funding count (D226)
+            k: v.count() for k, v in out.items() if hasattr(v, "count") and k != "funding"
+        },
     )
     _notify_pis_of_export(project=project, user=user)
     return out

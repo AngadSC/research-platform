@@ -26,6 +26,7 @@ const project = (perms: string[], extra: Record<string, unknown> = {}) => ({
 });
 const LEAD = ["view_project", "edit_content", "edit_project"];
 const CONTRIB = ["view_project", "edit_content"];
+const PI = [...LEAD, "access_funding"];
 const base = (perms: string[], labPerms = ["view_lab"], extra: Record<string, unknown> = {}) => ({
   [SESSION]: signedIn,
   "GET /api/labs/": { body: [makeLab(labPerms)] },
@@ -69,7 +70,7 @@ const progress = (next: string | null, done: string[] = [], marked: string[] = [
 describe("Workflow progress", () => {
   it("opens on the first stage not done and says what to do", async () => {
     mockFetch(
-      base(CONTRIB, ["view_lab"], {
+      base(PI, ["view_lab"], {
         [`GET ${P}/workflow-progress/`]: { body: progress("participants", ["funding", "ethics"]) },
         [`GET ${P}/recruitment-entries/`]: { body: [] },
         [`GET ${P}/recruitment-plan/`]: { body: { target_enrolment: null, notes: "" } },
@@ -103,7 +104,7 @@ describe("Workflow progress", () => {
 
   it("links to the next stage from a later one, and lets an editor mark this one", async () => {
     const calls = mockFetch(
-      base(CONTRIB, ["view_lab"], {
+      base(PI, ["view_lab"], {
         [`GET ${P}/workflow-progress/`]: { body: progress("funding") },
         [`PATCH ${P}/workflow-progress/`]: { body: progress("ethics", ["funding"], ["funding"]) },
         [`GET ${P}/funding/`]: { body: [] },
@@ -124,7 +125,7 @@ describe("Workflow progress", () => {
 
   it("does not offer marking to people who cannot edit", async () => {
     mockFetch(
-      base(["view_project"], ["view_lab"], {
+      base(["view_project", "access_funding"], ["view_lab"], {
         [`GET ${P}/workflow-progress/`]: { body: progress("funding") },
         [`GET ${P}/funding/`]: { body: [] },
       }),
@@ -142,7 +143,7 @@ describe("Workflow progress", () => {
       }),
     );
     const router = renderRoute(W);
-    await waitFor(() => expect(router.state.location.pathname).toBe(`${W}/funding`));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${W}/ethics`));
   });
 
   it("keeps Lineage as a view inside Workflow and redirects its old address", async () => {
@@ -162,7 +163,7 @@ describe("Workflow progress", () => {
 describe("Workflow tab", () => {
   it("lists the sub-tabs in order and opens on Funding", async () => {
     mockFetch(
-      base(CONTRIB, ["view_lab"], {
+      base(PI, ["view_lab"], {
         [`GET ${P}/funding/`]: { body: [] },
         [`GET ${P}/workflow-progress/`]: { body: progress("funding") },
       }),
@@ -224,9 +225,9 @@ describe("Workflow tab", () => {
 });
 
 describe("Funding", () => {
-  it("shows amounts to leads and saves a new record with them", async () => {
+  it("shows amounts and saves a new record with them", async () => {
     const calls = mockFetch(
-      base(LEAD, ["view_lab"], {
+      base(PI, ["view_lab"], {
         [`GET ${P}/funding/`]: { body: [funding] },
         [`GET ${P}/attachments/`]: { body: [] },
         [`POST ${P}/funding/`]: { status: 201, body: funding },
@@ -248,26 +249,21 @@ describe("Funding", () => {
     });
   });
 
-  it("hides the amount column and field from people who are not leads", async () => {
+  it("sends anyone but a PI away from Funding and hides it from the Workflow bar", async () => {
     mockFetch(
-      base(CONTRIB, ["view_lab"], {
-        [`GET ${P}/funding/`]: { body: [{ ...funding, amount: null, currency: null }] },
-        [`GET ${P}/attachments/`]: { body: [] },
-        [`POST ${P}/funding/`]: { status: 201, body: funding },
+      base(LEAD, ["view_lab"], {
+        [`GET ${P}/workflow-progress/`]: { body: progress("ethics") },
       }),
     );
-    renderRoute(`${W}/funding`);
-    expect(await screen.findByText("NSERC")).toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { name: "Amount" })).not.toBeInTheDocument();
-    expect(screen.getByText("Amounts are visible to project leads only.")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Edit NSERC" }));
-    await screen.findByLabelText("Funder");
-    expect(screen.queryByLabelText("Amount")).not.toBeInTheDocument();
+    const router = renderRoute(`${W}/funding`);
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${W}/ethics`));
+    const nav = await screen.findByRole("navigation", { name: "Workflow sections" });
+    expect(within(nav).queryByRole("link", { name: /Funding/ })).toBeNull();
   });
 
   it("asks for a funder before saving", async () => {
     const calls = mockFetch(
-      base(CONTRIB, ["view_lab"], {
+      base(PI, ["view_lab"], {
         [`GET ${P}/funding/`]: { body: [] },
         [`GET ${P}/attachments/`]: { body: [] },
       }),

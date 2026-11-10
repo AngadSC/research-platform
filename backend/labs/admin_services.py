@@ -1,7 +1,10 @@
 """Admin-area business logic (D146-D151). Writes audit in the same transaction."""
 
+import csv
+import io
+
 from django.db import DataError, IntegrityError, transaction
-from django.db.models import F
+from django.db.models import F, ProtectedError
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -9,6 +12,8 @@ from audit.models import AuditAction as A
 from audit.services import record
 from core.institution_starters import NATIONAL_RESOURCES, STARTER_RESOURCES, match_institution
 from core.models import Institution, User
+from documents.services import Conflict
+from labs.admin_serializers import InventoryInputSerializer
 from labs.models import (
     InstitutionResource,
     InventoryItem,
@@ -20,7 +25,15 @@ from labs.models import (
     OrderStatus,
 )
 
-DETAIL_FIELDS = ["name", "department", "description", "address", "contact_email", "website"]
+DETAIL_FIELDS = [
+    "name",
+    "department",
+    "description",
+    "address",
+    "contact_email",
+    "website",
+    "inventory_enabled",
+]
 
 
 def _members_only_owner(lab, owner_id):
@@ -240,7 +253,120 @@ def update_inventory_item(obj, *, user, data, request=None):
 
 @transaction.atomic
 def delete_inventory_item(obj, *, user, request=None):
-    _delete(obj, A.INVENTORY_ITEM_DELETED, user=user, request=request)
+    try:
+        with transaction.atomic():
+            _delete(obj, A.INVENTORY_ITEM_DELETED, user=user, request=request)
+    except ProtectedError as exc:
+        raise Conflict(
+            "A protocol or a record of use still points at this item. Remove it from the "
+            "protocol first, or mark the item as retired instead."
+        ) from exc
+
+
+IMPORT_MAX_BYTES = 1024 * 1024
+IMPORT_MAX_ROWS = 1000
+_IMPORT_FIELDS = {
+    "name",
+    "category",
+    "location",
+    "quantity",
+    "unit",
+    "serial_number",
+    "purchase_date",
+    "due_date",
+    "status",
+    "notes",
+}
+
+
+def _import_header(cell):
+    return cell.strip().lower().replace(" ", "_").replace("-", "_")
+
+
+def _clean_cell(cell):
+    """Undo the quote our own export puts in front of a cell that looks like a formula."""
+    text = cell.strip()
+    return text[1:] if text[:2] in ("'=", "'+", "'-", "'@") else text
+
+
+def read_inventory_file(lab, upload) -> dict:
+    """CSV only (D229): every row is checked and nothing is written here. A file-level problem is
+    a 400 for the `file` field; a row-level one comes back beside that row."""
+    if upload.size > IMPORT_MAX_BYTES:
+        raise ValidationError({"file": "The file is too large (1 MB at most)."})
+    raw = upload.read()
+    if raw[:2] == b"PK":  # the zip signature of an .xlsx file
+        raise ValidationError({"file": "This looks like an Excel file. Save it as CSV first."})
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = raw.decode("cp1252", errors="replace")  # Excel's "CSV" on Windows
+    try:
+        reader = csv.reader(io.StringIO(text, newline=""))
+        header = [_import_header(c) for c in next(reader, [])]
+        table = [(reader.line_num, row) for row in reader if any(c.strip() for c in row)]
+    except csv.Error as exc:
+        raise ValidationError({"file": "This file could not be read as CSV."}) from exc
+    if not {"name", "category"} <= set(header):
+        raise ValidationError(
+            {"file": "The first row must name the columns, including Name and Category."}
+        )
+    if len(table) > IMPORT_MAX_ROWS:
+        raise ValidationError({"file": f"Too many rows ({IMPORT_MAX_ROWS} at most)."})
+
+    existing = {
+        n.casefold() for n in InventoryItem.objects.for_lab(lab).values_list("name", flat=True)
+    }
+    seen, rows, ready = set(), [], []
+    for line, cells in table:
+        data = {
+            f: _clean_cell(c) for f, c in zip(header, cells, strict=False) if f in _IMPORT_FIELDS
+        }
+        for f in ("category", "status"):
+            if f in data:
+                data[f] = data[f].lower().replace(" ", "_")
+        data = {k: v for k, v in data.items() if v or k in ("name", "category")}
+        ser = InventoryInputSerializer(data=data)
+        errors = {} if ser.is_valid() else {k: str(v[0]) for k, v in ser.errors.items()}
+        name = data.get("name", "")
+        rows.append(
+            {
+                "row": line,
+                "name": name,
+                "category": data.get("category", ""),
+                "quantity": data.get("quantity", ""),
+                "unit": data.get("unit", ""),
+                "errors": errors,
+                "warning": (
+                    "An item with this name already exists, so this adds another one."
+                    if name.casefold() in existing | seen
+                    else ""
+                ),
+            }
+        )
+        seen.add(name.casefold())
+        if not errors:
+            ready.append(ser.validated_data)
+    invalid = len(rows) - len(ready)
+    return {
+        "rows": rows,
+        "valid": len(ready),
+        "invalid": invalid,
+        "imported": 0,
+        "ignored_columns": [h for h in header if h and h not in _IMPORT_FIELDS],
+        "_ready": ready,
+    }
+
+
+@transaction.atomic
+def import_inventory(*, lab, user, ready, request=None) -> int:
+    """All rows or none: the caller checks `invalid` first, and any failure here rolls back."""
+    for data in ready:
+        create_inventory_item(lab=lab, user=user, data=dict(data), request=request)
+    record(
+        A.INVENTORY_IMPORTED, actor=user, lab=lab, request=request, metadata={"rows": len(ready)}
+    )
+    return len(ready)
 
 
 # ---------------------------------------------------------------- inventory orders

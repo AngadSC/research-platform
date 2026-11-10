@@ -36,6 +36,7 @@ class LabSerializer(serializers.ModelSerializer):
             "address",
             "contact_email",
             "website",
+            "inventory_enabled",
             "my_role",
             "my_permissions",
         ]
@@ -46,6 +47,7 @@ class LabSerializer(serializers.ModelSerializer):
             "address",
             "contact_email",
             "website",
+            "inventory_enabled",
         ]
         extra_kwargs = {"name": {"validators": [no_control_chars]}}
 

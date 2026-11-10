@@ -76,8 +76,14 @@ SPECS = [
     Spec("result", Result, "title", ("summary",), _r("analysis", "results")),
     Spec("decision", Decision, "title", ("rationale",), _r("review", "decisions")),
     Spec("manuscript", ManuscriptLink, "title", (), _r("manuscript", "manuscripts")),
-    # grant amounts are lead-only (D133), so they are neither searched nor shown
-    Spec("funding", FundingRecord, "funder", ("program", "award_number"), _w("funding")),
+    Spec(  # D226: PIs only; amounts are neither searched nor shown
+        "funding",
+        FundingRecord,
+        "funder",
+        ("program", "award_number"),
+        _w("funding"),
+        perm=Perm.ACCESS_FUNDING,
+    ),
     Spec("review", ReviewItem, "title", ("notes",), _w("review")),
     Spec(
         "ethics",

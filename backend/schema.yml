@@ -994,6 +994,12 @@ paths:
           - inventory_item.updated
           - inventory_item.deleted
           - inventory.exported
+          - inventory.imported
+          - inventory.used
+          - inventory.use_reversed
+          - protocol.created
+          - protocol.updated
+          - protocol.deleted
           - inventory_order.created
           - inventory_order.updated
           - lab_event.created
@@ -1110,6 +1116,12 @@ paths:
           * `inventory_item.updated` - Inventory Item Updated
           * `inventory_item.deleted` - Inventory Item Deleted
           * `inventory.exported` - Inventory Exported
+          * `inventory.imported` - Inventory Imported
+          * `inventory.used` - Inventory Used
+          * `inventory.use_reversed` - Inventory Use Reversed
+          * `protocol.created` - Protocol Created
+          * `protocol.updated` - Protocol Updated
+          * `protocol.deleted` - Protocol Deleted
           * `inventory_order.created` - Inventory Order Created
           * `inventory_order.updated` - Inventory Order Updated
           * `lab_event.created` - Lab Event Created
@@ -3000,6 +3012,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/Inventory'
           description: ''
+  /api/labs/{lab_id}/inventory-usage/{inventoryusage_id}/reverse/:
+    post:
+      operationId: labs_inventory_usage_reverse_create
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: inventoryusage_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryUsage'
+          description: ''
   /api/labs/{lab_id}/inventory/{inventoryitem_id}/:
     get:
       operationId: labs_inventory_retrieve
@@ -3133,6 +3178,38 @@ paths:
               schema:
                 type: string
                 format: binary
+          description: ''
+  /api/labs/{lab_id}/inventory/import/:
+    post:
+      operationId: labs_inventory_import_create
+      description: Post a CSV to preview it; post the same file with commit=true to
+        add every row (D229).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InventoryImportInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InventoryImportInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryImportResult'
           description: ''
   /api/labs/{lab_id}/inventory/orders/:
     get:
@@ -5523,6 +5600,41 @@ paths:
                 items:
                   $ref: '#/components/schemas/ItemSearchResult'
           description: ''
+  /api/labs/{lab_id}/projects/{project_id}/inventory-usage/:
+    get:
+      operationId: labs_projects_inventory_usage_list
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InventoryUsage'
+          description: ''
   /api/labs/{lab_id}/projects/{project_id}/lineage/:
     get:
       operationId: labs_projects_lineage_retrieve
@@ -5827,6 +5939,85 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/projects/{project_id}/protocols/:
+    get:
+      operationId: labs_projects_protocols_list
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Protocol'
+          description: ''
+    post:
+      operationId: labs_projects_protocols_create
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProtocolInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProtocolInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProtocolInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Protocol'
+          description: ''
   /api/labs/{lab_id}/projects/{project_id}/recruitment-entries/:
     get:
       operationId: labs_projects_recruitment_entries_list
@@ -6334,6 +6525,123 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WorkflowProgress'
+          description: ''
+  /api/labs/{lab_id}/protocols/{protocol_id}/:
+    patch:
+      operationId: labs_protocols_partial_update
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: protocol_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProtocolInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProtocolInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProtocolInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Protocol'
+          description: ''
+    delete:
+      operationId: labs_protocols_destroy
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: protocol_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/protocols/{protocol_id}/use/:
+    post:
+      operationId: labs_protocols_use_create
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: protocol_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UseInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UseInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UseInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryUsage'
           description: ''
   /api/labs/{lab_id}/recruitment-entries/{recruitmententry_id}/:
     get:
@@ -7875,6 +8183,12 @@ components:
       - inventory_item.updated
       - inventory_item.deleted
       - inventory.exported
+      - inventory.imported
+      - inventory.used
+      - inventory.use_reversed
+      - protocol.created
+      - protocol.updated
+      - protocol.deleted
       - inventory_order.created
       - inventory_order.updated
       - lab_event.created
@@ -7990,6 +8304,12 @@ components:
         * `inventory_item.updated` - Inventory Item Updated
         * `inventory_item.deleted` - Inventory Item Deleted
         * `inventory.exported` - Inventory Exported
+        * `inventory.imported` - Inventory Imported
+        * `inventory.used` - Inventory Used
+        * `inventory.use_reversed` - Inventory Use Reversed
+        * `protocol.created` - Protocol Created
+        * `protocol.updated` - Protocol Updated
+        * `protocol.deleted` - Protocol Deleted
         * `inventory_order.created` - Inventory Order Created
         * `inventory_order.updated` - Inventory Order Updated
         * `lab_event.created` - Lab Event Created
@@ -10605,8 +10925,6 @@ components:
       - name
     Funding:
       type: object
-      description: 'D133: `amount` and `currency` are null for anyone who is not a
-        project lead.'
       properties:
         id:
           type: string
@@ -10995,6 +11313,70 @@ components:
       - status
       - unit
       - updated_at
+    InventoryImportInput:
+      type: object
+      properties:
+        file:
+          type: string
+          format: uri
+        commit:
+          type: boolean
+          default: false
+      required:
+      - file
+    InventoryImportResult:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryImportRow'
+        valid:
+          type: integer
+        invalid:
+          type: integer
+        imported:
+          type: integer
+          description: Items added; 0 for a preview.
+        ignored_columns:
+          type: array
+          items:
+            type: string
+      required:
+      - ignored_columns
+      - imported
+      - invalid
+      - rows
+      - valid
+    InventoryImportRow:
+      type: object
+      properties:
+        row:
+          type: integer
+          description: The line in the file (the header is line 1).
+        name:
+          type: string
+        category:
+          type: string
+        quantity:
+          type: string
+        unit:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+        warning:
+          type: string
+          description: Worth checking, but does not stop the import.
+      required:
+      - category
+      - errors
+      - name
+      - quantity
+      - row
+      - unit
+      - warning
     InventoryInput:
       type: object
       properties:
@@ -11138,6 +11520,61 @@ components:
           maxLength: 5000
       required:
       - name
+    InventoryUsage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        item:
+          type: string
+          format: uuid
+          readOnly: true
+        item_name:
+          type: string
+        protocol:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        protocol_name:
+          type: string
+          readOnly: true
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        unit:
+          type: string
+          readOnly: true
+        used_by:
+          $ref: '#/components/schemas/User'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        reversed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        can_reverse:
+          type: boolean
+          readOnly: true
+      required:
+      - amount
+      - can_reverse
+      - created_at
+      - id
+      - item
+      - item_name
+      - protocol
+      - protocol_name
+      - reversed_at
+      - unit
+      - used_by
     Invite:
       type: object
       properties:
@@ -11307,6 +11744,9 @@ components:
           type: string
           format: uri
           readOnly: true
+        inventory_enabled:
+          type: boolean
+          readOnly: true
         my_role:
           type: string
           nullable: true
@@ -11323,6 +11763,7 @@ components:
       - description
       - id
       - institution
+      - inventory_enabled
       - my_permissions
       - my_role
       - name
@@ -12646,6 +13087,8 @@ components:
         website:
           type: string
           maxLength: 300
+        inventory_enabled:
+          type: boolean
     PatchedLabEventInput:
       type: object
       properties:
@@ -12792,6 +13235,19 @@ components:
       properties:
         role:
           $ref: '#/components/schemas/ProjectRoleEnum'
+    PatchedProtocolInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        notes:
+          type: string
+          maxLength: 5000
+        reagents:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReagentInput'
     PatchedRecruitmentEntryInput:
       type: object
       properties:
@@ -13215,6 +13671,82 @@ components:
         * `paused` - Paused
         * `completed` - Completed
         * `archived` - Archived
+    Protocol:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        notes:
+          type: string
+          readOnly: true
+        reagents:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProtocolReagent'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - name
+      - notes
+      - reagents
+    ProtocolInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        notes:
+          type: string
+          maxLength: 5000
+        reagents:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReagentInput'
+      required:
+      - name
+    ProtocolReagent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        item:
+          type: string
+          format: uuid
+        item_name:
+          type: string
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        unit:
+          type: string
+          readOnly: true
+        stock:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        stock_unit:
+          type: string
+      required:
+      - amount
+      - id
+      - item
+      - item_name
+      - stock
+      - stock_unit
+      - unit
     Provider:
       type: object
       description: |-
@@ -13361,6 +13893,23 @@ components:
           type: integer
       required:
       - updated
+    ReagentInput:
+      type: object
+      properties:
+        item:
+          type: string
+          format: uuid
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        unit:
+          type: string
+          default: ''
+          maxLength: 32
+      required:
+      - amount
+      - item
     RecruitmentEntry:
       type: object
       properties:
@@ -14489,6 +15038,23 @@ components:
           type: integer
         cache_write_tokens:
           type: integer
+    UseInput:
+      type: object
+      properties:
+        reagent:
+          type: string
+          format: uuid
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        request_id:
+          type: string
+          format: uuid
+          description: New per click; a repeat of one takes stock once.
+      required:
+      - reagent
+      - request_id
     User:
       type: object
       properties:

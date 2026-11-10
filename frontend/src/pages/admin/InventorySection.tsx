@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { inventoryExportUrl, useInventory } from "@/hooks/admin";
+import { ImportInventory } from "./ImportInventory";
 import { useMembers } from "@/hooks/workspace";
 import type { InventoryInput, InventoryItem } from "@/lib/api-types";
 import { localDateISO } from "@/lib/format";
@@ -342,6 +343,7 @@ export function InventorySection({
             Export CSV
           </a>
         </Button>
+        {canEdit && <ImportInventory labId={labId} />}
         {canEdit && <Button onClick={() => setAdding(true)}>Add item</Button>}
       </div>
       <DataTable

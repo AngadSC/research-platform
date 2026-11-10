@@ -29,7 +29,7 @@ export const PROJECT_SECTIONS = [
 ] as const;
 
 /** Sidebar and palette links. Lab pages only appear once a lab is selected. */
-export function navItems(labId?: string, permissions: string[] = []) {
+export function navItems(labId?: string, permissions: string[] = [], inventoryEnabled = true) {
   return [
     { to: labId ? `/labs/${labId}/projects` : "/", label: "Home", icon: Home, end: true },
     ...(labId && permissions.includes("manage_lab")
@@ -42,7 +42,7 @@ export function navItems(labId?: string, permissions: string[] = []) {
       ? [{ to: `/labs/${labId}/calendar`, label: "Calendar", icon: CalendarDays, end: false }]
       : []),
     ...(labId ? [{ to: `/labs/${labId}/members`, label: "Members", icon: Users, end: false }] : []),
-    ...(labId
+    ...(labId && inventoryEnabled
       ? [{ to: `/labs/${labId}/inventory`, label: "Inventory", icon: Boxes, end: false }]
       : []),
     ...(labId

@@ -63,6 +63,7 @@ export const makeLab = (perms: string[], role = "pi") => ({
   id: "lab1",
   name: "Ada Lab",
   institution: { id: "i1", name: "Uni" },
+  inventory_enabled: true,
   my_role: role,
   my_permissions: perms,
 });

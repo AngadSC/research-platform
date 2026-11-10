@@ -165,11 +165,17 @@ class ManuscriptDetailView(KindDetail):
 @_list_schema("funding")
 class FundingListCreateView(KindListCreate):
     kind = "funding"
+    perms = {"GET": Perm.ACCESS_FUNDING, "POST": Perm.ACCESS_FUNDING}  # D226
 
 
 @_detail_schema("funding")
 class FundingDetailView(KindDetail):
     kind = "funding"
+    perms = {  # D226
+        "GET": Perm.ACCESS_FUNDING,
+        "PATCH": Perm.ACCESS_FUNDING,
+        "DELETE": Perm.ACCESS_FUNDING,
+    }
 
 
 @_list_schema("review")

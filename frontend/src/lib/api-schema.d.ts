@@ -1236,6 +1236,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/inventory-usage/{inventoryusage_id}/reverse/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        post: operations["labs_inventory_usage_reverse_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/inventory/{inventoryitem_id}/": {
         parameters: {
             query?: never;
@@ -1278,6 +1301,23 @@ export interface paths {
         get: operations["labs_inventory_export_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/inventory/import/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Post a CSV to preview it; post the same file with commit=true to add every row (D229). */
+        post: operations["labs_inventory_import_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2280,6 +2320,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/projects/{project_id}/inventory-usage/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        get: operations["labs_projects_inventory_usage_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/projects/{project_id}/lineage/": {
         parameters: {
             query?: never;
@@ -2394,6 +2457,36 @@ export interface paths {
          *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
          */
         post: operations["labs_projects_messages_read_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/protocols/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        get: operations["labs_projects_protocols_list"];
+        put?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        post: operations["labs_projects_protocols_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2571,6 +2664,59 @@ export interface paths {
          *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
          */
         patch: operations["labs_projects_workflow_progress_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/protocols/{protocol_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        delete: operations["labs_protocols_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        patch: operations["labs_protocols_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/protocols/{protocol_id}/use/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        post: operations["labs_protocols_use_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/labs/{lab_id}/recruitment-entries/{recruitmententry_id}/": {
@@ -3207,6 +3353,12 @@ export interface components {
          *     * `inventory_item.updated` - Inventory Item Updated
          *     * `inventory_item.deleted` - Inventory Item Deleted
          *     * `inventory.exported` - Inventory Exported
+         *     * `inventory.imported` - Inventory Imported
+         *     * `inventory.used` - Inventory Used
+         *     * `inventory.use_reversed` - Inventory Use Reversed
+         *     * `protocol.created` - Protocol Created
+         *     * `protocol.updated` - Protocol Updated
+         *     * `protocol.deleted` - Protocol Deleted
          *     * `inventory_order.created` - Inventory Order Created
          *     * `inventory_order.updated` - Inventory Order Updated
          *     * `lab_event.created` - Lab Event Created
@@ -3252,7 +3404,7 @@ export interface components {
          *     * `paper_note.deleted` - Paper Note Deleted
          * @enum {string}
          */
-        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "paper.deleted" | "paper_note.deleted";
+        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "paper.deleted" | "paper_note.deleted";
         /**
          * @description * `read` - Read
          *     * `write` - Write
@@ -4235,7 +4387,6 @@ export interface components {
             /** Format: uuid */
             parent?: string | null;
         };
-        /** @description D133: `amount` and `currency` are null for anyone who is not a project lead. */
         Funding: {
             /** Format: uuid */
             readonly id: string;
@@ -4373,6 +4524,33 @@ export interface components {
             /** Format: date-time */
             readonly updated_at: string;
         };
+        InventoryImportInput: {
+            /** Format: uri */
+            file: string;
+            /** @default false */
+            commit: boolean;
+        };
+        InventoryImportResult: {
+            rows: components["schemas"]["InventoryImportRow"][];
+            valid: number;
+            invalid: number;
+            /** @description Items added; 0 for a preview. */
+            imported: number;
+            ignored_columns: string[];
+        };
+        InventoryImportRow: {
+            /** @description The line in the file (the header is line 1). */
+            row: number;
+            name: string;
+            category: string;
+            quantity: string;
+            unit: string;
+            errors: {
+                [key: string]: string;
+            };
+            /** @description Worth checking, but does not stop the import. */
+            warning: string;
+        };
         InventoryInput: {
             name: string;
             category: components["schemas"]["Category9e5Enum"];
@@ -4424,6 +4602,25 @@ export interface components {
             unit?: string;
             status?: components["schemas"]["Status149Enum"];
             notes?: string;
+        };
+        InventoryUsage: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly item: string;
+            item_name: string;
+            /** Format: uuid */
+            readonly protocol: string | null;
+            readonly protocol_name: string;
+            /** Format: decimal */
+            readonly amount: string;
+            readonly unit: string;
+            used_by: components["schemas"]["User"];
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly reversed_at: string | null;
+            readonly can_reverse: boolean;
         };
         Invite: {
             /** Format: uuid */
@@ -4494,6 +4691,7 @@ export interface components {
             readonly contact_email: string;
             /** Format: uri */
             readonly website: string;
+            readonly inventory_enabled: boolean;
             readonly my_role: string | null;
             readonly my_permissions: string[];
         };
@@ -5006,6 +5204,7 @@ export interface components {
             address?: string;
             contact_email?: string;
             website?: string;
+            inventory_enabled?: boolean;
         };
         PatchedLabEventInput: {
             title?: string;
@@ -5069,6 +5268,11 @@ export interface components {
         };
         PatchedProjectMembershipRole: {
             role?: components["schemas"]["ProjectRoleEnum"];
+        };
+        PatchedProtocolInput: {
+            name?: string;
+            notes?: string;
+            reagents?: components["schemas"]["ReagentInput"][];
         };
         PatchedRecruitmentEntryInput: {
             /** Format: date */
@@ -5251,6 +5455,33 @@ export interface components {
          * @enum {string}
          */
         ProjectStatusEnum: "planning" | "active" | "paused" | "completed" | "archived";
+        Protocol: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly notes: string;
+            reagents: components["schemas"]["ProtocolReagent"][];
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        ProtocolInput: {
+            name: string;
+            notes?: string;
+            reagents?: components["schemas"]["ReagentInput"][];
+        };
+        ProtocolReagent: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            item: string;
+            item_name: string;
+            /** Format: decimal */
+            readonly amount: string;
+            readonly unit: string;
+            /** Format: decimal */
+            stock: string;
+            stock_unit: string;
+        };
         /**
          * @description One registry entry plus the requester's own account there: everything the generic UI
          *     needs (D80). Built from a dict (`views.provider_entry`).
@@ -5310,6 +5541,14 @@ export interface components {
         ProviderEnum: "anthropic" | "openai";
         ReadAllResult: {
             updated: number;
+        };
+        ReagentInput: {
+            /** Format: uuid */
+            item: string;
+            /** Format: decimal */
+            amount: string;
+            /** @default  */
+            unit: string;
         };
         RecruitmentEntry: {
             /** Format: uuid */
@@ -5759,6 +5998,17 @@ export interface components {
             output_tokens?: number;
             cache_read_tokens?: number;
             cache_write_tokens?: number;
+        };
+        UseInput: {
+            /** Format: uuid */
+            reagent: string;
+            /** Format: decimal */
+            amount?: string;
+            /**
+             * Format: uuid
+             * @description New per click; a repeat of one takes stock once.
+             */
+            request_id: string;
         };
         User: {
             /** Format: uuid */
@@ -6641,6 +6891,12 @@ export interface operations {
                  *     * `inventory_item.updated` - Inventory Item Updated
                  *     * `inventory_item.deleted` - Inventory Item Deleted
                  *     * `inventory.exported` - Inventory Exported
+                 *     * `inventory.imported` - Inventory Imported
+                 *     * `inventory.used` - Inventory Used
+                 *     * `inventory.use_reversed` - Inventory Use Reversed
+                 *     * `protocol.created` - Protocol Created
+                 *     * `protocol.updated` - Protocol Updated
+                 *     * `protocol.deleted` - Protocol Deleted
                  *     * `inventory_order.created` - Inventory Order Created
                  *     * `inventory_order.updated` - Inventory Order Updated
                  *     * `lab_event.created` - Lab Event Created
@@ -6685,7 +6941,7 @@ export interface operations {
                  *     * `paper.deleted` - Paper Deleted
                  *     * `paper_note.deleted` - Paper Note Deleted
                  */
-                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "paper.deleted" | "paper_note.deleted";
+                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "paper.deleted" | "paper_note.deleted";
                 actor?: string;
                 /** @description Pagination cursor */
                 cursor?: string;
@@ -8054,6 +8310,28 @@ export interface operations {
             };
         };
     };
+    labs_inventory_usage_reverse_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inventoryusage_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryUsage"];
+                };
+            };
+        };
+    };
     labs_inventory_retrieve: {
         parameters: {
             query?: never;
@@ -8148,6 +8426,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": string;
+                };
+            };
+        };
+    };
+    labs_inventory_import_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["InventoryImportInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["InventoryImportInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryImportResult"];
                 };
             };
         };
@@ -9840,6 +10144,28 @@ export interface operations {
             };
         };
     };
+    labs_projects_inventory_usage_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryUsage"][];
+                };
+            };
+        };
+    };
     labs_projects_lineage_retrieve: {
         parameters: {
             query?: never;
@@ -10038,6 +10364,56 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    labs_projects_protocols_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Protocol"][];
+                };
+            };
+        };
+    };
+    labs_projects_protocols_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProtocolInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ProtocolInput"];
+                "multipart/form-data": components["schemas"]["ProtocolInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Protocol"];
+                };
             };
         };
     };
@@ -10373,6 +10749,83 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkflowProgress"];
+                };
+            };
+        };
+    };
+    labs_protocols_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                protocol_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_protocols_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                protocol_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedProtocolInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedProtocolInput"];
+                "multipart/form-data": components["schemas"]["PatchedProtocolInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Protocol"];
+                };
+            };
+        };
+    };
+    labs_protocols_use_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                protocol_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UseInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["UseInput"];
+                "multipart/form-data": components["schemas"]["UseInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryUsage"];
                 };
             };
         };

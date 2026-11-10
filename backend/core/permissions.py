@@ -35,6 +35,7 @@ class Perm(StrEnum):
     MANAGE_LAB = "manage_lab"
     MANAGE_MEMBERS = "manage_members"
     MANAGE_BILLING = "manage_billing"
+    ACCESS_FUNDING = "access_funding"  # D226: see and change funding; PIs only
     VIEW_AUDIT_LOG = "view_audit_log"
     CREATE_PROJECT = "create_project"
     VIEW_ETHICS = "view_ethics"
@@ -87,7 +88,7 @@ _ALL_LAB = frozenset(
     }
 )
 LAB_ROLE_PERMS: dict[str, frozenset[Perm]] = {
-    LabRole.PI: _ALL_LAB | {_P.MANAGE_BILLING},
+    LabRole.PI: _ALL_LAB | {_P.MANAGE_BILLING, _P.ACCESS_FUNDING},
     LabRole.LAB_ADMIN: _ALL_LAB,
     LabRole.MEMBER: frozenset(
         {
@@ -197,6 +198,19 @@ def can_view_ethics_files(user, approval, visible=None) -> bool:
     if visible is None:
         visible = set(visible_projects(user, approval.lab_id).values_list("pk", flat=True))
     return any(p.pk in visible for p in approval.projects.all())
+
+
+def can_access_funding(user, lab) -> bool:
+    """D226: `lab` may be a Lab or its id; used by the row filters on funding and its files."""
+    return Perm.ACCESS_FUNDING in LAB_ROLE_PERMS.get(lab_role(user, lab), ())
+
+
+def can_reverse_usage(user, usage) -> bool:
+    """D228: undoing a recorded use of stock needs a project lead, or the person who recorded it
+    and can still edit the project."""
+    if not can(user, Perm.EDIT_CONTENT, usage):
+        return False
+    return usage.used_by_id == user.pk or can(user, Perm.EDIT_PROJECT, usage)
 
 
 def can_edit_ethics(user, approval) -> bool:
@@ -367,7 +381,12 @@ class HasPerm(BasePermission):
         target = getattr(view, "project", None) or getattr(request, "lab", None)
         if target is None and perm not in (Perm.PUBLIC, Perm.AUTHENTICATED):
             return False
-        return can(request.user, perm, target)
+        if not can(request.user, perm, target):
+            return False
+        if getattr(view, "needs_inventory", False) and not request.lab.inventory_enabled:  # D227
+            self.message = "Inventory is turned off for this lab."
+            return False
+        return True
 
     def has_object_permission(self, request, view, obj):
         perm = self._perm(request, view)

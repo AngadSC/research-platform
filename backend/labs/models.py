@@ -45,6 +45,7 @@ class Lab(models.Model):
     contact_email = models.EmailField(blank=True)
     website = models.URLField(max_length=300, blank=True)
     ai_policy = models.CharField(max_length=8, choices=AiPolicy.choices, default=AiPolicy.FULL)
+    inventory_enabled = models.BooleanField(default=True)  # D227: off for a dry lab
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -278,6 +279,86 @@ class InventoryOrder(LabScopedModel):
 
     def __str__(self):
         return self.name
+
+
+class Protocol(LabScopedModel):
+    """A project's written-down recipe: which reagents, and how much of each (D228)."""
+
+    permission_domain = "project"
+    project_path = "project"
+    lab_parents = ("project",)
+
+    project = models.ForeignKey("projects.Project", on_delete=models.CASCADE, related_name="+")
+    name = models.CharField(max_length=200)
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+
+    class Meta(LabScopedModel.Meta):
+        indexes = [models.Index(fields=["project", "name"], name="protocol_project_idx")]
+
+    def __str__(self):
+        return self.name
+
+
+class ProtocolReagent(LabScopedModel):
+    """One line of a protocol. `unit` must equal the item's unit: we never convert (D228)."""
+
+    permission_domain = "project"
+    project_path = "protocol__project"
+    lab_parents = ("protocol", "item")
+
+    protocol = models.ForeignKey(Protocol, on_delete=models.CASCADE, related_name="reagents")
+    item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT, related_name="+")
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    unit = models.CharField(max_length=32, blank=True)
+
+    class Meta(LabScopedModel.Meta):
+        constraints = [
+            models.UniqueConstraint(fields=["protocol", "item"], name="protocol_reagent_once"),
+            models.CheckConstraint(condition=Q(amount__gt=0), name="protocol_reagent_amount_gt0"),
+        ]
+
+    def __str__(self):
+        return f"{self.amount} {self.unit} of {self.item_id}"
+
+
+class InventoryUsage(LabScopedModel):
+    """A record that someone took stock for a project. Stock leaves the item exactly once: the
+    row and the conditional quantity update share a transaction, and `request_id` makes a retried
+    click a no-op (D228). `reversed_at` undoes a mistake and puts the amount back."""
+
+    permission_domain = "project"
+    project_path = "project"
+    lab_parents = ("project", "protocol", "item")
+
+    project = models.ForeignKey("projects.Project", on_delete=models.CASCADE, related_name="+")
+    protocol = models.ForeignKey(
+        Protocol, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    protocol_name = models.CharField(max_length=200)  # survives the protocol being deleted
+    item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT, related_name="+")
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    unit = models.CharField(max_length=32, blank=True)
+    used_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    request_id = models.UUIDField()
+    reversed_at = models.DateTimeField(null=True, blank=True)
+    reversed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+
+    class Meta(LabScopedModel.Meta):
+        indexes = [models.Index(fields=["project", "created_at"], name="invusage_project_idx")]
+        constraints = [
+            models.UniqueConstraint(fields=["lab", "request_id"], name="invusage_request_once"),
+            models.CheckConstraint(condition=Q(amount__gt=0), name="invusage_amount_gt0"),
+        ]
+
+    def __str__(self):
+        return f"{self.amount} {self.unit} of {self.item_id}"
 
 
 class OnboardingKind(models.TextChoices):

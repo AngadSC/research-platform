@@ -116,7 +116,9 @@ class LabScopedQuerySet(models.QuerySet):
         if path is None:
             return self.model.visible_rows(qs, user, lab)
         key = "pk__in" if path == "" else f"{path}__in"
-        return qs.filter(**{key: permissions.visible_projects(user, lab)})
+        return self.model.visible_rows(
+            qs.filter(**{key: permissions.visible_projects(user, lab)}), user, lab
+        )
 
 
 class LabScopedManager(models.Manager.from_queryset(LabScopedQuerySet)):
@@ -159,7 +161,7 @@ class LabScopedModel(models.Model):
 
     @classmethod
     def visible_rows(cls, qs, user, lab):
-        """D54: per-model row filter for lab-wide models. Default: every row of the lab."""
+        """D54, D226: a model's own row filter, after the project check. Default: every row."""
         return qs
 
     def _check_lab(self):

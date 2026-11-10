@@ -187,8 +187,15 @@ class FundingStatus(models.TextChoices):
 
 
 class FundingRecord(ProvenanceModel):
-    """A grant or award behind the project (D133). `amount` and `currency` are shown to and
-    written by project leads only; everything else follows the other provenance records."""
+    """A grant or award behind the project (D133). PIs only, every field and every route (D226):
+    `visible_rows` makes `visible_to` empty for anyone else, so search, the calendar, the
+    dashboard and the AI tools all follow it."""
+
+    @classmethod
+    def visible_rows(cls, qs, user, lab):
+        from core.permissions import can_access_funding
+
+        return qs if can_access_funding(user, lab) else qs.none()
 
     funder = models.CharField(max_length=200)
     program = models.CharField(max_length=300, blank=True)  # program or grant name

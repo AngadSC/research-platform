@@ -138,6 +138,17 @@ class Attachment(LabScopedModel):
     permission_domain = "project"
     project_path = "project"
 
+    @classmethod
+    def visible_rows(cls, qs, user, lab):
+        """D226: a file linked to a funding record (a grant letter) is PI-only as well."""
+        from core.permissions import can_access_funding
+        from provenance.models import FundingRecord
+
+        if can_access_funding(user, lab):
+            return qs
+        linked = FundingRecord.objects.for_lab(lab).filter(attachment__isnull=False)
+        return qs.exclude(pk__in=linked.values("attachment"))
+
     class Meta(LabScopedModel.Meta):
         constraints = [
             models.CheckConstraint(
