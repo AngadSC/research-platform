@@ -195,7 +195,7 @@ function Board({
     move(dragged, status, at < 0 ? col.length : at);
   };
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid gap-4 sm:grid-cols-3">
       {TASK_STATUSES.map((s) => {
         const col = tasks.filter((t) => t.status === s.value);
         return (

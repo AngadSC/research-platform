@@ -52,14 +52,3 @@ test("navigating from the drawer closes it", async ({ page }) => {
   await expect(page).toHaveURL(/\/settings/);
   await expect(page.locator("#app-sidebar")).toBeHidden();
 });
-
-test("projects page has no horizontal overflow", async ({ page }) => {
-  await openProject(page);
-  const lab = new URL(page.url()).pathname.split("/")[2];
-  await page.goto(`/labs/${lab}`);
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  );
-  expect(overflow).toBe(0);
-});

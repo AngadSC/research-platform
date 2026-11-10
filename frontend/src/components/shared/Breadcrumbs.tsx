@@ -24,7 +24,7 @@ export function Breadcrumbs({
   if (items.length === 0) return null;
   return (
     <nav aria-label={label}>
-      <ol className="flex items-center gap-1.5 text-sm text-muted-foreground">
+      <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm text-muted-foreground">
         {items.map((item, i) => {
           const last = i === items.length - 1;
           if (item.pending)

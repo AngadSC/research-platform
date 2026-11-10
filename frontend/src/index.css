@@ -137,6 +137,13 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    overflow-wrap: break-word; /* a long title or address wraps instead of running off the screen */
+  }
+  /* Grid children default to min-width: auto, so one wide table stretched the whole page past
+     the screen. With this they fit their column, and a wide table scrolls inside its own box. */
+  .grid > *,
+  [class*=":grid"] > * {
+    min-width: 0;
   }
 }
 

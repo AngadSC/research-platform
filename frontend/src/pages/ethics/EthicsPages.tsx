@@ -148,7 +148,7 @@ export function EthicsDetailPage() {
           )
         }
       />
-      <dl className="grid grid-cols-4 gap-4">
+      <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Fact label="Status">
           <ApprovalBadge status={a.status} expiry={a.expiry_date} />
         </Fact>
