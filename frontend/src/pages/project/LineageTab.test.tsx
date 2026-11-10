@@ -26,7 +26,7 @@ const handlers = (lineage: { status?: number; body?: unknown }) => ({
   "GET /api/labs/lab1/projects/p1/": { body: project },
   "GET /api/labs/lab1/projects/p1/lineage/": lineage,
 });
-const PATH = "/labs/lab1/projects/p1/lineage";
+const PATH = "/labs/lab1/projects/p1/workflow/lineage";
 
 beforeEach(() => {
   // React Flow measures nodes with these; jsdom has neither.

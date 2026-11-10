@@ -1,6 +1,6 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Upload } from "lucide-react";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Trash2, Upload } from "lucide-react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
@@ -285,6 +285,183 @@ export function ResearchForm({ labId, projectId, kind, record, onSaved, onCancel
           }}
         />
       )}
+    </form>
+  );
+}
+
+const ANALYSIS_FIELD = FIELDS.results.find((f) => f.name === "analysis")!;
+
+interface SetRow {
+  key: number;
+  title: string;
+  summary: string;
+  attachment?: { id: string; name: string };
+}
+const titleFrom = (filename: string) => filename.replace(/\.[^.]+$/, "");
+
+/** Many results from one analysis, saved together: each figure becomes one result. */
+export function ResultSetForm({
+  labId,
+  projectId,
+  onDone,
+  onCancel,
+}: {
+  labId: string;
+  projectId: string;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const [analysis, setAnalysis] = useState("");
+  const [rows, setRows] = useState<SetRow[]>([]);
+  const nextKey = useRef(0);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string>();
+  const [uploading, setUploading] = useState(false);
+  const { uploadFile } = useAttachments(labId, projectId);
+  const qc = useQueryClient();
+  const save = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      api(`/api/labs/${labId}/projects/${projectId}/results/set/`, { method: "POST", body }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: root(labId) }),
+  });
+  const patch = (key: number, change: Partial<SetRow>) =>
+    setRows((all) => all.map((r) => (r.key === key ? { ...r, ...change } : r)));
+  const addRow = (row: Omit<SetRow, "key">) => {
+    const key = nextKey.current++;
+    setRows((all) => [...all, { ...row, key }]);
+  };
+
+  function submit(ev: FormEvent) {
+    ev.preventDefault();
+    const errs: Record<string, string> = {};
+    if (!analysis) errs.analysis = "Choose the analysis that produced these results";
+    if (!rows.length) errs.rows = "Add at least one result";
+    for (const r of rows) if (!r.title.trim()) errs[`title-${r.key}`] = "Enter a title";
+    setErrors(errs);
+    setFormError(undefined);
+    if (Object.keys(errs).length) return;
+    save.mutate(
+      {
+        analysis,
+        items: rows.map((r) => ({
+          title: r.title.trim(),
+          summary: r.summary.trim(),
+          attachments: r.attachment ? [r.attachment.id] : [],
+        })),
+      },
+      {
+        onSuccess: () => {
+          toast.success(`Saved ${rows.length} ${rows.length === 1 ? "result" : "results"}`);
+          onDone();
+        },
+        onError: (e) => {
+          const { fields, form } = formErrors(e, ["analysis", "items"]);
+          setErrors(fields);
+          setFormError(form);
+        },
+      },
+    );
+  }
+
+  return (
+    <form onSubmit={submit} noValidate className="grid gap-4">
+      <FormError message={formError} />
+      <FormField
+        label="Analysis that produced them"
+        hint="Every result in this set comes from this analysis."
+        error={errors.analysis}
+      >
+        {(p) => (
+          <Select
+            labId={labId}
+            projectId={projectId}
+            f={ANALYSIS_FIELD}
+            id={p.id}
+            value={analysis}
+            onChange={setAnalysis}
+          />
+        )}
+      </FormField>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={() => setUploading(true)}>
+          <Upload aria-hidden /> Upload figures
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => addRow({ title: "", summary: "" })}
+        >
+          <Plus aria-hidden /> Add a result without a file
+        </Button>
+      </div>
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {errors.rows ?? "Each figure you upload becomes one result. You can edit the titles."}
+        </p>
+      ) : (
+        <ul className="grid gap-3">
+          {rows.map((r, i) => (
+            <li key={r.key} className="grid gap-2 rounded-lg border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="truncate text-xs text-muted-foreground">
+                  {r.attachment?.name ?? "No file"}
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Remove result ${i + 1}`}
+                  onClick={() => setRows((all) => all.filter((x) => x.key !== r.key))}
+                >
+                  <Trash2 aria-hidden />
+                </Button>
+              </div>
+              <FormField label={`Title of result ${i + 1}`} error={errors[`title-${r.key}`]}>
+                {(p) => (
+                  <Input
+                    {...p}
+                    value={r.title}
+                    maxLength={300}
+                    onChange={(e) => patch(r.key, { title: e.target.value })}
+                  />
+                )}
+              </FormField>
+              <FormField label={`Summary of result ${i + 1} (optional)`}>
+                {(p) => (
+                  <Textarea
+                    {...p}
+                    rows={2}
+                    value={r.summary}
+                    onChange={(e) => patch(r.key, { summary: e.target.value })}
+                  />
+                )}
+              </FormField>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={save.isPending}>
+          Save all
+        </Button>
+      </div>
+      <UploadDialog
+        open={uploading}
+        onOpenChange={setUploading}
+        multiple
+        send={async (file, onProgress) => {
+          const a = await uploadFile.mutateAsync({ file, onProgress });
+          addRow({
+            title: titleFrom(a.original_filename),
+            summary: "",
+            attachment: { id: a.id, name: a.original_filename },
+          });
+        }}
+      />
     </form>
   );
 }

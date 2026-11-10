@@ -20,10 +20,9 @@ import { CalendarPage } from "@/pages/CalendarPage";
 import { HandoverPage } from "@/pages/HandoverPage";
 import { LabChatPage } from "@/pages/LabChatPage";
 import { MembersPage } from "@/pages/MembersPage";
-import { ProjectPage, ProjectTab } from "@/pages/ProjectPage";
-import ChatTab from "@/pages/project/ChatTab";
+import { FilesRedirect, ProjectPage, ProjectTab } from "@/pages/ProjectPage";
 import DocumentsTab from "@/pages/project/DocumentsTab";
-import FilesTab from "@/pages/project/FilesTab";
+import ExternalTab from "@/pages/project/ExternalTab";
 import PdfViewerRoute from "@/pages/project/PdfViewerRoute";
 import OverviewTab from "@/pages/project/OverviewTab";
 import { ResearchDetail, ResearchNew } from "@/pages/project/ResearchTab";
@@ -35,6 +34,7 @@ import ReviewTab from "@/pages/project/workflow/ReviewTab";
 import {
   AnalysisTab,
   DataTab,
+  LineageRedirect,
   ManuscriptTab,
   ResearchRedirect,
   WorkflowIndex,
@@ -160,14 +160,19 @@ export const routes: RouteObject[] = [
                         element: <ProjectTab as={TasksTab} />,
                         handle: { crumb: "Tasks" },
                       },
+                      // Chat is a side panel over any section; old links open it.
                       {
                         path: "chat",
-                        element: <ProjectTab as={ChatTab} />,
-                        handle: { crumb: "Chat" },
+                        element: <Navigate to="../overview?chat=1" relative="path" replace />,
+                      },
+                      {
+                        path: "external",
+                        element: <ProjectTab as={ExternalTab} />,
+                        handle: { crumb: "External" },
                       },
                       {
                         path: "documents",
-                        handle: { crumb: "Documents" },
+                        handle: { crumb: "Documents and files" },
                         children: [
                           { index: true, element: <ProjectTab as={DocumentsTab} /> },
                           {
@@ -179,9 +184,10 @@ export const routes: RouteObject[] = [
                       },
                       {
                         path: "files",
-                        handle: { crumb: "Files" },
+                        handle: { crumb: "Documents and files" },
                         children: [
-                          { index: true, element: <ProjectTab as={FilesTab} /> },
+                          // Files share the Documents tab; a PDF still opens at files/<id>.
+                          { index: true, element: <FilesRedirect /> },
                           {
                             path: ":attachmentId",
                             element: <PdfViewerRoute />,
@@ -189,11 +195,7 @@ export const routes: RouteObject[] = [
                           },
                         ],
                       },
-                      {
-                        path: "lineage",
-                        handle: { crumb: "Lineage" },
-                        element: <ProjectTab as={LazyLineageTab} />,
-                      },
+                      { path: "lineage", element: <LineageRedirect /> },
                       // D132: the old Research tab is the Workflow tab; its addresses redirect.
                       { path: "research/*", element: <ResearchRedirect /> },
                       {
@@ -201,7 +203,12 @@ export const routes: RouteObject[] = [
                         handle: { crumb: "Workflow" },
                         element: <ProjectTab as={WorkflowLayout} />,
                         children: [
-                          { index: true, element: <WorkflowIndex /> },
+                          { index: true, element: <ProjectTab as={WorkflowIndex} /> },
+                          {
+                            path: "lineage",
+                            element: <ProjectTab as={LazyLineageTab} />,
+                            handle: { crumb: "Lineage" },
+                          },
                           {
                             path: "funding",
                             element: <ProjectTab as={FundingTab} />,

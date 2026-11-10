@@ -12,9 +12,12 @@ from documents.serializers import (
 )
 from projects.serializers import DeadlineSerializer, ProjectSerializer, TaskSerializer
 from provenance.models import (
+    WORKFLOW_STAGES,
     Analysis,
     DatasetRecord,
     Decision,
+    ExternalOutput,
+    ExternalType,
     FundingRecord,
     FundingStatus,
     LineageKind,
@@ -315,6 +318,34 @@ class RecruitmentPlanSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class ExternalOutputSerializer(serializers.ModelSerializer):
+    created_by = UserSerializer(read_only=True)
+    attachment = AttachmentRefSerializer(read_only=True)
+
+    class Meta:
+        model = ExternalOutput
+        fields = [
+            "id",
+            "project",
+            "title",
+            "type",
+            "date",
+            "place",
+            "url",
+            "attachment",
+            "created_by",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.attachment and instance.attachment.deleted_at:
+            data["attachment"] = None  # a deleted file must not offer a dead download
+        return data
+
+
 OUTPUT = {
     "dataset": DatasetSerializer,
     "analysis": AnalysisSerializer,
@@ -324,6 +355,7 @@ OUTPUT = {
     "funding": FundingSerializer,
     "review": ReviewItemSerializer,
     "recruitment": RecruitmentEntrySerializer,
+    "external": ExternalOutputSerializer,
 }
 PLURAL = {
     "dataset": "datasets",
@@ -334,6 +366,7 @@ PLURAL = {
     "funding": "funding",
     "review": "review_items",
     "recruitment": "recruitment_entries",
+    "external": "external_outputs",
 }
 SELECT = {
     "dataset": ("controlled_by", "created_by", "previous_version"),
@@ -344,6 +377,7 @@ SELECT = {
     "funding": ("holder", "created_by", "attachment", "project"),
     "review": ("reviewer", "created_by"),
     "recruitment": ("created_by",),
+    "external": ("created_by", "attachment"),
 }
 PREFETCH = {  # plain names, or (name, model) for soft-deletable targets (hidden once deleted)
     "dataset": ("analyses",),
@@ -360,6 +394,7 @@ PREFETCH = {  # plain names, or (name, model) for soft-deletable targets (hidden
     "funding": (),
     "review": (),
     "recruitment": (),
+    "external": (),
 }
 
 
@@ -440,6 +475,19 @@ class ResultInputSerializer(serializers.Serializer):
     attachments = _ids()
 
 
+class ResultSetItemSerializer(serializers.Serializer):
+    title = _text(300)
+    summary = serializers.CharField(allow_blank=True, required=False)
+    attachments = _ids()
+
+
+class ResultSetInputSerializer(serializers.Serializer):
+    """Several results from one analysis, saved together or not at all."""
+
+    analysis = serializers.UUIDField()
+    items = ResultSetItemSerializer(many=True, allow_empty=False, max_length=100)
+
+
 class DecisionInputSerializer(serializers.Serializer):
     title = _text(300)
     rationale = serializers.CharField(allow_blank=True, required=False)
@@ -513,6 +561,33 @@ class RecruitmentPlanInputSerializer(serializers.Serializer):
     )
 
 
+class ExternalOutputInputSerializer(serializers.Serializer):
+    title = _text(300)
+    type = serializers.ChoiceField(choices=ExternalType.choices)
+    date = serializers.DateField()
+    place = serializers.CharField(
+        max_length=300, allow_blank=True, required=False, validators=[no_control_chars]
+    )
+    url = _web_url()
+    attachment = serializers.UUIDField(allow_null=True, required=False)
+
+
+class WorkflowStageSerializer(serializers.Serializer):
+    key = serializers.CharField()
+    done = serializers.BooleanField()
+    marked = serializers.BooleanField()  # someone said it is done or not needed
+
+
+class WorkflowProgressSerializer(serializers.Serializer):
+    stages = WorkflowStageSerializer(many=True)
+    next = serializers.CharField(allow_null=True)
+
+
+class WorkflowMarkSerializer(serializers.Serializer):
+    stage = serializers.ChoiceField(choices=[(s, s) for s in WORKFLOW_STAGES])
+    done = serializers.BooleanField()
+
+
 INPUT = {
     "dataset": DatasetInputSerializer,
     "analysis": AnalysisInputSerializer,
@@ -522,6 +597,7 @@ INPUT = {
     "funding": FundingInputSerializer,
     "review": ReviewItemInputSerializer,
     "recruitment": RecruitmentEntryInputSerializer,
+    "external": ExternalOutputInputSerializer,
 }
 
 # ---------------------------------------------------------------- lineage and export
@@ -563,4 +639,5 @@ class ExportSerializer(serializers.Serializer):
     funding = FundingSerializer(many=True)
     review_items = ReviewItemSerializer(many=True)
     recruitment_entries = RecruitmentEntrySerializer(many=True)
+    external_outputs = ExternalOutputSerializer(many=True)
     recruitment_plan = RecruitmentPlanSerializer()

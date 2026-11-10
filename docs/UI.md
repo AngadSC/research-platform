@@ -44,7 +44,7 @@ Shared (`src/components/shared/`):
 - `StatusBadge` `status` string; known statuses get a tone, unknown ones are neutral. Add new ones to `TONES`.
 - The light, dark and system choice lives in Settings under Appearance (D220). `lib/theme.ts` applies it, keeps localStorage for first paint and saves it to the account (`preferences.theme`, D128).
 
-Project sections are listed once, in `PROJECT_SECTIONS` (`lib/nav.ts`): a dropdown in the sidebar, and `TabNav` tabs below `md` (D205). `UnreadBadge` (`src/components/layout/`) takes `noun` for what it counts, and `TabNav` tabs take an optional badge.
+Project sections are listed once, in `PROJECT_SECTIONS` (`lib/nav.ts`): a dropdown in the sidebar, and `TabNav` tabs below `md` (D205). They are Overview, Tasks, Documents and files, Workflow and External; Workflow is a progress bar over its stages, with Lineage as a view beside them, and project chat is a side panel opened from the page header (`?chat=1`, D225). `UnreadBadge` (`src/components/layout/`) takes `noun` for what it counts, and `TabNav` tabs take an optional badge.
 
 Project colours are tokens (`--project-blue` and so on in `index.css`, one value per theme); `projectColorStyle(project.color)` from `lib/projectColors` sets `--project` on an element for its children.
 

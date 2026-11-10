@@ -52,6 +52,7 @@ from provenance.models import (  # provenance (Phase 4)
     DataManagementPlan,
     DatasetRecord,
     Decision,
+    ExternalOutput,
     FundingRecord,
     ManuscriptLink,
     RecruitmentEntry,
@@ -224,6 +225,16 @@ MATRIX: dict[tuple[str, str], str] = {
     ("DELETE", "provenance:recruitment-detail"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "provenance:recruitment-plan"): "401 404 2 2 2 2 2 404 2",
     ("PATCH",  "provenance:recruitment-plan"): "401 404 2 2 2 2 403 404 403",
+    # Project page batch: External records, the full-set result form and Workflow progress
+    # follow the same shape: reads view_project, writes edit_content.
+    ("POST",   "provenance:result-set"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:external-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "provenance:external-list"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:external-detail"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "provenance:external-detail"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "provenance:external-detail"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "provenance:workflow-progress"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "provenance:workflow-progress"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "provenance:manuscript-list"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "provenance:manuscript-list"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "provenance:manuscript-detail"): "401 404 2 2 2 2 2 404 2",
@@ -502,7 +513,16 @@ def _prov_fixtures(lab, project, user, doc, attachment, tag):
         **kw,
     )
     DataManagementPlan.objects.create(data_description=f"DMP {tag}", updated_by=user, **kw)
+    external = ExternalOutput.objects.create(
+        title=f"Poster {tag}",
+        type="poster",
+        date="2030-01-01",
+        attachment=attachment,
+        created_by=user,
+        **kw,
+    )
     return {
+        "externaloutput_id": external.pk,
         "fundingrecord_id": funding.pk,
         "reviewitem_id": review.pk,
         "recruitmententry_id": entry.pk,
@@ -1157,6 +1177,18 @@ PAYLOADS = {
     },
     ("PATCH", "provenance:recruitment-detail"): lambda user, w: {"count": 5},
     ("PATCH", "provenance:recruitment-plan"): lambda user, w: {"target_enrolment": 40},
+    ("POST", "provenance:result-set"): lambda user, w: {
+        "analysis": str(w.a["analysis_id"]),
+        "items": [{"title": "Figure 1"}, {"title": "Figure 2"}],
+    },
+    ("POST", "provenance:external-list"): lambda user, w: {
+        "title": "Poster",
+        "type": "poster",
+        "date": "2030-02-01",
+        "attachment": str(w.a["attachment_id"]),
+    },
+    ("PATCH", "provenance:external-detail"): lambda user, w: {"place": "Halifax"},
+    ("PATCH", "provenance:workflow-progress"): lambda user, w: {"stage": "funding", "done": True},
     ("PATCH", "provenance:dmp"): lambda user, w: {"storage": "Edited"},
     ("POST", "provenance:dmp-approve"): lambda user, w: {},
     # --- end workflow (Run 4) ---

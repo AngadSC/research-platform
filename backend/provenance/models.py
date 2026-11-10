@@ -296,6 +296,46 @@ class RecruitmentEntry(ProvenanceModel):
         return f"{self.entry_date} {self.status} {self.count}"
 
 
+WORKFLOW_STAGES = (
+    "funding",
+    "ethics",
+    "participants",
+    "data",
+    "analysis",
+    "manuscript",
+    "review",
+)
+
+
+class ExternalType(models.TextChoices):
+    POSTER = "poster"
+    PRESENTATION = "presentation"
+    CONFERENCE = "conference"
+    OTHER = "other"
+
+
+class ExternalOutput(ProvenanceModel):
+    """A poster, talk or conference from this project. The file is an ordinary project
+    `Attachment`, so it is served only through the permission-checked download endpoint."""
+
+    title = models.CharField(max_length=300)
+    type = models.CharField(max_length=16, choices=ExternalType.choices)
+    date = models.DateField()
+    place = models.CharField(max_length=300, blank=True)
+    url = models.URLField(blank=True, validators=[validate_web_url])
+    attachment = models.ForeignKey(
+        "documents.Attachment", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+
+    lab_parents = ("project", "attachment")
+
+    def __str__(self):
+        return self.title
+
+
 # ---------------------------------------------------------------- Data management plan (Run 5)
 
 DMP_SECTIONS = (

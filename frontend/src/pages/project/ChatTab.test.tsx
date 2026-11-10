@@ -152,16 +152,15 @@ describe("read state", () => {
     expect(calls.some((c) => c.path.endsWith("/messages/read/"))).toBe(false);
   });
 
-  it("shows the unread count on the project when collapsed and on Chat when open", async () => {
+  it("shows the unread count on the project row and on the Chat button", async () => {
     mockFetch({
       ...world([]),
       [`GET ${L}/chat/unread/`]: { body: [{ project: "p1", count: 3 }] },
     });
     renderRoute("/labs/lab1/projects/p1/tasks");
+    expect(await screen.findByRole("button", { name: /Chat.*3 unread messages/ })).toBeVisible();
     const nav = within(await screen.findByRole("navigation", { name: "Projects" }));
-    expect(await nav.findByRole("link", { name: /Chat.*3 unread messages/ })).toBeInTheDocument();
-    await userEvent.click(nav.getByRole("button", { name: "Sleep sections" }));
-    expect(nav.getByRole("link", { name: /Sleep.*3 unread messages/ })).toBeInTheDocument();
+    expect(await nav.findByRole("link", { name: /Sleep.*3 unread messages/ })).toBeInTheDocument();
   });
 
   it("caps a large count at 99+", async () => {
@@ -175,21 +174,43 @@ describe("read state", () => {
   });
 });
 
-describe("project sidebar dropdown", () => {
-  it("opens the current project's sections, chat included, and can collapse", async () => {
+describe("chat side panel", () => {
+  it("opens over the current section, and closing it stays there", async () => {
+    mockFetch(world([msg("1", lee, "Morning all")]));
+    const router = renderRoute("/labs/lab1/projects/p1/tasks");
+    expect(screen.queryByRole("log", { name: "Messages" })).toBeNull();
+    await userEvent.click(await screen.findByRole("button", { name: "Chat" }));
+    const panel = await screen.findByRole("dialog", { name: "Project chat" });
+    expect(await within(panel).findByText("Morning all")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/labs/lab1/projects/p1/tasks");
+    expect(router.state.location.search).toBe("?chat=1");
+    await userEvent.click(within(panel).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(router.state.location.pathname).toBe("/labs/lab1/projects/p1/tasks");
+    expect(router.state.location.search).toBe("");
+  });
+
+  it("opens from an old chat link", async () => {
     mockFetch(world([]));
-    renderRoute("/labs/lab1/projects/p1/chat");
+    const router = renderRoute("/labs/lab1/projects/p1/chat");
+    expect(await screen.findByRole("dialog", { name: "Project chat" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/labs/lab1/projects/p1/overview");
+  });
+});
+
+describe("project sidebar dropdown", () => {
+  it("opens the current project's sections and can collapse", async () => {
+    mockFetch(world([]));
+    renderRoute("/labs/lab1/projects/p1/tasks");
     const nav = within(await screen.findByRole("navigation", { name: "Projects" }));
     const toggle = await nav.findByRole("button", { name: "Sleep sections" });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    for (const name of ["Overview", "Tasks", "Documents", "Files", "Workflow", "Lineage"])
+    for (const name of ["Overview", "Tasks", "Documents and files", "Workflow", "External"])
       expect(nav.getByRole("link", { name })).toBeInTheDocument();
-    expect(nav.getByRole("link", { name: "Chat" })).toHaveAttribute(
-      "href",
-      "/labs/lab1/projects/p1/chat",
-    );
+    for (const name of ["Files", "Lineage", "Chat"])
+      expect(nav.queryByRole("link", { name })).toBeNull();
     await userEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(nav.queryByRole("link", { name: "Chat" })).toBeNull();
+    expect(nav.queryByRole("link", { name: "Tasks" })).toBeNull();
   });
 });

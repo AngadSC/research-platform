@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api";
 import type {
   EthicsApproval,
+  ExternalOutput,
+  ExternalOutputInput,
   Funding,
   FundingInput,
   InstitutionResource,
@@ -10,6 +12,7 @@ import type {
   RecruitmentPlan,
   ReviewItem,
   ReviewItemInput,
+  WorkflowProgress,
 } from "@/lib/api-types";
 
 const lab = (labId: string) => `/api/labs/${labId}`;
@@ -20,7 +23,7 @@ const key = (labId: string, projectId: string) =>
 function useCollection<T, I>(
   labId: string,
   projectId: string,
-  name: "funding" | "review-items" | "recruitment-entries",
+  name: "funding" | "review-items" | "recruitment-entries" | "external",
 ) {
   const qc = useQueryClient();
   const k = [...key(labId, projectId), name];
@@ -52,6 +55,23 @@ export const useReviewItems = (l: string, p: string) =>
   useCollection<ReviewItem, ReviewItemInput>(l, p, "review-items");
 export const useRecruitmentEntries = (l: string, p: string) =>
   useCollection<RecruitmentEntry, RecruitmentEntryInput>(l, p, "recruitment-entries");
+
+export const useExternalOutputs = (l: string, p: string) =>
+  useCollection<ExternalOutput, ExternalOutputInput>(l, p, "external");
+
+/** Which stages are done, the first one that is not, and marking one done or not needed. */
+export function useWorkflowProgress(labId: string, projectId: string) {
+  const qc = useQueryClient();
+  const k = [...key(labId, projectId), "progress"];
+  const url = `${lab(labId)}/projects/${projectId}/workflow-progress/`;
+  const progress = useQuery({ queryKey: k, queryFn: () => api<WorkflowProgress>(url) });
+  const mark = useMutation({
+    mutationFn: (v: { stage: string; done: boolean }) =>
+      api<WorkflowProgress>(url, { method: "PATCH", body: v }),
+    onSuccess: (data) => qc.setQueryData(k, data),
+  });
+  return { progress, mark };
+}
 
 export function useRecruitmentPlan(labId: string, projectId: string) {
   const qc = useQueryClient();

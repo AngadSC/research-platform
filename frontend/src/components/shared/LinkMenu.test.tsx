@@ -63,7 +63,7 @@ describe("Link from menu", () => {
   it("is absent when no provider offers the target", async () => {
     setup([PUBLIC]);
     renderRoute(FILES);
-    await screen.findByText("No files yet");
+    await screen.findByText("No documents or files yet");
     expect(screen.queryByRole("button", { name: /Link from/ })).toBeNull();
   });
 

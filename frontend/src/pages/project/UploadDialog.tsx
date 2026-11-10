@@ -14,34 +14,49 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   send: (file: File, onProgress: (f: number) => void) => Promise<unknown>;
+  /** Choose several files; `send` is called once for each, in order. */
+  multiple?: boolean;
 }
 
 /** Mounted fresh on every open, so the notice tick is never remembered. */
-function UploadForm({ send, onDone }: { send: Props["send"]; onDone: () => void }) {
-  const [file, setFile] = useState<File | null>(null);
+function UploadForm({
+  send,
+  onDone,
+  multiple,
+}: {
+  send: Props["send"];
+  onDone: () => void;
+  multiple?: boolean;
+}) {
+  const [files, setFiles] = useState<File[]>([]);
   const [ack, setAck] = useState(false);
   const [error, setError] = useState<string>();
   const [progress, setProgress] = useState<number | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
-  function pick(f: File | undefined) {
-    if (!f) return;
-    if (f.size > MAX_BYTES) {
-      setFile(null);
-      setError(`That file is ${(f.size / 1048576).toFixed(1)} MB. The limit is 50 MB.`);
+  function pick(list: FileList | null) {
+    const picked = Array.from(list ?? []).slice(0, multiple ? undefined : 1);
+    if (!picked.length) return;
+    const big = picked.find((f) => f.size > MAX_BYTES);
+    if (big) {
+      setFiles([]);
+      setError(
+        `${picked.length > 1 ? big.name : "That file"} is ${(big.size / 1048576).toFixed(1)} MB. The limit is 50 MB.`,
+      );
       return;
     }
     setError(undefined);
-    setFile(f);
+    setFiles(picked);
   }
 
   async function submit() {
-    if (!file || !ack) return;
+    if (!files.length || !ack) return;
     setError(undefined);
     setProgress(0);
     try {
-      await send(file, setProgress);
-      toast.success("File uploaded");
+      for (const [i, file] of files.entries())
+        await send(file, (f) => setProgress((i + f) / files.length));
+      toast.success(files.length > 1 ? `${files.length} files uploaded` : "File uploaded");
       onDone();
     } catch (e) {
       const { fields, form } = formErrors(e, ["file", "acknowledged_notice"]);
@@ -68,23 +83,28 @@ function UploadForm({ send, onDone }: { send: Props["send"]; onDone: () => void 
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault();
-          pick(e.dataTransfer.files[0]);
+          pick(e.dataTransfer.files);
         }}
         className="grid place-items-center gap-2 rounded-lg border border-dashed p-6 text-center"
       >
         <Upload aria-hidden className="size-5 text-muted-foreground" />
-        <p className="text-sm">{file ? file.name : "Drag a file here, or"}</p>
+        <p className="text-sm">
+          {files.length > 1
+            ? `${files.length} files chosen`
+            : (files[0]?.name ?? (multiple ? "Drag files here, or" : "Drag a file here, or"))}
+        </p>
         <input
           ref={input}
           type="file"
+          multiple={multiple}
           aria-label="Choose file"
           className="sr-only"
-          onChange={(e) => pick(e.target.files?.[0])}
+          onChange={(e) => pick(e.target.files)}
         />
         <Button variant="outline" size="sm" onClick={() => input.current?.click()}>
           Browse files
         </Button>
-        <p className="text-xs text-muted-foreground">Up to 50 MB.</p>
+        <p className="text-xs text-muted-foreground">Up to 50 MB{multiple && " each"}.</p>
       </div>
       <label className="flex items-start gap-2 text-sm">
         <input
@@ -103,7 +123,7 @@ function UploadForm({ send, onDone }: { send: Props["send"]; onDone: () => void 
         <Button variant="outline" onClick={onDone} disabled={progress !== null}>
           Cancel
         </Button>
-        <Button onClick={() => void submit()} disabled={!file || !ack || progress !== null}>
+        <Button onClick={() => void submit()} disabled={!files.length || !ack || progress !== null}>
           Upload
         </Button>
       </div>
@@ -111,11 +131,11 @@ function UploadForm({ send, onDone }: { send: Props["send"]; onDone: () => void 
   );
 }
 
-export function UploadDialog({ open, onOpenChange, send }: Props) {
+export function UploadDialog({ open, onOpenChange, send, multiple }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        {open && <UploadForm send={send} onDone={() => onOpenChange(false)} />}
+        {open && <UploadForm send={send} multiple={multiple} onDone={() => onOpenChange(false)} />}
       </DialogContent>
     </Dialog>
   );

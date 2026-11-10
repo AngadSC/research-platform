@@ -13,6 +13,10 @@ from provenance.serializers import (
     LineageSerializer,
     RecruitmentPlanInputSerializer,
     RecruitmentPlanSerializer,
+    ResultSerializer,
+    ResultSetInputSerializer,
+    WorkflowMarkSerializer,
+    WorkflowProgressSerializer,
     queryset,
 )
 from provenance.services import SPECS
@@ -186,6 +190,54 @@ class RecruitmentListCreateView(KindListCreate):
 @_detail_schema("recruitment")
 class RecruitmentDetailView(KindDetail):
     kind = "recruitment"
+
+
+@_list_schema("external")
+class ExternalListCreateView(KindListCreate):
+    kind = "external"
+
+
+@_detail_schema("external")
+class ExternalDetailView(KindDetail):
+    kind = "external"
+
+
+class ResultSetView(ProjectScopedMixin, generics.GenericAPIView):
+    """Add a full set of results at once (all from one analysis)."""
+
+    serializer_class = ResultSerializer
+    perms = {"POST": Perm.EDIT_CONTENT}
+
+    @extend_schema(request=ResultSetInputSerializer, responses={201: ResultSerializer(many=True)})
+    def post(self, request, lab_id, project_id):
+        made = services.create_result_set(
+            project=self.project,
+            user=request.user,
+            **self.body(ResultSetInputSerializer),
+            request=request,
+        )
+        ids = [r.pk for r in made]
+        rows = queryset("result", self.project, request.user).filter(pk__in=ids)
+        return Response(self.get_serializer(rows, many=True).data, status=status.HTTP_201_CREATED)
+
+
+class WorkflowProgressView(ProjectScopedMixin, generics.GenericAPIView):
+    serializer_class = WorkflowProgressSerializer
+    perms = {"GET": Perm.VIEW_PROJECT, "PATCH": Perm.EDIT_CONTENT}
+
+    @extend_schema(responses=WorkflowProgressSerializer)
+    def get(self, request, lab_id, project_id):
+        return Response(services.workflow_progress(self.project, request.user))
+
+    @extend_schema(request=WorkflowMarkSerializer, responses=WorkflowProgressSerializer)
+    def patch(self, request, lab_id, project_id):
+        project = services.mark_workflow_stage(
+            project=self.project,
+            user=request.user,
+            **self.body(WorkflowMarkSerializer),
+            request=request,
+        )
+        return Response(services.workflow_progress(project, request.user))
 
 
 class RecruitmentPlanView(ProjectScopedMixin, generics.GenericAPIView):

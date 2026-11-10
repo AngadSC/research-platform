@@ -62,7 +62,7 @@ function ProjectItem({
         >
           <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-(--project)" />
           <span className="truncate">{project.name}</span>
-          {!open && <UnreadBadge count={unread} noun="message" className="ml-auto shrink-0" />}
+          <UnreadBadge count={unread} noun="message" className="ml-auto shrink-0" />
         </NavLink>
         <button
           type="button"
@@ -82,9 +82,6 @@ function ProjectItem({
               <NavLink to={`${base}/${to}`} className={linkClass} onClick={onNavigate}>
                 <Icon aria-hidden />
                 {label}
-                {to === "chat" && (
-                  <UnreadBadge count={unread} noun="message" className="ml-auto shrink-0" />
-                )}
               </NavLink>
             </li>
           ))}

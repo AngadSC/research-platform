@@ -1009,6 +1009,9 @@ paths:
           - funding.created
           - funding.updated
           - funding.deleted
+          - external_output.created
+          - external_output.updated
+          - external_output.deleted
           - review_item.created
           - review_item.updated
           - review_item.deleted
@@ -1122,6 +1125,9 @@ paths:
           * `funding.created` - Funding Created
           * `funding.updated` - Funding Updated
           * `funding.deleted` - Funding Deleted
+          * `external_output.created` - External Output Created
+          * `external_output.updated` - External Output Updated
+          * `external_output.deleted` - External Output Deleted
           * `review_item.created` - Review Item Created
           * `review_item.updated` - Review Item Updated
           * `review_item.deleted` - Review Item Deleted
@@ -2359,6 +2365,104 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExternalLink'
           description: ''
+  /api/labs/{lab_id}/external/{externaloutput_id}/:
+    get:
+      operationId: labs_external_retrieve
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: externaloutput_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalOutput'
+          description: ''
+    patch:
+      operationId: labs_external_partial_update
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: externaloutput_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedExternalOutputInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedExternalOutputInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedExternalOutputInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalOutput'
+          description: ''
+    delete:
+      operationId: labs_external_destroy
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: externaloutput_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/folders/{folder_id}/:
     patch:
       operationId: labs_folders_partial_update
@@ -5025,6 +5129,81 @@ paths:
               schema:
                 $ref: '#/components/schemas/Export'
           description: ''
+  /api/labs/{lab_id}/projects/{project_id}/external/:
+    get:
+      operationId: labs_projects_external_list
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExternalOutput'
+          description: ''
+    post:
+      operationId: labs_projects_external_create
+      description: |-
+        One view pair per kind. `ProjectScopedMixin` resolves and permission-checks the project
+        (404 if invisible); reads then go through `serializers.queryset`, which is scoped to that
+        project and prefetches every nested link, so no list or detail makes per-row queries.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExternalOutputInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ExternalOutputInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ExternalOutputInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalOutput'
+          description: ''
   /api/labs/{lab_id}/projects/{project_id}/external-links/:
     get:
       operationId: labs_projects_external_links_list
@@ -5866,6 +6045,48 @@ paths:
               schema:
                 $ref: '#/components/schemas/Result'
           description: ''
+  /api/labs/{lab_id}/projects/{project_id}/results/set/:
+    post:
+      operationId: labs_projects_results_set_create
+      description: Add a full set of results at once (all from one analysis).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResultSetInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ResultSetInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ResultSetInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Result'
+          description: ''
   /api/labs/{lab_id}/projects/{project_id}/review-items/:
     get:
       operationId: labs_projects_review_items_list
@@ -6037,6 +6258,82 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Task'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/workflow-progress/:
+    get:
+      operationId: labs_projects_workflow_progress_retrieve
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowProgress'
+          description: ''
+    patch:
+      operationId: labs_projects_workflow_progress_partial_update
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkflowMark'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkflowMark'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkflowMark'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowProgress'
           description: ''
   /api/labs/{lab_id}/recruitment-entries/{recruitmententry_id}/:
     get:
@@ -7593,6 +7890,9 @@ components:
       - funding.created
       - funding.updated
       - funding.deleted
+      - external_output.created
+      - external_output.updated
+      - external_output.deleted
       - review_item.created
       - review_item.updated
       - review_item.deleted
@@ -7705,6 +8005,9 @@ components:
         * `funding.created` - Funding Created
         * `funding.updated` - Funding Updated
         * `funding.deleted` - Funding Deleted
+        * `external_output.created` - External Output Created
+        * `external_output.updated` - External Output Updated
+        * `external_output.deleted` - External Output Deleted
         * `review_item.created` - Review Item Created
         * `review_item.updated` - Review Item Updated
         * `review_item.deleted` - Review Item Deleted
@@ -9954,6 +10257,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RecruitmentEntry'
+        external_outputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExternalOutput'
         recruitment_plan:
           $ref: '#/components/schemas/RecruitmentPlan'
       required:
@@ -9964,6 +10271,7 @@ components:
       - decisions
       - documents
       - exported_at
+      - external_outputs
       - funding
       - manuscripts
       - project
@@ -10163,6 +10471,92 @@ components:
           format: uuid
       required:
       - provider
+    ExternalOutput:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        project:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        type:
+          allOf:
+          - $ref: '#/components/schemas/TypeEnum'
+          readOnly: true
+        date:
+          type: string
+          format: date
+          readOnly: true
+        place:
+          type: string
+          readOnly: true
+        url:
+          type: string
+          format: uri
+          readOnly: true
+        attachment:
+          allOf:
+          - $ref: '#/components/schemas/AttachmentRef'
+          readOnly: true
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - attachment
+      - created_at
+      - created_by
+      - date
+      - id
+      - place
+      - project
+      - title
+      - type
+      - updated_at
+      - url
+    ExternalOutputInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        type:
+          $ref: '#/components/schemas/TypeEnum'
+        date:
+          type: string
+          format: date
+        place:
+          type: string
+          maxLength: 300
+        url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 200
+          - type: string
+            maxLength: 0
+        attachment:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - date
+      - title
+      - type
     Folder:
       type: object
       properties:
@@ -12080,6 +12474,31 @@ components:
           $ref: '#/components/schemas/ApprovalStatusEnum'
         restricted:
           type: boolean
+    PatchedExternalOutputInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        type:
+          $ref: '#/components/schemas/TypeEnum'
+        date:
+          type: string
+          format: date
+        place:
+          type: string
+          maxLength: 300
+        url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 200
+          - type: string
+            maxLength: 0
+        attachment:
+          type: string
+          format: uuid
+          nullable: true
     PatchedFolderRename:
       type: object
       properties:
@@ -12529,6 +12948,13 @@ components:
         notes:
           type: string
           maxLength: 2000
+    PatchedWorkflowMark:
+      type: object
+      properties:
+        stage:
+          $ref: '#/components/schemas/StageEnum'
+        done:
+          type: boolean
     PendingCall:
       type: object
       properties:
@@ -13186,6 +13612,36 @@ components:
       required:
       - id
       - title
+    ResultSetInput:
+      type: object
+      description: Several results from one analysis, saved together or not at all.
+      properties:
+        analysis:
+          type: string
+          format: uuid
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResultSetItem'
+      required:
+      - analysis
+      - items
+    ResultSetItem:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        summary:
+          type: string
+        attachments:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
+      required:
+      - title
     RetentionItem:
       type: object
       properties:
@@ -13410,6 +13866,24 @@ components:
             $ref: '#/components/schemas/SearchHit'
       required:
       - results
+    StageEnum:
+      enum:
+      - funding
+      - ethics
+      - participants
+      - data
+      - analysis
+      - manuscript
+      - review
+      type: string
+      description: |-
+        * `funding` - funding
+        * `ethics` - ethics
+        * `participants` - participants
+        * `data` - data
+        * `analysis` - analysis
+        * `manuscript` - manuscript
+        * `review` - review
     StartersLoaded:
       type: object
       properties:
@@ -13992,6 +14466,18 @@ components:
       required:
       - category
       - name
+    TypeEnum:
+      enum:
+      - poster
+      - presentation
+      - conference
+      - other
+      type: string
+      description: |-
+        * `poster` - Poster
+        * `presentation` - Presentation
+        * `conference` - Conference
+        * `other` - Other
     Usage:
       type: object
       properties:
@@ -14020,6 +14506,32 @@ components:
       required:
       - email
       - id
+    WorkflowProgress:
+      type: object
+      properties:
+        stages:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowStage'
+        next:
+          type: string
+          nullable: true
+      required:
+      - next
+      - stages
+    WorkflowStage:
+      type: object
+      properties:
+        key:
+          type: string
+        done:
+          type: boolean
+        marked:
+          type: boolean
+      required:
+      - done
+      - key
+      - marked
   securitySchemes:
     sessionAuth:
       type: apiKey

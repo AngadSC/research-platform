@@ -10,13 +10,13 @@ test("two project members talk: a message reaches the other person without a rel
   await openProject(page);
   const sidebar = page.locator("#app-sidebar");
   await expect(sidebar.getByRole("link", { name: "Overview" })).toBeVisible();
-  await sidebar.getByRole("link", { name: "Chat" }).click();
-  await expect(page).toHaveURL(/\/chat$/);
+  await page.getByRole("button", { name: /^Chat/ }).click();
+  await expect(page).toHaveURL(/[?&]chat=1$/);
 
   const other = await (await browser.newContext()).newPage();
   await login(other, "viewer"); // viewers can post too (D206)
   await openProject(other);
-  await other.locator("#app-sidebar").getByRole("link", { name: "Chat" }).click();
+  await other.getByRole("button", { name: /^Chat/ }).click();
 
   const text = `Hello from the viewer ${Date.now()} (FAKE)`;
   const box = other.getByRole("textbox", { name: "Message" });
@@ -38,18 +38,19 @@ test("two project members talk: a message reaches the other person without a rel
 test("a badge shows unread messages until the chat is opened", async ({ page, browser }) => {
   await login(page, "lead");
   await openProject(page); // on Overview, so the Chat row is in view but not open
-  const chatLink = page.locator("#app-sidebar").getByRole("link", { name: /^Chat/ });
+  // The open panel hides the page behind it from the accessibility tree, badge included.
+  const chatLink = page.getByRole("button", { name: /^Chat/, includeHidden: true });
 
   const other = await (await browser.newContext()).newPage();
   await login(other, "viewer");
   await openProject(other);
-  await other.locator("#app-sidebar").getByRole("link", { name: "Chat" }).click();
+  await other.getByRole("button", { name: /^Chat/ }).click();
   const box = other.getByRole("textbox", { name: "Message" });
   await box.fill(`Unread test ${Date.now()} (FAKE)`);
   await box.press("Enter");
   await expect(box).toHaveValue("");
 
-  const badge = chatLink.getByRole("img", { name: /unread message/ });
+  const badge = chatLink.getByRole("img", { name: /unread message/, includeHidden: true });
   await expect(badge).toBeVisible({ timeout: 20_000 }); // badge polls
   await chatLink.click();
   await expect(badge).toHaveCount(0);
@@ -65,7 +66,7 @@ test("messages stay unread while you are scrolled up, until you come back down",
   const other = await (await browser.newContext()).newPage();
   await login(other, "viewer");
   await openProject(other);
-  await other.locator("#app-sidebar").getByRole("link", { name: "Chat" }).click();
+  await other.getByRole("button", { name: /^Chat/ }).click();
   const box = other.getByRole("textbox", { name: "Message" });
   const post = async (text: string) => {
     await box.fill(text);
@@ -76,11 +77,12 @@ test("messages stay unread while you are scrolled up, until you come back down",
 
   await login(page, "pi");
   await openProject(page);
-  const chatLink = page.locator("#app-sidebar").getByRole("link", { name: /^Chat/ });
+  // The open panel hides the page behind it from the accessibility tree, badge included.
+  const chatLink = page.getByRole("button", { name: /^Chat/, includeHidden: true });
   await chatLink.click();
   const log = page.getByRole("log", { name: "Messages" });
   await expect(log.getByText("Scroll filler 24 (FAKE)")).toBeVisible();
-  const badge = chatLink.getByRole("img", { name: /unread message/ });
+  const badge = chatLink.getByRole("img", { name: /unread message/, includeHidden: true });
   await expect(badge).toHaveCount(0);
 
   await log.hover();
@@ -90,9 +92,9 @@ test("messages stay unread while you are scrolled up, until you come back down",
   await post(`While scrolled up ${Date.now()} (FAKE)`);
   const jump = page.getByRole("button", { name: "New messages" });
   await expect(jump).toBeVisible({ timeout: 10_000 });
-  await expect(chatLink.getByRole("img", { name: "1 unread message" })).toBeVisible({
-    timeout: 20_000,
-  });
+  await expect(
+    chatLink.getByRole("img", { name: "1 unread message", includeHidden: true }),
+  ).toBeAttached({ timeout: 20_000 });
 
   await jump.click();
   await expect(badge).toHaveCount(0);

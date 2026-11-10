@@ -153,6 +153,29 @@ describe("files", () => {
     );
   });
 
+  it("lists documents and files together, and an old /files address lands there", async () => {
+    const doc = {
+      id: "d1",
+      title: "Protocol",
+      folder: null,
+      updated_by: user,
+      updated_at: "2026-02-01T00:00:00Z",
+    };
+    mockFetch({
+      ...base(["view_project"], [att]),
+      "GET /api/labs/lab1/projects/p1/documents/": { body: [doc] },
+    });
+    const router = renderRoute(FILES);
+    expect(await screen.findByRole("cell", { name: "Protocol" })).toBeInTheDocument();
+    expect(await screen.findByRole("cell", { name: "paper.pdf" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/labs/lab1/projects/p1/documents");
+    // The PDF viewer keeps its own address: it must not resolve against /documents.
+    expect(screen.getByRole("link", { name: "Open paper.pdf" })).toHaveAttribute(
+      "href",
+      `${FILES}/a1`,
+    );
+  });
+
   it("viewer requests the authenticated download endpoint", async () => {
     const calls = mockFetch({
       ...base(["view_project"]),

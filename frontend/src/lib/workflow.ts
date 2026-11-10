@@ -12,6 +12,24 @@ export const SECTIONS = [
   ["review", "Review"],
 ] as const;
 export type Section = (typeof SECTIONS)[number][0];
+
+/** What finishes each stage, shown as the "do this next" line. */
+export const NEXT_STEP: Record<Section, string> = {
+  funding: "Record the grant or award that pays for this project.",
+  ethics: "Link an ethics approval that is still valid.",
+  participants: "Record how many people you have enrolled.",
+  data: "Add a record of the dataset you collected.",
+  analysis: "Add a result from your analysis.",
+  manuscript: "Link your manuscript once it has been submitted.",
+  review: "Get every review item approved.",
+};
+
+export const EXTERNAL_TYPES = [
+  ["poster", "Poster"],
+  ["presentation", "Presentation"],
+  ["conference", "Conference"],
+  ["other", "Other"],
+] as const;
 export type ResearchSection = "data" | "analysis" | "manuscript" | "review";
 
 /** Which research records each section lists (decisions sit under Review, D132). */

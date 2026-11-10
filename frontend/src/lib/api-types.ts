@@ -153,6 +153,9 @@ export const RESOURCE_CATEGORIES: { value: ResourceCategory; label: string }[] =
 // Project workflow (Run 4)
 export type Funding = Schemas["Funding"];
 export type FundingInput = Schemas["FundingInput"];
+export type ExternalOutput = Schemas["ExternalOutput"];
+export type ExternalOutputInput = Schemas["ExternalOutputInput"];
+export type WorkflowProgress = Schemas["WorkflowProgress"];
 export type ReviewItem = Schemas["ReviewItem"];
 export type ReviewItemInput = Schemas["ReviewItemInput"];
 export type RecruitmentEntry = Schemas["RecruitmentEntry"];

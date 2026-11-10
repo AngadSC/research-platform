@@ -37,7 +37,7 @@ import { formErrors } from "@/lib/forms";
 import { isKind, KINDS, recordTitle, type AnyRecord, type Kind } from "@/lib/research";
 import { recordPath, SECTION_KINDS, sectionOf, type ResearchSection } from "@/lib/workflow";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
-import { ResearchForm } from "@/pages/project/ResearchForm";
+import { ResearchForm, ResultSetForm } from "@/pages/project/ResearchForm";
 
 const short = (c: string) => c.slice(0, 7) || "None";
 const date = (s: string) => new Date(s).toLocaleDateString(undefined, { dateStyle: "medium" });
@@ -162,17 +162,68 @@ export function ResearchNew(props: ProjectTabProps) {
     return <FormError message="You don't have permission to add records here." />;
   const base = projectBase(props);
   const back = `${base}/workflow/${sectionOf(kind)}`;
+  const one = (
+    <ResearchForm
+      labId={props.labId}
+      projectId={props.projectId}
+      kind={kind}
+      onSaved={(r) => void navigate(recordPath(base, kind, r.id))}
+      onCancel={() => void navigate(back)}
+    />
+  );
   return (
     <div className="grid max-w-xl gap-4">
-      <PageHeader title={`New ${KINDS[kind].one}`} />
-      <ResearchForm
-        labId={props.labId}
-        projectId={props.projectId}
-        kind={kind}
-        onSaved={(r) => void navigate(recordPath(base, kind, r.id))}
-        onCancel={() => void navigate(back)}
-      />
+      <PageHeader title={kind === "results" ? "Add results" : `New ${KINDS[kind].one}`} />
+      {kind === "results" ? (
+        <NewResults
+          labId={props.labId}
+          projectId={props.projectId}
+          one={one}
+          onDone={() => void navigate(back)}
+        />
+      ) : (
+        one
+      )}
     </div>
+  );
+}
+
+/** Add one result or figure at a time, or a full set from one analysis at once. */
+function NewResults({
+  labId,
+  projectId,
+  one,
+  onDone,
+}: {
+  labId: string;
+  projectId: string;
+  one: ReactNode;
+  onDone: () => void;
+}) {
+  const [full, setFull] = useState(false);
+  const choice = (value: boolean, text: string) => (
+    <Button
+      type="button"
+      size="sm"
+      variant={full === value ? "default" : "outline"}
+      aria-pressed={full === value}
+      onClick={() => setFull(value)}
+    >
+      {text}
+    </Button>
+  );
+  return (
+    <>
+      <div role="group" aria-label="How to add results" className="flex flex-wrap gap-2">
+        {choice(false, "One at a time")}
+        {choice(true, "A full set at once")}
+      </div>
+      {full ? (
+        <ResultSetForm labId={labId} projectId={projectId} onDone={onDone} onCancel={onDone} />
+      ) : (
+        one
+      )}
+    </>
   );
 }
 
@@ -385,7 +436,7 @@ function Detail({
           <>
             <Button variant="outline" asChild>
               <Link
-                to={`/labs/${labId}/projects/${projectId}/lineage?focus=${KINDS[kind].one}:${id}`}
+                to={`/labs/${labId}/projects/${projectId}/workflow/lineage?focus=${KINDS[kind].one}:${id}`}
               >
                 View in lineage
               </Link>

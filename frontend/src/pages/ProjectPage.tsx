@@ -1,7 +1,17 @@
 import { useMemo, useState, type ComponentType } from "react";
 import { TabNav } from "@/components/shared/TabNav";
-import { Outlet, useNavigate, useOutletContext, useParams } from "react-router";
+import {
+  Navigate,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useOutletContext,
+  useParams,
+  useSearchParams,
+} from "react-router";
+import { MessagesSquare } from "lucide-react";
 import { toast } from "sonner";
+import { DetailPanel } from "@/components/shared/DetailPanel";
 import { FormError } from "@/components/shared/FormError";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -25,6 +35,7 @@ import { useRegisterCommands } from "@/lib/commands";
 import { formErrors } from "@/lib/forms";
 import { PROJECT_SECTIONS } from "@/lib/nav";
 import { projectColorStyle } from "@/lib/projectColors";
+import ChatTab from "@/pages/project/ChatTab";
 import { ProjectFormDialog } from "@/pages/project/ProjectFormDialog";
 
 /** Props every project tab component receives. */
@@ -32,6 +43,12 @@ export interface ProjectTabProps {
   labId: string;
   projectId: string;
   project: Project;
+}
+
+/** `/files` from before Files joined Documents, keeping any `?folder=`. */
+export function FilesRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={`../documents${search}`} relative="path" replace />;
 }
 
 /** Route element that hands the loaded project to a tab: `<ProjectTab as={MyTab} />`. */
@@ -48,6 +65,15 @@ export function ProjectPage() {
   const createDoc = useCreateDocument(labId, projectId);
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // In the address, so a link can open the panel and Back closes it.
+  const [params, setParams] = useSearchParams();
+  const chatOpen = params.get("chat") === "1";
+  const setChatOpen = (open: boolean) =>
+    setParams((p) => {
+      if (open) p.set("chat", "1");
+      else p.delete("chat");
+      return p;
+    });
 
   const unread = useUnreadChats(labId)[projectId] ?? 0;
   const canEditContent = project?.my_permissions.includes("edit_content");
@@ -106,6 +132,10 @@ export function ProjectPage() {
         actions={
           <>
             <StatusBadge status={project.status} />
+            <Button variant="outline" onClick={() => setChatOpen(true)}>
+              <MessagesSquare aria-hidden /> Chat
+              <UnreadBadge count={unread} noun="message" />
+            </Button>
             {can("export") && (
               <Button
                 variant="outline"
@@ -139,14 +169,13 @@ export function ProjectPage() {
       {/* The sidebar dropdown holds these from md up; below that the sidebar is a drawer. */}
       <TabNav
         label="Project sections"
-        tabs={PROJECT_SECTIONS.map(({ to, label }) => [
-          to,
-          label,
-          to === "chat" ? <UnreadBadge count={unread} noun="message" /> : undefined,
-        ])}
+        tabs={PROJECT_SECTIONS.map(({ to, label }) => [to, label])}
         className="mb-6 md:hidden"
       />
       <Outlet context={{ labId, projectId, project } satisfies ProjectTabProps} />
+      <DetailPanel open={chatOpen} onOpenChange={setChatOpen} title="Project chat">
+        <ChatTab labId={labId} projectId={projectId} project={project} />
+      </DetailPanel>
       {editing && (
         <ProjectFormDialog
           open

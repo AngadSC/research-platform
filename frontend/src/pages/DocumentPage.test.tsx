@@ -73,7 +73,7 @@ describe("documents tab", () => {
   it("shows the empty state with a New document button", async () => {
     mockFetch(handlers(EDIT));
     renderRoute(TAB);
-    expect(await screen.findByText("No documents yet")).toBeInTheDocument();
+    expect(await screen.findByText("No documents or files yet")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New document" })).toBeInTheDocument();
   });
 

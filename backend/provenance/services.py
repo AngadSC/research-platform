@@ -6,7 +6,7 @@ import datetime
 import uuid
 
 from django.db import IntegrityError, transaction
-from django.db.models import ProtectedError
+from django.db.models import ProtectedError, Sum
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -17,18 +17,25 @@ from core.notifications import notify
 from core.permissions import Perm, can, require
 from documents.models import Attachment, Document
 from documents.services import Conflict
+from ethics.models import ApprovalStatus, EthicsApproval
 from labs.models import LabMembership, LabRole
-from projects.models import ProjectDeadline, Task
+from projects.models import Project, ProjectDeadline, Task
 from provenance.models import (
+    WORKFLOW_STAGES,
     Analysis,
     DatasetRecord,
     Decision,
+    ExternalOutput,
     FundingRecord,
+    FundingStatus,
     ManuscriptLink,
+    ManuscriptStatus,
     RecruitmentEntry,
     RecruitmentPlan,
+    RecruitmentStatus,
     Result,
     ReviewItem,
+    ReviewStatus,
 )
 
 
@@ -123,6 +130,14 @@ SPECS = {
         A.RECRUITMENT_ENTRY_UPDATED,
         A.RECRUITMENT_ENTRY_DELETED,
         owner="created_by",
+    ),
+    "external": Spec(
+        ExternalOutput,
+        A.EXTERNAL_OUTPUT_CREATED,
+        A.EXTERNAL_OUTPUT_UPDATED,
+        A.EXTERNAL_OUTPUT_DELETED,
+        owner="created_by",
+        fks={"attachment": (Attachment, True)},
     ),
 }
 
@@ -260,6 +275,81 @@ def delete(kind, obj, *, user, request=None) -> None:
             obj.delete()
     except ProtectedError as exc:
         raise Conflict("This analysis has results. Delete the results first.") from exc
+
+
+@transaction.atomic
+def create_result_set(*, project, user, analysis, items, request=None):
+    """One result per item, all from one analysis. Any bad item saves none of them."""
+    return [
+        create(
+            "result",
+            project=project,
+            user=user,
+            data={**item, "analysis": analysis},
+            request=request,
+        )
+        for item in items
+    ]
+
+
+# ---------------------------------------------------------------- workflow progress
+
+
+def workflow_progress(project, user) -> dict:
+    """Which Workflow stages are done, and the first one that is not. A stage is done when its
+    records say so, or when someone marked it done or not needed."""
+
+    def mine(model):
+        return model.objects.for_lab(project.lab_id).filter(project=project)
+
+    counts = dict(
+        mine(RecruitmentEntry).values_list("status").annotate(n=Sum("count")).order_by("status")
+    )
+    plan = mine(RecruitmentPlan).first()
+    people = max(
+        counts.get(RecruitmentStatus.ENROLLED, 0), counts.get(RecruitmentStatus.COMPLETED, 0)
+    )
+    reviews = mine(ReviewItem)
+    found = {
+        "funding": mine(FundingRecord)
+        .filter(status__in=(FundingStatus.AWARDED, FundingStatus.ACTIVE, FundingStatus.CLOSED))
+        .exists(),
+        "ethics": EthicsApproval.objects.visible_to(user, project.lab_id)
+        .filter(
+            projects=project,
+            deleted_at__isnull=True,
+            status=ApprovalStatus.ACTIVE,
+            expiry_date__gte=timezone.localdate(),
+        )
+        .exists(),
+        "participants": people >= ((plan.target_enrolment if plan else None) or 1),
+        "data": mine(DatasetRecord).exists(),
+        "analysis": mine(Result).exists(),
+        "manuscript": mine(ManuscriptLink).exclude(status=ManuscriptStatus.DRAFTING).exists(),
+        "review": reviews.exists() and not reviews.exclude(status=ReviewStatus.APPROVED).exists(),
+    }
+    marked = set(project.workflow_marked_done)
+    stages = [
+        {"key": s, "done": found[s] or s in marked, "marked": s in marked} for s in WORKFLOW_STAGES
+    ]
+    return {"stages": stages, "next": next((s["key"] for s in stages if not s["done"]), None)}
+
+
+@transaction.atomic
+def mark_workflow_stage(*, project, user, stage, done, request=None):
+    locked = Project.objects.for_lab(project.lab_id).select_for_update().get(pk=project.pk)
+    marked = [s for s in locked.workflow_marked_done if s != stage] + ([stage] if done else [])
+    locked.workflow_marked_done = marked
+    locked.save(update_fields=["workflow_marked_done", "updated_at"])
+    record(
+        A.PROJECT_UPDATED,
+        actor=user,
+        lab=project.lab,
+        target=locked,
+        request=request,
+        metadata={"fields": ["workflow_marked_done"], "stage": stage, "done": done},
+    )
+    return locked
 
 
 # ---------------------------------------------------------------- recruitment plan (D136)

@@ -6,14 +6,13 @@ import {
   CalendarDays,
   CheckSquare,
   FileText,
-  Folder,
-  GitBranch,
   GraduationCap,
   History,
   LayoutDashboard,
   Home,
   MessagesSquare,
   Plug,
+  Presentation,
   Settings,
   ShieldCheck,
   Users,
@@ -24,11 +23,9 @@ import {
 export const PROJECT_SECTIONS = [
   { to: "overview", label: "Overview", icon: LayoutDashboard },
   { to: "tasks", label: "Tasks", icon: CheckSquare },
-  { to: "documents", label: "Documents", icon: FileText },
-  { to: "files", label: "Files", icon: Folder },
+  { to: "documents", label: "Documents and files", icon: FileText },
   { to: "workflow", label: "Workflow", icon: Workflow },
-  { to: "lineage", label: "Lineage", icon: GitBranch },
-  { to: "chat", label: "Chat", icon: MessagesSquare },
+  { to: "external", label: "External", icon: Presentation },
 ] as const;
 
 /** Sidebar and palette links. Lab pages only appear once a lab is selected. */

@@ -19,6 +19,7 @@ urlpatterns = [
         name="analysis-detail",
     ),
     path(_P + "results/", views.ResultListCreateView.as_view(), name="result-list"),
+    path(_P + "results/set/", views.ResultSetView.as_view(), name="result-set"),
     path(_L + "results/<uuid:result_id>/", views.ResultDetailView.as_view(), name="result-detail"),
     path(_P + "decisions/", views.DecisionListCreateView.as_view(), name="decision-list"),
     path(
@@ -62,6 +63,13 @@ urlpatterns = [
         dmp.DmpRevisionsView.as_view(),
         name="dmp-revisions",
     ),
+    path(_P + "external/", views.ExternalListCreateView.as_view(), name="external-list"),
+    path(
+        _L + "external/<uuid:externaloutput_id>/",
+        views.ExternalDetailView.as_view(),
+        name="external-detail",
+    ),
+    path(_P + "workflow-progress/", views.WorkflowProgressView.as_view(), name="workflow-progress"),
     path(_P + "lineage/", views.LineageView.as_view(), name="lineage"),
     path(_P + "export/", views.ExportView.as_view(), name="export"),
 ]

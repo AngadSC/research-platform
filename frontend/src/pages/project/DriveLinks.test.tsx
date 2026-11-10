@@ -95,14 +95,14 @@ describe("Google Drive on the Files tab", () => {
   it("hides the action when Drive is not set up", async () => {
     mockFetch(base([provider({ configured: false, public_config: {} })]));
     renderRoute(FILES);
-    await screen.findByText("No files yet");
+    await screen.findByText("No documents or files yet");
     expect(screen.queryByRole("button", LINK_BUTTON)).toBeNull();
   });
 
   it("hides the action when the Picker settings are missing", async () => {
     mockFetch(base([provider({ public_config: {} })]));
     renderRoute(FILES);
-    await screen.findByText("No files yet");
+    await screen.findByText("No documents or files yet");
     expect(screen.queryByRole("button", LINK_BUTTON)).toBeNull();
   });
 
@@ -225,7 +225,7 @@ describe("Google Drive on the Files tab", () => {
   it("keeps links to records off the project's file list", async () => {
     mockFetch(base([provider()], [link({ id: "l2", title: "in a dataset", dataset: "d1" })]));
     renderRoute(FILES);
-    await screen.findByText("No files yet");
+    await screen.findByText("No documents or files yet");
     expect(screen.queryByText("in a dataset")).toBeNull();
   });
 });

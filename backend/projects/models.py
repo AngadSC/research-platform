@@ -50,6 +50,8 @@ class Project(LabScopedModel):
     last_activity_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
+    # Workflow stages someone marked as done or not needed (provenance.WORKFLOW_STAGES).
+    workflow_marked_done = models.JSONField(default=list, blank=True)
 
     permission_domain = "project"
     project_path = ""  # itself

@@ -57,9 +57,116 @@ const funding = {
 
 afterEach(() => vi.unstubAllGlobals());
 
+const progress = (next: string | null, done: string[] = [], marked: string[] = []) => ({
+  stages: SECTIONS.map(([key]) => ({
+    key,
+    done: done.includes(key),
+    marked: marked.includes(key),
+  })),
+  next,
+});
+
+describe("Workflow progress", () => {
+  it("opens on the first stage not done and says what to do", async () => {
+    mockFetch(
+      base(CONTRIB, ["view_lab"], {
+        [`GET ${P}/workflow-progress/`]: { body: progress("participants", ["funding", "ethics"]) },
+        [`GET ${P}/recruitment-entries/`]: { body: [] },
+        [`GET ${P}/recruitment-plan/`]: { body: { target_enrolment: null, notes: "" } },
+      }),
+    );
+    const router = renderRoute(W);
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${W}/participants`));
+    expect(await screen.findByText("Do this next: Participants.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Funding (done)" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Participants (do this next)" })).toBeInTheDocument();
+    expect(screen.getByText("2 of 7 done")).toBeInTheDocument();
+  });
+
+  it("opens on the last stage once everything is done", async () => {
+    mockFetch(
+      base(CONTRIB, ["view_lab"], {
+        [`GET ${P}/workflow-progress/`]: {
+          body: progress(
+            null,
+            SECTIONS.map(([k]) => k),
+          ),
+        },
+        [`GET ${P}/review-items/`]: { body: [] },
+        [`GET ${P}/decisions/`]: { body: [] },
+      }),
+    );
+    const router = renderRoute(W);
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${W}/review`));
+    expect(await screen.findByText("Every stage is done.")).toBeInTheDocument();
+  });
+
+  it("links to the next stage from a later one, and lets an editor mark this one", async () => {
+    const calls = mockFetch(
+      base(CONTRIB, ["view_lab"], {
+        [`GET ${P}/workflow-progress/`]: { body: progress("funding") },
+        [`PATCH ${P}/workflow-progress/`]: { body: progress("ethics", ["funding"], ["funding"]) },
+        [`GET ${P}/funding/`]: { body: [] },
+        [`GET ${P}/attachments/`]: { body: [] },
+      }),
+    );
+    renderRoute(`${W}/funding`);
+    await userEvent.click(await screen.findByRole("button", { name: "Done or not needed" }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({
+        stage: "funding",
+        done: true,
+      }),
+    );
+    expect(await screen.findByRole("link", { name: "Go to Ethics" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mark as not done" })).toBeInTheDocument();
+  });
+
+  it("does not offer marking to people who cannot edit", async () => {
+    mockFetch(
+      base(["view_project"], ["view_lab"], {
+        [`GET ${P}/workflow-progress/`]: { body: progress("funding") },
+        [`GET ${P}/funding/`]: { body: [] },
+      }),
+    );
+    renderRoute(`${W}/funding`);
+    await screen.findByText("Do this next: Funding.");
+    expect(screen.queryByRole("button", { name: "Done or not needed" })).toBeNull();
+  });
+
+  it("still opens if progress cannot be loaded", async () => {
+    mockFetch(
+      base(CONTRIB, ["view_lab"], {
+        [`GET ${P}/workflow-progress/`]: { status: 500, body: {} },
+        [`GET ${P}/funding/`]: { body: [] },
+      }),
+    );
+    const router = renderRoute(W);
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${W}/funding`));
+  });
+
+  it("keeps Lineage as a view inside Workflow and redirects its old address", async () => {
+    mockFetch(
+      base(CONTRIB, ["view_lab"], {
+        [`GET ${P}/workflow-progress/`]: { body: progress("funding") },
+        [`GET ${P}/lineage/`]: { body: { nodes: [], edges: [] } },
+      }),
+    );
+    const router = renderRoute("/labs/lab1/projects/p1/lineage?focus=dataset:d1");
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${W}/lineage`));
+    expect(router.state.location.search).toBe("?focus=dataset:d1");
+    expect(await screen.findByRole("navigation", { name: "Workflow sections" })).toBeVisible();
+  });
+});
+
 describe("Workflow tab", () => {
   it("lists the sub-tabs in order and opens on Funding", async () => {
-    mockFetch(base(CONTRIB, ["view_lab"], { [`GET ${P}/funding/`]: { body: [] } }));
+    mockFetch(
+      base(CONTRIB, ["view_lab"], {
+        [`GET ${P}/funding/`]: { body: [] },
+        [`GET ${P}/workflow-progress/`]: { body: progress("funding") },
+      }),
+    );
     const router = renderRoute("/labs/lab1/projects/p1/workflow");
     const nav = await screen.findByRole("navigation", { name: "Workflow sections" });
     expect(

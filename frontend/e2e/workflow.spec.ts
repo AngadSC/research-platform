@@ -9,15 +9,15 @@ test("Workflow sub-tabs, record pages and the old Research addresses", async ({ 
   await openProject(page);
   const project = page.url().replace(/\/overview$/, "");
 
-  // The project tabs: Workflow replaces Research, Lineage stays.
+  // The project tabs: Workflow replaces Research, and opens on the first stage not done.
   await expect(page.getByRole("link", { name: "Research" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Lineage" })).toBeVisible();
   await page.getByRole("link", { name: "Workflow" }).click();
-  await expect(page).toHaveURL(/\/workflow\/funding$/);
+  await expect(page).toHaveURL(/\/workflow\/[a-z]+$/);
 
-  // Sub-tabs in the agreed order.
+  // Stages in the agreed order, with Lineage as a view beside them.
   const nav = page.getByRole("navigation", { name: "Workflow sections" });
   await expect(nav.getByRole("link")).toHaveText(TABS);
+  await expect(page.getByRole("link", { name: "Lineage" })).toBeVisible();
 
   // Participants always carries the no-personal-data warning.
   await nav.getByRole("link", { name: "Participants" }).click();

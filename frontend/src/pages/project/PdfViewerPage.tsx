@@ -25,7 +25,7 @@ export default function PdfViewerPage() {
     ? { to: `/labs/${labId}/papers/${paperId}`, label: "Back to paper" }
     : approvalId
       ? { to: `/labs/${labId}/ethics/${approvalId}`, label: "Back to approval" }
-      : { to: `/labs/${labId}/projects/${projectId}/files`, label: "Back to files" };
+      : { to: `/labs/${labId}/projects/${projectId}/documents`, label: "Back to files" };
   const url = paperId ? paperPdfUrl(labId, paperId) : downloadUrl(labId, attachmentId);
   const { data: att } = useAttachment(labId, attachmentId);
   const { data: paper } = usePaper(labId, paperId);

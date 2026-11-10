@@ -125,6 +125,7 @@ export default function ChatTab({ labId, projectId, project }: ProjectTabProps) 
       canModerate={project.my_permissions.includes("edit_project")}
       label="Project chat"
       audience="this project"
+      inPanel
     />
   );
 }
@@ -136,12 +137,15 @@ export function ChatPanel({
   canModerate,
   label,
   audience,
+  inPanel,
 }: {
   labId: string;
   projectId?: string;
   canModerate: boolean;
   label: string;
   audience: string;
+  /** Inside a side panel: fills it rather than sizing itself to the page. */
+  inPanel?: boolean;
 }) {
   const { email } = useAuth();
   const { messages, send, remove, markRead } = useChat(labId, projectId);
@@ -173,8 +177,8 @@ export function ChatPanel({
 
   // On a phone the headers above take most of the screen, so bring the whole panel into view.
   useLayoutEffect(() => {
-    panel.current?.scrollIntoView?.({ block: "end" });
-  }, []);
+    if (!inPanel) panel.current?.scrollIntoView?.({ block: "end" });
+  }, [inPanel]);
 
   // Follow the conversation, unless the reader has scrolled up: then offer a jump instead.
   useLayoutEffect(() => {
@@ -264,7 +268,10 @@ export function ChatPanel({
     <section
       ref={panel}
       aria-label={label}
-      className="relative flex h-[calc(100dvh-5.5rem)] min-h-96 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground md:h-[calc(100dvh-13.5rem)]"
+      className={cn(
+        "relative flex flex-col overflow-hidden rounded-lg border bg-card text-card-foreground",
+        inPanel ? "h-full min-h-0" : "h-[calc(100dvh-5.5rem)] min-h-96 md:h-[calc(100dvh-13.5rem)]",
+      )}
     >
       <div
         ref={scroller}

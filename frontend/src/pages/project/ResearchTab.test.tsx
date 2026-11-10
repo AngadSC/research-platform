@@ -69,6 +69,92 @@ describe("research validation", () => {
   });
 });
 
+describe("adding results", () => {
+  const NEW = "/labs/lab1/projects/p1/workflow/analysis/results/new";
+  const edit = ["view_project", "edit_content"];
+
+  it("offers one at a time or a full set, one at a time first", async () => {
+    mockFetch(base(edit));
+    renderRoute(NEW);
+    expect(await screen.findByRole("button", { name: "One at a time" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(await screen.findByLabelText("Analysis that produced it")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "A full set at once" }));
+    expect(await screen.findByLabelText("Analysis that produced them")).toBeInTheDocument();
+  });
+
+  it("asks for an analysis and at least one result before saving a set", async () => {
+    const calls = mockFetch(base(edit));
+    renderRoute(NEW);
+    await userEvent.click(await screen.findByRole("button", { name: "A full set at once" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save all" }));
+    expect(await screen.findByText(/Choose the analysis/)).toBeInTheDocument();
+    expect(screen.getByText("Add at least one result")).toBeInTheDocument();
+    expect(calls.some((c) => c.method === "POST")).toBe(false);
+  });
+
+  it("saves every row of a set in one request", async () => {
+    const calls = mockFetch(base(edit, { [`POST ${P}/results/set/`]: { status: 201, body: [] } }));
+    const router = renderRoute(NEW);
+    await userEvent.click(await screen.findByRole("button", { name: "A full set at once" }));
+    const picker = await screen.findByLabelText("Analysis that produced them");
+    await screen.findByRole("option", { name: "Alpha diversity" });
+    await userEvent.selectOptions(picker, "a1");
+    const add = screen.getByRole("button", { name: "Add a result without a file" });
+    await userEvent.click(add);
+    await userEvent.click(add);
+    await userEvent.type(screen.getByLabelText("Title of result 1"), "Figure 1");
+    await userEvent.type(screen.getByLabelText("Title of result 2"), "Figure 2");
+    await userEvent.click(screen.getByRole("button", { name: "Save all" }));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/labs/lab1/projects/p1/workflow/analysis"),
+    );
+    expect(calls.find((c) => c.method === "POST")?.body).toEqual({
+      analysis: "a1",
+      items: [
+        { title: "Figure 1", summary: "", attachments: [] },
+        { title: "Figure 2", summary: "", attachments: [] },
+      ],
+    });
+  });
+
+  it("turns each uploaded figure into its own titled row", async () => {
+    const sent: FormData[] = [];
+    class FakeXHR {
+      upload = {};
+      status = 201;
+      responseText = "";
+      onload?: () => void;
+      open() {}
+      setRequestHeader() {}
+      send(f: FormData) {
+        sent.push(f);
+        const name = (f.get("file") as File).name;
+        this.responseText = JSON.stringify({ id: name, original_filename: name });
+        queueMicrotask(() => this.onload?.());
+      }
+    }
+    vi.stubGlobal("XMLHttpRequest", FakeXHR);
+    document.cookie = "csrftoken=t";
+    mockFetch(base(edit));
+    renderRoute(NEW);
+    await userEvent.click(await screen.findByRole("button", { name: "A full set at once" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Upload figures" }));
+    await userEvent.upload(await screen.findByLabelText("Choose file"), [
+      new File(["a"], "fig1.png", { type: "image/png" }),
+      new File(["b"], "fig2.final.png", { type: "image/png" }),
+    ]);
+    await userEvent.click(screen.getByRole("checkbox", { name: /no participant identifiers/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Upload" }));
+    expect(await screen.findByLabelText("Title of result 2")).toHaveValue("fig2.final");
+    expect(screen.getByLabelText("Title of result 1")).toHaveValue("fig1");
+    expect(sent).toHaveLength(2);
+    vi.unstubAllGlobals();
+  });
+});
+
 describe("Research tab", () => {
   beforeEach(() => {
     URL.createObjectURL = vi.fn(() => "blob:x");
@@ -93,7 +179,7 @@ describe("Research tab", () => {
     expect(link).toHaveAttribute("href", "/labs/lab1/projects/p1/workflow/data/datasets/d1");
     expect(screen.getByRole("link", { name: "View in lineage" })).toHaveAttribute(
       "href",
-      "/labs/lab1/projects/p1/lineage?focus=analysis:a1",
+      "/labs/lab1/projects/p1/workflow/lineage?focus=analysis:a1",
     );
   });
 

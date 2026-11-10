@@ -54,7 +54,7 @@ The invite token is `secrets.token_urlsafe(32)` and appears only in the emailed 
 | Model | Fields | Constraints / indexes |
 |---|---|---|
 | `Document` | `project` FK CASCADE, `title` char(300), `content` JSON (BlockNote blocks, max 2 MB), `version` int default 1 (D11), `created_by` FK User PROTECT (the owner), `updated_by` FK User PROTECT, `retain_until` date null, `retention_note` text, `deleted_at` null | `lab_parents=("project",)`; index `(project, deleted_at)`, `(lab, retain_until)` |
-| `Folder` | `project` FK CASCADE, `parent` self-FK SET_NULL null (set at creation only, never re-parented), `name` char(200), `created_by` FK User PROTECT | `lab_parents=("project","parent")`. `Document.folder` and `Attachment.folder` are nullable FKs (SET_NULL). Composite `(folder, lab_id)` and `(folder, project_id)` FKs keep links inside one project even by raw SQL; deleting a folder moves its contents and subfolders to its parent (`delete_folder`). One tree per project, shared by the Documents and Files tabs. |
+| `Folder` | `project` FK CASCADE, `parent` self-FK SET_NULL null (set at creation only, never re-parented), `name` char(200), `created_by` FK User PROTECT | `lab_parents=("project","parent")`. `Document.folder` and `Attachment.folder` are nullable FKs (SET_NULL). Composite `(folder, lab_id)` and `(folder, project_id)` FKs keep links inside one project even by raw SQL; deleting a folder moves its contents and subfolders to its parent (`delete_folder`). One tree per project, used by the Documents and files tab. |
 | `DocumentRevision` | `document` FK CASCADE, `version` int, `title`, `content` JSON, `created_by` FK User PROTECT, `restored_from` FK self SET_NULL null | `lab_parents=("document",)`, `project_path="document__project"`; unique `(document, version)` |
 | `Attachment` | `project` FK CASCADE null, `ethics_approval` FK (Phase 5) null; DB check: exactly one of the two is set (D38), `storage_key` char(512) unique, `original_filename` char(255), `content_type` char(100), `size_bytes` bigint, `sha256` char(64), `uploaded_by` FK User PROTECT, `notice_acknowledged_at` datetime (non-null) | `lab_parents=("project",)`; `permission_domain="project"`, with ethics-owned files checked through their approval (`"lab"` domain, ethics perms); index `(project)`; max size 50 MB |
 
@@ -72,6 +72,7 @@ An upload is rejected (400) unless the form contains `acknowledged_notice=true`.
 | `Result` | `project` FK CASCADE, `title`, `summary` text, `analysis` FK Analysis PROTECT, `attachments` M2M Attachment, `created_by` | `lab_parents=("project","analysis")` |
 | `Decision` | `project` FK CASCADE, `title`, `rationale` text, `decided_on` date, `decided_by` FK User PROTECT, `supporting_documents` M2M Document, `supporting_attachments` M2M Attachment, `references` JSON list of `{title,url,doi}`, `analyses` M2M Analysis, `datasets` M2M DatasetRecord | |
 | `ManuscriptLink` | `project` FK CASCADE, `title`, `url` URL, `status` choice `drafting\|submitted\|in_review\|accepted\|published`, `results` M2M Result, `created_by` | |
+| `ExternalOutput` | `project` FK CASCADE, `title`, `type` choice `poster\|presentation\|conference\|other`, `date` date, `place` char(300) blank, `url` URL blank, `attachment` FK Attachment PROTECT null, `created_by` | `lab_parents=("project","attachment")` |
 
 For all of these, `project_path="project"`. Every M2M target must be in the **same project**, not only the same lab. A `DatasetRecord` used by an `Analysis` cannot be deleted (409). Lineage edges come from the M2M and FK links above: dataset → analysis → result → manuscript, with decisions attached to analyses and datasets.
 
@@ -285,6 +286,10 @@ Creating and editing ordinary content is not audited, because revisions and `upd
 | 3 | GET | `L/attachments/<attachment_id>/download/` | view_project (ethics files: view_ethics) |
 | 4 | GET / POST | `P/datasets/`, `P/analyses/`, `P/results/`, `P/decisions/`, `P/manuscripts/` | view_project / edit_content |
 | 4 | GET / PATCH, DELETE | `L/datasets/<datasetrecord_id>/`, `L/analyses/<analysis_id>/`, `L/results/<result_id>/`, `L/decisions/<decision_id>/`, `L/manuscripts/<manuscriptlink_id>/` | view_project / edit_content |
+| 4 | POST | `P/results/set/` (many results from one analysis, all or nothing, D225) | edit_content |
+| 4 | GET / POST | `P/external/` | view_project / edit_content |
+| 4 | GET / PATCH, DELETE | `L/external/<externaloutput_id>/` | view_project / edit_content |
+| 4 | GET / PATCH | `P/workflow-progress/` (done stages and the next one; PATCH marks a stage, D225) | view_project / edit_content |
 | 4 | GET | `P/lineage/` (nodes and edges for React Flow) | view_project |
 | 4 | POST | `P/export/` (JSON: metadata, tasks, latest documents, provenance; no file bytes) | export |
 | 5 | GET / POST | `L/ethics-approvals/` | view_ethics / edit_ethics |
@@ -380,7 +385,7 @@ The framework for outside services. Google Drive is the first provider; Run 3 ad
 Providers are code, not a database table. Each is one module `integrations/providers/<name>.py` exporting `PROVIDER`, a frozen `Provider` dataclass (defined in `providers/__init__.py`). `registry.ENABLED` is the one explicit list of modules; `registry.PROVIDERS` maps `name` (the key stored on rows, equal to the module name) to the provider. Adding a provider is a module plus one line; `providers/README.md` has the steps and the security checklist.
 
 `Provider` fields, by purpose:
-- **Identity and UI:** `name`, `label`, `auth_type` (`oauth2 | api_key | link_only | public`), `category` (`storage | code | writing | data_capture | protocols | references | repository`), `icon` (a key), `metadata_only` (must be `True`), `link_targets` (subset of `project, document, dataset, analysis, result, manuscript, decision`; `project` is the Files tab), `link_methods` (subset of `picker, search, paste_url`).
+- **Identity and UI:** `name`, `label`, `auth_type` (`oauth2 | api_key | link_only | public`), `category` (`storage | code | writing | data_capture | protocols | references | repository`), `icon` (a key), `metadata_only` (must be `True`), `link_targets` (subset of `project, document, dataset, analysis, result, manuscript, decision`; `project` is the Documents and files tab), `link_methods` (subset of `picker, search, paste_url`).
 - **oauth2:** `scopes` (the **only** scopes that can ever be requested), `authorize_url`, `token_url`, `revoke_url`, `identity_url` + `parse_identity(json) -> (external_id, email)`, `authorize_params`. Client credentials come from `settings.INTEGRATION_CLIENTS[name]` (Drive: `GOOGLE_DRIVE_*`; any other: `INTEGRATION_<NAME>_CLIENT_ID/_SECRET`, D87). Without them the provider is "not configured".
 - **api_key (D81):** `connect_fields` (`api_key`, optional `secret`, `instance_url` iff `needs_instance_url`; label, help text, required), `needs_instance_url`, `instance_host_pattern`, `identify(account)` (default: GET `identity_url`, a path joined to the instance URL, then `parse_identity`), `sign(kwargs, key, secret)` (how credentials go on a request; default a bearer header, also used for oauth2).
 - **Hosts:** `api_hosts` (where credentials may be sent), `link_hosts` (where an item's web link may point; self-hosted providers are pinned to the account's instance host instead).
