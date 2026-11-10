@@ -5,11 +5,19 @@ import type { components } from "@/lib/api-schema";
 type Schemas = components["schemas"];
 
 export type Role = Schemas["LabRoleEnum"];
-export const ROLES: { value: Role; label: string }[] = [
-  { value: "pi", label: "PI" },
-  { value: "lab_admin", label: "Lab admin" },
-  { value: "member", label: "Member" },
-  { value: "viewer", label: "Viewer" },
+export const ROLES: { value: Role; label: string; help: string }[] = [
+  { value: "pi", label: "PI", help: "Runs the lab. Can change anything in it." },
+  {
+    value: "lab_admin",
+    label: "Lab admin",
+    help: "Helps run the lab. Can do what a PI can, except billing.",
+  },
+  {
+    value: "member",
+    label: "Member",
+    help: "Works in the lab. Can start projects and add papers, notes and inventory.",
+  },
+  { value: "viewer", label: "Viewer", help: "Can read lab information but not change it." },
 ];
 export const roleLabel = (r: string) => ROLES.find((x) => x.value === r)?.label ?? r;
 
@@ -20,7 +28,7 @@ export type Membership = Schemas["Membership"];
 export type Invite = Schemas["Invite"];
 export type InvitePreview = Schemas["InvitePreview"];
 export type Project = Schemas["Project"];
-export type ProjectInput = Schemas["ProjectInput"];
+export type ProjectInput = Schemas["ProjectCreate"];
 export type ProjectStatus = Schemas["ProjectStatusEnum"];
 export type ProjectRole = Schemas["ProjectRoleEnum"];
 export type ProjectMembership = Schemas["ProjectMembership"];
@@ -84,10 +92,14 @@ export const PROJECT_STATUSES: { value: ProjectStatus; label: string }[] = [
   { value: "completed", label: "Completed" },
   { value: "archived", label: "Archived" },
 ];
-export const PROJECT_ROLES: { value: ProjectRole; label: string }[] = [
-  { value: "lead", label: "Lead" },
-  { value: "contributor", label: "Contributor" },
-  { value: "viewer", label: "Viewer" },
+export const PROJECT_ROLES: { value: ProjectRole; label: string; help: string }[] = [
+  {
+    value: "lead",
+    label: "Lead",
+    help: "Runs the project. Can edit everything and choose who is on it.",
+  },
+  { value: "contributor", label: "Contributor", help: "Can add and edit the project's work." },
+  { value: "viewer", label: "Viewer", help: "Can see the project but not change its work." },
 ];
 export const TASK_STATUSES: { value: TaskStatus; label: string }[] = [
   { value: "todo", label: "To do" },

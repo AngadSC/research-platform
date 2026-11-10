@@ -21,6 +21,7 @@ import { ApprovalBadge, ExpiryText } from "@/components/ethics/ApprovalBadge";
 import { useApprovals } from "@/hooks/ethics";
 import { useLab } from "@/hooks/workspace";
 import { useDeadlines, useProjectMembers } from "@/hooks/projects";
+import { RoleName } from "@/components/shared/RoleName";
 import { useMembers } from "@/hooks/workspace";
 import {
   PROJECT_ROLES,
@@ -41,7 +42,6 @@ const day = (iso: string | null) =>
   iso
     ? new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { dateStyle: "medium" })
     : "Not set";
-const roleName = (r: string) => PROJECT_ROLES.find((x) => x.value === r)?.label ?? r;
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
@@ -239,12 +239,16 @@ function RoleSelect({
 }) {
   return (
     <Select value={value} onValueChange={(v) => onChange(v as ProjectRole)}>
-      <SelectTrigger aria-label={label} className="w-40">
+      <SelectTrigger
+        aria-label={label}
+        className="w-40"
+        title={PROJECT_ROLES.find((r) => r.value === value)?.help}
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
         {PROJECT_ROLES.map((r) => (
-          <SelectItem key={r.value} value={r.value}>
+          <SelectItem key={r.value} value={r.value} hint={r.help}>
             {r.label}
           </SelectItem>
         ))}
@@ -313,7 +317,7 @@ function AddMember({
               </SelectTrigger>
               <SelectContent>
                 {PROJECT_ROLES.map((r) => (
-                  <SelectItem key={r.value} value={r.value}>
+                  <SelectItem key={r.value} value={r.value} hint={r.help}>
                     {r.label}
                   </SelectItem>
                 ))}
@@ -361,7 +365,7 @@ function Members({
             }
           />
         ) : (
-          roleName(m.role)
+          <RoleName role={m.role} roles={PROJECT_ROLES} />
         ),
     },
     ...(canManage
@@ -375,9 +379,10 @@ function Members({
                 <Button variant="ghost" size="sm" asChild>
                   <Link
                     to={`/labs/${labId}/projects/${projectId}/handover?user=${m.user.id}`}
-                    aria-label={`Generate handover for ${m.user.email}`}
+                    aria-label={`Work to pass on for ${m.user.email}`}
+                    title="Lists everything this person owns or leads in this project, so it can be given to someone else."
                   >
-                    Generate handover
+                    Work to pass on
                   </Link>
                 </Button>
                 <Button

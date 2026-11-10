@@ -64,7 +64,7 @@ export function LabDetailsSection({ lab }: { lab: Lab }) {
 
   const f = errors.fields;
   return (
-    <Section title="Lab details" description="Shown to everyone in the lab.">
+    <Section title="About this lab" description="Shown to everyone in the lab.">
       <form
         ref={form}
         onSubmit={submit}

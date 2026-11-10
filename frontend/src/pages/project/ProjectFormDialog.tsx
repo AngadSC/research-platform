@@ -22,6 +22,25 @@ import {
 import { formErrors, type FormErrors } from "@/lib/forms";
 import { PROJECT_COLORS, projectColorStyle } from "@/lib/projectColors";
 
+const BLANK = "blank";
+const TEMPLATES: { value: NonNullable<ProjectInput["template"]>; label: string; help: string }[] = [
+  {
+    value: "honours_thesis",
+    label: "Honours thesis",
+    help: "A plan from proposal to final thesis, with deadlines over about nine months.",
+  },
+  {
+    value: "survey_study",
+    label: "Survey study",
+    help: "A plan from writing the survey to reporting results, over about six months.",
+  },
+  {
+    value: "secondary_data_analysis",
+    label: "Secondary data analysis",
+    help: "A plan for working with existing data. The Participants step is marked as not needed.",
+  },
+];
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -35,6 +54,7 @@ interface Props {
 /** Create or edit a project. Throws from onSave are shown inline. */
 export function ProjectFormDialog({ open, onOpenChange, project, canRetention, onSave }: Props) {
   const [status, setStatus] = useState<ProjectStatus>(project?.status ?? "planning");
+  const [template, setTemplate] = useState<string>(BLANK);
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
 
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -51,6 +71,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, canRetention, o
         description: String(f.get("description") ?? ""),
         status,
         start_date: String(f.get("start_date") ?? "") || null,
+        ...(template !== BLANK && { template: template as ProjectInput["template"] }),
         ...(canRetention && {
           retain_until: String(f.get("retain_until") ?? "") || null,
           retention_note: String(f.get("retention_note") ?? ""),
@@ -102,6 +123,25 @@ export function ProjectFormDialog({ open, onOpenChange, project, canRetention, o
               </p>
             )}
           </fieldset>
+          {!project && (
+            <FormField label="Start from" hint={TEMPLATES.find((t) => t.value === template)?.help}>
+              {(p) => (
+                <Select value={template} onValueChange={setTemplate}>
+                  <SelectTrigger {...p}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={BLANK}>Blank project</SelectItem>
+                    {TEMPLATES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </FormField>
+          )}
           <FormField label="Description" error={errors.fields.description}>
             {(p) => <Textarea {...p} name="description" defaultValue={project?.description} />}
           </FormField>

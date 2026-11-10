@@ -17,8 +17,10 @@ import { APP_NAME, MOD_KEY, OPEN_SEARCH_EVENT } from "@/lib/constants";
 import { useMe } from "@/hooks/workspace";
 import { useAccountTheme } from "@/lib/theme";
 import { AssistantDrawer } from "@/components/assistant/AssistantDrawer";
+import { NamePrompt } from "./NamePrompt";
 import { NotificationBell } from "./NotificationBell";
 import { Sidebar } from "./Sidebar";
+import { Tutorial } from "./Tutorial";
 
 const SIDEBAR_KEY = "sidebar-hidden";
 
@@ -123,6 +125,7 @@ export function AppShell() {
 
   return (
     <TooltipProvider>
+      <NamePrompt />
       <div className="flex h-screen bg-background text-foreground print:block print:h-auto">
         <Sidebar open={navOpen} desktopHidden={sidebarHidden} onClose={() => setNavOpen(false)} />
         {navOpen && (
@@ -192,6 +195,7 @@ export function AppShell() {
         </div>
       </div>
       <CommandPalette labId={labId} onGo={(url) => void navigate(url)} />
+      <Tutorial />
       <Toaster />
     </TooltipProvider>
   );

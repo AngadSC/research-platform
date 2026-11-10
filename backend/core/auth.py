@@ -66,14 +66,6 @@ class SessionAuthenticationScheme(OpenApiAuthenticationExtension):
 
 
 class AccountAdapter(DefaultAccountAdapter):
-    def save_user(self, request, user, form, commit=True):
-        user = super().save_user(request, user, form, commit=False)
-        if not user.display_name:
-            user.display_name = user.email.split("@")[0]
-        if commit:
-            user.save()
-        return user
-
     def pre_authenticate(self, request, **credentials):
         """D156: password sign-in is refused for domains whose institution requires SSO."""
         super().pre_authenticate(request, **credentials)
@@ -215,7 +207,7 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
     def populate_user(self, request, sociallogin, data):
         user = super().populate_user(request, sociallogin, data)
         name = f"{data.get('first_name') or ''} {data.get('last_name') or ''}".strip()
-        user.display_name = (name or user.email.split("@")[0])[:120]
+        user.display_name = name[:120]  # left blank when absent: the app asks at first sign-in
         return user
 
     def pre_social_login(self, request, sociallogin):

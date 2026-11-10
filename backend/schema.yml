@@ -2853,6 +2853,65 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/getting-started/:
+    get:
+      operationId: labs_getting_started_retrieve
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GettingStarted'
+          description: ''
+    post:
+      operationId: labs_getting_started_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GettingStartedInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GettingStartedInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GettingStartedInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GettingStarted'
+          description: ''
   /api/labs/{lab_id}/institution-resources/:
     get:
       operationId: labs_institution_resources_list
@@ -3666,6 +3725,65 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/lab-documents/:
+    get:
+      operationId: labs_lab_documents_list
+      description: 'D233: lab-wide documents. Everything after creation uses the document
+        routes below.'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DocumentList'
+          description: ''
+    post:
+      operationId: labs_lab_documents_create
+      description: 'D233: lab-wide documents. Everything after creation uses the document
+        routes below.'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DocumentCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DocumentCreate'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+          description: ''
   /api/labs/{lab_id}/manuscripts/{manuscriptlink_id}/:
     get:
       operationId: labs_manuscripts_retrieve
@@ -4765,13 +4883,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProjectInput'
+              $ref: '#/components/schemas/ProjectCreate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/ProjectInput'
+              $ref: '#/components/schemas/ProjectCreate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/ProjectInput'
+              $ref: '#/components/schemas/ProjectCreate'
         required: true
       security:
       - sessionAuth: []
@@ -10810,6 +10928,7 @@ components:
           type: string
           format: uuid
           readOnly: true
+          nullable: true
         folder:
           type: string
           format: uuid
@@ -10899,6 +11018,7 @@ components:
           type: string
           format: uuid
           readOnly: true
+          nullable: true
         folder:
           type: string
           format: uuid
@@ -11686,6 +11806,25 @@ components:
           nullable: true
       required:
       - funder
+    GettingStarted:
+      type: object
+      properties:
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/Step'
+        dismissed:
+          type: boolean
+      required:
+      - dismissed
+      - steps
+    GettingStartedInput:
+      type: object
+      properties:
+        dismissed:
+          type: boolean
+      required:
+      - dismissed
     Grant:
       type: object
       properties:
@@ -14403,7 +14542,7 @@ components:
       - start_date
       - status
       - updated_at
-    ProjectInput:
+    ProjectCreate:
       type: object
       properties:
         name:
@@ -14425,6 +14564,8 @@ components:
           nullable: true
         retention_note:
           type: string
+        template:
+          $ref: '#/components/schemas/TemplateEnum'
       required:
       - name
     ProjectMembership:
@@ -15345,6 +15486,19 @@ components:
         * `enrolled` - Enrolled
         * `withdrawn` - Withdrawn
         * `completed` - Completed
+    Step:
+      type: object
+      properties:
+        key:
+          type: string
+        done:
+          type: boolean
+        can_act:
+          type: boolean
+      required:
+      - can_act
+      - done
+      - key
     Task:
       type: object
       properties:
@@ -15544,6 +15698,16 @@ components:
         * `todo` - Todo
         * `in_progress` - In Progress
         * `done` - Done
+    TemplateEnum:
+      enum:
+      - honours_thesis
+      - secondary_data_analysis
+      - survey_study
+      type: string
+      description: |-
+        * `honours_thesis` - honours_thesis
+        * `secondary_data_analysis` - secondary_data_analysis
+        * `survey_study` - survey_study
     TimelineItem:
       type: object
       description: |-

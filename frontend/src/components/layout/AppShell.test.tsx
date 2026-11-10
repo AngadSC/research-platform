@@ -27,6 +27,7 @@ function world(preferences: object) {
     [`GET ${L}/projects/p1/`]: { body: project },
     [`GET ${L}/chat/unread/`]: { body: [] },
     [`GET ${L}/notifications/`]: { body: [] },
+    [`GET ${L}/my-tasks/`]: { body: [] },
   };
 }
 
@@ -35,6 +36,35 @@ const patches = (calls: ReturnType<typeof mockFetch>) =>
 
 describe("app shell", () => {
   beforeEach(() => localStorage.clear());
+
+  it("asks for a name when there is none, and cannot be dismissed without one", async () => {
+    const nameless = { id: "u1", email: "jgogia@uni.edu", display_name: "", preferences: {} };
+    const calls = mockFetch({
+      ...world({}),
+      "GET /api/me/": { body: nameless },
+      "PATCH /api/me/": (req: { body: unknown }) => ({
+        body: { ...nameless, ...(req.body as object) },
+      }),
+    });
+    renderRoute("/settings");
+    const dialog = await screen.findByRole("dialog", { name: "What is your name?" });
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Close" })).toBeNull();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
+    expect(await within(dialog).findByText("Enter your name")).toBeInTheDocument();
+    await userEvent.type(within(dialog).getByLabelText("Your name"), "  Jaya Gogia ");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ display_name: "Jaya Gogia" });
+  });
+
+  it("does not ask someone who has a name", async () => {
+    mockFetch(world({}));
+    renderRoute("/settings");
+    await screen.findByRole("navigation", { name: "Settings sections" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
 
   it("records the project once its name has loaded", async () => {
     const calls = mockFetch(world({}));
@@ -100,7 +130,7 @@ describe("app shell", () => {
     localStorage.setItem("last-lab", "lab2");
     const lab2 = { ...makeLab(["view_lab"]), id: "lab2", name: "Second Lab" };
     mockFetch({ ...world({}), "GET /api/labs/": { body: [makeLab(["view_lab"]), lab2] } });
-    renderRoute("/settings");
+    renderRoute("/settings#appearance");
     await screen.findByRole("heading", { name: "Appearance" });
     const main = within(await screen.findByRole("navigation", { name: "Main" }));
     expect(await main.findByRole("link", { name: "Members" })).toHaveAttribute(
@@ -121,12 +151,72 @@ describe("app shell", () => {
     );
   });
 
-  it("sends Home to the lab's own page, not the dashboard", async () => {
+  it("opens one Home page from the Home link and the lab's address", async () => {
     mockFetch(world({}));
-    const router = renderRoute("/labs/lab1/members");
+    const router = renderRoute("/labs/lab1");
+    await screen.findByRole("heading", { name: "Home" });
+    expect(router.state.location.pathname).toBe("/labs/lab1/dashboard");
     const main = within(await screen.findByRole("navigation", { name: "Main" }));
-    await userEvent.click(await main.findByRole("link", { name: "Home" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/labs/lab1/projects"));
+    expect(await main.findByRole("link", { name: "Home" })).toHaveAttribute(
+      "href",
+      "/labs/lab1/dashboard",
+    );
+  });
+
+  it("lists the links in order, without Notifications, and hides Admin from a member", async () => {
+    mockFetch(world({}));
+    renderRoute("/labs/lab1/members");
+    const main = within(await screen.findByRole("navigation", { name: "Main" }));
+    await main.findByRole("link", { name: "Projects" });
+    const labels = main
+      .getAllByRole("link")
+      .map((a) => a.textContent)
+      .filter((t) => t !== "Sleep");
+    expect(labels.slice(0, 5)).toEqual(["Home", "Projects", "My work", "Members", "Inventory"]);
+    expect(labels).toContain("Training");
+    expect(main.queryByRole("link", { name: "Notifications" })).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Admin" })).toBeNull();
+  });
+
+  it("shows the Admin group to a PI, with links out and Ethics in the main list", async () => {
+    const perms = [
+      "view_lab",
+      "view_ethics",
+      "manage_lab",
+      "view_audit_log",
+      "view_retention",
+      "manage_lab_integrations",
+    ];
+    mockFetch({
+      ...world({}),
+      "GET /api/labs/": { body: [makeLab(perms)] },
+      [`GET ${L}/`]: { body: makeLab(perms) },
+    });
+    renderRoute("/labs/lab1/members");
+    const admin = within(await screen.findByRole("navigation", { name: "Admin" }));
+    expect(admin.getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual([
+      "/labs/lab1/audit-log",
+      "/labs/lab1/retention",
+      "/labs/lab1/settings/integrations",
+      "/labs/lab1/admin",
+    ]);
+    expect(
+      within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", {
+        name: "Ethics",
+      }),
+    ).toHaveAttribute("href", "/labs/lab1/ethics");
+  });
+
+  it("lists every lab at /labs", async () => {
+    const lab2 = { ...makeLab(["view_lab"]), id: "lab2", name: "Second Lab" };
+    mockFetch({ ...world({}), "GET /api/labs/": { body: [makeLab(["view_lab"]), lab2] } });
+    renderRoute("/labs");
+    await screen.findByRole("heading", { name: "Labs" });
+    expect(await screen.findByRole("link", { name: /Second Lab/ })).toHaveAttribute(
+      "href",
+      "/labs/lab2",
+    );
+    expect(screen.getByRole("link", { name: "Create a lab" })).toHaveAttribute("href", "/labs/new");
   });
 
   it("adds a lab from the sidebar", async () => {

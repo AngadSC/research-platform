@@ -29,6 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDeleteDocument, useDocument, useSaveDocument } from "@/hooks/documents";
 import { useProject } from "@/hooks/projects";
+import { useLab } from "@/hooks/workspace";
 import { ApiError } from "@/lib/api";
 import type { DocumentConflict, DocumentFull } from "@/lib/api-types";
 import { blocksToText } from "@/lib/blocks";
@@ -116,13 +117,16 @@ function DocumentEditor({
   labId,
   projectId,
   canEdit,
+  canDelete,
   canRetention,
   onReload,
 }: {
   doc: DocumentFull;
   labId: string;
+  /** "" for a lab-wide document (D233), which has no retention, linked files or folder. */
   projectId: string;
   canEdit: boolean;
+  canDelete: boolean;
   /** view_retention: without it the retention fields are read-only and never sent (D55). */
   canRetention: boolean;
   onReload: () => Promise<void>;
@@ -303,7 +307,9 @@ function DocumentEditor({
       onSuccess: () => {
         markDirty(false);
         toast.success("Document deleted");
-        void navigate(`/labs/${labId}/projects/${projectId}/documents`);
+        void navigate(
+          projectId ? `/labs/${labId}/projects/${projectId}/documents` : `/labs/${labId}/documents`,
+        );
       },
       onError: (e) => toast.error(formErrors(e, []).form ?? "Something went wrong."),
     });
@@ -365,9 +371,15 @@ function DocumentEditor({
               </>
             )}
             <DropdownMenuItem onSelect={() => setPanel("history")}>History</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setPanel("retention")}>Retention</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setPanel("links")}>Linked files</DropdownMenuItem>
-            {canEdit && (
+            {projectId && (
+              <>
+                <DropdownMenuItem onSelect={() => setPanel("retention")}>
+                  Retention
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setPanel("links")}>Linked files</DropdownMenuItem>
+              </>
+            )}
+            {canDelete && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => setPanel("delete")}>Delete</DropdownMenuItem>
@@ -476,7 +488,7 @@ function DocumentEditor({
         <DialogContent>
           <DialogTitle className="text-base font-semibold">Delete {title}?</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            The document will be removed from this project.
+            The document will be removed from this {projectId ? "project" : "lab"}.
           </DialogDescription>
           <div className="flex justify-end gap-2">
             <DialogClose asChild>
@@ -532,6 +544,7 @@ function DocumentEditor({
 export default function DocumentPage() {
   const { labId = "", projectId = "", documentId = "" } = useParams();
   const { data: project } = useProject(labId, projectId);
+  const { data: lab } = useLab(labId);
   const { data: doc, error, refetch } = useDocument(labId, documentId);
   const [epoch, setEpoch] = useState(0);
   // A fresh editor per load, so reloads and restores replace the editor's content.
@@ -544,7 +557,8 @@ export default function DocumentPage() {
   );
 
   if (error) return <FormError message={formErrors(error, []).form} />;
-  if (!doc || !project)
+  const owner = projectId ? project : lab; // a lab-wide document follows the lab's permissions
+  if (!doc || !owner)
     return (
       <div aria-busy="true" aria-label="Loading" className="grid gap-3">
         <Skeleton className="h-11 w-full" />
@@ -557,8 +571,9 @@ export default function DocumentPage() {
       doc={doc}
       labId={labId}
       projectId={projectId}
-      canEdit={project.my_permissions.includes("edit_content")}
-      canRetention={project.my_permissions.includes("view_retention")}
+      canEdit={owner.my_permissions.includes(projectId ? "edit_content" : "contribute_lab")}
+      canDelete={owner.my_permissions.includes(projectId ? "edit_content" : "manage_lab")}
+      canRetention={!!projectId && owner.my_permissions.includes("view_retention")}
       onReload={reload}
     />
   );

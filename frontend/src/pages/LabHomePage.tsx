@@ -1,54 +1,18 @@
 import { FolderKanban, Plus } from "lucide-react";
 import { RelativeTime } from "@/components/shared/RelativeTime";
-import { useState, type FormEvent } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
-import { toast } from "sonner";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { FormError } from "@/components/shared/FormError";
-import { FormField } from "@/components/shared/FormField";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { Recents } from "@/components/shared/Recents";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCreateProject, useProjects } from "@/hooks/projects";
 import { ProjectFormDialog } from "@/pages/project/ProjectFormDialog";
 import type { Project } from "@/lib/api-types";
-import { useLab, useUpdateLab } from "@/hooks/workspace";
-import { formErrors, type FormErrors } from "@/lib/forms";
-import { roleLabel } from "@/lib/api-types";
-
-function RenameForm({ labId, name }: { labId: string; name: string }) {
-  const update = useUpdateLab(labId);
-  const [errors, setErrors] = useState<FormErrors>({ fields: {} });
-
-  async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const next = String(new FormData(e.currentTarget).get("name") ?? "").trim();
-    if (!next) return setErrors({ fields: { name: "Enter a name for your lab" } });
-    setErrors({ fields: {} });
-    try {
-      await update.mutateAsync({ name: next });
-      toast.success("Saved");
-    } catch (err) {
-      setErrors(formErrors(err, ["name"]));
-    }
-  }
-
-  return (
-    <form onSubmit={submit} noValidate className="mb-8 grid max-w-sm gap-4">
-      <FormField label="Lab name" error={errors.fields.name}>
-        {(p) => <Input {...p} name="name" defaultValue={name} autoComplete="off" />}
-      </FormField>
-      <FormError message={errors.form} />
-      <Button type="submit" className="justify-self-start" disabled={update.isPending}>
-        Save
-      </Button>
-    </form>
-  );
-}
+import { useLab } from "@/hooks/workspace";
+import { formErrors } from "@/lib/forms";
 
 export function LabHomePage() {
   const { labId = "" } = useParams();
@@ -84,45 +48,33 @@ export function LabHomePage() {
   return (
     <>
       <PageHeader
-        title={lab.name}
-        description={`${lab.institution.name} · You are ${roleLabel(lab.my_role ?? "")}`}
+        title="Projects"
+        description={lab.name}
         actions={
-          <>
-            <Button asChild variant="outline">
-              <Link to={`/labs/${lab.id}/members`}>Members</Link>
+          canCreate && (
+            <Button onClick={() => setCreating(true)}>
+              <Plus aria-hidden /> New project
             </Button>
-            {canCreate && (
-              <Button onClick={() => setCreating(true)}>
-                <Plus aria-hidden /> New project
-              </Button>
-            )}
-          </>
+          )
         }
       />
-      {lab.my_permissions.includes("manage_lab") && <RenameForm labId={lab.id} name={lab.name} />}
-      <Recents />
-      <section className="grid gap-3">
-        <h2 className="text-base font-semibold">Projects</h2>
-        <DataTable
-          columns={cols}
-          rows={projects.data ?? []}
-          getRowKey={(p) => p.id}
-          loading={projects.isLoading}
-          onRowClick={(p) => void navigate(`/labs/${labId}/projects/${p.id}`)}
-          empty={
-            <EmptyState
-              icon={FolderKanban}
-              title="No projects yet"
-              description="Projects hold your tasks, documents and files for one piece of research."
-              action={
-                canCreate ? (
-                  <Button onClick={() => setCreating(true)}>New project</Button>
-                ) : undefined
-              }
-            />
-          }
-        />
-      </section>
+      <DataTable
+        columns={cols}
+        rows={projects.data ?? []}
+        getRowKey={(p) => p.id}
+        loading={projects.isLoading}
+        onRowClick={(p) => void navigate(`/labs/${labId}/projects/${p.id}`)}
+        empty={
+          <EmptyState
+            icon={FolderKanban}
+            title="No projects yet"
+            description="Projects hold your tasks, documents and files for one piece of research."
+            action={
+              canCreate ? <Button onClick={() => setCreating(true)}>New project</Button> : undefined
+            }
+          />
+        }
+      />
       {creating && canCreate && (
         <ProjectFormDialog
           open

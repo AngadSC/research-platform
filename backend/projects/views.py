@@ -34,6 +34,7 @@ from projects.serializers import (
     DeadlineSerializer,
     HandoverSerializer,
     MyTaskSerializer,
+    ProjectCreateSerializer,
     ProjectInputSerializer,
     ProjectMembershipCreateSerializer,
     ProjectMembershipRoleSerializer,
@@ -114,12 +115,12 @@ class ProjectListCreateView(ProjectScopedMixin, generics.GenericAPIView):
     def get(self, request, lab_id):
         return Response(self.get_serializer(self.get_queryset(), many=True).data)
 
-    @extend_schema(request=ProjectInputSerializer, responses={201: ProjectSerializer})
+    @extend_schema(request=ProjectCreateSerializer, responses={201: ProjectSerializer})
     def post(self, request, lab_id):
         project = services.create_project(
             lab=request.lab,
             user=request.user,
-            data=self.body(ProjectInputSerializer),
+            data=self.body(ProjectCreateSerializer),
             request=request,
         )
         return self.out(project, status.HTTP_201_CREATED)

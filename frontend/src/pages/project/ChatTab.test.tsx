@@ -159,7 +159,7 @@ describe("read state", () => {
     });
     renderRoute("/labs/lab1/projects/p1/tasks");
     expect(await screen.findByRole("button", { name: /Chat.*3 unread messages/ })).toBeVisible();
-    const nav = within(await screen.findByRole("navigation", { name: "Projects" }));
+    const nav = within(await screen.findByRole("navigation", { name: "Main" }));
     expect(await nav.findByRole("link", { name: /Sleep.*3 unread messages/ })).toBeInTheDocument();
   });
 
@@ -202,7 +202,7 @@ describe("project sidebar dropdown", () => {
   it("opens the current project's sections and can collapse", async () => {
     mockFetch(world([]));
     renderRoute("/labs/lab1/projects/p1/tasks");
-    const nav = within(await screen.findByRole("navigation", { name: "Projects" }));
+    const nav = within(await screen.findByRole("navigation", { name: "Main" }));
     const toggle = await nav.findByRole("button", { name: "Sleep sections" });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     for (const name of ["Overview", "Tasks", "Documents and files", "Workflow", "External"])

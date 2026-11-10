@@ -125,13 +125,26 @@ describe("My training", () => {
     );
   });
 
+  it("adds the lab-wide section for a manager only", async () => {
+    const manager = makeLab(["view_lab", "manage_lab", "manage_training"]);
+    mockFetch(
+      handlers({
+        "GET /api/labs/": { body: [manager] },
+        "GET /api/labs/lab1/": { body: manager },
+        "GET /api/labs/lab1/training/compliance/": { body: DATA },
+      }),
+    );
+    renderRoute("/labs/lab1/training");
+    expect(await screen.findByRole("heading", { name: "Lab training" })).toBeInTheDocument();
+  });
+
   it("is in the sidebar for a plain member and logs a completion", async () => {
     const calls = mockFetch(
       handlers({ "POST /api/labs/lab1/training/records/": { status: 201, body: record } }),
     );
     renderRoute("/labs/lab1/training");
     await screen.findByRole("list", { name: "Required trainings" });
-    expect(screen.getAllByRole("link", { name: "My training" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Training" }).length).toBeGreaterThan(0);
     await userEvent.selectOptions(screen.getByLabelText("Training"), "r1");
     await userEvent.type(screen.getByLabelText("Completed on"), "2030-02-03");
     await userEvent.click(screen.getByRole("button", { name: "Save record" }));

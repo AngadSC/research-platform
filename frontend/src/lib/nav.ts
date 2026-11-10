@@ -3,9 +3,12 @@ import {
   Bell,
   BookOpen,
   Boxes,
+  Building2,
   CalendarDays,
   CheckSquare,
+  CircleHelp,
   FileText,
+  FolderKanban,
   GraduationCap,
   History,
   LayoutDashboard,
@@ -18,6 +21,7 @@ import {
   ShieldCheck,
   Users,
   Workflow,
+  type LucideIcon,
 } from "lucide-react";
 
 /** The sections of a project: a dropdown in the sidebar, and tabs below md. */
@@ -29,54 +33,53 @@ export const PROJECT_SECTIONS = [
   { to: "external", label: "External", icon: Presentation },
 ] as const;
 
+export interface NavItem {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  end: boolean;
+  /** Only shown in the sidebar's Admin group. */
+  admin?: boolean;
+}
+
 /** Sidebar and palette links. Lab pages only appear once a lab is selected. */
-export function navItems(labId?: string, permissions: string[] = [], inventoryEnabled = true) {
+export function navItems(
+  labId?: string,
+  permissions: string[] = [],
+  inventoryEnabled = true,
+): NavItem[] {
+  const settings: NavItem = { to: "/settings", label: "Settings", icon: Settings, end: false };
+  const help: NavItem = { to: "/help", label: "Help", icon: CircleHelp, end: false };
+  if (!labId) return [{ to: "/", label: "Home", icon: Home, end: true }, help, settings];
+  const can = (perm: string) => permissions.includes(perm);
+  const page = (path: string, label: string, icon: LucideIcon, admin?: boolean): NavItem => ({
+    to: `/labs/${labId}/${path}`,
+    label,
+    icon,
+    end: path === "dashboard" || path === "projects",
+    admin,
+  });
   return [
-    { to: labId ? `/labs/${labId}/projects` : "/", label: "Home", icon: Home, end: true },
-    ...(labId
-      ? [{ to: `/labs/${labId}/my-work`, label: "My work", icon: ListChecks, end: false }]
+    page("dashboard", "Home", Home),
+    page("projects", "Projects", FolderKanban),
+    page("my-work", "My work", ListChecks),
+    page("members", "Members", Users),
+    ...(inventoryEnabled ? [page("inventory", "Inventory", Boxes)] : []), // D227: wet labs only
+    page("training", "Training", GraduationCap),
+    ...(can("view_ethics") ? [page("ethics", "Ethics", ShieldCheck)] : []),
+    page("documents", "Lab documents", FileText),
+    page("calendar", "Calendar", CalendarDays),
+    page("chat", "Lab chat", MessagesSquare),
+    page("papers", "Papers", BookOpen),
+    page("notifications", "Notifications", Bell), // the palette only; the sidebar has the bell
+    // These four permissions are held by PIs and lab admins only.
+    ...(can("view_audit_log") ? [page("audit-log", "Audit log", History, true)] : []),
+    ...(can("view_retention") ? [page("retention", "Retention", Archive, true)] : []),
+    ...(can("manage_lab_integrations")
+      ? [page("settings/integrations", "Integrations", Plug, true)]
       : []),
-    ...(labId && permissions.includes("manage_lab")
-      ? [{ to: `/labs/${labId}/dashboard`, label: "Dashboard", icon: LayoutDashboard, end: false }]
-      : []),
-    ...(labId
-      ? [{ to: `/labs/${labId}/chat`, label: "Lab chat", icon: MessagesSquare, end: false }]
-      : []),
-    ...(labId
-      ? [{ to: `/labs/${labId}/calendar`, label: "Calendar", icon: CalendarDays, end: false }]
-      : []),
-    ...(labId ? [{ to: `/labs/${labId}/members`, label: "Members", icon: Users, end: false }] : []),
-    ...(labId && inventoryEnabled
-      ? [{ to: `/labs/${labId}/inventory`, label: "Inventory", icon: Boxes, end: false }]
-      : []),
-    ...(labId
-      ? [{ to: `/labs/${labId}/papers`, label: "Papers", icon: BookOpen, end: false }]
-      : []),
-    ...(labId
-      ? [{ to: `/labs/${labId}/training`, label: "My training", icon: GraduationCap, end: false }]
-      : []),
-    ...(labId && permissions.includes("manage_lab")
-      ? [{ to: `/labs/${labId}/admin`, label: "Admin", icon: ShieldCheck, end: false }]
-      : []),
-    ...(labId
-      ? [{ to: `/labs/${labId}/notifications`, label: "Notifications", icon: Bell, end: false }]
-      : []),
-    ...(labId && permissions.includes("view_retention")
-      ? [{ to: `/labs/${labId}/retention`, label: "Retention review", icon: Archive, end: false }]
-      : []),
-    ...(labId && permissions.includes("view_audit_log")
-      ? [{ to: `/labs/${labId}/audit-log`, label: "Audit log", icon: History, end: false }]
-      : []),
-    ...(labId
-      ? [
-          {
-            to: `/labs/${labId}/settings/integrations`,
-            label: "Integrations",
-            icon: Plug,
-            end: false,
-          },
-        ]
-      : []),
-    { to: "/settings", label: "Settings", icon: Settings, end: false },
+    ...(can("manage_lab") ? [page("admin", "Lab details", Building2, true)] : []),
+    help,
+    settings,
   ];
 }

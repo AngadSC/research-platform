@@ -182,6 +182,8 @@ def _same_project(a, b) -> bool:
     resolved (an ethics-owned attachment) fails instead of being skipped (D54)."""
     if a.permission_domain != "project" or b.permission_domain != "project":
         return True
+    if getattr(a, "lab_wide", False) and getattr(b, "lab_wide", False):  # D233
+        return True
     pa, pb = project_of(a), project_of(b)
     return pa is not None and pb is not None and pa.pk == pb.pk
 

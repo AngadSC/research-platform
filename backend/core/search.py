@@ -14,6 +14,7 @@ from django.db.models import Q
 
 from core.permissions import Perm, can, scope
 from documents.models import Document
+from documents.services import lab_documents
 from ethics.models import EthicsApproval
 from integrations.models import ExternalLink
 from papers.models import Paper, PaperNote
@@ -68,7 +69,9 @@ SPECS = [
         Document,
         "title",
         ("search_text",),
-        lambda o: f"{_p(o)}/documents/{o.pk}",
+        lambda o: (
+            f"{_p(o)}/documents/{o.pk}" if o.project_id else f"/labs/{o.lab_id}/documents/{o.pk}"
+        ),
         deleted=True,
     ),
     Spec("dataset", DatasetRecord, "name", (), _r("data", "datasets")),
@@ -152,6 +155,8 @@ def search(user, lab, q: str, types=None) -> list[dict]:
         if types and spec.type not in types:
             continue
         qs = scope(spec.model, user, lab)
+        if spec.model is Document:  # D233: lab-wide documents have no project for scope() to check
+            qs = qs | lab_documents(lab)
         if spec.deleted:
             qs = qs.filter(deleted_at__isnull=True)
         if hasattr(spec.model, "project"):

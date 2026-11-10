@@ -44,34 +44,33 @@ const base = (perms: string[], extra: Record<string, unknown> = {}) => ({
 });
 
 describe("admin area", () => {
-  it("shows every section and the tool links to an admin", async () => {
+  it("holds only the lab's own details, and links nothing it does not own", async () => {
     mockFetch(base(ADMIN));
     renderRoute("/labs/lab1/admin");
-    expect(await screen.findByRole("heading", { name: "Lab details" })).toBeInTheDocument();
-    for (const name of [
-      "Turnover and onboarding",
-      "Training",
-      "Inventory",
-      "Institution resources",
-    ])
-      expect(screen.getByRole("heading", { name })).toBeInTheDocument();
-    const tools = screen.getByRole("region", { name: "Admin tools" });
-    for (const name of [
-      "Ethics approvals",
-      "Audit log",
-      "Retention review",
-      "Members",
-      "Integrations",
-    ])
-      expect(within(tools).getByRole("link", { name: new RegExp(name) })).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Admin" }).length).toBeGreaterThan(0);
+    await screen.findByRole("heading", { name: "About this lab" });
+    expect(screen.getByRole("heading", { name: "Lab details" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Institution resources" })).toBeNull();
+    const tabs = screen.getByRole("navigation", { name: "Lab details sections" });
+    for (const [tab, name] of [
+      ["Onboarding", "Turnover and onboarding"],
+      ["Links", "Institution resources"],
+    ] as const) {
+      await userEvent.click(within(tabs).getByRole("link", { name: tab }));
+      expect(await screen.findByRole("heading", { name })).toBeInTheDocument();
+    }
+    for (const name of ["Inventory", "Training"])
+      expect(screen.queryByRole("heading", { name })).toBeNull();
+    expect(screen.getByRole("link", { name: "Lab details" })).toHaveAttribute(
+      "href",
+      "/labs/lab1/admin",
+    );
   });
 
-  it("hides the Admin entry and explains for a member", async () => {
+  it("hides the Admin group and explains for a member", async () => {
     mockFetch(base(["view_lab", "manage_inventory"]));
     renderRoute("/labs/lab1/admin");
-    expect(await screen.findByText("You don't have access to Admin")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
+    expect(await screen.findByText("You don't have access to Lab details")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Admin" })).toBeNull();
   });
 
   it("saves lab details including the institution", async () => {
@@ -110,7 +109,7 @@ describe("admin area", () => {
         },
       }),
     );
-    renderRoute("/labs/lab1/admin");
+    renderRoute("/labs/lab1/admin#onboarding");
     await userEvent.click(
       await screen.findByRole("checkbox", { name: "Read the data policy done" }),
     );
@@ -118,7 +117,7 @@ describe("admin area", () => {
       user: "u2",
       done: true,
     });
-    expect(screen.getByRole("link", { name: /Handover report for Bob/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Work to pass on for Bob/ })).toBeInTheDocument();
   });
 
   it("lets a member edit inventory but a viewer only read it", async () => {
@@ -214,7 +213,7 @@ describe("institution resources editor", () => {
 
   it("rejects a non-https address without calling the server", async () => {
     const calls = mockFetch(base(ADMIN));
-    renderRoute("/labs/lab1/admin");
+    renderRoute("/labs/lab1/admin#links");
     const form = await screen.findByRole("form", { name: "Add a link" });
     await userEvent.type(within(form).getByLabelText("Link title"), "Grants");
     await userEvent.type(within(form).getByLabelText("Link address"), "http://example.edu/g");
@@ -231,7 +230,7 @@ describe("institution resources editor", () => {
         "DELETE /api/labs/lab1/institution-resources/r1/": { status: 204 },
       }),
     );
-    renderRoute("/labs/lab1/admin");
+    renderRoute("/labs/lab1/admin#links");
     expect(await screen.findByRole("link", { name: "Research Ethics Office" })).toBeInTheDocument();
     const form = screen.getByRole("form", { name: "Add a link" });
     await userEvent.type(within(form).getByLabelText("Link title"), "Grants");
@@ -255,7 +254,7 @@ describe("institution resources editor", () => {
         },
       }),
     );
-    renderRoute("/labs/lab1/admin");
+    renderRoute("/labs/lab1/admin#links");
     await userEvent.click(await screen.findByRole("button", { name: "Get my university's forms" }));
     expect(await screen.findByText(/No curated forms for Elsewhere yet/)).toBeInTheDocument();
     expect(calls.some((c) => c.method === "POST")).toBe(true);

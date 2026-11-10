@@ -62,16 +62,16 @@ export function HandoverPage() {
     : `/api/labs/${labId}/projects/${projectId}/handover/${user ? `?user=${user}` : ""}`;
   const { data, isLoading, error } = useHandover(path);
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Preparing the report...</p>;
+  if (isLoading) return <p className="text-sm text-muted-foreground">Making the list...</p>;
   if (error || !data) {
     const denied = error instanceof ApiError && error.status === 403;
     return (
       <EmptyState
-        title="Handover report unavailable"
+        title="This list is unavailable"
         description={
           denied
-            ? "You do not have permission to generate this report."
-            : "We could not generate this report. Try again."
+            ? "You do not have permission to see this list."
+            : "We could not make this list. Try again."
         }
       />
     );
@@ -81,8 +81,8 @@ export function HandoverPage() {
   return (
     <div className="grid gap-6">
       <PageHeader
-        title={`Handover: ${personName({ display_name: data.person.display_name, email: data.person.email })}`}
-        description={`Generated ${date}. ${scope}`}
+        title={`Work to pass on: ${personName({ display_name: data.person.display_name, email: data.person.email })}`}
+        description={`Everything this person owns or leads, so it can be given to someone else when they leave. Made ${date}. ${scope}`}
         actions={
           <Button variant="outline" className="print:hidden" onClick={() => window.print()}>
             <Printer className="size-4" aria-hidden /> Print or save as PDF

@@ -41,8 +41,15 @@ class TestZenodo(ProviderContract):
     replies = {
         "item": [("GET", URL, 200, record())],
         "item_changed": [
-            ("GET", URL, 200, record(updated="2025-01-01T10:00:00+00:00", metadata={
-                "title": "Survey data", "version": "v1.3"}))  # fmt: skip
+            (
+                "GET",
+                URL,
+                200,
+                record(
+                    updated="2025-01-01T10:00:00+00:00",
+                    metadata={"title": "Survey data", "version": "v1.3"},
+                ),
+            )  # fmt: skip
         ],
         "item_gone": [("GET", URL, 410, {})],
     }

@@ -141,7 +141,7 @@ export function OnboardingSection({ labId }: { labId: string }) {
             {k.value === "departing" && member && (
               <Button variant="outline" size="sm" className="justify-self-start" asChild>
                 <Link to={`/labs/${labId}/members/${member.id}/handover`}>
-                  Handover report for {member.user.display_name || member.user.email}
+                  Work to pass on for {member.user.display_name || member.user.email}
                 </Link>
               </Button>
             )}

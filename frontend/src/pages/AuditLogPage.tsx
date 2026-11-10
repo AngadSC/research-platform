@@ -76,7 +76,7 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "ethics_approval.deleted": "Deleted an ethics approval",
   "retention.changed": "Changed how long project data is kept",
   "audit_log.viewed": "Viewed the audit log",
-  "handover.generated": "Generated a handover",
+  "handover.generated": "Listed someone's work to pass on",
   "integration.connected": "Connected an outside service",
   "integration.disconnected": "Disconnected an outside service",
   "integration.revoked": "Removed someone's connected service",

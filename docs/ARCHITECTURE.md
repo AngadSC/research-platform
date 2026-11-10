@@ -274,6 +274,7 @@ Creating and editing ordinary content is not audited, because revisions and `upd
 | 3 | DELETE | `L/messages/<chatmessage_id>/` | view_project, then author or edit_project in `delete_message` |
 | 3 | POST | `P/messages/read/` | view_project (D207) |
 | 3 | GET | `L/chat/unread/` (only projects the user can see) | view_lab (D207) |
+| 3 | GET | `L/my-tasks/` (your open tasks, only projects you can see) | view_lab (D223) |
 | 4 | GET / POST | `L/tasks/<task_id>/posts/` (the task's update thread, D142) | view_project / edit_content |
 | 4 | PATCH, DELETE | `L/task-posts/<taskpost_id>/` (PATCH: author only; DELETE: author or edit_project; deletion is audited) | edit_content |
 | 4 | POST | `L/tasks/<task_id>/documents/`, `L/tasks/<task_id>/attachments/` (body `{id}`, same project, idempotent, D141) | edit_content |

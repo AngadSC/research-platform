@@ -2,6 +2,7 @@ import importlib
 
 import pytest
 from allauth.account.models import EmailAddress
+from django.contrib.auth import get_user_model
 from django.test import Client, override_settings
 from django.urls import clear_url_caches
 from rest_framework.test import APIClient
@@ -145,3 +146,66 @@ def test_me_saved_links_are_validated(make_user):
         [{**recent, "at": "2026-13-45T00:00:00Z"}],
     ):
         assert status(recents=bad) == 400, bad
+
+
+def _theme(**over):
+    return {
+        "id": "t1",
+        "name": "Paper",
+        "background": "#ffffff",
+        "text": "#18181b",
+        "accent": "#4f46e5",
+        **over,
+    }
+
+
+def test_custom_themes_must_be_readable(make_user):
+    c = APIClient()
+    c.force_authenticate(make_user(email="ada@uni.edu"))
+
+    def patch(prefs):
+        return c.patch("/api/me/", {"preferences": prefs}, format="json").status_code
+
+    for bad in (
+        _theme(text="#aaaaaa"),  # grey on white
+        _theme(accent="#ffff00"),  # yellow on white
+        _theme(background="red"),
+        _theme(accent="#4f46e5;--x:y"),
+        _theme(name=" "),
+        _theme(id="a/b"),
+        {**_theme(), "extra": "x"},
+        "nope",
+    ):
+        assert patch({"custom_themes": [bad]}) == 400, bad
+    assert patch({"custom_themes": [_theme(), _theme()]}) == 400  # same id twice
+    assert patch({"custom_themes": [_theme(id=str(i)) for i in range(11)]}) == 400
+    assert patch({"theme": "custom:t1"}) == 400  # no such theme yet
+
+    assert patch({"custom_themes": [_theme()], "theme": "custom:t1"}) == 200
+    assert patch({"custom_themes": []}) == 400  # would leave the account on a deleted theme
+    assert patch({"custom_themes": [], "theme": "system"}) == 200
+
+
+def test_signup_does_not_make_a_name_from_the_email():
+    Client().post(
+        "/_allauth/browser/v1/auth/signup",
+        {"email": "jgogia@uni.edu", "password": "a-long-Passw0rd!"},
+        "application/json",
+    )
+    assert get_user_model().objects.get(email="jgogia@uni.edu").display_name == ""
+
+
+def test_migration_blanks_only_names_made_from_the_email(make_user):
+    from importlib import import_module
+
+    from django.apps import apps
+
+    fragment = make_user(email="jgogia@uni.edu", display_name="jgogia")
+    real = make_user(email="ada@uni.edu", display_name="Ada Lovelace")
+    import_module("core.migrations.0010_blank_email_fragment_names").blank_fragment_names(
+        apps, None
+    )
+    fragment.refresh_from_db()
+    real.refresh_from_db()
+    assert fragment.display_name == ""
+    assert real.display_name == "Ada Lovelace"

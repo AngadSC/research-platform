@@ -49,7 +49,12 @@ export function SelectContent({
   );
 }
 
-export function SelectItem({ className, children, ...props }: React.ComponentProps<typeof S.Item>) {
+export function SelectItem({
+  className,
+  children,
+  hint,
+  ...props
+}: React.ComponentProps<typeof S.Item> & { hint?: string }) {
   return (
     <S.Item
       className={cn(
@@ -63,7 +68,10 @@ export function SelectItem({ className, children, ...props }: React.ComponentPro
           <Check className="size-4" />
         </S.ItemIndicator>
       </span>
-      <S.ItemText>{children}</S.ItemText>
+      <span className="grid">
+        <S.ItemText>{children}</S.ItemText>
+        {hint && <span className="max-w-56 text-xs text-muted-foreground">{hint}</span>}
+      </span>
     </S.Item>
   );
 }

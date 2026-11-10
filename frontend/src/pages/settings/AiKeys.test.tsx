@@ -41,7 +41,7 @@ describe("settings: assistant API keys", () => {
         },
       }),
     );
-    renderRoute("/settings");
+    renderRoute("/settings#ai");
     const row = await screen.findByRole("group", { name: "Anthropic (Claude) key" });
     expect(within(row).getByText("Not saved")).toBeInTheDocument();
     const input = within(row).getByLabelText("Anthropic (Claude) API key");
@@ -69,7 +69,7 @@ describe("settings: assistant API keys", () => {
         },
       }),
     );
-    renderRoute("/settings");
+    renderRoute("/settings#ai");
     const row = await screen.findByRole("group", { name: "OpenAI key" });
     await userEvent.type(
       within(row).getByLabelText("OpenAI API key"),
@@ -87,7 +87,7 @@ describe("settings: assistant API keys", () => {
         "DELETE /api/ai/keys/anthropic/": { status: 204 },
       }),
     );
-    renderRoute("/settings");
+    renderRoute("/settings#ai");
     await userEvent.click(
       await screen.findByRole("button", { name: "Remove Anthropic (Claude) key" }),
     );
@@ -103,7 +103,7 @@ describe("settings: assistant API keys", () => {
         },
       }),
     );
-    renderRoute("/settings");
+    renderRoute("/settings#ai");
     const box = await screen.findByRole("checkbox", {
       name: /retry it automatically on another model/,
     });
@@ -120,24 +120,25 @@ describe("settings: assistant API keys", () => {
         "GET /api/ai/keys/": { body: [status("anthropic", false), status("openai", false)] },
       }),
     );
-    renderRoute("/settings");
+    renderRoute("/settings#ai");
     const section = await screen.findByRole("region", { name: "Assistant API keys" });
     expect(within(section).getByText(/Do not paste participant identifiers/)).toBeInTheDocument();
   });
 });
 
-describe("settings: the lab's AI policy", () => {
-  it("is shown to a PI with the three choices and a notice, and saves a change", async () => {
+describe("admin: the lab's AI policy", () => {
+  it("is on Admin's AI tab with the three choices and a notice, and saves a change", async () => {
     const calls = mockFetch(
       base(
         {
           "GET /api/ai/keys/": { body: [] },
+          "GET /api/labs/lab1/": { body: makeLab(["view_lab", "manage_lab"]) },
           "PATCH /api/labs/lab1/ai-policy/": { body: { ai_policy: "off" } },
         },
         ["view_lab", "manage_lab", "manage_lab_integrations"],
       ),
     );
-    renderRoute("/settings");
+    renderRoute("/labs/lab1/admin#ai");
     const section = await screen.findByRole("region", { name: "AI assistants in Ada Lab" });
     expect(within(section).getByText(/Allowed by default/)).toBeInTheDocument();
     expect(within(section).getByText(/may need to choose Off/)).toBeInTheDocument();
@@ -150,9 +151,15 @@ describe("settings: the lab's AI policy", () => {
     );
   });
 
-  it("is not shown to a member", async () => {
-    mockFetch(base({ "GET /api/ai/keys/": { body: [] } }));
-    renderRoute("/settings");
+  it("has left Settings", async () => {
+    mockFetch(
+      base({ "GET /api/ai/keys/": { body: [] } }, [
+        "view_lab",
+        "manage_lab",
+        "manage_lab_integrations",
+      ]),
+    );
+    renderRoute("/settings#ai");
     await screen.findByRole("region", { name: "Assistant API keys" });
     expect(screen.queryByRole("region", { name: /AI assistants in/ })).not.toBeInTheDocument();
   });

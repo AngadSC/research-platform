@@ -4,13 +4,13 @@ import {
   ArrowUp,
   CheckCircle2,
   CircleAlert,
-  ClipboardList,
   FolderKanban,
   type LucideIcon,
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { Link, Navigate, useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { ContributionGraph } from "@/components/dashboard/ContributionGraph";
+import { GettingStarted } from "@/components/dashboard/GettingStarted";
 import { FormError } from "@/components/shared/FormError";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -40,123 +40,59 @@ import { dueText, HEALTH_LABEL, shortDate, sortProjects, type SortKey } from "@/
 import { formErrors } from "@/lib/forms";
 import { plural } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { LabHomePage } from "@/pages/LabHomePage";
+import { MyTasksList } from "@/pages/MyTasksPage";
 
-/** `/labs/:id` for pi and lab_admin lands on the dashboard; everyone else keeps the project list (D171). */
-export function LabIndexPage() {
-  const { labId = "" } = useParams();
-  const { data: lab } = useLab(labId);
-  if (lab?.my_permissions.includes("manage_lab")) return <Navigate to="dashboard" replace />;
-  return <LabHomePage />;
-}
-
-type Tone = "red" | "amber" | "green" | "neutral";
-// Colour is never the only signal: every tone also has an icon and a word (see Tile and Card).
+type Tone = "red" | "amber" | "green";
+// Colour is never the only signal: every tone also has an icon and text.
 const TONE_TEXT: Record<Tone, string> = {
   red: "text-danger-text",
   amber: "text-warning-text",
   green: "text-success-text",
-  neutral: "text-foreground",
 };
-const TONE_EDGE: Record<Tone, string> = {
-  red: "border-danger/50 bg-danger/5",
-  amber: "border-warning/60 bg-warning/5",
-  green: "border-success/40 bg-success/5",
-  neutral: "bg-card",
-};
+const TONE_EDGE = { red: "border-danger/50 bg-danger/5", amber: "border-warning/60 bg-warning/5" };
 const TONE_ICON: Record<Tone, LucideIcon> = {
   red: CircleAlert,
   amber: AlertTriangle,
   green: CheckCircle2,
-  neutral: ClipboardList,
-};
-const TONE_WORD: Record<Tone, string> = {
-  red: "Act now",
-  amber: "Due soon",
-  green: "All clear",
-  neutral: "",
 };
 
-function Tile({
-  label,
-  value,
-  tone,
-  href,
-}: {
-  label: string;
-  value: number;
-  tone: Tone;
-  href?: string;
-}) {
-  const Icon = TONE_ICON[tone];
-  const body = (
-    <div className={cn("grid gap-1 rounded-lg border p-4", TONE_EDGE[tone])}>
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      <span className={cn("text-3xl font-semibold tabular-nums", TONE_TEXT[tone])}>{value}</span>
-      {tone !== "neutral" && (
-        <span className={cn("flex items-center gap-1 text-xs font-medium", TONE_TEXT[tone])}>
-          <Icon className="size-3.5" aria-hidden />
-          {TONE_WORD[tone]}
-        </span>
-      )}
-    </div>
-  );
-  return href ? (
-    <a
-      href={href}
-      className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      {body}
-    </a>
-  ) : (
-    body
-  );
-}
-
+/** One kind of problem. A kind with nothing wrong is not shown at all. */
 function Card({
   id,
   title,
   tone,
   total,
   shown,
-  empty,
   children,
 }: {
   id: string;
   title: string;
-  tone: Tone;
+  tone: "red" | "amber";
   total: number;
   shown: number;
-  empty: string;
   children: ReactNode;
 }) {
-  const state: Tone = total === 0 ? "green" : tone;
-  const Icon = TONE_ICON[state];
+  if (total === 0) return null;
+  const Icon = TONE_ICON[tone];
   return (
     <section
       id={id}
       aria-labelledby={`${id}-title`}
-      className={cn("scroll-mt-4 rounded-lg border p-4", TONE_EDGE[state])}
+      className={cn("rounded-lg border p-4", TONE_EDGE[tone])}
     >
       <h3
         id={`${id}-title`}
-        className={cn("flex items-center gap-2 text-sm font-semibold", TONE_TEXT[state])}
+        className={cn("flex items-center gap-2 text-sm font-semibold", TONE_TEXT[tone])}
       >
         <Icon className="size-4" aria-hidden />
         {title}
         <span className="ml-auto tabular-nums">{total}</span>
       </h3>
-      {total === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">{empty}</p>
-      ) : (
-        <>
-          <ul className="mt-3 grid gap-2 text-sm">{children}</ul>
-          {total > shown && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Showing {shown} of {total}.
-            </p>
-          )}
-        </>
+      <ul className="mt-3 grid gap-2 text-sm">{children}</ul>
+      {total > shown && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Showing {shown} of {total}.
+        </p>
       )}
     </section>
   );
@@ -407,11 +343,6 @@ function PeopleTable({ people }: { people: DashPerson[] }) {
 function DashboardSkeleton() {
   return (
     <div aria-busy="true" aria-label="Loading dashboard" className="grid gap-8">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {Array.from({ length: 8 }, (_, i) => (
-          <Skeleton key={i} className="h-24" />
-        ))}
-      </div>
       <div className="grid gap-3 md:grid-cols-2">
         {Array.from({ length: 4 }, (_, i) => (
           <Skeleton key={i} className="h-36" />
@@ -422,6 +353,7 @@ function DashboardSkeleton() {
   );
 }
 
+/** Home, for everyone: PIs and lab admins see how the lab stands (D171), others their own tasks. */
 export function DashboardPage() {
   const { labId = "" } = useParams();
   const { data: lab, error: labError } = useLab(labId);
@@ -432,275 +364,246 @@ export function DashboardPage() {
 
   const failure = labError ?? error;
   if (failure) return <FormError message={formErrors(failure, []).form} />;
+
+  const header = (
+    <>
+      <PageHeader
+        title="Home"
+        description={lab && `${lab.name} · You are ${roleLabel(lab.my_role ?? "")}`}
+      />
+      <GettingStarted labId={labId} />
+      <Recents />
+    </>
+  );
   if (lab && !allowed)
     return (
-      <EmptyState
-        title="The dashboard is for PIs and lab admins"
-        description="You can see your own projects and tasks from the sidebar."
-      />
+      <>
+        {header}
+        <section aria-labelledby="my-tasks" className="grid gap-3">
+          <h2 id="my-tasks" className="text-base font-semibold">
+            My tasks
+          </h2>
+          <MyTasksList labId={labId} />
+        </section>
+      </>
     );
 
   const a = data?.attention;
-  const s = data?.summary;
   const tr = training.data;
-  const tone = (n: number, t: Tone): Tone => (n > 0 ? t : "green");
+  const problems =
+    a &&
+    [
+      a.overdue_tasks,
+      a.ethics,
+      a.funding,
+      a.deadlines,
+      a.stalled,
+      a.unassigned,
+      a.integrations,
+      a.dmp ?? { total: 0 },
+    ].some((group) => group.total > 0);
 
   return (
     <>
-      <PageHeader
-        title="Dashboard"
-        description="Where the lab stands: what is late, what is due soon, and where nothing has moved."
-        actions={
-          <Button asChild variant="outline">
-            <Link to={`${base}/projects`}>All projects</Link>
-          </Button>
-        }
-      />
-      <Recents />
-      {isLoading || !data || !a || !s ? (
+      {header}
+      {isLoading || training.isLoading || !data || !a ? (
         <DashboardSkeleton />
       ) : (
         <div className="grid gap-8">
-          <section aria-label="Summary" className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Tile label="Active projects" value={s.active_projects} tone="neutral" />
-            <Tile label="Open tasks" value={s.open_tasks} tone="neutral" />
-            <Tile
-              label="Overdue tasks"
-              value={s.overdue_tasks}
-              tone={tone(s.overdue_tasks, "red")}
-              href="#overdue"
-            />
-            <Tile
-              label="Deadlines in 14 days"
-              value={s.deadlines_soon}
-              tone={tone(s.deadlines_soon, "amber")}
-              href="#deadlines"
-            />
-            <Tile
-              label="Ethics to renew"
-              value={s.ethics_attention}
-              tone={tone(
-                s.ethics_attention,
-                a.ethics.items.some((e) => e.expired) ? "red" : "amber",
-              )}
-              href="#ethics"
-            />
-            <Tile
-              label="Funding ending in 90 days"
-              value={s.funding_ending}
-              tone={tone(
-                s.funding_ending,
-                a.funding.items.some((f) => f.days_left < 0) ? "red" : "amber",
-              )}
-              href="#funding"
-            />
-            <Tile
-              label="Stalled projects"
-              value={s.stalled_projects}
-              tone={tone(s.stalled_projects, "amber")}
-              href="#stalled"
-            />
-            <Tile
-              label="Need an owner"
-              value={s.unassigned_tasks}
-              tone={tone(s.unassigned_tasks, "amber")}
-              href="#unassigned"
-            />
-          </section>
-
-          <section aria-labelledby="attention" className="grid gap-3">
-            <h2 id="attention" className="text-base font-semibold">
-              Needs attention
-            </h2>
-            <div className="grid gap-3 md:grid-cols-2">
-              <Card
-                id="overdue"
-                title="Overdue tasks"
-                tone="red"
-                total={a.overdue_tasks.total}
-                shown={a.overdue_tasks.items.length}
-                empty="Nothing is overdue."
-              >
-                {a.overdue_tasks.items.map((t) => (
-                  <Item
-                    key={t.id}
-                    to={`${base}/projects/${t.project_id}/tasks?task=${t.id}`}
-                    title={t.title}
-                    tone="red"
-                    meta={`${t.project_name} · ${t.assignee?.name ?? "Unassigned"} · ${dueText(-t.days_overdue)}`}
-                  />
-                ))}
-              </Card>
-              <Card
-                id="ethics"
-                title="Ethics approvals"
-                tone={a.ethics.items.some((e) => e.expired) ? "red" : "amber"}
-                total={a.ethics.total}
-                shown={a.ethics.items.length}
-                empty="No approvals expire in the next 60 days."
-              >
-                {a.ethics.items.map((e) => (
-                  <Item
-                    key={e.id}
-                    to={`${base}/ethics/${e.id}`}
-                    title={`${e.title} (${e.approval_number})`}
-                    tone={e.expired ? "red" : "amber"}
-                    meta={
-                      e.expired
-                        ? `Expired ${dueText(e.days_left, "ago")}`
-                        : `Expires ${dueText(e.days_left)}`
-                    }
-                  />
-                ))}
-              </Card>
-              <Card
-                id="funding"
-                title="Funding ending"
-                tone={a.funding.items.some((f) => f.days_left < 0) ? "red" : "amber"}
-                total={a.funding.total}
-                shown={a.funding.items.length}
-                empty="No funding ends in the next 90 days."
-              >
-                {a.funding.items.map((f) => (
-                  <Item
-                    key={f.id}
-                    to={`${base}/projects/${f.project_id}/workflow/funding`}
-                    title={`${f.funder} · ${f.project_name}`}
-                    tone={f.days_left < 0 ? "red" : "amber"}
-                    meta={`${f.days_left < 0 ? "Ended" : "Ends"} ${shortDate(f.end_date)} (${dueText(f.days_left, "ago")})`}
-                  />
-                ))}
-              </Card>
-              <Card
-                id="deadlines"
-                title="Deadlines in 14 days"
-                tone="amber"
-                total={a.deadlines.total}
-                shown={a.deadlines.items.length}
-                empty="No deadlines in the next 14 days."
-              >
-                {a.deadlines.items.map((d) => (
-                  <Item
-                    key={d.id}
-                    to={`${base}/projects/${d.project_id}/overview`}
-                    title={d.title}
-                    tone={d.days_left < 0 ? "red" : "amber"}
-                    badge={priorityBadge(d.priority)}
-                    meta={`${d.project_name} · ${shortDate(d.due_date)} (${d.days_left < 0 ? dueText(d.days_left, "late") : dueText(d.days_left)})`}
-                  />
-                ))}
-              </Card>
-              <Card
-                id="stalled"
-                title="Stalled projects"
-                tone="amber"
-                total={a.stalled.total}
-                shown={a.stalled.items.length}
-                empty="Every active project has been touched in the last 30 days."
-              >
-                {a.stalled.items.map((p) => (
-                  <Item
-                    key={p.project_id}
-                    to={`${base}/projects/${p.project_id}/overview`}
-                    title={p.project_name}
-                    tone="amber"
-                    meta={`No activity for ${plural(p.days_idle, "day")}`}
-                  />
-                ))}
-              </Card>
-              <Card
-                id="unassigned"
-                title="Tasks that need an owner"
-                tone="amber"
-                total={a.unassigned.total}
-                shown={a.unassigned.items.length}
-                empty="No tasks were left without an owner after an access change."
-              >
-                {a.unassigned.items.map((t) => (
-                  <Item
-                    key={t.id}
-                    to={`${base}/projects/${t.project_id}/tasks?task=${t.id}`}
-                    title={t.title}
-                    tone="amber"
-                    meta={`${t.project_name}${t.due_date ? ` · due ${shortDate(t.due_date)}` : ""}`}
-                  />
-                ))}
-              </Card>
-              <Card
-                id="integrations"
-                title="Integrations to fix"
-                tone="red"
-                total={a.integrations.total}
-                shown={a.integrations.items.length}
-                empty="Every connected service is working."
-              >
-                {a.integrations.items.map((i) => (
-                  <Item
-                    key={i.id}
-                    to={`${base}/settings/integrations`}
-                    title={i.provider.replace(/_/g, " ")}
-                    tone="red"
-                    meta={`${i.user.name} · ${i.status === "expired" ? "needs to reconnect" : "has an error"}`}
-                  />
-                ))}
-              </Card>
-              {a.dmp && (
+          {!problems && !tr?.count ? (
+            <p
+              role="status"
+              className="flex items-center gap-2 text-sm font-medium text-success-text"
+            >
+              <CheckCircle2 className="size-4" aria-hidden />
+              All clear. Nothing needs attention right now.
+            </p>
+          ) : (
+            <section aria-labelledby="attention" className="grid gap-3">
+              <h2 id="attention" className="text-base font-semibold">
+                Needs attention
+              </h2>
+              <div className="grid gap-3 md:grid-cols-2">
                 <Card
-                  id="dmp"
-                  title="No approved data management plan"
-                  tone="amber"
-                  total={a.dmp.total}
-                  shown={a.dmp.items.length}
-                  empty="Every planning or active project has an approved plan."
+                  id="overdue"
+                  title="Overdue tasks"
+                  tone="red"
+                  total={a.overdue_tasks.total}
+                  shown={a.overdue_tasks.items.length}
                 >
-                  {a.dmp.items.map((p) => (
+                  {a.overdue_tasks.items.map((t) => (
                     <Item
-                      key={p.project_id}
-                      to={`${base}/projects/${p.project_id}/workflow/data`}
-                      title={p.project_name}
-                      tone="amber"
-                      meta={p.dmp_status === "none" ? "No plan yet" : `Plan is ${p.dmp_status}`}
+                      key={t.id}
+                      to={`${base}/projects/${t.project_id}/tasks?task=${t.id}`}
+                      title={t.title}
+                      tone="red"
+                      meta={`${t.project_name} · ${t.assignee?.name ?? "Unassigned"} · ${dueText(-t.days_overdue)}`}
                     />
                   ))}
                 </Card>
-              )}
-              {/* D174: fed by GET L/training/expiring/ (training app). Hidden if that call fails. */}
-              {tr && (
                 <Card
-                  id="training"
-                  title="Training expiring"
-                  tone={tr.expired_count > 0 ? "red" : "amber"}
-                  total={tr.count}
-                  shown={tr.items.length}
-                  empty="No certifications expire in the next 60 days."
+                  id="ethics"
+                  title="Ethics approvals"
+                  tone={a.ethics.items.some((e) => e.expired) ? "red" : "amber"}
+                  total={a.ethics.total}
+                  shown={a.ethics.items.length}
                 >
-                  {tr.items.slice(0, 20).map((i) => (
+                  {a.ethics.items.map((e) => (
                     <Item
-                      key={`${i.user.id}-${i.requirement.id}`}
-                      to={`${base}/training`}
-                      title={`${i.requirement.name} · ${i.user.display_name || i.user.email}`}
-                      tone={i.status === "expired" ? "red" : "amber"}
+                      key={e.id}
+                      to={`${base}/ethics/${e.id}`}
+                      title={`${e.title} (${e.approval_number})`}
+                      tone={e.expired ? "red" : "amber"}
                       meta={
-                        i.status === "expired"
-                          ? `Expired ${dueText(i.days_left, "ago")}`
-                          : `Expires ${dueText(i.days_left)}`
+                        e.expired
+                          ? `Expired ${dueText(e.days_left, "ago")}`
+                          : `Expires ${dueText(e.days_left)}`
                       }
                     />
                   ))}
                 </Card>
-              )}
-            </div>
-          </section>
+                <Card
+                  id="funding"
+                  title="Funding ending"
+                  tone={a.funding.items.some((f) => f.days_left < 0) ? "red" : "amber"}
+                  total={a.funding.total}
+                  shown={a.funding.items.length}
+                >
+                  {a.funding.items.map((f) => (
+                    <Item
+                      key={f.id}
+                      to={`${base}/projects/${f.project_id}/workflow/funding`}
+                      title={`${f.funder} · ${f.project_name}`}
+                      tone={f.days_left < 0 ? "red" : "amber"}
+                      meta={`${f.days_left < 0 ? "Ended" : "Ends"} ${shortDate(f.end_date)} (${dueText(f.days_left, "ago")})`}
+                    />
+                  ))}
+                </Card>
+                <Card
+                  id="deadlines"
+                  title="Deadlines in 14 days"
+                  tone="amber"
+                  total={a.deadlines.total}
+                  shown={a.deadlines.items.length}
+                >
+                  {a.deadlines.items.map((d) => (
+                    <Item
+                      key={d.id}
+                      to={`${base}/projects/${d.project_id}/overview`}
+                      title={d.title}
+                      tone={d.days_left < 0 ? "red" : "amber"}
+                      badge={priorityBadge(d.priority)}
+                      meta={`${d.project_name} · ${shortDate(d.due_date)} (${d.days_left < 0 ? dueText(d.days_left, "late") : dueText(d.days_left)})`}
+                    />
+                  ))}
+                </Card>
+                <Card
+                  id="stalled"
+                  title="Stalled projects"
+                  tone="amber"
+                  total={a.stalled.total}
+                  shown={a.stalled.items.length}
+                >
+                  {a.stalled.items.map((p) => (
+                    <Item
+                      key={p.project_id}
+                      to={`${base}/projects/${p.project_id}/overview`}
+                      title={p.project_name}
+                      tone="amber"
+                      meta={`No activity for ${plural(p.days_idle, "day")}`}
+                    />
+                  ))}
+                </Card>
+                <Card
+                  id="unassigned"
+                  title="Tasks that need an owner"
+                  tone="amber"
+                  total={a.unassigned.total}
+                  shown={a.unassigned.items.length}
+                >
+                  {a.unassigned.items.map((t) => (
+                    <Item
+                      key={t.id}
+                      to={`${base}/projects/${t.project_id}/tasks?task=${t.id}`}
+                      title={t.title}
+                      tone="amber"
+                      meta={`${t.project_name}${t.due_date ? ` · due ${shortDate(t.due_date)}` : ""}`}
+                    />
+                  ))}
+                </Card>
+                <Card
+                  id="integrations"
+                  title="Integrations to fix"
+                  tone="red"
+                  total={a.integrations.total}
+                  shown={a.integrations.items.length}
+                >
+                  {a.integrations.items.map((i) => (
+                    <Item
+                      key={i.id}
+                      to={`${base}/settings/integrations`}
+                      title={i.provider.replace(/_/g, " ")}
+                      tone="red"
+                      meta={`${i.user.name} · ${i.status === "expired" ? "needs to reconnect" : "has an error"}`}
+                    />
+                  ))}
+                </Card>
+                {a.dmp && (
+                  <Card
+                    id="dmp"
+                    title="No approved data management plan"
+                    tone="amber"
+                    total={a.dmp.total}
+                    shown={a.dmp.items.length}
+                  >
+                    {a.dmp.items.map((p) => (
+                      <Item
+                        key={p.project_id}
+                        to={`${base}/projects/${p.project_id}/workflow/data`}
+                        title={p.project_name}
+                        tone="amber"
+                        meta={p.dmp_status === "none" ? "No plan yet" : `Plan is ${p.dmp_status}`}
+                      />
+                    ))}
+                  </Card>
+                )}
+                {/* D174: fed by GET L/training/expiring/ (training app). Hidden if that call fails. */}
+                {tr && (
+                  <Card
+                    id="training"
+                    title="Training expiring"
+                    tone={tr.expired_count > 0 ? "red" : "amber"}
+                    total={tr.count}
+                    shown={tr.items.length}
+                  >
+                    {tr.items.slice(0, 20).map((i) => (
+                      <Item
+                        key={`${i.user.id}-${i.requirement.id}`}
+                        to={`${base}/training`}
+                        title={`${i.requirement.name} · ${i.user.display_name || i.user.email}`}
+                        tone={i.status === "expired" ? "red" : "amber"}
+                        meta={
+                          i.status === "expired"
+                            ? `Expired ${dueText(i.days_left, "ago")}`
+                            : `Expires ${dueText(i.days_left)}`
+                        }
+                      />
+                    ))}
+                  </Card>
+                )}
+              </div>
+            </section>
+          )}
 
           <section aria-labelledby="projects" className="grid gap-3">
             <h2 id="projects" className="text-base font-semibold">
               Projects
             </h2>
             <ProjectTable
-                labId={labId}
-                projects={data.projects}
-                seesFunding={lab?.my_permissions.includes("access_funding") ?? false}
-              />
+              labId={labId}
+              projects={data.projects}
+              seesFunding={lab?.my_permissions.includes("access_funding") ?? false}
+            />
           </section>
 
           <section aria-labelledby="people" className="grid gap-3">

@@ -45,7 +45,8 @@ class ProjectPermMixin(LabScopedViewMixin):
         return get_object_or_404(projects, pk=self.kwargs["project_id"])
 
     def check_permissions(self, request):
-        self.project = project_of(self.get_permission_owner())
+        owner = self.get_permission_owner()
+        self.project = project_of(owner) or owner  # a lab-wide document is its own target (D233)
         super().check_permissions(request)
 
     def get_queryset(self):
@@ -70,18 +71,22 @@ class DocumentMixin(ProjectPermMixin):
     """Routes under `documents/<document_id>/`, and the project's document collection."""
 
     model = Document
+    allow_lab_wide = True  # D233: reached by document id, so the same routes serve both kinds
+
+    def _documents(self):
+        docs = Document.objects.visible_to(self.request.user, self.request.lab)
+        if self.allow_lab_wide:
+            docs = docs | services.lab_documents(self.request.lab)
+        return docs.filter(deleted_at__isnull=True)
 
     def get_queryset(self):
+        if "document_id" in self.kwargs:
+            return self._documents()
         return super().get_queryset().filter(deleted_at__isnull=True)
 
     def get_document(self):
         if not hasattr(self, "_document"):
-            self._document = get_object_or_404(
-                Document.objects.visible_to(self.request.user, self.request.lab).filter(
-                    deleted_at__isnull=True
-                ),
-                pk=self.kwargs["document_id"],
-            )
+            self._document = get_object_or_404(self._documents(), pk=self.kwargs["document_id"])
         return self._document
 
     def get_permission_owner(self):
@@ -109,6 +114,34 @@ class DocumentListCreateView(DocumentMixin, generics.GenericAPIView):
         doc = services.create_document(
             project=self.project, user=request.user, folder=folder, **data
         )
+        return Response(DocumentSerializer(doc).data, status=status.HTTP_201_CREATED)
+
+
+class LabDocumentListCreateView(LabScopedViewMixin, generics.GenericAPIView):
+    """D233: lab-wide documents. Everything after creation uses the document routes below."""
+
+    model = Document
+    serializer_class = DocumentListSerializer
+    pagination_class = None
+    perms = {"GET": Perm.VIEW_LAB, "POST": Perm.CONTRIBUTE_LAB}
+
+    @extend_schema(responses=DocumentListSerializer(many=True))
+    def get(self, request, lab_id):
+        qs = (
+            services.lab_documents(request.lab)
+            .filter(deleted_at__isnull=True)
+            .select_related("updated_by")
+            .order_by("title", "id")
+        )
+        return Response(self.get_serializer(qs, many=True).data)
+
+    @extend_schema(request=DocumentCreateSerializer, responses={201: DocumentSerializer})
+    def post(self, request, lab_id):
+        ser = DocumentCreateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        data = dict(ser.validated_data)
+        data.pop("folder", None)  # folders belong to a project
+        doc = services.create_document(lab=request.lab, user=request.user, **data)
         return Response(DocumentSerializer(doc).data, status=status.HTTP_201_CREATED)
 
 
@@ -142,13 +175,17 @@ class DocumentDetailView(DocumentMixin, generics.GenericAPIView):
 
     @extend_schema(responses={204: None})
     def delete(self, request, lab_id, document_id):
-        services.delete_document(self.get_object(), user=request.user, request=request)
+        doc = self.get_object()
+        if doc.lab_wide:  # D233: anyone may fix a typo, but removing the lab manual is a lab call
+            require(request.user, Perm.MANAGE_LAB, request.lab)
+        services.delete_document(doc, user=request.user, request=request)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class DocumentMoveView(DocumentMixin, generics.GenericAPIView):
     serializer_class = ItemMoveSerializer
     lookup_url_kwarg = "document_id"
+    allow_lab_wide = False  # folders belong to a project
     perms = {"POST": Perm.EDIT_CONTENT}
 
     @extend_schema(request=ItemMoveSerializer, responses={204: None})
@@ -168,8 +205,7 @@ class RevisionMixin(DocumentMixin):
 
     def get_queryset(self):
         # Revisions have no `deleted_at`; a deleted document is a 404 via get_document().
-        qs = ProjectPermMixin.get_queryset(self)
-        return qs.filter(document=self.get_document()).select_related("created_by", "restored_from")
+        return self.get_document().revisions.select_related("created_by", "restored_from")
 
 
 class RevisionListView(RevisionMixin, generics.ListAPIView):

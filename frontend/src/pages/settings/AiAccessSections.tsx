@@ -22,7 +22,6 @@ import { useReauth } from "@/hooks/reauth";
 import { useLabs } from "@/hooks/workspace";
 import { formErrors } from "@/lib/forms";
 import { NativeSelect, Section } from "@/pages/admin/common";
-import { AiPolicySection } from "@/pages/settings/AiPolicySection";
 
 /** Why the system disconnected an AI app or token (D195). */
 const ENDED: Record<string, string> = {
@@ -47,6 +46,16 @@ function EndedNotice({ grants }: { grants: AiGrant[] }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+const CLAUDE_CONNECT =
+  "https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=labbenchos&connectorUrl=";
+
+function copy(text: string) {
+  (navigator.clipboard?.writeText(text) ?? Promise.reject(new Error("no clipboard"))).then(
+    () => toast.success("Copied."),
+    () => toast.error("Copy failed; select the text instead."),
   );
 }
 
@@ -140,16 +149,7 @@ function NewToken({ created, onDone }: { created: PatCreated; onDone: () => void
       <p className="text-sm text-muted-foreground">For Claude Code:</p>
       <code className="text-xs break-all">{command}</code>
       <div className="flex gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() =>
-            navigator.clipboard?.writeText(created.token).then(
-              () => toast.success("Copied."),
-              () => toast.error("Copy failed; select the text instead."),
-            )
-          }
-        >
+        <Button size="sm" variant="outline" onClick={() => copy(created.token)}>
           Copy token
         </Button>
         <Button size="sm" onClick={onDone}>
@@ -289,9 +289,35 @@ export function AiAccessSections() {
         description="Claude, ChatGPT and other AI apps you have connected. They see only what you can see, in the labs you chose."
       >
         <p className="text-sm">
-          To connect, add a custom connector in your AI app with this URL:{" "}
-          <code className="break-all">{mcpUrl()}</code>
+          Read only is the default. Read and write also lets the app create tasks, post task updates
+          and draft decisions.
         </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" asChild>
+            <a
+              href={CLAUDE_CONNECT + encodeURIComponent(mcpUrl())}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Connect to Claude
+            </a>
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => copy(mcpUrl())}>
+            Copy address
+          </Button>
+        </div>
+        <p className="text-sm">
+          Connection address: <code className="break-all">{mcpUrl()}</code>
+        </p>
+        <div className="text-sm">
+          <p className="font-medium">Using ChatGPT?</p>
+          <ol className="list-decimal pl-5 text-muted-foreground">
+            <li>In ChatGPT, open Settings and find Apps or Connectors.</li>
+            <li>Turn on Developer mode, under Advanced settings. Not every plan has it.</li>
+            <li>Choose Create, name it labbenchos and paste the connection address.</li>
+            <li>Choose OAuth to sign in, then pick your labs on the page that opens.</li>
+          </ol>
+        </div>
         <EndedNotice grants={ended} />
         <GrantList
           grants={grants.filter((g) => g.kind === "oauth")}
@@ -306,12 +332,7 @@ export function AiAccessSections() {
         <CreateToken />
       </Section>
       {managed.map((l) => (
-        <div key={l.id} className="grid gap-8">
-          {l.my_permissions.includes("manage_lab") && (
-            <AiPolicySection labId={l.id} labName={l.name} />
-          )}
-          <LabAccess labId={l.id} labName={l.name} />
-        </div>
+        <LabAccess key={l.id} labId={l.id} labName={l.name} />
       ))}
     </>
   );

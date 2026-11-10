@@ -86,13 +86,22 @@ def _revise(doc, *, title, content, user, restored_from=None, retention=None, au
     )
 
 
+def lab_documents(lab):
+    """D233: the lab's lab-wide documents, the only path to them (`visible_to` needs a project)."""
+    return Document.objects.for_lab(lab).filter(project__isnull=True)
+
+
 @transaction.atomic
-def create_document(*, project, user, title, content, embed_url="", folder=None) -> Document:
-    """A non-empty `embed_url` makes a document that frames an outside file (documents.embed)."""
+def create_document(
+    *, user, title, content, project=None, lab=None, embed_url="", folder=None
+) -> Document:
+    """A non-empty `embed_url` makes a document that frames an outside file (documents.embed).
+    `lab` instead of `project` makes a lab-wide document (D233)."""
     validate_content(content)
-    _check_folder(folder, project.pk)
+    _check_folder(folder, project.pk if project else None)
     frame, open_url = embed.normalise(embed_url) if embed_url else ("", "")
     doc = Document.objects.create(
+        lab=lab or project.lab,
         project=project,
         title=title,
         content=content,
@@ -143,6 +152,8 @@ def save_document(
     doc = _lock(doc)
     if base_version != doc.version:
         raise _conflict(doc)
+    if doc.lab_wide:  # D233: retention review works project by project
+        retention = {}
     changes = retention_changes(doc, retention)
     guard_retention(user, doc.lab, changes)
     _revise(doc, title=title, content=content, user=user, retention=retention, autosave=autosave)

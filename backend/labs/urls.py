@@ -2,9 +2,13 @@ from django.urls import path
 
 from labs import admin_views as av
 from labs import contributions, dashboard, lab_calendar, protocols, views
+from labs.getting_started import GettingStartedView
 
 app_name = "labs"
 urlpatterns = [
+    path(
+        "labs/<uuid:lab_id>/getting-started/", GettingStartedView.as_view(), name="getting-started"
+    ),
     path("labs/", views.LabListCreateView.as_view(), name="lab-list"),
     path("institutions/search/", views.InstitutionSearchView.as_view(), name="institution-search"),
     path("labs/<uuid:lab_id>/", views.LabDetailView.as_view(), name="lab-detail"),

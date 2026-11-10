@@ -10,6 +10,7 @@ urlpatterns = [
         views.DocumentListCreateView.as_view(),
         name="document-list",
     ),
+    path(L + "lab-documents/", views.LabDocumentListCreateView.as_view(), name="lab-document-list"),
     path(
         L + "documents/<uuid:document_id>/",
         views.DocumentDetailView.as_view(),

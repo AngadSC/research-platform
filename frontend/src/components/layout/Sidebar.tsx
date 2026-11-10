@@ -23,7 +23,7 @@ import { useCurrentLabId, useCurrentProjectId } from "@/hooks/crumbs";
 import { useProjects } from "@/hooks/projects";
 import { useLabs } from "@/hooks/workspace";
 import type { Lab, Project } from "@/lib/api-types";
-import { navItems, PROJECT_SECTIONS } from "@/lib/nav";
+import { navItems, PROJECT_SECTIONS, type NavItem } from "@/lib/nav";
 import { APP_NAME } from "@/lib/constants";
 import { projectColorStyle } from "@/lib/projectColors";
 import { cn } from "@/lib/utils";
@@ -136,6 +136,14 @@ function LabSwitcher({
         <DropdownMenuItem
           onSelect={() => {
             onNavigate();
+            void navigate("/labs");
+          }}
+        >
+          All labs
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => {
+            onNavigate();
             void navigate("/labs/new");
           }}
         >
@@ -164,6 +172,19 @@ export function Sidebar({
   const navigate = useNavigate();
   const current = labs.find((l) => l.id === labId);
   const unread = useUnreadCount(labId);
+  const items = navItems(labId, current?.my_permissions, current?.inventory_enabled).filter(
+    ({ to }) => to !== "/settings" && !to.endsWith("/notifications"), // both have their own menu
+  );
+  const adminItems = items.filter((item) => item.admin);
+  const link = ({ to, label, icon: Icon, end }: NavItem) => (
+    <NavLink key={to} to={to} end={end} className={linkClass} onClick={onClose}>
+      <Icon aria-hidden />
+      {label}
+      {to.endsWith("/chat") && (
+        <UnreadBadge count={chatUnread[LAB_CHAT] ?? 0} noun="message" className="ml-auto" />
+      )}
+    </NavLink>
+  );
   return (
     <aside
       id="app-sidebar"
@@ -201,52 +222,60 @@ export function Sidebar({
         />
       </div>
       <PinnedNav onNavigate={onClose} />
-      {labId && (
-        <nav aria-label="Projects" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
-          <div className="flex items-center justify-between px-2 pb-1">
-            <span className="text-xs text-muted-foreground">Projects</span>
-            {current?.my_permissions.includes("create_project") && (
-              <button
-                type="button"
-                aria-label="New project"
-                onClick={() => {
-                  onClose();
-                  void navigate(`/labs/${labId}?new=project`);
-                }}
-                className={iconButton}
-              >
-                <Plus aria-hidden />
-              </button>
-            )}
-          </div>
-          <ul className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
-            {projects.map((p) => (
-              <ProjectItem
-                key={p.id}
-                labId={labId}
-                project={p}
-                isCurrent={p.id === projectId}
-                unread={chatUnread[p.id] ?? 0}
-                onNavigate={onClose}
-              />
-            ))}
-          </ul>
+      <nav aria-label="Main" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+        {items
+          .filter((item) => !item.admin)
+          .map((item) =>
+            item.to.endsWith("/projects") ? (
+              <div key={item.to} className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+                <div className="flex items-center gap-0.5">
+                  <NavLink
+                    to={item.to}
+                    end={item.end}
+                    className={(s) => cn(linkClass(s), "min-w-0 flex-1")}
+                    onClick={onClose}
+                  >
+                    <item.icon aria-hidden />
+                    {item.label}
+                  </NavLink>
+                  {current?.my_permissions.includes("create_project") && (
+                    <button
+                      type="button"
+                      aria-label="New project"
+                      onClick={() => {
+                        onClose();
+                        void navigate(`${item.to}?new=project`);
+                      }}
+                      className={iconButton}
+                    >
+                      <Plus aria-hidden />
+                    </button>
+                  )}
+                </div>
+                <ul className="ml-3 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+                  {projects.map((p) => (
+                    <ProjectItem
+                      key={p.id}
+                      labId={labId!}
+                      project={p}
+                      isCurrent={p.id === projectId}
+                      unread={chatUnread[p.id] ?? 0}
+                      onNavigate={onClose}
+                    />
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              link(item)
+            ),
+          )}
+      </nav>
+      {adminItems.length > 0 && (
+        <nav aria-label="Admin" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+          <span className="px-2 pb-1 text-xs text-muted-foreground">Admin</span>
+          {adminItems.map(link)}
         </nav>
       )}
-      <nav aria-label="Main" className="grid gap-0.5">
-        {navItems(labId, current?.my_permissions, current?.inventory_enabled)
-          .filter(({ to }) => to !== "/settings") // in the account menu; the palette keeps it
-          .map(({ to, label, icon: Icon, end }) => (
-            <NavLink key={to} to={to} end={end} className={linkClass} onClick={onClose}>
-              <Icon aria-hidden />
-              {label}
-              {to.endsWith("/notifications") && <UnreadBadge count={unread} className="ml-auto" />}
-              {to.endsWith("/chat") && (
-                <UnreadBadge count={chatUnread[LAB_CHAT] ?? 0} noun="message" className="ml-auto" />
-              )}
-            </NavLink>
-          ))}
-      </nav>
       <SidebarFooter onNavigate={onClose} />
     </aside>
   );

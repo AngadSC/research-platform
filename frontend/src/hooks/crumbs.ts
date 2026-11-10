@@ -16,8 +16,8 @@ export function useCrumbs(): Crumb[] {
   const { data: labs } = useLabs();
   const projectParam = matches.find((m) => m.params.projectId)?.params;
   const { data: project } = useProject(projectParam?.labId, projectParam?.projectId);
-  const docId = matches.find((m) => m.params.documentId)?.params.documentId ?? "";
-  const { data: doc } = useDocument(projectParam?.labId ?? "", docId);
+  const docParam = matches.find((m) => m.params.documentId)?.params;
+  const { data: doc } = useDocument(docParam?.labId ?? "", docParam?.documentId ?? "");
   const approvalId = matches.find((m) => m.params.approvalId)?.params.approvalId;
   const { data: approval } = useApproval(
     matches.find((m) => m.params.labId)?.params.labId,

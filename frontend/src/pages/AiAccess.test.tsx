@@ -35,7 +35,7 @@ const settings = (extra = {}) => ({
 describe("settings: AI access", () => {
   it("lists connected apps and tokens and revokes one", async () => {
     const calls = mockFetch(settings({ "DELETE /api/ai/grants/g1/": { status: 204 } }));
-    renderRoute("/settings");
+    renderRoute("/settings#ai");
     const apps = await screen.findByRole("region", { name: "Connected AI apps" });
     expect(await within(apps).findByText("Claude")).toBeInTheDocument();
     expect(within(apps).getByText(/\/mcp$/)).toBeInTheDocument();
@@ -54,7 +54,7 @@ describe("settings: AI access", () => {
         },
       }),
     );
-    renderRoute("/settings");
+    renderRoute("/settings#ai");
     const form = await screen.findByRole("form", { name: "Create an access token" });
     await userEvent.type(within(form).getByLabelText("Token name"), "Claude Code");
     const create = within(form).getByRole("button", { name: "Create token" });
@@ -89,7 +89,7 @@ describe("settings: AI access", () => {
         "POST /_allauth/browser/v1/auth/reauthenticate": { body: { status: 200 } },
       }),
     );
-    renderRoute("/settings");
+    renderRoute("/settings#ai");
     const form = await screen.findByRole("form", { name: "Create an access token" });
     await userEvent.type(within(form).getByLabelText("Token name"), "Claude Code");
     await userEvent.click(await within(form).findByRole("checkbox", { name: "Bio Lab" }));
@@ -102,6 +102,23 @@ describe("settings: AI access", () => {
     expect(calls.some((c) => c.path.endsWith("/auth/reauthenticate"))).toBe(true);
   });
 
+  it("offers Connect to Claude with this site's address, and copies it for ChatGPT", async () => {
+    mockFetch(settings());
+    const user = userEvent.setup();
+    renderRoute("/settings#ai");
+    const apps = await screen.findByRole("region", { name: "Connected AI apps" });
+    const address = `${window.location.origin}/mcp`;
+    expect(within(apps).getByRole("link", { name: "Connect to Claude" })).toHaveAttribute(
+      "href",
+      `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=labbenchos&connectorUrl=${encodeURIComponent(address)}`,
+    );
+    expect(encodeURIComponent(address)).toContain("%3A%2F%2F");
+    await user.click(within(apps).getByRole("button", { name: "Copy address" }));
+    expect(await navigator.clipboard.readText()).toBe(address);
+    expect(within(apps).getByText(/Read only is the default/)).toBeInTheDocument();
+    expect(within(apps).getByText(/Developer mode/)).toBeInTheDocument();
+  });
+
   it("tells the owner why an AI connection was disconnected (D195)", async () => {
     const ended = {
       ...app,
@@ -110,7 +127,7 @@ describe("settings: AI access", () => {
       revoked_reason: "password_changed",
     };
     mockFetch(settings({ "GET /api/ai/grants/": { body: [ended, token] } }));
-    renderRoute("/settings");
+    renderRoute("/settings#ai");
     const apps = await screen.findByRole("region", { name: "Connected AI apps" });
     expect(await within(apps).findByRole("status")).toHaveTextContent(
       /Claude stopped working because your password was changed/,
@@ -122,7 +139,7 @@ describe("settings: AI access", () => {
 
   it("shows each managed lab's AI access with Remove access, only for managers", async () => {
     mockFetch(settings({ "DELETE /api/labs/lab1/ai-grants/g2/": { status: 204 } }));
-    renderRoute("/settings");
+    renderRoute("/settings#ai");
     const section = await screen.findByRole("region", { name: "AI access to Ada Lab" });
     expect(await within(section).findByText(/Grace/)).toBeInTheDocument();
     expect(within(section).getByRole("button", { name: "Remove access" })).toBeInTheDocument();

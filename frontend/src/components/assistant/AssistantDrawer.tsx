@@ -183,7 +183,7 @@ export function Setup({
         {config.ai_policy === "off"
           ? "AI assistants are turned off for this lab."
           : "This lab allows AI apps over MCP only; the in-app assistant is turned off."}{" "}
-        A PI or lab admin can change this in Settings, under AI assistants in this lab.
+        A PI or lab admin can change this in Lab details, on the AI tab.
       </p>
     );
   return (

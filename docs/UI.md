@@ -42,13 +42,15 @@ Shared (`src/components/shared/`):
 - `DetailPanel` `open`, `onOpenChange`, `title`, `description`; right slide-over, Escape closes, focus trapped.
 - `FormField` `label`, `hint`, `error`; child is a function: `{(p) => <Input {...p} />}`.
 - `StatusBadge` `status` string; known statuses get a tone, unknown ones are neutral. Add new ones to `TONES`.
-- The light, dark and system choice lives in Settings under Appearance (D220). `lib/theme.ts` applies it, keeps localStorage for first paint and saves it to the account (`preferences.theme`, D128).
+- The light, dark and system choice lives in Settings under Appearance (D220). `lib/theme.ts` applies it, keeps localStorage for first paint and saves it to the account (`preferences.theme`, D128). People can also make their own colour themes there (`lib/customTheme.ts`, D224).
+- `TabNav` route tabs; `HashTabs` (same file) keeps the open tab in the address, for one page split into sections (Settings, Lab details).
+- `RoleName` `role`, `roles` (`ROLES` or `PROJECT_ROLES`): a role name with its explanation on hover, focus or tap. In a role dropdown, pass `hint={r.help}` to `SelectItem`.
 
 Project sections are listed once, in `PROJECT_SECTIONS` (`lib/nav.ts`): a dropdown in the sidebar, and `TabNav` tabs below `md` (D205). They are Overview, Tasks, Documents and files, Workflow and External; Workflow is a progress bar over its stages, with Lineage as a view beside them, and project chat is a side panel opened from the page header (`?chat=1`, D225). `UnreadBadge` (`src/components/layout/`) takes `noun` for what it counts, and `TabNav` tabs take an optional badge.
 
 Project colours are tokens (`--project-blue` and so on in `index.css`, one value per theme); `projectColorStyle(project.color)` from `lib/projectColors` sets `--project` on an element for its children.
 
-Layout (`src/components/layout/`): `AppShell` (sidebar with a remembered hide toggle, breadcrumbs, pin button, `Toaster`, palette), `Sidebar` (lab switcher, pinned pages, projects, nav, then the clock and account menu), `CommandPalette` (Ctrl/Cmd+K; Ctrl/Cmd+F is left to the browser, D220), `UnreadBadge` (D131). Signed-out pages use `LandingHeader`, `HeroText` and `Features` from `pages/LandingPage` (D129).
+Layout (`src/components/layout/`): `AppShell` (sidebar with a remembered hide toggle, breadcrumbs, pin button, `Toaster`, palette), `Sidebar` (lab switcher, pinned pages, the main links with the project list under Projects, the Admin group for PIs and lab admins, then the clock and account menu), `CommandPalette` (Ctrl/Cmd+K; Ctrl/Cmd+F is left to the browser, D220), `UnreadBadge` (D131). Signed-out pages use `LandingHeader`, `HeroText` and `Features` from `pages/LandingPage` (D129).
 
 Primitives (`src/components/ui/`, shadcn style): button, input, textarea, label, select, dialog, sheet, dropdown-menu, badge, skeleton, sonner, command, tooltip, separator, table. Add new ones only when a page needs them, and keep them in this style.
 

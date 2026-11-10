@@ -11,14 +11,16 @@ import {
   VerifyEmailPage,
 } from "@/pages/AuthPages";
 import { CreateLabPage } from "@/pages/CreateLabPage";
-import { HomePage, NotBuiltPage } from "@/pages/HomePage";
+import { HomePage, LabListPage, NotBuiltPage } from "@/pages/HomePage";
 import { DocumentPage } from "@/pages/LazyDocumentPage";
 import { LazyLineageTab } from "@/pages/project/LazyLineageTab";
 import { LabHomePage } from "@/pages/LabHomePage";
-import { DashboardPage, LabIndexPage } from "@/pages/DashboardPage";
+import { DashboardPage } from "@/pages/DashboardPage";
 import { CalendarPage } from "@/pages/CalendarPage";
 import { HandoverPage } from "@/pages/HandoverPage";
+import { HelpPage } from "@/pages/HelpPage";
 import { LabChatPage } from "@/pages/LabChatPage";
+import { LabDocumentsPage } from "@/pages/LabDocumentsPage";
 import { MembersPage } from "@/pages/MembersPage";
 import { MyWorkPage } from "@/pages/MyWorkPage";
 import { FilesRedirect, ProjectPage, ProjectTab } from "@/pages/ProjectPage";
@@ -99,6 +101,7 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <HomePage /> },
       { path: "settings", element: <SettingsPage />, handle: { crumb: "Settings" } },
+      { path: "help", element: <HelpPage />, handle: { crumb: "Help" } },
       // D161: OAuth authorization endpoint for MCP clients (sign-in and MFA happen first)
       {
         path: "oauth/authorize",
@@ -116,14 +119,28 @@ export const routes: RouteObject[] = [
         path: "labs",
         handle: { crumb: "Labs" },
         children: [
-          { index: true, element: <Navigate to="/" replace /> },
+          { index: true, element: <LabListPage /> },
           { path: "new", element: <CreateLabPage />, handle: { crumb: "Create a lab" } },
           {
             path: ":labId",
             handle: { crumb: "@lab" },
             children: [
-              { index: true, element: <LabIndexPage /> },
-              { path: "dashboard", element: <DashboardPage />, handle: { crumb: "Dashboard" } },
+              { index: true, element: <Navigate to="dashboard" replace /> },
+              { path: "dashboard", element: <DashboardPage />, handle: { crumb: "Home" } },
+              { path: "my-work", element: <MyWorkPage />, handle: { crumb: "My work" } },
+              {
+                path: "documents",
+                handle: { crumb: "Lab documents" },
+                children: [
+                  { index: true, element: <LabDocumentsPage /> },
+                  {
+                    path: ":documentId",
+                    element: <DocumentPage />,
+                    handle: { crumb: "@document" },
+                  },
+                ],
+              },
+              { path: "my-tasks", element: <Navigate to="../my-work" relative="path" replace /> },
               {
                 path: "members",
                 handle: { crumb: "Members" },
@@ -132,7 +149,7 @@ export const routes: RouteObject[] = [
                   {
                     path: ":membershipId/handover",
                     element: <HandoverPage />,
-                    handle: { crumb: "Handover" },
+                    handle: { crumb: "Work to pass on" },
                   },
                 ],
               },
@@ -155,7 +172,7 @@ export const routes: RouteObject[] = [
                       {
                         path: "handover",
                         element: <HandoverPage />,
-                        handle: { crumb: "Handover" },
+                        handle: { crumb: "Work to pass on" },
                       },
                       {
                         path: "tasks",
@@ -303,11 +320,10 @@ export const routes: RouteObject[] = [
                 handle: { crumb: "Retention review" },
               },
               { path: "audit-log", element: <AuditLogPage />, handle: { crumb: "Audit log" } },
-              { path: "admin", element: <AdminPage />, handle: { crumb: "Admin" } },
+              { path: "admin", element: <AdminPage />, handle: { crumb: "Lab details" } },
               { path: "inventory", element: <InventoryPage />, handle: { crumb: "Inventory" } },
               { path: "chat", element: <LabChatPage />, handle: { crumb: "Lab chat" } },
               { path: "calendar", element: <CalendarPage />, handle: { crumb: "Calendar" } },
-              { path: "my-work", element: <MyWorkPage />, handle: { crumb: "My work" } },
               {
                 path: "papers",
                 handle: { crumb: "Papers" },
@@ -323,7 +339,7 @@ export const routes: RouteObject[] = [
                   },
                 ],
               },
-              { path: "training", element: <MyTrainingPage />, handle: { crumb: "My training" } },
+              { path: "training", element: <MyTrainingPage />, handle: { crumb: "Training" } },
               {
                 path: "settings/integrations",
                 element: <IntegrationsPage />,

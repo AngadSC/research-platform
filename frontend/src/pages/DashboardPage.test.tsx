@@ -121,19 +121,19 @@ const base = (body: unknown, perms = PI) => ({
   "GET /api/labs/lab1/dashboard/": { body },
   "GET /api/labs/lab1/training/expiring/": { status: 404, body: { detail: "Not found." } },
   "GET /api/labs/lab1/contributions/": { body: contributions() },
+  "GET /api/labs/lab1/my-tasks/": { body: [] },
 });
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Dashboard", () => {
-  it("is the landing page for a PI, with tiles, cards, table and people", async () => {
+  it("is Home for a PI, listing only the problems, then the table and people", async () => {
     mockFetch(base(dash()));
     renderRoute("/labs/lab1");
-    const summary = await screen.findByRole("region", { name: "Summary" });
-    expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument(); // sidebar entry
-    expect(within(summary).getByText("Overdue tasks").nextSibling).toHaveTextContent("3");
-    const overdue = screen.getByRole("region", { name: /Overdue tasks/ });
+    const overdue = await screen.findByRole("region", { name: /Overdue tasks/ });
+    expect(screen.getByRole("heading", { name: "Home" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Summary" })).toBeNull();
+    expect(screen.queryByText(/All clear/)).toBeNull();
     expect(within(overdue).getByRole("link", { name: "Order reagents" })).toHaveAttribute(
       "href",
       "/labs/lab1/projects/p2/tasks?task=t1",
@@ -147,15 +147,34 @@ describe("Dashboard", () => {
     expect(screen.getByText("Expired 4 days ago")).toBeInTheDocument();
     expect(screen.getByText("At risk")).toBeInTheDocument();
     expect(screen.getByText("Done in 30 days")).toBeInTheDocument();
-    // empty cards say so, and training stays hidden when its endpoint is unavailable
-    expect(screen.getByText("No deadlines in the next 14 days.")).toBeInTheDocument();
+    // kinds with nothing wrong are not listed, and training stays hidden without its endpoint
+    expect(screen.queryByRole("region", { name: /Deadlines/ })).toBeNull();
     expect(screen.queryByText("Training expiring")).not.toBeInTheDocument();
+  });
+
+  it("shows one All clear line when nothing is wrong", async () => {
+    const clear = dash({
+      attention: {
+        overdue_tasks: list([]),
+        ethics: list([]),
+        funding: list([]),
+        deadlines: list([]),
+        stalled: list([]),
+        unassigned: list([]),
+        integrations: list([]),
+      },
+    });
+    mockFetch(base(clear));
+    renderRoute("/labs/lab1/dashboard");
+    expect(await screen.findByRole("status")).toHaveTextContent("All clear");
+    expect(screen.getAllByText(/All clear/)).toHaveLength(1);
+    expect(screen.queryByRole("heading", { name: "Needs attention" })).toBeNull();
   });
 
   it("sorts the project table", async () => {
     mockFetch(base(dash()));
     renderRoute("/labs/lab1/dashboard");
-    await screen.findByRole("region", { name: "Summary" });
+    await screen.findByRole("region", { name: /Overdue tasks/ });
     const names = () =>
       screen
         .getAllByRole("link", { name: /^(Alpha|Beta)$/ })
@@ -195,24 +214,10 @@ describe("Dashboard", () => {
     );
   });
 
-  it("shows empty states for a lab with no projects", async () => {
-    const empty = dash({
-      projects: [],
-      summary: { ...dash().summary, overdue_tasks: 0, ethics_attention: 0 },
-      attention: {
-        overdue_tasks: list([]),
-        ethics: list([]),
-        funding: list([]),
-        deadlines: list([]),
-        stalled: list([]),
-        unassigned: list([]),
-        integrations: list([]),
-      },
-    });
-    mockFetch(base(empty));
+  it("offers to create a project in a lab with none", async () => {
+    mockFetch(base(dash({ projects: [] })));
     renderRoute("/labs/lab1/dashboard");
     expect(await screen.findByText("No projects yet")).toBeInTheDocument();
-    expect(screen.getByText("Nothing is overdue.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "New project" })).toHaveAttribute(
       "href",
       "/labs/lab1/projects?new=project",
@@ -223,7 +228,7 @@ describe("Dashboard", () => {
     mockFetch(base(dash()));
     renderRoute("/labs/lab1/dashboard");
     expect(await screen.findByLabelText("Loading dashboard")).toBeInTheDocument();
-    await screen.findByRole("region", { name: "Summary" });
+    await screen.findByRole("region", { name: /Overdue tasks/ });
   });
 
   it("shows the lab's activity graph and switches to one person", async () => {
@@ -256,11 +261,28 @@ describe("Dashboard", () => {
     expect(calls.some((c) => c.path === "/api/labs/lab1/contributions/?user=u1")).toBe(true);
   });
 
-  it("does not offer the dashboard to a member, and keeps their project list", async () => {
-    const calls = mockFetch(base(dash(), ["view_lab", "create_project"]));
+  it("shows a member their own tasks on Home and never asks for the lab's dashboard", async () => {
+    const calls = mockFetch({
+      ...base(dash(), ["view_lab", "create_project"]),
+      "GET /api/labs/lab1/my-tasks/": {
+        body: [
+          {
+            id: "t9",
+            project: "p1",
+            project_name: "Alpha",
+            title: "Write the methods",
+            due_date: "2020-01-01",
+            status: "todo",
+          },
+        ],
+      },
+    });
     renderRoute("/labs/lab1");
-    expect(await screen.findByRole("heading", { name: "Projects" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Write the methods" })).toHaveAttribute(
+      "href",
+      "/labs/lab1/projects/p1/tasks?task=t9",
+    );
+    expect(screen.getByText(/overdue/)).toBeInTheDocument();
     expect(calls.some((c) => c.path.endsWith("/dashboard/"))).toBe(false);
     expect(calls.some((c) => c.path.includes("/contributions/"))).toBe(false);
   });

@@ -34,6 +34,7 @@ import {
   useRevokeInvite,
   useUpdateMember,
 } from "@/hooks/workspace";
+import { RoleName } from "@/components/shared/RoleName";
 import { ROLES, roleLabel, type Invite, type Membership, type Role } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
 
@@ -51,12 +52,16 @@ function RoleSelect({
 }) {
   return (
     <Select value={value} onValueChange={(v) => onChange(v as Role)}>
-      <SelectTrigger aria-label={label} className="w-36">
+      <SelectTrigger
+        aria-label={label}
+        className="w-36"
+        title={ROLES.find((r) => r.value === value)?.help}
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
         {ROLES.map((r) => (
-          <SelectItem key={r.value} value={r.value}>
+          <SelectItem key={r.value} value={r.value} hint={r.help}>
             {r.label}
           </SelectItem>
         ))}
@@ -112,7 +117,7 @@ function InviteForm({ labId }: { labId: string }) {
                 </SelectTrigger>
                 <SelectContent>
                   {ROLES.map((r) => (
-                    <SelectItem key={r.value} value={r.value}>
+                    <SelectItem key={r.value} value={r.value} hint={r.help}>
                       {r.label}
                     </SelectItem>
                   ))}
@@ -203,7 +208,7 @@ export function MembersPage() {
             }
           />
         ) : (
-          roleLabel(m.role)
+          <RoleName role={m.role} roles={ROLES} />
         ),
     },
     { key: "joined", header: "Joined", cell: (m) => <RelativeTime value={m.created_at} /> },
@@ -217,9 +222,10 @@ export function MembersPage() {
           <Button variant="ghost" size="sm" asChild>
             <Link
               to={`/labs/${labId}/members/${m.id}/handover`}
-              aria-label={`${mine ? "My handover" : "Generate handover"} for ${m.user.email}`}
+              aria-label={`${mine ? "My work to pass on" : "Work to pass on"} for ${m.user.email}`}
+              title="Lists everything this person owns or leads, so it can be given to someone else when they leave."
             >
-              {mine ? "My handover" : "Generate handover"}
+              {mine ? "My work to pass on" : "Work to pass on"}
             </Link>
           </Button>
         );

@@ -112,6 +112,7 @@ PROJECT_ROLE_PERMS: dict[str, frozenset[Perm]] = {
 }
 PROJECT_PERMS = frozenset().union(*PROJECT_ROLE_PERMS.values())
 _ETHICS_MAP = {_P.VIEW_PROJECT: _P.VIEW_ETHICS, _P.EDIT_CONTENT: _P.EDIT_ETHICS}
+_LAB_WIDE_MAP = {_P.VIEW_PROJECT: _P.VIEW_LAB, _P.EDIT_CONTENT: _P.CONTRIBUTE_LAB}  # D233
 _IMPLICIT_LEADS = (LabRole.PI, LabRole.LAB_ADMIN)
 
 
@@ -128,7 +129,10 @@ def forget(user) -> None:
 
 def _ethics_mapped(perm, target):
     """Only an ethics-domain object maps project perms onto the ethics perms (D27, D38);
-    on any other lab-level object project perms are denied."""
+    on any other lab-level object project perms are denied. A lab-wide document maps them onto
+    lab perms in the same way (D233)."""
+    if getattr(target, "lab_wide", False):
+        return _LAB_WIDE_MAP.get(perm, perm)
     if getattr(target, "permission_domain", None) == "ethics":
         return _ETHICS_MAP.get(perm, perm)
     return perm
@@ -242,6 +246,8 @@ def _resolve(target):
     if isinstance(target, Project):
         return (None, None) if target.deleted_at is not None else (target.lab_id, target)
     if isinstance(target, LabScopedModel):
+        if getattr(target, "lab_wide", False):  # D233: a document with no project, on purpose
+            return target.lab_id, None
         domain = target.permission_domain
         if domain == "lab" and target.project_path is None:
             return target.lab_id, None

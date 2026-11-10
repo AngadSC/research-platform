@@ -14,7 +14,7 @@ import { formValue, NativeSelect, Section } from "./common";
 
 type AppliesTo = NonNullable<TrainingRequirementInput["applies_to"]>;
 
-/** Admin > Training: who has done what, and the list of required trainings (D175, D177). */
+/** The Training page, for PIs and lab admins: who has done what, and the list of required trainings (D175, D177). */
 export function TrainingSection({ labId }: { labId: string }) {
   const compliance = useCompliance(labId);
   const requirements = useTrainingRequirements(labId).data ?? [];
@@ -57,7 +57,7 @@ export function TrainingSection({ labId }: { labId: string }) {
 
   return (
     <Section
-      title="Training"
+      title="Lab training"
       description="Required trainings and who has completed them. Members see only their own records."
     >
       {compliance.data ? (

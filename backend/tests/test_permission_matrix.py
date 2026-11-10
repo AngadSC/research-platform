@@ -106,6 +106,8 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "labs:dashboard"):        "401 404      2  2     403  403     403     403     403",
     # Contribution graph on the dashboard: same audience
     ("GET",    "labs:contributions"):    "401 404      2  2     403  403     403     403     403",
+    ("GET",    "labs:getting-started"):  "401 404      2  2     2    2       2       2       2",
+    ("POST",   "labs:getting-started"):  "401 404      2  2     2    2       2       2       2",
     ("GET",    "labs:member-list"):      "401 404      2  2     2    2       2       2       2",
     ("PATCH",  "labs:member-detail"):    "401 404      2  2     403  403     403     403     403",
     ("DELETE", "labs:member-detail"):    "401 404      2  2     403  403     403     403     403",
@@ -170,6 +172,8 @@ MATRIX: dict[tuple[str, str], str] = {
     # edit_content, not edit_project, so contrib may delete. Download needs only view_project.
     ("GET",    "documents:document-list"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "documents:document-list"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "documents:lab-document-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "documents:lab-document-list"): "401 404 2 2 2 2 2 2 403",
     ("GET",    "documents:document-detail"): "401 404 2 2 2 2 2 404 2",
     ("PUT",    "documents:document-detail"): "401 404 2 2 2 2 403 404 403",
     ("DELETE", "documents:document-detail"): "401 404 2 2 2 2 403 404 403",
@@ -1205,6 +1209,8 @@ PAYLOADS = {
     ("PATCH", "core:me"): lambda user, w: {"display_name": "New Name"},
     ("POST", "core:login-methods"): lambda user, w: {"email": "someone@example.com"},
     ("POST", "labs:lab-list"): lambda user, w: {"name": "Brand New Lab"},
+    ("POST", "labs:getting-started"): lambda user, w: {"dismissed": True},
+    ("POST", "documents:lab-document-list"): lambda user, w: {"title": "Lab manual", "content": []},
     ("PATCH", "labs:lab-detail"): lambda user, w: {"name": "Renamed Lab"},
     ("PATCH", "labs:member-detail"): lambda user, w: {"role": "viewer"},
     ("POST", "labs:invite-list"): lambda user, w: {

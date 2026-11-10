@@ -148,7 +148,7 @@ describe("retention review", () => {
     const calls = mockFetch(base(["view_lab"]));
     renderRoute("/labs/lab1/retention");
     expect(await screen.findByText(/for PIs and lab admins/)).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Retention review" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Retention" })).not.toBeInTheDocument();
     expect(calls.some((c) => c.path.includes("retention/due"))).toBe(false);
   });
 
@@ -178,7 +178,7 @@ describe("retention review", () => {
     ).toBeInTheDocument();
     expect(await screen.findByText("Old survey")).toBeInTheDocument();
     expect(screen.getByText("Deleted")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Retention review" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Retention" })).toBeInTheDocument();
   });
 });
 

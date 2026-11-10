@@ -33,6 +33,13 @@ PREFERENCE_LINKS = {
     "recents": (12, {"url", "label", "kind", "at"}),
 }
 RECENT_KINDS = ("project", "document", "record", "approval")
+# A person's own colour themes (D224). lib/customTheme.ts applies the same contrast rule.
+MAX_CUSTOM_THEMES = 10
+CUSTOM_THEME_KEYS = {"id", "name", "background", "text", "accent"}
+CUSTOM_THEME_ID = re.compile(r"[a-z0-9]{1,20}")
+HEX_COLOR = re.compile(r"#[0-9a-fA-F]{6}")
+# 6:1 on the plain background keeps text at 4.5:1 (WCAG AA) on the tinted panels made from it.
+MIN_CONTRAST = 6
 # A path on this site. Browsers read "/\x" and "/<tab>/x" as "//x", which leaves the site.
 LOCAL_URL = re.compile(r"/(?![/\\])[^\s\\]*")
 
@@ -64,6 +71,37 @@ def _valid_link(item, keys) -> bool:
         return False
 
 
+def _luminance(color: str) -> float:
+    channels = [int(color[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+    r, g, b = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _contrast(a: str, b: str) -> float:
+    high, low = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (high + 0.05) / (low + 0.05)
+
+
+def _valid_custom_theme(item) -> bool:
+    if not isinstance(item, dict) or set(item) != CUSTOM_THEME_KEYS:
+        return False
+    if not all(isinstance(v, str) for v in item.values()):
+        return False
+    colors = (item["background"], item["text"], item["accent"])
+    if not CUSTOM_THEME_ID.fullmatch(item["id"]) or not all(HEX_COLOR.fullmatch(c) for c in colors):
+        return False
+    if not 0 < len(item["name"].strip()) <= 40:
+        return False
+    try:
+        no_control_chars(item["name"])
+    except serializers.ValidationError:
+        return False
+    return (
+        _contrast(item["text"], item["background"]) >= MIN_CONTRAST
+        and _contrast(item["accent"], item["background"]) >= MIN_CONTRAST
+    )
+
+
 class MeSerializer(UserSerializer):
     """`/api/me/` only: the user's own preferences never appear in nested user objects."""
 
@@ -83,12 +121,27 @@ class MeSerializer(UserSerializer):
                     and len(val) <= cap
                     and all(_valid_link(item, keys) for item in val)
                 )
+            elif key == "custom_themes":
+                ok = (
+                    isinstance(val, list)
+                    and len(val) <= MAX_CUSTOM_THEMES
+                    and all(_valid_custom_theme(item) for item in val)
+                    and len({item["id"] for item in val}) == len(val)
+                )
+            elif key == "theme" and isinstance(val, str) and val.startswith("custom:"):
+                ok = True  # checked below, against the list as it will be saved
             else:
                 ok = val in PREFERENCE_CHOICES.get(key, ())
             if not ok:
                 raise serializers.ValidationError(f"Unsupported preference: {key}.")
         # ponytail: concurrent PATCHes can overwrite each other's key; lock the row if that bites.
-        return {**(self.instance.preferences if self.instance else {}), **value}
+        merged = {**(self.instance.preferences if self.instance else {}), **value}
+        theme = merged.get("theme", "")
+        if theme.startswith("custom:") and theme[7:] not in {
+            item["id"] for item in merged.get("custom_themes", [])
+        }:
+            raise serializers.ValidationError("Unsupported preference: theme.")
+        return merged
 
 
 class NotificationSerializer(serializers.ModelSerializer):

@@ -81,7 +81,7 @@ describe("login", () => {
     await userEvent.click(screen.getByRole("button", { name: "Verify" }));
     await waitFor(() => expect(calls.some((c) => c.path === MFA_PATH)).toBe(true));
     expect(calls.find((c) => c.path === MFA_PATH)?.body).toEqual({ code: "123456" });
-    expect(await screen.findByRole("heading", { name: "Ada Lab" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
   });
 });
 
@@ -175,7 +175,7 @@ describe("accept invite", () => {
     document.cookie = "csrftoken=t";
     renderRoute("/invite/tok-1");
     await userEvent.click(await screen.findByRole("button", { name: "Join Ada Lab" }));
-    expect(await screen.findByRole("heading", { name: "Ada Lab" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
     expect(calls.find((c) => c.path === "/api/invites/accept/")?.body).toEqual({ token: "tok-1" });
   });
 

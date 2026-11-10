@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from core.permissions import PROJECT_PERMS, Perm, can, project_role
 from core.serializers import UserSerializer, no_control_chars
+from projects import templates
 from projects.models import (
     ChatMessage,
     DeadlinePriority,
@@ -65,6 +66,10 @@ class ProjectInputSerializer(serializers.Serializer):
     start_date = serializers.DateField(allow_null=True, required=False)
     retain_until = serializers.DateField(allow_null=True, required=False)
     retention_note = serializers.CharField(allow_blank=True, required=False)
+
+
+class ProjectCreateSerializer(ProjectInputSerializer):
+    template = serializers.ChoiceField(choices=sorted(templates.TEMPLATES), required=False)
 
 
 class ProjectMembershipSerializer(serializers.ModelSerializer):

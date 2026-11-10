@@ -42,16 +42,7 @@ export function useCreateLab() {
       institution_name?: string;
       address?: string;
       website?: string;
-    }) =>
-      api<Lab>("/api/labs/", { method: "POST", ...j(v) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["labs"] }),
-  });
-}
-export function useUpdateLab(labId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: { name: string }) =>
-      api<Lab>(`/api/labs/${labId}/`, { method: "PATCH", ...j(v) }),
+    }) => api<Lab>("/api/labs/", { method: "POST", ...j(v) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["labs"] }),
   });
 }

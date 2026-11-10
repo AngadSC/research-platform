@@ -14,12 +14,15 @@ const base = (labId: string) => `/api/labs/${labId}`;
 const listKey = (labId: string, projectId: string) =>
   ["labs", labId, "projects", projectId, "documents"] as const;
 const docKey = (labId: string, id: string) => ["labs", labId, "documents", id] as const;
+/** `projectId` "" is the lab-wide collection (D233). After creation both kinds share a route. */
+const collection = (labId: string, projectId: string) =>
+  projectId ? `${base(labId)}/projects/${projectId}/documents/` : `${base(labId)}/lab-documents/`;
 
 /** `pollMs` re-fetches on that interval while the tab is visible (the stale-document banner). */
 export function useDocuments(labId: string, projectId: string, pollMs?: number) {
   return useQuery({
     queryKey: listKey(labId, projectId),
-    queryFn: () => api<DocumentRow[]>(`${base(labId)}/projects/${projectId}/documents/`),
+    queryFn: () => api<DocumentRow[]>(collection(labId, projectId)),
     refetchInterval: pollMs,
   });
 }
@@ -35,7 +38,7 @@ export function useCreateDocument(labId: string, projectId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: string | DocumentCreate) =>
-      api<DocumentFull>(`${base(labId)}/projects/${projectId}/documents/`, {
+      api<DocumentFull>(collection(labId, projectId), {
         method: "POST",
         body: { content: [], ...(typeof input === "string" ? { title: input } : input) },
       }),

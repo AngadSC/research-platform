@@ -20,11 +20,14 @@ import { dayText } from "@/lib/ethics";
 import { formErrors, type FormErrors } from "@/lib/forms";
 import { categoryLabel, validityText } from "@/lib/training";
 import { formValue, NativeSelect, Section } from "@/pages/admin/common";
+import { TrainingSection } from "@/pages/admin/TrainingSection";
+import { useLab } from "@/hooks/workspace";
 import { GraduationCap } from "lucide-react";
 
-/** "My training": what the lab requires of me, where I stand, and a way to log a completion. */
+/** Training: what the lab requires of me, where I stand, and a way to log a completion. */
 export function MyTrainingPage() {
   const { labId = "" } = useParams();
+  const manager = useLab(labId).data?.my_permissions.includes("manage_lab") ?? false;
   const mine = useMyTraining(labId);
   const requirements = useTrainingRequirements(labId).data ?? [];
   const all = useTrainingRecords(labId).data ?? [];
@@ -63,7 +66,7 @@ export function MyTrainingPage() {
   return (
     <>
       <PageHeader
-        title="My training"
+        title="Training"
         description="Trainings the lab requires of you, and your own records. Only you and the PI or lab admins can see them."
       />
       <div className="grid gap-8">
@@ -204,6 +207,7 @@ export function MyTrainingPage() {
             </ul>
           )}
         </Section>
+        {manager && <TrainingSection labId={labId} />}
       </div>
     </>
   );

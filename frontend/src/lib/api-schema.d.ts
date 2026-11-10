@@ -1127,6 +1127,30 @@ export interface paths {
         patch: operations["labs_funding_partial_update"];
         trace?: never;
     };
+    "/api/labs/{lab_id}/getting-started/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        get: operations["labs_getting_started_retrieve"];
+        put?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        post: operations["labs_getting_started_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/institution-resources/": {
         parameters: {
             query?: never;
@@ -1521,6 +1545,24 @@ export interface paths {
          *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
          */
         delete: operations["labs_invites_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/lab-documents/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description D233: lab-wide documents. Everything after creation uses the document routes below. */
+        get: operations["labs_lab_documents_list"];
+        put?: never;
+        /** @description D233: lab-wide documents. Everything after creation uses the document routes below. */
+        post: operations["labs_lab_documents_create"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4388,7 +4430,7 @@ export interface components {
             /** Format: uuid */
             readonly id: string;
             /** Format: uuid */
-            readonly project: string;
+            readonly project: string | null;
             /** Format: uuid */
             readonly folder: string | null;
             readonly title: string;
@@ -4420,7 +4462,7 @@ export interface components {
             /** Format: uuid */
             readonly id: string;
             /** Format: uuid */
-            readonly project: string;
+            readonly project: string | null;
             /** Format: uuid */
             readonly folder: string | null;
             readonly title: string;
@@ -4701,6 +4743,13 @@ export interface components {
             notes?: string;
             /** Format: uuid */
             attachment?: string | null;
+        };
+        GettingStarted: {
+            steps: components["schemas"]["Step"][];
+            dismissed: boolean;
+        };
+        GettingStartedInput: {
+            dismissed: boolean;
         };
         Grant: {
             /** Format: uuid */
@@ -5750,7 +5799,7 @@ export interface components {
             readonly my_project_role: string | null;
             readonly my_permissions: string[];
         };
-        ProjectInput: {
+        ProjectCreate: {
             name: string;
             color?: components["schemas"]["ColorEnum"];
             description?: string;
@@ -5760,6 +5809,7 @@ export interface components {
             /** Format: date */
             retain_until?: string | null;
             retention_note?: string;
+            template?: components["schemas"]["TemplateEnum"];
         };
         ProjectMembership: {
             /** Format: uuid */
@@ -6129,6 +6179,11 @@ export interface components {
          * @enum {string}
          */
         StatusFccEnum: "screened" | "enrolled" | "withdrawn" | "completed";
+        Step: {
+            key: string;
+            done: boolean;
+            can_act: boolean;
+        };
         Task: {
             /** Format: uuid */
             readonly id: string;
@@ -6204,6 +6259,13 @@ export interface components {
          * @enum {string}
          */
         TaskStatusEnum: "todo" | "in_progress" | "done";
+        /**
+         * @description * `honours_thesis` - honours_thesis
+         *     * `secondary_data_analysis` - secondary_data_analysis
+         *     * `survey_study` - survey_study
+         * @enum {string}
+         */
+        TemplateEnum: "honours_thesis" | "secondary_data_analysis" | "survey_study";
         /**
          * @description One row of the chat: kind `user`, `assistant`, `tool` or `usage` (tokens spent on turns
          *     that produced no text). Only the fields of that kind are set.
@@ -8601,6 +8663,54 @@ export interface operations {
             };
         };
     };
+    labs_getting_started_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GettingStarted"];
+                };
+            };
+        };
+    };
+    labs_getting_started_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GettingStartedInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["GettingStartedInput"];
+                "multipart/form-data": components["schemas"]["GettingStartedInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GettingStarted"];
+                };
+            };
+        };
+    };
     labs_institution_resources_list: {
         parameters: {
             query?: {
@@ -9219,6 +9329,54 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    labs_lab_documents_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentList"][];
+                };
+            };
+        };
+    };
+    labs_lab_documents_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["DocumentCreate"];
+                "multipart/form-data": components["schemas"]["DocumentCreate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
             };
         };
     };
@@ -10041,9 +10199,9 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ProjectInput"];
-                "application/x-www-form-urlencoded": components["schemas"]["ProjectInput"];
-                "multipart/form-data": components["schemas"]["ProjectInput"];
+                "application/json": components["schemas"]["ProjectCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["ProjectCreate"];
+                "multipart/form-data": components["schemas"]["ProjectCreate"];
             };
         };
         responses: {

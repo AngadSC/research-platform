@@ -51,14 +51,14 @@ const TASKS = "/labs/lab1/projects/p1/tasks";
 describe("projects", () => {
   it("lists projects and shows the empty state", async () => {
     mockFetch(base(["view_project"]));
-    renderRoute("/labs/lab1");
+    renderRoute("/labs/lab1/projects");
     expect(await screen.findByRole("cell", { name: "Gut study" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "New project" }).length).toBeGreaterThan(0);
   });
 
   it("shows the empty state with no projects", async () => {
     mockFetch({ ...base([]), "GET /api/labs/lab1/projects/": { body: [] } });
-    renderRoute("/labs/lab1");
+    renderRoute("/labs/lab1/projects");
     expect(await screen.findByText("No projects yet")).toBeInTheDocument();
   });
 

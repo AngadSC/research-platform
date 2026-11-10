@@ -15,6 +15,7 @@ from core.notifications import notify
 from core.permissions import Perm, can, forget, users_with
 from core.retention import audit_retention, guard_retention, retention_changes
 from labs.models import LabChatMessage, LabChatReadState, LabMembership
+from projects import templates
 from projects.models import (
     ChatMessage,
     ChatReadState,
@@ -41,6 +42,8 @@ def next_project_color(lab) -> str:
 
 @transaction.atomic
 def create_project(*, lab, user, data, request=None) -> Project:
+    data = dict(data)
+    template = data.pop("template", "")
     changes = retention_changes(Project(), data)
     guard_retention(user, lab, changes)
     data = {"color": next_project_color(lab), **data}
@@ -48,7 +51,16 @@ def create_project(*, lab, user, data, request=None) -> Project:
     audit_retention(user, lab, project, changes, request)
     ProjectMembership.objects.create(lab=lab, project=project, user=user, role=ProjectRole.LEAD)
     forget(user)
-    record(AuditAction.PROJECT_CREATED, actor=user, lab=lab, target=project, request=request)
+    if template:
+        templates.apply(template, project, user)
+    record(
+        AuditAction.PROJECT_CREATED,
+        actor=user,
+        lab=lab,
+        target=project,
+        request=request,
+        metadata={"template": template} if template else None,
+    )
     return project
 
 
