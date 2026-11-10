@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
 
 const L = "/api/labs/lab1";
@@ -94,6 +94,71 @@ describe("app shell", () => {
       "false",
     );
     expect(localStorage.getItem("sidebar-hidden")).toBe("1");
+  });
+
+  it("keeps the current lab in the sidebar on Settings, and has no theme control in the header", async () => {
+    localStorage.setItem("last-lab", "lab2");
+    const lab2 = { ...makeLab(["view_lab"]), id: "lab2", name: "Second Lab" };
+    mockFetch({ ...world({}), "GET /api/labs/": { body: [makeLab(["view_lab"]), lab2] } });
+    renderRoute("/settings");
+    await screen.findByRole("heading", { name: "Appearance" });
+    const main = within(await screen.findByRole("navigation", { name: "Main" }));
+    expect(await main.findByRole("link", { name: "Members" })).toHaveAttribute(
+      "href",
+      "/labs/lab2/members",
+    );
+    expect(screen.getByRole("button", { name: "Switch lab" })).toHaveTextContent("Second Lab");
+    expect(within(screen.getAllByRole("banner")[0]!).queryByRole("radio")).toBeNull();
+  });
+
+  it("forgets a remembered lab you no longer belong to", async () => {
+    localStorage.setItem("last-lab", "gone");
+    mockFetch(world({}));
+    renderRoute("/settings");
+    expect(await screen.findByRole("link", { name: "Members" })).toHaveAttribute(
+      "href",
+      "/labs/lab1/members",
+    );
+  });
+
+  it("sends Home to the lab's own page, not the dashboard", async () => {
+    mockFetch(world({}));
+    const router = renderRoute("/labs/lab1/members");
+    const main = within(await screen.findByRole("navigation", { name: "Main" }));
+    await userEvent.click(await main.findByRole("link", { name: "Home" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/labs/lab1/projects"));
+  });
+
+  it("adds a lab from the sidebar", async () => {
+    mockFetch(world({}));
+    const router = renderRoute("/labs/lab1/members");
+    await userEvent.click(await screen.findByRole("button", { name: "Create a lab" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/labs/new"));
+  });
+
+  it("goes to the signed-out home page after signing out", async () => {
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, assign });
+    mockFetch({
+      ...world({}),
+      "DELETE /_allauth/browser/v1/auth/session": { status: 401, body: { status: 401 } },
+    });
+    renderRoute("/labs/lab1/members");
+    await userEvent.click(await screen.findByRole("button", { name: "Account menu" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Sign out" }));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith("/"));
+  });
+
+  it("shows a placeholder bar, not the word Lab, until the lab has loaded", async () => {
+    mockFetch(world({}));
+    const answer = vi.mocked(fetch).getMockImplementation()!;
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+      String(input) === "/api/labs/" ? new Promise(() => {}) : answer(input, init),
+    );
+    renderRoute("/labs/lab1/members");
+    const crumbs = within(await screen.findByRole("navigation", { name: "Breadcrumb" }));
+    expect(crumbs.getByLabelText("Loading")).toBeInTheDocument();
+    expect(crumbs.queryByText("Lab")).toBeNull();
   });
 
   it("moves Settings and Sign out into the account menu", async () => {

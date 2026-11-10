@@ -1,8 +1,9 @@
-import { useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import { useIsFetching, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { useCurrentLabId } from "@/hooks/crumbs";
 import { useLabs, useMe } from "@/hooks/workspace";
 import { api } from "@/lib/api";
 import type { User } from "@/lib/api-types";
@@ -72,14 +73,20 @@ export function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const me = useMe().data as (User & { preferences?: { task_view?: TaskView } }) | undefined;
   const setPref = useSetPreference();
-  const lab = useLabs().data?.[0];
+  const labId = useCurrentLabId();
+  const lab = useLabs().data?.find((l) => l.id === labId);
   const taskView = me?.preferences?.task_view ?? "board";
   const isAdmin = lab?.my_permissions.includes("manage_lab") ?? false;
-  const { hash } = useLocation();
-  // The account menu links to #profile and #security; a client-side route change won't scroll.
+  const { hash, key } = useLocation();
+  // Links to #profile, #security and #ai need scrolling by hand. The sections above load their
+  // data after the first paint and push the target down, so scroll again once they have.
+  const loading = useIsFetching() > 0;
+  const settled = useRef("");
   useEffect(() => {
-    if (hash) document.getElementById(hash.slice(1))?.scrollIntoView();
-  }, [hash]);
+    if (!hash || settled.current === key) return;
+    document.getElementById(hash.slice(1))?.scrollIntoView();
+    if (!loading) settled.current = key;
+  }, [hash, key, loading]);
 
   return (
     <>
@@ -113,7 +120,7 @@ export function SettingsPage() {
         </Section>
         <Section
           title="Notifications"
-          description="Every notice appears in the app. These are also emailed. Choosing is not available yet."
+          description="Every notice appears in the app. These are also emailed."
         >
           <ul className="list-disc pl-5 text-sm" aria-label="Emailed notifications">
             {EMAILED.map((k) => (

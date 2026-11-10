@@ -138,7 +138,7 @@ else:
     }
 
 # D12: placeholder product name; the frontend mirrors it in src/lib/constants.ts.
-PRODUCT_NAME = "Research Workspace"
+PRODUCT_NAME = "labbenchos"
 
 # D16: custom user model.
 AUTH_USER_MODEL = "core.User"

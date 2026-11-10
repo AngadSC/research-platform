@@ -358,7 +358,8 @@ def _ready(request, conv_id):
     if key is None:
         return conv, Response(
             {
-                "detail": "Save your API key for this provider in Settings > AI first.",
+                "detail": "Save your API key for this provider first, in Settings, "
+                "under Assistant API keys.",
                 "code": "no_key",
             },
             status=status.HTTP_400_BAD_REQUEST,

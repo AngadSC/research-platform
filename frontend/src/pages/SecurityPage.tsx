@@ -167,6 +167,7 @@ function TotpSection({ run }: { run: Reauth["run"] }) {
   const activate = useActivateTotp();
   const deactivate = useDeactivateTotp();
   const [error, setError] = useState<string>();
+  const [settingUp, setSettingUp] = useState(false);
 
   async function enable(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -198,7 +199,10 @@ function TotpSection({ run }: { run: Reauth["run"] }) {
           onClick={() => {
             setError(undefined);
             run(() => deactivate.mutateAsync()).then(
-              () => toast.success("Two-step verification is off"),
+              () => {
+                setSettingUp(false);
+                toast.success("Two-step verification is off");
+              },
               (e) => setError(msg(e)),
             );
           }}
@@ -207,6 +211,12 @@ function TotpSection({ run }: { run: Reauth["run"] }) {
         </Button>
         <RecoveryCodes run={run} />
       </>
+    );
+  else if (!settingUp)
+    body = (
+      <Button className="justify-self-start" onClick={() => setSettingUp(true)}>
+        Set up two-step verification
+      </Button>
     );
   else {
     const secret = totp.data?.secret ?? "";

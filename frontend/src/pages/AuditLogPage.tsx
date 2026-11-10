@@ -19,13 +19,17 @@ import { useAuditEvents, useLab, useMembers, type AuditFilters } from "@/hooks/w
 import { ApiError } from "@/lib/api";
 import type { AuditEvent } from "@/lib/api-types";
 
-const ACTIONS: Record<string, string> = {
+const ACTIONS: Record<AuditEvent["action"], string> = {
   "auth.login": "Signed in",
   "auth.login_failed": "Failed sign-in attempt",
   "auth.logout": "Signed out",
   "auth.password_changed": "Changed a password",
   "auth.mfa_enabled": "Turned on two-step verification",
   "auth.mfa_disabled": "Turned off two-step verification",
+  "auth.social_connected": "Connected a sign-in account",
+  "auth.social_disconnected": "Disconnected a sign-in account",
+  "auth.email_added": "Added an email address",
+  "auth.email_removed": "Removed an email address",
   "lab.created": "Created the lab",
   "lab.updated": "Updated the lab",
   "membership.invited": "Invited a member",
@@ -47,21 +51,92 @@ const ACTIONS: Record<string, string> = {
   "attachment.downloaded": "Downloaded a file",
   "attachment.deleted": "Deleted a file",
   "task.deleted": "Deleted a task",
+  "task.unassigned": "Unassigned a task",
+  "task_post.deleted": "Deleted a task update",
   "chat_message.deleted": "Deleted a chat message",
   "deadline.deleted": "Deleted a deadline",
+  "dataset.created": "Added a dataset",
+  "dataset.updated": "Updated a dataset",
   "dataset.deleted": "Deleted a dataset",
+  "analysis.created": "Added an analysis",
+  "analysis.updated": "Updated an analysis",
   "analysis.deleted": "Deleted an analysis",
+  "result.created": "Added a result",
+  "result.updated": "Updated a result",
   "result.deleted": "Deleted a result",
+  "decision.created": "Added a decision",
+  "decision.updated": "Updated a decision",
   "decision.deleted": "Deleted a decision",
+  "manuscript.created": "Added a manuscript",
+  "manuscript.updated": "Updated a manuscript",
   "manuscript.deleted": "Deleted a manuscript",
+  "ethics_approval.created": "Added an ethics approval",
+  "ethics_approval.updated": "Updated an ethics approval",
+  "ethics_approval.links_changed": "Changed what an ethics approval is connected to",
   "ethics_approval.deleted": "Deleted an ethics approval",
+  "retention.changed": "Changed how long project data is kept",
   "audit_log.viewed": "Viewed the audit log",
   "handover.generated": "Generated a handover",
+  "integration.connected": "Connected an outside service",
+  "integration.disconnected": "Disconnected an outside service",
+  "integration.revoked": "Removed someone's connected service",
+  "integration.refresh_failed": "A connected service stopped working",
+  "integration.picker_token_issued": "Opened the Google Drive file picker",
+  "integration.searched": "Searched a connected service",
+  "external_link.created": "Linked an outside item",
+  "external_link.removed": "Removed a link to an outside item",
+  "external_link.change_accepted": "Accepted a change to a linked item",
+  "inventory_item.created": "Added an inventory item",
+  "inventory_item.updated": "Updated an inventory item",
+  "inventory_item.deleted": "Deleted an inventory item",
+  "inventory.exported": "Exported the inventory",
+  "inventory_order.created": "Added an order",
+  "inventory_order.updated": "Updated an order",
+  "lab_event.created": "Added a calendar event",
+  "lab_event.updated": "Updated a calendar event",
+  "lab_event.deleted": "Deleted a calendar event",
+  "onboarding_item.created": "Added an onboarding item",
+  "onboarding_item.updated": "Updated an onboarding item",
+  "onboarding_item.deleted": "Deleted an onboarding item",
+  "onboarding.completion_changed": "Ticked or unticked an onboarding item",
+  "institution_resource.created": "Added an institution resource",
+  "institution_resource.updated": "Updated an institution resource",
+  "institution_resource.deleted": "Deleted an institution resource",
+  "funding.created": "Added funding",
+  "funding.updated": "Updated funding",
+  "funding.deleted": "Deleted funding",
+  "review_item.created": "Added a review item",
+  "review_item.updated": "Updated a review item",
+  "review_item.deleted": "Deleted a review item",
+  "recruitment_entry.created": "Added a recruitment entry",
+  "recruitment_entry.updated": "Updated a recruitment entry",
+  "recruitment_entry.deleted": "Deleted a recruitment entry",
+  "recruitment_plan.updated": "Updated a recruitment plan",
+  "ai_access.granted": "Gave an AI app access",
+  "ai_access.revoked": "Removed an AI app's access",
+  "ai_tool.write": "An AI app made a change",
+  "ai_key.saved": "Saved an assistant API key",
+  "ai_key.removed": "Removed an assistant API key",
+  "training_requirement.created": "Added a training requirement",
+  "training_requirement.updated": "Updated a training requirement",
+  "training_requirement.deleted": "Deleted a training requirement",
+  "training_record.created": "Added a training record",
+  "training_record.updated": "Updated a training record",
+  "training_record.verified": "Verified a training record",
+  "training_record.deleted": "Deleted a training record",
+  "dmp.created": "Added a data management plan",
+  "dmp.updated": "Updated a data management plan",
+  "dmp.approved": "Approved a data management plan",
+  "dmp.deleted": "Deleted a data management plan",
+  "paper.deleted": "Deleted a paper",
+  "paper_note.deleted": "Deleted a paper note",
 };
-const actionLabel = (a: string) => ACTIONS[a] ?? a;
+const humanKey = (k: string) => k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+// An action newer than this page still reads as words, never as a code.
+const actionLabel = (a: string) =>
+  ACTIONS[a as AuditEvent["action"]] ?? humanKey(a.replace(".", " "));
 const who = (e: AuditEvent) => e.actor?.display_name || e.actor?.email || "System";
 const show = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v));
-const humanKey = (k: string) => k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -80,11 +155,9 @@ function EventDetails({ e }: { e: AuditEvent }) {
         <RelativeTime value={e.created_at} />
       </Field>
       <Field label="Who">{who(e)}</Field>
-      <Field label="Action">
-        {actionLabel(e.action)} <span className="text-xs text-muted-foreground">({e.action})</span>
-      </Field>
+      <Field label="Action">{actionLabel(e.action)}</Field>
       <Field label="Target">{cleanTarget(e.target_label)}</Field>
-      {e.target_type && <Field label="Target type">{e.target_type}</Field>}
+      {e.target_type && <Field label="Target type">{humanKey(e.target_type)}</Field>}
       <Field label="IP address">{e.ip ?? "—"}</Field>
       {meta.length > 0 && (
         <Field label="Details">
@@ -290,4 +363,4 @@ const cleanTarget = (label?: string | null) =>
         /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}( is member)?/g,
         "a lab member",
       )
-    : "�";
+    : "—";

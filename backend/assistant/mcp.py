@@ -27,7 +27,7 @@ LEGACY = ("2025-11-25", "2025-06-18", "2025-03-26")
 PV = "io.modelcontextprotocol/protocolVersion"
 CAPS = "io.modelcontextprotocol/clientCapabilities"
 CLIENT_INFO = "io.modelcontextprotocol/clientInfo"
-SERVER_INFO = {"name": "research-workspace", "title": settings.PRODUCT_NAME, "version": "1.0.0"}
+SERVER_INFO = {"name": "labbenchos", "title": settings.PRODUCT_NAME, "version": "1.0.0"}
 INSTRUCTIONS = (
     f"Tools for {settings.PRODUCT_NAME}, a research lab workspace. Call list_labs first; every "
     "other tool takes a lab_id. You only ever see what the signed-in person can see in the app. "

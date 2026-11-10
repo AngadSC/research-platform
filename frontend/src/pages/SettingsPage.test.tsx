@@ -61,6 +61,21 @@ describe("settings", () => {
     expect(screen.queryByRole("link", { name: "Open Admin" })).not.toBeInTheDocument();
   });
 
+  it("shows the two-step setup key only after asking to set it up", async () => {
+    mockFetch({
+      ...base(["view_lab"]),
+      "GET /_allauth/browser/v1/account/authenticators/totp": {
+        status: 404,
+        body: { status: 404, meta: { secret: "FAKESECRET" } },
+      },
+    });
+    renderRoute("/settings");
+    const start = await screen.findByRole("button", { name: "Set up two-step verification" });
+    expect(screen.queryByText("FAKESECRET")).not.toBeInTheDocument();
+    await userEvent.click(start);
+    expect(await screen.findByText("FAKESECRET")).toBeInTheDocument();
+  });
+
   it("keeps the old /account address working", async () => {
     mockFetch(base(["view_lab"]));
     const router = renderRoute("/account");

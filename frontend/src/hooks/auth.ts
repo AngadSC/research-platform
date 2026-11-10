@@ -61,14 +61,11 @@ export const useVerifyEmail = () =>
 export const useMfaAuthenticate = () =>
   useSessionMutation((code: string) => allauth("/auth/2fa/authenticate", "POST", { code }));
 
+/** A full page load back to the signed-out home page, so nothing of the session stays in memory. */
 export function useLogout() {
-  const qc = useQueryClient();
   return useMutation({
     mutationFn: () => allauth("/auth/session", "DELETE"),
-    onSuccess: () => {
-      qc.clear();
-      qc.setQueryData(SESSION_KEY, { authenticated: false, pending: [], env: { status: 401 } });
-    },
+    onSuccess: () => window.location.assign("/"),
   });
 }
 

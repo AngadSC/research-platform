@@ -17,6 +17,7 @@ import {
   SidebarFooter,
 } from "@/components/layout/SidebarSections";
 import { UnreadBadge, useUnreadCount } from "@/components/layout/UnreadBadge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { LAB_CHAT, useUnreadChats } from "@/hooks/chat";
 import { useCurrentLabId, useCurrentProjectId } from "@/hooks/crumbs";
 import { useProjects } from "@/hooks/projects";
@@ -96,11 +97,13 @@ function ProjectItem({
 function LabSwitcher({
   labs,
   current,
+  loading,
   onNavigate,
   unread,
 }: {
   labs: Lab[];
   current: Lab | undefined;
+  loading: boolean;
   onNavigate: () => void;
   unread: number;
 }) {
@@ -111,7 +114,11 @@ function LabSwitcher({
         aria-label="Switch lab"
         className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold ${hoverTint} focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none`}
       >
-        <span className="truncate">{current?.name ?? "Select a lab"}</span>
+        {loading ? (
+          <Skeleton aria-label="Loading" className="h-4 w-32" />
+        ) : (
+          <span className="truncate">{current?.name ?? "Select a lab"}</span>
+        )}
         <UnreadBadge count={unread} className="ml-auto" />
         <ChevronsUpDown className="size-4 shrink-0 opacity-60" aria-hidden />
       </DropdownMenuTrigger>
@@ -152,7 +159,7 @@ export function Sidebar({
   desktopHidden: boolean;
   onClose: () => void;
 }) {
-  const { data: labs = [] } = useLabs();
+  const { data: labs = [], isLoading: labsLoading } = useLabs();
   const labId = useCurrentLabId();
   const projectId = useCurrentProjectId();
   const { data: projects = [] } = useProjects(labId);
@@ -174,8 +181,27 @@ export function Sidebar({
       )}
     >
       <div>
-        <p className="px-2 pb-1 text-xs text-muted-foreground">{APP_NAME}</p>
-        <LabSwitcher labs={labs} current={current} onNavigate={onClose} unread={unread} />
+        <div className="flex items-center justify-between px-2 pb-1">
+          <p className="text-xs text-muted-foreground">{APP_NAME}</p>
+          <button
+            type="button"
+            aria-label="Create a lab"
+            onClick={() => {
+              onClose();
+              void navigate("/labs/new");
+            }}
+            className={iconButton}
+          >
+            <Plus aria-hidden />
+          </button>
+        </div>
+        <LabSwitcher
+          labs={labs}
+          current={current}
+          loading={labsLoading}
+          onNavigate={onClose}
+          unread={unread}
+        />
       </div>
       <PinnedNav onNavigate={onClose} />
       {labId && (

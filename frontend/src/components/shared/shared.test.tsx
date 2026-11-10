@@ -78,6 +78,16 @@ describe("CommandPalette", () => {
   });
 });
 
+describe("CommandPalette shortcut", () => {
+  it("leaves Ctrl+F to the browser", () => {
+    wrap(<CommandPalette />);
+    act(() => {
+      fireEvent.keyDown(document, { key: "f", ctrlKey: true });
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+});
+
 describe("CommandPalette search (D93)", () => {
   const hit = (type: string, id: string, title: string) => ({
     type,

@@ -41,6 +41,30 @@ describe("audit log", () => {
     expect(await screen.findByText("Details")).toBeInTheDocument();
   });
 
+  it("shows a dash for an empty target and plain words for every action", async () => {
+    mockFetch({
+      ...base(["view_audit_log"]),
+      [EVENTS]: {
+        body: {
+          next: null,
+          results: [
+            { ...ev(1), action: "institution_resource.created", target_label: "" },
+            { ...ev(2), action: "not_in_the_list.changed" },
+          ],
+        },
+      },
+    });
+    renderRoute("/labs/lab1/audit-log");
+    expect(await screen.findByText("Added an institution resource")).toBeInTheDocument();
+    expect(screen.getByText("Not in the list changed")).toBeInTheDocument();
+    expect(screen.queryByText("\ufffd")).not.toBeInTheDocument();
+    const row = screen.getByText("Added an institution resource").closest("tr")!;
+    expect(row).toHaveTextContent("—");
+    await userEvent.click(screen.getByText("Added an institution resource"));
+    expect(await screen.findByText("Target type")).toBeInTheDocument();
+    expect(screen.queryByText(/institution_resource/)).not.toBeInTheDocument();
+  });
+
   it("filter changes update the URL and the query", async () => {
     const calls = mockFetch({
       ...base(["view_audit_log"]),

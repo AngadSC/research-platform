@@ -35,7 +35,10 @@ def provider_error(code: str, label: str, status: int = 0, retry_after: str = ""
         f" Try again in {retry_after} seconds." if retry_after.isdigit() else " Try again shortly."
     )
     table = {
-        "key_invalid": (f"{label} rejected your API key. Check it in Settings > AI.", False),
+        "key_invalid": (
+            f"{label} rejected your API key. Check it in Settings, under Assistant API keys.",
+            False,
+        ),
         "key_forbidden": (f"Your {label} key is not allowed to do that.", False),
         "model_unavailable": (
             f"Your {label} account cannot use this model. Choose another.",

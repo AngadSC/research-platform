@@ -120,7 +120,7 @@ def test_modern_discover_list_call_with_a_pat(world):
     assert d.status_code == 200
     r = d.json()["result"]
     assert r["resultType"] == "complete" and "2026-07-28" in r["supportedVersions"]
-    assert r["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == "research-workspace"
+    assert r["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == "labbenchos"
     listed = rpc(token, "tools/list", {"_meta": META}, headers=modern_headers("tools/list"))
     assert listed.json()["result"]["resultType"] == "complete"
     call = rpc(

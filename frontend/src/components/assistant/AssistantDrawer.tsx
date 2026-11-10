@@ -169,21 +169,32 @@ function Item({ item, config }: { item: TimelineItem; config?: AssistantConfig }
   );
 }
 
-export function Setup({ config }: { config: AssistantConfig }) {
+export function Setup({
+  config,
+  onOpenSettings,
+}: {
+  config: AssistantConfig;
+  /** The drawer closes itself so the Settings page behind it can be seen. */
+  onOpenSettings?: () => void;
+}) {
   if (!config.can_use)
     return (
       <p role="alert" className="rounded-md border p-3 text-sm">
         {config.ai_policy === "off"
           ? "AI assistants are turned off for this lab."
           : "This lab allows AI apps over MCP only; the in-app assistant is turned off."}{" "}
-        A PI or lab admin can change this under Settings &gt; AI.
+        A PI or lab admin can change this in Settings, under AI assistants in this lab.
       </p>
     );
   return (
     <p className="rounded-md border p-3 text-sm">
       Add your own API key to use the assistant. It is billed to your account with the provider.{" "}
-      <Link className="font-medium underline underline-offset-4" to="/settings#ai">
-        Open Settings &gt; AI
+      <Link
+        className="font-medium underline underline-offset-4"
+        to="/settings#ai"
+        onClick={onOpenSettings}
+      >
+        Add your key under Assistant API keys in Settings
       </Link>
     </p>
   );
@@ -193,10 +204,12 @@ function AssistantPanel({
   labId,
   projectId,
   initialText = "",
+  onClose,
 }: {
   labId: string;
   projectId?: string;
   initialText?: string;
+  onClose: () => void;
 }) {
   const qc = useQueryClient();
   const config = useAssistantConfig(labId, true);
@@ -334,7 +347,7 @@ function AssistantPanel({
       </p>
 
       {config.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
-      {cfg && usable.length === 0 && <Setup config={cfg} />}
+      {cfg && usable.length === 0 && <Setup config={cfg} onOpenSettings={onClose} />}
 
       {cfg && usable.length > 0 && (
         <>
@@ -538,6 +551,7 @@ export function AssistantDrawer({ labId }: { labId: string }) {
           labId={labId}
           projectId={projectId}
           initialText={prefill}
+          onClose={() => setOpen(false)}
         />
       </SheetContent>
     </Sheet>

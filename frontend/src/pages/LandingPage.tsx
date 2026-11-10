@@ -1,6 +1,5 @@
 import { FileCheck2, GitBranch, Plug, UserRoundCheck } from "lucide-react";
 import { Link } from "react-router";
-import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/brand/labbenchos-logo.png";
 import logoOnDark from "@/assets/brand/labbenchos-logo-dark-bg.png";
@@ -29,7 +28,7 @@ const FEATURES = [
   },
 ];
 
-/** Name on the left, theme and the two ways in on the right. Shown above every signed-out page. */
+/** Name on the left, the two ways in on the right. Shown above every signed-out page. */
 export function LandingHeader() {
   return (
     <header className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-4 md:px-8">
@@ -38,7 +37,6 @@ export function LandingHeader() {
         <img src={logoOnDark} alt="labbenchos" className="hidden h-8 w-auto dark:block" />
       </Link>
       <div className="ml-auto flex items-center gap-2">
-        <ThemeToggle />
         <Button asChild variant="ghost">
           <Link to="/login">Sign in</Link>
         </Button>

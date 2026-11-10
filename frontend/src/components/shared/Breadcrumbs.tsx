@@ -1,5 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import { Link } from "react-router";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { RecentKind } from "@/lib/pins";
 
 export interface Crumb {
@@ -26,6 +27,13 @@ export function Breadcrumbs({
       <ol className="flex items-center gap-1.5 text-sm text-muted-foreground">
         {items.map((item, i) => {
           const last = i === items.length - 1;
+          if (item.pending)
+            return (
+              <li key={i} className="flex items-center gap-1.5">
+                <Skeleton aria-label="Loading" className="h-4 w-20" />
+                {!last && <ChevronRight className="size-3.5" aria-hidden />}
+              </li>
+            );
           return (
             <li key={`${i}-${item.label}`} className="flex items-center gap-1.5">
               {last || !item.to ? (

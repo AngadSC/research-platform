@@ -128,7 +128,7 @@ function LabChoice({
 }
 
 function NewToken({ created, onDone }: { created: PatCreated; onDone: () => void }) {
-  const command = `claude mcp add --transport http research-workspace ${mcpUrl()} --header "Authorization: Bearer ${created.token}"`;
+  const command = `claude mcp add --transport http labbenchos ${mcpUrl()} --header "Authorization: Bearer ${created.token}"`;
   return (
     <div className="grid gap-3 rounded-md bg-muted p-4" role="status">
       <p className="text-sm font-medium">

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useMatches } from "react-router";
 import type { Crumb } from "@/components/shared/Breadcrumbs";
 import { useApproval } from "@/hooks/ethics";
@@ -31,7 +32,9 @@ export function useCrumbs(): Crumb[] {
     validKind ?? "datasets",
     validKind ? (id ?? "") : "",
   );
-  const named: Record<string, { kind: RecentKind; loaded: boolean }> = {
+  const named: Record<string, { kind?: RecentKind; loaded: boolean }> = {
+    "@lab": { loaded: !!labs },
+    "@paper": { loaded: !!paper },
     "@project": { kind: "project", loaded: !!project },
     "@document": { kind: "document", loaded: !!doc },
     "@record": { kind: "record", loaded: !!rec },
@@ -60,9 +63,31 @@ export function useCurrentProjectId(): string | undefined {
     .find(Boolean);
 }
 
-/** The lab id from the matched route, if the current page is inside a lab. */
+const LAST_LAB_KEY = "last-lab";
+
+function readLastLab() {
+  try {
+    return localStorage.getItem(LAST_LAB_KEY);
+  } catch {
+    return null; // storage is blocked: pages outside a lab use the first lab
+  }
+}
+
+/** The lab in the address. Pages outside a lab (Settings) keep the lab you were last in, so the
+ * sidebar and its links stay; it is checked against your labs because storage can be stale. */
 export function useCurrentLabId(): string | undefined {
-  return useMatches()
+  const inUrl = useMatches()
     .map((m) => m.params.labId)
     .find(Boolean);
+  const { data: labs } = useLabs();
+  useEffect(() => {
+    if (!inUrl) return;
+    try {
+      localStorage.setItem(LAST_LAB_KEY, inUrl);
+    } catch {
+      // storage is blocked: nothing to remember
+    }
+  }, [inUrl]);
+  if (inUrl) return inUrl;
+  return (labs?.find((l) => l.id === readLastLab()) ?? labs?.[0])?.id;
 }

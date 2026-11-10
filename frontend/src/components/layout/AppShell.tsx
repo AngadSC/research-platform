@@ -16,7 +16,6 @@ import { navItems } from "@/lib/nav";
 import { APP_NAME, MOD_KEY, OPEN_SEARCH_EVENT } from "@/lib/constants";
 import { useMe } from "@/hooks/workspace";
 import { useAccountTheme } from "@/lib/theme";
-import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { AssistantDrawer } from "@/components/assistant/AssistantDrawer";
 import { NotificationBell } from "./NotificationBell";
 import { Sidebar } from "./Sidebar";
@@ -171,12 +170,11 @@ export function AppShell() {
                 <Search aria-hidden />
                 <span className="hidden sm:inline">Search</span>
                 <kbd className="hidden rounded bg-background px-1.5 text-xs font-medium text-muted-foreground sm:inline">
-                  {MOD_KEY} F
+                  {MOD_KEY} K
                 </kbd>
               </Button>
               {labId && <AssistantDrawer labId={labId} />}
               {labId && <NotificationBell labId={labId} />}
-              <ThemeToggle />
             </div>
           </header>
           <main className="min-h-0 flex-1 overflow-y-auto print:overflow-visible">

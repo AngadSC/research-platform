@@ -4,14 +4,16 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrentLabId } from "@/hooks/crumbs";
 import { useLabs } from "@/hooks/workspace";
 import { APP_NAME } from "@/lib/constants";
 import { formErrors } from "@/lib/forms";
 import { FormError } from "@/components/shared/FormError";
 
-/** Landing page: first-run empty state when the user has no labs, otherwise straight into their first lab. */
+/** Landing page: first-run empty state when the user has no labs, otherwise straight into their current lab. */
 export function HomePage() {
-  const { data: labs, isLoading, error } = useLabs();
+  const { isLoading, error } = useLabs();
+  const labId = useCurrentLabId();
   if (isLoading)
     return (
       <div aria-busy="true" aria-label="Loading" className="grid gap-3">
@@ -20,8 +22,7 @@ export function HomePage() {
       </div>
     );
   if (error) return <FormError message={formErrors(error, []).form} />;
-  const first = labs?.[0];
-  if (first) return <Navigate to={`/labs/${first.id}`} replace />;
+  if (labId) return <Navigate to={`/labs/${labId}`} replace />;
   return (
     <>
       <PageHeader

@@ -1,4 +1,4 @@
-export const APP_NAME = "Research Workspace";
+export const APP_NAME = "labbenchos";
 
 /** Name of the shortcut modifier on this machine, for hints. */
 export const MOD_KEY =

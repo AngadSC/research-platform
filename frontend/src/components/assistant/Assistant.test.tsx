@@ -132,7 +132,7 @@ describe("assistant panel", () => {
     await open();
     expect(await screen.findByRole("note")).toHaveTextContent(/sent to the AI provider/);
     expect(screen.getByText(/Add your own API key/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Settings > AI/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Assistant API keys/ })).toHaveAttribute(
       "href",
       "/settings#ai",
     );

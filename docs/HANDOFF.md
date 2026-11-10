@@ -67,7 +67,7 @@ Built, tested and pushed. Decisions are D125–D151 in `docs/DECISIONS.md`, and 
 
 - **Look:** white base with high-contrast red, green, amber and indigo buttons, status badges and tabs (one shared `TabNav`). Dark mode has a header toggle saved to your account. The board colours are yellow To do, orange In progress and green Done.
 - **Landing page:** a product page at `/` with Sign in and Register at the top right.
-- **Search:** Ctrl/Cmd+F (and Ctrl/Cmd+K) opens search. Inside text fields, documents and PDFs, Ctrl+F stays the browser's own find.
+- **Search:** Ctrl/Cmd+K opens search. Ctrl/Cmd+F is the browser's own find.
 - **Unread badges** on Notifications, the lab entry and the bell.
 - **Project Workflow tab:** Funding, Ethics (approvals linked to the project, plus University of Alberta resources), Participants (counts only, no personal data), Data, Analysis, Manuscript and Review. Ethics left the sidebar; the lab-wide list is in Admin.
 - **Overview:** high, medium and low deadline priorities, and "Last edited … by …".
@@ -126,7 +126,7 @@ Everything below is built, tested against mocks, committed on `main` and pushed.
 | Integrations framework v2 | One file per provider. Four auth types: OAuth, API key, link-only and public. Self-hosted instance URLs (REDCap, GitLab) with SSRF defences: https/443 only, private and metadata IPs refused, DNS pinned per request, redirects stay on host. Every outside call has a total deadline and a 2 MB cap. Keys are encrypted like tokens and never shown back | Lab settings > Integrations |
 | 13 new providers | **File storage:** OneDrive/SharePoint, Dropbox, Box (OAuth). **Code:** GitHub and GitLab (read-only access tokens). Linking a commit fills an analysis' repo and commit if both are empty. **Writing:** Overleaf (link-only; share links are refused). **Data capture:** REDCap, Qualtrics, protocols.io (API keys; **project and survey metadata only, never records or responses**). **References:** Zotero (read-only key; adds the item to a decision's references). **Repositories:** Zenodo, Figshare (public, no account), OSF (read-only token) | "Link from…" on Files, datasets, analyses, results, manuscripts, decisions and documents |
 | Generic integrations UI | The Integrations page and every "Link from…" menu are built from the provider list: connect dialogs per auth type, search with live results, paste a URL, or the Google Picker | Screenshots 27 and 36–43 |
-| Lab-wide search | Ctrl/Cmd+F or Ctrl/Cmd+K searches projects, tasks, document text, research records, ethics approvals and linked items. Each hit is permission-checked (restricted approvals stay hidden) | Command palette |
+| Lab-wide search | Ctrl/Cmd+K searches projects, tasks, document text, research records, ethics approvals and linked items. Each hit is permission-checked (restricted approvals stay hidden) | Command palette |
 | Decision references | Add, remove and reorder references (title, URL, DOI) on decisions, with validation | Research > Decisions |
 | Downloads | With S3 storage, non-PDF downloads redirect to a 60-second signed link after the same permission check and audit. PDFs still stream through the server so they keep the sandbox headers. The bucket needs a CORS rule (`DEPLOY.md`) | `documents/views.py` |
 

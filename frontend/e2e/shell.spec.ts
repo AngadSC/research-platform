@@ -20,6 +20,7 @@ test("marketing home has Sign in at the top right, leading to the sign-in page",
 
 test("dark mode persists across a reload and is saved to the account", async ({ page }) => {
   await login(page, "pi");
+  await page.goto("/settings");
   const html = page.locator("html");
   const saved = page.waitForResponse(
     (r) => r.url().includes("/api/me/") && r.request().method() === "PATCH",
@@ -37,18 +38,12 @@ test("dark mode persists across a reload and is saved to the account", async ({ 
   await expect(html).not.toHaveClass(/dark/);
 });
 
-test("Ctrl+F opens search, but not inside a text field", async ({ page }) => {
+test("Ctrl+K opens search and Ctrl+F is left to the browser", async ({ page }) => {
   await login(page, "pi");
-  await page.getByRole("heading", { name: "Projects", exact: true }).click(); // focus off the text field
-  await page.keyboard.press("Control+f");
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toBeHidden();
   await page.keyboard.press("Control+k");
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
-  await page.locator("#app-sidebar").getByRole("link", { name: "Admin" }).click(); // the PI lands on the Dashboard, which has no text field
-  await page.getByLabel("Lab name").focus();
+  await expect(page.getByRole("dialog")).toBeHidden();
   await page.keyboard.press("Control+f");
   await expect(page.getByRole("dialog")).toBeHidden();
 });

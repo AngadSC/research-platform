@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Research Workspace API
+  title: labbenchos API
   version: 0.1.0
 paths:
   /api/ai/grants/:

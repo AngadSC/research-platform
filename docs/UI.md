@@ -42,13 +42,13 @@ Shared (`src/components/shared/`):
 - `DetailPanel` `open`, `onOpenChange`, `title`, `description`; right slide-over, Escape closes, focus trapped.
 - `FormField` `label`, `hint`, `error`; child is a function: `{(p) => <Input {...p} />}`.
 - `StatusBadge` `status` string; known statuses get a tone, unknown ones are neutral. Add new ones to `TONES`.
-- `ThemeToggle` light, dark, system segmented control in the header. `lib/theme.ts` applies it, keeps localStorage for first paint and saves it to the account (`preferences.theme`, D128).
+- The light, dark and system choice lives in Settings under Appearance (D220). `lib/theme.ts` applies it, keeps localStorage for first paint and saves it to the account (`preferences.theme`, D128).
 
 Project sections are listed once, in `PROJECT_SECTIONS` (`lib/nav.ts`): a dropdown in the sidebar, and `TabNav` tabs below `md` (D205). `UnreadBadge` (`src/components/layout/`) takes `noun` for what it counts, and `TabNav` tabs take an optional badge.
 
 Project colours are tokens (`--project-blue` and so on in `index.css`, one value per theme); `projectColorStyle(project.color)` from `lib/projectColors` sets `--project` on an element for its children.
 
-Layout (`src/components/layout/`): `AppShell` (sidebar with a remembered hide toggle, breadcrumbs, pin button, `Toaster`, palette), `Sidebar` (lab switcher, pinned pages, projects, nav, then the clock and account menu), `CommandPalette` (Ctrl/Cmd+K or Ctrl/Cmd+F; the browser keeps Ctrl+F in text fields, editors and the PDF viewer via `data-native-find`, D130), `UnreadBadge` (D131). Signed-out pages use `LandingHeader`, `HeroText` and `Features` from `pages/LandingPage` (D129).
+Layout (`src/components/layout/`): `AppShell` (sidebar with a remembered hide toggle, breadcrumbs, pin button, `Toaster`, palette), `Sidebar` (lab switcher, pinned pages, projects, nav, then the clock and account menu), `CommandPalette` (Ctrl/Cmd+K; Ctrl/Cmd+F is left to the browser, D220), `UnreadBadge` (D131). Signed-out pages use `LandingHeader`, `HeroText` and `Features` from `pages/LandingPage` (D129).
 
 Primitives (`src/components/ui/`, shadcn style): button, input, textarea, label, select, dialog, sheet, dropdown-menu, badge, skeleton, sonner, command, tooltip, separator, table. Add new ones only when a page needs them, and keep them in this style.
 

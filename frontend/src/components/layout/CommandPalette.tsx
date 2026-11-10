@@ -18,16 +18,7 @@ interface Props {
   onGo?: (url: string) => void;
 }
 
-/** True where Ctrl/Cmd+F should stay the browser's own find: text fields, editors and the PDF viewer. */
-function wantsNativeFind(t: EventTarget | null) {
-  const el = t instanceof Element ? t : null;
-  return (
-    !!el?.closest("input, textarea, select, [contenteditable]:not([contenteditable=false])") ||
-    !!document.querySelector("[data-native-find]")
-  );
-}
-
-/** Opens on Cmd/Ctrl+K or Cmd/Ctrl+F. Add entries with useRegisterCommands (see lib/commands.ts). */
+/** Opens on Cmd/Ctrl+K; Cmd/Ctrl+F stays the browser's own find. Add entries with useRegisterCommands (see lib/commands.ts). */
 export function CommandPalette({ labId, onGo }: Props) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
@@ -38,13 +29,9 @@ export function CommandPalette({ labId, onGo }: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
-      const k = e.key.toLowerCase();
-      if (k === "k") {
+      if (e.key.toLowerCase() === "k") {
         e.preventDefault();
         setOpen((o) => !o);
-      } else if (k === "f" && !wantsNativeFind(e.target)) {
-        e.preventDefault();
-        setOpen(true);
       }
     };
     const onOpen = () => setOpen(true);
@@ -83,7 +70,7 @@ export function CommandPalette({ labId, onGo }: Props) {
       }}
     >
       <CommandInput
-        placeholder={`Search everything in this lab, or run an action (${MOD_KEY} F or ${MOD_KEY} K)`}
+        placeholder={`Search everything in this lab, or run an action (${MOD_KEY} K)`}
         value={text}
         onValueChange={setText}
       />
