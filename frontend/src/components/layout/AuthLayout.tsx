@@ -1,32 +1,32 @@
-import { Outlet, useLocation } from "react-router";
-import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
+import { Link, Outlet } from "react-router";
+import logo from "@/assets/brand/labbenchos-logo.png";
 import { Toaster } from "@/components/ui/sonner";
-import { useCrumbs } from "@/hooks/crumbs";
-import { Features, HeroText, LandingHeader } from "@/pages/LandingPage";
+import "./auth-background.css";
 
-/** Signed-out layout. Sign in and Register also show the product page around the form. */
+/** Signed-out layout for sign in, create account and the other account pages: a slowly
+ * moving light green and white background with the form in a card in the middle. */
 export function AuthLayout() {
-  const crumbs = useCrumbs();
-  const { pathname } = useLocation();
-  const landing = pathname === "/login" || pathname === "/signup";
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <LandingHeader />
-      <div className="mx-auto grid max-w-5xl gap-16 px-4 py-10 md:px-8">
-        <div
-          className={
-            landing ? "grid items-center gap-10 lg:grid-cols-2" : "mx-auto w-full max-w-md"
-          }
+    <div className="auth-bg relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-12 text-foreground">
+      <div className="auth-bg-blobs" aria-hidden="true">
+        <span className="auth-blob auth-blob-1" />
+        <span className="auth-blob auth-blob-2" />
+        <span className="auth-blob auth-blob-3" />
+        <span className="auth-blob auth-blob-4" />
+      </div>
+      <div className="relative z-10 grid w-full max-w-md gap-6">
+        <Link to="/" aria-label="labbenchos home" className="justify-self-center">
+          <img src={logo} alt="labbenchos" className="h-10 w-auto" />
+        </Link>
+        <main className="rounded-2xl border border-white/70 bg-card/90 p-8 shadow-xl shadow-green-900/10 backdrop-blur-md">
+          <Outlet />
+        </main>
+        <Link
+          to="/"
+          className="justify-self-center text-sm font-medium text-slate-600 hover:text-slate-900"
         >
-          {landing && <HeroText />}
-          <div className="grid w-full max-w-md gap-4 justify-self-center lg:justify-self-end">
-            {!landing && <Breadcrumbs items={crumbs} />}
-            <main className="rounded-xl bg-muted p-6">
-              <Outlet />
-            </main>
-          </div>
-        </div>
-        {landing && <Features />}
+          ← Back to home
+        </Link>
       </div>
       <Toaster />
     </div>
