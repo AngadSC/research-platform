@@ -26,6 +26,7 @@ import { personName } from "@/lib/api-types";
 import { useRegisterCommands } from "@/lib/commands";
 import { formErrors } from "@/lib/forms";
 import { CATEGORIES, connectError, needsReconnect, STATUS_HELP } from "@/lib/integrations";
+import { WebhooksSection } from "@/pages/settings/WebhooksSection";
 
 interface Confirm {
   id: string;
@@ -176,6 +177,7 @@ export function IntegrationsPage() {
           />
         )}
       </section>
+      {canSeeAll && <WebhooksSection labId={labId} />}
       {canSeeAll && (
         <section aria-labelledby="everyone" className="grid gap-3">
           <h2 id="everyone" className="text-base font-semibold">

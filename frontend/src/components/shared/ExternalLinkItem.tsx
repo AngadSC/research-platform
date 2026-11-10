@@ -8,6 +8,7 @@ import {
   HardDrive,
   Archive,
   Link2,
+  ListChecks,
   PenLine,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -41,6 +42,9 @@ const ICONS: Record<string, typeof Link2> = {
   redcap: ClipboardList,
   qualtrics: ClipboardList,
   protocols_io: FlaskConical,
+  todoist: ListChecks,
+  trello: ListChecks,
+  monday: ListChecks,
 };
 
 export function ProviderIcon({ name, className }: { name: string; className?: string }) {

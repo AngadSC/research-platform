@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useProviders } from "@/hooks/integrations";
 import { useProjectMembers, useTaskView, useTasks } from "@/hooks/projects";
 import {
   TASK_STATUSES,
@@ -34,6 +35,7 @@ import {
 import { formErrors, type FormErrors } from "@/lib/forms";
 import { TASK_TONES } from "@/lib/taskColors";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
+import { ImportTasksDialog } from "@/pages/project/ImportTasksDialog";
 import { TaskDrawer } from "@/pages/project/TaskDrawer";
 
 const day = (iso: string | null) =>
@@ -278,6 +280,7 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
   const [fStatus, setFStatus] = useState("all");
   const [fAssignee, setFAssignee] = useState("all");
   const canEdit = project.my_permissions.includes("edit_content");
+  const [importing, setImporting] = useState(false);
   const pref = useTaskView();
   const asked = params.get("view");
   const view = asked === "list" || asked === "board" ? asked : pref.saved; // D143
@@ -342,6 +345,10 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
       <Plus aria-hidden /> New task
     </Button>
   ) : undefined;
+  // Your own connected task apps (D240); nothing shows unless one is connected.
+  const taskApps = (useProviders(labId).data ?? []).filter(
+    (p) => p.task_import && p.account?.status === "active",
+  );
   const empty = (
     <EmptyState
       icon={ListChecks}
@@ -377,7 +384,14 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
             <SquareKanban aria-hidden /> Board
           </Button>
         </div>
-        {all.length > 0 && newTask}
+        <div className="flex flex-wrap gap-2">
+          {canEdit && taskApps.length > 0 && (
+            <Button variant="outline" onClick={() => setImporting(true)}>
+              Import tasks
+            </Button>
+          )}
+          {all.length > 0 && newTask}
+        </div>
       </div>
       {view === "list" && all.length > 0 && (
         <div className="flex flex-wrap gap-3">
@@ -436,6 +450,14 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
         empty
       ) : (
         <Board tasks={all} canEdit={canEdit} move={doMove} onOpen={(t) => setParam("task", t.id)} />
+      )}
+      {importing && (
+        <ImportTasksDialog
+          labId={labId}
+          projectId={projectId}
+          services={taskApps}
+          onClose={() => setImporting(false)}
+        />
       )}
       {creating && canEdit && (
         <NewTaskPanel

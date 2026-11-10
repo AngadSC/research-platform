@@ -5,13 +5,14 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
+from django.db import transaction
 from django.http import Http404, HttpResponseRedirect
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.debug import sensitive_post_parameters, sensitive_variables
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, status
-from rest_framework.exceptions import Throttled
+from rest_framework.exceptions import Throttled, ValidationError
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
@@ -20,19 +21,28 @@ from audit import services as audit
 from audit.models import AuditAction
 from core.permissions import Perm
 from core.views import LabScopedViewMixin
-from integrations import http, registry, services
+from integrations import http, registry, services, webhooks
 from integrations.http import IntegrationError
-from integrations.models import AccountStatus, ConnectedAccount, ExternalLink
+from integrations.models import AccountStatus, ConnectedAccount, ExternalLink, Webhook
 from integrations.serializers import (
     ConnectedAccountSerializer,
     ConnectInputSerializer,
     ConnectOutputSerializer,
     ExternalLinkInputSerializer,
     ExternalLinkSerializer,
+    ImportResultSerializer,
+    ImportTasksInputSerializer,
     ItemSearchQuerySerializer,
     ItemSearchResultSerializer,
     PickerTokenSerializer,
     ProviderSerializer,
+    TaskSourceSerializer,
+    WebhookCreatedSerializer,
+    WebhookCreateSerializer,
+    WebhookListSerializer,
+    WebhookSerializer,
+    WebhookTestResultSerializer,
+    WebhookUpdateSerializer,
 )
 from integrations.services import OAuthError
 from projects.views import ProjectScopedMixin
@@ -100,6 +110,7 @@ def provider_entry(p, account) -> dict:
         "url_pattern": p.url_pattern,
         "link_hosts": sorted(p.link_hosts),
         "can_check": p.fetch_item is not None,
+        "task_import": p.fetch_tasks is not None,
         "account": account
         and {
             "id": account.pk,
@@ -119,7 +130,8 @@ class ProviderListView(LabScopedViewMixin, generics.GenericAPIView):
     @extend_schema(responses=ProviderSerializer(many=True))
     def get(self, request, lab_id):
         mine = list(self.get_queryset().filter(user=request.user))
-        out = [provider_entry(p, _own_account(mine, p.name)) for p in registry.PROVIDERS.values()]
+        shown = [p for p in registry.PROVIDERS.values() if p.configured or not p.opt_in]  # D240
+        out = [provider_entry(p, _own_account(mine, p.name)) for p in shown]
         return Response(self.get_serializer(out, many=True).data)
 
 
@@ -408,3 +420,165 @@ class ItemSearchView(ProjectScopedMixin, generics.GenericAPIView):
             resp = Response(self.get_serializer(results, many=True).data)
         resp["Cache-Control"] = "no-store"
         return resp
+
+
+# ---- task import (D240)
+
+
+def _unavailable():
+    return Response(
+        {"detail": "The service could not be reached. Try again shortly."},
+        status=status.HTTP_502_BAD_GATEWAY,
+    )
+
+
+class TaskSourcesView(LabScopedViewMixin, generics.GenericAPIView):
+    """The lists you can import tasks from, read with your own account."""
+
+    model = ConnectedAccount
+    serializer_class = TaskSourceSerializer
+    pagination_class = None
+    perms = {"GET": Perm.MANAGE_INTEGRATIONS}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "integration_search"
+
+    @extend_schema(responses=TaskSourceSerializer(many=True))
+    def get(self, request, lab_id, provider):
+        try:
+            found = services.task_sources(request.lab, user=request.user, provider_name=provider)
+        except IntegrationError:
+            return _unavailable()
+        return Response(self.get_serializer(found, many=True).data)
+
+
+class ImportTasksView(ProjectScopedMixin, generics.GenericAPIView):
+    """Copy tasks from an outside list into this project (edit_content, your own account)."""
+
+    model = ExternalLink
+    serializer_class = ImportResultSerializer
+    perms = {"POST": Perm.EDIT_CONTENT}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "integration_search"
+
+    @extend_schema(request=ImportTasksInputSerializer, responses=ImportResultSerializer)
+    def post(self, request, lab_id, project_id, provider):
+        body = ImportTasksInputSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        try:
+            result = services.import_tasks(
+                project=self.project,
+                user=request.user,
+                provider_name=provider,
+                source=body.validated_data["source"],
+                request=request,
+            )
+        except IntegrationError:
+            return _unavailable()
+        return Response(result)
+
+
+# ---- outgoing webhooks (D241). manage_lab_integrations: PIs and lab admins only.
+
+
+class WebhookMixin(LabScopedViewMixin):
+    model = Webhook
+    serializer_class = WebhookSerializer
+    pagination_class = None
+
+
+def _audit_webhook(action, hook, request, **extra):
+    audit.record(
+        action,
+        actor=request.user,
+        lab=request.lab,
+        target=hook,
+        request=request,
+        metadata={"kind": hook.kind, "host": hook.host, **extra},
+    )
+
+
+URL_HELP = {
+    "webhook": "Enter the full https address the service gave you, with nothing after a ?.",
+    "slack": "Enter the address Slack gave you. It starts with https://hooks.slack.com/",
+}
+
+
+@method_decorator(sensitive_post_parameters("url"), name="dispatch")
+class WebhookListView(WebhookMixin, generics.GenericAPIView):
+    perms = {"GET": Perm.MANAGE_LAB_INTEGRATIONS, "POST": Perm.MANAGE_LAB_INTEGRATIONS}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "integration_connect"
+
+    def get_throttles(self):
+        return super().get_throttles() if self.request.method == "POST" else []
+
+    @extend_schema(responses=WebhookListSerializer)
+    def get(self, request, lab_id):
+        events = [{"value": k, "label": v} for k, v in webhooks.EVENTS.items()]
+        rows = self.get_queryset().order_by("created_at", "id")
+        return Response({"events": events, "webhooks": self.get_serializer(rows, many=True).data})
+
+    @extend_schema(request=WebhookCreateSerializer, responses={201: WebhookCreatedSerializer})
+    @sensitive_variables("url", "data", "secret", "body")
+    def post(self, request, lab_id):
+        body = WebhookCreateSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        data = body.validated_data
+        if self.get_queryset().count() >= webhooks.MAX_PER_LAB:
+            raise ValidationError({"name": "This lab already has as many webhooks as it can."})
+        try:
+            url = webhooks.clean_url(data["url"], data["kind"])
+        except http.InstanceURLError:
+            raise ValidationError({"url": URL_HELP[data["kind"]]}) from None
+        with transaction.atomic():
+            hook, secret = webhooks.create(
+                lab=request.lab,
+                user=request.user,
+                name=data["name"],
+                kind=data["kind"],
+                url=url,
+                events=data["events"],
+            )
+            _audit_webhook(AuditAction.WEBHOOK_CREATED, hook, request, events=hook.events)
+        out = WebhookSerializer(hook).data
+        return Response({**out, "secret": secret}, status=status.HTTP_201_CREATED)
+
+
+class WebhookDetailView(WebhookMixin, generics.GenericAPIView):
+    lookup_url_kwarg = "webhook_id"
+    perms = {"PATCH": Perm.MANAGE_LAB_INTEGRATIONS, "DELETE": Perm.MANAGE_LAB_INTEGRATIONS}
+
+    @extend_schema(request=WebhookUpdateSerializer, responses=WebhookSerializer)
+    def patch(self, request, lab_id, webhook_id):
+        hook = self.get_object()
+        body = WebhookUpdateSerializer(data=request.data, partial=True)
+        body.is_valid(raise_exception=True)
+        with transaction.atomic():
+            for field, value in body.validated_data.items():
+                setattr(hook, field, value)
+            hook.save(update_fields=[*body.validated_data, "updated_at"])
+            _audit_webhook(AuditAction.WEBHOOK_UPDATED, hook, request, events=hook.events)
+        return Response(self.get_serializer(hook).data)
+
+    @extend_schema(responses={204: None})
+    def delete(self, request, lab_id, webhook_id):
+        hook = self.get_object()
+        with transaction.atomic():
+            _audit_webhook(AuditAction.WEBHOOK_DELETED, hook, request)
+            hook.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class WebhookTestView(WebhookMixin, generics.GenericAPIView):
+    """Send one test message now, so an admin can see the address works."""
+
+    lookup_url_kwarg = "webhook_id"
+    serializer_class = WebhookTestResultSerializer
+    perms = {"POST": Perm.MANAGE_LAB_INTEGRATIONS}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "integration_connect"
+
+    @extend_schema(request=None, responses=WebhookTestResultSerializer)
+    def post(self, request, lab_id, webhook_id):
+        sent = webhooks.send_test(self.get_object())
+        return Response({"ok": sent is not None and 200 <= sent < 300, "status": sent})

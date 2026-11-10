@@ -10,6 +10,9 @@ from audit.models import AuditAction
 from audit.services import record
 from core.permissions import Perm, can
 from documents import services as document_services
+from integrations import http, registry
+from integrations.providers import zotero
+from integrations.services import active_account_or_404
 from papers.models import Paper, PaperNote
 from papers.pdftext import MAX_BYTES, PdfTextError, read_pages
 
@@ -113,3 +116,41 @@ def read_pdf_text(paper, *, first: int, last: int):
     except FileNotFoundError:
         raise PdfTextError("The stored PDF could not be found.") from None
     return attachment, read_pages(data, first, last)
+
+
+@http.interactive
+def zotero_items(lab, *, user, query="") -> list[dict]:
+    """Up to 20 items from the person's own Zotero libraries (D242); nothing is kept."""
+    provider = registry.get("zotero")
+    account = active_account_or_404(lab, user, provider)
+    return provider.search_items(account, query, "project")
+
+
+@http.interactive
+def import_from_zotero(lab, *, user, ids, request=None) -> dict:
+    """Add the chosen items to the library. Metadata only, never the attachments. An item
+    already here (same DOI or title), gone from Zotero, or with fields we refuse is skipped."""
+    from papers.serializers import PaperInputSerializer  # late: the serializers import this
+
+    account = active_account_or_404(lab, user, registry.get("zotero"))
+    live = Paper.objects.for_lab(lab).filter(deleted_at__isnull=True)
+    created = skipped = 0
+    for external_id in dict.fromkeys(ids):
+        fields = zotero.paper_fields(account, external_id)
+        form = PaperInputSerializer(data=fields) if fields else None
+        if form is None or not form.is_valid() or live.filter(title__iexact=fields["title"]):
+            skipped += 1
+            continue
+        try:
+            create_paper(lab, user=user, data=form.validated_data)
+            created += 1
+        except ValidationError:  # the DOI is already in the library
+            skipped += 1
+    record(
+        AuditAction.PAPERS_IMPORTED,
+        actor=user,
+        lab=lab,
+        request=request,
+        metadata={"provider": "zotero", "created": created, "skipped": skipped},
+    )
+    return {"created": created, "skipped": skipped}

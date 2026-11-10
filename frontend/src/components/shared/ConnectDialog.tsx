@@ -103,7 +103,8 @@ function ConnectForm({
     <form onSubmit={submit} noValidate className="grid gap-4">
       <DialogTitle className="text-base font-semibold">Connect {p.label}</DialogTitle>
       <DialogDescription className="text-sm text-muted-foreground">
-        We store the key encrypted and only read titles and modified times. It is never shown again.
+        We store the key encrypted and only read what this connection needs, such as titles and
+        dates. It is never shown again.
       </DialogDescription>
       <FormError message={failure} />
       {fields.map((f) => (

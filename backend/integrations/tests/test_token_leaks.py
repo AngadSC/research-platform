@@ -41,6 +41,7 @@ FILE_URL = "https://api.fake.test/files/1"
 # API-key accounts (D81): the key and its secret half.
 KEYS = [f"CANARY-key-{i}-d41a7c" for i in range(5)]
 KEY_SECRETS = [f"CANARY-key-secret-{i}-0be3f5" for i in range(5)]
+WEBHOOK_URL = "https://hooks.example.org/CANARY-webhook-8f2a/"
 INSTANCE = "https://git.fake.test"
 KEY_ME = f"{INSTANCE}/api/me"
 KEY_ITEM = f"{INSTANCE}/api/items/1"
@@ -147,7 +148,7 @@ def world(
         kw["data"].get("code_verifier") for kw in transport.sent("POST", FAKE.token_url)
     ]
     w.canaries = [*ACCESS, *REFRESH, *LIFE_ACCESS, *LIFE_REFRESH, CODE, CLIENT_SECRET]
-    w.canaries += [*KEYS, *KEY_SECRETS]
+    w.canaries += [*KEYS, *KEY_SECRETS, "CANARY-webhook-8f2a"]
     w.canaries += list(filter(None, sent_verifiers))
     # the canaries really went over the wire, so a clean scan means something
     wire = repr(transport.calls)
@@ -337,6 +338,27 @@ def _start(w, client):
 
 def _callback(client, **query):
     return _dump(client.get(f"{API}/integrations/oauth/callback/", query))
+
+
+@surface
+def api_webhooks(w):
+    """D241: the address and secret are credentials. The create reply holds the new webhook's
+    secret, which is the one place it may appear, so only the list and later replies are read."""
+    w.transport.on("POST", WEBHOOK_URL, response(500, {"echo": WEBHOOK_URL}))
+    c = w.client(w.users["pi"])
+    base = _lab_url(w, "webhooks/")
+    created = c.post(
+        base,
+        {
+            "name": "Zap",
+            "kind": "webhook",
+            "url": WEBHOOK_URL,
+            "events": ["project.created"],
+        },
+        "application/json",
+    )
+    hook = created.json()["id"]
+    return _dump(c.get(base)) + _dump(c.post(f"{base}{hook}/test/", {}, "application/json"))
 
 
 @surface

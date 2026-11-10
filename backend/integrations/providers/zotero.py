@@ -136,6 +136,51 @@ def search_items(account, query, target_kind):
         raise http.IntegrationError("Zotero returned an unreadable answer") from None
 
 
+def _author(creator) -> str:
+    """ "Family, Given"; a trailing comma for a one-part name (see Paper.authors)."""
+    if creator.get("lastName"):
+        return clean_text(f"{creator['lastName']}, {creator.get('firstName', '')}", 200)
+    return f"{clean_text(creator.get('name'), 199)},"
+
+
+def paper_fields(account, external_id) -> dict | None:
+    """One library item as paper-library fields (D242). None: it is gone or not a reference."""
+    match = _ID.match(external_id)
+    if not match or (match[1] == "u" and match[2] != account.external_account_id):
+        return None
+    url = f"{_library(match[1], match[2])}/items/{quote(match[3], safe='')}"
+    try:
+        item = read(PROVIDER, account, url, "Zotero", gone=(403, 404))
+        if not item or _summary(item) is None:
+            return None
+        data = item["data"]
+        date = item.get("meta", {}).get("parsedDate") or data.get("date") or ""
+        year = re.search(r"\d{4}", date)
+        venue = next(
+            (
+                data[k]
+                for k in ("publicationTitle", "proceedingsTitle", "conferenceName", "bookTitle")
+                if data.get(k)
+            ),
+            "",
+        )
+        return {
+            "title": clean_text(data.get("title"), 500),
+            "authors": [
+                _author(c)
+                for c in (data.get("creators") or [])[:200]
+                if c.get("creatorType") == "author"
+            ],
+            "year": int(year[0]) if year else None,
+            "venue": clean_text(venue, 300),
+            "doi": clean_doi(data.get("DOI")),
+            "url": web_url(data.get("url")),
+            "abstract": str(data.get("abstractNote") or "")[:20_000],
+        }
+    except (KeyError, TypeError, AttributeError):
+        raise http.IntegrationError("Zotero returned an unreadable answer") from None
+
+
 def apply_to_target(kind, meta):
     """D115: a decision gets the item appended to its `references` (see
     `services._append_reference`); nothing else is touched."""

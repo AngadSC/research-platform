@@ -1212,6 +1212,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/integrations/{provider}/task-sources/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The lists you can import tasks from, read with your own account. */
+        get: operations["labs_integrations_task_sources_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/integrations/accounts/": {
         parameters: {
             query?: never;
@@ -1911,6 +1928,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/papers/zotero/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description D242: GET lists items from your own Zotero account, POST copies the chosen ones in. Your
+         *     key stays yours: nothing here uses or shows anyone else's. No account: 404.
+         */
+        get: operations["labs_papers_zotero_list"];
+        put?: never;
+        /**
+         * @description D242: GET lists items from your own Zotero account, POST copies the chosen ones in. Your
+         *     key stays yours: nothing here uses or shows anyone else's. No account: 404.
+         */
+        post: operations["labs_papers_zotero_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/project-members/{projectmembership_id}/": {
         parameters: {
             query?: never;
@@ -2388,6 +2429,23 @@ export interface paths {
         get: operations["labs_projects_handover_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/integrations/{provider}/import-tasks/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Copy tasks from an outside list into this project (edit_content, your own account). */
+        post: operations["labs_projects_integrations_import_tasks_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3313,6 +3371,71 @@ export interface paths {
         patch: operations["labs_training_requirements_partial_update"];
         trace?: never;
     };
+    "/api/labs/{lab_id}/webhooks/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        get: operations["labs_webhooks_retrieve"];
+        put?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        post: operations["labs_webhooks_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/webhooks/{webhook_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        delete: operations["labs_webhooks_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        patch: operations["labs_webhooks_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/webhooks/{webhook_id}/test/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Send one test message now, so an admin can see the address works. */
+        post: operations["labs_webhooks_test_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/": {
         parameters: {
             query?: never;
@@ -3499,11 +3622,16 @@ export interface components {
          *     * `dmp.updated` - Dmp Updated
          *     * `dmp.approved` - Dmp Approved
          *     * `dmp.deleted` - Dmp Deleted
+         *     * `webhook.created` - Webhook Created
+         *     * `webhook.updated` - Webhook Updated
+         *     * `webhook.deleted` - Webhook Deleted
+         *     * `tasks.imported` - Tasks Imported
+         *     * `papers.imported` - Papers Imported
          *     * `paper.deleted` - Paper Deleted
          *     * `paper_note.deleted` - Paper Note Deleted
          * @enum {string}
          */
-        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "paper.deleted" | "paper_note.deleted";
+        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted";
         /**
          * @description * `read` - Read
          *     * `write` - Write
@@ -4358,6 +4486,22 @@ export interface components {
             status?: components["schemas"]["ApprovalStatusEnum"];
             restricted?: boolean;
         };
+        /**
+         * @description * `project.created` - project.created
+         *     * `membership.invite_accepted` - membership.invite_accepted
+         *     * `dataset.created` - dataset.created
+         *     * `analysis.created` - analysis.created
+         *     * `result.created` - result.created
+         *     * `decision.created` - decision.created
+         *     * `manuscript.created` - manuscript.created
+         *     * `ethics_approval.created` - ethics_approval.created
+         *     * `ethics_approval.updated` - ethics_approval.updated
+         *     * `inventory_order.created` - inventory_order.created
+         *     * `meeting.created` - meeting.created
+         *     * `lab_event.created` - lab_event.created
+         * @enum {string}
+         */
+        EventsEnum: "project.created" | "membership.invite_accepted" | "dataset.created" | "analysis.created" | "result.created" | "decision.created" | "manuscript.created" | "ethics_approval.created" | "ethics_approval.updated" | "inventory_order.created" | "meeting.created" | "lab_event.created";
         Expiring: {
             days: number;
             count: number;
@@ -4623,6 +4767,13 @@ export interface components {
          * @enum {string}
          */
         HealthEnum: "red" | "amber" | "green";
+        ImportResult: {
+            created: number;
+            skipped: number;
+        };
+        ImportTasksInput: {
+            source: string;
+        };
         Institution: {
             /** Format: uuid */
             readonly id: string;
@@ -4807,6 +4958,12 @@ export interface components {
             updated_at: string | null;
             refusal_fallback: boolean;
         };
+        /**
+         * @description * `webhook` - Webhook
+         *     * `slack` - Slack
+         * @enum {string}
+         */
+        Kind1d9Enum: "webhook" | "slack";
         /**
          * @description * `new_member` - New Member
          *     * `departing` - Departing
@@ -5520,6 +5677,11 @@ export interface components {
             url?: string;
             notes?: string;
         };
+        PatchedWebhookUpdate: {
+            name?: string;
+            events?: components["schemas"]["EventsEnum"][];
+            is_active?: boolean;
+        };
         PatchedWorkflowMark: {
             stage?: components["schemas"]["StageEnum"];
             done?: boolean;
@@ -5684,6 +5846,7 @@ export interface components {
             url_pattern: string;
             link_hosts: string[];
             can_check: boolean;
+            task_import: boolean;
             account: components["schemas"]["ProviderAccount"] | null;
         };
         ProviderAccount: {
@@ -5701,9 +5864,10 @@ export interface components {
          *     * `protocols` - protocols
          *     * `references` - references
          *     * `repository` - repository
+         *     * `tasks` - tasks
          * @enum {string}
          */
-        ProviderCategoryEnum: "storage" | "code" | "writing" | "data_capture" | "protocols" | "references" | "repository";
+        ProviderCategoryEnum: "storage" | "code" | "writing" | "data_capture" | "protocols" | "references" | "repository" | "tasks";
         ProviderConfig: {
             provider: components["schemas"]["ProviderEnum"];
             label: string;
@@ -6027,6 +6191,10 @@ export interface components {
         TaskPostInput: {
             body: string;
         };
+        TaskSource: {
+            id: string;
+            name: string;
+        };
         /**
          * @description * `todo` - Todo
          *     * `in_progress` - In Progress
@@ -6195,6 +6363,56 @@ export interface components {
             readonly email: string;
             display_name?: string;
         };
+        /** @description Never the address or the secret: `host` says where it goes. */
+        Webhook: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly kind: components["schemas"]["Kind1d9Enum"];
+            readonly host: string;
+            readonly events: string[];
+            readonly is_active: boolean;
+            /** Format: date-time */
+            readonly last_attempt_at: string | null;
+            readonly last_status: number | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        WebhookCreate: {
+            name: string;
+            events: components["schemas"]["EventsEnum"][];
+            is_active?: boolean;
+            kind: components["schemas"]["Kind1d9Enum"];
+            url: string;
+        };
+        /** @description The only response with the signing secret: it is shown once. */
+        WebhookCreated: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly kind: components["schemas"]["Kind1d9Enum"];
+            readonly host: string;
+            readonly events: string[];
+            readonly is_active: boolean;
+            /** Format: date-time */
+            readonly last_attempt_at: string | null;
+            readonly last_status: number | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            secret: string;
+        };
+        WebhookEvent: {
+            value: string;
+            label: string;
+        };
+        WebhookList: {
+            events: components["schemas"]["WebhookEvent"][];
+            webhooks: components["schemas"]["Webhook"][];
+        };
+        WebhookTestResult: {
+            ok: boolean;
+            status: number | null;
+        };
         WorkflowProgress: {
             stages: components["schemas"]["WorkflowStage"][];
             next: string | null;
@@ -6203,6 +6421,14 @@ export interface components {
             key: string;
             done: boolean;
             marked: boolean;
+        };
+        ZoteroImport: {
+            ids: string[];
+        };
+        ZoteroItem: {
+            id: string;
+            title: string;
+            subtitle: string;
         };
     };
     responses: never;
@@ -7143,10 +7369,15 @@ export interface operations {
                  *     * `dmp.updated` - Dmp Updated
                  *     * `dmp.approved` - Dmp Approved
                  *     * `dmp.deleted` - Dmp Deleted
+                 *     * `webhook.created` - Webhook Created
+                 *     * `webhook.updated` - Webhook Updated
+                 *     * `webhook.deleted` - Webhook Deleted
+                 *     * `tasks.imported` - Tasks Imported
+                 *     * `papers.imported` - Papers Imported
                  *     * `paper.deleted` - Paper Deleted
                  *     * `paper_note.deleted` - Paper Note Deleted
                  */
-                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "paper.deleted" | "paper_note.deleted";
+                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted";
                 actor?: string;
                 /** @description Pagination cursor */
                 cursor?: string;
@@ -8517,6 +8748,28 @@ export interface operations {
             };
         };
     };
+    labs_integrations_task_sources_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskSource"][];
+                };
+            };
+        };
+    };
     labs_integrations_accounts_list: {
         parameters: {
             query?: never;
@@ -9654,6 +9907,57 @@ export interface operations {
             };
         };
     };
+    labs_papers_zotero_list: {
+        parameters: {
+            query?: {
+                /** @description Words to look for. */
+                q?: string;
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZoteroItem"][];
+                };
+            };
+        };
+    };
+    labs_papers_zotero_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ZoteroImport"];
+                "application/x-www-form-urlencoded": components["schemas"]["ZoteroImport"];
+                "multipart/form-data": components["schemas"]["ZoteroImport"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportResult"];
+                };
+            };
+        };
+    };
     labs_project_members_destroy: {
         parameters: {
             query?: never;
@@ -10479,6 +10783,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Handover"];
+                };
+            };
+        };
+    };
+    labs_projects_integrations_import_tasks_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportTasksInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ImportTasksInput"];
+                "multipart/form-data": components["schemas"]["ImportTasksInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportResult"];
                 };
             };
         };
@@ -12103,6 +12436,125 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TrainingRequirement"];
+                };
+            };
+        };
+    };
+    labs_webhooks_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookList"];
+                };
+            };
+        };
+    };
+    labs_webhooks_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["WebhookCreate"];
+                "multipart/form-data": components["schemas"]["WebhookCreate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookCreated"];
+                };
+            };
+        };
+    };
+    labs_webhooks_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_webhooks_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedWebhookUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedWebhookUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedWebhookUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Webhook"];
+                };
+            };
+        };
+    };
+    labs_webhooks_test_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookTestResult"];
                 };
             };
         };

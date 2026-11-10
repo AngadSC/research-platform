@@ -61,6 +61,7 @@ export const CATEGORIES: [string, string][] = [
   ["repository", "Repositories"],
   ["data_capture", "Data capture"],
   ["protocols", "Protocols"],
+  ["tasks", "Task lists"],
 ];
 
 /** Connected (oauth2 and api_key) or needing no connection (link_only and public). */

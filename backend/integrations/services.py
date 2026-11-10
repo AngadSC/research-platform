@@ -15,6 +15,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Q
+from django.http import Http404
 from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
 from rest_framework.exceptions import ValidationError
@@ -264,7 +265,7 @@ def connect_with_key(request, lab, provider_name, *, api_key, secret="", instanc
     user = request.user
     require(user, Perm.MANAGE_INTEGRATIONS, lab)
     provider = registry.PROVIDERS.get(provider_name)
-    if provider is None or provider.auth_type != AuthType.API_KEY:
+    if provider is None or provider.auth_type != AuthType.API_KEY or not provider.configured:
         raise OAuthError("unknown_provider")
     given = {"api_key": api_key, "secret": secret, "instance_url": instance_url}
     if not api_key or any(f.required and not given[f.name] for f in provider.connect_fields):
@@ -1009,3 +1010,80 @@ def rotate_token_encryption() -> int:
                 row.save(update_fields=["access_token_ct", "refresh_token_ct"])
                 count += 1
     return count
+
+
+# ---- task import (D240)
+
+
+def active_account_or_404(lab, user, provider) -> ConnectedAccount:
+    """The person's own active account at `provider` here. The answer for "none" is the same as
+    for a service that is switched off: 404."""
+    account = (
+        ConnectedAccount.objects.for_lab(lab)
+        .filter(user=user, provider=provider.name, status=AccountStatus.ACTIVE)
+        .first()
+    )
+    if account is None:
+        raise Http404
+    return account
+
+
+def _task_provider(name):
+    provider = registry.PROVIDERS.get(name)
+    if provider is None or provider.fetch_tasks is None or not provider.configured:
+        raise Http404
+    return provider
+
+
+@http.interactive
+def task_sources(lab, *, user, provider_name) -> list[dict]:
+    provider = _task_provider(provider_name)
+    account = active_account_or_404(lab, user, provider)
+    try:
+        return provider.task_sources(account)
+    except (KeyError, TypeError, ValueError):
+        raise IntegrationError(f"{provider.label} returned an unreadable answer") from None
+
+
+@http.interactive
+def import_tasks(*, project, user, provider_name, source, request=None) -> dict:
+    """Copy tasks from an outside list into `project`, unassigned and to do. A task whose title
+    is already in the project is skipped, so importing twice adds nothing. ponytail: titles, not
+    the outside ids, so a task renamed there comes in again; store ids if that is a nuisance."""
+    from projects.models import Task
+    from projects.services import create_task
+
+    provider = _task_provider(provider_name)
+    account = active_account_or_404(project.lab, user, provider)
+    try:
+        found = provider.fetch_tasks(account, source)
+    except (KeyError, TypeError, ValueError, AttributeError):
+        raise IntegrationError(f"{provider.label} returned an unreadable answer") from None
+    tasks = Task.objects.for_lab(project.lab).filter(project=project)
+    seen = {title.casefold() for title in tasks.values_list("title", flat=True)}
+    created = skipped = 0
+    with transaction.atomic():
+        for item in found:
+            if item["title"].casefold() in seen:
+                skipped += 1
+                continue
+            seen.add(item["title"].casefold())
+            create_task(
+                project=project,
+                by=user,
+                data={
+                    "title": item["title"],
+                    "description": item["notes"],
+                    "due_date": item["due_date"],
+                },
+            )
+            created += 1
+        audit.record(
+            AuditAction.TASKS_IMPORTED,
+            actor=user,
+            lab=project.lab,
+            target=project,
+            request=request,
+            metadata={"provider": provider.name, "created": created, "skipped": skipped},
+        )
+    return {"created": created, "skipped": skipped}

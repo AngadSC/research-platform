@@ -140,6 +140,12 @@ class AuditAction(models.TextChoices):
     DMP_UPDATED = "dmp.updated"
     DMP_APPROVED = "dmp.approved"
     DMP_DELETED = "dmp.deleted"
+    # Automation and imports (D240-D242)
+    WEBHOOK_CREATED = "webhook.created"
+    WEBHOOK_UPDATED = "webhook.updated"
+    WEBHOOK_DELETED = "webhook.deleted"
+    TASKS_IMPORTED = "tasks.imported"
+    PAPERS_IMPORTED = "papers.imported"
     # Paper library
     PAPER_DELETED = "paper.deleted"
     PAPER_NOTE_DELETED = "paper_note.deleted"

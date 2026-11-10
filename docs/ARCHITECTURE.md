@@ -483,6 +483,21 @@ Security properties: state is unguessable, single-use, short-lived and bound to 
 | POST | `L/external-links/<externallink_id>/check/` (freshness check now, with the linker's account; 502 on a transient provider failure) | view_project |
 | POST | `L/external-links/<externallink_id>/accept-change/` (copy `remote_*` to `linked_*`, audits `external_link.change_accepted`) | edit_content |
 
+### Automation and imports (D240-D242)
+
+- **Task import:** `Provider.task_sources` and `fetch_tasks` (Todoist, Trello, monday.com). `Provider.opt_in` hides a service unless it is in `INTEGRATION_OPTIONAL_PROVIDERS`.
+- **Zotero to papers:** `papers.services.import_from_zotero`, with `zotero.paper_fields`.
+- **Webhooks** (`integrations/webhooks.py`): model `Webhook` holds `url_ct` and `secret_ct` (Fernet, `editable=False`), `host` for display, `kind` (`webhook | slack`), `events`, `is_active`, `last_status` and `last_attempt_at`. An audit event in `webhooks.EVENTS` queues `webhooks.deliver` after commit. The message has no titles or names.
+
+| Method | Path | Perm |
+|---|---|---|
+| GET | `L/integrations/<provider>/task-sources/` (own account or 404) | manage_integrations |
+| POST | `P/integrations/<provider>/import-tasks/` (`{source}`; own account or 404; audits `tasks.imported`) | edit_content |
+| GET / POST | `L/papers/zotero/` (own account or 404; POST `{ids}`; audits `papers.imported`) | contribute_lab |
+| GET / POST | `L/webhooks/` (POST returns the secret once; audits `webhook.created`) | manage_lab_integrations |
+| PATCH / DELETE | `L/webhooks/<webhook_id>/` (audits `webhook.updated`, `webhook.deleted`) | manage_lab_integrations |
+| POST | `L/webhooks/<webhook_id>/test/` (one test message now) | manage_lab_integrations |
+
 ### Google Drive specifics (`providers/google_drive.py`)
 - Scope **`https://www.googleapis.com/auth/drive.file` only** (D64): per-file access to files the user picks in the Google Picker. Identity comes from `GET drive/v3/about?fields=user(permissionId,emailAddress)`, which works with `drive.file`, so no `openid`/`email` scope is requested. External account id = `permissionId`. `link_methods = ("picker",)`: `drive.file` cannot search or open a pasted URL.
 - **Picker:** the SPA loads Google's script only on click, then opens the Picker with the public API key and app id (`public_config` on the providers endpoint, D77) and the access token from `picker-token`. Picked file ids come back to `P/external-links/`. The server then reads metadata with the linker's token: `files.get?fields=id,name,mimeType,modifiedTime,version,md5Checksum,webViewLink,trashed`.

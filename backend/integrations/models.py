@@ -193,3 +193,44 @@ class ExternalLink(LabScopedModel):
             and self.linked_modified_at
             and self.remote_modified_at > self.linked_modified_at
         )
+
+
+class WebhookKind(models.TextChoices):
+    WEBHOOK = "webhook"  # signed JSON, for Zapier, Make or your own server
+    SLACK = "slack"  # a Slack incoming webhook: plain text, Slack ignores signatures
+
+
+class Webhook(LabScopedModel):
+    """Where to send a notice when a chosen lab event happens (D241). The address is often a
+    credential by itself, so it is encrypted like the signing secret; `host` is what people see."""
+
+    name = models.CharField(max_length=120)
+    kind = models.CharField(max_length=16, choices=WebhookKind.choices)
+    url_ct = models.TextField(editable=False)
+    secret_ct = models.TextField(editable=False)
+    host = models.CharField(max_length=253)
+    events = models.JSONField(default=list)  # keys of integrations.webhooks.EVENTS
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
+    last_status = models.PositiveSmallIntegerField(null=True, blank=True)  # null: no answer
+
+    permission_domain = "lab"
+    project_path = None
+
+    @classmethod
+    def visible_rows(cls, qs, user, lab):
+        from core.permissions import Perm, can
+
+        return qs if can(user, Perm.MANAGE_LAB_INTEGRATIONS, lab) else qs.none()
+
+    def __str__(self):
+        return self.name
+
+    def url(self) -> str:
+        return crypto.decrypt(self.url_ct)
+
+    def secret(self) -> str:
+        return crypto.decrypt(self.secret_ct)

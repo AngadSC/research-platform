@@ -32,6 +32,7 @@ class Category(StrEnum):
     PROTOCOLS = "protocols"  # protocols.io
     REFERENCES = "references"  # Zotero
     REPOSITORY = "repository"  # Zenodo, Figshare, OSF
+    TASKS = "tasks"  # Todoist, Trello, monday.com: importing tasks only (D240)
 
 
 # What a link can hang off. "project" is the project itself (the Files tab).
@@ -122,12 +123,23 @@ class Provider:
     # (D76, D86). Kinds: dataset, analysis, result, manuscript, decision.
     apply_to_target: Callable[[str, dict], dict] | None = None
 
+    # Task import (D240). `(account) -> [{"id", "name"}]`: the lists a person can import from.
+    # `(account, source_id) -> [{"title", "notes", "due_date"}]`: the tasks in one of them.
+    task_sources: Callable | None = None
+    fetch_tasks: Callable | None = None
+    # Off and invisible unless named in INTEGRATION_OPTIONAL_PROVIDERS (D240).
+    opt_in: bool = False
+    # The URL path is itself a credential (webhooks): logs get the host only (D241).
+    secret_url: bool = False
+
     @property
     def needs_account(self) -> bool:
         return self.auth_type in (AuthType.OAUTH2, AuthType.API_KEY)
 
     @property
     def configured(self) -> bool:
+        if self.opt_in and self.name not in settings.INTEGRATION_OPTIONAL_PROVIDERS:
+            return False
         return self.auth_type != AuthType.OAUTH2 or all(self.client())
 
     @property

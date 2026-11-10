@@ -422,6 +422,8 @@ for _var, _value in os.environ.items():
 # D82: when set, self-hosted instance URLs (REDCap, GitLab, ...) must be on one of these hosts
 # (comma-separated; `*.uni.edu` allows any subdomain). Empty: any public https host.
 INTEGRATION_ALLOWED_INSTANCE_HOSTS = env_list("INTEGRATION_ALLOWED_INSTANCE_HOSTS")
+# Task-import services shown in this deployment, for example todoist,trello,monday (D240).
+INTEGRATION_OPTIONAL_PROVIDERS = env_list("INTEGRATION_OPTIONAL_PROVIDERS")
 # D120: outbound call limits (seconds / bytes). One request, connect to last body byte, may take
 # INTEGRATION_HTTP_DEADLINE; a whole interactive endpoint INTEGRATION_ENDPOINT_BUDGET; in the
 # daily job one request INTEGRATION_JOB_HTTP_DEADLINE, one link INTEGRATION_JOB_LINK_BUDGET and

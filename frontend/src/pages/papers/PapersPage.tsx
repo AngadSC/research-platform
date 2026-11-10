@@ -18,9 +18,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { lookupDoi, usePaperMutations, usePapers } from "@/hooks/papers";
+import { useProviders } from "@/hooks/integrations";
 import { useLab } from "@/hooks/workspace";
 import type { Paper, PaperDetail, PaperInput } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
+import { ZoteroImportDialog } from "@/pages/papers/ZoteroImportDialog";
 import { MAX_BYTES, NOTICE } from "@/pages/project/UploadDialog";
 
 const KNOWN = ["title", "authors", "year", "venue", "doi", "url", "abstract"];
@@ -247,8 +249,13 @@ export function PapersPage() {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
   const papers = usePapers(labId, q.trim());
   const canAdd = !!lab?.my_permissions.includes("contribute_lab");
+  // Your own connected Zotero account, if any: Lab settings, Integrations.
+  const zotero = useProviders(labId).data?.some(
+    (p) => p.name === "zotero" && p.account?.status === "active",
+  );
 
   const columns: Column<Paper>[] = [
     {
@@ -289,9 +296,16 @@ export function PapersPage() {
         description="Papers the lab has read and every member's notes on them."
         actions={
           canAdd ? (
-            <Button onClick={() => setAdding(true)}>
-              <Plus aria-hidden /> Add paper
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {zotero && (
+                <Button variant="outline" onClick={() => setImporting(true)}>
+                  Import from Zotero
+                </Button>
+              )}
+              <Button onClick={() => setAdding(true)}>
+                <Plus aria-hidden /> Add paper
+              </Button>
+            </div>
           ) : undefined
         }
       />
@@ -318,6 +332,7 @@ export function PapersPage() {
           />
         }
       />
+      {importing && <ZoteroImportDialog labId={labId} onClose={() => setImporting(false)} />}
       {adding && (
         <PaperDialog
           labId={labId}

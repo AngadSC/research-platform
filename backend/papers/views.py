@@ -16,6 +16,7 @@ from core.views import LabScopedViewMixin
 from documents.serializers import AttachmentSerializer, AttachmentUploadSerializer
 from documents.views import download_response
 from integrations.http import IntegrationError
+from integrations.serializers import ImportResultSerializer
 from papers import citation, crossref, services
 from papers.models import Paper, PaperNote
 from papers.serializers import (
@@ -26,9 +27,12 @@ from papers.serializers import (
     PaperInputSerializer,
     PaperNoteSerializer,
     PaperSerializer,
+    ZoteroImportSerializer,
+    ZoteroItemSerializer,
 )
 
 LIST_LIMIT = 200
+ZOTERO_DOWN = "Zotero could not be reached. Try again shortly."
 SEARCH_FIELDS = ("title", "authors", "venue", "doi", "abstract")
 
 
@@ -156,6 +160,41 @@ class DoiLookupView(LabScopedViewMixin, generics.GenericAPIView):
         except IntegrationError:
             raise ProviderUnavailable from None
         return Response({"found": True, **meta} if meta else {"found": False})
+
+
+class ZoteroImportView(LabScopedViewMixin, generics.GenericAPIView):
+    """D242: GET lists items from your own Zotero account, POST copies the chosen ones in. Your
+    key stays yours: nothing here uses or shows anyone else's. No account: 404."""
+
+    serializer_class = ZoteroItemSerializer
+    pagination_class = None
+    perms = {"GET": Perm.CONTRIBUTE_LAB, "POST": Perm.CONTRIBUTE_LAB}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "integration_search"
+
+    @extend_schema(
+        parameters=[OpenApiParameter("q", str, description="Words to look for.")],
+        responses=ZoteroItemSerializer(many=True),
+    )
+    def get(self, request, lab_id):
+        q = request.query_params.get("q", "").strip()[:MAX_Q]
+        try:
+            items = services.zotero_items(request.lab, user=request.user, query=q)
+        except IntegrationError:
+            raise ProviderUnavailable(ZOTERO_DOWN) from None
+        return Response(self.get_serializer(items, many=True).data)
+
+    @extend_schema(request=ZoteroImportSerializer, responses=ImportResultSerializer)
+    def post(self, request, lab_id):
+        body = ZoteroImportSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        try:
+            result = services.import_from_zotero(
+                request.lab, user=request.user, ids=body.validated_data["ids"], request=request
+            )
+        except IntegrationError:
+            raise ProviderUnavailable(ZOTERO_DOWN) from None
+        return Response(result)
 
 
 class PaperNoteCreateView(PaperMixin, generics.GenericAPIView):

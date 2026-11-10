@@ -39,6 +39,9 @@ ENABLED = [
     "osf",
     "borealis",
     "frdr",
+    "todoist",
+    "trello",
+    "monday",
 ]
 
 PROVIDERS: dict[str, Provider] = {}

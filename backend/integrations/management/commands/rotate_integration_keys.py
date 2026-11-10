@@ -5,6 +5,7 @@ from django.core.management.base import BaseCommand
 
 from assistant.ai.keys import rotate_all
 from integrations.services import rotate_token_encryption
+from integrations.webhooks import rotate_keys
 
 
 class Command(BaseCommand):
@@ -13,3 +14,4 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write(f"Re-encrypted tokens of {rotate_token_encryption()} account(s).")
         self.stdout.write(f"Re-encrypted {rotate_all()} AI provider key(s).")
+        self.stdout.write(f"Re-encrypted {rotate_keys()} webhook(s).")

@@ -1069,6 +1069,11 @@ paths:
           - dmp.updated
           - dmp.approved
           - dmp.deleted
+          - webhook.created
+          - webhook.updated
+          - webhook.deleted
+          - tasks.imported
+          - papers.imported
           - paper.deleted
           - paper_note.deleted
           type: string
@@ -1196,6 +1201,11 @@ paths:
           * `dmp.updated` - Dmp Updated
           * `dmp.approved` - Dmp Approved
           * `dmp.deleted` - Dmp Deleted
+          * `webhook.created` - Webhook Created
+          * `webhook.updated` - Webhook Updated
+          * `webhook.deleted` - Webhook Deleted
+          * `tasks.imported` - Tasks Imported
+          * `papers.imported` - Papers Imported
           * `paper.deleted` - Paper Deleted
           * `paper_note.deleted` - Paper Note Deleted
       - in: query
@@ -3038,6 +3048,35 @@ paths:
               schema:
                 $ref: '#/components/schemas/ConnectOutput'
           description: ''
+  /api/labs/{lab_id}/integrations/{provider}/task-sources/:
+    get:
+      operationId: labs_integrations_task_sources_list
+      description: The lists you can import tasks from, read with your own account.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: provider
+        schema:
+          type: string
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskSource'
+          description: ''
   /api/labs/{lab_id}/integrations/accounts/:
     get:
       operationId: labs_integrations_accounts_list
@@ -4538,6 +4577,72 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaperDoiLookup'
           description: ''
+  /api/labs/{lab_id}/papers/zotero/:
+    get:
+      operationId: labs_papers_zotero_list
+      description: |-
+        D242: GET lists items from your own Zotero account, POST copies the chosen ones in. Your
+        key stays yours: nothing here uses or shows anyone else's. No account: 404.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Words to look for.
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ZoteroItem'
+          description: ''
+    post:
+      operationId: labs_papers_zotero_create
+      description: |-
+        D242: GET lists items from your own Zotero account, POST copies the chosen ones in. Your
+        key stays yours: nothing here uses or shows anyone else's. No account: 404.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZoteroImport'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ZoteroImport'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ZoteroImport'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+          description: ''
   /api/labs/{lab_id}/project-members/{projectmembership_id}/:
     patch:
       operationId: labs_project_members_partial_update
@@ -5772,6 +5877,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Handover'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/integrations/{provider}/import-tasks/:
+    post:
+      operationId: labs_projects_integrations_import_tasks_create
+      description: Copy tasks from an outside list into this project (edit_content,
+        your own account).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: provider
+        schema:
+          type: string
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportTasksInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ImportTasksInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ImportTasksInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
           description: ''
   /api/labs/{lab_id}/projects/{project_id}/integrations/{provider}/search/:
     get:
@@ -8123,6 +8274,159 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/webhooks/:
+    get:
+      operationId: labs_webhooks_retrieve
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookList'
+          description: ''
+    post:
+      operationId: labs_webhooks_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WebhookCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WebhookCreate'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookCreated'
+          description: ''
+  /api/labs/{lab_id}/webhooks/{webhook_id}/:
+    patch:
+      operationId: labs_webhooks_partial_update
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: webhook_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedWebhookUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedWebhookUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedWebhookUpdate'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+          description: ''
+    delete:
+      operationId: labs_webhooks_destroy
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: webhook_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/webhooks/{webhook_id}/test/:
+    post:
+      operationId: labs_webhooks_test_create
+      description: Send one test message now, so an admin can see the address works.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: webhook_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookTestResult'
+          description: ''
   /api/me/:
     get:
       operationId: me_retrieve
@@ -8462,6 +8766,11 @@ components:
       - dmp.updated
       - dmp.approved
       - dmp.deleted
+      - webhook.created
+      - webhook.updated
+      - webhook.deleted
+      - tasks.imported
+      - papers.imported
       - paper.deleted
       - paper_note.deleted
       type: string
@@ -8588,6 +8897,11 @@ components:
         * `dmp.updated` - Dmp Updated
         * `dmp.approved` - Dmp Approved
         * `dmp.deleted` - Dmp Deleted
+        * `webhook.created` - Webhook Created
+        * `webhook.updated` - Webhook Updated
+        * `webhook.deleted` - Webhook Deleted
+        * `tasks.imported` - Tasks Imported
+        * `papers.imported` - Papers Imported
         * `paper.deleted` - Paper Deleted
         * `paper_note.deleted` - Paper Note Deleted
     AiAccessEnum:
@@ -10772,6 +11086,34 @@ components:
       - board
       - expiry_date
       - title
+    EventsEnum:
+      enum:
+      - project.created
+      - membership.invite_accepted
+      - dataset.created
+      - analysis.created
+      - result.created
+      - decision.created
+      - manuscript.created
+      - ethics_approval.created
+      - ethics_approval.updated
+      - inventory_order.created
+      - meeting.created
+      - lab_event.created
+      type: string
+      description: |-
+        * `project.created` - project.created
+        * `membership.invite_accepted` - membership.invite_accepted
+        * `dataset.created` - dataset.created
+        * `analysis.created` - analysis.created
+        * `result.created` - result.created
+        * `decision.created` - decision.created
+        * `manuscript.created` - manuscript.created
+        * `ethics_approval.created` - ethics_approval.created
+        * `ethics_approval.updated` - ethics_approval.updated
+        * `inventory_order.created` - inventory_order.created
+        * `meeting.created` - meeting.created
+        * `lab_event.created` - lab_event.created
     Expiring:
       type: object
       properties:
@@ -11521,6 +11863,24 @@ components:
         * `red` - red
         * `amber` - amber
         * `green` - green
+    ImportResult:
+      type: object
+      properties:
+        created:
+          type: integer
+        skipped:
+          type: integer
+      required:
+      - created
+      - skipped
+    ImportTasksInput:
+      type: object
+      properties:
+        source:
+          type: string
+          maxLength: 64
+      required:
+      - source
     Institution:
       type: object
       properties:
@@ -12019,6 +12379,14 @@ components:
       - refusal_fallback
       - saved
       - updated_at
+    Kind1d9Enum:
+      enum:
+      - webhook
+      - slack
+      type: string
+      description: |-
+        * `webhook` - Webhook
+        * `slack` - Slack
     Kind4ddEnum:
       enum:
       - new_member
@@ -13851,6 +14219,19 @@ components:
         notes:
           type: string
           maxLength: 2000
+    PatchedWebhookUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventsEnum'
+          maxItems: 12
+        is_active:
+          type: boolean
     PatchedWorkflowMark:
       type: object
       properties:
@@ -14246,6 +14627,8 @@ components:
             type: string
         can_check:
           type: boolean
+        task_import:
+          type: boolean
         account:
           allOf:
           - $ref: '#/components/schemas/ProviderAccount'
@@ -14268,6 +14651,7 @@ components:
       - needs_instance_url
       - public_config
       - scopes
+      - task_import
       - url_pattern
     ProviderAccount:
       type: object
@@ -14295,6 +14679,7 @@ components:
       - protocols
       - references
       - repository
+      - tasks
       type: string
       description: |-
         * `storage` - storage
@@ -14304,6 +14689,7 @@ components:
         * `protocols` - protocols
         * `references` - references
         * `repository` - repository
+        * `tasks` - tasks
     ProviderConfig:
       type: object
       properties:
@@ -15135,6 +15521,16 @@ components:
           maxLength: 5000
       required:
       - body
+    TaskSource:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+      required:
+      - id
+      - name
     TaskStatusEnum:
       enum:
       - todo
@@ -15519,6 +15915,166 @@ components:
       required:
       - email
       - id
+    Webhook:
+      type: object
+      description: 'Never the address or the secret: `host` says where it goes.'
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/Kind1d9Enum'
+          readOnly: true
+        host:
+          type: string
+          readOnly: true
+        events:
+          type: array
+          items:
+            type: string
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+        last_attempt_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        last_status:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - events
+      - host
+      - id
+      - is_active
+      - kind
+      - last_attempt_at
+      - last_status
+      - name
+    WebhookCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventsEnum'
+          maxItems: 12
+        is_active:
+          type: boolean
+        kind:
+          $ref: '#/components/schemas/Kind1d9Enum'
+        url:
+          type: string
+          writeOnly: true
+          maxLength: 2000
+      required:
+      - events
+      - kind
+      - name
+      - url
+    WebhookCreated:
+      type: object
+      description: 'The only response with the signing secret: it is shown once.'
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/Kind1d9Enum'
+          readOnly: true
+        host:
+          type: string
+          readOnly: true
+        events:
+          type: array
+          items:
+            type: string
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+        last_attempt_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        last_status:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        secret:
+          type: string
+      required:
+      - created_at
+      - events
+      - host
+      - id
+      - is_active
+      - kind
+      - last_attempt_at
+      - last_status
+      - name
+      - secret
+    WebhookEvent:
+      type: object
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+      required:
+      - label
+      - value
+    WebhookList:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/WebhookEvent'
+        webhooks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Webhook'
+      required:
+      - events
+      - webhooks
+    WebhookTestResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        status:
+          type: integer
+          nullable: true
+      required:
+      - ok
+      - status
     WorkflowProgress:
       type: object
       properties:
@@ -15545,6 +16101,30 @@ components:
       - done
       - key
       - marked
+    ZoteroImport:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+            maxLength: 40
+          maxItems: 20
+      required:
+      - ids
+    ZoteroItem:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        subtitle:
+          type: string
+      required:
+      - id
+      - subtitle
+      - title
   securitySchemes:
     sessionAuth:
       type: apiKey

@@ -5,9 +5,15 @@ import type {
   ConnectOutput,
   ExternalLink,
   ExternalLinkInput,
+  ImportResult,
   IntegrationProvider,
   ItemSearchResult,
   PickerToken,
+  TaskSource,
+  Webhook,
+  WebhookCreated,
+  WebhookList,
+  WebhookTestResult,
 } from "@/lib/api-types";
 
 const base = (labId: string) => `/api/labs/${labId}`;
@@ -133,4 +139,59 @@ export function useItemSearch(
     gcTime: 0, // results are never kept (D85)
     retry: false,
   });
+}
+
+export function useTaskSources(labId: string, provider: string) {
+  return useQuery({
+    queryKey: [...root(labId), "task-sources", provider],
+    queryFn: () => api<TaskSource[]>(`${base(labId)}/integrations/${provider}/task-sources/`),
+    enabled: !!labId && !!provider,
+    retry: false,
+  });
+}
+
+export function useImportTasks(labId: string, projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { provider: string; source: string }) =>
+      api<ImportResult>(
+        `${base(labId)}/projects/${projectId}/integrations/${v.provider}/import-tasks/`,
+        { method: "POST", body: { source: v.source } },
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["labs", labId, "projects", projectId] }),
+  });
+}
+
+export function useWebhooks(labId: string) {
+  return useQuery({
+    queryKey: [...root(labId), "webhooks"],
+    queryFn: () => api<WebhookList>(`${base(labId)}/webhooks/`),
+    enabled: !!labId,
+  });
+}
+
+export function useWebhookMutations(labId: string) {
+  const qc = useQueryClient();
+  const done = () => qc.invalidateQueries({ queryKey: [...root(labId), "webhooks"] });
+  return {
+    create: useMutation({
+      mutationFn: (v: { name: string; kind: string; url: string; events: string[] }) =>
+        api<WebhookCreated>(`${base(labId)}/webhooks/`, { method: "POST", body: v }),
+      onSuccess: done,
+    }),
+    update: useMutation({
+      mutationFn: ({ id, ...v }: { id: string; is_active?: boolean }) =>
+        api<Webhook>(`${base(labId)}/webhooks/${id}/`, { method: "PATCH", body: v }),
+      onSuccess: done,
+    }),
+    test: useMutation({
+      mutationFn: (id: string) =>
+        api<WebhookTestResult>(`${base(labId)}/webhooks/${id}/test/`, { method: "POST" }),
+      onSettled: done,
+    }),
+    remove: useMutation({
+      mutationFn: (id: string) => api<void>(`${base(labId)}/webhooks/${id}/`, { method: "DELETE" }),
+      onSuccess: done,
+    }),
+  };
 }

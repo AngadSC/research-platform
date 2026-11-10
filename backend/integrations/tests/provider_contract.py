@@ -74,7 +74,16 @@ CONTENT_PATHS = [
     r"/(?:steps|materials|comments)(?:$|[/?{])",
     r"/api/access/|/api/files?/|datafile",  # Dataverse file endpoints (D183)
 ]
-_HOOKS = ("fetch_item", "search_items", "identify", "parse_identity", "sign", "apply_to_target")
+_HOOKS = (
+    "fetch_item",
+    "search_items",
+    "identify",
+    "parse_identity",
+    "sign",
+    "apply_to_target",
+    "task_sources",
+    "fetch_tasks",
+)
 
 
 def _strings(module) -> list[str]:
@@ -144,8 +153,8 @@ def provider_problems(p) -> list[str]:  # noqa: C901 - a checklist, one line per
     need(not p.needs_instance_url or p.auth_type == AuthType.API_KEY, "instance URL: api_key")
     need(("instance_url" in names) == p.needs_instance_url, "instance_url field iff needed")
     need(
-        not (p.needs_account or p.auth_type == AuthType.PUBLIC) or p.fetch_item,
-        "fetch_item is required unless link_only",
+        not (p.needs_account or p.auth_type == AuthType.PUBLIC) or p.fetch_item or p.fetch_tasks,
+        "fetch_item is required unless link_only or task import",
     )
     if p.instance_host_pattern:
         try:

@@ -1,9 +1,16 @@
 from rest_framework import serializers
 
-from core.serializers import UserSerializer
+from core.serializers import UserSerializer, no_control_chars
 from integrations import registry, services
-from integrations.models import TARGET_FIELDS, ConnectedAccount, ExternalLink
+from integrations.models import (
+    TARGET_FIELDS,
+    ConnectedAccount,
+    ExternalLink,
+    Webhook,
+    WebhookKind,
+)
 from integrations.providers import google_drive
+from integrations.webhooks import EVENTS
 
 
 class ConnectedAccountSerializer(serializers.ModelSerializer):
@@ -67,6 +74,7 @@ class ProviderSerializer(serializers.Serializer):
     url_pattern = serializers.CharField()
     link_hosts = serializers.ListField(child=serializers.CharField())
     can_check = serializers.BooleanField()  # offers freshness checks (fetch_item)
+    task_import = serializers.BooleanField()  # offers importing tasks (D240)
     account = ProviderAccountSerializer(allow_null=True)
 
 
@@ -213,3 +221,85 @@ class ItemSearchResultSerializer(serializers.Serializer):
     subtitle = serializers.CharField()
     modified = serializers.DateTimeField(allow_null=True)
     url = serializers.CharField()
+
+
+class TaskSourceSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    name = serializers.CharField()
+
+
+class ImportTasksInputSerializer(serializers.Serializer):
+    source = serializers.CharField(max_length=64)
+
+
+class ImportResultSerializer(serializers.Serializer):
+    created = serializers.IntegerField()
+    skipped = serializers.IntegerField()
+
+
+class WebhookSerializer(serializers.ModelSerializer):
+    """Never the address or the secret: `host` says where it goes."""
+
+    events = serializers.ListField(child=serializers.CharField(), read_only=True)
+
+    class Meta:
+        model = Webhook
+        fields = [
+            "id",
+            "name",
+            "kind",
+            "host",
+            "events",
+            "is_active",
+            "last_attempt_at",
+            "last_status",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class WebhookCreatedSerializer(WebhookSerializer):
+    """The only response with the signing secret: it is shown once."""
+
+    secret = serializers.CharField()
+
+    class Meta(WebhookSerializer.Meta):
+        fields = [*WebhookSerializer.Meta.fields, "secret"]
+        read_only_fields = fields
+
+
+class WebhookEventSerializer(serializers.Serializer):
+    value = serializers.CharField()
+    label = serializers.CharField()
+
+
+class WebhookListSerializer(serializers.Serializer):
+    events = WebhookEventSerializer(many=True)
+    webhooks = WebhookSerializer(many=True)
+
+
+class WebhookUpdateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=120, required=False, validators=[no_control_chars])
+    events = serializers.ListField(
+        child=serializers.ChoiceField(choices=list(EVENTS)),
+        allow_empty=False,
+        max_length=len(EVENTS),
+        required=False,
+    )
+    is_active = serializers.BooleanField(required=False)
+
+
+class WebhookCreateSerializer(WebhookUpdateSerializer):
+    name = serializers.CharField(max_length=120, validators=[no_control_chars])
+    kind = serializers.ChoiceField(choices=WebhookKind.choices)
+    url = serializers.CharField(max_length=2000, write_only=True)
+    events = serializers.ListField(
+        child=serializers.ChoiceField(choices=list(EVENTS)),
+        allow_empty=False,
+        max_length=len(EVENTS),
+    )
+
+
+class WebhookTestResultSerializer(serializers.Serializer):
+    ok = serializers.BooleanField()
+    status = serializers.IntegerField(allow_null=True)

@@ -7,6 +7,7 @@ L = "labs/<uuid:lab_id>/"
 urlpatterns = [
     path(L + "papers/", views.PaperListCreateView.as_view(), name="paper-list"),
     path(L + "papers/doi-lookup/", views.DoiLookupView.as_view(), name="doi-lookup"),
+    path(L + "papers/zotero/", views.ZoteroImportView.as_view(), name="zotero-import"),
     path(L + "papers/<uuid:paper_id>/", views.PaperDetailView.as_view(), name="paper-detail"),
     path(L + "papers/<uuid:paper_id>/pdf/", views.PaperPdfView.as_view(), name="paper-pdf"),
     path(

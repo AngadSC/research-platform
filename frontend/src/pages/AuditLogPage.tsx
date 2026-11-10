@@ -144,6 +144,11 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "dmp.deleted": "Deleted a data management plan",
   "paper.deleted": "Deleted a paper",
   "paper_note.deleted": "Deleted a paper note",
+  "webhook.created": "Added a webhook",
+  "webhook.updated": "Changed a webhook",
+  "webhook.deleted": "Removed a webhook",
+  "tasks.imported": "Imported tasks",
+  "papers.imported": "Imported papers",
 };
 const humanKey = (k: string) => k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 // An action newer than this page still reads as words, never as a code.

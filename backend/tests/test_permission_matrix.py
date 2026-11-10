@@ -23,8 +23,10 @@ from assistant.tests.reauth import sign_in  # AI access (Run 5)
 from core.models import Institution, Notification, NotificationKind, User
 from documents import services as document_services  # documents/attachments (Phase 3)
 from ethics.models import EthicsApproval  # ethics (Phase 5)
-from integrations import registry  # integrations (Run 2)
-from integrations.models import ConnectedAccount, ExternalLink  # integrations (Run 2)
+from integrations import http as integrations_http  # integrations (Run 2)
+from integrations import registry, webhooks
+from integrations.models import ConnectedAccount, ExternalLink, Webhook  # integrations (Run 2)
+from integrations.providers import zotero as zotero_provider  # Zotero import (D242)
 from integrations.tests.fake import FAKE  # integrations (Run 2)
 from labs.models import (  # admin area (Run 4)
     CalendarFeedToken,
@@ -331,6 +333,20 @@ MATRIX: dict[tuple[str, str], str] = {
     # project viewer and the capped lviewer get 403; nonproj cannot see P1: 404.
     ("GET",    "integrations:item-search"): "401 404 2 2 2 2 403 404 403",
     # --- end integrations framework (Run 3) ---
+    # --- automation and imports (D240-D242) ---
+    # Task import and the Zotero import use your own connected account: pi, admin, lead and
+    # contrib hold one in the fixture; anyone else permitted gets 404, as for the picker token.
+    # Webhooks are manage_lab_integrations: pi and admin only.
+    ("GET",    "integrations:task-sources"): "401 404 2 2 2 2 404 404 404",
+    ("POST",   "integrations:import-tasks"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "integrations:webhook-list"): "401 404 2 2 403 403 403 403 403",
+    ("POST",   "integrations:webhook-list"): "401 404 2 2 403 403 403 403 403",
+    ("PATCH",  "integrations:webhook-detail"): "401 404 2 2 403 403 403 403 403",
+    ("DELETE", "integrations:webhook-detail"): "401 404 2 2 403 403 403 403 403",
+    ("POST",   "integrations:webhook-test"): "401 404 2 2 403 403 403 403 403",
+    ("GET",    "papers:zotero-import"): "401 404 2 2 2 2 404 404 403",
+    ("POST",   "papers:zotero-import"): "401 404 2 2 2 2 404 404 403",
+    # --- end automation and imports ---
     # --- admin area (Run 4, D146-D151) ---
     # Lab details, institution resources (writes) and onboarding need manage_lab: pi and admin
     # only. Resources are read by every lab member (view_lab). Inventory is read by every member,
@@ -598,6 +614,19 @@ def _ethics_fixtures(lab, project, user, tag):
 # --- end ethics and notifications (Phase 5) ---
 
 
+def _webhook(lab, user, tag):  # webhooks (D241)
+    return Webhook.objects.create(
+        lab=lab,
+        created_by=user,
+        name=f"Webhook {tag}",
+        kind="webhook",
+        url_ct="x",
+        secret_ct="y",
+        host="hooks.example.org",
+        events=["project.created"],
+    )
+
+
 # --- integrations (Run 2) ---
 def _integration_fixtures(lab, project, owners, tag):
     """An active connected account per owner (name -> user), and one external link made by the
@@ -626,6 +655,15 @@ def _integration_fixtures(lab, project, owners, tag):
         )
         drive.set_tokens(access=f"matrix-{name}", refresh=None, expires_at=None)
         drive.save()
+    for name, user in owners.items():  # a Zotero account for the paper import (D242)
+        ConnectedAccount.objects.create(
+            lab=lab,
+            user=user,
+            provider="zotero",
+            external_account_id=f"zot-{name}-{tag}",
+            external_email=f"zot-{name}-{tag}@fake.test",
+            connected_at=now,
+        )
     first = next(iter(owners))
     link = ExternalLink.objects.create(
         lab=lab,
@@ -764,8 +802,32 @@ def _matrix_fake_provider(monkeypatch, settings):
     monkeypatch.setitem(
         registry.PROVIDERS,
         "fake",
-        dataclasses.replace(FAKE, fetch_item=fetch_item, search_items=search_items),
+        dataclasses.replace(
+            FAKE,
+            fetch_item=fetch_item,
+            search_items=search_items,
+            task_sources=lambda account: [{"id": "s1", "name": "List"}],  # task import (D240)
+            fetch_tasks=lambda account, source: [
+                {"title": "Imported", "notes": "", "due_date": None}
+            ],
+        ),
     )
+    # Zotero import (D242) and webhooks (D241): no network.
+    monkeypatch.setitem(
+        registry.PROVIDERS,
+        "zotero",
+        dataclasses.replace(
+            registry.PROVIDERS["zotero"],
+            search_items=lambda account, query, target: [
+                {"id": "u1:ABCD2345", "title": "Paper", "subtitle": ""}
+            ],
+        ),
+    )
+    monkeypatch.setattr(
+        zotero_provider, "paper_fields", lambda account, external_id: {"title": "Imported paper"}
+    )
+    monkeypatch.setattr(integrations_http, "_resolve", lambda host: ["93.184.216.34"])
+    monkeypatch.setattr(webhooks, "_post", lambda hook, message: 200)
     settings.INTEGRATION_CLIENTS = {
         **settings.INTEGRATION_CLIENTS,
         "fake": {"client_id": "fake-client", "client_secret": "fake-secret"},
@@ -981,6 +1043,7 @@ def build_world():
             "provider": "fake",  # integrations (Run 2)
             "connectedaccount_id": int_accounts_a["contrib"].pk,
             "externallink_id": link_a.pk,
+            "webhook_id": _webhook(lab_a, users["pi"], "lab-a").pk,  # webhooks (D241)
             "institutionresource_id": res_a.pk,  # admin area (Run 4)
             "onboardingitem_id": onb_a.pk,
             "inventoryitem_id": inv_a.pk,
@@ -1017,6 +1080,7 @@ def build_world():
             "provider": "fake",  # integrations (Run 2)
             "connectedaccount_id": int_accounts_b["outsider"].pk,
             "externallink_id": link_b.pk,
+            "webhook_id": _webhook(lab_b, users["outsider"], "lab-b").pk,  # webhooks (D241)
             "institutionresource_id": res_b.pk,  # admin area (Run 4)
             "onboardingitem_id": onb_b.pk,
             "inventoryitem_id": inv_b.pk,
@@ -1283,6 +1347,16 @@ PAYLOADS = {
     # --- integrations (Run 2): pi, admin, lead and contrib each hold an active fake account ---
     ("POST", "integrations:connect"): lambda user, w: {},
     ("POST", "integrations:external-link-check"): lambda user, w: {},
+    ("POST", "integrations:import-tasks"): lambda user, w: {"source": "s1"},  # D240
+    ("POST", "integrations:webhook-list"): lambda user, w: {  # D241
+        "name": "Zap",
+        "kind": "webhook",
+        "url": "https://hooks.example.org/x",
+        "events": ["project.created"],
+    },
+    ("PATCH", "integrations:webhook-detail"): lambda user, w: {"name": "Renamed"},
+    ("POST", "integrations:webhook-test"): lambda user, w: {},
+    ("POST", "papers:zotero-import"): lambda user, w: {"ids": ["u1:ABCD2345"]},  # D242
     ("POST", "integrations:external-link-accept-change"): lambda user, w: {},
     ("POST", "integrations:external-link-list"): lambda user, w: {
         "provider": "fake",

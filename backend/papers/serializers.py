@@ -113,3 +113,15 @@ class PaperDoiLookupSerializer(serializers.Serializer):
     doi = serializers.CharField(required=False)
     url = serializers.CharField(required=False)
     abstract = serializers.CharField(required=False)
+
+
+class ZoteroItemSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    title = serializers.CharField()
+    subtitle = serializers.CharField()
+
+
+class ZoteroImportSerializer(serializers.Serializer):
+    ids = serializers.ListField(
+        child=serializers.CharField(max_length=40), allow_empty=False, max_length=20
+    )

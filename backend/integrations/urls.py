@@ -30,6 +30,27 @@ urlpatterns = [
         name="item-search",
     ),
     path(
+        L + "integrations/<slug:provider>/task-sources/",
+        views.TaskSourcesView.as_view(),
+        name="task-sources",
+    ),
+    path(
+        L + "projects/<uuid:project_id>/integrations/<slug:provider>/import-tasks/",
+        views.ImportTasksView.as_view(),
+        name="import-tasks",
+    ),
+    path(L + "webhooks/", views.WebhookListView.as_view(), name="webhook-list"),
+    path(
+        L + "webhooks/<uuid:webhook_id>/",
+        views.WebhookDetailView.as_view(),
+        name="webhook-detail",
+    ),
+    path(
+        L + "webhooks/<uuid:webhook_id>/test/",
+        views.WebhookTestView.as_view(),
+        name="webhook-test",
+    ),
+    path(
         L + "external-links/<uuid:externallink_id>/check/",
         views.ExternalLinkCheckView.as_view(),
         name="external-link-check",

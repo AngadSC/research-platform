@@ -395,13 +395,13 @@ def _send_with_retries(method, url, provider, kwargs):
         try:
             resp = _follow(method, url, provider, kwargs, deadline)
         except requests.RequestException as exc:
-            path = urlsplit(url).path
+            path = "" if provider.secret_url else urlsplit(url).path
             log.warning("integration %s %s%s failed: %s", method, host, path, type(exc).__name__)
             if not retry or last:
                 # `from None`: the requests exception holds the prepared request and its headers
                 raise IntegrationError(f"{provider.label} did not respond") from None
         else:
-            path = urlsplit(url).path
+            path = "" if provider.secret_url else urlsplit(url).path
             log.info("integration %s %s%s -> %s", method, host, path, resp.status_code)
             if resp.status_code not in RETRY_STATUSES or not retry or last:
                 return resp

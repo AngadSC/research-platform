@@ -2,12 +2,14 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { api, upload } from "@/lib/api";
 import type {
   Attachment,
+  ImportResult,
   Paper,
   PaperCitations,
   PaperDetail,
   PaperDoiLookup,
   PaperInput,
   PaperNote,
+  ZoteroItem,
 } from "@/lib/api-types";
 
 const base = (labId: string) => `/api/labs/${labId}/papers`;
@@ -89,4 +91,20 @@ export function usePaperMutations(labId: string) {
       onSuccess: done,
     }),
   };
+}
+
+export const useZoteroItems = (labId: string, q: string) =>
+  useQuery({
+    queryKey: [...root(labId), "zotero", q],
+    queryFn: () => api<ZoteroItem[]>(`${base(labId)}/zotero/?q=${encodeURIComponent(q)}`),
+    retry: false,
+  });
+
+export function useZoteroImport(labId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) =>
+      api<ImportResult>(`${base(labId)}/zotero/`, { method: "POST", body: { ids } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: root(labId) }),
+  });
 }
