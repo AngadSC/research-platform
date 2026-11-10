@@ -1,6 +1,6 @@
 # Handoff
 
-**Test server (2026-11-07):** `https://research.angadchahil.com`. Setup, limits and how to redeploy are at the top of `docs/DEPLOY.md`.
+**Test server (2026-11-07):** `https://labbenchos.com`. Setup, limits and how to redeploy are at the top of `docs/DEPLOY.md`.
 
 ## Run 5: SSO, bring-your-own AI, PI dashboard, training, data management (2026-11-05)
 

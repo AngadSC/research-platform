@@ -142,7 +142,6 @@ const checkReply = (client = {}) => ({
     loopback: false,
     ...client,
   },
-  requested_access: "write",
   labs: [
     { id: "lab1", name: "Ada Lab", role: "pi" },
     { id: "lab2", name: "Bio Lab", role: "member" },
@@ -199,6 +198,7 @@ describe("OAuth consent page", () => {
     await waitFor(() =>
       expect(go).toHaveBeenCalledWith("https://claude.ai/api/mcp/auth_callback?code=c&state=xyz"),
     );
+    expect(allow).toBeDisabled(); // a second approval would replace the grant the app just got
   });
 
   it("warns before more than one lab or write access is granted", async () => {

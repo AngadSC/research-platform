@@ -8,16 +8,16 @@ The development stack (`docker-compose.yml`) is separate and is not for producti
 
 ## The test server (2026-11-07)
 
-`https://research.angadchahil.com` runs this stack for testing, with fake data only.
+`https://labbenchos.com` runs this stack for testing, with fake data only. It moved from `research.angadchahil.com` on 2026-11-09.
 
 - **Host:** CanHost VPS (Canada), Ubuntu 24.04, 2 vCPU, 4 GB RAM plus 4 GB swap, 40 GB disk, IP `66.209.180.131`.
   - SSH login is user `angad` with a key only: password and root login are off.
   - The firewall allows 22, 80 and 443.
-- **DNS:** an A record in Cloudflare, set to DNS only (grey cloud), so long assistant streams are not cut off at 100 s.
+- **DNS:** an A record for `labbenchos.com` at Network Solutions. `www` is not set up. If DNS ever moves behind a proxy such as Cloudflare, keep it DNS only, so long assistant streams are not cut off at 100 s.
 - **Code:** in `~/app`, copied from the committed `HEAD`. There's no git checkout and no GitHub credentials on the server.
 - **Secrets:** generated on the server, in `~/app/deploy/.env.prod` (mode 600). `~/app/deploy/.env` holds only `SITE_DOMAIN`.
 - **Set up (2026-11-07):**
-  - **Email:** Postmark, sending as `noreply@angadchahil.com`. That domain is verified in Postmark; the `research.` subdomain is not, so sending from it is refused.
+  - **Email:** Postmark, sending as `noreply@labbenchos.com`. The sending domain must be verified in Postmark, or sending is refused.
   - **Google:** sign-in and Drive, with separate OAuth clients in one Cloud project, plus the Picker API key.
 - **Not set yet:**
   - **File bucket:** uploads go to the `labfiles` volume on the server.

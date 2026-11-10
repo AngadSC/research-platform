@@ -110,7 +110,6 @@ class ConsentClientSerializer(serializers.Serializer):
 
 class AuthorizeResultSerializer(serializers.Serializer):
     client = ConsentClientSerializer(required=False)
-    requested_access = serializers.CharField(required=False)
     labs = ConsentLabSerializer(many=True, required=False)
     redirect = serializers.CharField(required=False)
     error = serializers.CharField(required=False)

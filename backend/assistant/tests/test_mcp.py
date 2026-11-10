@@ -4,6 +4,7 @@ import base64
 import hashlib
 import json
 import secrets
+from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -363,7 +364,6 @@ def test_consent_check_describes_the_request(world):
         "redirect_host": "claude.ai",
         "loopback": False,
     }
-    assert check["requested_access"] == "write"
     assert [lab["name"] for lab in check["labs"]] == ["Lab A"]
 
 
@@ -380,6 +380,39 @@ def test_read_scope_by_default_and_write_needs_step_up(world):
 def test_person_can_downgrade_a_write_request_to_read(world):
     _, _, _, tok = full_flow(world.u.contrib, [world.lab_a], access="read")
     assert tok["scope"] == "mcp:read"
+
+
+def test_person_can_choose_write_when_the_app_asked_only_for_read(world):
+    _, _, _, tok = full_flow(world.u.contrib, [world.lab_a], access="write", scope="mcp:read")
+    assert tok["scope"] == "mcp:read mcp:write"
+
+
+@pytest.mark.parametrize(
+    ("declared", "accepted"),
+    [
+        (  # ChatGPT's real document
+            {
+                "token_endpoint_auth_method": "private_key_jwt",
+                "token_endpoint_auth_methods_supported": ["none", "private_key_jwt"],
+            },
+            True,
+        ),
+        ({"token_endpoint_auth_method": "none"}, True),
+        ({}, True),
+        ({"token_endpoint_auth_method": "private_key_jwt"}, False),
+        ({"token_endpoint_auth_methods_supported": ["client_secret_post"]}, False),
+    ],
+)
+def test_cimd_client_must_be_able_to_work_without_a_secret(monkeypatch, declared, accepted):
+    url = "https://chatgpt.com/oauth/client.json"
+    body = json.dumps({"client_id": url, **declared}).encode()
+    reply = SimpleNamespace(status_code=200, content=body)
+    monkeypatch.setattr("integrations.http.send", lambda *a, **k: reply)
+    if accepted:
+        assert services._fetch_cimd(url)["client_id"] == url
+    else:
+        with pytest.raises(services.OAuthError):
+            services._fetch_cimd(url)
 
 
 def test_refresh_rotates_and_replay_ends_the_grant(world):

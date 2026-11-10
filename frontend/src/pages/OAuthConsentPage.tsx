@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useLocation } from "react-router";
+import { Link, useLocation } from "react-router";
 import { FormError } from "@/components/shared/FormError";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -59,11 +59,13 @@ export function OAuthConsentPage() {
     );
   }
 
-  const { client, labs: myLabs = [], requested_access } = check.data;
+  const { client, labs: myLabs = [] } = check.data;
   // D198: the safest choice is the default. One lab and read only; anything wider is a tick.
   const chosen = labs ?? (myLabs[0] ? [String(myLabs[0].id)] : []);
   const level: Access = access ?? "read";
-  const canWrite = requested_access === "write";
+  // The page stays up while the browser leaves for the app. A second Allow in that gap would
+  // replace the grant the app has just received.
+  const locked = decide.isPending || decide.isSuccess;
   const decideError = decide.error instanceof ApiError ? decide.error.message : undefined;
 
   return (
@@ -102,6 +104,12 @@ export function OAuthConsentPage() {
           title="Labs"
           description="The app can read only the labs you tick. Start with one."
         >
+          {myLabs.length === 0 && (
+            <p className="text-sm">
+              You aren&apos;t in a lab yet. <Link to="/labs/new">Create a lab</Link> or join one,
+              then start the connection again.
+            </p>
+          )}
           <fieldset className="grid gap-1">
             <legend className="sr-only">Labs to share</legend>
             {myLabs.map((lab) => (
@@ -147,14 +155,12 @@ export function OAuthConsentPage() {
               <input
                 type="radio"
                 name="access"
-                disabled={!canWrite}
                 checked={level === "write"}
                 onChange={() => setAccess("write")}
               />
               <span>
                 <strong>Read and write</strong>: also create tasks, post task updates and draft
                 decisions, where your role allows.
-                {!canWrite && " The app did not ask for this."}
               </span>
             </label>
           </fieldset>
@@ -169,14 +175,14 @@ export function OAuthConsentPage() {
         <FormError message={decideError} />
         <div className="flex gap-3">
           <Button
-            disabled={chosen.length === 0 || decide.isPending}
+            disabled={chosen.length === 0 || locked}
             onClick={() => decide.mutate({ decision: "approve", labs: chosen, access: level })}
           >
             Allow
           </Button>
           <Button
             variant="outline"
-            disabled={decide.isPending}
+            disabled={locked}
             onClick={() => decide.mutate({ decision: "deny" })}
           >
             Deny

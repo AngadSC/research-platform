@@ -358,7 +358,12 @@ def _fetch_cimd(client_id: str) -> dict:
         raise OAuthError("invalid_client", "The app's client metadata could not be read.") from None
     if resp.status_code != 200 or not isinstance(doc, dict) or doc.get("client_id") != client_id:
         raise OAuthError("invalid_client", "The app's client metadata is not valid.")
-    if doc.get("token_endpoint_auth_method", "none") != "none":
+    # ChatGPT's singular field prefers private_key_jwt, but its list also offers "none", and it
+    # picks from what we advertise (only "none"). A client has to be able to work without a secret.
+    methods = doc.get("token_endpoint_auth_methods_supported") or [
+        doc.get("token_endpoint_auth_method", "none")
+    ]
+    if not isinstance(methods, list) or "none" not in methods:
         raise OAuthError("invalid_client", "Only public clients (PKCE, no secret) are supported.")
     return doc
 

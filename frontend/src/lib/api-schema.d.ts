@@ -3297,7 +3297,6 @@ export interface components {
         };
         AuthorizeResult: {
             client?: components["schemas"]["ConsentClient"];
-            requested_access?: string;
             labs?: components["schemas"]["ConsentLab"][];
             redirect?: string;
             error?: string;

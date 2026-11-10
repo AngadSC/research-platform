@@ -82,7 +82,6 @@ class AuthorizeView(APIView):
         scopes = set((q.get("scope") or "mcp:read").split())
         if not scopes <= KNOWN_SCOPES:
             return fail("invalid_scope", "Unknown scope.")
-        requested = Access.WRITE if "mcp:write" in scopes else Access.READ
 
         decision = q["decision"]
         if decision == "check":
@@ -99,7 +98,6 @@ class AuthorizeView(APIView):
                         "redirect_host": host,
                         "loopback": host in LOOPBACK,
                     },
-                    "requested_access": requested,
                     "labs": [
                         {"id": lab.pk, "name": lab.name, "role": lab_role(request.user, lab)}
                         for lab in labs_for(request.user)
@@ -112,10 +110,8 @@ class AuthorizeView(APIView):
         stale = recent_auth_required(request)
         if stale is not None:
             return stale
-        # write only if the app asked for it and the person chose it
-        access = (
-            Access.WRITE if requested == Access.WRITE and q.get("access") == "write" else "read"
-        )
+        # D219: the person decides, whatever the app asked for; read only unless they choose write
+        access = Access.WRITE if q.get("access") == "write" else Access.READ
         try:
             code = services.approve(
                 request.user,
