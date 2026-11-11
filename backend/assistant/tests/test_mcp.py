@@ -97,6 +97,10 @@ def test_legacy_initialize_list_call_with_a_pat(world):
         "idempotentHint": False,
         "openWorldHint": False,
     }
+    destructive = {t["name"] for t in tools_ if t["annotations"]["destructiveHint"]}
+    assert destructive == {"update_task"}
+    assert by["list_members"]["annotations"]["readOnlyHint"] is True
+    assert by["handover_report"]["annotations"]["readOnlyHint"] is True
     resp = rpc(token, "tools/call", {"name": "list_labs", "arguments": {}}, rid=3, headers=h)
     result = resp.json()["result"]
     assert result["isError"] is False and "resultType" not in result
@@ -380,6 +384,36 @@ def test_read_scope_by_default_and_write_needs_step_up(world):
     assert resp.status_code == 403
     assert 'error="insufficient_scope"' in resp["WWW-Authenticate"]
     assert 'scope="mcp:read mcp:write"' in resp["WWW-Authenticate"]
+
+
+def test_update_task_with_a_read_grant_gets_the_step_up(world):
+    _, _, _, tok = full_flow(world.u.contrib, [world.lab_a], access="read", scope="mcp:read")
+    args = {"lab_id": str(world.lab_a.pk), "task_id": str(world.a1.task.pk), "status": "done"}
+    resp = rpc(tok["access_token"], "tools/call", {"name": "update_task", "arguments": args})
+    assert resp.status_code == 403
+    assert 'error="insufficient_scope"' in resp["WWW-Authenticate"]
+
+
+def test_list_members_then_assign_then_mark_done_over_mcp(world):
+    """Acceptance: member ids come back, create_task takes one, and update_task marks it done."""
+    token = pat(world.u.contrib, world.lab_a, access="write")
+    lab = str(world.lab_a.pk)
+    members = data(
+        rpc(token, "tools/call", {"name": "list_members", "arguments": {"lab_id": lab}})
+    )["members"]
+    me = next(m["user_id"] for m in members if m["name"] == "Contrib")
+    args = {"lab_id": lab, "project_id": str(world.p1.pk), "title": "Run PCR", "assignee_id": me}
+    created = data(rpc(token, "tools/call", {"name": "create_task", "arguments": args}))
+    assert created["created"]["assignee_id"] == me
+    args = {"lab_id": lab, "task_id": created["created"]["id"], "status": "done"}
+    done = data(rpc(token, "tools/call", {"name": "update_task", "arguments": args}))
+    assert done["updated"]["status"] == "done"
+    pi_list = rpc(
+        token,
+        "tools/call",
+        {"name": "handover_report", "arguments": {"lab_id": lab, "person": str(world.u.pi.pk)}},
+    ).json()["result"]
+    assert pi_list["isError"] is True and "does not allow" in pi_list["content"][0]["text"]
 
 
 def test_person_can_downgrade_a_write_request_to_read(world):

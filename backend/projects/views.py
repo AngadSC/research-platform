@@ -7,8 +7,6 @@ from rest_framework import generics, serializers, status
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
-from audit.models import AuditAction
-from audit.services import record
 from core.permissions import Perm, can
 from core.tenancy import project_of
 from core.views import LabScopedViewMixin
@@ -593,17 +591,13 @@ def _handover(request, membership, project=None):
     report = handover.build_report(
         requester=request.user, lab=request.lab, membership=membership, project=project
     )
-    counts = {s["key"]: len(s["items"]) for s in report["sections"]}
-    record(
-        AuditAction.HANDOVER_GENERATED,
+    handover.record_generated(
+        report,
         actor=request.user,
         lab=request.lab,
-        target=project or membership,
+        membership=membership,
+        project=project,
         request=request,
-        metadata={
-            "person": str(membership.user_id),
-            "counts": counts | {"no_other_owner": len(report["no_other_owner"])},
-        },
     )
     return Response(report)
 

@@ -17,6 +17,7 @@ import json
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
@@ -46,6 +47,7 @@ from core.search import match as text_match
 from core.search import search as lab_search
 from documents.models import Document
 from ethics.models import EthicsApproval
+from labs.models import LabMembership
 from papers import citation as paper_citation
 from papers import services as paper_services
 from papers.models import Paper, PaperNote
@@ -53,8 +55,11 @@ from papers.pdftext import MAX_CHARS as PDF_MAX_CHARS
 from papers.pdftext import MAX_RANGE as PDF_MAX_RANGE
 from papers.pdftext import PdfTextError
 from papers.serializers import MAX_ABSTRACT, MAX_NOTE, PaperInputSerializer
+from projects import handover as project_handover
 from projects import services as project_services
-from projects.models import Project, ProjectDeadline, Task, TaskStatus
+from projects.activity import _request as activity_request
+from projects.models import Project, ProjectDeadline, ProjectMembership, Task, TaskStatus
+from projects.serializers import TaskInputSerializer
 from provenance import services as provenance_services
 from provenance.models import (
     Analysis,
@@ -102,7 +107,8 @@ class Tool:
     @property
     def input_schema(self) -> dict:
         props = {
-            k: {kk: vv for kk, vv in v.items() if kk != "_min"} for k, v in self.params.items()
+            k: {kk: vv for kk, vv in v.items() if not kk.startswith("_")}
+            for k, v in self.params.items()
         }
         return {
             "type": "object",
@@ -171,8 +177,14 @@ def call(ctx: Context, name: str, args) -> dict:
     forget(ctx.user)  # roles may have changed since the last call
     try:
         if t.write:
-            with transaction.atomic():
-                result = t.handler(ctx, **args)
+            # D139: a write stamps the project's "last edited" as the REST path does (an MCP
+            # request carries no signed-in session user for the activity middleware to see)
+            token = activity_request.set(SimpleNamespace(user=ctx.user))
+            try:
+                with transaction.atomic():
+                    result = t.handler(ctx, **args)
+            finally:
+                activity_request.reset(token)
         else:
             result = t.handler(ctx, **args)
     except (ValidationError, APIException) as exc:  # a service refused the write
@@ -211,7 +223,7 @@ def _validate(t: Tool, args) -> dict:
     out = {}
     for name, spec in t.params.items():
         value = args.get(name)
-        if value is None or value == "":
+        if value is None or (value == "" and not spec.get("_blank")):
             if name in t.required:
                 raise ToolError(f"{name} is required.")
             continue
@@ -507,6 +519,7 @@ def _task_row(t):
         "status": t.status,
         "due_date": t.due_date,
         "assignee": _name(t.assignee),
+        "assignee_id": t.assignee_id,
         "project": _project_ref(t.project),
     }
 
@@ -515,13 +528,13 @@ def _task_row(t):
     "list_tasks",
     "List tasks",
     "Tasks you can see in a lab (25 per page), soonest due first. Filter by project, status, "
-    "assignee ('me' or 'unassigned') or a due date.",
+    "assignee ('me', 'unassigned' or a user id from list_members) or a due date.",
     required=("lab_id",),
     returns_text=True,
     lab_id=LAB,
     project_id=PROJECT,
     status={"type": "string", "enum": list(TaskStatus.values)},
-    assignee={"type": "string", "enum": ["me", "unassigned"]},
+    assignee={"type": "string", "description": "'me', 'unassigned' or a user id."},
     due_before={"type": "string", "maxLength": 10, "description": "YYYY-MM-DD, inclusive."},
     cursor=CURSOR,
 )
@@ -538,6 +551,8 @@ def list_tasks(
         qs = qs.filter(assignee=ctx.user)
     elif assignee == "unassigned":
         qs = qs.filter(assignee__isnull=True)
+    elif assignee:
+        qs = qs.filter(assignee_id=_id(assignee, "assignee"))
     if due_before:
         qs = qs.filter(due_date__lte=_date(due_before, "due_before"))
     qs = qs.select_related("project", "assignee").order_by(
@@ -813,6 +828,130 @@ def my_notifications(ctx, lab_id, unread_only=True):
     }
 
 
+# ---------------------------------------------------------------- people and handover
+
+HANDOVER_CAP = 50
+
+
+def _person_name(user):
+    """Never an email address: these rows are about people, not their contact details."""
+    return user.display_name or "(no name set)"
+
+
+@tool(
+    "list_members",
+    "List members",
+    "People in a lab (25 per page) with their user id, name and lab role. With project_id, only "
+    "that project's members, with their project role too. The user ids are what create_task's "
+    "and update_task's assignee_id, list_tasks' assignee filter and handover_report's person "
+    "take.",
+    required=("lab_id",),
+    returns_text=True,
+    lab_id=LAB,
+    project_id=PROJECT,
+    cursor=CURSOR,
+)
+def list_members(ctx, lab_id, project_id=None, cursor=None):
+    lab = _lab(ctx, lab_id)
+    if project_id:
+        p = _get(ctx, lab, Project, project_id, "project", deleted_at__isnull=True)
+        qs = _scope(ProjectMembership, ctx.user, lab).filter(project=p)
+        perm = Perm.VIEW_PROJECT
+    else:
+        qs = _scope(LabMembership, ctx.user, lab)
+        perm = Perm.VIEW_LAB
+    qs = qs.filter(user__is_active=True).select_related("user")
+    rows, nxt = _page(qs.order_by("user__display_name", "user_id"), cursor)
+    lab_roles = dict(
+        _scope(LabMembership, ctx.user, lab)
+        .filter(user_id__in=[m.user_id for m in rows])
+        .values_list("user_id", "role")
+    )
+    members = []
+    for m in rows:
+        if m.user_id not in lab_roles or not can(ctx.user, perm, m):
+            continue
+        row = {"user_id": m.user_id, "name": _person_name(m.user), "lab_role": lab_roles[m.user_id]}
+        if project_id:
+            row["project_role"] = m.role
+        members.append(row)
+    return {"members": members, "next_cursor": nxt}
+
+
+def _handover_items(items):
+    return {
+        "total": len(items),
+        "items": [
+            {
+                "kind": i["kind"],
+                "title": i["title"],
+                "project": i["project"]["name"] if i["project"] else None,
+                "reason": i["reason"],
+                "url": _url(i["href"]),
+            }
+            for i in items[:HANDOVER_CAP]
+        ],
+    }
+
+
+@tool(
+    "handover_report",
+    "Handover list",
+    "What a person needs to hand over before they leave the lab or a project: open tasks, "
+    "documents, analyses, results, datasets, decisions, ethics approvals, projects they lead and "
+    "external links, plus the items nobody else owns. Your own list (person 'me') is always "
+    "available; someone else's needs a role that manages lab members, or, with project_id, one "
+    "that manages that project's members. Each section shows at most "
+    f"{HANDOVER_CAP} items and its total.",
+    required=("lab_id", "person"),
+    returns_text=True,
+    lab_id=LAB,
+    person={"type": "string", "description": "User id from list_members, or 'me'."},
+    project_id=PROJECT,
+)
+def handover_report(ctx, lab_id, person, project_id=None):
+    lab = _lab(ctx, lab_id)
+    user_id = ctx.user.pk if person.lower() == "me" else _id(person, "person")
+    p = None
+    if project_id:  # the rules of ProjectHandoverView
+        p = _get(ctx, lab, Project, project_id, "project", deleted_at__isnull=True)
+        if not can(ctx.user, Perm.MANAGE_PROJECT_MEMBERS, p):
+            raise ToolError("Your role does not allow you to see handover lists for this project.")
+    membership = (
+        _scope(LabMembership, ctx.user, lab).filter(user_id=user_id).select_related("user").first()
+    )
+    if membership is None:
+        raise ToolError("No person with that id that you can see in this lab.")
+    if (
+        p is None
+        and membership.user_id != ctx.user.pk
+        and not can(ctx.user, Perm.MANAGE_MEMBERS, lab)
+    ):  # the rules of MemberHandoverView
+        raise ToolError("Your role does not allow you to see another person's handover list.")
+    report = project_handover.build_report(
+        requester=ctx.user, lab=lab, membership=membership, project=p
+    )
+    project_handover.record_generated(
+        report,
+        actor=ctx.user,
+        lab=lab,
+        membership=membership,
+        project=p,
+        request=ctx.request,
+        via=ctx.via,
+        client=ctx.client,
+    )
+    return {
+        "person": _person_name(membership.user),
+        "project": _project_ref(p) if p else None,
+        "no_other_owner": _handover_items(report["no_other_owner"]),
+        "sections": [
+            {"key": s["key"], "label": s["label"], **_handover_items(s["items"])}
+            for s in report["sections"]
+        ],
+    }
+
+
 # ---------------------------------------------------------------- the lab's paper library
 
 PAPER = {"type": "string", "description": "Paper id, from list_papers."}
@@ -1060,6 +1199,45 @@ def add_task_update(ctx, lab_id, task_id, body):
 
 
 @tool(
+    "update_task",
+    "Update a task",
+    "Change a task's title, status (for example mark it done), due date or assignee. Give only "
+    "the fields to change. due_date is YYYY-MM-DD, or an empty string to clear it; assignee_id "
+    "is a project member's user id from list_members, or 'none' to unassign. Needs permission "
+    "to edit the project's content.",
+    required=("lab_id", "task_id"),
+    write=True,
+    lab_id=LAB,
+    task_id={"type": "string", "description": "Task id."},
+    title={"type": "string", "maxLength": 300, "_min": 1},
+    status={"type": "string", "enum": list(TaskStatus.values)},
+    due_date={"type": "string", "maxLength": 10, "_blank": True, "description": "YYYY-MM-DD."},
+    assignee_id={"type": "string", "description": "User id of a project member, or 'none'."},
+)
+def update_task(ctx, lab_id, task_id, title=None, status=None, due_date=None, assignee_id=None):
+    if title is None and status is None and due_date is None and assignee_id is None:
+        raise ToolError("Give at least one of title, status, due_date or assignee_id to change.")
+    lab = _lab(ctx, lab_id)
+    t = _get(ctx, lab, Task, task_id, "task", project__deleted_at__isnull=True)
+    _require_edit(ctx, t, "this task")
+    data = {}
+    if title is not None:
+        data["title"] = title.strip()
+    if status is not None:
+        data["status"] = status
+    if due_date is not None:
+        data["due_date"] = _date(due_date, "due_date") if due_date else None
+    if assignee_id is not None:
+        none = assignee_id.lower() == "none"
+        data["assignee"] = None if none else _id(assignee_id, "assignee_id")
+    ser = TaskInputSerializer(data=data, partial=True)  # the REST PATCH's own checks
+    ser.is_valid(raise_exception=True)
+    t = project_services.update_task(task=t, data=ser.validated_data)
+    _audit_write(ctx, lab, "update_task", t)
+    return {"updated": _task_row(t), "url": _url(f"/labs/{lab.pk}/projects/{t.project_id}/tasks")}
+
+
+@tool(
     "create_decision_draft",
     "Draft a decision",
     "Record a draft decision on a project (title starts with 'Draft:' and you are named as the "
@@ -1150,6 +1328,7 @@ PREVIEW = {
     "create_decision_draft": (("title", "Decision title"), ("rationale", "Rationale")),
     "add_paper": (("title", "Paper title"), ("doi", "DOI"), ("abstract", "Abstract")),
     "add_paper_note": (("body", "Text that will be saved as a note the whole lab can read"),),
+    "update_task": (("title", "New title"), ("status", "New status"), ("due_date", "New due date")),
 }
 NOT_FOUND = "(not found, or you cannot see it)"
 
@@ -1182,8 +1361,6 @@ def describe_call(ctx, name, args) -> dict:
                 except ToolError:
                     names[label] = NOT_FOUND
         if args.get("assignee_id"):
-            from labs.models import LabMembership
-
             member = (
                 LabMembership.objects.for_lab(lab)
                 .filter(user_id=_id_or_none(args["assignee_id"]), user__is_active=True)
@@ -1191,11 +1368,15 @@ def describe_call(ctx, name, args) -> dict:
                 .first()
             )
             names["person"] = _name(member.user) if member else NOT_FOUND
+            if name == "update_task" and str(args["assignee_id"]).lower() == "none":
+                names["person"] = "Nobody (the task will be unassigned)"
     preview = [
         {"label": label, "text": str(args[field])}
         for field, label in PREVIEW.get(name, ())
         if args.get(field)
     ]
+    if name == "update_task" and args.get("due_date") == "":
+        preview.append({"label": "New due date", "text": "None (the due date will be cleared)"})
     return {"resolved": names, "preview": preview}
 
 

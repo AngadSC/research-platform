@@ -9,6 +9,7 @@ from django.db.models import Count, Q
 from django.utils import timezone
 
 from audit.models import AuditAction, AuditEvent
+from audit.services import record
 from documents.models import Document
 from ethics.models import EthicsApproval
 from integrations.models import ExternalLink
@@ -258,3 +259,21 @@ def build_report(*, requester, lab, membership, project=None) -> dict:
         "no_other_owner": orphan,
         "sections": [{"key": k, "label": label, "items": by_key[k]} for k, label in SECTIONS],
     }
+
+
+def record_generated(report, *, actor, lab, membership, project=None, request=None, **extra):
+    """The audit event for a generated report, shared by the REST views and the AI tool so the
+    two cannot drift. `extra` adds metadata (the tool's `via` and `client`)."""
+    counts = {s["key"]: len(s["items"]) for s in report["sections"]}
+    record(
+        AuditAction.HANDOVER_GENERATED,
+        actor=actor,
+        lab=lab,
+        target=project or membership,
+        request=request,
+        metadata={
+            "person": str(membership.user_id),
+            "counts": counts | {"no_other_owner": len(report["no_other_owner"])},
+            **extra,
+        },
+    )
