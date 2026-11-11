@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
@@ -252,17 +253,20 @@ describe("Drive link in the lineage panel", () => {
         ],
       },
     } as unknown as LineageNode;
+    mockFetch({ "GET /api/labs/lab1/assistant/config/": { status: 403, body: {} } });
     render(
-      <MemoryRouter>
-        <LineageDetail
-          ix={indexLineage({ nodes: [node], edges: [] })}
-          node={node}
-          labId="lab1"
-          projectId="p1"
-          onSelect={() => {}}
-          onClose={() => {}}
-        />
-      </MemoryRouter>,
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <LineageDetail
+            ix={indexLineage({ nodes: [node], edges: [] })}
+            node={node}
+            labId="lab1"
+            projectId="p1"
+            onSelect={() => {}}
+            onClose={() => {}}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
     expect(screen.getAllByText("raw.csv")[0]).toBeVisible();
     expect(screen.getAllByText("Changed since linked")[0]).toBeVisible();

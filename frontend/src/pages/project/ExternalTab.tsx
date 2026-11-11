@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { FormField } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAssistantConfig } from "@/hooks/assistant";
+import { useAssistantReady } from "@/hooks/assistant";
 import { downloadUrl, useAttachments } from "@/hooks/projects";
 import { useExternalOutputs } from "@/hooks/workflow";
 import { useLab } from "@/hooks/workspace";
@@ -30,9 +30,9 @@ const FIELDS = ["title", "type", "date", "place", "url", "attachment"];
 /** Opens the assistant with a question ready to send, on the person's own key (no second LLM
  * path, D214). Hidden, not explained, when the lab's AI policy or a missing key rules it out. */
 function ConferenceSuggestions({ labId, projectId }: { labId: string; projectId: string }) {
-  const { data: cfg } = useAssistantConfig(labId, true);
+  const ready = useAssistantReady(labId);
   const lab = useLab(labId).data;
-  if (!cfg?.can_use || !cfg.providers.some((p) => p.has_key)) return null;
+  if (!ready) return null;
   const near = lab?.address || lab?.institution.name;
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">

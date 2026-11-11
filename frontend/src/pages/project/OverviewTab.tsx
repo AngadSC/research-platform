@@ -1,4 +1,4 @@
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, Sparkles } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/shared/DataTable";
@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/select";
 import { Link } from "react-router";
 import { ApprovalBadge, ExpiryText } from "@/components/ethics/ApprovalBadge";
+import { useAssistantReady } from "@/hooks/assistant";
+import { openAssistant } from "@/lib/assistant";
 import { useApprovals } from "@/hooks/ethics";
 import { useLab } from "@/hooks/workspace";
 import { useDeadlines, useProjectMembers } from "@/hooks/projects";
@@ -465,8 +467,22 @@ function ProjectApprovals({ labId, projectId }: { labId: string; projectId: stri
 // Props: { labId, projectId, project } (ProjectTabProps).
 export default function OverviewTab({ labId, projectId, project }: ProjectTabProps) {
   const can = (p: string) => project.my_permissions.includes(p);
+  const assistantReady = useAssistantReady(labId);
   return (
     <div className="grid gap-8">
+      {assistantReady && (
+        <Button
+          variant="secondary"
+          className="justify-self-start"
+          onClick={() =>
+            openAssistant(
+              `Use project_overview for project_id ${projectId} in lab ${labId}, and list_tasks for this project. In under 150 words, tell me: where the project stands, what is overdue or due in the next two weeks, and the single most useful next step. Do not change anything.`,
+            )
+          }
+        >
+          <Sparkles aria-hidden /> Catch me up
+        </Button>
+      )}
       <section className="grid gap-3">
         <h2 className="text-base font-semibold">About</h2>
         <p className="text-sm whitespace-pre-wrap">

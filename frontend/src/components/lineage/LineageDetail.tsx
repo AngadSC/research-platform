@@ -1,4 +1,4 @@
-import { Copy, ExternalLink, HardDrive } from "lucide-react";
+import { Copy, ExternalLink, HardDrive, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
@@ -6,7 +6,9 @@ import { KIND_STYLE } from "@/components/lineage/kinds";
 import { DetailPanel } from "@/components/shared/DetailPanel";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
+import { useAssistantReady } from "@/hooks/assistant";
 import type { LineageNode } from "@/lib/api-types";
+import { openAssistant } from "@/lib/assistant";
 import { when } from "@/lib/format";
 import {
   decisionsFor,
@@ -237,6 +239,7 @@ interface Props {
 }
 
 export function LineageDetail({ ix, node, labId, projectId, onSelect, onClose }: Props) {
+  const assistantReady = useAssistantReady(labId);
   const upstream = node ? (upstreamChain(ix, node.id)?.children ?? []) : [];
   const downstream = node ? usedBy(ix, node.id) : [];
   const decisions = node ? decisionsFor(ix, node.id) : [];
@@ -310,6 +313,19 @@ export function LineageDetail({ ix, node, labId, projectId, onSelect, onClose }:
                 )}
               </Section>
             </>
+          )}
+          {assistantReady && (node.kind === "result" || node.kind === "analysis") && (
+            <Button
+              variant="secondary"
+              className="self-start"
+              onClick={() =>
+                openAssistant(
+                  `Use lineage_trace with item_type "${node.kind}" and item_id "${node.href_id}" in lab ${labId}. In plain words, explain how this ${node.kind} was made: which dataset versions it used, which code commit, who ran the analysis and when, and which decisions apply. Then list anything the record is missing. Do not change anything.`,
+                )
+              }
+            >
+              <Sparkles aria-hidden /> Explain how this was made
+            </Button>
           )}
           <Button asChild variant="outline" className="self-start">
             <Link to={`/labs/${labId}/projects/${projectId}/${recordPath(node)}`}>
