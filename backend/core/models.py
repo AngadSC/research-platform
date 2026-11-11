@@ -158,6 +158,8 @@ class NotificationKind(models.TextChoices):
     # Run 5 (training, D178)
     TRAINING_EXPIRY = "training_expiry"
     TRAINING_DIGEST = "training_digest"
+    # D255: someone @mentioned you in a chat message or task update
+    MENTION = "mention"
 
 
 class Notification(LabScopedModel):

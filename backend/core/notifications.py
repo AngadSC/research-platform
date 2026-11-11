@@ -1,12 +1,14 @@
 """In-app notifications first; the kinds in EMAIL_KINDS are also emailed through core.email
 (SPEC phase 5, D14, D30, D71)."""
 
+import re
+import uuid
 from itertools import islice
 
 from django.apps import apps
 
 from core.email import send_email
-from core.models import Notification, NotificationKind
+from core.models import Notification, NotificationKind, User
 from core.permissions import Perm, can, forget
 
 # D71: only notices someone must act on, or that matter for compliance, are emailed.
@@ -82,6 +84,16 @@ def _still_allowed(user, lab, n) -> bool:
             apps.get_model("projects", "Task").objects.for_lab(lab).filter(pk=n.target_id).first()
         )
         return task is not None and can(user, Perm.VIEW_PROJECT, task)
+    if n.kind == NotificationKind.MENTION:  # D255: a mention in a project or task needs the project
+        model = {"projects.project": "Project", "projects.task": "Task"}.get(n.target_type.lower())
+        if model is not None:
+            target = (
+                apps.get_model("projects", model)
+                .objects.for_lab(lab)
+                .filter(pk=n.target_id)
+                .first()
+            )
+            return target is not None and can(user, Perm.VIEW_PROJECT, target)
     return can(user, Perm.VIEW_LAB, lab)
 
 
@@ -89,3 +101,39 @@ def visible_notifications(user, lab, qs, limit=100) -> list:
     """The first `limit` rows of `qs` the user may still see. Also used for unread counts."""
     forget(user)
     return list(islice((n for n in qs if _still_allowed(user, lab, n)), limit))
+
+
+# D255: `@[Display Name](user:<uuid>)` is what the composer stores for a mention.
+MENTION_TOKEN = re.compile(r"@\[([^\]\n]{1,100})\]\(user:([0-9a-fA-F-]{36})\)")
+MAX_MENTIONS = 20
+
+
+def notify_mentions(*, lab, author, body, where, perm, target, key) -> None:
+    """Tell each person @mentioned in `body` that `author` did so in `where` ("the lab chat").
+    Only people who may read the conversation (`can(person, perm, target)`) are told, never the
+    author, and at most MAX_MENTIONS per message. `key` names the message for deduplication, so
+    editing a post tells only the newly mentioned."""
+    ids = []
+    for _, raw in MENTION_TOKEN.findall(body):
+        try:
+            uid = uuid.UUID(raw)
+        except ValueError:
+            continue
+        if uid != author.pk and uid not in ids:
+            ids.append(uid)
+    users = User.objects.filter(pk__in=ids[:MAX_MENTIONS], is_active=True)
+    forget(author)
+    name = author.display_name or author.email
+    for user in users:
+        forget(user)
+        if not can(user, perm, target):
+            continue
+        notify(
+            lab=lab,
+            recipient=user,
+            kind=NotificationKind.MENTION,
+            title=f"{name} mentioned you in {where}"[:200],
+            body=MENTION_TOKEN.sub(lambda m: f"@{m[1]}", body)[:200],
+            target=target if target._meta.label != "labs.Lab" else None,
+            dedupe_key=f"mention:{key}",
+        )

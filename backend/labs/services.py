@@ -15,6 +15,7 @@ from audit.services import record
 from core.auth import has_verified_email
 from core.email import send_email
 from core.models import PLACEHOLDER_INSTITUTION, Institution
+from core.notifications import notify_mentions
 from core.permissions import LAB_ROLE_PERMS, Perm, can, forget, lab_role
 from core.tenancy import by_secret
 from integrations.services import revoke_member_accounts
@@ -34,7 +35,17 @@ from projects.services import unassign_lost_access
 
 
 def post_lab_message(*, lab, by, body) -> LabChatMessage:
-    return LabChatMessage.objects.create(lab=lab, author=by, body=body)
+    message = LabChatMessage.objects.create(lab=lab, author=by, body=body)
+    notify_mentions(  # D255
+        lab=lab,
+        author=by,
+        body=body,
+        where="the lab chat",
+        perm=Perm.VIEW_LAB,
+        target=lab,
+        key=f"labchat:{message.pk}",
+    )
+    return message
 
 
 @transaction.atomic

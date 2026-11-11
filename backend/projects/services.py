@@ -11,7 +11,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from audit.models import AuditAction
 from audit.services import record
 from core.models import NotificationKind, User
-from core.notifications import notify
+from core.notifications import notify, notify_mentions
 from core.permissions import Perm, can, forget, users_with
 from core.retention import audit_retention, guard_retention, retention_changes
 from labs.models import LabChatMessage, LabChatReadState, LabMembership
@@ -290,7 +290,17 @@ def delete_task(*, task, by, request=None) -> None:
 
 
 def post_message(*, project, by, body) -> ChatMessage:
-    return ChatMessage.objects.create(lab=project.lab, project=project, author=by, body=body)
+    message = ChatMessage.objects.create(lab=project.lab, project=project, author=by, body=body)
+    notify_mentions(  # D255
+        lab=project.lab,
+        author=by,
+        body=body,
+        where=f"the chat of {project.name}",
+        perm=Perm.VIEW_PROJECT,
+        target=project,
+        key=f"chat:{message.pk}",
+    )
+    return message
 
 
 @transaction.atomic
@@ -383,7 +393,20 @@ def create_post(*, task, author, body) -> TaskPost:
             target=task,
             dedupe_key=f"task_post:{post.pk}",
         )
+    _notify_post_mentions(post, author)
     return post
+
+
+def _notify_post_mentions(post, author) -> None:
+    notify_mentions(  # D255
+        lab=post.lab,
+        author=author,
+        body=post.body,
+        where=f"the task: {post.task.title}",
+        perm=Perm.VIEW_PROJECT,
+        target=post.task,
+        key=f"post:{post.pk}",
+    )
 
 
 @transaction.atomic
@@ -392,6 +415,7 @@ def edit_post(*, post, by, body) -> TaskPost:
         raise PermissionDenied("Only the author can edit a post.")
     post.body, post.edited_at = body, timezone.now()
     post.save()
+    _notify_post_mentions(post, by)  # only the newly mentioned: the rest are deduplicated
     return post
 
 
