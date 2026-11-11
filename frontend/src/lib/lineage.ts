@@ -324,3 +324,59 @@ export function safeHttpUrl(value: string): string | null {
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Record check: what is missing or out of date
+
+export interface Gap {
+  nodeId: string;
+  kind: LineageKind;
+  title: string;
+  problem: string;
+  /** Neutral notes (a newer dataset version exists) are shown quietly, not as warnings. */
+  info: boolean;
+}
+
+const versionOf = (n: LineageNode) => metaStr(n, "version_label") || n.subtitle;
+
+/** Missing links and stale versions, worked out from the lineage response alone. */
+export function recordGaps(data: Lineage, ix: Index): Gap[] {
+  const gaps: Gap[] = [];
+  const add = (n: LineageNode, problem: string, info = false) =>
+    gaps.push({ nodeId: n.id, kind: n.kind, title: n.label, problem, info });
+  const kindOf = (id: string) => ix.byId.get(id)?.kind;
+  for (const n of data.nodes) {
+    const sources = ix.up.get(n.id) ?? [];
+    if (n.kind === "dataset") {
+      if (!metaStr(n, "location_url") && !metaStr(n, "location_text"))
+        add(n, "Nobody has written down where this dataset is kept.");
+    } else if (n.kind === "analysis") {
+      const used = sources.filter((s) => kindOf(s) === "dataset");
+      if (!used.length) add(n, "No dataset is linked, so nobody can tell what data this used.");
+      if (!metaStr(n, "code_commit") && !n.meta.code_attachment_id)
+        add(
+          n,
+          metaStr(n, "code_repo_url")
+            ? "The code repository is linked but not the exact commit."
+            : "No code commit or file is recorded.",
+        );
+      for (const d of used) {
+        const newer = (ix.down.get(d) ?? []).flatMap((x) =>
+          kindOf(x) === "dataset" ? [versionOf(ix.byId.get(x)!)] : [],
+        );
+        if (newer.length) {
+          const old = ix.byId.get(d)!;
+          add(
+            n,
+            `Uses ${old.label} ${versionOf(old)}; a newer version ${newer.join(", ")} exists.`,
+            true,
+          );
+        }
+      }
+    } else if (n.kind === "manuscript" && !sources.some((s) => kindOf(s) === "result")) {
+      add(n, "No results are linked to this manuscript.");
+    }
+  }
+  const col = (g: Gap) => columnOf(g.kind);
+  return gaps.sort((a, b) => col(a) - col(b) || a.title.localeCompare(b.title));
+}
