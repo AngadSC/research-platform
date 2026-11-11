@@ -122,3 +122,12 @@
 - Not covered: full pass for spinners, empty states, labels and jargon; check against SPEC sections 1, 4, 6 and HANDOFF item by item.
 - Gate: lint clean (13 existing warnings, 0 errors), Vitest 428 passed (53 files), licenses 84 Python / 451 npm, no missing migrations, schema and types current. Backend full suite: 4323 passed, 128 skipped, 0 failed.
 - Gate after merging the five ideas: lint clean (0 errors, 13 existing warnings), typecheck, Prettier, schema and types current, no missing migrations, licenses 451 npm pass, Vitest 455 passed (54 files), backend full suite exit 0 (no failures).
+
+## Fix list 3 (2026-11-11)
+
+- Owner's PDF (labbenchos-fix3): pages 2-4 were already built in D220-D243. A Playwright pass (sonnet) on labbenchos.com as pi, admin, student and viewer passed 35 of 39 items; two were code-only checks, two partial.
+- New: account menu at the bottom of the sidebar opening upward (D254) and a profile page with pronouns, bio and a private profile picture (D253), both by sonnet. Message composer with formatting toolbar, emoji and @mentions in chat, task updates and paper notes, plus mentions in documents (D255, D256), by sonnet.
+- Orchestrator fixes from the QA pass: "Reassign all to" ended in a replacement character; membership audit targets read "a lab member is viewer" and now read "Name (Viewer)".
+- Live MCP check (Playwright, `.playwright-mcp/mcp_full.js`): Claude (read) and ChatGPT (read and write) client metadata sign-ins, 24 tools, read tools, create/update task, write refused on a read grant, refresh rotation, code replay revokes, student refused funding and others' handover lists, no-token 401. QA task deleted and test grants revoked afterwards.
+- Not built: the composer's "+" attach (chat and task posts have no attachments), video and mic buttons.
+- Host vitest on Windows started failing with "failed to find the current suite" during the run; the docker runs (`make test-frontend`) are unaffected and are the gate.
