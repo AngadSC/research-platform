@@ -173,7 +173,7 @@ export function Sidebar({
   const current = labs.find((l) => l.id === labId);
   const unread = useUnreadCount(labId);
   const items = navItems(labId, current?.my_permissions, current?.inventory_enabled).filter(
-    ({ to }) => to !== "/settings" && !to.endsWith("/notifications"), // both have their own menu
+    ({ to }) => to !== "/settings" && to !== "/help" && !to.endsWith("/notifications"), // each has its own menu
   );
   const adminItems = items.filter((item) => item.admin);
   const link = ({ to, label, icon: Icon, end }: NavItem) => (
@@ -276,7 +276,7 @@ export function Sidebar({
           {adminItems.map(link)}
         </nav>
       )}
-      <SidebarFooter onNavigate={onClose} />
+      <SidebarFooter onNavigate={onClose} role={current?.my_role} />
     </aside>
   );
 }

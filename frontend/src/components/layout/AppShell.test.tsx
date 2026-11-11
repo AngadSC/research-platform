@@ -235,7 +235,7 @@ describe("app shell", () => {
     });
     renderRoute("/labs/lab1/members");
     await userEvent.click(await screen.findByRole("button", { name: "Account menu" }));
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Sign out" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Log out" }));
     await waitFor(() => expect(assign).toHaveBeenCalledWith("/"));
   });
 
@@ -251,20 +251,49 @@ describe("app shell", () => {
     expect(crumbs.queryByText("Lab")).toBeNull();
   });
 
-  it("moves Settings and Sign out into the account menu", async () => {
+  it("holds Profile, Settings, Appearance, Help and Log out in one account menu", async () => {
     mockFetch(world({}));
     const router = renderRoute("/labs/lab1/members");
     const trigger = await screen.findByRole("button", { name: "Account menu" });
     await within(trigger).findByText("Ada Byron");
+    expect(within(trigger).getByText("PI")).toBeInTheDocument(); // the lab role sits under the name
+    const main = within(screen.getByRole("navigation", { name: "Main" }));
+    for (const name of ["Settings", "Help"]) expect(main.queryByRole("link", { name })).toBeNull();
     expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
-    expect(
-      within(screen.getByRole("navigation", { name: "Main" })).queryByRole("link", {
-        name: "Settings",
-      }),
-    ).toBeNull();
+
     await userEvent.click(trigger);
-    expect(await screen.findByRole("menuitem", { name: "Sign out" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("menuitem", { name: "Security" }));
-    await waitFor(() => expect(router.state.location.hash).toBe("#security"));
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).getByText("ada@uni.edu")).toBeInTheDocument();
+    for (const name of ["Profile", "Settings", "Help and keyboard shortcuts", "Log out"])
+      expect(within(menu).getByRole("menuitem", { name })).toBeInTheDocument();
+    expect(
+      within(menu)
+        .getAllByRole("menuitemradio")
+        .map((r) => r.textContent),
+    ).toEqual(["Light", "Dark", "System"]);
+    await userEvent.click(within(menu).getByRole("menuitem", { name: "Profile" }));
+    await waitFor(() => expect(router.state.location.hash).toBe("#profile"));
+    await userEvent.click(trigger);
+    await userEvent.click(
+      await screen.findByRole("menuitem", { name: "Help and keyboard shortcuts" }),
+    );
+    await waitFor(() => expect(router.state.location.pathname).toBe("/help"));
+  });
+
+  it("changes the theme from the account menu and saves it", async () => {
+    const calls = mockFetch(world({}));
+    renderRoute("/labs/lab1/members");
+    await userEvent.click(await screen.findByRole("button", { name: "Account menu" }));
+    await userEvent.click(await screen.findByRole("menuitemradio", { name: "Dark" }));
+    await waitFor(() => expect(document.documentElement).toHaveClass("dark"));
+    await waitFor(() => expect(patches(calls)).toContainEqual({ preferences: { theme: "dark" } }));
+    document.documentElement.classList.remove("dark");
+  });
+
+  it("opens the profile page at /profile", async () => {
+    mockFetch(world({}));
+    const router = renderRoute("/profile");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
+    expect(router.state.location.hash).toBe("#profile");
   });
 });

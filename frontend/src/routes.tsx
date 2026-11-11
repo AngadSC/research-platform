@@ -102,6 +102,8 @@ export const routes: RouteObject[] = [
       { index: true, element: <HomePage /> },
       { path: "settings", element: <SettingsPage />, handle: { crumb: "Settings" } },
       { path: "help", element: <HelpPage />, handle: { crumb: "Help" } },
+      // The account menu's Profile: the Profile tab of Settings.
+      { path: "profile", element: <Navigate to="/settings#profile" replace /> },
       // D161: OAuth authorization endpoint for MCP clients (sign-in and MFA happen first)
       {
         path: "oauth/authorize",

@@ -35,6 +35,7 @@ import {
   useUpdateMember,
 } from "@/hooks/workspace";
 import { RoleName } from "@/components/shared/RoleName";
+import { UserAvatar } from "@/components/shared/UserAvatar";
 import { ROLES, roleLabel, type Invite, type Membership, type Role } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
 
@@ -184,11 +185,22 @@ export function MembersPage() {
       key: "name",
       header: "Name",
       cell: (m) => (
-        <div>
-          <div className="font-medium">{m.user.display_name || m.user.email}</div>
-          {m.user.display_name && (
-            <div className="text-xs text-muted-foreground">{m.user.email}</div>
-          )}
+        <div className="flex items-center gap-3">
+          <UserAvatar user={m.user} />
+          <div className="min-w-0">
+            <div className="font-medium">
+              {m.user.display_name || m.user.email}
+              {m.user.pronouns && (
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  {m.user.pronouns}
+                </span>
+              )}
+            </div>
+            {m.user.display_name && (
+              <div className="text-xs text-muted-foreground">{m.user.email}</div>
+            )}
+            {m.user.bio && <div className="mt-0.5 text-xs text-muted-foreground">{m.user.bio}</div>}
+          </div>
         </div>
       ),
     },

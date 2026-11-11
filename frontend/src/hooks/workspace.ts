@@ -1,26 +1,38 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type {
-  AuditPage,
-  Invite,
-  InvitePreview,
-  Lab,
-  Membership,
-  Role,
-  User,
-} from "@/lib/api-types";
+import type { AuditPage, Invite, InvitePreview, Lab, Me, Membership, Role } from "@/lib/api-types";
 
 const j = (body: unknown) => ({ body });
 
 export function useMe() {
-  return useQuery({ queryKey: ["me"], queryFn: () => api<User>("/api/me/") });
+  return useQuery({ queryKey: ["me"], queryFn: () => api<Me>("/api/me/") });
 }
 export function useUpdateMe() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { display_name: string }) =>
-      api<User>("/api/me/", { method: "PATCH", ...j(v) }),
+    mutationFn: (v: { display_name?: string; pronouns?: string; bio?: string }) =>
+      api<Me>("/api/me/", { method: "PATCH", ...j(v) }),
     onSuccess: (u) => qc.setQueryData(["me"], u),
+  });
+}
+
+/** Sets (a PNG blob) or removes (null) your profile picture. People lists show it too. */
+export function useSetAvatar() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (picture: Blob | null) => {
+      if (picture === null) {
+        await api("/api/me/avatar/", { method: "DELETE" });
+        return api<Me>("/api/me/");
+      }
+      const form = new FormData();
+      form.append("file", picture, "avatar.png");
+      return api<Me>("/api/me/avatar/", { method: "PUT", body: form });
+    },
+    onSuccess: (me) => {
+      qc.setQueryData(["me"], me);
+      void qc.invalidateQueries({ queryKey: ["labs"] }); // member lists carry the picture
+    },
   });
 }
 

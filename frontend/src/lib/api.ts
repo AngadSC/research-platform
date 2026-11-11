@@ -84,7 +84,8 @@ export async function rawRequest(
     if (!getCookie("csrftoken")) await fetch(SESSION_URL, { headers });
     headers["X-CSRFToken"] = getCookie("csrftoken") ?? "";
   }
-  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const isForm = body instanceof FormData; // the browser sets the multipart boundary itself
+  if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
   let res: Response;
   try {
     res = await fetch(path, {
@@ -92,7 +93,7 @@ export async function rawRequest(
       headers,
       credentials: "same-origin",
       signal,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     });
   } catch {
     throw new ApiError(0, "We couldn't reach the server. Check your connection and try again.");

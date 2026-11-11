@@ -20,14 +20,21 @@ export function mockFetch(handlers: Record<string, Handler>) {
     const req: MockReq = {
       method: init?.method ?? "GET",
       path: String(input),
-      body: init?.body ? JSON.parse(String(init.body)) : undefined,
+      body:
+        init?.body instanceof FormData
+          ? init.body
+          : init?.body
+            ? JSON.parse(String(init.body))
+            : undefined,
       headers: (init?.headers ?? {}) as Record<string, string>,
     };
     calls.push(req);
     const h = handlers[`${req.method} ${req.path}`];
     if (!h) throw new Error(`Unmocked request: ${req.method} ${req.path}`);
     const { status = 200, body = null } = typeof h === "function" ? h(req) : h;
-    return new Response(body === null ? "" : JSON.stringify(body), { status });
+    return new Response(status === 204 ? null : body === null ? "" : JSON.stringify(body), {
+      status,
+    });
   });
   vi.stubGlobal("fetch", fn);
   return calls;

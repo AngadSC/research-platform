@@ -1,17 +1,23 @@
 import { useEffect, useState } from "react";
-import { ChevronsUpDown, X } from "lucide-react";
+import { ChevronsUpDown, CircleHelp, LogOut, Settings, User, X } from "lucide-react";
 import { NavLink, useNavigate } from "react-router";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { UserAvatar } from "@/components/shared/UserAvatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useLogout } from "@/hooks/auth";
 import { usePins } from "@/hooks/preferences";
 import { useMe } from "@/hooks/workspace";
-import { initials } from "@/lib/identity";
+import { roleLabel } from "@/lib/api-types";
+import { useTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 export const hoverTint = "hover:bg-primary/15 hover:text-foreground";
@@ -90,11 +96,17 @@ function Clock() {
 }
 
 /** Time and the account menu, held at the bottom of the sidebar while the rest scrolls. */
-export function SidebarFooter({ onNavigate }: { onNavigate: () => void }) {
+export function SidebarFooter({
+  onNavigate,
+  role,
+}: {
+  onNavigate: () => void;
+  role?: string | null;
+}) {
   const me = useMe().data;
   const logout = useLogout();
   const navigate = useNavigate();
-  const name = me?.display_name || me?.email || "";
+  const { theme, setTheme } = useTheme();
   const go = (to: string) => {
     onNavigate();
     void navigate(to);
@@ -107,21 +119,50 @@ export function SidebarFooter({ onNavigate }: { onNavigate: () => void }) {
           aria-label="Account menu"
           className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm ${hoverTint} focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none`}
         >
-          <span
-            aria-hidden
-            className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
-          >
-            {initials(name)}
+          {me ? (
+            <UserAvatar user={me} className="size-8" />
+          ) : (
+            <Skeleton className="size-8 rounded-full" />
+          )}
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-medium">{me?.display_name || me?.email}</span>
+            <span className="block truncate text-xs text-muted-foreground">
+              {role ? roleLabel(role) : me?.email}
+            </span>
           </span>
-          <span className="min-w-0 flex-1 truncate font-medium">{name}</span>
           <ChevronsUpDown className="size-4 shrink-0 opacity-60" aria-hidden />
         </DropdownMenuTrigger>
-        <DropdownMenuContent side="top" align="start" className="w-56">
-          <DropdownMenuItem onSelect={() => go("/settings#profile")}>Edit profile</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => go("/settings")}>Settings</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => go("/settings#security")}>Security</DropdownMenuItem>
+        <DropdownMenuContent
+          side="top"
+          align="start"
+          className="w-(--radix-dropdown-menu-trigger-width) min-w-56"
+        >
+          <DropdownMenuLabel className="truncate">{me?.email}</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => logout.mutate()}>Sign out</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => go("/settings#profile")}>
+            <User aria-hidden className="size-4" />
+            Profile
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => go("/settings")}>
+            <Settings aria-hidden className="size-4" />
+            Settings
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>Appearance</DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={theme} onValueChange={(t) => setTheme(t as Theme)}>
+            <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="system">System</DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => go("/help")}>
+            <CircleHelp aria-hidden className="size-4" />
+            Help and keyboard shortcuts
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => logout.mutate()}>
+            <LogOut aria-hidden className="size-4" />
+            Log out
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

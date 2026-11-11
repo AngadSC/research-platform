@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { DetailPanel } from "@/components/shared/DetailPanel";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
+import { UserAvatar } from "@/components/shared/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -179,7 +180,16 @@ export function TaskDrawer({
             </div>
             <div>
               <dt className="text-muted-foreground">Assignee</dt>
-              <dd>{task.assignee ? personName(task.assignee) : "Unassigned"}</dd>
+              <dd className="flex items-center gap-2">
+                {task.assignee ? (
+                  <>
+                    <UserAvatar user={task.assignee} className="size-6 text-[10px]" />
+                    {personName(task.assignee)}
+                  </>
+                ) : (
+                  "Unassigned"
+                )}
+              </dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Due date</dt>

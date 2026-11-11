@@ -11,10 +11,11 @@ import type { CustomTheme } from "@/lib/customTheme";
 import { useTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { Section } from "@/pages/admin/common";
-import { NameSection, SecuritySections } from "@/pages/SecurityPage";
+import { SecuritySections } from "@/pages/SecurityPage";
 import { AiAccessSections } from "@/pages/settings/AiAccessSections";
 import { AiKeysSection } from "@/pages/settings/AiKeysSection";
 import { CustomThemes } from "@/pages/settings/CustomThemes";
+import { ProfileSection } from "@/pages/settings/ProfileSection";
 
 type TaskView = "board" | "list";
 
@@ -98,7 +99,7 @@ export function SettingsPage() {
               label: "Profile",
               content: (
                 <div className="grid gap-8">
-                  <NameSection />
+                  <ProfileSection />
                   <Section
                     title="Integrations"
                     description="Connect storage, code and reference accounts."

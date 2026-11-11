@@ -11,6 +11,7 @@ import { ArrowDown, MessagesSquare, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
+import { UserAvatar } from "@/components/shared/UserAvatar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,7 +28,6 @@ import { CHAT_PAGE_SIZE, fetchOlderMessages, useChat } from "@/hooks/chat";
 import { personName, type ChatMessage } from "@/lib/api-types";
 import { fullDate } from "@/lib/format";
 import { formErrors } from "@/lib/forms";
-import { initials } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 
@@ -43,17 +43,6 @@ function startsGroup(m: ChatMessage, prev: ChatMessage | undefined) {
   if (!prev || prev.author.id !== m.author.id) return true;
   const gap = new Date(m.created_at).getTime() - new Date(prev.created_at).getTime();
   return gap > GROUP_GAP_MS || dayLabel(prev.created_at) !== dayLabel(m.created_at);
-}
-
-function Avatar({ name }: { name: string }) {
-  return (
-    <span
-      aria-hidden
-      className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold text-muted-foreground"
-    >
-      {initials(name)}
-    </span>
-  );
 }
 
 function MessageRow({
@@ -78,7 +67,12 @@ function MessageRow({
         mine && "flex-row-reverse",
       )}
     >
-      {!mine && (first ? <Avatar name={name} /> : <span className="w-8" />)}
+      {!mine &&
+        (first ? (
+          <UserAvatar user={message.author} className="size-8" />
+        ) : (
+          <span className="w-8" />
+        ))}
       <div className={cn("flex max-w-[80%] min-w-0 flex-col", mine && "items-end")}>
         {first && (
           <p className="mb-1 flex items-baseline gap-2 px-1 text-xs">

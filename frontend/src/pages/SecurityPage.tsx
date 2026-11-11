@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import { ProviderButton } from "@/components/auth/ProviderButton";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
-import { PageHeader } from "@/components/shared/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +23,6 @@ import {
   useTotp,
 } from "@/hooks/auth";
 import { useReauth } from "@/hooks/reauth";
-import { useMe, useUpdateMe } from "@/hooks/workspace";
 import { ApiError } from "@/lib/api";
 import { APP_NAME } from "@/lib/constants";
 import { formErrors } from "@/lib/forms";
@@ -55,50 +53,6 @@ function Section({
       </div>
       {children}
     </section>
-  );
-}
-
-export function NameSection() {
-  const { data: me } = useMe();
-  const update = useUpdateMe();
-  const [error, setError] = useState<string>();
-
-  async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const display_name = String(new FormData(e.currentTarget).get("name") ?? "").trim();
-    if (!display_name) return setError("Enter your name");
-    setError(undefined);
-    try {
-      await update.mutateAsync({ display_name });
-      toast.success("Saved");
-    } catch (err) {
-      setError(msg(err));
-    }
-  }
-
-  return (
-    <Section title="Your name" description="Shown to other people in your labs.">
-      {me ? (
-        <form onSubmit={submit} noValidate className="grid max-w-sm gap-4">
-          <FormField label="Name" error={error}>
-            {(p) => (
-              <Input
-                maxLength={120}
-                {...p}
-                name="name"
-                defaultValue={me.display_name}
-                autoComplete="name"
-              />
-            )}
-          </FormField>
-          <Button type="submit" className="justify-self-start" disabled={update.isPending}>
-            Save
-          </Button>
-        </form>
-      ) : (
-        <Skeleton className="h-9 w-64" />
-      )}
-    </Section>
   );
 }
 
@@ -418,18 +372,6 @@ export function SecuritySections() {
         <ConnectedAccountsSection reauth={reauth} />
         <TotpSection run={reauth.run} />
       </div>
-    </>
-  );
-}
-
-export function SecurityPage() {
-  return (
-    <>
-      <PageHeader title="Account" description="Your name and sign-in security." />
-      <div className="mb-8 max-w-2xl">
-        <NameSection />
-      </div>
-      <SecuritySections />
     </>
   );
 }

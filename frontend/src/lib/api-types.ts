@@ -22,6 +22,7 @@ export const ROLES: { value: Role; label: string; help: string }[] = [
 export const roleLabel = (r: string) => ROLES.find((x) => x.value === r)?.label ?? r;
 
 export type User = Schemas["User"];
+export type Me = Schemas["Me"];
 export type LoginMethods = Schemas["LoginMethods"];
 export type Lab = Schemas["Lab"];
 export type Membership = Schemas["Membership"];

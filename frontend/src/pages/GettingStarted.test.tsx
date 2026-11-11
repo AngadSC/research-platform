@@ -80,7 +80,8 @@ describe("tutorial and help", () => {
   it("walks through the steps, opens each page and can be closed", async () => {
     mockFetch(help());
     const router = renderRoute("/labs/lab1/calendar");
-    await userEvent.click(await screen.findByRole("link", { name: /Help/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Account menu" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: /Help/ }));
     await userEvent.click(await screen.findByRole("button", { name: "Take the tour" }));
     const tour = await screen.findByRole("region", { name: "Tutorial" });
     expect(within(tour).getByText("Step 1 of 7")).toBeVisible();
