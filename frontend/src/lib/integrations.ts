@@ -61,6 +61,7 @@ export const CATEGORIES: [string, string][] = [
   ["repository", "Repositories"],
   ["data_capture", "Data capture"],
   ["protocols", "Protocols"],
+  ["meetings", "Meetings and calendars"],
   ["tasks", "Task lists"],
 ];
 

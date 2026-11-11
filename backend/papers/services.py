@@ -92,15 +92,24 @@ def live_pdf(paper):
 
 
 @transaction.atomic
-def upload_pdf(paper, *, user, file, request=None):
-    """One live PDF per paper: a new upload replaces the old one (kept, soft-deleted)."""
-    magic = file.read(1024)
-    file.seek(0)
-    if file.content_type != "application/pdf" or b"%PDF-" not in magic:
-        raise ValidationError({"file": "Upload a PDF file."})
-    for old in paper.attachments.filter(deleted_at__isnull=True):
-        document_services.delete_attachment(old, user=user, request=request)
-    return document_services.upload_attachment(paper=paper, user=user, file=file, request=request)
+def upload_pdf(paper, *, user, file=None, drive_file_id=None, request=None):
+    """One live PDF per paper: a new upload replaces the old one (kept, soft-deleted). From
+    Drive (D257) the type is Drive's own, checked after it answers."""
+    if file is not None:
+        magic = file.read(1024)
+        file.seek(0)
+        if file.content_type != "application/pdf" or b"%PDF-" not in magic:
+            raise ValidationError({"file": "Upload a PDF file."})
+    with transaction.atomic():
+        old = list(paper.attachments.filter(deleted_at__isnull=True))
+        attachment = document_services.upload_attachment(
+            paper=paper, user=user, file=file, drive_file_id=drive_file_id, request=request
+        )
+        if attachment.content_type != "application/pdf":
+            raise ValidationError({"drive_file_id": "Choose a PDF file in Drive."})
+        for o in old:
+            document_services.delete_attachment(o, user=user, request=request)
+    return attachment
 
 
 def read_pdf_text(paper, *, first: int, last: int):
@@ -108,6 +117,10 @@ def read_pdf_text(paper, *, first: int, last: int):
     attachment = live_pdf(paper)
     if attachment is None:
         raise PdfTextError("This paper has no PDF attached.")
+    if attachment.from_drive:
+        raise PdfTextError(
+            "This PDF is in Google Drive, so it can't be read here. Open it in Drive."
+        )
     if attachment.size_bytes > MAX_BYTES:
         raise PdfTextError("This PDF is too large to read (50 MB maximum).")
     try:

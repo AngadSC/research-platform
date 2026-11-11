@@ -71,12 +71,18 @@ def _expiry(tokens):
 @sensitive_variables("data", "body")
 def _token_request(provider, data) -> dict:
     client_id, client_secret = provider.client()
+    if provider.token_auth == "basic":  # Zoom: the app's credentials as HTTP Basic auth
+        pair = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
+        creds, headers = {}, {"Accept": "application/json", "Authorization": f"Basic {pair}"}
+    else:
+        creds = {"client_id": client_id, "client_secret": client_secret}
+        headers = {"Accept": "application/json"}
     resp = http.send(
         "POST",
         provider.token_url,
         provider=provider,
-        data={**data, "client_id": client_id, "client_secret": client_secret},
-        headers={"Accept": "application/json"},
+        data={**data, **creds},
+        headers=headers,
     )
     try:
         body = resp.json()

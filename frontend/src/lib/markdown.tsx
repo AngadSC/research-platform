@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/** Safe "simple markdown" for messages, thread posts and notes (D142, D255): **bold**, *italic* or
+/** Safe "simple markdown" for messages, thread posts and notes (D142, D260): **bold**, *italic* or
  * _italic_, ~~strike~~, `code`, fenced code blocks, [text](https://... or mailto:...), bare https
  * links, "- " and "1. " lists, "> " quotes, @mentions and line breaks. It builds React elements
  * only, never HTML, so nothing in a message can inject markup; only http(s) and mailto links are

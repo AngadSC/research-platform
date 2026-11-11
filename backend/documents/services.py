@@ -199,10 +199,82 @@ def _safe_content_type(declared) -> str:
     )
 
 
+def _link_drive_file(*, user, file_id, owners, folder, request, pi_only) -> Attachment:
+    """D257: attach a Google Drive file by reference. The id comes from the Google Picker, but
+    the title, type and address are read from Drive with the person's own connection, so the
+    browser cannot name a file they cannot open or a link that goes anywhere but Drive. Nothing
+    is downloaded (D64); opening it goes to Drive, where Google decides who may see it."""
+    from integrations.http import AccountUnavailable, IntegrationError
+    from integrations.models import AccountStatus, ConnectedAccount
+    from integrations.providers import google_drive
+
+    project, approval, training_record, paper = owners
+    owner = project or approval or training_record or paper
+    provider = google_drive.PROVIDER
+    if not provider.valid_external_id(file_id):
+        raise ValidationError({"drive_file_id": "That is not a Google Drive file."})
+    account = (
+        ConnectedAccount.objects.for_lab(owner.lab_id)
+        .filter(user=user, provider=provider.name, status=AccountStatus.ACTIVE)
+        .first()
+    )
+    if account is None:
+        raise ValidationError(
+            {"drive_file_id": "Connect Google Drive in Settings > Integrations first."}
+        )
+    try:
+        meta = google_drive.fetch_item(account, file_id)
+    except (IntegrationError, AccountUnavailable):
+        raise ValidationError(
+            {"drive_file_id": "Google Drive did not answer. Try again."}
+        ) from None
+    if meta is None:
+        raise ValidationError({"drive_file_id": "That Drive file is not available to you."})
+    if not provider.link_url_ok(meta["url"]):
+        raise ValidationError({"drive_file_id": "Google Drive returned an unexpected link."})
+    _check_folder(folder, project.pk if project else None)
+    attachment_id = uuid.uuid4()
+    with transaction.atomic():
+        attachment = Attachment.objects.create(
+            id=attachment_id,
+            project=project,
+            ethics_approval=approval,
+            training_record=training_record,
+            paper=paper,
+            folder=folder,
+            storage_key=f"drive:{attachment_id}",  # never opened: there are no bytes
+            original_filename="".join(c for c in meta["title"] if c.isprintable())[:255] or "file",
+            content_type=_safe_content_type(meta.get("mime_type")),
+            size_bytes=0,
+            sha256="",
+            uploaded_by=user,
+            notice_acknowledged_at=None,
+            pi_only=pi_only,
+            drive_file_id=file_id,
+            external_url=meta["url"],
+        )
+        record(
+            AuditAction.ATTACHMENT_UPLOADED,
+            actor=user,
+            lab=owner.lab,
+            target=attachment,
+            request=request,
+            metadata={
+                "source": "google_drive",
+                "drive_file_id": file_id,
+                "ethics_approval": str(approval.pk) if approval else None,
+                "training_record": str(training_record.pk) if training_record else None,
+                "paper": str(paper.pk) if paper else None,
+            },
+        )
+    return attachment
+
+
 def upload_attachment(
     *,
     user,
-    file,
+    file=None,
+    drive_file_id=None,
     project=None,
     approval=None,
     training_record=None,
@@ -217,6 +289,15 @@ def upload_attachment(
     if sum(o is not None for o in (project, approval, training_record, paper)) != 1:
         raise ValueError("an attachment has exactly one owner")
     owner = project or approval or training_record or paper
+    if drive_file_id:
+        return _link_drive_file(
+            user=user,
+            file_id=drive_file_id,
+            owners=(project, approval, training_record, paper),
+            folder=folder,
+            request=request,
+            pi_only=pi_only,
+        )
     _check_folder(folder, project.pk if project else None)
     if file.size > settings.ATTACHMENT_MAX_BYTES:
         raise ValidationError({"file": "File is too large (50 MB maximum)."})

@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
@@ -16,15 +16,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useCalendar } from "@/hooks/admin";
+import { googleOn, useGoogleEvents, useGoogleSync } from "@/hooks/meetings";
 import { useLab } from "@/hooks/workspace";
-import type { CalendarItem } from "@/lib/api-types";
+import type { CalendarItem, GoogleEvent } from "@/lib/api-types";
 import { calendarHref, itemsOn, monthGrid } from "@/lib/calendar";
 import { localDateISO } from "@/lib/format";
 import { formErrors, type FormErrors } from "@/lib/forms";
 import { projectColorStyle } from "@/lib/projectColors";
 import { cn } from "@/lib/utils";
 import { formValue } from "@/pages/admin/common";
-import { FeedDialog, MeetingDialog } from "@/pages/CalendarDialogs";
+import { FeedDialog, GoogleCalendarDialog, MeetingDialog } from "@/pages/CalendarDialogs";
 
 const KIND: Record<CalendarItem["kind"], string> = {
   event: "Lab event",
@@ -83,6 +84,44 @@ function Entry({
         <button type="button" title={label} className={className} onClick={() => onOpen(item)}>
           {content}
         </button>
+      )}
+    </li>
+  );
+}
+
+/** One of your own Google events (D256): only you see it, and it opens in Google Calendar. */
+function GoogleEntry({ event }: { event: GoogleEvent }) {
+  const time = event.starts_at
+    ? `${new Date(event.starts_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })} `
+    : "";
+  const content = (
+    <>
+      <CalendarDays aria-hidden className="mt-0.5 size-3 shrink-0 text-muted-foreground" />
+      <span className="sr-only">Your Google Calendar: </span>
+      <span className="min-w-0 truncate italic">
+        {time}
+        {event.title}
+      </span>
+    </>
+  );
+  const className =
+    "flex w-full items-start gap-1.5 rounded border border-dashed px-1 py-0.5 text-left text-xs text-muted-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
+  return (
+    <li>
+      {event.url || event.join_url ? (
+        <a
+          href={event.url || event.join_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`Your Google Calendar: ${event.title}`}
+          className={className}
+        >
+          {content}
+        </a>
+      ) : (
+        <span title={`Your Google Calendar: ${event.title}`} className={className}>
+          {content}
+        </span>
       )}
     </li>
   );
@@ -224,6 +263,15 @@ export function CalendarPage() {
     null,
   );
   const [subscribing, setSubscribing] = useState(false);
+  const [googleOpen, setGoogleOpen] = useState(false);
+  const google = useGoogleSync(labId).status.data;
+  const googleEvents =
+    useGoogleEvents(
+      labId,
+      localDateISO(days[0]!),
+      localDateISO(days[days.length - 1]!),
+      !!google?.connected && google.show_google_events,
+    ).data ?? [];
   const items = list.data ?? [];
   const today = localDateISO();
   const move = (months: number) =>
@@ -242,6 +290,9 @@ export function CalendarPage() {
         }
         actions={
           <>
+            <Button variant="outline" onClick={() => setGoogleOpen(true)}>
+              <CalendarDays aria-hidden /> Google Calendar
+            </Button>
             <Button variant="outline" onClick={() => setSubscribing(true)}>
               Subscribe
             </Button>
@@ -299,6 +350,7 @@ export function CalendarPage() {
         {days.map((d) => {
           const iso = localDateISO(d);
           const onDay = itemsOn(items, iso);
+          const fromGoogle = googleOn(googleEvents, iso);
           const isToday = iso === today;
           const outside = d.getMonth() !== cursor.getMonth();
           return (
@@ -308,7 +360,7 @@ export function CalendarPage() {
               // Below sm the grid is a list of days with something on them, plus today.
               className={cn(
                 "min-w-0 bg-card p-1.5 sm:min-h-24",
-                onDay.length === 0 && !isToday && "hidden sm:block",
+                onDay.length === 0 && fromGoogle.length === 0 && !isToday && "hidden sm:block",
                 outside && "sm:bg-muted",
               )}
             >
@@ -330,8 +382,11 @@ export function CalendarPage() {
                 </span>
                 <span className="hidden sm:inline">{d.getDate()}</span>
               </time>
-              {onDay.length > 0 && (
+              {onDay.length + fromGoogle.length > 0 && (
                 <ul className="mt-1 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+                  {fromGoogle.map((e) => (
+                    <GoogleEntry key={`google:${e.id}`} event={e} />
+                  ))}
                   {onDay.map((item) => (
                     <Entry
                       key={`${item.kind}:${item.id}`}
@@ -371,6 +426,7 @@ export function CalendarPage() {
         />
       )}
       {subscribing && <FeedDialog labId={labId} onClose={() => setSubscribing(false)} />}
+      {googleOpen && <GoogleCalendarDialog labId={labId} onClose={() => setGoogleOpen(false)} />}
     </>
   );
 }

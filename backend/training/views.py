@@ -218,7 +218,11 @@ class RecordCertificateView(RecordMixin, generics.GenericAPIView):
         ser = AttachmentUploadSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         attachment = services.upload_certificate(
-            self.get_object(), actor=request.user, file=ser.validated_data["file"], request=request
+            self.get_object(),
+            actor=request.user,
+            file=ser.validated_data.get("file"),
+            drive_file_id=ser.validated_data.get("drive_file_id"),
+            request=request,
         )
         return Response(AttachmentSerializer(attachment).data, status=status.HTTP_201_CREATED)
 

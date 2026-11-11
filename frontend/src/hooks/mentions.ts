@@ -3,7 +3,7 @@ import type { Person } from "@/components/composer/RichComposer";
 import { api } from "@/lib/api";
 import { personName, type Membership, type ProjectMembership } from "@/lib/api-types";
 
-/** Who can be @mentioned (D255): a project's members, or with no `projectId` the whole lab. These
+/** Who can be @mentioned (D260): a project's members, or with no `projectId` the whole lab. These
  * are the same lists, with the same query keys, as the member pages, so they are usually cached. */
 export function useMentionPeople(labId: string, projectId?: string): Person[] | undefined {
   const lab = useQuery({

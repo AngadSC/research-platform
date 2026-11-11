@@ -1,4 +1,4 @@
-/** A small built-in emoji set for the composer and the document editor (D255): no dependency and
+/** A small built-in emoji set for the composer and the document editor (D260): no dependency and
  * no images. Each entry is [emoji, searchable name]; names are lower case words. */
 export interface EmojiGroup {
   id: string;

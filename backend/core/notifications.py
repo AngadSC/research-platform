@@ -84,7 +84,7 @@ def _still_allowed(user, lab, n) -> bool:
             apps.get_model("projects", "Task").objects.for_lab(lab).filter(pk=n.target_id).first()
         )
         return task is not None and can(user, Perm.VIEW_PROJECT, task)
-    if n.kind == NotificationKind.MENTION:  # D255: a mention in a project or task needs the project
+    if n.kind == NotificationKind.MENTION:  # D260: a mention in a project or task needs the project
         model = {"projects.project": "Project", "projects.task": "Task"}.get(n.target_type.lower())
         if model is not None:
             target = (
@@ -103,7 +103,7 @@ def visible_notifications(user, lab, qs, limit=100) -> list:
     return list(islice((n for n in qs if _still_allowed(user, lab, n)), limit))
 
 
-# D255: `@[Display Name](user:<uuid>)` is what the composer stores for a mention.
+# D260: `@[Display Name](user:<uuid>)` is what the composer stores for a mention.
 MENTION_TOKEN = re.compile(r"@\[([^\]\n]{1,100})\]\(user:([0-9a-fA-F-]{36})\)")
 MAX_MENTIONS = 20
 

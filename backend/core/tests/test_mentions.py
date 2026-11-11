@@ -1,4 +1,4 @@
-"""D255: @mentions in chat messages and task updates tell the people who may read them."""
+"""D260: @mentions in chat messages and task updates tell the people who may read them."""
 
 import pytest
 from rest_framework.test import APIClient

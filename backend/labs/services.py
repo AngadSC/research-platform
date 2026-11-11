@@ -36,7 +36,7 @@ from projects.services import unassign_lost_access
 
 def post_lab_message(*, lab, by, body) -> LabChatMessage:
     message = LabChatMessage.objects.create(lab=lab, author=by, body=body)
-    notify_mentions(  # D255
+    notify_mentions(  # D260
         lab=lab,
         author=by,
         body=body,

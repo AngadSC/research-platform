@@ -116,7 +116,8 @@ class ApprovalAttachmentUploadView(ApprovalMixin, generics.GenericAPIView):
         attachment = services.upload_file(
             approval=approval,
             user=request.user,
-            file=ser.validated_data["file"],
+            file=ser.validated_data.get("file"),
+            drive_file_id=ser.validated_data.get("drive_file_id"),
             request=request,
         )
         return Response(AttachmentSerializer(attachment).data, status=status.HTTP_201_CREATED)

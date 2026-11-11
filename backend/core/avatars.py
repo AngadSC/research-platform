@@ -1,4 +1,4 @@
-"""Profile pictures (D253). Stored in the private `lab_files` storage under
+"""Profile pictures (D258). Stored in the private `lab_files` storage under
 `users/<user id>/avatar-<random>.<ext>` and only ever served by `UserAvatarView`, after a check
 that the viewer shares a lab with the person. The type is read from the bytes, never from the
 file name or the browser's content type, and SVG (which can carry script) is not accepted."""

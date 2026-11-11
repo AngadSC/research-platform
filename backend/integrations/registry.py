@@ -16,6 +16,7 @@ from integrations.providers import (  # noqa: F401 - re-exported for callers and
     CONNECT_FIELDS,
     LINK_METHODS,
     TARGETS,
+    WRITERS,
     AuthType,
     Category,
     ConnectField,
@@ -24,6 +25,8 @@ from integrations.providers import (  # noqa: F401 - re-exported for callers and
 
 ENABLED = [
     "google_drive",
+    "google_calendar",
+    "zoom",
     "github",
     "gitlab",
     "overleaf",

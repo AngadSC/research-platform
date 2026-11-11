@@ -23,7 +23,7 @@ function useIsDark() {
   return dark;
 }
 
-/** D256: an @mention in a document is inline content holding the person's id and the name as it
+/** D261: an @mention in a document is inline content holding the person's id and the name as it
  * was written. Built with BlockNote's public API only; the editor's own ":" emoji picker is
  * already on by default. Mentions here do not send notifications. */
 const Mention = createReactInlineContentSpec(

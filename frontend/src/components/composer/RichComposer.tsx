@@ -74,7 +74,7 @@ const TOOLS: ([string, string, typeof Bold, keyof Actions] | "|")[] = [
 
 const mod = (e: KeyboardEvent) => (e.ctrlKey || e.metaKey) && !e.altKey;
 
-/** A message box with a formatting toolbar, emoji, @mentions and send on Enter (D255). It is a
+/** A message box with a formatting toolbar, emoji, @mentions and send on Enter (D260). It is a
  * plain textarea holding simple markdown, so what is stored is what `MessageText` renders. Put it
  * inside a `<form>`: Enter, and the Send button, submit that form. */
 export function RichComposer({

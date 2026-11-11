@@ -243,6 +243,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "integrations.jobs.revoke_orphans",
         "schedule": crontab(hour=1, minute=30),
     },
+    "push-google-calendars": {  # D255
+        "task": "labs.jobs.push_google_calendars",
+        "schedule": crontab(minute="*/15"),
+    },
 }
 
 # D14: dev email goes to the console. Production sets EMAIL_BACKEND to an anymail backend, e.g.
@@ -341,6 +345,7 @@ REST_FRAMEWORK = {
         "uploads": "60/hour",
         "lab_create": "5/day",
         "chat": "60/minute",
+        "calendar_sync": "20/hour",  # D255: each run is many Google calls
         "picker_token": "30/hour",
         "link_check": "60/hour",
         "search": "120/minute",

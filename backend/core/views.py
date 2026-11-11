@@ -68,7 +68,7 @@ class MeView(generics.RetrieveUpdateAPIView):
 
 
 class MyAvatarView(APIView):
-    """PUT replaces your profile picture, DELETE removes it (D253)."""
+    """PUT replaces your profile picture, DELETE removes it (D258)."""
 
     parser_classes = [MultiPartParser]
     perms = {"PUT": Perm.AUTHENTICATED, "DELETE": Perm.AUTHENTICATED}
@@ -96,7 +96,7 @@ class MyAvatarView(APIView):
 
 class UserAvatarView(APIView):
     """The picture of yourself or of someone you share a lab with; anyone else gets 404, as does
-    a person with no picture. Streamed here so the type and `nosniff` are ours (D253)."""
+    a person with no picture. Streamed here so the type and `nosniff` are ours (D258)."""
 
     perms = {"GET": Perm.AUTHENTICATED}
 

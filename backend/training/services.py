@@ -208,12 +208,12 @@ def live_certificate(rec):
 
 
 @transaction.atomic
-def upload_certificate(rec, *, actor, file, request=None):
+def upload_certificate(rec, *, actor, file=None, drive_file_id=None, request=None):
     """One live certificate per record: a new upload replaces the old one (kept, soft-deleted)."""
     for old in rec.attachments.filter(deleted_at__isnull=True):
         document_services.delete_attachment(old, user=actor, request=request)
     attachment = document_services.upload_attachment(
-        training_record=rec, user=actor, file=file, request=request
+        training_record=rec, user=actor, file=file, drive_file_id=drive_file_id, request=request
     )
     if rec.verified_at is not None:
         _unverify(rec)

@@ -291,7 +291,7 @@ def delete_task(*, task, by, request=None) -> None:
 
 def post_message(*, project, by, body) -> ChatMessage:
     message = ChatMessage.objects.create(lab=project.lab, project=project, author=by, body=body)
-    notify_mentions(  # D255
+    notify_mentions(  # D260
         lab=project.lab,
         author=by,
         body=body,
@@ -398,7 +398,7 @@ def create_post(*, task, author, body) -> TaskPost:
 
 
 def _notify_post_mentions(post, author) -> None:
-    notify_mentions(  # D255
+    notify_mentions(  # D260
         lab=post.lab,
         author=author,
         body=post.body,

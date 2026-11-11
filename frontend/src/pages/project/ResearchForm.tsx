@@ -22,6 +22,8 @@ import {
 } from "@/lib/research";
 import { cleanReferences, validateReferences, type RefErrors } from "@/lib/references";
 import { UploadDialog } from "@/pages/project/UploadDialog";
+import { FromDriveButton } from "@/components/shared/FromDriveButton";
+import { attachFromDrive } from "@/lib/drive";
 
 type Source = Kind | "documents" | "attachments" | "members";
 type Type = "text" | "textarea" | "url" | "date" | "select" | "multi" | "status";
@@ -246,14 +248,29 @@ export function ResearchForm({ labId, projectId, kind, record, onSaved, onCancel
                 onChange={(x) => set(f.name, x)}
                 extra={
                   kind === "results" && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setUploading(true)}
-                    >
-                      <Upload aria-hidden /> Upload a figure
-                    </Button>
+                    <span className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setUploading(true)}
+                      >
+                        <Upload aria-hidden /> Upload a figure
+                      </Button>
+                      <FromDriveButton
+                        labId={labId}
+                        onPick={async (file) => {
+                          const a = await attachFromDrive(
+                            `/api/labs/${labId}/projects/${projectId}/attachments/`,
+                            file.id,
+                          );
+                          setV((p) => ({
+                            ...p,
+                            attachments: [...(p.attachments as string[]), a.id],
+                          }));
+                        }}
+                      />
+                    </span>
                   )
                 }
               />
@@ -400,6 +417,21 @@ export function ResultSetForm({
         <Button type="button" variant="outline" size="sm" onClick={() => setUploading(true)}>
           <Upload aria-hidden /> Upload figures
         </Button>
+        <FromDriveButton
+          labId={labId}
+          label="Figure from Drive"
+          onPick={async (file) => {
+            const a = await attachFromDrive(
+              `/api/labs/${labId}/projects/${projectId}/attachments/`,
+              file.id,
+            );
+            addRow({
+              title: titleFrom(a.original_filename),
+              summary: "",
+              attachment: { id: a.id, name: a.original_filename },
+            });
+          }}
+        />
         <Button
           type="button"
           variant="outline"

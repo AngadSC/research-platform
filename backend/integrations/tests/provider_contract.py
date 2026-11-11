@@ -45,7 +45,14 @@ from audit.models import AuditEvent
 from core.models import Notification
 from integrations import http, registry, services
 from integrations.models import AccountStatus, ConnectedAccount, ExternalLink
-from integrations.registry import CONNECT_FIELDS, LINK_METHODS, TARGETS, AuthType, Category
+from integrations.registry import (
+    CONNECT_FIELDS,
+    LINK_METHODS,
+    TARGETS,
+    WRITERS,
+    AuthType,
+    Category,
+)
 from integrations.serializers import ConnectedAccountSerializer
 from integrations.tests.fake import FakeTransport, response
 
@@ -134,8 +141,13 @@ def provider_problems(p) -> list[str]:  # noqa: C901 - a checklist, one line per
     need(re.fullmatch(r"[a-z][a-z0-9_]{1,39}", p.name), "name: lower-case slug, 40 chars max")
     need(p.label and p.icon and re.fullmatch(r"[a-z0-9-]+", p.icon), "label and icon key")
     need(p.auth_type in set(AuthType) and p.category in set(Category), "auth_type, category")
-    need(p.metadata_only is True, "metadata_only must be True (D84)")
-    need(p.link_targets and set(p.link_targets) <= set(TARGETS), "link_targets")
+    if p.name in WRITERS:  # D253: a writer declares exactly its allowed writes and links nothing
+        need(p.metadata_only is False and p.writes == WRITERS[p.name], "writes must match WRITERS")
+        need(p.category == Category.MEETINGS and not p.link_targets, "writers: meetings, no links")
+    else:
+        need(p.metadata_only is True and not p.writes, "metadata_only must be True (D84)")
+        need(p.link_targets and set(p.link_targets) <= set(TARGETS), "link_targets")
+    need(p.token_auth in ("body", "basic"), "token_auth: body or basic")
     need(set(p.link_methods) <= set(LINK_METHODS), "link_methods")
     need("search" not in p.link_methods or p.search_items, "search needs search_items")
     if "paste_url" in p.link_methods:
@@ -153,7 +165,10 @@ def provider_problems(p) -> list[str]:  # noqa: C901 - a checklist, one line per
     need(not p.needs_instance_url or p.auth_type == AuthType.API_KEY, "instance URL: api_key")
     need(("instance_url" in names) == p.needs_instance_url, "instance_url field iff needed")
     need(
-        not (p.needs_account or p.auth_type == AuthType.PUBLIC) or p.fetch_item or p.fetch_tasks,
+        not (p.needs_account or p.auth_type == AuthType.PUBLIC)
+        or p.fetch_item
+        or p.fetch_tasks
+        or p.writes,
         "fetch_item is required unless link_only or task import",
     )
     if p.instance_host_pattern:

@@ -125,7 +125,11 @@ class PaperPdfView(PaperMixin, generics.GenericAPIView):
         ser = AttachmentUploadSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         attachment = services.upload_pdf(
-            self.get_object(), user=request.user, file=ser.validated_data["file"], request=request
+            self.get_object(),
+            user=request.user,
+            file=ser.validated_data.get("file"),
+            drive_file_id=ser.validated_data.get("drive_file_id"),
+            request=request,
         )
         return Response(AttachmentSerializer(attachment).data, status=status.HTTP_201_CREATED)
 

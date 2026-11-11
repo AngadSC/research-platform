@@ -149,12 +149,20 @@ class Attachment(LabScopedModel):
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
     )
-    notice_acknowledged_at = models.DateTimeField()
+    notice_acknowledged_at = models.DateTimeField(null=True, blank=True)  # null: a Drive link
     deleted_at = models.DateTimeField(null=True, blank=True)  # soft delete; bytes are kept
     folder = models.ForeignKey(  # only on project-owned files
         Folder, on_delete=models.SET_NULL, null=True, blank=True, related_name="attachments"
     )
     pi_only = models.BooleanField(default=False)  # D244: a grant letter; never cleared
+    # D257: "From Drive". A Google Drive file attached by reference: no bytes are stored, and
+    # opening it goes to Drive. Set only from Drive's own answer, never from the browser.
+    drive_file_id = models.CharField(max_length=255, blank=True)
+    external_url = models.URLField(max_length=2000, blank=True)
+
+    @property
+    def from_drive(self) -> bool:
+        return bool(self.drive_file_id)
 
     lab_parents = ("project", "ethics_approval", "training_record", "folder", "paper")
     permission_domain = "project"

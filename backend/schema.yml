@@ -1464,6 +1464,127 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/calendar/google/:
+    get:
+      operationId: labs_calendar_google_retrieve
+      description: Your own Google Calendar settings in this lab. `connected` is false
+        until you connect.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleCalendarSync'
+          description: ''
+    patch:
+      operationId: labs_calendar_google_partial_update
+      description: Your own Google Calendar settings in this lab. `connected` is false
+        until you connect.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedGoogleCalendarSyncInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedGoogleCalendarSyncInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedGoogleCalendarSyncInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleCalendarSync'
+          description: ''
+  /api/labs/{lab_id}/calendar/google/events/:
+    get:
+      operationId: labs_calendar_google_events_list
+      description: Your own Google events for the calendar; [] when not connected
+        or switched off.
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: mine
+        schema:
+          type: boolean
+          default: false
+        description: 'Only your own: D230.'
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GoogleEvent'
+          description: ''
+  /api/labs/{lab_id}/calendar/google/sync/:
+    post:
+      operationId: labs_calendar_google_sync_create
+      description: Sync now, instead of waiting for the next 15-minute run.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncResult'
+          description: ''
   /api/labs/{lab_id}/calendar/meetings/:
     post:
       operationId: labs_calendar_meetings_create
@@ -1564,6 +1685,30 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/calendar/video-options/:
+    get:
+      operationId: labs_calendar_video_options_retrieve
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoOptions'
+          description: ''
   /api/labs/{lab_id}/chat/messages/:
     get:
       operationId: labs_chat_messages_list
@@ -2457,7 +2602,6 @@ paths:
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/AttachmentUpload'
-        required: true
       security:
       - sessionAuth: []
       responses:
@@ -4658,7 +4802,6 @@ paths:
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/AttachmentUpload'
-        required: true
       security:
       - sessionAuth: []
       responses:
@@ -5141,7 +5284,6 @@ paths:
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/AttachmentUpload'
-        required: true
       security:
       - sessionAuth: []
       responses:
@@ -8196,7 +8338,6 @@ paths:
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/AttachmentUpload'
-        required: true
       security:
       - sessionAuth: []
       responses:
@@ -8586,7 +8727,7 @@ paths:
   /api/me/avatar/:
     put:
       operationId: me_avatar_update
-      description: PUT replaces your profile picture, DELETE removes it (D253).
+      description: PUT replaces your profile picture, DELETE removes it (D258).
       tags:
       - me
       requestBody:
@@ -8606,7 +8747,7 @@ paths:
           description: ''
     delete:
       operationId: me_avatar_destroy
-      description: PUT replaces your profile picture, DELETE removes it (D253).
+      description: PUT replaces your profile picture, DELETE removes it (D258).
       tags:
       - me
       security:
@@ -8794,7 +8935,7 @@ paths:
       operationId: users_avatar_retrieve
       description: |-
         The picture of yourself or of someone you share a lab with; anyone else gets 404, as does
-        a person with no picture. Streamed here so the type and `nosniff` are ours (D253).
+        a person with no picture. Streamed here so the type and `nosniff` are ours (D258).
       parameters:
       - in: path
         name: user_id
@@ -9304,14 +9445,24 @@ components:
           type: string
           format: date-time
           readOnly: true
+          nullable: true
         created_at:
           type: string
           format: date-time
           readOnly: true
+        drive_file_id:
+          type: string
+          readOnly: true
+        external_url:
+          type: string
+          format: uri
+          readOnly: true
       required:
       - content_type
       - created_at
+      - drive_file_id
       - ethics_approval
+      - external_url
       - folder
       - id
       - notice_acknowledged_at
@@ -9343,8 +9494,8 @@ components:
       - size_bytes
     AttachmentUpload:
       type: object
-      description: The view resolves it inside the project; an unknown id is a 400
-        either way.
+      description: A file, or (D257) a Google Drive file id from the Picker. Exactly
+        one.
       properties:
         folder:
           type: string
@@ -9353,14 +9504,16 @@ components:
         file:
           type: string
           format: uri
+          nullable: true
+        drive_file_id:
+          type: string
+          maxLength: 255
         acknowledged_notice:
           type: boolean
           default: false
         pi_only:
           type: boolean
           default: false
-      required:
-      - file
     AuditEvent:
       type: object
       properties:
@@ -9483,6 +9636,9 @@ components:
           format: uri
       required:
       - file
+    BlankEnum:
+      enum:
+      - ''
     CalendarFeedCreated:
       type: object
       properties:
@@ -9556,6 +9712,14 @@ components:
         join_url:
           type: string
           description: Meetings only; may be empty.
+        video_provider:
+          type: string
+          description: 'Meetings: google_meet, zoom or empty.'
+        call_owner:
+          type: string
+          format: uuid
+          nullable: true
+          description: 'Meetings with a call: only this person may change it (D254).'
         attendees:
           type: array
           items:
@@ -9563,6 +9727,7 @@ components:
             format: uuid
       required:
       - attendees
+      - call_owner
       - date
       - done
       - end_date
@@ -9576,6 +9741,7 @@ components:
       - project_name
       - starts_at
       - title
+      - video_provider
     CalendarItemKindEnum:
       enum:
       - event
@@ -11889,6 +12055,74 @@ components:
           type: boolean
       required:
       - dismissed
+    GoogleCalendarSync:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        email:
+          type: string
+        show_google_events:
+          type: boolean
+        push_meetings:
+          type: boolean
+        push_tasks:
+          type: boolean
+        push_deadlines:
+          type: boolean
+        last_synced_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_error:
+          type: string
+      required:
+      - connected
+      - email
+      - last_error
+      - last_synced_at
+      - push_deadlines
+      - push_meetings
+      - push_tasks
+      - show_google_events
+    GoogleEvent:
+      type: object
+      description: One of your own Google Calendar events, read live and never stored
+        (D256).
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        starts_at:
+          type: string
+          format: date-time
+          nullable: true
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        join_url:
+          type: string
+        url:
+          type: string
+          description: The event in Google Calendar; may be empty.
+      required:
+      - date
+      - end_date
+      - ends_at
+      - id
+      - join_url
+      - starts_at
+      - title
+      - url
     Grant:
       type: object
       properties:
@@ -13086,14 +13320,24 @@ components:
             type: string
             format: uuid
           readOnly: true
+        video_provider:
+          allOf:
+          - $ref: '#/components/schemas/VideoProviderEnum'
+          readOnly: true
+        call_owner:
+          type: string
+          nullable: true
+          readOnly: true
       required:
       - attendees
+      - call_owner
       - ends_at
       - id
       - join_url
       - notes
       - starts_at
       - title
+      - video_provider
     MeetingInput:
       type: object
       properties:
@@ -13122,6 +13366,15 @@ components:
             type: string
             format: uuid
           maxItems: 500
+        video:
+          description: |-
+            Make a Google Meet or Zoom call on your own account (D254). Only on create.
+
+            * `google_meet` - Google Meet
+            * `zoom` - Zoom
+          oneOf:
+          - $ref: '#/components/schemas/VideoEnum'
+          - $ref: '#/components/schemas/BlankEnum'
       required:
       - ends_at
       - starts_at
@@ -14024,6 +14277,17 @@ components:
           type: string
           format: uuid
           nullable: true
+    PatchedGoogleCalendarSyncInput:
+      type: object
+      properties:
+        show_google_events:
+          type: boolean
+        push_meetings:
+          type: boolean
+        push_tasks:
+          type: boolean
+        push_deadlines:
+          type: boolean
     PatchedInventoryInput:
       type: object
       properties:
@@ -14216,6 +14480,15 @@ components:
             type: string
             format: uuid
           maxItems: 500
+        video:
+          description: |-
+            Make a Google Meet or Zoom call on your own account (D254). Only on create.
+
+            * `google_meet` - Google Meet
+            * `zoom` - Zoom
+          oneOf:
+          - $ref: '#/components/schemas/VideoEnum'
+          - $ref: '#/components/schemas/BlankEnum'
     PatchedNoteInput:
       type: object
       properties:
@@ -14943,6 +15216,7 @@ components:
       - references
       - repository
       - tasks
+      - meetings
       type: string
       description: |-
         * `storage` - storage
@@ -14953,6 +15227,7 @@ components:
         * `references` - references
         * `repository` - repository
         * `tasks` - tasks
+        * `meetings` - meetings
     ProviderConfig:
       type: object
       properties:
@@ -15618,6 +15893,45 @@ components:
       - can_act
       - done
       - key
+    SyncResult:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        email:
+          type: string
+        show_google_events:
+          type: boolean
+        push_meetings:
+          type: boolean
+        push_tasks:
+          type: boolean
+        push_deadlines:
+          type: boolean
+        last_synced_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_error:
+          type: string
+        added:
+          type: integer
+        changed:
+          type: integer
+        removed:
+          type: integer
+      required:
+      - added
+      - changed
+      - connected
+      - email
+      - last_error
+      - last_synced_at
+      - push_deadlines
+      - push_meetings
+      - push_tasks
+      - removed
+      - show_google_events
     Task:
       type: object
       properties:
@@ -16209,6 +16523,40 @@ components:
       - avatar_url
       - email
       - id
+    VideoEnum:
+      enum:
+      - google_meet
+      - zoom
+      type: string
+      description: |-
+        * `google_meet` - Google Meet
+        * `zoom` - Zoom
+    VideoOptions:
+      type: object
+      description: Which calls you can make now, and which could be made once connected.
+      properties:
+        google_meet:
+          type: boolean
+        zoom:
+          type: boolean
+        google_meet_available:
+          type: boolean
+          description: Set up by the site, so connectable.
+        zoom_available:
+          type: boolean
+      required:
+      - google_meet
+      - google_meet_available
+      - zoom
+      - zoom_available
+    VideoProviderEnum:
+      enum:
+      - google_meet
+      - zoom
+      type: string
+      description: |-
+        * `google_meet` - Google Meet
+        * `zoom` - Zoom
     Webhook:
       type: object
       description: 'Never the address or the secret: `host` says where it goes.'

@@ -126,7 +126,7 @@
 ## Fix list 3 (2026-11-11)
 
 - Owner's PDF (labbenchos-fix3): pages 2-4 were already built in D220-D243. A Playwright pass (sonnet) on labbenchos.com as pi, admin, student and viewer passed 35 of 39 items; two were code-only checks, two partial.
-- New: account menu at the bottom of the sidebar opening upward (D254) and a profile page with pronouns, bio and a private profile picture (D253), both by sonnet. Message composer with formatting toolbar, emoji and @mentions in chat, task updates and paper notes, plus mentions in documents (D255, D256), by sonnet.
+- New: account menu at the bottom of the sidebar opening upward (D259) and a profile page with pronouns, bio and a private profile picture (D258), both by sonnet. Message composer with formatting toolbar, emoji and @mentions in chat, task updates and paper notes, plus mentions in documents (D260, D261), by sonnet.
 - Orchestrator fixes from the QA pass: "Reassign all to" ended in a replacement character; membership audit targets read "a lab member is viewer" and now read "Name (Viewer)".
 - Live MCP check (Playwright, `.playwright-mcp/mcp_full.js`): Claude (read) and ChatGPT (read and write) client metadata sign-ins, 24 tools, read tools, create/update task, write refused on a read grant, refresh rotation, code replay revokes, student refused funding and others' handover lists, no-token 401. QA task deleted and test grants revoked afterwards.
 - Not built: the composer's "+" attach (chat and task posts have no attachments), video and mic buttons.

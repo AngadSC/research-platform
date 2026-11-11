@@ -1,15 +1,17 @@
 import {
+  Archive,
   BookMarked,
+  CalendarDays,
   ClipboardList,
   Cloud,
   ExternalLink as OpenIcon,
   FlaskConical,
   GitBranch,
   HardDrive,
-  Archive,
   Link2,
   ListChecks,
   PenLine,
+  Video,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { RelativeTime } from "@/components/shared/RelativeTime";
@@ -45,6 +47,9 @@ const ICONS: Record<string, typeof Link2> = {
   todoist: ListChecks,
   trello: ListChecks,
   monday: ListChecks,
+  "google-calendar": CalendarDays,
+  google_calendar: CalendarDays,
+  zoom: Video,
 };
 
 export function ProviderIcon({ name, className }: { name: string; className?: string }) {

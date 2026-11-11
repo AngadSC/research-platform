@@ -42,7 +42,7 @@ describe("Markdown", () => {
     expect(container).toHaveTextContent("https://evil.example/b");
   });
 
-  it("renders strike, underscore italic, quotes, numbered lists and code blocks (D255)", () => {
+  it("renders strike, underscore italic, quotes, numbered lists and code blocks (D260)", () => {
     const { container } = render(
       <Markdown
         text={

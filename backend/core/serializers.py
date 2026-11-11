@@ -16,7 +16,7 @@ def no_control_chars(value):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    # Both come from columns on the user row, so nesting this costs no extra query (D253).
+    # Both come from columns on the user row, so nesting this costs no extra query (D258).
     avatar_url = serializers.SerializerMethodField()
 
     class Meta:

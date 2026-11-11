@@ -1,4 +1,4 @@
-"""Profile picture, pronouns and bio (D253)."""
+"""Profile picture, pronouns and bio (D258)."""
 
 import pytest
 from django.conf import settings as django_settings

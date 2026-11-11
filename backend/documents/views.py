@@ -285,7 +285,8 @@ class AttachmentListCreateView(AttachmentMixin, generics.GenericAPIView):
         attachment = services.upload_attachment(
             project=self.project,
             user=request.user,
-            file=ser.validated_data["file"],
+            file=ser.validated_data.get("file"),
+            drive_file_id=ser.validated_data.get("drive_file_id"),
             folder=self.resolve_folder(ser.validated_data.get("folder")),
             request=request,
             pi_only=pi_only,
@@ -416,6 +417,8 @@ def download_response(request, attachment):
         target=attachment,
         request=request,
     )
+    if attachment.from_drive:  # D257: no bytes here; Drive decides who may open it
+        return HttpResponseRedirect(attachment.external_url)
     inline = attachment.content_type == "application/pdf"  # shown by PDF.js
     # D123: only forced downloads are presigned. Anything shown inline streams through
     # Django, which is the only place `nosniff` and `CSP: sandbox` can be set.

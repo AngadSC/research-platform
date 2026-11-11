@@ -1,4 +1,4 @@
-/** Pure text edits behind the message composer (D255). Each takes the text and the selection and
+/** Pure text edits behind the message composer (D260). Each takes the text and the selection and
  * returns the new text and where the selection should land, so they are easy to test and the
  * component only has to apply the result. */
 export interface Edit {

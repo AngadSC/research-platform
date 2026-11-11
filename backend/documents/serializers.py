@@ -123,16 +123,28 @@ class AttachmentSerializer(serializers.ModelSerializer):
             "uploaded_by",
             "notice_acknowledged_at",
             "created_at",
+            "drive_file_id",
+            "external_url",
         ]
         read_only_fields = fields
 
 
 class AttachmentUploadSerializer(FolderRefMixin):
-    file = serializers.FileField()
+    """A file, or (D257) a Google Drive file id from the Picker. Exactly one."""
+
+    file = serializers.FileField(required=False)
+    drive_file_id = serializers.CharField(max_length=255, required=False)
     acknowledged_notice = serializers.BooleanField(default=False)
     pi_only = serializers.BooleanField(default=False)  # D244: honoured on project files only
 
-    def validate_acknowledged_notice(self, value):
-        if not value:
-            raise serializers.ValidationError(f"You must acknowledge the upload notice. {NOTICE}")
-        return value
+    def validate(self, data):
+        data = super().validate(data)
+        has_file, has_drive = "file" in data, bool(data.get("drive_file_id"))
+        if has_file == has_drive:
+            raise serializers.ValidationError({"file": "Choose a file, or a file from Drive."})
+        if has_file and not data["acknowledged_notice"]:
+            # Only an upload stores anything here; a Drive link stores a pointer (D64, D257).
+            raise serializers.ValidationError(
+                {"acknowledged_notice": f"You must acknowledge the upload notice. {NOTICE}"}
+            )
+        return data

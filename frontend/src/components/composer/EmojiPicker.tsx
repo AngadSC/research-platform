@@ -3,7 +3,7 @@ import { EMOJI_GROUPS, searchEmoji } from "@/lib/emoji";
 import { cn } from "@/lib/utils";
 
 /** A small emoji panel with search by name, opening above its button. Closes on Escape or when
- * the click lands elsewhere. Nothing is fetched: the set is built in (D255). */
+ * the click lands elsewhere. Nothing is fetched: the set is built in (D260). */
 export function EmojiPicker({
   onPick,
   onClose,
