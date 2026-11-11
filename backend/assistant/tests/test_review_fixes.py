@@ -150,46 +150,18 @@ def approve_body(world, client_id, challenge):
     }
 
 
-@pytest.mark.parametrize("age", [400, 4000])
-def test_consent_needs_a_recent_sign_in_or_password_check(world, age):
+@pytest.mark.parametrize("age", [5, 400, 4000])
+def test_consent_does_not_ask_for_a_password_check(world, age):
+    # Google-only people have no password to give, so approval never re-checks one
     client_id = register()
     _, challenge = pkce()
-    c = sign_in(APIClient(), world.u.contrib, seconds_ago=age, reauthenticated=age == 400)
+    c = sign_in(APIClient(), world.u.contrib, seconds_ago=age, reauthenticated=False)
     resp = c.post(AUTHORIZE, approve_body(world, client_id, challenge), format="json")
-    assert resp.status_code == 401
-    assert {"id": "reauthenticate"} in resp.json()["data"]["flows"]  # what useReauth understands
-    assert not AIGrant.objects.exists()
-    # looking at the consent screen needs nothing
-    check = {**approve_body(world, client_id, challenge), "decision": "check"}
-    assert c.post(AUTHORIZE, check, format="json").status_code == 200
+    assert resp.status_code == 200
+    assert AIGrant.objects.exists()
 
 
-def test_consent_works_right_after_signing_in_or_a_password_check(world):
-    client_id = register()
-    _, challenge = pkce()
-    for fresh in ({"seconds_ago": 5}, {"seconds_ago": 5, "reauthenticated": False}):
-        c = sign_in(APIClient(), world.u.contrib, **fresh)
-        body = approve_body(world, client_id, challenge)
-        assert c.post(AUTHORIZE, body, format="json").status_code == 200
-
-
-def test_a_password_check_through_the_real_endpoint_unlocks_consent(world):
-    client_id = register()
-    _, challenge = pkce()
-    c = Client()
-    c.force_login(world.u.contrib)  # a session with no authentication record at all
-    body = approve_body(world, client_id, challenge)
-    assert c.post(AUTHORIZE, body, "application/json").status_code == 401
-    c.get(f"{ALLAUTH}/config")
-    csrf = {"X-CSRFToken": c.cookies["csrftoken"].value}
-    again = c.post(
-        f"{ALLAUTH}/auth/reauthenticate", {"password": "pw"}, "application/json", headers=csrf
-    )
-    assert again.status_code == 200
-    assert c.post(AUTHORIZE, body, "application/json").status_code == 200
-
-
-def test_token_creation_needs_recent_authentication(world):
+def test_token_creation_does_not_ask_for_a_password_check(world):
     body = {
         "name": "CLI",
         "labs": [str(world.lab_a.pk)],
@@ -197,9 +169,6 @@ def test_token_creation_needs_recent_authentication(world):
         "expires_in_days": 7,
     }
     c = sign_in(APIClient(), world.u.contrib, seconds_ago=4000, reauthenticated=False)
-    resp = c.post("/api/ai/grants/", body, format="json")
-    assert resp.status_code == 401 and not AIGrant.objects.exists()
-    c = sign_in(APIClient(), world.u.contrib, seconds_ago=30)
     assert c.post("/api/ai/grants/", body, format="json").status_code == 201
 
 

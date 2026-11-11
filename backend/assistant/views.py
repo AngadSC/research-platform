@@ -22,7 +22,6 @@ from assistant.serializers import (
     PatCreateSerializer,
 )
 from assistant.services import LOOPBACK, OAuthError
-from core.auth import recent_auth_required
 from core.permissions import Perm, lab_role, labs_for
 from core.views import LabScopedViewMixin
 
@@ -106,10 +105,7 @@ class AuthorizeView(APIView):
             )
         if decision == "deny":
             return Response({"redirect": _redirect(uri, error="access_denied", state=state)})
-        # approve: only after a recent sign-in or password check (D194)
-        stale = recent_auth_required(request)
-        if stale is not None:
-            return stale
+        # approve: no password re-check; Google-only accounts have no password to give
         # D219: the person decides, whatever the app asked for; read only unless they choose write
         access = Access.WRITE if q.get("access") == "write" else Access.READ
         try:
@@ -146,9 +142,6 @@ class GrantListView(generics.ListAPIView):
     @extend_schema(request=PatCreateSerializer, responses={201: PatCreatedSerializer})
     @sensitive_variables("token")
     def post(self, request):
-        stale = recent_auth_required(request)  # D194
-        if stale is not None:
-            return stale
         s = PatCreateSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         d = s.validated_data
