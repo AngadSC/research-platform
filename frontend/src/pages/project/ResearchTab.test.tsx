@@ -211,7 +211,7 @@ describe("Research tab", () => {
       expect(labels).toContain("Analysis: Alpha diversity");
       expect(labels).toContain("New dataset");
       expect(labels).toContain("New analysis");
-      expect(labels).toContain("Go to project: Gut study");
+      expect(labels).toContain("Go to project Gut study");
     });
   });
 });

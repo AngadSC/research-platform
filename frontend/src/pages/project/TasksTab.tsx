@@ -107,10 +107,15 @@ function NewTaskPanel({
   }
 
   return (
-    <DetailPanel open onOpenChange={(o) => !o && onClose()} title="New task">
+    <DetailPanel
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title="New task"
+      description="Add what needs doing. Assignee and due date are optional."
+    >
       <form onSubmit={submit} noValidate className="grid gap-4 py-4">
         <FormField label="Title" error={errors.fields.title}>
-          {(p) => <Input {...p} name="title" autoComplete="off" />}
+          {(p) => <Input {...p} name="title" autoComplete="off" maxLength={300} />}
         </FormField>
         <FormField label="Description" error={errors.fields.description}>
           {(p) => <Textarea {...p} name="description" />}
