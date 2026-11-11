@@ -4,11 +4,14 @@ returned, viewers cannot write, and writes are audited with their origin."""
 import json
 
 import pytest
+from django.utils import timezone
+from rest_framework.test import APIClient
 
 from assistant import tools
 from audit.models import AuditAction, AuditEvent
+from core.models import Notification
 from labs.models import LabMembership
-from projects.models import Task, TaskPost
+from projects.models import Project, ProjectMembership, ProjectRole, Task, TaskPost
 from provenance.models import Decision
 
 pytestmark = pytest.mark.django_db
@@ -213,12 +216,15 @@ def test_read_only_grant_cannot_write(world, ctx):
         run(c, "create_task", lab_id=str(world.lab_a.pk), project_id=str(world.p1.pk), title="X")
 
 
-@pytest.mark.parametrize("tool_name", ["create_task", "add_task_update", "create_decision_draft"])
+@pytest.mark.parametrize(
+    "tool_name", ["create_task", "add_task_update", "create_decision_draft", "update_task"]
+)
 def test_viewer_cannot_use_write_tools_even_with_a_write_grant(world, ctx, tool_name):
     args = {
         "create_task": {"project_id": str(world.p1.pk), "title": "X"},
         "add_task_update": {"task_id": str(world.a1.task.pk), "body": "X"},
         "create_decision_draft": {"project_id": str(world.p1.pk), "title": "X"},
+        "update_task": {"task_id": str(world.a1.task.pk), "status": "done"},
     }[tool_name]
     c = ctx(world.u.viewer, world.lab_a, write=True)
     before = (Task.objects.for_lab(world.lab_a).count(), AuditEvent.objects.count())
@@ -296,3 +302,216 @@ def test_pages_are_capped(world, ctx, make_project):
     assert len(first["projects"]) == 25 and first["next_cursor"] == "25"
     rest = run(c, "list_projects", lab_id=str(world.lab_a.pk), cursor="25")
     assert len(rest["projects"]) == 7 and rest["next_cursor"] is None
+
+
+# ---------------------------------------------------------------- people, handover, update_task
+
+
+def section(out, key):
+    return next(s for s in out["sections"] if s["key"] == key)
+
+
+def test_list_members_is_lab_scoped_active_only_and_has_no_emails(world, ctx, make_user, join):
+    gone = make_user(display_name="Gone", is_active=False)
+    join(gone, world.lab_a, "member")
+    out = run(ctx(world.u.viewer, world.lab_a), "list_members", lab_id=str(world.lab_a.pk))
+    by_id = {m["user_id"]: m for m in out["members"]}
+    u = world.u
+    assert set(by_id) == {str(x.pk) for x in (u.pi, u.contrib, u.nonproj, u.viewer)}
+    assert by_id[str(u.pi.pk)] == {"user_id": str(u.pi.pk), "name": "Pi", "lab_role": "pi"}
+    assert str(u.other.pk) not in text(out) and str(gone.pk) not in text(out)
+    assert "email" not in text(out) and "@" not in text(out)
+    assert "untrusted_content" in tools.TOOLS["list_members"].description
+    assert "assignee_id" in tools.TOOLS["list_members"].description
+
+
+def test_list_members_of_a_project(world, ctx):
+    c = ctx(world.u.contrib, world.lab_a)
+    lab = str(world.lab_a.pk)
+    out = run(c, "list_members", lab_id=lab, project_id=str(world.p1.pk))["members"]
+    assert sorted((m["name"], m["lab_role"], m["project_role"]) for m in out) == [
+        ("Contrib", "member", "contributor"),
+        ("Viewer", "viewer", "contributor"),
+    ]
+    for hidden in (world.pb, world.p2):  # another lab's project, a project you cannot see
+        with pytest.raises(tools.ToolError, match="No project with that id that you can see"):
+            run(c, "list_members", lab_id=lab, project_id=str(hidden.pk))
+
+
+def test_handover_self_is_allowed_others_need_manage_members(world, ctx, make_user, join):
+    lab = str(world.lab_a.pk)
+    contrib = ctx(world.u.contrib, world.lab_a)
+    own = run(contrib, "handover_report", lab_id=lab, person="me")
+    assert own["person"] == "Contrib" and own["project"] is None
+    assert section(own, "open_tasks") == {
+        "key": "open_tasks",
+        "label": "Open tasks",
+        "total": 0,
+        "items": [],
+    }
+    with pytest.raises(tools.ToolError, match="does not allow"):
+        run(contrib, "handover_report", lab_id=lab, person=str(world.u.pi.pk))
+    admin = make_user(display_name="Admin")
+    join(admin, world.lab_a, "lab_admin")
+    for boss in (world.u.pi, admin):
+        out = run(ctx(boss, world.lab_a), "handover_report", lab_id=lab, person=str(world.u.pi.pk))
+        documents = section(out, "documents")
+        assert documents["total"] == 2  # Doc open and Doc SECRET-p2, both created by the pi
+        item = documents["items"][0]
+        assert set(item) == {"kind", "title", "project", "reason", "url"}
+        assert item["url"].startswith("http") and f"/labs/{lab}/projects/" in item["url"]
+    assert "untrusted_content" in tools.TOOLS["handover_report"].description
+
+
+def test_handover_unknown_and_other_lab_person_read_the_same(world, ctx):
+    c = ctx(world.u.pi, world.lab_a)
+    msgs = []
+    for person in (str(world.u.other.pk), "00000000-0000-0000-0000-000000000000"):
+        with pytest.raises(tools.ToolError) as exc:
+            run(c, "handover_report", lab_id=str(world.lab_a.pk), person=person)
+        msgs.append(str(exc.value))
+    assert msgs[0] == msgs[1] == "No person with that id that you can see in this lab."
+
+
+def test_project_handover_needs_manage_project_members_and_hides_what_you_cannot_see(world, ctx):
+    lab = str(world.lab_a.pk)
+    p1 = str(world.p1.pk)
+    for who in (world.u.contrib, world.u.viewer):  # contributors on P1, not leads
+        with pytest.raises(tools.ToolError, match="does not allow"):
+            run(ctx(who, world.lab_a), "handover_report", lab_id=lab, person="me", project_id=p1)
+    # contrib leads P1; nonproj leads P1 and the hidden P2 (whose approval is restricted)
+    ProjectMembership.objects.for_lab(world.lab_a).filter(user=world.u.contrib).update(
+        role=ProjectRole.LEAD
+    )
+    for p in (world.p1, world.p2):
+        ProjectMembership.objects.create(
+            lab=world.lab_a, project=p, user=world.u.nonproj, role=ProjectRole.LEAD
+        )
+    out = run(
+        ctx(world.u.contrib, world.lab_a),
+        "handover_report",
+        lab_id=lab,
+        person=str(world.u.nonproj.pk),
+        project_id=p1,
+    )
+    assert out["project"] == {"id": p1, "name": "P1 open"}
+    assert [i["title"] for i in section(out, "ethics_approvals")["items"]] == [
+        "N-open: Ethics open"
+    ]
+    assert SECRET not in text(out)
+    event = AuditEvent.objects.get(action=AuditAction.HANDOVER_GENERATED)
+    assert event.actor == world.u.contrib and str(event.target_id) == p1
+    assert event.metadata["person"] == str(world.u.nonproj.pk)
+    assert event.metadata["via"] == "mcp" and event.metadata["client"] == "Test client"
+    assert event.metadata["counts"]["ethics_approvals"] == 1
+
+
+def test_handover_sections_are_capped(world, ctx):
+    Task.objects.bulk_create(
+        Task(
+            lab=world.lab_a,
+            project=world.p1,
+            title=f"T{i}",
+            assignee=world.u.contrib,
+            created_by=world.u.pi,
+        )
+        for i in range(55)
+    )
+    c = ctx(world.u.contrib, world.lab_a)
+    out = run(c, "handover_report", lab_id=str(world.lab_a.pk), person="me")
+    tasks = section(out, "open_tasks")
+    assert tasks["total"] == 55 and len(tasks["items"]) == 50
+
+
+def _upd(c, w, **args):
+    return run(c, "update_task", lab_id=str(w.lab_a.pk), task_id=str(w.a1.task.pk), **args)
+
+
+def test_update_task_status_due_date_and_assignee(world, ctx):
+    c = ctx(world.u.contrib, world.lab_a, write=True)
+    out = _upd(c, world, status="done", due_date="2030-02-01", assignee_id=str(world.u.contrib.pk))
+    assert out["updated"]["status"] == "done" and out["updated"]["due_date"] == "2030-02-01"
+    assert out["updated"]["assignee_id"] == str(world.u.contrib.pk)
+    task = Task.objects.for_lab(world.lab_a).get(pk=world.a1.task.pk)
+    assert (task.status, task.assignee) == ("done", world.u.contrib)
+    mine = run(c, "list_tasks", lab_id=str(world.lab_a.pk), assignee=str(world.u.contrib.pk))
+    assert [t["id"] for t in mine["tasks"]] == [str(task.pk)]
+    out = _upd(c, world, due_date="", assignee_id="none")
+    task.refresh_from_db()
+    assert task.due_date is None and task.assignee is None
+    assert out["updated"]["assignee_id"] is None
+    events = AuditEvent.objects.filter(action=AuditAction.AI_TOOL_WRITE)
+    assert [e.metadata["tool"] for e in events] == ["update_task", "update_task"]
+    assert all(str(e.target_id) == str(task.pk) and e.metadata["via"] == "mcp" for e in events)
+
+
+def test_update_task_refusals(world, ctx):
+    c = ctx(world.u.contrib, world.lab_a, write=True)
+    with pytest.raises(tools.WriteNotAllowed):
+        _upd(ctx(world.u.contrib, world.lab_a), world, status="done")
+    with pytest.raises(tools.ToolError, match="at least one"):
+        _upd(c, world)
+    with pytest.raises(tools.ToolError, match="The assignee must be able to edit this project"):
+        _upd(c, world, assignee_id=str(world.u.nonproj.pk))  # not on P1
+    with pytest.raises(tools.ToolError, match="that you can see"):
+        run(
+            ctx(world.u.pi, world.lab_a, write=True),
+            "update_task",
+            lab_id=str(world.lab_a.pk),
+            task_id=str(world.b.task.pk),
+            status="done",
+        )
+    Project.objects.for_lab(world.lab_a).filter(pk=world.p1.pk).update(deleted_at=timezone.now())
+    with pytest.raises(tools.ToolError, match="that you can see"):
+        _upd(c, world, status="done")
+    assert not AuditEvent.objects.filter(action=AuditAction.AI_TOOL_WRITE).exists()
+    assert Task.objects.for_lab(world.lab_a).get(pk=world.a1.task.pk).status == "todo"
+
+
+def test_update_task_has_the_same_side_effects_as_the_rest_patch(world, ctx):
+    """The REST PATCH notifies nobody and stamps the project's "last edited"; so does the tool."""
+    other = Task.objects.create(
+        lab=world.lab_a, project=world.p1, title="Other", created_by=world.u.pi
+    )
+    api = APIClient()
+    api.force_login(world.u.contrib)
+    resp = api.patch(
+        f"/api/labs/{world.lab_a.pk}/tasks/{other.pk}/",
+        {"status": "done", "assignee": str(world.u.contrib.pk)},
+        format="json",
+    )
+    assert resp.status_code == 200, resp.content
+    rest_notes = Notification.objects.for_lab(world.lab_a).count()
+    Project.objects.for_lab(world.lab_a).filter(pk=world.p1.pk).update(
+        last_activity_at=None, last_activity_by=None
+    )
+    c = ctx(world.u.contrib, world.lab_a, write=True)
+    _upd(c, world, status="done", assignee_id=str(world.u.contrib.pk))
+    assert Notification.objects.for_lab(world.lab_a).count() == rest_notes
+    p1 = Project.objects.for_lab(world.lab_a).get(pk=world.p1.pk)
+    assert p1.last_activity_by == world.u.contrib and p1.last_activity_at is not None
+
+
+def test_describe_call_names_the_task_and_the_new_assignee(world, ctx):
+    c = ctx(world.u.pi, world.lab_a)
+    args = {
+        "lab_id": str(world.lab_a.pk),
+        "task_id": str(world.a1.task.pk),
+        "status": "done",
+        "due_date": "2030-03-01",
+        "assignee_id": str(world.u.contrib.pk),
+    }
+    out = tools.describe_call(c, "update_task", args)
+    assert out["resolved"] == {
+        "lab": "Lab A",
+        "task": "Task open",
+        "project": "P1 open",
+        "person": "Contrib",
+    }
+    assert out["preview"] == [
+        {"label": "New status", "text": "done"},
+        {"label": "New due date", "text": "2030-03-01"},
+    ]
+    cleared = tools.describe_call(c, "update_task", args | {"due_date": "", "assignee_id": "none"})
+    assert cleared["resolved"]["person"] == "Nobody (the task will be unassigned)"
+    assert cleared["preview"][-1]["text"] == "None (the due date will be cleared)"
