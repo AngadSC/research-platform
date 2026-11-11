@@ -83,6 +83,16 @@ export function LabListPage() {
   );
 }
 
-export function NotBuiltPage() {
-  return <EmptyState title="Nothing here yet" description="This section is coming soon." />;
+export function NotFoundPage() {
+  return (
+    <EmptyState
+      title="Page not found"
+      description="This address doesn't match a page. Check the link, or go back to your lab."
+      action={
+        <Button asChild variant="outline">
+          <Link to="/">Go home</Link>
+        </Button>
+      }
+    />
+  );
 }

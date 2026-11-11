@@ -642,8 +642,8 @@ describe("Overview", () => {
       [`GET ${P}/members/`]: { body: [] },
     });
     renderRoute("/labs/lab1/projects/p1/overview");
-    const line = await screen.findByText(/Last edited/);
-    expect(line).toHaveTextContent("Last edited 3 hours ago by Grace");
+    const line = await screen.findByText(/Last activity/);
+    expect(line).toHaveTextContent("Last activity 3 hours ago by Grace");
     expect(within(line).getByText("3 hours ago")).toHaveAttribute(
       "title",
       expect.stringMatching(/\d{4}/),

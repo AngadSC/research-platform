@@ -91,6 +91,13 @@ describe("validation", () => {
     expect(await screen.findByText("Expiry must be after the approval date")).toBeInTheDocument();
     expect(calls.some((c) => c.method === "POST" && c.path.includes("ethics"))).toBe(false);
   });
+
+  it("shows no form to someone who can't edit approvals, even from a pasted link", async () => {
+    mockFetch(base(["view_lab", "view_ethics"]));
+    renderRoute("/labs/lab1/ethics/new");
+    expect(await screen.findByText("You can't add or edit ethics approvals")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Approval number")).not.toBeInTheDocument();
+  });
 });
 
 describe("list", () => {

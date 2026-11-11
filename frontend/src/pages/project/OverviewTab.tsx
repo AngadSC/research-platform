@@ -25,6 +25,7 @@ import { RoleName } from "@/components/shared/RoleName";
 import { useMembers } from "@/hooks/workspace";
 import {
   PROJECT_ROLES,
+  PROJECT_STATUSES,
   personName,
   type Deadline,
   type DeadlinePriority,
@@ -47,7 +48,7 @@ function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="text-sm capitalize">{value}</dd>
+      <dd className="text-sm">{value}</dd>
     </div>
   );
 }
@@ -473,12 +474,17 @@ export default function OverviewTab({ labId, projectId, project }: ProjectTabPro
         </p>
         {project.last_activity_at && (
           <p className="text-xs text-muted-foreground">
-            Last edited <RelativeTime value={project.last_activity_at} />
+            Last activity <RelativeTime value={project.last_activity_at} />
             {project.last_activity_by && <> by {personName(project.last_activity_by)}</>}
           </p>
         )}
         <dl className="grid grid-cols-3 gap-4">
-          <Fact label="Status" value={project.status} />
+          <Fact
+            label="Status"
+            value={
+              PROJECT_STATUSES.find((s) => s.value === project.status)?.label ?? project.status
+            }
+          />
           <Fact label="Start date" value={day(project.start_date)} />
           <Fact label="Keep until" value={day(project.retain_until)} />
         </dl>

@@ -11,7 +11,7 @@ import {
   VerifyEmailPage,
 } from "@/pages/AuthPages";
 import { CreateLabPage } from "@/pages/CreateLabPage";
-import { HomePage, LabListPage, NotBuiltPage } from "@/pages/HomePage";
+import { HomePage, LabListPage, NotFoundPage } from "@/pages/HomePage";
 import { DocumentPage } from "@/pages/LazyDocumentPage";
 import { LazyLineageTab } from "@/pages/project/LazyLineageTab";
 import { LabHomePage } from "@/pages/LabHomePage";
@@ -349,7 +349,7 @@ export const routes: RouteObject[] = [
           },
         ],
       },
-      { path: "*", element: <NotBuiltPage />, handle: { crumb: "Not available yet" } },
+      { path: "*", element: <NotFoundPage />, handle: { crumb: "Not found" } },
     ],
   },
 ];

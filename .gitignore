@@ -10,3 +10,4 @@ backend/celerybeat-schedule*
 backend/.dev_secret_key
 backend/.dev_integration_key
 deploy/.env.prod
+.playwright-mcp/

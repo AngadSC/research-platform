@@ -274,7 +274,18 @@ const FIELDS = ["approval_number", "board", "title", "approval_date", "expiry_da
 /** Create (no approvalId in the route) or edit. */
 export function EthicsFormPage() {
   const { labId = "", approvalId } = useParams();
+  const { data: lab } = useLab(labId);
   const { data: existing, error } = useApproval(labId, approvalId);
+  if (!lab) return <Skeleton aria-label="Loading" className="h-40 w-full" />;
+  // A pasted link must not show a form the server will refuse (viewers lack edit_ethics).
+  if (!lab.my_permissions.includes("edit_ethics"))
+    return (
+      <EmptyState
+        icon={Lock}
+        title="You can't add or edit ethics approvals"
+        description="Ask a PI or lab admin if something here needs changing."
+      />
+    );
   if (approvalId && error) return <FormError message={formErrors(error, []).form} />;
   if (approvalId && !existing) return <Skeleton aria-label="Loading" className="h-40 w-full" />;
   return <ApprovalForm key={existing?.id} labId={labId} approval={existing} />;
