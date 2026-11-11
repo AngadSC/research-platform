@@ -489,24 +489,56 @@ def _set_attendees(meeting, ids):
     meeting.attendees.set(wanted | {meeting.created_by_id})
 
 
+def _attendee_emails(lab, ids) -> set[str]:
+    members = LabMembership.objects.for_lab(lab).filter(user_id__in=set(ids)).select_related("user")
+    return {m.user.email for m in members if m.user.email}
+
+
 @transaction.atomic
 def create_meeting(*, lab, user, data, request=None):
-    fields = {k: v for k, v in data.items() if k != "attendees"}
+    from labs import video_calendar
+
+    video = data.get("video") or ""
+    fields = {k: v for k, v in data.items() if k not in ("attendees", "video")}
     _check_meeting_times(fields["starts_at"], fields["ends_at"])
-    meeting = _create(
-        Meeting,
-        A.MEETING_CREATED,
-        lab=lab,
-        user=user,
-        data={**fields, "created_by": user},
-        request=request,
-    )
-    _set_attendees(meeting, data.get("attendees", []))
+    attendees = {*data.get("attendees", []), user.pk}
+    if video:
+        # D254: the call is made first, on the organiser's own account. If anything after it
+        # fails, it is removed again, so Google or Zoom never keeps a meeting the app lost.
+        account = video_calendar.account_for_new_call(lab, user, video)
+        draft = Meeting(lab=lab, created_by=user, **fields)
+        video_calendar.create_call(draft, video, account, _attendee_emails(lab, attendees))
+        fields.update(
+            join_url=draft.join_url,
+            external_id=draft.external_id,
+            video_provider=video,
+            video_account=account,
+        )
+    try:
+        meeting = _create(
+            Meeting,
+            A.MEETING_CREATED,
+            lab=lab,
+            user=user,
+            data={**fields, "created_by": user},
+            request=request,
+        )
+        _set_attendees(meeting, data.get("attendees", []))
+    except Exception:
+        if video:
+            video_calendar.delete_call(draft, quiet=True)
+        raise
     return meeting
 
 
 @transaction.atomic
 def update_meeting(obj, *, user, data, request=None):
+    from labs import video_calendar
+
+    video_calendar.check_can_change(obj, user)
+    data = {k: v for k, v in data.items() if k != "video"}  # a call is chosen when made
+    if obj.video_provider and "join_url" in data:
+        data.pop("join_url")  # the app's own link stays (D254)
     _check_meeting_times(data.get("starts_at", obj.starts_at), data.get("ends_at", obj.ends_at))
     for key, value in data.items():
         if key != "attendees":
@@ -514,6 +546,9 @@ def update_meeting(obj, *, user, data, request=None):
     _save(obj)
     if "attendees" in data:
         _set_attendees(obj, data["attendees"])
+    if obj.video_provider and data.keys() & {"title", "starts_at", "ends_at", "attendees"}:
+        ids = obj.attendees.values_list("pk", flat=True)
+        video_calendar.update_call(obj, _attendee_emails(obj.lab, ids))  # raises: rolled back
     record(
         A.MEETING_UPDATED,
         actor=user,
@@ -527,6 +562,10 @@ def update_meeting(obj, *, user, data, request=None):
 
 @transaction.atomic
 def delete_meeting(obj, *, user, request=None):
+    from labs import video_calendar
+
+    video_calendar.check_can_change(obj, user)
+    video_calendar.delete_call(obj)  # Google or Zoom first: a refusal keeps the meeting here
     _delete(obj, A.MEETING_DELETED, user=user, request=request)
 
 

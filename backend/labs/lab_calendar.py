@@ -14,6 +14,7 @@ from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, negotiation, serializers, status, views
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from core.auth import recent_auth_required
 from core.permissions import Perm, get_lab_or_404
@@ -22,12 +23,14 @@ from core.tenancy import by_secret
 from core.views import LabScopedViewMixin
 from ethics.models import ApprovalStatus, EthicsApproval
 from labs import admin_services as svc
+from labs import video_calendar
 from labs.models import (
     CalendarFeedToken,
     InventoryItem,
     InventoryStatus,
     LabEvent,
     Meeting,
+    VideoProvider,
     hash_token,
 )
 from projects.models import ProjectDeadline, Task, TaskStatus
@@ -67,6 +70,10 @@ class CalendarItemSerializer(serializers.Serializer):
     starts_at = serializers.DateTimeField(allow_null=True, help_text="Meetings only.")
     ends_at = serializers.DateTimeField(allow_null=True, help_text="Meetings only.")
     join_url = serializers.CharField(help_text="Meetings only; may be empty.")
+    video_provider = serializers.CharField(help_text="Meetings: google_meet, zoom or empty.")
+    call_owner = serializers.UUIDField(
+        allow_null=True, help_text="Meetings with a call: only this person may change it (D254)."
+    )
     attendees = serializers.ListField(child=serializers.UUIDField())
 
 
@@ -98,8 +105,23 @@ def validate_join_url(value):
 class MeetingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Meeting
-        fields = ["id", "title", "starts_at", "ends_at", "join_url", "notes", "attendees"]
+        fields = [
+            "id",
+            "title",
+            "starts_at",
+            "ends_at",
+            "join_url",
+            "notes",
+            "attendees",
+            "video_provider",
+            "call_owner",
+        ]
         read_only_fields = fields
+
+    call_owner = serializers.SerializerMethodField()
+
+    def get_call_owner(self, obj) -> str | None:
+        return _call_owner(obj)
 
 
 class MeetingInputSerializer(serializers.Serializer):
@@ -111,6 +133,65 @@ class MeetingInputSerializer(serializers.Serializer):
     )
     notes = serializers.CharField(max_length=5000, allow_blank=True, required=False)
     attendees = serializers.ListField(child=serializers.UUIDField(), max_length=500, required=False)
+    video = serializers.ChoiceField(
+        choices=VideoProvider.choices,
+        required=False,
+        allow_blank=True,
+        help_text="Make a Google Meet or Zoom call on your own account (D254). Only on create.",
+    )
+
+
+def _call_owner(meeting):
+    account = meeting.video_account
+    return str(account.user_id) if meeting.video_provider and account is not None else None
+
+
+class GoogleEventSerializer(serializers.Serializer):
+    """One of your own Google Calendar events, read live and never stored (D256)."""
+
+    id = serializers.CharField()
+    title = serializers.CharField()
+    date = serializers.DateField()
+    end_date = serializers.DateField(allow_null=True)
+    starts_at = serializers.DateTimeField(allow_null=True)
+    ends_at = serializers.DateTimeField(allow_null=True)
+    join_url = serializers.CharField()
+    url = serializers.CharField(help_text="The event in Google Calendar; may be empty.")
+
+
+class GoogleCalendarSyncSerializer(serializers.Serializer):
+    connected = serializers.BooleanField()
+    email = serializers.CharField(allow_blank=True)
+    show_google_events = serializers.BooleanField()
+    push_meetings = serializers.BooleanField()
+    push_tasks = serializers.BooleanField()
+    push_deadlines = serializers.BooleanField()
+    last_synced_at = serializers.DateTimeField(allow_null=True)
+    last_error = serializers.CharField(allow_blank=True)
+
+
+class GoogleCalendarSyncInputSerializer(serializers.Serializer):
+    show_google_events = serializers.BooleanField(required=False)
+    push_meetings = serializers.BooleanField(required=False)
+    push_tasks = serializers.BooleanField(required=False)
+    push_deadlines = serializers.BooleanField(required=False)
+
+
+class SyncResultSerializer(GoogleCalendarSyncSerializer):
+    added = serializers.IntegerField()
+    changed = serializers.IntegerField()
+    removed = serializers.IntegerField()
+
+
+class VideoOptionsSerializer(serializers.Serializer):
+    """Which calls you can make now, and which could be made once connected."""
+
+    google_meet = serializers.BooleanField()
+    zoom = serializers.BooleanField()
+    google_meet_available = serializers.BooleanField(
+        help_text="Set up by the site, so connectable."
+    )
+    zoom_available = serializers.BooleanField()
 
 
 class CalendarFeedStatusSerializer(serializers.Serializer):
@@ -151,13 +232,15 @@ def _item(
         "starts_at": starts_at,
         "ends_at": ends_at,
         "join_url": join_url,
+        "video_provider": "",
+        "call_owner": None,
         "attendees": attendees,
     }
 
 
 def _meeting_item(m):
     # `date` is the UTC day; the browser re-files it on the viewer's local day from `starts_at`.
-    return _item(
+    item = _item(
         "meeting",
         m,
         m.title,
@@ -168,6 +251,8 @@ def _meeting_item(m):
         join_url=m.join_url,
         attendees=[u.pk for u in m.attendees.all()],
     )
+    item.update(video_provider=m.video_provider, call_owner=_call_owner(m))
+    return item
 
 
 def build_calendar(user, lab, start, end, *, mine=False) -> list[dict]:
@@ -184,6 +269,7 @@ def build_calendar(user, lab, start, end, *, mine=False) -> list[dict]:
         _meeting_item(m)
         for m in Meeting.objects.visible_to(user, lab)
         .filter(starts_at__date__range=(start - day, end + day))  # a local day can be either side
+        .select_related("video_account")
         .prefetch_related("attendees")
     ]
     items += [
@@ -327,6 +413,107 @@ class MeetingDetailView(MeetingMixin, generics.GenericAPIView):
     def delete(self, request, lab_id, meeting_id):
         svc.delete_meeting(self.get_object(), user=request.user, request=request)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------- Google Calendar (D255, D256)
+
+
+def _sync_data(sync) -> dict:
+    if sync is None:
+        return {
+            "connected": False,
+            "email": "",
+            "show_google_events": False,
+            "push_meetings": False,
+            "push_tasks": False,
+            "push_deadlines": False,
+            "last_synced_at": None,
+            "last_error": "",
+        }
+    return {
+        "connected": True,
+        "email": sync.account.external_email,
+        "show_google_events": sync.show_google_events,
+        "push_meetings": sync.push_meetings,
+        "push_tasks": sync.push_tasks,
+        "push_deadlines": sync.push_deadlines,
+        "last_synced_at": sync.last_synced_at,
+        "last_error": sync.last_error,
+    }
+
+
+class GoogleEventsView(LabScopedViewMixin, generics.GenericAPIView):
+    """Your own Google events for the calendar; [] when not connected or switched off."""
+
+    serializer_class = GoogleEventSerializer
+    pagination_class = None
+    perms = {"GET": Perm.VIEW_LAB}
+
+    @extend_schema(parameters=[CalendarRangeSerializer], responses=GoogleEventSerializer(many=True))
+    def get(self, request, lab_id):
+        ser = CalendarRangeSerializer(data=request.query_params)
+        ser.is_valid(raise_exception=True)
+        rows = video_calendar.google_events(
+            request.lab, request.user, ser.validated_data["from"], ser.validated_data["to"]
+        )
+        return Response(self.get_serializer(rows, many=True).data)
+
+
+class GoogleCalendarSyncView(LabScopedViewMixin, generics.GenericAPIView):
+    """Your own Google Calendar settings in this lab. `connected` is false until you connect."""
+
+    serializer_class = GoogleCalendarSyncSerializer
+    perms = {"GET": Perm.VIEW_LAB, "PATCH": Perm.MANAGE_INTEGRATIONS}
+
+    @extend_schema(responses=GoogleCalendarSyncSerializer)
+    def get(self, request, lab_id):
+        return Response(_sync_data(video_calendar.sync_for(request.lab, request.user)))
+
+    @extend_schema(
+        request=GoogleCalendarSyncInputSerializer, responses=GoogleCalendarSyncSerializer
+    )
+    def patch(self, request, lab_id):
+        sync = video_calendar.sync_for(request.lab, request.user)
+        if sync is None:  # not connected: nothing to change; the answer says so
+            return Response(_sync_data(None))
+        ser = GoogleCalendarSyncInputSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        for key, value in ser.validated_data.items():
+            setattr(sync, key, value)
+        sync.save()
+        return Response(_sync_data(sync))
+
+
+class GoogleCalendarSyncRunView(LabScopedViewMixin, generics.GenericAPIView):
+    """Sync now, instead of waiting for the next 15-minute run."""
+
+    serializer_class = SyncResultSerializer
+    perms = {"POST": Perm.MANAGE_INTEGRATIONS}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "calendar_sync"
+
+    @extend_schema(request=None, responses=SyncResultSerializer)
+    def post(self, request, lab_id):
+        sync = video_calendar.sync_for(request.lab, request.user)
+        if sync is None:
+            return Response({**_sync_data(None), "added": 0, "changed": 0, "removed": 0})
+        counts = video_calendar.push(sync)
+        return Response({**_sync_data(sync), **counts})
+
+
+class VideoOptionsView(LabScopedViewMixin, generics.GenericAPIView):
+    serializer_class = VideoOptionsSerializer
+    perms = {"GET": Perm.VIEW_LAB}
+
+    @extend_schema(responses=VideoOptionsSerializer)
+    def get(self, request, lab_id):
+        out = {}
+        for key, provider in video_calendar.PROVIDER_OF.items():
+            out[key] = (
+                video_calendar.active_account(request.lab, request.user, provider.name) is not None
+            )
+            out[f"{key}_available"] = provider.configured
+        return Response(out)
 
 
 # ---------------------------------------------------------------- .ics feeds (D231)

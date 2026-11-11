@@ -191,6 +191,11 @@ class LabEvent(LabScopedModel):
         return self.title
 
 
+class VideoProvider(models.TextChoices):
+    GOOGLE_MEET = "google_meet"
+    ZOOM = "zoom"
+
+
 class Meeting(LabScopedModel):
     """A meeting on the calendar (D230). Only the people on it see it; its organiser always is."""
 
@@ -203,12 +208,25 @@ class Meeting(LabScopedModel):
     title = models.CharField(max_length=200)
     starts_at = models.DateTimeField()
     ends_at = models.DateTimeField()
-    join_url = models.URLField(max_length=500, blank=True)  # Zoom or Google Meet, pasted in
+    join_url = models.URLField(max_length=500, blank=True)  # pasted in, or made by the app (D254)
     notes = models.TextField(blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
     )
     attendees = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="+")
+    # D254: a call the app made on someone's own Google or Zoom account. Only that person can
+    # change or remove such a meeting, since the change is made with their account.
+    video_provider = models.CharField(max_length=20, choices=VideoProvider.choices, blank=True)
+    external_id = models.CharField(max_length=1024, blank=True)  # Google event id, Zoom id
+    video_account = models.ForeignKey(
+        "integrations.ConnectedAccount",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    lab_parents = ("video_account",)
 
     class Meta(LabScopedModel.Meta):
         indexes = [models.Index(fields=["lab", "starts_at"], name="meeting_lab_start_idx")]
@@ -499,3 +517,62 @@ class InstitutionResource(LabScopedModel):
 
     def __str__(self):
         return self.title
+
+
+class GoogleCalendarSync(LabScopedModel):
+    """One person's Google Calendar settings in one lab (D255, D256). Only they see it."""
+
+    permission_domain = "lab"
+
+    @classmethod
+    def visible_rows(cls, qs, user, lab):
+        return qs.filter(user=user)
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    account = models.ForeignKey(
+        "integrations.ConnectedAccount", on_delete=models.CASCADE, related_name="+"
+    )
+    show_google_events = models.BooleanField(default=True)  # Google into the app (D256)
+    push_meetings = models.BooleanField(default=True)  # the app into Google (D255)
+    push_tasks = models.BooleanField(default=True)
+    push_deadlines = models.BooleanField(default=True)
+    app_calendar_id = models.CharField(max_length=1024, blank=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.CharField(max_length=200, blank=True)
+
+    lab_parents = ("account",)
+
+    class Meta(LabScopedModel.Meta):
+        constraints = [models.UniqueConstraint(fields=["account"], name="gcalsync_one_per_account")]
+
+    def __str__(self):
+        return f"Google Calendar sync of {self.user_id}"
+
+    @property
+    def pushes(self) -> bool:
+        return self.push_meetings or self.push_tasks or self.push_deadlines
+
+
+class SyncedEvent(LabScopedModel):
+    """An item the app put on someone's app calendar in Google, so it can be changed or removed."""
+
+    permission_domain = "lab"
+
+    @classmethod
+    def visible_rows(cls, qs, user, lab):
+        return qs.filter(sync__user=user)
+
+    sync = models.ForeignKey(GoogleCalendarSync, on_delete=models.CASCADE, related_name="events")
+    key = models.CharField(max_length=80)  # "task:<uuid>", "deadline:<uuid>", "meeting:<uuid>"
+    event_id = models.CharField(max_length=1024)
+    fingerprint = models.CharField(max_length=64)
+
+    lab_parents = ("sync",)
+
+    class Meta(LabScopedModel.Meta):
+        constraints = [
+            models.UniqueConstraint(fields=["sync", "key"], name="syncedevent_one_per_item")
+        ]
+
+    def __str__(self):
+        return self.key

@@ -403,6 +403,14 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "labs:calendar-feed"): "401 404 2 2 2 2 2 2 2",
     ("DELETE", "labs:calendar-feed"): "401 404 2 2 2 2 2 2 2",
     ("GET",    "labs:calendar-ics"): "401 404 2 2 2 2 2 2 2",
+    # D253 to D256: your own Google Calendar and call settings. Every lab role may connect its
+    # own accounts (manage_integrations, the viewer too), and nobody in the fixture is connected,
+    # so each answer is the "not connected" state rather than an error.
+    ("GET",    "labs:calendar-google"): "401 404 2 2 2 2 2 2 2",
+    ("PATCH",  "labs:calendar-google"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "labs:calendar-google-sync"): "401 404 2 2 2 2 2 2 2",
+    ("GET",    "labs:calendar-google-events"): "401 404 2 2 2 2 2 2 2",
+    ("GET",    "labs:calendar-video-options"): "401 404 2 2 2 2 2 2 2",
     # --- end lab chat and calendar ---
     # --- training (Run 5, D175-D179) ---
     # Requirements are read by every lab member and managed with manage_training (pi, admin).
@@ -1412,6 +1420,12 @@ PAYLOADS = {
     },
     ("PATCH", "labs:meeting-detail"): lambda user, w: {"notes": "Edited"},
     ("POST", "labs:calendar-feed"): lambda user, w: {},
+    ("PATCH", "labs:calendar-google"): lambda user, w: {"push_tasks": False},
+    ("POST", "labs:calendar-google-sync"): lambda user, w: {},
+    ("GET", "labs:calendar-google-events"): lambda user, w: {
+        "from": "2030-01-01",
+        "to": "2030-01-31",
+    },
     ("GET", "labs:calendar-ics"): lambda user, w: (
         {"token": CalendarFeedToken.issue(lab=Lab.objects.get(pk=w.a["lab_id"]), user=user)[1]}
         if user

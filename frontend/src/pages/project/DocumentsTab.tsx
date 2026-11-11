@@ -45,6 +45,8 @@ import { personName, type Attachment, type DocumentRow } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { UploadDialog } from "@/pages/project/UploadDialog";
+import { FromDriveButton } from "@/components/shared/FromDriveButton";
+import { attachFromDrive } from "@/lib/drive";
 
 const isPdf = (a: Attachment) =>
   a.content_type === "application/pdf" || a.original_filename.toLowerCase().endsWith(".pdf");
@@ -207,6 +209,17 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
           <Button variant="outline" onClick={() => setUploading(true)}>
             <Upload aria-hidden /> Upload file
           </Button>
+          <FromDriveButton
+            labId={labId}
+            size="default"
+            onPick={(f) =>
+              attachFromDrive(
+                `/api/labs/${labId}/projects/${projectId}/attachments/`,
+                f.id,
+                folder ? { folder } : {},
+              )
+            }
+          />
           <Button disabled={create.isPending} onClick={add}>
             <Plus className="size-4" /> New document
           </Button>
@@ -220,6 +233,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
         getRowKey={rowId}
         onRowClick={(r) => {
           if (r.doc) open(r.doc.id);
+          else if (r.file.external_url) window.open(r.file.external_url, "_blank", "noopener");
           else if (isPdf(r.file)) void navigate(`${base}/files/${r.file.id}`);
           else window.location.assign(downloadUrl(labId, r.file.id));
         }}

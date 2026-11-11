@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from integrations import http, registry
+from integrations.providers import WRITERS
 from integrations.tests.fake import FAKE, FAKE_KEY, FAKE_LINK, FAKE_PUBLIC
 from integrations.tests.provider_contract import content_paths, provider_problems
 
@@ -16,7 +17,8 @@ PROVIDERS_DIR = Path(registry.__file__).parent / "providers"
 @pytest.mark.parametrize("name", registry.ENABLED)
 def test_every_enabled_provider_is_sound_and_reads_metadata_only(name):
     provider = registry.PROVIDERS[name]
-    assert provider.metadata_only is True
+    # D253: only the WRITERS may write, and only what WRITERS lists for them.
+    assert provider.metadata_only is (name not in WRITERS)
     assert provider_problems(provider) == []
     assert content_paths(provider) == [], f"{name} names a content-download path (D84)"
 

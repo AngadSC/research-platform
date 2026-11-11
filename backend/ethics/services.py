@@ -136,7 +136,7 @@ def delete_approval(approval, *, user, request=None) -> None:
     approval.save(update_fields=["deleted_at", "updated_at"])
 
 
-def upload_file(*, approval, user, file, request=None):
+def upload_file(*, approval, user, file=None, drive_file_id=None, request=None):
     return document_services.upload_attachment(
-        approval=approval, user=user, file=file, request=request
+        approval=approval, user=user, file=file, drive_file_id=drive_file_id, request=request
     )

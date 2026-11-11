@@ -33,9 +33,17 @@ class Category(StrEnum):
     REFERENCES = "references"  # Zotero
     REPOSITORY = "repository"  # Zenodo, Figshare, OSF
     TASKS = "tasks"  # Todoist, Trello, monday.com: importing tasks only (D240)
+    MEETINGS = "meetings"  # Google Calendar (with Meet), Zoom: they write, see WRITERS (D253)
 
 
 # What a link can hang off. "project" is the project itself (the Files tab).
+# D253: the only providers that may write, and what each may write. Everything else reads
+# metadata only (D84); the registry test holds every provider to this list.
+WRITERS = {
+    "google_calendar": frozenset({"calendar_events", "meet_links"}),
+    "zoom": frozenset({"zoom_meetings"}),
+}
+
 TARGETS = ("project", "document", "dataset", "analysis", "result", "manuscript", "decision")
 LINK_METHODS = ("picker", "search", "paste_url")
 
@@ -71,6 +79,12 @@ class Provider:
     # D84: every provider declares it reads metadata only. A registry test fails otherwise, and
     # fails when a provider module names a content-download path.
     metadata_only: bool = True
+    # D253: what this provider writes. Non-empty only for the names in WRITERS, and then
+    # `metadata_only` is False. Such a provider links nothing (`link_targets` is empty).
+    writes: frozenset[str] = frozenset()
+    # How the token endpoint wants the app's own credentials: in the form body (most) or as
+    # HTTP Basic auth (Zoom).
+    token_auth: str = "body"
     link_targets: frozenset[str] = frozenset({"project"})  # subset of TARGETS
     link_methods: tuple[str, ...] = ()  # subset of LINK_METHODS
 

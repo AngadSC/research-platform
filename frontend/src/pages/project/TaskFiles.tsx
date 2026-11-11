@@ -16,6 +16,8 @@ import { downloadUrl, useAttachments, useTaskLinks, type TaskLinkKind } from "@/
 import type { Task } from "@/lib/api-types";
 import { formErrors } from "@/lib/forms";
 import { UploadDialog } from "@/pages/project/UploadDialog";
+import { FromDriveButton } from "@/components/shared/FromDriveButton";
+import { attachFromDrive } from "@/lib/drive";
 
 const fail = (e: unknown) =>
   toast.error(formErrors(e, ["id"]).fields.id ?? formErrors(e, []).form ?? "Something went wrong.");
@@ -93,6 +95,16 @@ export function TaskFiles({
             <Button variant="outline" size="sm" onClick={() => setUploading(true)}>
               <Upload aria-hidden /> Upload file
             </Button>
+            <FromDriveButton
+              labId={labId}
+              onPick={async (f) => {
+                const a = await attachFromDrive(
+                  `/api/labs/${labId}/projects/${projectId}/attachments/`,
+                  f.id,
+                );
+                await attach.mutateAsync({ kind: "attachments", id: a.id });
+              }}
+            />
           </div>
         )}
       </div>

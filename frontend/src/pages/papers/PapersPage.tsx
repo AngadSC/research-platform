@@ -24,6 +24,8 @@ import type { Paper, PaperDetail, PaperInput } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
 import { ZoteroImportDialog } from "@/pages/papers/ZoteroImportDialog";
 import { MAX_BYTES, NOTICE } from "@/pages/project/UploadDialog";
+import { DriveLogo, FromDriveButton } from "@/components/shared/FromDriveButton";
+import { attachFromDrive, type PickedFile } from "@/lib/drive";
 
 const KNOWN = ["title", "authors", "year", "venue", "doi", "url", "abstract"];
 
@@ -80,6 +82,7 @@ export function PaperDialog({
       : empty,
   );
   const [file, setFile] = useState<File | null>(null);
+  const [drivePdf, setDrivePdf] = useState<PickedFile | null>(null);
   const [ack, setAck] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
   const [autofilling, setAutofilling] = useState(false);
@@ -135,6 +138,8 @@ export function PaperDialog({
         ? await update.mutateAsync({ id: paper.id, ...body })
         : await create.mutateAsync(body);
       if (file) await uploadPdf.mutateAsync({ id: saved.id, file });
+      else if (drivePdf)
+        await attachFromDrive(`/api/labs/${labId}/papers/${saved.id}/pdf/`, drivePdf.id);
       setErrors({ fields: {} });
       toast.success(paper ? "Paper saved" : "Paper added");
       onClose();
@@ -226,6 +231,27 @@ export function PaperDialog({
                   />
                 )}
               </FormField>
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <FromDriveButton
+                  labId={labId}
+                  quiet
+                  label={drivePdf ? "Choose another from Drive" : "PDF from Drive"}
+                  onPick={async (f) => setDrivePdf(f)}
+                />
+                {drivePdf && (
+                  <span className="flex items-center gap-1.5">
+                    <DriveLogo /> {drivePdf.name}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDrivePdf(null)}
+                    >
+                      Remove
+                    </Button>
+                  </span>
+                )}
+              </div>
               {file && (
                 <>
                   <p

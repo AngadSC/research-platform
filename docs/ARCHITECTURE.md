@@ -533,3 +533,11 @@ It seeds canary tokens, API keys and secrets, the client secret, the auth code a
 - **Write approval:** a write tool call ends the stream with `approval_required`; the call has no result until the person posts a decision. Audit `ai_tool.write` (via `in_app`), `ai_key.saved`, `ai_key.removed`.
 - **Stream limits (D196):** cache slots cap streams per conversation (1), person (3) and server (`ASSISTANT_MAX_STREAMS`, default 10 of 24 threads); a stream stops after `ASSISTANT_STREAM_DEADLINE` (300 s) and a 10 s heartbeat refreshes its slots (`ASSISTANT_LOCK_TTL`, 600 s). The approval payload carries resolved `resolved` names and a text `preview` (D198).
 - **Streaming deployment:** gunicorn gthread workers with a long timeout and Caddy `flush_interval -1` for the stream routes (see `deploy/`).
+
+## 10. Meetings, calendars and Drive attachments (D253 to D257)
+
+- Providers `google_calendar` and `zoom` (`integrations/providers/`) are the only writers (`WRITERS`); `labs/video_calendar.py` makes and changes calls and pushes and reads Google events, always through `integrations.http.send` with the person's own account.
+- `Meeting` gains `video_provider`, `external_id` and `video_account` (FK to `ConnectedAccount`, SET_NULL). `GoogleCalendarSync` (one per account: the person's switches and the app calendar's id) and `SyncedEvent` (what was pushed, with a fingerprint) are lab-scoped and visible to their owner only; all three FKs have composite lab keys (D31).
+- Endpoints: `GET, PATCH L/calendar/google/`, `POST L/calendar/google/sync/` (throttle `calendar_sync`), `GET L/calendar/google/events/?from&to`, `GET L/calendar/video-options/`, all view_lab (PATCH and POST: manage_integrations), answering "not connected" rather than an error. `POST L/calendar/meetings/` takes `video`.
+- Job `labs.jobs.push_google_calendars`, every 15 minutes.
+- `Attachment.drive_file_id` and `external_url`: every upload endpoint takes `drive_file_id` in place of `file`; downloads of such a row redirect to Drive.

@@ -31,6 +31,8 @@ import type { Attachment, EthicsApproval } from "@/lib/api-types";
 import { APPROVAL_STATUSES, dayText, validateApproval, type ApprovalValues } from "@/lib/ethics";
 import { formErrors } from "@/lib/forms";
 import { UploadDialog } from "@/pages/project/UploadDialog";
+import { FromDriveButton } from "@/components/shared/FromDriveButton";
+import { attachFromDrive } from "@/lib/drive";
 
 const selectCls =
   "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
@@ -181,9 +183,17 @@ export function EthicsDetailPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Documents</h2>
           {canEdit && a.can_view_files && (
-            <Button variant="outline" size="sm" onClick={() => setUploading(true)}>
-              <Upload aria-hidden /> Upload file
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setUploading(true)}>
+                <Upload aria-hidden /> Upload file
+              </Button>
+              <FromDriveButton
+                labId={labId}
+                onPick={(f) =>
+                  attachFromDrive(`/api/labs/${labId}/ethics-approvals/${a.id}/attachments/`, f.id)
+                }
+              />
+            </div>
           )}
         </div>
         {!a.can_view_files ? (

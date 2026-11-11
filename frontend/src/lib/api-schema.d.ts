@@ -565,6 +565,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/calendar/google/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Your own Google Calendar settings in this lab. `connected` is false until you connect. */
+        get: operations["labs_calendar_google_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Your own Google Calendar settings in this lab. `connected` is false until you connect. */
+        patch: operations["labs_calendar_google_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/calendar/google/events/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Your own Google events for the calendar; [] when not connected or switched off. */
+        get: operations["labs_calendar_google_events_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/calendar/google/sync/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Sync now, instead of waiting for the next 15-minute run. */
+        post: operations["labs_calendar_google_sync_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/calendar/meetings/": {
         parameters: {
             query?: never;
@@ -601,6 +653,26 @@ export interface paths {
         head?: never;
         /** @description Anyone on the meeting who may add lab content can change it; it is a 404 for anyone else. */
         patch: operations["labs_calendar_meetings_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/calendar/video-options/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        get: operations["labs_calendar_video_options_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/labs/{lab_id}/chat/messages/": {
@@ -3767,9 +3839,12 @@ export interface components {
             readonly sha256: string;
             readonly uploaded_by: components["schemas"]["User"];
             /** Format: date-time */
-            readonly notice_acknowledged_at: string;
+            readonly notice_acknowledged_at: string | null;
             /** Format: date-time */
             readonly created_at: string;
+            readonly drive_file_id: string;
+            /** Format: uri */
+            readonly external_url: string;
         };
         AttachmentRef: {
             /** Format: uuid */
@@ -3778,12 +3853,13 @@ export interface components {
             readonly content_type: string;
             readonly size_bytes: number;
         };
-        /** @description The view resolves it inside the project; an unknown id is a 400 either way. */
+        /** @description A file, or (D257) a Google Drive file id from the Picker. Exactly one. */
         AttachmentUpload: {
             /** Format: uuid */
             folder?: string | null;
             /** Format: uri */
-            file: string;
+            file?: string | null;
+            drive_file_id?: string;
             /** @default false */
             acknowledged_notice: boolean;
             /** @default false */
@@ -3832,6 +3908,8 @@ export interface components {
             error?: string;
             error_description?: string;
         };
+        /** @enum {unknown} */
+        BlankEnum: "";
         CalendarFeedCreated: {
             active: boolean;
             /** Format: date-time */
@@ -3872,6 +3950,13 @@ export interface components {
             ends_at: string | null;
             /** @description Meetings only; may be empty. */
             join_url: string;
+            /** @description Meetings: google_meet, zoom or empty. */
+            video_provider: string;
+            /**
+             * Format: uuid
+             * @description Meetings with a call: only this person may change it (D254).
+             */
+            call_owner: string | null;
             attendees: string[];
         };
         /**
@@ -4751,6 +4836,33 @@ export interface components {
         GettingStartedInput: {
             dismissed: boolean;
         };
+        GoogleCalendarSync: {
+            connected: boolean;
+            email: string;
+            show_google_events: boolean;
+            push_meetings: boolean;
+            push_tasks: boolean;
+            push_deadlines: boolean;
+            /** Format: date-time */
+            last_synced_at: string | null;
+            last_error: string;
+        };
+        /** @description One of your own Google Calendar events, read live and never stored (D256). */
+        GoogleEvent: {
+            id: string;
+            title: string;
+            /** Format: date */
+            date: string;
+            /** Format: date */
+            end_date: string | null;
+            /** Format: date-time */
+            starts_at: string | null;
+            /** Format: date-time */
+            ends_at: string | null;
+            join_url: string;
+            /** @description The event in Google Calendar; may be empty. */
+            url: string;
+        };
         Grant: {
             /** Format: uuid */
             readonly id: string;
@@ -5210,6 +5322,8 @@ export interface components {
             readonly join_url: string;
             readonly notes: string;
             readonly attendees: string[];
+            readonly video_provider: components["schemas"]["VideoProviderEnum"];
+            readonly call_owner: string | null;
         };
         MeetingInput: {
             title: string;
@@ -5220,6 +5334,13 @@ export interface components {
             join_url?: string;
             notes?: string;
             attendees?: string[];
+            /**
+             * @description Make a Google Meet or Zoom call on your own account (D254). Only on create.
+             *
+             *     * `google_meet` - Google Meet
+             *     * `zoom` - Zoom
+             */
+            video?: components["schemas"]["VideoEnum"] | components["schemas"]["BlankEnum"];
         };
         Membership: {
             /** Format: uuid */
@@ -5539,6 +5660,12 @@ export interface components {
             /** Format: uuid */
             attachment?: string | null;
         };
+        PatchedGoogleCalendarSyncInput: {
+            show_google_events?: boolean;
+            push_meetings?: boolean;
+            push_tasks?: boolean;
+            push_deadlines?: boolean;
+        };
         PatchedInventoryInput: {
             name?: string;
             category?: components["schemas"]["Category9e5Enum"];
@@ -5615,6 +5742,13 @@ export interface components {
             join_url?: string;
             notes?: string;
             attendees?: string[];
+            /**
+             * @description Make a Google Meet or Zoom call on your own account (D254). Only on create.
+             *
+             *     * `google_meet` - Google Meet
+             *     * `zoom` - Zoom
+             */
+            video?: components["schemas"]["VideoEnum"] | components["schemas"]["BlankEnum"];
         };
         PatchedNoteInput: {
             body?: string;
@@ -5917,9 +6051,10 @@ export interface components {
          *     * `references` - references
          *     * `repository` - repository
          *     * `tasks` - tasks
+         *     * `meetings` - meetings
          * @enum {string}
          */
-        ProviderCategoryEnum: "storage" | "code" | "writing" | "data_capture" | "protocols" | "references" | "repository" | "tasks";
+        ProviderCategoryEnum: "storage" | "code" | "writing" | "data_capture" | "protocols" | "references" | "repository" | "tasks" | "meetings";
         ProviderConfig: {
             provider: components["schemas"]["ProviderEnum"];
             label: string;
@@ -6184,6 +6319,20 @@ export interface components {
             done: boolean;
             can_act: boolean;
         };
+        SyncResult: {
+            connected: boolean;
+            email: string;
+            show_google_events: boolean;
+            push_meetings: boolean;
+            push_tasks: boolean;
+            push_deadlines: boolean;
+            /** Format: date-time */
+            last_synced_at: string | null;
+            last_error: string;
+            added: number;
+            changed: number;
+            removed: number;
+        };
         Task: {
             /** Format: uuid */
             readonly id: string;
@@ -6427,6 +6576,26 @@ export interface components {
             readonly email: string;
             display_name?: string;
         };
+        /**
+         * @description * `google_meet` - Google Meet
+         *     * `zoom` - Zoom
+         * @enum {string}
+         */
+        VideoEnum: "google_meet" | "zoom";
+        /** @description Which calls you can make now, and which could be made once connected. */
+        VideoOptions: {
+            google_meet: boolean;
+            zoom: boolean;
+            /** @description Set up by the site, so connectable. */
+            google_meet_available: boolean;
+            zoom_available: boolean;
+        };
+        /**
+         * @description * `google_meet` - Google Meet
+         *     * `zoom` - Zoom
+         * @enum {string}
+         */
+        VideoProviderEnum: "google_meet" | "zoom";
         /** @description Never the address or the secret: `host` says where it goes. */
         Webhook: {
             /** Format: uuid */
@@ -7632,6 +7801,101 @@ export interface operations {
             };
         };
     };
+    labs_calendar_google_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleCalendarSync"];
+                };
+            };
+        };
+    };
+    labs_calendar_google_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedGoogleCalendarSyncInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedGoogleCalendarSyncInput"];
+                "multipart/form-data": components["schemas"]["PatchedGoogleCalendarSyncInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleCalendarSync"];
+                };
+            };
+        };
+    };
+    labs_calendar_google_events_list: {
+        parameters: {
+            query: {
+                from: string;
+                /** @description Only your own: D230. */
+                mine?: boolean;
+                to: string;
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleEvent"][];
+                };
+            };
+        };
+    };
+    labs_calendar_google_sync_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncResult"];
+                };
+            };
+        };
+    };
     labs_calendar_meetings_create: {
         parameters: {
             query?: never;
@@ -7704,6 +7968,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Meeting"];
+                };
+            };
+        };
+    };
+    labs_calendar_video_options_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoOptions"];
                 };
             };
         };
@@ -8368,7 +8653,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "multipart/form-data": components["schemas"]["AttachmentUpload"];
                 "application/x-www-form-urlencoded": components["schemas"]["AttachmentUpload"];
@@ -10027,7 +10312,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "multipart/form-data": components["schemas"]["AttachmentUpload"];
                 "application/x-www-form-urlencoded": components["schemas"]["AttachmentUpload"];
@@ -10368,7 +10653,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "multipart/form-data": components["schemas"]["AttachmentUpload"];
                 "application/x-www-form-urlencoded": components["schemas"]["AttachmentUpload"];
@@ -12442,7 +12727,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "multipart/form-data": components["schemas"]["AttachmentUpload"];
                 "application/x-www-form-urlencoded": components["schemas"]["AttachmentUpload"];

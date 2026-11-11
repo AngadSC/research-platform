@@ -1,3 +1,6 @@
+import { upload } from "@/lib/api";
+import type { Attachment } from "@/lib/api-types";
+
 /** Google Picker, loaded from Google only when someone clicks "Link from Google Drive". */
 
 interface PickerDoc {
@@ -77,4 +80,13 @@ export async function pickDriveFile(opts: {
     });
     picker.build().setVisible(true);
   });
+}
+
+/** Posts a Drive file id to any upload endpoint that takes files (D257). Nothing is uploaded:
+ * the server asks Drive itself for the file's name and link. */
+export function attachFromDrive<T = Attachment>(path: string, fileId: string, extra = {}) {
+  const form = new FormData();
+  form.append("drive_file_id", fileId);
+  for (const [k, v] of Object.entries(extra)) form.append(k, String(v));
+  return upload<T>(path, form);
 }

@@ -132,6 +132,26 @@ urlpatterns = [
     ),
     path("calendar.ics", lab_calendar.CalendarIcsView.as_view(), name="calendar-ics"),
     path(
+        "labs/<uuid:lab_id>/calendar/google/",
+        lab_calendar.GoogleCalendarSyncView.as_view(),
+        name="calendar-google",
+    ),
+    path(
+        "labs/<uuid:lab_id>/calendar/google/sync/",
+        lab_calendar.GoogleCalendarSyncRunView.as_view(),
+        name="calendar-google-sync",
+    ),
+    path(
+        "labs/<uuid:lab_id>/calendar/google/events/",
+        lab_calendar.GoogleEventsView.as_view(),
+        name="calendar-google-events",
+    ),
+    path(
+        "labs/<uuid:lab_id>/calendar/video-options/",
+        lab_calendar.VideoOptionsView.as_view(),
+        name="calendar-video-options",
+    ),
+    path(
         "labs/<uuid:lab_id>/calendar/meetings/",
         lab_calendar.MeetingCreateView.as_view(),
         name="meeting-list",

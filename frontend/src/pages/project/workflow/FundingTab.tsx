@@ -25,6 +25,8 @@ import {
   RecordDialog,
   str,
 } from "@/pages/project/workflow/parts";
+import { FromDriveButton } from "@/components/shared/FromDriveButton";
+import { attachFromDrive } from "@/lib/drive";
 
 /** Workflow > Funding (D133, D226): PIs only, so everyone who reaches this page can edit it. */
 export default function FundingTab(props: ProjectTabProps) {
@@ -303,9 +305,22 @@ function FundingDialog({
             )}
           </FormField>
           <div>
-            <Button type="button" variant="outline" size="sm" onClick={() => setUploading(true)}>
-              Upload a letter only PIs can open
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setUploading(true)}>
+                Upload a letter only PIs can open
+              </Button>
+              <FromDriveButton
+                labId={labId}
+                label="Letter from Drive"
+                onPick={(f) =>
+                  attachFromDrive<{ id: string }>(
+                    `/api/labs/${labId}/projects/${projectId}/attachments/`,
+                    f.id,
+                    { pi_only: true },
+                  ).then((a) => setPicked(a.id))
+                }
+              />
+            </div>
           </div>
           <UploadDialog
             open={uploading}

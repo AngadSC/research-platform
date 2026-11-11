@@ -45,7 +45,10 @@ section 9 describes the framework; DECISIONS D80 to D89 record why.
 
 ## Security checklist (every item is a review blocker)
 
-- [ ] **Metadata only** (D64, D84). Never request file contents, exports, archives, raw blobs,
+- [ ] **Metadata only** (D64, D84), except the writers in `WRITERS` (D253): Google Calendar
+      writes calendar events and Zoom writes meetings, and nothing else may write. A new writer
+      needs a decision and a line in `WRITERS`; `test_registry.py` fails without both.
+      Never request file contents, exports, archives, raw blobs,
       survey responses or REDCap records. `metadata_only` stays `True`; `test_registry.py` scans
       the module's string literals for download paths (`CONTENT_PATHS` in
       `provider_contract.py`). Extend that list if your API spells downloads differently. REDCap:

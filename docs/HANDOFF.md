@@ -26,7 +26,7 @@ Final checks on this branch: backend 4311 passed and 128 skipped, ruff clean, no
 - **OneDrive verification with University of Alberta IT:** this is your task, not code. It needs you to talk to their IT department.
 - **The text-box change:** your note refers to a picture that was never attached, so we could not tell which text box you meant. Send the picture and it can be done.
 - **Google Keep, Zoho and Teamwork:** not built. Keep has no way for a person to connect their own notes, Zoho needs an OAuth app registered by you, and Teamwork's reply format could not be confirmed (D243).
-- **Real Zoom or Meet accounts and two-way Google Calendar sync:** not built. Pasted join links and the one-way `.ics` link cover it (D232).
+- **Real Zoom or Meet accounts and two-way Google Calendar sync:** built later (D253 to D257) and tested with fakes only; they need the Google and Zoom app registrations in `.env.example`. Formerly: Pasted join links and the one-way `.ics` link cover it (D232).
 - **XLSX inventory import:** CSV only, because no installed library reads XLSX (D229).
 - **Uploading a PDF or Word file as a lab-wide document:** lab documents are rich text or a Google or Microsoft link for now (D233).
 - **Nothing has been tried against a real outside account:** Google Drive, Google Calendar, Claude, ChatGPT, Zotero, Slack, Zapier, Todoist, Trello and monday.com were all tested with fakes only.

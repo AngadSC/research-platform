@@ -13,16 +13,97 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RelativeTime } from "@/components/shared/RelativeTime";
 import { useCalendar, useCalendarFeed } from "@/hooks/admin";
 import { ReauthCancelled } from "@/hooks/auth";
+import { useConnect } from "@/hooks/integrations";
+import { useGoogleSync, useVideoOptions } from "@/hooks/meetings";
 import { useReauth } from "@/hooks/reauth";
-import { useMembers } from "@/hooks/workspace";
+import { useMe, useMembers } from "@/hooks/workspace";
 import type { CalendarItem } from "@/lib/api-types";
 import { toLocalInput } from "@/lib/calendar";
 import { formErrors, type FormErrors } from "@/lib/forms";
 import { formValue } from "@/pages/admin/common";
 
-const KNOWN = ["title", "starts_at", "ends_at", "join_url", "notes", "attendees"];
+const KNOWN = ["title", "starts_at", "ends_at", "join_url", "notes", "attendees", "video"];
+
+type Video = "" | "link" | "google_meet" | "zoom";
+const CALL_NAME = { google_meet: "Google Meet", zoom: "Zoom" } as const;
+const CONNECT_AS = { google_meet: "google_calendar", zoom: "zoom" } as const;
+
+/** D254: how a new meeting gets its call. A choice needs your own account connected; until
+ * then it offers to connect it (you come back to Settings, then add the meeting again). */
+function VideoChoice({
+  labId,
+  value,
+  onChange,
+  error,
+}: {
+  labId: string;
+  value: Video;
+  onChange: (v: Video) => void;
+  error?: string;
+}) {
+  const options = useVideoOptions(labId).data;
+  const connect = useConnect(labId);
+  const choices: [Video, string][] = [
+    ["", "No video call"],
+    ["link", "Paste a link"],
+  ];
+  for (const kind of ["google_meet", "zoom"] as const)
+    if (options?.[`${kind}_available`]) choices.push([kind, `Make a ${CALL_NAME[kind]} call`]);
+  return (
+    <fieldset className="grid gap-1.5">
+      <legend className="text-sm font-medium">Video call</legend>
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+        {choices.map(([v, label]) => {
+          const id = `video-${v || "none"}`;
+          const needs = (v === "google_meet" || v === "zoom") && !options?.[v];
+          return (
+            <span key={id} className="flex items-center gap-2 text-sm">
+              <input
+                id={id}
+                type="radio"
+                name="video_choice"
+                checked={value === v}
+                disabled={needs}
+                onChange={() => onChange(v)}
+              />
+              <Label
+                htmlFor={id}
+                className={needs ? "font-normal text-muted-foreground" : "font-normal"}
+              >
+                {label}
+              </Label>
+              {needs && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={connect.isPending}
+                  onClick={() =>
+                    connect.mutate({ provider: CONNECT_AS[v as "zoom" | "google_meet"] })
+                  }
+                >
+                  Connect {v === "zoom" ? "Zoom" : "Google"}
+                </Button>
+              )}
+            </span>
+          );
+        })}
+      </div>
+      {(value === "google_meet" || value === "zoom") && (
+        <p className="text-xs text-muted-foreground">
+          The call is made on your {CALL_NAME[value]} account when you save, and the join link fills
+          in by itself. Only you will be able to change or delete this meeting.
+          {value === "google_meet" &&
+            " It also goes on your Google Calendar, with the people below as guests."}
+        </p>
+      )}
+      <FormError message={error} />
+    </fieldset>
+  );
+}
 
 /** The next whole hour, and the hour after it: what a new meeting starts as. */
 function nextHour() {
@@ -46,7 +127,14 @@ export function MeetingDialog({
   actions: ReturnType<typeof useCalendar>["meetings"];
 }) {
   const members = useMembers(labId).data ?? [];
+  const me = useMe().data;
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
+  const [video, setVideo] = useState<Video>(meeting?.join_url ? "link" : "");
+  const call = meeting?.video_provider as "" | "google_meet" | "zoom" | undefined;
+  const callOwner = call ? members.find((m) => m.user.id === meeting?.call_owner)?.user : undefined;
+  // D254: a call on someone else's account changes only through them.
+  const lockedByCall = !!call && !!meeting?.call_owner && meeting.call_owner !== me?.id;
+  const editable = canEdit && !lockedByCall;
   const [start, end] = nextHour();
   const { create, update, remove } = actions;
 
@@ -61,9 +149,10 @@ export function MeetingDialog({
       title: v("title"),
       starts_at: new Date(v("starts_at")).toISOString(),
       ends_at: new Date(v("ends_at")).toISOString(),
-      join_url: v("join_url"),
+      ...(call ? {} : { join_url: video === "link" ? v("join_url") : "" }),
       notes: v("notes"),
       attendees: fd.getAll("attendees").map(String),
+      ...(!meeting && (video === "google_meet" || video === "zoom") ? { video } : {}),
     };
     try {
       if (meeting) await update.mutateAsync({ id: meeting.id, ...body });
@@ -83,6 +172,13 @@ export function MeetingDialog({
           {meeting ? meeting.title : "Add a meeting"}
         </DialogTitle>
         <DialogDescription className="sr-only">Calendar meeting</DialogDescription>
+        {call && (
+          <p className="text-sm text-muted-foreground">
+            {CALL_NAME[call]} call on{" "}
+            {callOwner ? callOwner.display_name || callOwner.email : "an organiser's"} account.
+            {lockedByCall && " Only they can change or delete this meeting."}
+          </p>
+        )}
         {meeting?.join_url && (
           <Button asChild className="justify-self-start">
             <a href={meeting.join_url} target="_blank" rel="noreferrer noopener">
@@ -91,7 +187,7 @@ export function MeetingDialog({
           </Button>
         )}
         <form onSubmit={submit} noValidate className="grid gap-3">
-          <fieldset disabled={!canEdit} className="grid gap-3">
+          <fieldset disabled={!editable} className="grid gap-3">
             <FormField label="Title" error={f.title}>
               {(p) => <Input maxLength={200} {...p} name="title" defaultValue={meeting?.title} />}
             </FormField>
@@ -119,15 +215,25 @@ export function MeetingDialog({
                 )}
               </FormField>
             </div>
-            <FormField
-              label="Zoom or Google Meet link (optional)"
-              hint="Paste the link from your invitation. It starts with https://"
-              error={f.join_url}
-            >
-              {(p) => (
-                <Input maxLength={500} {...p} name="join_url" defaultValue={meeting?.join_url} />
-              )}
-            </FormField>
+            {!call && (
+              <VideoChoice
+                labId={labId}
+                value={meeting && video !== "link" && video !== "" ? "" : video}
+                onChange={setVideo}
+                error={f.video}
+              />
+            )}
+            {!call && video === "link" && (
+              <FormField
+                label="Zoom or Google Meet link"
+                hint="Paste the link from your invitation. It starts with https://"
+                error={f.join_url}
+              >
+                {(p) => (
+                  <Input maxLength={500} {...p} name="join_url" defaultValue={meeting?.join_url} />
+                )}
+              </FormField>
+            )}
             <fieldset className="grid gap-1">
               <legend className="text-sm font-medium">People on this meeting</legend>
               <p className="text-xs text-muted-foreground">
@@ -168,7 +274,7 @@ export function MeetingDialog({
           </fieldset>
           <FormError message={errors.form} />
           <div className="flex justify-end gap-2">
-            {canEdit && meeting && (
+            {editable && meeting && (
               <Button
                 type="button"
                 variant="outline"
@@ -189,10 +295,16 @@ export function MeetingDialog({
             )}
             <DialogClose asChild>
               <Button type="button" variant="outline">
-                {canEdit ? "Cancel" : "Close"}
+                {editable ? "Cancel" : "Close"}
               </Button>
             </DialogClose>
-            {canEdit && <Button type="submit">Save</Button>}
+            {editable && (
+              <Button type="submit" disabled={create.isPending || update.isPending}>
+                {!meeting && (video === "google_meet" || video === "zoom")
+                  ? `Save and make the ${CALL_NAME[video]} call`
+                  : "Save"}
+              </Button>
+            )}
           </div>
         </form>
       </DialogContent>
@@ -302,6 +414,124 @@ export function FeedDialog({ labId, onClose }: { labId: string; onClose: () => v
           <Button type="button" disabled={issue.isPending} onClick={make}>
             {active || token ? "Make a new link" : "Make a link"}
           </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** D255, D256: your Google Calendar here. Connecting happens in Settings, through Google. */
+export function GoogleCalendarDialog({ labId, onClose }: { labId: string; onClose: () => void }) {
+  const { status, change, syncNow } = useGoogleSync(labId);
+  const options = useVideoOptions(labId).data;
+  const connect = useConnect(labId);
+  const s = status.data;
+  const toggle = (key: "show_google_events" | "push_meetings" | "push_tasks" | "push_deadlines") =>
+    change.mutate(
+      { [key]: !s?.[key] },
+      { onError: (e) => toast.error(formErrors(e, []).form ?? "Not saved. Try again.") },
+    );
+  const rows: [typeof toggle extends (k: infer K) => void ? K : never, string, string][] = [
+    [
+      "show_google_events",
+      "Show my Google events here",
+      "Only you see them. Nothing from Google is stored.",
+    ],
+    ["push_meetings", "Put my meetings in Google", ""],
+    ["push_tasks", "Put my tasks with due dates in Google", ""],
+    ["push_deadlines", "Put my projects' deadlines in Google", ""],
+  ];
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogTitle className="text-base font-semibold">Google Calendar</DialogTitle>
+        <DialogDescription className="text-sm text-muted-foreground">
+          See your Google events on this calendar, and keep your meetings, tasks and deadlines in a
+          calendar of their own in Google.
+        </DialogDescription>
+        {!s ? (
+          <p aria-busy className="text-sm text-muted-foreground">
+            Loading
+          </p>
+        ) : !s.connected ? (
+          <div className="grid gap-3">
+            <p className="text-sm">
+              {options?.google_meet_available
+                ? "Connect your own Google account. Google will ask you to allow calendar events only."
+                : "Google Calendar is not set up on this site yet. Ask whoever runs it to add the Google sign-in details."}
+            </p>
+            {options?.google_meet_available && (
+              <Button
+                className="justify-self-start"
+                disabled={connect.isPending}
+                onClick={() => connect.mutate({ provider: "google_calendar" })}
+              >
+                Connect Google Calendar
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            <p className="text-sm">
+              Connected as <span className="font-medium">{s.email || "your Google account"}</span>.
+            </p>
+            <ul className="grid gap-2">
+              {rows.map(([key, label, hint]) => (
+                <li key={key} className="flex items-start gap-2 text-sm">
+                  <input
+                    id={`gcal-${key}`}
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={s[key]}
+                    disabled={change.isPending}
+                    onChange={() => toggle(key)}
+                  />
+                  <Label htmlFor={`gcal-${key}`} className="grid gap-0.5 font-normal">
+                    {label}
+                    {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+                  </Label>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-muted-foreground">
+              Items go to a separate calendar in Google, named after this lab, every 15 minutes.
+              Only titles, times, project names and join links are sent, never notes.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                variant="outline"
+                disabled={syncNow.isPending}
+                onClick={() =>
+                  syncNow.mutate(undefined, {
+                    onSuccess: (r) =>
+                      r.last_error
+                        ? toast.error(r.last_error)
+                        : toast.success(
+                            `Synced: ${r.added} added, ${r.changed} changed, ${r.removed} removed`,
+                          ),
+                    onError: (e) => toast.error(formErrors(e, []).form ?? "Sync failed."),
+                  })
+                }
+              >
+                Sync now
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {s.last_synced_at ? (
+                  <>
+                    Last synced <RelativeTime value={s.last_synced_at} />
+                  </>
+                ) : (
+                  "Not synced yet"
+                )}
+              </span>
+            </div>
+            <FormError message={s.last_error || undefined} />
+          </div>
+        )}
+        <div className="flex justify-end">
+          <DialogClose asChild>
+            <Button variant="outline">Close</Button>
+          </DialogClose>
         </div>
       </DialogContent>
     </Dialog>

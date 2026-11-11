@@ -21,6 +21,8 @@ import { doiHref, urlHref } from "@/lib/references";
 import { NativeSelect, Section } from "@/pages/admin/common";
 import { UploadDialog } from "@/pages/project/UploadDialog";
 import { authorName, PaperDialog } from "./PapersPage";
+import { DriveLogo, FromDriveButton } from "@/components/shared/FromDriveButton";
+import { attachFromDrive } from "@/lib/drive";
 
 const STYLES: { value: keyof PaperCitations; label: string }[] = [
   { value: "apa", label: "APA" },
@@ -315,22 +317,39 @@ export function PaperDetailPage() {
           <div className="flex flex-wrap gap-2">
             {paper.pdf && (
               <>
-                <Button variant="outline" size="sm" asChild>
-                  <Link to="pdf">
-                    <Eye aria-hidden /> View PDF
-                  </Link>
-                </Button>
-                <Button variant="outline" size="sm" asChild>
-                  <a href={paperPdfUrl(labId, paper.id)} download>
-                    <Download aria-hidden /> Download PDF
-                  </a>
-                </Button>
+                {paper.pdf.external_url ? (
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={paper.pdf.external_url} target="_blank" rel="noopener noreferrer">
+                      <DriveLogo /> Open in Drive
+                    </a>
+                  </Button>
+                ) : (
+                  <>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to="pdf">
+                        <Eye aria-hidden /> View PDF
+                      </Link>
+                    </Button>
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={paperPdfUrl(labId, paper.id)} download>
+                        <Download aria-hidden /> Download PDF
+                      </a>
+                    </Button>
+                  </>
+                )}
               </>
             )}
             {canContribute && (
               <Button variant="outline" size="sm" onClick={() => setUploading(true)}>
                 <Upload aria-hidden /> {paper.pdf ? "Replace PDF" : "Upload PDF"}
               </Button>
+            )}
+            {canContribute && (
+              <FromDriveButton
+                labId={labId}
+                label={paper.pdf ? "Replace from Drive" : "PDF from Drive"}
+                onPick={(f) => attachFromDrive(`/api/labs/${labId}/papers/${paper.id}/pdf/`, f.id)}
+              />
             )}
           </div>
         </Section>

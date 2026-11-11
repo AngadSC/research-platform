@@ -23,6 +23,8 @@ import { formValue, NativeSelect, Section } from "@/pages/admin/common";
 import { TrainingSection } from "@/pages/admin/TrainingSection";
 import { useLab } from "@/hooks/workspace";
 import { GraduationCap } from "lucide-react";
+import { DriveLogo, FromDriveButton } from "@/components/shared/FromDriveButton";
+import { attachFromDrive, type PickedFile } from "@/lib/drive";
 
 /** Training: what the lab requires of me, where I stand, and a way to log a completion. */
 export function MyTrainingPage() {
@@ -34,6 +36,7 @@ export function MyTrainingPage() {
   const { createRecord, removeRecord, uploadCertificate } = useTrainingMutations(labId);
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
   const fileRef = useRef<HTMLInputElement>(null);
+  const [driveCert, setDriveCert] = useState<PickedFile | null>(null);
   const row = mine.data?.members[0];
   const records = all.filter((r) => r.user.id === row?.user.id); // managers receive everyone's
   const required = mine.data?.requirements.filter((r) => row?.cells[r.id]) ?? [];
@@ -55,7 +58,9 @@ export function MyTrainingPage() {
       });
       const file = fileRef.current?.files?.[0];
       if (file) await uploadCertificate.mutateAsync({ id: rec.id, file });
+      else if (driveCert) await attachFromDrive(certificateUrl(labId, rec.id), driveCert.id);
       setErrors({ fields: {} });
+      setDriveCert(null);
       form.reset();
       toast.success("Training recorded");
     } catch (err) {
@@ -155,6 +160,27 @@ export function MyTrainingPage() {
             <FormField label="Certificate (optional)">
               {(p) => <input {...p} ref={fileRef} type="file" accept=".pdf,image/*" />}
             </FormField>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <FromDriveButton
+                labId={labId}
+                quiet
+                label={driveCert ? "Choose another from Drive" : "Certificate from Drive"}
+                onPick={async (f) => setDriveCert(f)}
+              />
+              {driveCert && (
+                <span className="flex items-center gap-1.5">
+                  <DriveLogo /> {driveCert.name}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDriveCert(null)}
+                  >
+                    Remove
+                  </Button>
+                </span>
+              )}
+            </div>
             <FormField label="Notes (optional)">
               {(p) => <Input maxLength={2000} {...p} name="notes" />}
             </FormField>
