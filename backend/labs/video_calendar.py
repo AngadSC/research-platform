@@ -66,8 +66,27 @@ def _call(account, method, url, *, ok=(200, 201, 204), **kwargs):
         raise RemoteError({"video": [f"{provider.label} did not answer. Try again."]}) from exc
     if resp.status_code not in ok:
         log.warning("%s %s answered %s", provider.name, method, resp.status_code)
+        if resp.status_code == 403 and _api_not_enabled(resp):
+            raise RemoteError(
+                {
+                    "video": [
+                        f"{provider.label} is not turned on for this site's Google project. "
+                        "Whoever runs the site needs to enable the Calendar API there."
+                    ]
+                }
+            )
         raise RemoteError({"video": [f"{provider.label} refused the change. Try again."]})
     return resp
+
+
+def _api_not_enabled(resp) -> bool:
+    """Google's 403 when the project has never switched the API on (D264). Not secret: the body
+    names the project and API, and is only read, never logged or shown."""
+    try:
+        errors = resp.json()["error"]["errors"]
+        return any(e.get("reason") in ("accessNotConfigured", "SERVICE_DISABLED") for e in errors)
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return False
 
 
 def _iso(moment: datetime) -> str:

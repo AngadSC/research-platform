@@ -197,6 +197,8 @@ def complete_connect(request, *, state, code="", error="") -> ConnectedAccount:
             provider=member,
             headers={"Authorization": f"Bearer {access}"},
         )
+        if resp.status_code in (401, 403):  # D264: Google refused, which is not "try again"
+            raise OAuthError("identity_forbidden")
         try:
             if resp.status_code != 200:
                 raise ValueError

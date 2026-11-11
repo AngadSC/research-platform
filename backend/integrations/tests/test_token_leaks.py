@@ -445,7 +445,6 @@ def api_drive_picker_check_accept_and_job(w):
     from django.conf import settings
 
     from integrations import registry
-    from integrations.providers.google_calendar import PROVIDER as GOOGLE_CALENDAR
     from integrations.providers.google_drive import FIELDS as DRIVE_FIELDS
     from integrations.providers.google_drive import PROVIDER as GOOGLE
 
@@ -464,7 +463,6 @@ def api_drive_picker_check_accept_and_job(w):
         w.transport.on("POST", GOOGLE.token_url, token_reply(ACCESS[2], REFRESH[2], scope=scope))
         who = {"user": {"permissionId": "gd-1", "emailAddress": "p@fake.test"}}
         w.transport.on("GET", GOOGLE.identity_url, response(200, who))
-        w.transport.on("GET", GOOGLE_CALENDAR.identity_url, response(200, {"id": "p@fake.test"}))
         services.complete_connect(request, state=state, code=CODE)
         _note_ciphertexts(w)
 

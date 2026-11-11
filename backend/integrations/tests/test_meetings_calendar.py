@@ -46,8 +46,7 @@ def connect_google(transport, user, lab, email="pi@uni.edu"):
     url = services.start_connect(request, lab, "google_calendar")
     state = parse_qs(urlsplit(url).query)["state"][0]
     transport.on("POST", google_calendar.PROVIDER.token_url, token_reply("g-at", "g-rt", SCOPES))
-    transport.on("GET", google_calendar.PROVIDER.identity_url, response(200, {"id": email}))
-    transport.on(
+    transport.on(  # D264: one answer names the account for Drive and for Calendar
         "GET",
         google_drive.PROVIDER.identity_url,
         response(200, {"user": {"permissionId": "perm-" + email, "emailAddress": email}}),
@@ -134,7 +133,6 @@ def test_connecting_from_drive_gives_calendar_and_meet_too(transport, lab_users)
         google_drive.PROVIDER.identity_url,
         response(200, {"user": {"permissionId": "p9", "emailAddress": "pi@uni.edu"}}),
     )
-    transport.on("GET", google_calendar.PROVIDER.identity_url, response(200, {"id": "pi@uni.edu"}))
     account = services.complete_connect(request, state=state, code="code")
     assert account.provider == "google_drive"  # the one that was asked for comes back
     assert set(accounts_of(lab, users["pi"])) == {"google_drive", "google_calendar"}
@@ -470,3 +468,62 @@ def test_video_options_say_what_you_can_make(transport, lab_users):
     }
     connect_zoom(transport, users["pi"], lab)
     assert api(users["pi"]).get(url).json()["zoom"] is True
+
+
+# ---------------------------------------------------------------- the account lookup (D264)
+
+
+def test_connecting_never_reads_the_primary_calendar_record(transport, lab_users):
+    """Our scopes cannot read `calendars/primary` itself, so naming the account must not use it:
+    asking for it made Google refuse and the connect fail."""
+    lab, users = lab_users
+    connect_google(transport, users["pi"], lab)
+    asked = [u for _, u, _ in transport.calls]
+    assert not [u for u in asked if u.rstrip("/").endswith("/calendars/primary")]
+    rows = accounts_of(lab, users["pi"])
+    assert rows["google_calendar"].external_email == "pi@uni.edu"
+    assert rows["google_calendar"].external_account_id == "pi@uni.edu"
+
+
+def test_calendar_account_falls_back_to_the_permission_id_without_an_email(transport, lab_users):
+    lab, users = lab_users
+    request = make_request(users["pi"])
+    state = parse_qs(urlsplit(services.start_connect(request, lab, "google_calendar")).query)[
+        "state"
+    ][0]
+    transport.on("POST", google_calendar.PROVIDER.token_url, token_reply("t", "r", SCOPES))
+    transport.on(
+        "GET", google_drive.PROVIDER.identity_url, response(200, {"user": {"permissionId": "p77"}})
+    )
+    services.complete_connect(request, state=state, code="code")
+    assert accounts_of(lab, users["pi"])["google_calendar"].external_account_id == "p77"
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_google_refusing_to_name_the_account_says_so_and_stores_nothing(
+    transport, lab_users, status
+):
+    lab, users = lab_users
+    request = make_request(users["pi"])
+    state = parse_qs(urlsplit(services.start_connect(request, lab, "google_calendar")).query)[
+        "state"
+    ][0]
+    transport.on("POST", google_calendar.PROVIDER.token_url, token_reply("t", "r", SCOPES))
+    transport.on("GET", google_drive.PROVIDER.identity_url, response(status, {"error": {}}))
+    with pytest.raises(services.OAuthError) as err:
+        services.complete_connect(request, state=state, code="code")
+    assert err.value.code == "identity_forbidden"
+    assert accounts_of(lab, users["pi"]) == {}
+
+
+def test_a_calendar_api_that_is_not_switched_on_is_named_not_hidden(transport, lab_users):
+    lab, users = lab_users
+    connect_google(transport, users["pi"], lab)
+    off = {"error": {"errors": [{"reason": "accessNotConfigured"}], "code": 403}}
+    transport.on("POST", EVENTS, response(403, off))
+    r = api(users["pi"]).post(
+        f"/api/labs/{lab.pk}/calendar/meetings/", meeting_body(video="google_meet"), "json"
+    )
+    assert r.status_code == 400
+    assert "enable the Calendar API" in r.json()["video"][0]
+    assert Meeting.objects.for_lab(lab).count() == 0

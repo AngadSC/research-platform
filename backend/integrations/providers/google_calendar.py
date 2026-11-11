@@ -8,7 +8,7 @@ Two scopes, both about events only (nothing else of the Google account):
 their primary calendar (D254); `calendar.app.created` lets the app make one calendar of its own
 and manage events on that calendar alone, which is where tasks, deadlines and meetings are pushed
 (D255), so they never mix into the person's own calendar and can be hidden or removed in one go.
-The identity is the primary calendar's id, which is the account's email.
+The account is named through Drive's `about` (D264), as the same Google sign-in covers both.
 
 D262: this provider shares one Google sign-in with Google Drive. It uses Drive's Google app
 (`client_from`), and connecting either one asks for the scopes of both.
@@ -21,9 +21,18 @@ SCOPE = "https://www.googleapis.com/auth/calendar.events"
 APP_SCOPE = "https://www.googleapis.com/auth/calendar.app.created"
 
 
+# D264: the account is named through Drive's `about`, not `calendars/primary`. The scopes we ask
+# for cannot read the primary calendar's own record (`calendar.events` is not accepted there, and
+# `calendar.app.created` only reaches calendars this app made), so that call is refused and the
+# connect failed with "could not confirm which account". The sign-in is one Google account
+# (D262), and Drive's `about` works with the `drive.file` scope that is always in the grant.
+IDENTITY_URL = "https://www.googleapis.com/drive/v3/about?fields=user(permissionId,emailAddress)"
+
+
 def _identity(data: dict) -> tuple[str, str]:
-    calendar_id = str(data["id"])  # the primary calendar's id is the account's email
-    return calendar_id, calendar_id if "@" in calendar_id else ""
+    user = data["user"]
+    email = str(user.get("emailAddress", ""))
+    return email or str(user["permissionId"]), email
 
 
 PROVIDER = Provider(
@@ -42,7 +51,7 @@ PROVIDER = Provider(
     authorize_url="https://accounts.google.com/o/oauth2/v2/auth",
     token_url="https://oauth2.googleapis.com/token",
     revoke_url="https://oauth2.googleapis.com/revoke",
-    identity_url=f"{API}/calendars/primary",
+    identity_url=IDENTITY_URL,
     api_hosts=frozenset({"www.googleapis.com", "oauth2.googleapis.com"}),
     authorize_params={"access_type": "offline", "prompt": "consent"},
     parse_identity=_identity,
