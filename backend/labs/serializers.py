@@ -63,8 +63,16 @@ class LabSerializer(serializers.ModelSerializer):
         return sorted(p.value for p in LAB_ROLE_PERMS.get(role, ()))
 
 
+class MemberUserSerializer(UserSerializer):
+    """The members list also shows each person's short bio."""
+
+    class Meta(UserSerializer.Meta):
+        fields = [*UserSerializer.Meta.fields, "bio"]
+        read_only_fields = UserSerializer.Meta.fields + ["bio"]
+
+
 class MembershipSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
+    user = MemberUserSerializer(read_only=True)
 
     class Meta:
         model = LabMembership

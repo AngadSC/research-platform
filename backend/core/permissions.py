@@ -329,6 +329,16 @@ def labs_for(user):
     return Lab.objects.filter(pk__in=mine).select_related("institution").order_by("name")
 
 
+def shares_a_lab(user, other) -> bool:
+    """True if both people are members of at least one common lab (or are the same person)."""
+    if not _active(user):
+        return False
+    if user.pk == other.pk:
+        return True
+    theirs = LabMembership.unscoped.filter(user=other).values("lab_id")
+    return labs_for(user).filter(pk__in=theirs).exists()
+
+
 def calendar_feeds_of(user):
     """Someone's feed links in every lab, for ending them after a security event (D231)."""
     return CalendarFeedToken.unscoped.filter(user=user).select_related("lab")

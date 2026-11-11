@@ -8583,6 +8583,37 @@ paths:
               schema:
                 $ref: '#/components/schemas/Me'
           description: ''
+  /api/me/avatar/:
+    put:
+      operationId: me_avatar_update
+      description: PUT replaces your profile picture, DELETE removes it (D253).
+      tags:
+      - me
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AvatarUpload'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+          description: ''
+    delete:
+      operationId: me_avatar_destroy
+      description: PUT replaces your profile picture, DELETE removes it (D253).
+      tags:
+      - me
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/oauth/authorize/:
     post:
       operationId: oauth_authorize_create
@@ -8757,6 +8788,31 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+          description: ''
+  /api/users/{user_id}/avatar/:
+    get:
+      operationId: users_avatar_retrieve
+      description: |-
+        The picture of yourself or of someone you share a lab with; anyone else gets 404, as does
+        a person with no picture. Streamed here so the type and `nosniff` are ours (D253).
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - users
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
           description: ''
 components:
   schemas:
@@ -9419,6 +9475,14 @@ components:
           type: string
         error_description:
           type: string
+    AvatarUpload:
+      type: object
+      properties:
+        file:
+          type: string
+          format: uri
+      required:
+      - file
     CalendarFeedCreated:
       type: object
       properties:
@@ -12976,8 +13040,19 @@ components:
         display_name:
           type: string
           maxLength: 120
+        pronouns:
+          type: string
+          maxLength: 40
+        avatar_url:
+          type: string
+          nullable: true
+          readOnly: true
+        bio:
+          type: string
+          maxLength: 500
         preferences: {}
       required:
+      - avatar_url
       - email
       - id
     Meeting:
@@ -13051,6 +13126,38 @@ components:
       - ends_at
       - starts_at
       - title
+    MemberUser:
+      type: object
+      description: The members list also shows each person's short bio.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        display_name:
+          type: string
+          readOnly: true
+        pronouns:
+          type: string
+          readOnly: true
+        avatar_url:
+          type: string
+          nullable: true
+          readOnly: true
+        bio:
+          type: string
+          readOnly: true
+      required:
+      - avatar_url
+      - bio
+      - display_name
+      - email
+      - id
+      - pronouns
     Membership:
       type: object
       properties:
@@ -13060,7 +13167,7 @@ components:
           readOnly: true
         user:
           allOf:
-          - $ref: '#/components/schemas/User'
+          - $ref: '#/components/schemas/MemberUser'
           readOnly: true
         role:
           $ref: '#/components/schemas/LabRoleEnum'
@@ -14068,6 +14175,16 @@ components:
         display_name:
           type: string
           maxLength: 120
+        pronouns:
+          type: string
+          maxLength: 40
+        avatar_url:
+          type: string
+          nullable: true
+          readOnly: true
+        bio:
+          type: string
+          maxLength: 500
         preferences: {}
     PatchedMeetingInput:
       type: object
@@ -16079,7 +16196,15 @@ components:
         display_name:
           type: string
           maxLength: 120
+        pronouns:
+          type: string
+          maxLength: 40
+        avatar_url:
+          type: string
+          nullable: true
+          readOnly: true
       required:
+      - avatar_url
       - email
       - id
     Webhook:

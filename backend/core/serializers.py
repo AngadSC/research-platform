@@ -4,6 +4,7 @@ import unicodedata
 from django.utils.dateparse import parse_datetime
 from rest_framework import serializers
 
+from core import avatars
 from core.models import Notification, User
 
 
@@ -15,11 +16,20 @@ def no_control_chars(value):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    # Both come from columns on the user row, so nesting this costs no extra query (D253).
+    avatar_url = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ["id", "email", "display_name"]
+        fields = ["id", "email", "display_name", "pronouns", "avatar_url"]
         read_only_fields = ["id", "email"]
-        extra_kwargs = {"display_name": {"validators": [no_control_chars]}}
+        extra_kwargs = {
+            "display_name": {"validators": [no_control_chars]},
+            "pronouns": {"validators": [no_control_chars]},
+        }
+
+    def get_avatar_url(self, user) -> str | None:
+        return avatars.url(user)
 
 
 # D125: personal UI settings. Unknown keys and values are rejected; PATCH merges.
@@ -106,9 +116,15 @@ class MeSerializer(UserSerializer):
     """`/api/me/` only: the user's own preferences never appear in nested user objects."""
 
     preferences = serializers.JSONField(required=False)
+    bio = serializers.CharField(max_length=500, allow_blank=True, required=False)
 
     class Meta(UserSerializer.Meta):
-        fields = [*UserSerializer.Meta.fields, "preferences"]
+        fields = [*UserSerializer.Meta.fields, "bio", "preferences"]
+
+    def validate_bio(self, value):
+        # Newlines are fine in a bio; other control characters are not.
+        no_control_chars(value.replace("\n", "").replace("\r", "").replace("\t", ""))
+        return value
 
     def validate_preferences(self, value):
         if not isinstance(value, dict):

@@ -3494,6 +3494,24 @@ export interface paths {
         patch: operations["me_partial_update"];
         trace?: never;
     };
+    "/api/me/avatar/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description PUT replaces your profile picture, DELETE removes it (D253). */
+        put: operations["me_avatar_update"];
+        post?: never;
+        /** @description PUT replaces your profile picture, DELETE removes it (D253). */
+        delete: operations["me_avatar_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/oauth/authorize/": {
         parameters: {
             query?: never;
@@ -3529,6 +3547,26 @@ export interface paths {
          *     - JSON: application/vnd.oai.openapi+json
          */
         get: operations["schema_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/{user_id}/avatar/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The picture of yourself or of someone you share a lab with; anyone else gets 404, as does
+         *     a person with no picture. Streamed here so the type and `nosniff` are ours (D253).
+         */
+        get: operations["users_avatar_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3831,6 +3869,10 @@ export interface components {
             redirect?: string;
             error?: string;
             error_description?: string;
+        };
+        AvatarUpload: {
+            /** Format: uri */
+            file: string;
         };
         CalendarFeedCreated: {
             active: boolean;
@@ -5196,6 +5238,9 @@ export interface components {
             /** Format: email */
             readonly email: string;
             display_name?: string;
+            pronouns?: string;
+            readonly avatar_url: string | null;
+            bio?: string;
             preferences?: unknown;
         };
         Meeting: {
@@ -5221,10 +5266,21 @@ export interface components {
             notes?: string;
             attendees?: string[];
         };
+        /** @description The members list also shows each person's short bio. */
+        MemberUser: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: email */
+            readonly email: string;
+            readonly display_name: string;
+            readonly pronouns: string;
+            readonly avatar_url: string | null;
+            readonly bio: string;
+        };
         Membership: {
             /** Format: uuid */
             readonly id: string;
-            readonly user: components["schemas"]["User"];
+            readonly user: components["schemas"]["MemberUser"];
             role: components["schemas"]["LabRoleEnum"];
             /** Format: date-time */
             readonly created_at: string;
@@ -5604,6 +5660,9 @@ export interface components {
             /** Format: email */
             readonly email?: string;
             display_name?: string;
+            pronouns?: string;
+            readonly avatar_url?: string | null;
+            bio?: string;
             preferences?: unknown;
         };
         PatchedMeetingInput: {
@@ -6426,6 +6485,8 @@ export interface components {
             /** Format: email */
             readonly email: string;
             display_name?: string;
+            pronouns?: string;
+            readonly avatar_url: string | null;
         };
         /** @description Never the address or the secret: `host` says where it goes. */
         Webhook: {
@@ -12763,6 +12824,47 @@ export interface operations {
             };
         };
     };
+    me_avatar_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["AvatarUpload"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+        };
+    };
+    me_avatar_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     oauth_authorize_create: {
         parameters: {
             query?: never;
@@ -12817,6 +12919,27 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    users_avatar_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": string;
                 };
             };
         };

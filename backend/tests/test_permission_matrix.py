@@ -95,6 +95,11 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "core:health"):           "2   2        2  2     2    2       2       2       2",
     ("GET",    "core:me"):               "401 2        2  2     2    2       2       2       2",
     ("PATCH",  "core:me"):               "401 2        2  2     2    2       2       2       2",
+    # Profile picture (D253): your own, any signed-in person; GET of someone else's needs a
+    # shared lab, so the outsider (no lab in common with Lab A's people) gets 404.
+    ("PUT",    "core:me-avatar"):        "401 2        2  2     2    2       2       2       2",
+    ("DELETE", "core:me-avatar"):        "401 2        2  2     2    2       2       2       2",
+    ("GET",    "core:user-avatar"):      "401 404      2  2     2    2       2       2       2",
     # D156: SSO routing by email domain, public
     ("POST",   "core:login-methods"):    "2   2        2  2     2    2       2       2       2",
     ("GET",    "labs:lab-list"):         "401 2        2  2     2    2       2       2       2",
@@ -482,6 +487,20 @@ MATRIX: dict[tuple[str, str], str] = {
 # ---------------------------------------------------------------- world
 
 _n = iter(range(10**6))
+
+
+# A real 1x1 PNG (profile picture fixtures).
+TINY_PNG = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+    "0000000d49444154789c6360f8cfc0f01f0005000101a5f645400000000049454e44ae426082"
+)
+
+
+def default_storage_save(user):
+    from django.core.files.base import ContentFile
+    from django.core.files.storage import storages
+
+    return storages["lab_files"].save(f"users/{user.pk}/avatar-matrix.png", ContentFile(TINY_PNG))
 
 
 def _user(name):
@@ -976,6 +995,13 @@ def build_world():
         lab=lab_a, email="invitee-a@example.com", role=LabRole.MEMBER, invited_by=users["pi"]
     )
 
+    # Profile picture owner for GET core:user-avatar: in Lab A, not a persona (personas delete
+    # and replace their own picture in the matrix, which would empty a persona's file).
+    avatar_owner = _user("avatar-owner")
+    LabMembership.objects.create(lab=lab_a, user=avatar_owner, role=LabRole.MEMBER)
+    avatar_owner.avatar = default_storage_save(avatar_owner)
+    avatar_owner.save(update_fields=["avatar"])
+
     secret_pi = users["outsider"]
     lab_b = Lab.objects.create(institution=inst, name="Lab B Secret", created_by=secret_pi)
     membership_b = LabMembership.objects.create(lab=lab_b, user=secret_pi, role=LabRole.PI)
@@ -1025,6 +1051,7 @@ def build_world():
         a={
             "lab_id": lab_a.pk,
             "membership_id": memberships["contrib"].pk,
+            "user_id": avatar_owner.pk,
             "invite_id": invite_a.pk,
             # --- projects/tasks (Phase 3) ---
             "project_id": p1.pk,
@@ -1206,7 +1233,14 @@ def _fresh_invite_for(email, w):
 
 # (persona user or None, world) -> a valid request body, so an allowed call returns 2xx.
 PAYLOADS = {
-    ("PATCH", "core:me"): lambda user, w: {"display_name": "New Name"},
+    ("PATCH", "core:me"): lambda user, w: {
+        "display_name": "New Name",
+        "pronouns": "they/them",
+        "bio": "Studies sleep.",
+    },
+    ("PUT", "core:me-avatar"): lambda user, w: {
+        "file": SimpleUploadedFile("me.png", TINY_PNG, content_type="image/png")
+    },
     ("POST", "core:login-methods"): lambda user, w: {"email": "someone@example.com"},
     ("POST", "labs:lab-list"): lambda user, w: {"name": "Brand New Lab"},
     ("POST", "labs:getting-started"): lambda user, w: {"dismissed": True},

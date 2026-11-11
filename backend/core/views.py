@@ -1,17 +1,22 @@
+from django.core.files.storage import storages
+from django.http import FileResponse, Http404
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import generics, serializers
 from rest_framework.exceptions import NotAuthenticated
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from core import avatars
 from core.auth import login_methods_for_email, sso_for_email
-from core.models import Notification
+from core.models import Notification, User
 from core.notifications import visible_notifications
-from core.permissions import Perm, get_lab_or_404
+from core.permissions import Perm, get_lab_or_404, shares_a_lab
 from core.search import MAX_Q, SPECS, search
 from core.serializers import MeSerializer, NotificationSerializer
 
@@ -60,6 +65,55 @@ class MeView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+
+class MyAvatarView(APIView):
+    """PUT replaces your profile picture, DELETE removes it (D253)."""
+
+    parser_classes = [MultiPartParser]
+    perms = {"PUT": Perm.AUTHENTICATED, "DELETE": Perm.AUTHENTICATED}
+
+    @extend_schema(
+        request={
+            "multipart/form-data": inline_serializer(
+                "AvatarUpload", {"file": serializers.FileField()}
+            )
+        },
+        responses=MeSerializer,
+    )
+    def put(self, request):
+        upload = request.FILES.get("file")
+        if upload is None:
+            raise serializers.ValidationError({"file": "Choose a picture to upload."})
+        avatars.replace(request.user, upload)
+        return Response(MeSerializer(request.user).data)
+
+    @extend_schema(responses={204: None})
+    def delete(self, request):
+        avatars.remove(request.user)
+        return Response(status=204)
+
+
+class UserAvatarView(APIView):
+    """The picture of yourself or of someone you share a lab with; anyone else gets 404, as does
+    a person with no picture. Streamed here so the type and `nosniff` are ours (D253)."""
+
+    perms = {"GET": Perm.AUTHENTICATED}
+
+    @extend_schema(responses={(200, "image/*"): OpenApiTypes.BINARY})
+    def get(self, request, user_id):
+        person = get_object_or_404(User, pk=user_id)
+        if not person.avatar or not shares_a_lab(request.user, person):
+            raise Http404
+        try:
+            handle = storages["lab_files"].open(person.avatar, "rb")
+        except FileNotFoundError as exc:
+            raise Http404 from exc
+        response = FileResponse(handle, content_type=avatars.content_type(person.avatar))
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Content-Security-Policy"] = "sandbox"
+        response["Cache-Control"] = "private, max-age=300"  # the ?v= in the URL busts it
+        return response
 
 
 class LabScopedViewMixin:

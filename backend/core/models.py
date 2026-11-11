@@ -37,6 +37,10 @@ class User(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
     display_name = models.CharField(max_length=120, blank=True)
+    pronouns = models.CharField(max_length=40, blank=True)
+    bio = models.TextField(blank=True)  # 500 characters, enforced by MeSerializer
+    # Storage key of the profile picture in the lab_files storage (core/avatars.py), or "".
+    avatar = models.CharField(max_length=200, blank=True, editable=False)
     # Personal UI settings; only these keys, validated by MeSerializer (D125).
     preferences = models.JSONField(default=dict, blank=True)
 
