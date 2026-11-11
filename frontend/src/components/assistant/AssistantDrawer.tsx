@@ -31,7 +31,7 @@ import {
   tokensIn,
   type Live,
 } from "@/lib/assistant";
-import { Markdown } from "@/lib/markdown";
+import { MessageText } from "@/lib/markdown";
 import { NativeSelect } from "@/pages/admin/common";
 
 function ToolStatus({ status }: { status: string }) {
@@ -117,7 +117,7 @@ function Item({ item, config }: { item: TimelineItem; config?: AssistantConfig }
     <div className="grid gap-1">
       {item.text && (
         <div className="max-w-[95%] text-sm [&_p]:mb-1">
-          <Markdown text={item.text} ownLinksOnly />
+          <MessageText text={item.text} ownLinksOnly />
         </div>
       )}
       {item.refusal && <Notice code="refusal" refusal={item.refusal} />}
@@ -399,7 +399,7 @@ function AssistantPanel({
               )}
               {live?.text && (
                 <div className="max-w-[95%] text-sm [&_p]:mb-1">
-                  <Markdown text={live.text} ownLinksOnly />
+                  <MessageText text={live.text} ownLinksOnly />
                 </div>
               )}
               {streaming && !live?.text && (

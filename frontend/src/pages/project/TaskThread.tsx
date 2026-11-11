@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { RichComposer, type Person } from "@/components/composer/RichComposer";
 import { RelativeTime } from "@/components/shared/RelativeTime";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { useMentionPeople } from "@/hooks/mentions";
 import { useTaskPosts } from "@/hooks/projects";
 import { useMe } from "@/hooks/workspace";
 import { personName, type TaskPost } from "@/lib/api-types";
 import { formErrors } from "@/lib/forms";
-import { Markdown } from "@/lib/markdown";
+import { MessageText } from "@/lib/markdown";
 
 const fail = (e: unknown) =>
   toast.error(formErrors(e, ["body"]).fields.body ?? "Something went wrong.");
@@ -16,10 +17,12 @@ function Post({
   post,
   mine,
   canDelete,
+  people,
   onEdit,
   onDelete,
 }: {
   post: TaskPost;
+  people?: Person[];
   mine: boolean;
   canDelete: boolean;
   onEdit: (body: string) => Promise<unknown>;
@@ -57,11 +60,12 @@ function Post({
             onEdit(text).then(() => setEditing(false), fail);
           }}
         >
-          <Textarea
+          <RichComposer
             maxLength={5000}
-            aria-label="Edit post"
+            ariaLabel="Edit post"
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={setText}
+            people={people}
           />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => setEditing(false)}>
@@ -73,7 +77,7 @@ function Post({
           </div>
         </form>
       ) : (
-        <Markdown text={post.body} />
+        <MessageText text={post.body} />
       )}
       {confirm && (
         <div
@@ -97,11 +101,13 @@ function Post({
 /** The per-task bulletin board: oldest first, composer at the bottom (D142). */
 export function TaskThread({
   labId,
+  projectId,
   taskId,
   canPost,
   isLead,
 }: {
   labId: string;
+  projectId: string;
   taskId: string;
   /** edit_content */
   canPost: boolean;
@@ -110,6 +116,7 @@ export function TaskThread({
 }) {
   const { list, create, edit, remove } = useTaskPosts(labId, taskId);
   const me = useMe().data;
+  const people = useMentionPeople(labId, projectId);
   const [text, setText] = useState("");
   const end = useRef<HTMLDivElement>(null);
   const count = list.data?.length ?? 0;
@@ -140,6 +147,7 @@ export function TaskThread({
               post={p}
               mine={p.author.id === me?.id && canPost}
               canDelete={isLead}
+              people={people}
               onEdit={(body) => edit.mutateAsync({ id: p.id, body })}
               onDelete={() =>
                 remove.mutate(p.id, {
@@ -154,18 +162,17 @@ export function TaskThread({
       <div ref={end} />
       {canPost ? (
         <form onSubmit={submit} className="grid gap-2">
-          <Textarea
-            aria-label="Write an update"
-            placeholder="Post an update. **bold**, *italic*, `code`, - lists and links work."
+          <RichComposer
+            ariaLabel="Write an update"
+            placeholder="Post an update. Type @ to mention someone."
             value={text}
             maxLength={5000}
-            onChange={(e) => setText(e.target.value)}
+            onChange={setText}
+            people={people}
+            enterToSend
+            submitLabel="Post update"
+            submitting={create.isPending}
           />
-          <div className="flex justify-end">
-            <Button type="submit" disabled={create.isPending || !text.trim()}>
-              Post update
-            </Button>
-          </div>
         </form>
       ) : (
         <p className="text-xs text-muted-foreground">

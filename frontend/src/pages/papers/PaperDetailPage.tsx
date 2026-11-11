@@ -7,7 +7,7 @@ import { FormError } from "@/components/shared/FormError";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
+import { RichComposer } from "@/components/composer/RichComposer";
 import { useAssistantConfig } from "@/hooks/assistant";
 import { useAuth } from "@/hooks/auth";
 import { paperPdfUrl, useCitations, usePaper, usePaperMutations } from "@/hooks/papers";
@@ -16,7 +16,7 @@ import type { PaperCitations, PaperDetail, PaperNote } from "@/lib/api-types";
 import { openAssistant } from "@/lib/assistant";
 import { when } from "@/lib/format";
 import { formErrors } from "@/lib/forms";
-import { Markdown } from "@/lib/markdown";
+import { MessageText } from "@/lib/markdown";
 import { doiHref, urlHref } from "@/lib/references";
 import { NativeSelect, Section } from "@/pages/admin/common";
 import { UploadDialog } from "@/pages/project/UploadDialog";
@@ -169,12 +169,12 @@ function NoteItem({
       </div>
       {editing ? (
         <div className="grid gap-2">
-          <Textarea
-            aria-label="Edit note"
+          <RichComposer
+            ariaLabel="Edit note"
             rows={4}
             value={text}
             maxLength={20000}
-            onChange={(e) => setText(e.target.value)}
+            onChange={setText}
           />
           <FormError message={error} />
           <div className="flex justify-end gap-2">
@@ -188,7 +188,7 @@ function NoteItem({
         </div>
       ) : (
         <div className="text-sm [&_p]:mb-1">
-          <Markdown text={note.body} ownLinksOnly />
+          <MessageText text={note.body} ownLinksOnly />
         </div>
       )}
     </li>
@@ -344,13 +344,13 @@ export function PaperDetailPage() {
         <Section title={`Notes (${paper.notes.length})`} description="Every member can read these.">
           {canContribute && (
             <form onSubmit={submitNote} className="grid gap-2">
-              <Textarea
-                aria-label="Add a note"
+              <RichComposer
+                ariaLabel="Add a note"
                 placeholder="What did you take from this paper?"
                 rows={3}
                 value={text}
                 maxLength={20000}
-                onChange={(e) => setText(e.target.value)}
+                onChange={setText}
               />
               <FormError message={error} />
               <Button

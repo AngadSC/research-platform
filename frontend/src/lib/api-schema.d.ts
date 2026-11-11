@@ -5348,9 +5348,10 @@ export interface components {
          *     * `task_post` - Task Post
          *     * `training_expiry` - Training Expiry
          *     * `training_digest` - Training Digest
+         *     * `mention` - Mention
          * @enum {string}
          */
-        NotificationKindEnum: "ethics_expiry" | "retention_due" | "invite_accepted" | "task_assigned" | "task_unassigned" | "project_exported" | "integration_issue" | "task_post" | "training_expiry" | "training_digest";
+        NotificationKindEnum: "ethics_expiry" | "retention_due" | "invite_accepted" | "task_assigned" | "task_unassigned" | "project_exported" | "integration_issue" | "task_post" | "training_expiry" | "training_digest" | "mention";
         OnboardingItem: {
             /** Format: uuid */
             readonly id: string;

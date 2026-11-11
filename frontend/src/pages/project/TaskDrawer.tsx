@@ -202,7 +202,13 @@ export function TaskDrawer({
           </dl>
         )}
         <TaskFiles labId={labId} projectId={projectId} task={task} canEdit={canEdit} />
-        <TaskThread labId={labId} taskId={task.id} canPost={canEdit} isLead={isLead} />
+        <TaskThread
+          labId={labId}
+          projectId={projectId}
+          taskId={task.id}
+          canPost={canEdit}
+          isLead={isLead}
+        />
         {canEdit && (
           <div className="border-t pt-4">
             {confirmDelete ? (

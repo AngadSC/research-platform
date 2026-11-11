@@ -1,14 +1,7 @@
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-  type KeyboardEvent,
-} from "react";
-import { ArrowDown, MessagesSquare, Send, Trash2 } from "lucide-react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { ArrowDown, MessagesSquare, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { RichComposer } from "@/components/composer/RichComposer";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { UserAvatar } from "@/components/shared/UserAvatar";
@@ -20,14 +13,14 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/auth";
+import { useMentionPeople } from "@/hooks/mentions";
 import { CHAT_PAGE_SIZE, fetchOlderMessages, useChat } from "@/hooks/chat";
 import { personName, type ChatMessage } from "@/lib/api-types";
 import { fullDate } from "@/lib/format";
 import { formErrors } from "@/lib/forms";
+import { MessageText } from "@/lib/markdown";
 import { cn } from "@/lib/utils";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 
@@ -86,14 +79,14 @@ function MessageRow({
             </time>
           </p>
         )}
-        <p
+        <div
           className={cn(
-            "rounded-2xl px-3 py-2 text-sm break-words whitespace-pre-wrap",
+            "rounded-2xl px-3 py-2",
             mine ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground",
           )}
         >
-          {message.body}
-        </p>
+          <MessageText text={message.body} onPrimary={mine} />
+        </div>
       </div>
       {canDelete && (
         <button
@@ -143,6 +136,7 @@ export function ChatPanel({
 }) {
   const { email } = useAuth();
   const { messages, send, remove, markRead } = useChat(labId, projectId);
+  const people = useMentionPeople(labId, projectId);
   const [draft, setDraft] = useState("");
   const [older, setOlder] = useState<ChatMessage[]>([]);
   const [olderExhausted, setOlderExhausted] = useState(false);
@@ -238,13 +232,6 @@ export function ChatPanel({
     });
   }
 
-  function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      submit();
-    }
-  }
-
   function confirmDelete() {
     if (!deleting) return;
     const id = deleting.id;
@@ -335,7 +322,7 @@ export function ChatPanel({
         <Button
           size="sm"
           onClick={toBottom}
-          className="absolute bottom-32 left-1/2 -translate-x-1/2 rounded-full"
+          className="absolute bottom-48 left-1/2 -translate-x-1/2 rounded-full"
         >
           <ArrowDown aria-hidden /> New messages
         </Button>
@@ -348,28 +335,23 @@ export function ChatPanel({
         }}
         className="grid gap-2 border-t bg-muted p-3"
       >
-        <Label htmlFor="chat-message" className="sr-only">
-          Message
-        </Label>
-        <div className="flex items-end gap-2">
-          <Textarea
-            id="chat-message"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={onKeyDown}
-            maxLength={4000}
-            rows={2}
-            placeholder="Write a message"
-            className="max-h-40 min-h-11 resize-none bg-card"
-          />
-          <Button type="submit" disabled={!draft.trim() || send.isPending}>
-            <Send aria-hidden /> Send
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Do not share participant identifiers in chat. Press Enter to send, Shift+Enter for a new
-          line.
-        </p>
+        <RichComposer
+          value={draft}
+          onChange={setDraft}
+          ariaLabel="Message"
+          placeholder="Write a message"
+          maxLength={4000}
+          people={people}
+          enterToSend
+          submitLabel="Send"
+          submitting={send.isPending}
+          footer={
+            <p className="text-xs text-muted-foreground">
+              Do not share participant identifiers in chat. Press Enter to send, Shift+Enter for a
+              new line.
+            </p>
+          }
+        />
       </form>
 
       <Dialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(undefined)}>

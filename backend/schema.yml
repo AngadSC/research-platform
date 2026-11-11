@@ -13314,6 +13314,7 @@ components:
       - task_post
       - training_expiry
       - training_digest
+      - mention
       type: string
       description: |-
         * `ethics_expiry` - Ethics Expiry
@@ -13326,6 +13327,7 @@ components:
         * `task_post` - Task Post
         * `training_expiry` - Training Expiry
         * `training_digest` - Training Digest
+        * `mention` - Mention
     OnboardingItem:
       type: object
       properties:
