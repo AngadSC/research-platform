@@ -115,7 +115,10 @@
 ## Night run (2026-11-10)
 
 - Audit fixes: duplicate Projects group removed from the command palette, New task dialog description and title `maxLength` 300 (D247). Black and Prettier formatting fixed on two files that failed lint (`test_review_fixes5.py`, `TasksTab.tsx`).
-- Merged ideas: none (no implementer branches).
-- Dropped ideas: none.
-- Not covered: full pass for spinners, empty states, labels and jargon; check against SPEC sections 1, 4, 6 and HANDOFF item by item; `maxLength` on other forms.
+- First pass merged no ideas: the workflow's worktree isolation refused to start on Windows (drive-letter case). Rerun with hand-made worktrees in `.night/` and one agent per idea, model picked per idea by the brainstorm (opus high).
+- Merged ideas: AI tools list_members, handover_report, update_task (opus, D248); form maxLength and skeleton loading (haiku, D249); Lineage record check (sonnet, D250); reassign from Work to pass on (sonnet, D251); Ask the assistant entry points (sonnet, D252).
+- Dropped ideas: none. Deferred by the brainstorm: document owner field (needs a founder decision), handover summary via assistant, MCP prompts/resources, shortcuts cheatsheet, PI weekly digest, axe audit, bulk board actions.
+- Lesson: `git stash` is shared across worktrees; two agents popped each other's stash. No work was lost. Tell parallel agents never to stash.
+- Not covered: full pass for spinners, empty states, labels and jargon; check against SPEC sections 1, 4, 6 and HANDOFF item by item.
 - Gate: lint clean (13 existing warnings, 0 errors), Vitest 428 passed (53 files), licenses 84 Python / 451 npm, no missing migrations, schema and types current. Backend full suite: 4323 passed, 128 skipped, 0 failed.
+- Gate after merging the five ideas: lint clean (0 errors, 13 existing warnings), typecheck, Prettier, schema and types current, no missing migrations, licenses 451 npm pass, Vitest 455 passed (54 files), backend full suite exit 0 (no failures).
