@@ -85,6 +85,14 @@ class Provider:
     # How the token endpoint wants the app's own credentials: in the form body (most) or as
     # HTTP Basic auth (Zoom).
     token_auth: str = "body"
+    # D262: providers that one sign-in covers, such as Google Drive and Google Calendar. Each name
+    # is another provider that shares this one's grant: connecting any of them asks for all their
+    # scopes in one consent and stores one account per provider with the same tokens, and
+    # disconnecting any of them disconnects them all. They must share one OAuth app (`client_from`)
+    # because a refresh token only works with the app that issued it.
+    bundle: tuple[str, ...] = ()
+    bundle_label: str = ""  # what the person sees, for example "Google"
+    client_from: str = ""  # the provider whose app registration this one uses
     link_targets: frozenset[str] = frozenset({"project"})  # subset of TARGETS
     link_methods: tuple[str, ...] = ()  # subset of LINK_METHODS
 
@@ -164,7 +172,7 @@ class Provider:
 
     def client(self) -> tuple[str, str]:
         """(client_id, client_secret) from settings; empty strings when not configured."""
-        conf = settings.INTEGRATION_CLIENTS.get(self.name, {})
+        conf = settings.INTEGRATION_CLIENTS.get(self.client_from or self.name, {})
         return conf.get("client_id", ""), conf.get("client_secret", "")
 
     def valid_external_id(self, value) -> bool:

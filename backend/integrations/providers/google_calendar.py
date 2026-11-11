@@ -9,6 +9,9 @@ their primary calendar (D254); `calendar.app.created` lets the app make one cale
 and manage events on that calendar alone, which is where tasks, deadlines and meetings are pushed
 (D255), so they never mix into the person's own calendar and can be hidden or removed in one go.
 The identity is the primary calendar's id, which is the account's email.
+
+D262: this provider shares one Google sign-in with Google Drive. It uses Drive's Google app
+(`client_from`), and connecting either one asks for the scopes of both.
 """
 
 from integrations.providers import AuthType, Category, Provider
@@ -33,6 +36,9 @@ PROVIDER = Provider(
     writes=frozenset({"calendar_events", "meet_links"}),
     link_targets=frozenset(),
     scopes=(APP_SCOPE, SCOPE),
+    bundle=("google_drive",),
+    bundle_label="Google",
+    client_from="google_drive",  # D262: the same Google app as Drive, so one grant works for both
     authorize_url="https://accounts.google.com/o/oauth2/v2/auth",
     token_url="https://oauth2.googleapis.com/token",
     revoke_url="https://oauth2.googleapis.com/revoke",

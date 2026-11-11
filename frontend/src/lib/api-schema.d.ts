@@ -6093,6 +6093,10 @@ export interface components {
             link_hosts: string[];
             can_check: boolean;
             task_import: boolean;
+            /** @description Other providers one sign-in also connects (D262), such as Drive and Calendar. */
+            bundle: string[];
+            /** @description What the bundle is called, such as Google. */
+            bundle_label: string;
             account: components["schemas"]["ProviderAccount"] | null;
         };
         ProviderAccount: {

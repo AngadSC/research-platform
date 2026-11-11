@@ -49,16 +49,18 @@ function VideoChoice({
   const choices: [Video, string][] = [
     ["", "No video call"],
     ["link", "Paste a link"],
+    ["google_meet", "Make a Google Meet call"],
+    ["zoom", "Make a Zoom call"],
   ];
-  for (const kind of ["google_meet", "zoom"] as const)
-    if (options?.[`${kind}_available`]) choices.push([kind, `Make a ${CALL_NAME[kind]} call`]);
   return (
     <fieldset className="grid gap-1.5">
       <legend className="text-sm font-medium">Video call</legend>
       <div className="flex flex-wrap gap-x-4 gap-y-1.5">
         {choices.map(([v, label]) => {
           const id = `video-${v || "none"}`;
-          const needs = (v === "google_meet" || v === "zoom") && !options?.[v];
+          const call = v === "google_meet" || v === "zoom" ? v : null;
+          const setUp = !call || !!options?.[`${call}_available`];
+          const connected = !call || !!options?.[call];
           return (
             <span key={id} className="flex items-center gap-2 text-sm">
               <input
@@ -66,27 +68,29 @@ function VideoChoice({
                 type="radio"
                 name="video_choice"
                 checked={value === v}
-                disabled={needs}
+                disabled={!connected}
                 onChange={() => onChange(v)}
               />
               <Label
                 htmlFor={id}
-                className={needs ? "font-normal text-muted-foreground" : "font-normal"}
+                className={connected ? "font-normal" : "font-normal text-muted-foreground"}
               >
                 {label}
               </Label>
-              {needs && (
+              {call && !connected && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  disabled={connect.isPending}
-                  onClick={() =>
-                    connect.mutate({ provider: CONNECT_AS[v as "zoom" | "google_meet"] })
-                  }
+                  disabled={!setUp || connect.isPending}
+                  title={setUp ? undefined : "Not set up on this site yet"}
+                  onClick={() => connect.mutate({ provider: CONNECT_AS[call] })}
                 >
-                  Connect {v === "zoom" ? "Zoom" : "Google"}
+                  {call === "zoom" ? "Connect Zoom" : "Connect Google"}
                 </Button>
+              )}
+              {call && !setUp && (
+                <span className="text-xs text-muted-foreground">Not set up on this site yet</span>
               )}
             </span>
           );
@@ -457,7 +461,7 @@ export function GoogleCalendarDialog({ labId, onClose }: { labId: string; onClos
           <div className="grid gap-3">
             <p className="text-sm">
               {options?.google_meet_available
-                ? "Connect your own Google account. Google will ask you to allow calendar events only."
+                ? "Connect your own Google account. One sign-in covers Drive, Calendar and Meet; Google asks you to allow each."
                 : "Google Calendar is not set up on this site yet. Ask whoever runs it to add the Google sign-in details."}
             </p>
             {options?.google_meet_available && (
@@ -466,7 +470,7 @@ export function GoogleCalendarDialog({ labId, onClose }: { labId: string; onClos
                 disabled={connect.isPending}
                 onClick={() => connect.mutate({ provider: "google_calendar" })}
               >
-                Connect Google Calendar
+                Connect Google
               </Button>
             )}
           </div>

@@ -11,10 +11,10 @@ from django.utils import timezone
 from rest_framework.throttling import ScopedRateThrottle
 
 from audit.models import AuditEvent
-from integrations import jobs, services
+from integrations import jobs, registry, services
 from integrations.http import AccountUnavailable, IntegrationError
 from integrations.models import AccountStatus, ConnectedAccount, ExternalLink
-from integrations.providers import google_drive
+from integrations.providers import google_calendar, google_drive
 from integrations.tests.fake import response
 from projects.models import ProjectMembership
 from provenance.models import DatasetRecord
@@ -25,6 +25,8 @@ DRIVE = google_drive.PROVIDER
 FILE_ID = "1AbC-dEf_9"
 FILE_URL = f"https://www.googleapis.com/drive/v3/files/{FILE_ID}?fields={google_drive.FIELDS}"
 SCOPE = "https://www.googleapis.com/auth/drive.file"
+# D262: one Google sign-in covers Drive, Calendar and Meet, so a connect asks for all of it.
+GRANT = " ".join(registry.bundle_scopes(DRIVE))
 MD5 = "d41d8cd98f00b204e9800998ecf8427e"
 LONG_AGO = datetime.datetime(2030, 1, 1, tzinfo=datetime.UTC)
 
@@ -77,9 +79,12 @@ def connect_drive(client, lab, transport, *, access="gd-access", ext_id="perm-1"
     assert resp.status_code == 200, resp.content
     url = resp.json()["authorization_url"]
     body = {"access_token": access, "refresh_token": "gd-refresh", "expires_in": 3600}
-    transport.on("POST", DRIVE.token_url, response(200, {**body, "scope": SCOPE}))
+    transport.on("POST", DRIVE.token_url, response(200, {**body, "scope": GRANT}))
     who = {"user": {"permissionId": ext_id, "emailAddress": "pi@example.org"}}
     transport.on("GET", DRIVE.identity_url, response(200, who))
+    transport.on(
+        "GET", google_calendar.PROVIDER.identity_url, response(200, {"id": "pi@example.org"})
+    )
     state = parse_qs(urlsplit(url).query)["state"][0]
     cb = client.get("/api/integrations/oauth/callback/", {"state": state, "code": "c"})
     assert cb.status_code == 302 and "connected=google_drive" in cb["Location"], cb["Location"]
@@ -169,8 +174,9 @@ def test_drive_end_to_end(world, transport):
 def test_never_broad_scopes_and_never_file_contents(world, transport):
     lab, users, project, client = world
     url = connect_drive(client, lab, transport)
-    assert parse_qs(urlsplit(url).query)["scope"] == [SCOPE]
-    assert DRIVE.scopes == (SCOPE,)
+    assert parse_qs(urlsplit(url).query)["scope"] == [GRANT]
+    assert DRIVE.scopes == (SCOPE,)  # Drive itself still asks only for per-file access
+    assert not [s for s in GRANT.split() if s.endswith(("/drive", "/drive.readonly"))]
     broad = (
         "https://www.googleapis.com/auth/drive",
         "https://www.googleapis.com/auth/drive.readonly",
@@ -186,7 +192,9 @@ def test_never_broad_scopes_and_never_file_contents(world, transport):
     link_id = link_file(client, lab, project).json()["id"]
     recheck(client, lab, api(lab, f"external-links/{link_id}/check/"))
     transport.on("POST", DRIVE.revoke_url, response(200, {}))
-    services.disconnect(ConnectedAccount.objects.for_lab(lab).get(), actor=users["pi"])
+    services.disconnect(
+        ConnectedAccount.objects.for_lab(lab).get(provider="google_drive"), actor=users["pi"]
+    )
     urls = [u for _, u, _ in transport.calls]
     for u in urls:
         assert "alt=media" not in u and "/export" not in u and "download" not in u.lower(), u
@@ -246,7 +254,7 @@ def test_version_copy_rule(world, transport):
 def test_unavailable_and_transient_answers(world, transport):
     lab, _, project, client = world
     connect_drive(client, lab, transport)
-    account = ConnectedAccount.objects.for_lab(lab).get()
+    account = ConnectedAccount.objects.for_lab(lab).get(provider="google_drive")
     forbidden = response(403, {"error": {"errors": [{"reason": "forbidden"}]}})
     for reply in (
         response(404),
@@ -397,7 +405,7 @@ def test_connect_does_not_ask_google_to_merge_earlier_grants(world, transport):
         api(lab, "integrations/google_drive/connect/"), {}, "application/json"
     ).json()["authorization_url"]
     query = parse_qs(urlsplit(url).query)
-    assert query["scope"] == [SCOPE] and "include_granted_scopes" not in query
+    assert query["scope"] == [GRANT] and "include_granted_scopes" not in query
 
 
 def test_extra_granted_scopes_are_refused_on_connect_and_refresh(world, transport):
@@ -405,7 +413,7 @@ def test_extra_granted_scopes_are_refused_on_connect_and_refresh(world, transpor
     url = client.post(
         api(lab, "integrations/google_drive/connect/"), {}, "application/json"
     ).json()["authorization_url"]
-    _grant(transport, f"{SCOPE} https://www.googleapis.com/auth/drive")
+    _grant(transport, f"{GRANT} https://www.googleapis.com/auth/drive")
     transport.on("GET", DRIVE.identity_url, response(200, {"user": {"permissionId": "p"}}))
     state = parse_qs(urlsplit(url).query)["state"][0]
     cb = client.get("/api/integrations/oauth/callback/", {"state": state, "code": "c"})
@@ -415,8 +423,8 @@ def test_extra_granted_scopes_are_refused_on_connect_and_refresh(world, transpor
 
     # a refresh that comes back with a merged scope wipes the tokens
     connect_drive(client, lab, transport)
-    account = ConnectedAccount.objects.for_lab(lab).get()
-    _grant(transport, f"{SCOPE} openid email")
+    account = ConnectedAccount.objects.for_lab(lab).get(provider="google_drive")
+    _grant(transport, f"{GRANT} openid email")
     with pytest.raises(AccountUnavailable):
         services.refresh_access_token(account)
     assert account.status == AccountStatus.ERROR and account.access_token_ct == ""

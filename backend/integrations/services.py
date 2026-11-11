@@ -105,8 +105,9 @@ def start_connect(request, lab, provider_name, scopes=None) -> str:
     user = request.user
     require(user, Perm.MANAGE_INTEGRATIONS, lab)
     provider = _oauth_provider(provider_name)
-    scopes = sorted(set(scopes or provider.scopes))
-    if not set(scopes) <= set(provider.scopes):
+    allowed = registry.bundle_scopes(provider)  # D262: the whole bundle, in one consent
+    scopes = sorted(set(scopes or allowed))
+    if not set(scopes) <= set(allowed):
         raise OAuthError("invalid_scope")
 
     state, verifier = secrets.token_urlsafe(32), secrets.token_urlsafe(64)
@@ -181,39 +182,48 @@ def complete_connect(request, *, state, code="", error="") -> ConnectedAccount:
         },
     )
     access = tokens["access_token"]
+    members = registry.bundle_of(provider)  # D262: just this provider, unless it shares a grant
+    allowed = set(registry.bundle_scopes(provider))
     granted = sorted(set(str(tokens.get("scope", "")).split()) or entry["scopes"])
     if not set(entry["scopes"]) <= set(granted):
         raise OAuthError("scope_not_granted")  # the user unticked a scope on the consent screen
-    if not set(granted) <= set(provider.scopes):
+    if not set(granted) <= allowed:
         raise OAuthError("unexpected_scope")  # D78: a merged grant; discarded, not stored
-    resp = http.send(
-        provider.identity_method,
-        provider.identity_url,
-        provider=provider,
-        headers={"Authorization": f"Bearer {access}"},
-    )
-    try:
-        if resp.status_code != 200:
-            raise ValueError
-        external_id, email = provider.parse_identity(resp.json())
-    except (ValueError, KeyError, TypeError):
-        raise OAuthError("identity_failed") from None
-    if not external_id:
-        raise OAuthError("identity_failed")
+    identities = []
+    for member in members:  # each service names the account in its own way
+        resp = http.send(
+            member.identity_method,
+            member.identity_url,
+            provider=member,
+            headers={"Authorization": f"Bearer {access}"},
+        )
+        try:
+            if resp.status_code != 200:
+                raise ValueError
+            external_id, email = member.parse_identity(resp.json())
+        except (ValueError, KeyError, TypeError):
+            raise OAuthError("identity_failed") from None
+        if not external_id:
+            raise OAuthError("identity_failed")
+        identities.append((member, external_id, email))
 
     # A discarded token (any failure above or below) is never stored. It is not revoked at the
     # provider either: the same grant may back this person's account in another lab (D68).
-    return _store_account(
-        request,
-        lab,
-        provider,
-        external_id=external_id,
-        email=email,
-        scopes=granted,
-        access=access,
-        refresh=tokens.get("refresh_token") or None,
-        expires_at=_expiry(tokens),
-    )
+    stored = {}
+    with transaction.atomic():  # all of the bundle or none of it
+        for member, external_id, email in identities:
+            stored[member.name] = _store_account(
+                request,
+                lab,
+                member,
+                external_id=external_id,
+                email=email,
+                scopes=[s for s in granted if s in member.scopes],
+                access=access,
+                refresh=tokens.get("refresh_token") or None,
+                expires_at=_expiry(tokens),
+            )
+    return stored[provider.name]
 
 
 @sensitive_variables("access", "refresh")
@@ -357,14 +367,15 @@ def _refresh_locked(row) -> bool:
             reason = exc.code
         else:
             granted = sorted(set(str(tokens.get("scope", "")).split()))
-            if set(granted) <= set(provider.scopes):
+            if set(granted) <= set(registry.bundle_scopes(provider)):  # D262: the whole grant
                 row.set_tokens(
                     access=tokens["access_token"],
                     refresh=tokens.get("refresh_token") or None,  # some providers rotate it
                     expires_at=_expiry(tokens),
                 )
-                if granted:
-                    row.granted_scopes = granted
+                mine = [s for s in granted if s in provider.scopes]
+                if mine:
+                    row.granted_scopes = mine
                 row.save()
                 return False
             status, reason = AccountStatus.ERROR, "unexpected_scope"  # D78: wipe and reconnect
@@ -496,15 +507,51 @@ def disconnect(account, *, actor, request=None) -> None:
         row.clear_tokens()
         row.save()
         revoked_at_provider = _revoke_at_provider(row, token)
+        action = AuditAction.INTEGRATION_DISCONNECTED if own else AuditAction.INTEGRATION_REVOKED
         audit.record(
-            AuditAction.INTEGRATION_DISCONNECTED if own else AuditAction.INTEGRATION_REVOKED,
+            action,
             actor=actor,
             lab=row.lab,
             target=row,
             request=request,
             metadata={"provider": row.provider, "provider_revoked": revoked_at_provider},
         )
+        # D262: the same sign-in also backs the services it is bundled with (the same person's
+        # account at the same address), so they go too. The grant is already revoked above.
+        for sibling in _bundle_rows(row):
+            sibling.status = AccountStatus.REVOKED
+            sibling.clear_tokens()
+            sibling.save()
+            audit.record(
+                action,
+                actor=actor,
+                lab=sibling.lab,
+                target=sibling,
+                request=request,
+                metadata={"provider": sibling.provider, "provider_revoked": revoked_at_provider},
+            )
     account.refresh_from_db()
+
+
+def _bundle_rows(row) -> list:
+    """Locked, not-yet-revoked rows of the services bundled with `row`'s (D262): the same person,
+    lab and email address."""
+    provider = registry.PROVIDERS.get(row.provider)
+    names = (
+        [m.name for m in registry.bundle_of(provider) if m.name != row.provider] if provider else []
+    )
+    if not names or not row.external_email:
+        return []
+    return list(
+        ConnectedAccount.objects.for_lab(row.lab_id)
+        .select_for_update()
+        .filter(
+            user_id=row.user_id,
+            provider__in=names,
+            external_email__iexact=row.external_email,
+        )
+        .exclude(status=AccountStatus.REVOKED)
+    )
 
 
 def revoke_member_accounts(lab, user, *, reason) -> int:

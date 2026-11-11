@@ -148,6 +148,24 @@ def provider_problems(p) -> list[str]:  # noqa: C901 - a checklist, one line per
         need(p.metadata_only is True and not p.writes, "metadata_only must be True (D84)")
         need(p.link_targets and set(p.link_targets) <= set(TARGETS), "link_targets")
     need(p.token_auth in ("body", "basic"), "token_auth: body or basic")
+    for other_name in p.bundle:  # D262: a shared grant is shared both ways, from one OAuth app
+        other = registry.PROVIDERS.get(other_name)
+        need(other is not None and p.name in other.bundle, f"bundle {other_name}: both ways")
+        if other is not None:
+            same = (p.authorize_url, p.token_url, p.token_auth, p.authorize_params) == (
+                other.authorize_url,
+                other.token_url,
+                other.token_auth,
+                other.authorize_params,
+            )
+            need(same, f"bundle {other_name}: same sign-in and token endpoints")
+            need(
+                (p.client_from or p.name) == (other.client_from or other.name)
+                or p.client_from == other.name
+                or other.client_from == p.name,
+                f"bundle {other_name}: one OAuth app",
+            )
+    need(not p.bundle or p.bundle_label, "bundle needs a bundle_label")
     need(set(p.link_methods) <= set(LINK_METHODS), "link_methods")
     need("search" not in p.link_methods or p.search_items, "search needs search_items")
     if "paste_url" in p.link_methods:

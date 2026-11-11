@@ -58,3 +58,15 @@ for _module in ENABLED:
 def get(name: str) -> Provider:
     """The registered provider, or KeyError."""
     return PROVIDERS[name]
+
+
+def bundle_of(provider) -> list:
+    """`provider` first, then the providers it shares a grant with (D262), in ENABLED order.
+    A provider with no bundle is just itself."""
+    others = [PROVIDERS[n] for n in ENABLED if n in provider.bundle and n in PROVIDERS]
+    return [provider, *(o for o in others if o.name != provider.name)]
+
+
+def bundle_scopes(provider) -> tuple[str, ...]:
+    """Every scope the shared grant asks for: one consent screen for the whole bundle."""
+    return tuple(sorted({s for member in bundle_of(provider) for s in member.scopes}))

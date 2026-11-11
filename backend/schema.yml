@@ -15165,6 +15165,15 @@ components:
           type: boolean
         task_import:
           type: boolean
+        bundle:
+          type: array
+          items:
+            type: string
+          description: Other providers one sign-in also connects (D262), such as Drive
+            and Calendar.
+        bundle_label:
+          type: string
+          description: What the bundle is called, such as Google.
         account:
           allOf:
           - $ref: '#/components/schemas/ProviderAccount'
@@ -15172,6 +15181,8 @@ components:
       required:
       - account
       - auth_type
+      - bundle
+      - bundle_label
       - can_check
       - category
       - configured

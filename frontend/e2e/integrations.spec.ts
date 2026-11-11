@@ -8,7 +8,9 @@ test("Integrations page groups providers by category", async ({ page }) => {
   await page.goto(`${lab}/settings/integrations`);
   await expect(page.getByRole("heading", { name: "Integrations", level: 1 })).toBeVisible();
   await expect(page.getByRole("heading", { name: "File storage" })).toBeVisible();
-  await expect(page.getByText("Google Drive").first()).toBeVisible();
+  // D262: Drive, Calendar and Meet are one Google sign-in, shown as one card under "Google".
+  await expect(page.getByRole("heading", { name: "Google", exact: true })).toBeVisible();
+  await expect(page.getByText("Drive, Calendar and Meet")).toBeVisible();
 });
 
 // Overleaf is the link-only provider (no API), and it links to manuscripts.

@@ -75,6 +75,11 @@ class ProviderSerializer(serializers.Serializer):
     link_hosts = serializers.ListField(child=serializers.CharField())
     can_check = serializers.BooleanField()  # offers freshness checks (fetch_item)
     task_import = serializers.BooleanField()  # offers importing tasks (D240)
+    bundle = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="Other providers one sign-in also connects (D262), such as Drive and Calendar.",
+    )
+    bundle_label = serializers.CharField(help_text="What the bundle is called, such as Google.")
     account = ProviderAccountSerializer(allow_null=True)
 
 

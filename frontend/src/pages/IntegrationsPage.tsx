@@ -1,5 +1,5 @@
 import { Plug } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { ConnectDialog } from "@/components/shared/ConnectDialog";
@@ -148,24 +148,42 @@ export function IntegrationsPage() {
             <div key={cat} className="grid gap-2">
               <h3 className="text-sm font-medium text-muted-foreground">{label}</h3>
               <ul className="grid gap-3 sm:grid-cols-2">
-                {list.map((p) => (
-                  <ProviderCard
-                    key={p.name}
-                    p={p}
-                    busy={connect.isPending}
-                    onConnect={() => (p.auth_type === "api_key" ? setKeyed(p) : start(p))}
-                    onDisconnect={() =>
-                      p.account &&
-                      setConfirm({
-                        id: p.account.id,
-                        action: "Disconnect",
-                        title: `Disconnect ${p.label}?`,
-                        description:
-                          "Linked items stay in your projects, but we stop checking them until you connect again.",
-                      })
-                    }
-                  />
-                ))}
+                {list.map((members) => {
+                  const p = members[0]!;
+                  const onConnect = () => (p.auth_type === "api_key" ? setKeyed(p) : start(p));
+                  const disconnectWith = (id: string, title: string, extra: string) =>
+                    setConfirm({
+                      id,
+                      action: "Disconnect",
+                      title,
+                      description: `${extra}Linked items stay in your projects, but we stop checking them until you connect again.`,
+                    });
+                  return members.length > 1 ? (
+                    <BundleCard
+                      key={p.name}
+                      members={members}
+                      busy={connect.isPending}
+                      onConnect={onConnect}
+                      onDisconnect={(id, what) =>
+                        disconnectWith(
+                          id,
+                          `Disconnect ${p.bundle_label}?`,
+                          `This disconnects ${what} together, because they use one sign-in. `,
+                        )
+                      }
+                    />
+                  ) : (
+                    <ProviderCard
+                      key={p.name}
+                      p={p}
+                      busy={connect.isPending}
+                      onConnect={onConnect}
+                      onDisconnect={() =>
+                        p.account && disconnectWith(p.account.id, `Disconnect ${p.label}?`, "")
+                      }
+                    />
+                  );
+                })}
               </ul>
             </div>
           ))
@@ -218,14 +236,40 @@ export function IntegrationsPage() {
   );
 }
 
-function groupByCategory(list: IntegrationProvider[]): [string, string, IntegrationProvider[]][] {
+/** A card is one provider, or (D262) the providers one sign-in covers, primary first. */
+type Members = IntegrationProvider[];
+
+function toCards(list: IntegrationProvider[]): Members[] {
+  const taken = new Set<string>();
+  const cards: Members[] = [];
+  for (const p of list) {
+    if (taken.has(p.name)) continue;
+    const others = list.filter((q) => p.bundle.includes(q.name) && !taken.has(q.name));
+    for (const m of [p, ...others]) taken.add(m.name);
+    cards.push([p, ...others]);
+  }
+  return cards;
+}
+
+function groupByCategory(list: IntegrationProvider[]): [string, string, Members[]][] {
   const known = CATEGORIES.map(([k]) => k);
-  const groups: [string, string, IntegrationProvider[]][] = CATEGORIES.map(([k, l]) => [
-    k,
-    l,
-    list.filter((p) => p.category === k),
-  ]);
-  groups.push(["other", "Other", list.filter((p) => !known.includes(p.category))]);
+  const cards = toCards(list);
+  const one = (c: Members) => c.length === 1;
+  // One sign-in for several services gets a group of its own, named for the sign-in, on top.
+  const bundles = [...new Set(cards.filter((c) => !one(c)).map((c) => c[0]!.bundle_label))];
+  const groups: [string, string, Members[]][] = [
+    ...bundles.map((b): [string, string, Members[]] => [
+      `bundle:${b}`,
+      b,
+      cards.filter((c) => !one(c) && c[0]!.bundle_label === b),
+    ]),
+    ...CATEGORIES.map(([k, l]): [string, string, Members[]] => [
+      k,
+      l,
+      cards.filter((c) => one(c) && c[0]!.category === k),
+    ]),
+  ];
+  groups.push(["other", "Other", cards.filter((c) => one(c) && !known.includes(c[0]!.category))]);
   return groups.filter((g) => g[2].length > 0);
 }
 
@@ -248,7 +292,7 @@ function ProviderCard({
   if (p.auth_type === "link_only") note = "No connection needed. Paste a link to attach it.";
   else if (p.auth_type === "public") note = "No connection needed. Links to public records.";
   else if (connectable && !p.configured && p.auth_type === "oauth2")
-    action = <span className="text-xs text-muted-foreground">Not set up on this server</span>;
+    action = <NotSetUp label={p.label} />;
   else if (connectable && status === "active")
     action = (
       <Button variant="outline" onClick={onDisconnect} aria-label={`Disconnect ${p.label}`}>
@@ -280,6 +324,80 @@ function ProviderCard({
       </div>
       <div className="flex items-center gap-3">
         {status && <StatusBadge status={status} />}
+        {action}
+      </div>
+    </li>
+  );
+}
+
+/** The button is always there, so people can see it exists; until whoever runs the site adds the
+ * app details (see .env.example) it cannot be used, and the note says why. */
+function NotSetUp({ label }: { label: string }) {
+  return (
+    <>
+      <span className="text-xs text-muted-foreground">Not set up on this server</span>
+      <Button disabled aria-label={`Connect ${label} (not set up on this server)`}>
+        Connect
+      </Button>
+    </>
+  );
+}
+
+/** One sign-in for several services (D262), for example Google's Drive, Calendar and Meet. */
+function BundleCard({
+  members,
+  busy,
+  onConnect,
+  onDisconnect,
+}: {
+  members: Members;
+  busy: boolean;
+  onConnect: () => void;
+  onDisconnect: (accountId: string, what: string) => void;
+}) {
+  const primary = members[0]!;
+  const group = primary.bundle_label;
+  const short = (m: IntegrationProvider) => m.label.replace(new RegExp(`^${group}\\s+`), "");
+  const joined = (list: Members) => list.map(short).join(", ");
+  const active = members.filter((m) => m.account?.status === "active");
+  const missing = members.filter((m) => m.account?.status !== "active");
+  const stale = members.find((m) => m.account && needsReconnect(m.account.status));
+  const who = active[0]?.account?.external_email || "your Google account";
+  let note = "Not connected";
+  let action: ReactNode;
+  if (!primary.configured) action = <NotSetUp label={group} />;
+  else if (active.length === members.length) {
+    note = who;
+    action = (
+      <Button
+        variant="outline"
+        aria-label={`Disconnect ${group}`}
+        onClick={() => onDisconnect(active[0]!.account!.id, joined(members))}
+      >
+        Disconnect
+      </Button>
+    );
+  } else {
+    if (active.length > 0) note = `${who}. Not yet added: ${joined(missing)}`;
+    else if (stale) note = `${STATUS_HELP[stale.account!.status] ?? "Needs reconnecting."}`;
+    const verb = stale ? "Reconnect" : active.length > 0 ? `Add ${joined(missing)}` : "Connect";
+    action = (
+      <Button disabled={busy} onClick={onConnect} aria-label={`${verb} ${group}`}>
+        {verb}
+      </Button>
+    );
+  }
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-background px-4 py-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <ProviderIcon name={primary.icon} className="size-5 shrink-0 text-muted-foreground" />
+        <div className="grid min-w-0">
+          <span className="text-sm font-medium">{joined(members)}</span>
+          <span className="text-xs text-muted-foreground">{note}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        {active.length === members.length && <StatusBadge status="active" />}
         {action}
       </div>
     </li>

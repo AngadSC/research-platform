@@ -19,6 +19,8 @@ const provider = (over: Record<string, unknown> = {}) => ({
   connect_fields: [],
   needs_instance_url: false,
   configured: true,
+  bundle: [],
+  bundle_label: "",
   account: null,
   ...over,
 });
@@ -74,7 +76,8 @@ describe("Integrations page", () => {
     mockFetch(base(MEMBER, [provider({ configured: false })]));
     renderRoute(PAGE);
     expect(await screen.findByText("Not set up on this server")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Connect/ })).toBeNull();
+    // The button stays visible but cannot be used until the site has the app details.
+    expect(screen.getByRole("button", { name: /Connect/ })).toBeDisabled();
   });
 
   it("disconnects your own account after a confirmation", async () => {
@@ -204,9 +207,11 @@ describe("Integrations page, generic providers", () => {
       expect(screen.getByRole("heading", { name: g })).toBeVisible();
     expect(screen.getByRole("button", { name: "Connect Dropbox" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Connect Zotero" })).toBeVisible();
-    // Unconfigured OAuth: a note instead of Connect.
+    // Unconfigured OAuth: the button is there but disabled, with a note saying why.
     expect(screen.getByText("Not set up on this server")).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Connect Box" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Connect Box (not set up on this server)" }),
+    ).toBeDisabled();
     // Link-only and public need no connection.
     expect(screen.getByText(/No connection needed. Paste a link/)).toBeVisible();
     expect(screen.getByText(/No connection needed. Links to public records/)).toBeVisible();
@@ -272,5 +277,83 @@ describe("Integrations page, generic providers", () => {
       instance_url: "https://zotero.example.edu",
     });
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("Integrations page, one Google sign-in (D262)", () => {
+  const drive = provider({
+    bundle: ["google_calendar"],
+    bundle_label: "Google",
+    public_config: {},
+  });
+  const calendar = provider({
+    name: "google_calendar",
+    label: "Google Calendar and Meet",
+    icon: "google-calendar",
+    category: "meetings",
+    bundle: ["google_drive"],
+    bundle_label: "Google",
+  });
+  const acct = (status: string) => ({
+    id: "a1",
+    status,
+    external_email: "ada@uni.edu",
+    instance_url: "",
+  });
+
+  it("shows Drive, Calendar and Meet as one card under Google, with one Connect", async () => {
+    mockFetch(base(MEMBER, [drive, calendar]));
+    renderRoute(PAGE);
+    expect(await screen.findByRole("heading", { name: "Google" })).toBeVisible();
+    expect(screen.getByText("Drive, Calendar and Meet")).toBeVisible();
+    expect(screen.getAllByRole("button", { name: /^Connect/ })).toHaveLength(1);
+    expect(screen.queryByText("Google Calendar and Meet")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "File storage" })).toBeNull();
+  });
+
+  it("connects through the first service, which asks Google for all of it", async () => {
+    const calls = mockFetch({
+      ...base(MEMBER, [drive, calendar]),
+      "POST /api/labs/lab1/integrations/google_drive/connect/": {
+        body: { authorization_url: "" },
+      },
+    });
+    renderRoute(PAGE);
+    await userEvent.click(await screen.findByRole("button", { name: "Connect Google" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+  });
+
+  it("offers to add what is missing when only Drive was connected before", async () => {
+    mockFetch(base(MEMBER, [{ ...drive, account: acct("active") }, calendar]));
+    renderRoute(PAGE);
+    expect(
+      await screen.findByRole("button", { name: "Add Calendar and Meet Google" }),
+    ).toBeVisible();
+    expect(screen.getByText(/Not yet added: Calendar and Meet/)).toBeVisible();
+  });
+
+  it("says it will disconnect all of it together", async () => {
+    mockFetch(
+      base(MEMBER, [
+        { ...drive, account: acct("active") },
+        { ...calendar, account: { ...acct("active"), id: "a2" } },
+      ]),
+    );
+    renderRoute(PAGE);
+    await userEvent.click(await screen.findByRole("button", { name: "Disconnect Google" }));
+    expect(await screen.findByText(/disconnects Drive, Calendar and Meet together/)).toBeVisible();
+  });
+
+  it("shows a disabled Connect with the reason while the site has no Google app", async () => {
+    mockFetch(
+      base(MEMBER, [
+        { ...drive, configured: false },
+        { ...calendar, configured: false },
+      ]),
+    );
+    renderRoute(PAGE);
+    expect(
+      await screen.findByRole("button", { name: "Connect Google (not set up on this server)" }),
+    ).toBeDisabled();
   });
 });

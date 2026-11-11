@@ -13,6 +13,8 @@ const base = {
   url_pattern: "",
   link_hosts: [],
   can_check: false,
+  bundle: [] as string[],
+  bundle_label: "",
   account: null,
 };
 const active = { id: "acc", status: "active", external_email: "ada@x.test", instance_url: "" };

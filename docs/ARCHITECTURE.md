@@ -541,3 +541,5 @@ It seeds canary tokens, API keys and secrets, the client secret, the auth code a
 - Endpoints: `GET, PATCH L/calendar/google/`, `POST L/calendar/google/sync/` (throttle `calendar_sync`), `GET L/calendar/google/events/?from&to`, `GET L/calendar/video-options/`, all view_lab (PATCH and POST: manage_integrations), answering "not connected" rather than an error. `POST L/calendar/meetings/` takes `video`.
 - Job `labs.jobs.push_google_calendars`, every 15 minutes.
 - `Attachment.drive_file_id` and `external_url`: every upload endpoint takes `drive_file_id` in place of `file`; downloads of such a row redirect to Drive.
+- D262: `Provider.bundle`, `bundle_label` and `client_from` make providers share one sign-in (Google Drive, Calendar and Meet). `registry.bundle_scopes` is the consent screen's scope list; `complete_connect` stores one account per member; `disconnect` removes the same person's other members. `provider_contract` fails a bundle that is not mutual, or that uses different sign-in endpoints or a different OAuth app.
+

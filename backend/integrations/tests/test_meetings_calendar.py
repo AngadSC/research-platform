@@ -9,9 +9,9 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 from rest_framework.test import APIClient
 
-from integrations import services
+from integrations import registry, services
 from integrations.models import AccountStatus, ConnectedAccount
-from integrations.providers import google_calendar, zoom
+from integrations.providers import google_calendar, google_drive, zoom
 from integrations.tests.conftest import make_request, token_reply
 from integrations.tests.fake import response
 from labs.models import GoogleCalendarSync, Meeting, SyncedEvent
@@ -21,7 +21,7 @@ pytestmark = pytest.mark.django_db
 
 GCAL = google_calendar.API
 EVENTS = f"{GCAL}/calendars/primary/events"
-SCOPES = " ".join(google_calendar.PROVIDER.scopes)
+SCOPES = " ".join(registry.bundle_scopes(google_calendar.PROVIDER))  # D262: one Google sign-in
 ZOOM_SCOPES = " ".join(zoom.PROVIDER.scopes)
 START = datetime.datetime(2030, 3, 4, 15, 0, tzinfo=datetime.UTC)
 
@@ -30,7 +30,7 @@ START = datetime.datetime(2030, 3, 4, 15, 0, tzinfo=datetime.UTC)
 def configured(settings):
     settings.INTEGRATION_CLIENTS = {
         **settings.INTEGRATION_CLIENTS,
-        "google_calendar": {"client_id": "gc-client", "client_secret": "gc-secret"},
+        "google_drive": {"client_id": "gd-client", "client_secret": "gd-secret"},
         "zoom": {"client_id": "zm-client", "client_secret": "zm-secret"},
     }
 
@@ -47,6 +47,11 @@ def connect_google(transport, user, lab, email="pi@uni.edu"):
     state = parse_qs(urlsplit(url).query)["state"][0]
     transport.on("POST", google_calendar.PROVIDER.token_url, token_reply("g-at", "g-rt", SCOPES))
     transport.on("GET", google_calendar.PROVIDER.identity_url, response(200, {"id": email}))
+    transport.on(
+        "GET",
+        google_drive.PROVIDER.identity_url,
+        response(200, {"user": {"permissionId": "perm-" + email, "emailAddress": email}}),
+    )
     return services.complete_connect(request, state=state, code="code")
 
 
@@ -89,6 +94,104 @@ def test_google_calendar_connects_with_only_its_two_event_scopes(transport, lab_
     account = connect_google(transport, users["pi"], lab)
     assert set(account.granted_scopes) == set(google_calendar.PROVIDER.scopes)
     assert all("calendar." in s for s in account.granted_scopes)
+
+
+# ---------------------------------------------------------------- one Google sign-in (D262)
+
+
+def accounts_of(lab, user):
+    rows = ConnectedAccount.objects.for_lab(lab).filter(user=user)
+    return {r.provider: r for r in rows}
+
+
+def test_one_google_sign_in_connects_drive_calendar_and_meet(transport, lab_users):
+    lab, users = lab_users
+    start = services.start_connect(make_request(users["pi"]), lab, "google_calendar")
+    asked = set(parse_qs(urlsplit(start).query)["scope"][0].split())
+    assert asked == set(SCOPES.split())
+    assert "https://www.googleapis.com/auth/drive.file" in asked  # one consent for all of it
+
+    connect_google(transport, users["pi"], lab)
+    rows = accounts_of(lab, users["pi"])
+    assert set(rows) == {"google_drive", "google_calendar"}
+    assert all(r.status == AccountStatus.ACTIVE for r in rows.values())
+    # each service keeps only its own scopes and names the account the way it does
+    assert set(rows["google_drive"].granted_scopes) == set(google_drive.PROVIDER.scopes)
+    assert set(rows["google_calendar"].granted_scopes) == set(google_calendar.PROVIDER.scopes)
+    assert rows["google_calendar"].external_account_id == "pi@uni.edu"
+    assert rows["google_drive"].external_account_id == "perm-pi@uni.edu"
+    assert rows["google_drive"].access_token() == rows["google_calendar"].access_token()
+
+
+def test_connecting_from_drive_gives_calendar_and_meet_too(transport, lab_users):
+    lab, users = lab_users
+    request = make_request(users["pi"])
+    url = services.start_connect(request, lab, "google_drive")
+    state = parse_qs(urlsplit(url).query)["state"][0]
+    transport.on("POST", google_drive.PROVIDER.token_url, token_reply("t", "r", SCOPES))
+    transport.on(
+        "GET",
+        google_drive.PROVIDER.identity_url,
+        response(200, {"user": {"permissionId": "p9", "emailAddress": "pi@uni.edu"}}),
+    )
+    transport.on("GET", google_calendar.PROVIDER.identity_url, response(200, {"id": "pi@uni.edu"}))
+    account = services.complete_connect(request, state=state, code="code")
+    assert account.provider == "google_drive"  # the one that was asked for comes back
+    assert set(accounts_of(lab, users["pi"])) == {"google_drive", "google_calendar"}
+
+
+def test_google_must_grant_everything_asked_or_nothing_is_stored(transport, lab_users):
+    lab, users = lab_users
+    request = make_request(users["pi"])
+    url = services.start_connect(request, lab, "google_calendar")
+    state = parse_qs(urlsplit(url).query)["state"][0]
+    only_drive = "https://www.googleapis.com/auth/drive.file"  # the person unticked Calendar
+    transport.on("POST", google_calendar.PROVIDER.token_url, token_reply("t", "r", only_drive))
+    with pytest.raises(services.OAuthError) as err:
+        services.complete_connect(request, state=state, code="code")
+    assert err.value.code == "scope_not_granted"
+    assert accounts_of(lab, users["pi"]) == {}
+
+
+def test_a_refresh_returning_the_whole_grant_keeps_both_accounts_working(transport, lab_users):
+    lab, users = lab_users
+    connect_google(transport, users["pi"], lab)
+    for name, row in accounts_of(lab, users["pi"]).items():
+        transport.on(
+            "POST",
+            google_drive.PROVIDER.token_url,
+            token_reply(f"fresh-{name}", None, SCOPES),  # Google names the whole grant
+        )
+        services.refresh_access_token(row)
+        row.refresh_from_db()
+        assert row.status == AccountStatus.ACTIVE and row.access_token() == f"fresh-{name}"
+        assert set(row.granted_scopes) == set(registry.PROVIDERS[name].scopes)
+
+
+def test_disconnecting_one_disconnects_the_whole_google_sign_in(transport, lab_users):
+    lab, users = lab_users
+    connect_google(transport, users["pi"], lab)
+    transport.on("POST", google_drive.PROVIDER.revoke_url, response(200, {}))
+    services.disconnect(accounts_of(lab, users["pi"])["google_calendar"], actor=users["pi"])
+    rows = accounts_of(lab, users["pi"])
+    assert {r.status for r in rows.values()} == {AccountStatus.REVOKED}
+    assert all(not r.access_token_ct and not r.refresh_token_ct for r in rows.values())
+    assert len(transport.sent("POST", google_drive.PROVIDER.revoke_url)) == 1  # revoked once
+
+
+def test_another_persons_google_is_not_disconnected(transport, lab_users):
+    lab, users = lab_users
+    connect_google(transport, users["pi"], lab, email="pi@uni.edu")
+    connect_google(transport, users["member"], lab, email="m@uni.edu")
+    transport.on("POST", google_drive.PROVIDER.revoke_url, response(200, {}))
+    services.disconnect(accounts_of(lab, users["pi"])["google_drive"], actor=users["pi"])
+    assert {r.status for r in accounts_of(lab, users["member"]).values()} == {AccountStatus.ACTIVE}
+
+
+def test_a_provider_sharing_a_grant_must_share_one_google_app():
+    assert google_calendar.PROVIDER.client() == google_drive.PROVIDER.client()
+    assert set(google_drive.PROVIDER.bundle) == {"google_calendar"}
+    assert set(google_calendar.PROVIDER.bundle) == {"google_drive"}
 
 
 # ---------------------------------------------------------------- calls on meetings (D254)

@@ -111,6 +111,8 @@ def provider_entry(p, account) -> dict:
         "link_hosts": sorted(p.link_hosts),
         "can_check": p.fetch_item is not None,
         "task_import": p.fetch_tasks is not None,
+        "bundle": list(p.bundle),
+        "bundle_label": p.bundle_label,
         "account": account
         and {
             "id": account.pk,

@@ -11,8 +11,8 @@ from rest_framework.test import APIClient
 from audit.models import AuditAction, AuditEvent
 from documents.models import Attachment
 from ethics.models import EthicsApproval
-from integrations import services
-from integrations.providers import google_drive
+from integrations import registry, services
+from integrations.providers import google_calendar, google_drive
 from integrations.tests.conftest import make_request, token_reply
 from integrations.tests.fake import response
 from papers import services as paper_services
@@ -65,8 +65,9 @@ def connect_drive(transport, user, lab):
     transport.on(
         "POST",
         google_drive.PROVIDER.token_url,
-        token_reply("d-at", "d-rt", "https://www.googleapis.com/auth/drive.file"),
+        token_reply("d-at", "d-rt", " ".join(registry.bundle_scopes(google_drive.PROVIDER))),
     )
+    transport.on("GET", google_calendar.PROVIDER.identity_url, response(200, {"id": "a@uni.edu"}))
     transport.on(
         "GET",
         google_drive.PROVIDER.identity_url,
