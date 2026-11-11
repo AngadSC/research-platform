@@ -99,8 +99,9 @@ Generate each secret once:
 | `POSTMARK_SERVER_TOKEN` | Postmark server token (Postmark only). |
 | `AWS_SES_REGION_NAME` | SES region, for example `eu-west-1` (SES only). |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google sign-in client. Empty hides the Google button. |
-| `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET` | Google Drive integration client (separate, D66). |
+| `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET` | Google client for Drive, Calendar and Meet, one sign-in (separate from sign-in, D66, D262). Also enable the Calendar API and its two scopes: `docs/SETUP_GOOGLE_ZOOM.md`. |
 | `GOOGLE_DRIVE_API_KEY`, `GOOGLE_DRIVE_APP_ID` | Google Picker browser API key and Cloud project number. Empty hides the Drive actions. |
+| `INTEGRATION_ZOOM_CLIENT_ID`, `INTEGRATION_ZOOM_CLIENT_SECRET` | Zoom app for making meetings (D253). Empty leaves the Zoom button dimmed. Steps: `docs/SETUP_GOOGLE_ZOOM.md`. |
 
 If you use SES, comment out the Postmark lines and uncomment the two SES lines in the template.
 
@@ -109,7 +110,8 @@ If you use SES, comment out the Postmark lines and uncomment the two SES lines i
 Register these in Google Cloud, using your real domain:
 
 - Sign-in client: `https://<domain>/accounts/google/login/callback/`
-- Drive client: `https://<domain>/api/integrations/oauth/callback/`
+- Google client for Drive, Calendar and Meet: `https://<domain>/api/integrations/oauth/callback/`
+- Zoom app: the same address as the Google Drive client.
 
 ### Checking the file before you start
 

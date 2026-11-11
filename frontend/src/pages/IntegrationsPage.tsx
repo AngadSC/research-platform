@@ -139,6 +139,13 @@ export function IntegrationsPage() {
         <h2 id="services" className="text-base font-semibold">
           Services
         </h2>
+        {providers.data?.some((p) => p.auth_type === "oauth2" && !p.configured) && (
+          <p className="text-sm text-muted-foreground">
+            A dimmed Connect button means whoever runs this site has not added that service&apos;s
+            app details yet. It is a one-time setup for the whole site. Once it is done, everyone
+            here can connect their own account with one click.
+          </p>
+        )}
         {providers.isLoading ? (
           <div aria-busy="true" aria-label="Loading" className="grid gap-2">
             <Skeleton className="h-16 w-full" />
@@ -336,9 +343,11 @@ function NotSetUp({ label }: { label: string }) {
   return (
     <>
       <span className="text-xs text-muted-foreground">Not set up on this server</span>
-      <Button disabled aria-label={`Connect ${label} (not set up on this server)`}>
-        Connect
-      </Button>
+      <span title="Whoever runs this site needs to add this service's app details once. After that, anyone can connect.">
+        <Button disabled aria-label={`Connect ${label} (not set up on this server)`}>
+          Connect
+        </Button>
+      </span>
     </>
   );
 }

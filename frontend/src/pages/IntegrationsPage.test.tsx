@@ -357,3 +357,26 @@ describe("Integrations page, one Google sign-in (D262)", () => {
     ).toBeDisabled();
   });
 });
+
+describe("Integrations page, services the site has not set up", () => {
+  it("explains the dimmed buttons, once, in plain words", async () => {
+    mockFetch(
+      base(MEMBER, [
+        { ...OAUTH, name: "box", label: "Box", configured: false },
+        { ...OAUTH, name: "zoom", label: "Zoom", configured: false },
+      ]),
+    );
+    renderRoute(PAGE);
+    expect(
+      await screen.findByText(/whoever runs this site has not added that service's app details/i),
+    ).toBeVisible();
+    expect(screen.getAllByText(/one-time setup for the whole site/i)).toHaveLength(1);
+  });
+
+  it("says nothing when every service is set up", async () => {
+    mockFetch(base(MEMBER, [OAUTH, KEYED]));
+    renderRoute(PAGE);
+    await screen.findByRole("button", { name: "Connect Dropbox" });
+    expect(screen.queryByText(/one-time setup for the whole site/i)).toBeNull();
+  });
+});
