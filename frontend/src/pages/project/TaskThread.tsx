@@ -57,7 +57,12 @@ function Post({
             onEdit(text).then(() => setEditing(false), fail);
           }}
         >
-          <Textarea aria-label="Edit post" value={text} onChange={(e) => setText(e.target.value)} />
+          <Textarea
+            maxLength={5000}
+            aria-label="Edit post"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => setEditing(false)}>
               Cancel

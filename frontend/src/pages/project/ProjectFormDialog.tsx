@@ -95,7 +95,15 @@ export function ProjectFormDialog({ open, onOpenChange, project, canRetention, o
         <DialogDescription className="sr-only">Project details</DialogDescription>
         <form onSubmit={submit} noValidate className="grid gap-4">
           <FormField label="Name" error={errors.fields.name}>
-            {(p) => <Input {...p} name="name" defaultValue={project?.name} autoComplete="off" />}
+            {(p) => (
+              <Input
+                maxLength={200}
+                {...p}
+                name="name"
+                defaultValue={project?.name}
+                autoComplete="off"
+              />
+            )}
           </FormField>
           <fieldset className="grid gap-2">
             <legend className="text-sm font-medium">Colour</legend>

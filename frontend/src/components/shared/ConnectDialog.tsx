@@ -118,6 +118,7 @@ function ConnectForm({
             <Input
               {...props}
               name={f.name}
+              maxLength={f.name === "instance_url" ? 500 : 4096}
               type={f.secret ? "password" : f.name === "instance_url" ? "url" : "text"}
               autoComplete={f.secret ? "new-password" : "off"}
               value={values[f.name] ?? ""}

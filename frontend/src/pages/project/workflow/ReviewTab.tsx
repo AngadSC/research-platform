@@ -138,7 +138,13 @@ export default function ReviewTab(props: ProjectTabProps) {
               <>
                 <FormField label="Title" error={e.title}>
                   {(p) => (
-                    <Input {...p} name="title" defaultValue={item?.title} autoComplete="off" />
+                    <Input
+                      maxLength={300}
+                      {...p}
+                      name="title"
+                      defaultValue={item?.title}
+                      autoComplete="off"
+                    />
                   )}
                 </FormField>
                 <PersonField

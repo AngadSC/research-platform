@@ -116,14 +116,14 @@ export function ResourcesEditor({ labId }: { labId: string }) {
             )}
           </FormField>
           <FormField label="Link title" error={errors.fields.title}>
-            {(p) => <Input {...p} name="title" />}
+            {(p) => <Input maxLength={200} {...p} name="title" />}
           </FormField>
         </div>
         <FormField label="Link address" error={errors.fields.url} hint="Must start with https://">
-          {(p) => <Input {...p} name="url" type="url" />}
+          {(p) => <Input maxLength={500} {...p} name="url" type="url" />}
         </FormField>
         <FormField label="Short description (optional)" error={errors.fields.description}>
-          {(p) => <Input {...p} name="description" />}
+          {(p) => <Input maxLength={2000} {...p} name="description" />}
         </FormField>
         <FormError message={errors.form} />
         <Button type="submit" className="justify-self-start" disabled={create.isPending}>

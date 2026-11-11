@@ -68,12 +68,18 @@ export function ReferencesEditor({ rows, errors, onChange }: EditorProps) {
           <div className="grid gap-2 sm:grid-cols-3">
             <Cell label="Title" error={errors[i]?.title}>
               {(p) => (
-                <Input {...p} value={r.title} onChange={(e) => set(i, { title: e.target.value })} />
+                <Input
+                  maxLength={300}
+                  {...p}
+                  value={r.title}
+                  onChange={(e) => set(i, { title: e.target.value })}
+                />
               )}
             </Cell>
             <Cell label="Link" error={errors[i]?.url}>
               {(p) => (
                 <Input
+                  maxLength={500}
                   {...p}
                   type="url"
                   value={r.url ?? ""}
@@ -84,6 +90,7 @@ export function ReferencesEditor({ rows, errors, onChange }: EditorProps) {
             <Cell label="DOI" error={errors[i]?.doi}>
               {(p) => (
                 <Input
+                  maxLength={200}
                   {...p}
                   placeholder="10.1234/abcd"
                   value={r.doi ?? ""}

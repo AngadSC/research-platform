@@ -167,18 +167,18 @@ export function OnboardingSection({ labId }: { labId: string }) {
             )}
           </FormField>
           <FormField label="Item title" error={errors.fields.title}>
-            {(p) => <Input {...p} name="title" />}
+            {(p) => <Input maxLength={200} {...p} name="title" />}
           </FormField>
         </div>
         <FormField label="Description (optional)">
-          {(p) => <Input {...p} name="description" />}
+          {(p) => <Input maxLength={2000} {...p} name="description" />}
         </FormField>
         <FormField
           label="Link (optional)"
           error={errors.fields.url}
           hint="Must start with https://"
         >
-          {(p) => <Input {...p} name="url" type="url" />}
+          {(p) => <Input maxLength={500} {...p} name="url" type="url" />}
         </FormField>
         {trainings.length > 0 && (
           <FormField

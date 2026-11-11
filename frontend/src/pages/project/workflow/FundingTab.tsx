@@ -199,14 +199,27 @@ function FundingDialog({
         <>
           <FormField label="Funder" error={e.funder}>
             {(p) => (
-              <Input {...p} name="funder" defaultValue={funding?.funder} autoComplete="off" />
+              <Input
+                maxLength={200}
+                {...p}
+                name="funder"
+                defaultValue={funding?.funder}
+                autoComplete="off"
+              />
             )}
           </FormField>
           <FormField label="Program or grant name" error={e.program}>
-            {(p) => <Input {...p} name="program" defaultValue={funding?.program} />}
+            {(p) => <Input maxLength={300} {...p} name="program" defaultValue={funding?.program} />}
           </FormField>
           <FormField label="Grant or award number" error={e.award_number}>
-            {(p) => <Input {...p} name="award_number" defaultValue={funding?.award_number} />}
+            {(p) => (
+              <Input
+                maxLength={100}
+                {...p}
+                name="award_number"
+                defaultValue={funding?.award_number}
+              />
+            )}
           </FormField>
           <div className="grid grid-cols-[1fr_6rem] gap-3">
             <FormField label="Amount" error={e.amount}>

@@ -6,6 +6,7 @@ import { ApprovalDialog } from "@/components/assistant/ApprovalDialog";
 import { FormError } from "@/components/shared/FormError";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
   conversationKey,
@@ -316,7 +317,12 @@ function AssistantPanel({
           "Content from records you can see is sent to the AI provider under your own API key. Do not paste participant identifiers."}
       </p>
 
-      {config.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {config.isLoading && (
+        <div aria-busy="true" aria-label="Loading assistant" className="grid gap-2">
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-16 w-full" />
+        </div>
+      )}
       {cfg && usable.length === 0 && <Setup config={cfg} onOpenSettings={onClose} />}
 
       {cfg && usable.length > 0 && (

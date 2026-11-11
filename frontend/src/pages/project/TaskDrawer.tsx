@@ -100,7 +100,15 @@ export function TaskDrawer({
               aria-label="Task details"
             >
               <FormField label="Title" error={errors.fields.title}>
-                {(p) => <Input {...p} name="title" defaultValue={task.title} autoComplete="off" />}
+                {(p) => (
+                  <Input
+                    maxLength={300}
+                    {...p}
+                    name="title"
+                    defaultValue={task.title}
+                    autoComplete="off"
+                  />
+                )}
               </FormField>
               <FormField label="Description" error={errors.fields.description}>
                 {(p) => <Textarea {...p} name="description" defaultValue={task.description} />}

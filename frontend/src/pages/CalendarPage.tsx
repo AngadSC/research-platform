@@ -140,7 +140,7 @@ function EventDialog({
         <form onSubmit={submit} noValidate className="grid gap-3">
           <fieldset disabled={!canEdit} className="grid gap-3">
             <FormField label="Title" error={f.title}>
-              {(p) => <Input {...p} name="title" defaultValue={event?.title} />}
+              {(p) => <Input maxLength={200} {...p} name="title" defaultValue={event?.title} />}
             </FormField>
             <div className="grid gap-3 sm:grid-cols-2">
               <FormField label="Date" error={f.date}>
@@ -160,7 +160,15 @@ function EventDialog({
               </FormField>
             </div>
             <FormField label="Notes" error={f.notes}>
-              {(p) => <Textarea {...p} name="notes" rows={3} defaultValue={event?.notes} />}
+              {(p) => (
+                <Textarea
+                  maxLength={5000}
+                  {...p}
+                  name="notes"
+                  rows={3}
+                  defaultValue={event?.notes}
+                />
+              )}
             </FormField>
           </fieldset>
           <FormError message={errors.form} />

@@ -93,7 +93,7 @@ export function MeetingDialog({
         <form onSubmit={submit} noValidate className="grid gap-3">
           <fieldset disabled={!canEdit} className="grid gap-3">
             <FormField label="Title" error={f.title}>
-              {(p) => <Input {...p} name="title" defaultValue={meeting?.title} />}
+              {(p) => <Input maxLength={200} {...p} name="title" defaultValue={meeting?.title} />}
             </FormField>
             <div className="grid gap-3 sm:grid-cols-2">
               <FormField label="Starts" error={f.starts_at}>
@@ -124,7 +124,9 @@ export function MeetingDialog({
               hint="Paste the link from your invitation. It starts with https://"
               error={f.join_url}
             >
-              {(p) => <Input {...p} name="join_url" defaultValue={meeting?.join_url} />}
+              {(p) => (
+                <Input maxLength={500} {...p} name="join_url" defaultValue={meeting?.join_url} />
+              )}
             </FormField>
             <fieldset className="grid gap-1">
               <legend className="text-sm font-medium">People on this meeting</legend>
@@ -153,7 +155,15 @@ export function MeetingDialog({
               <FormError message={f.attendees} />
             </fieldset>
             <FormField label="Notes" error={f.notes}>
-              {(p) => <Textarea {...p} name="notes" rows={3} defaultValue={meeting?.notes} />}
+              {(p) => (
+                <Textarea
+                  maxLength={5000}
+                  {...p}
+                  name="notes"
+                  rows={3}
+                  defaultValue={meeting?.notes}
+                />
+              )}
             </FormField>
           </fieldset>
           <FormError message={errors.form} />

@@ -105,7 +105,7 @@ function InviteForm({ labId }: { labId: string }) {
       <div className="flex flex-wrap items-start gap-3">
         <div className="w-72">
           <FormField label="Email" error={errors.fields.email}>
-            {(p) => <Input {...p} name="email" type="email" autoComplete="off" />}
+            {(p) => <Input maxLength={254} {...p} name="email" type="email" autoComplete="off" />}
           </FormField>
         </div>
         <div className="w-40">

@@ -92,14 +92,28 @@ function OrderDialog({
         </DialogDescription>
         <form onSubmit={submit} noValidate className="grid gap-3">
           <FormField label="Name" error={f.name}>
-            {(p) => <Input {...p} value={name} onChange={(e) => setName(e.target.value)} />}
+            {(p) => (
+              <Input
+                maxLength={200}
+                {...p}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            )}
           </FormField>
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="Vendor" error={f.vendor}>
-              {(p) => <Input {...p} name="vendor" defaultValue={last?.vendor} />}
+              {(p) => <Input maxLength={200} {...p} name="vendor" defaultValue={last?.vendor} />}
             </FormField>
             <FormField label="Catalog number" error={f.catalog_number}>
-              {(p) => <Input {...p} value={catalog} onChange={(e) => setCatalog(e.target.value)} />}
+              {(p) => (
+                <Input
+                  maxLength={100}
+                  {...p}
+                  value={catalog}
+                  onChange={(e) => setCatalog(e.target.value)}
+                />
+              )}
             </FormField>
             <FormField label="Quantity" error={f.quantity}>
               {(p) => (
@@ -114,11 +128,18 @@ function OrderDialog({
               )}
             </FormField>
             <FormField label="Unit" error={f.unit}>
-              {(p) => <Input {...p} name="unit" defaultValue={last?.unit ?? reorder?.unit} />}
+              {(p) => (
+                <Input
+                  maxLength={32}
+                  {...p}
+                  name="unit"
+                  defaultValue={last?.unit ?? reorder?.unit}
+                />
+              )}
             </FormField>
           </div>
           <FormField label="Order link" hint="Must start with https://" error={f.url}>
-            {(p) => <Input {...p} name="url" type="url" defaultValue={last?.url} />}
+            {(p) => <Input maxLength={500} {...p} name="url" type="url" defaultValue={last?.url} />}
           </FormField>
           <div className="grid gap-1">
             <p className="text-xs text-muted-foreground">
@@ -143,7 +164,7 @@ function OrderDialog({
             )}
           </div>
           <FormField label="Notes" error={f.notes}>
-            {(p) => <Textarea {...p} name="notes" rows={2} />}
+            {(p) => <Textarea maxLength={5000} {...p} name="notes" rows={2} />}
           </FormField>
           <FormError message={errors.form} />
           <div className="flex justify-end gap-2">
