@@ -387,6 +387,8 @@ def _follow(method, url, provider, kwargs, deadline):
 @sensitive_variables("kwargs")
 def _send_with_retries(method, url, provider, kwargs):
     host = _origin(url)[1]
+    # Callers may pass a bare stand-in (client metadata, IdP metadata) without the field.
+    path = "" if getattr(provider, "secret_url", False) else urlsplit(url).path
     retry = method in IDEMPOTENT
     deadline = _request_deadline()  # one deadline for all attempts and the waits between them
     for attempt in range(MAX_ATTEMPTS):
@@ -395,13 +397,11 @@ def _send_with_retries(method, url, provider, kwargs):
         try:
             resp = _follow(method, url, provider, kwargs, deadline)
         except requests.RequestException as exc:
-            path = "" if provider.secret_url else urlsplit(url).path
             log.warning("integration %s %s%s failed: %s", method, host, path, type(exc).__name__)
             if not retry or last:
                 # `from None`: the requests exception holds the prepared request and its headers
                 raise IntegrationError(f"{provider.label} did not respond") from None
         else:
-            path = "" if provider.secret_url else urlsplit(url).path
             log.info("integration %s %s%s -> %s", method, host, path, resp.status_code)
             if resp.status_code not in RETRY_STATUSES or not retry or last:
                 return resp

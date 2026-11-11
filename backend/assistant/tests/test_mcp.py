@@ -420,6 +420,22 @@ def test_cimd_client_must_be_able_to_work_without_a_secret(monkeypatch, declared
             services._fetch_cimd(url)
 
 
+@pytest.mark.parametrize(
+    "url", ["https://chatgpt.com/oauth/client.json", "https://claude.ai/oauth/client.json"]
+)
+def test_cimd_fetch_runs_through_the_real_http_client(monkeypatch, url):
+    """Only the socket is faked. The live site once crashed here (500) because the shared
+    client read a provider field the metadata stand-in did not have."""
+    from integrations import http
+    from integrations.tests.fake import FakeTransport, response
+
+    fake = FakeTransport()
+    fake.on("GET", url, response(200, {"client_id": url, "token_endpoint_auth_method": "none"}))
+    monkeypatch.setattr(http, "_session", fake)
+    monkeypatch.setattr(http, "_resolve", lambda host: ["93.184.216.34"])
+    assert services._fetch_cimd(url)["client_id"] == url
+
+
 def test_refresh_rotates_and_replay_ends_the_grant(world):
     client_id, code, verifier, tok = full_flow(world.u.contrib, [world.lab_a])
     first = token_request(
