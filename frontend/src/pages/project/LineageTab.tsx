@@ -4,13 +4,14 @@ import { Link, useSearchParams } from "react-router";
 import { LineageDetail } from "@/components/lineage/LineageDetail";
 import { LineageGraph } from "@/components/lineage/LineageGraph";
 import { LineageList } from "@/components/lineage/LineageList";
+import { RecordCheck } from "@/components/lineage/RecordCheck";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLineage } from "@/hooks/lineage";
 import { formErrors } from "@/lib/forms";
-import { indexLineage } from "@/lib/lineage";
+import { indexLineage, recordGaps } from "@/lib/lineage";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 
 export default function LineageTab({ labId, projectId }: ProjectTabProps) {
@@ -19,6 +20,7 @@ export default function LineageTab({ labId, projectId }: ProjectTabProps) {
   const [selectedId, setSelectedId] = useState<string | null>(() => params.get("focus"));
   const [listView, setListView] = useState(false);
   const ix = useMemo(() => (data ? indexLineage(data) : null), [data]);
+  const gaps = useMemo(() => (data && ix ? recordGaps(data, ix) : []), [data, ix]);
   const select = useCallback((id: string) => setSelectedId(id), []);
 
   if (isLoading)
@@ -76,6 +78,7 @@ export default function LineageTab({ labId, projectId }: ProjectTabProps) {
           List view
         </Button>
       </div>
+      <RecordCheck gaps={gaps} onSelect={select} />
       {listView ? (
         <LineageList data={data} onSelect={select} />
       ) : (

@@ -102,4 +102,26 @@ describe("Lineage tab", () => {
     fireEvent.click(node);
     expect(await screen.findByRole("dialog")).toHaveTextContent(COMMIT);
   });
+
+  it("lists what needs checking and opens that item's panel on click", async () => {
+    mockFetch(handlers({ body: sample })); // both datasets lack a location
+    renderRoute(PATH);
+    expect(await screen.findByText("2 things to check")).toBeInTheDocument();
+    const rows = screen.getAllByRole("button", { name: /Gut samples/ });
+    await userEvent.click(rows[0]!);
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Gut samples");
+  });
+
+  it("says everything is linked when the record is complete", async () => {
+    const body = structuredClone(sample);
+    for (const n of body.nodes) if (n.kind === "dataset") n.meta.location_text = "Shared drive";
+    mockFetch(handlers({ body }));
+    renderRoute(PATH);
+    expect(
+      await screen.findByText(
+        "Everything is linked: each analysis has its data and code recorded.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/to check/)).not.toBeInTheDocument();
+  });
 });

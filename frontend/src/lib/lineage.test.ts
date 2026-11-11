@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { COMMIT, sample } from "@/lib/lineage.fixture";
+import type { Lineage } from "@/lib/api-types";
 import {
   decisionsFor,
   highlightSet,
   indexLineage,
   layoutLineage,
+  recordGaps,
   recordPath,
   safeHttpUrl,
   upstreamChain,
@@ -114,5 +116,87 @@ describe("helpers", () => {
   });
   it("builds record paths", () => {
     expect(recordPath({ kind: "analysis", href_id: "u" })).toBe("workflow/analysis/analyses/u");
+  });
+});
+
+describe("recordGaps", () => {
+  const gapsOf = (d: Lineage) => recordGaps(d, indexLineage(d));
+  /** The sample with where-it-is-kept written down for both datasets: nothing to flag. */
+  const complete = (): Lineage => {
+    const d = structuredClone(sample);
+    for (const n of d.nodes) if (n.kind === "dataset") n.meta.location_text = "Shared drive";
+    return d;
+  };
+  const edit = (d: Lineage, id: string, meta: Record<string, unknown>) => {
+    const n = d.nodes.find((x) => x.id === id)!;
+    n.meta = { ...n.meta, ...meta };
+  };
+
+  it("is empty for a complete record", () => {
+    expect(gapsOf(complete())).toEqual([]);
+  });
+
+  it("flags a dataset with no location, but not one with a url or text", () => {
+    const d = complete();
+    edit(d, "dataset:d1", { location_text: "" });
+    expect(gapsOf(d).map((g) => g.nodeId)).toEqual(["dataset:d1"]);
+    edit(d, "dataset:d1", { location_url: "https://example.org/d1" });
+    expect(gapsOf(d)).toEqual([]);
+  });
+
+  it("flags an analysis with no dataset", () => {
+    const d = complete();
+    d.edges = d.edges.filter((e) => e.id !== "dataset:d2>analysis:a1");
+    const g = gapsOf(d);
+    expect(g).toHaveLength(1);
+    expect(g[0]).toMatchObject({ nodeId: "analysis:a1", info: false });
+    expect(g[0]!.problem).toMatch(/No dataset is linked/);
+  });
+
+  it("flags missing code, and a repo without a commit, but accepts a code file", () => {
+    const d = complete();
+    edit(d, "analysis:a1", { code_commit: "", code_repo_url: "" });
+    expect(gapsOf(d)[0]!.problem).toBe("No code commit or file is recorded.");
+    edit(d, "analysis:a1", { code_repo_url: "https://github.com/lab/gut" });
+    expect(gapsOf(d)[0]!.problem).toBe("The code repository is linked but not the exact commit.");
+    edit(d, "analysis:a1", { code_attachment_id: "att1" });
+    expect(gapsOf(d)).toEqual([]);
+  });
+
+  it("notes, neutrally, an analysis that uses a dataset version with a newer one", () => {
+    const d = complete();
+    d.edges = d.edges.map((e) =>
+      e.id === "dataset:d2>analysis:a1" ? { ...e, id: "x", source: "dataset:d1" } : e,
+    );
+    expect(gapsOf(d)).toEqual([
+      {
+        nodeId: "analysis:a1",
+        kind: "analysis",
+        title: "Microbiome run",
+        problem: "Uses Gut samples v1; a newer version v2 exists.",
+        info: true,
+      },
+    ]);
+  });
+
+  it("flags a manuscript with no results, and does not nag about checksums or unused results", () => {
+    const d = complete();
+    d.edges = d.edges.filter((e) => e.target !== "manuscript:m1");
+    edit(d, "dataset:d1", { checksum: "" });
+    expect(gapsOf(d).map((g) => g.problem)).toEqual(["No results are linked to this manuscript."]);
+  });
+
+  it("sorts by column, then title", () => {
+    const d = structuredClone(sample); // d1 and d2 both lack a location
+    edit(d, "manuscript:m1", {});
+    d.edges = d.edges.filter((e) => e.target !== "manuscript:m1");
+    edit(d, "analysis:a1", { code_commit: "" });
+    d.nodes.find((n) => n.id === "dataset:d1")!.label = "Zeta";
+    expect(gapsOf(d).map((g) => g.nodeId)).toEqual([
+      "dataset:d2",
+      "dataset:d1",
+      "analysis:a1",
+      "manuscript:m1",
+    ]);
   });
 });
