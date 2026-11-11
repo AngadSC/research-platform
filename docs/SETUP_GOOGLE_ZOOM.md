@@ -152,6 +152,17 @@ docker compose -f docker-compose.prod.yml up -d --force-recreate backend worker 
 If you are told **"Allow every requested permission to connect"**, the person unticked a box on
 Google's screen. They need to connect again and allow everything.
 
+If you are told **"Google would not tell us which account this is"**, Google refused a basic
+lookup right after sign-in. Nothing was connected. Check, in the Google Cloud project:
+
+- The **Google Drive API**, **Google Picker API** and **Google Calendar API** are all turned on
+  (Step 2 above).
+- The consent screen lists all three scopes (Step 3 above).
+- The client ID and secret in the server's settings belong to this same project.
+
+If a meeting says **"is not turned on for this site's Google project"**, the Calendar API (Step
+2) is still off.
+
 ## What people see if it is not set up
 
 - A dimmed **Connect** button with "Not set up on this server", and a line on the page explaining
