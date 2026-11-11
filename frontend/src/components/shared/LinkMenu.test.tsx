@@ -121,7 +121,7 @@ describe("Link from menu", () => {
     const url = await screen.findByLabelText("Overleaf link");
     await userEvent.type(url, "https://example.com/project/abc");
     await userEvent.click(screen.getByRole("button", { name: "Link" }));
-    expect(await screen.findByText(/does not look like a Overleaf link/)).toBeVisible();
+    expect(await screen.findByText(/does not look like a link to Overleaf/)).toBeVisible();
     expect(screen.getByText("Enter a title for this link.")).toBeVisible();
     expect(calls.some((c) => c.method === "POST")).toBe(false);
     await userEvent.clear(url);

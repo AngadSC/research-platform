@@ -23,7 +23,7 @@ SHAPE = {
     Provider.ANTHROPIC: re.compile(r"^sk-ant-[A-Za-z0-9_\-]{16,380}$"),
     Provider.OPENAI: re.compile(r"^sk-(?!ant-)[A-Za-z0-9_\-]{16,380}$"),
 }
-WRONG_SHAPE = "That does not look like a {label} API key."
+WRONG_SHAPE = "That does not look like an API key from {label}."
 
 
 @sensitive_variables()  # all locals, wrapper arguments included

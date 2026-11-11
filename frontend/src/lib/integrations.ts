@@ -109,7 +109,7 @@ export function checkPastedUrl(value: string, p: IntegrationProvider): string {
   if (!p.url_pattern) return "";
   try {
     const re = new RegExp(`^(?:${p.url_pattern.replace(/\(\?P</g, "(?<")})$`);
-    return re.test(url) ? "" : `This does not look like a ${p.label} link.`;
+    return re.test(url) ? "" : `This does not look like a link to ${p.label}.`;
   } catch {
     return ""; // a pattern JavaScript cannot read: the server still checks it
   }
