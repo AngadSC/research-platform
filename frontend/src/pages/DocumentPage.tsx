@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDeleteDocument, useDocument, useSaveDocument } from "@/hooks/documents";
+import { useMentionPeople } from "@/hooks/mentions";
 import { useProject } from "@/hooks/projects";
 import { useLab } from "@/hooks/workspace";
 import { ApiError } from "@/lib/api";
@@ -133,6 +134,7 @@ function DocumentEditor({
 }) {
   const navigate = useNavigate();
   const save = useSaveDocument(labId, doc.id);
+  const people = useMentionPeople(labId, projectId || undefined);
   const { mutateAsync } = save;
   const remove = useDeleteDocument(labId, projectId);
   const [title, setTitle] = useState(doc.title);
@@ -412,6 +414,7 @@ function DocumentEditor({
             initialContent={initial}
             editable={canEdit}
             label="Document content"
+            people={people}
             className={cn(
               "flex-1 rounded-none border-0 bg-transparent py-0",
               "[&_.bn-editor]:min-h-[calc(100dvh-16rem)]", // the whole area takes the click

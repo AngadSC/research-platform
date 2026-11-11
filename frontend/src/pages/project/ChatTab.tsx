@@ -27,6 +27,13 @@ import type { ProjectTabProps } from "@/pages/ProjectPage";
 const GROUP_GAP_MS = 5 * 60 * 1000;
 const PINNED_PX = 80; // this close to the bottom still counts as reading the latest messages
 
+/** A message as a screen reader should hear it: mentions as "@Name", without the stored id. */
+const spoken = (body: string) =>
+  body
+    .replace(/@\[([^\]\n]+)\]\(user:[0-9a-fA-F-]{36}\)/g, "@$1")
+    .replace(/[*_~`]/g, "")
+    .slice(0, 40);
+
 const dayLabel = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { dateStyle: "full" });
 const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { timeStyle: "short" });
@@ -91,7 +98,7 @@ function MessageRow({
       {canDelete && (
         <button
           type="button"
-          aria-label={`Delete message: ${message.body.slice(0, 40)}`}
+          aria-label={`Delete message: ${spoken(message.body)}`}
           onClick={onDelete}
           className="rounded-md p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-destructive focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [@media(hover:none)]:opacity-100 [&_svg]:size-4"
         >
