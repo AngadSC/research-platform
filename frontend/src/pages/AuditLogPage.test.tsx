@@ -65,6 +65,20 @@ describe("audit log", () => {
     expect(screen.queryByText(/institution_resource/)).not.toBeInTheDocument();
   });
 
+  it("names old membership targets by role instead of showing their id", async () => {
+    mockFetch({
+      ...base(["view_audit_log"]),
+      [EVENTS]: {
+        body: {
+          next: null,
+          results: [{ ...ev(1), target_label: "0d01f826-2e1a-469b-ac4c-1bafeb44b150 is viewer" }],
+        },
+      },
+    });
+    renderRoute("/labs/lab1/audit-log");
+    expect(await screen.findByText("A lab member (Viewer)")).toBeInTheDocument();
+  });
+
   it("filter changes update the URL and the query", async () => {
     const calls = mockFetch({
       ...base(["view_audit_log"]),

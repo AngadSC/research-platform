@@ -387,7 +387,7 @@ const cleanTarget = (label?: string | null) =>
   label
     ? label
         .replace(
-          /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12} is (pi|lab_admin|member|viewer)/g,
+          /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12} is (pi|lab_admin|member|viewer)\b/g,
           (_, role: string) => `A lab member (${ROLE_WORDS[role]})`,
         )
         .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, "a lab member")
