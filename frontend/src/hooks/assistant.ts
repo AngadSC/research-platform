@@ -85,6 +85,13 @@ export function useAssistantConfig(labId: string, enabled: boolean) {
   });
 }
 
+/** True when the assistant is usable here: the lab's policy allows it and the person has a key.
+ * Entry points render nothing otherwise (D238). */
+export function useAssistantReady(labId: string | undefined) {
+  const { data: cfg } = useAssistantConfig(labId ?? "", !!labId);
+  return !!cfg?.can_use && cfg.providers.some((p) => p.has_key);
+}
+
 export function useConversations(labId: string, enabled: boolean) {
   return useQuery({
     queryKey: [...lab(labId), "conversations"],

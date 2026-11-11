@@ -107,6 +107,8 @@ describe("CommandPalette search (D93)", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).includes("/assistant/config/"))
+          return new Response("{}", { status: 403 });
         urls.push(String(input));
         signals.push(init?.signal ?? undefined);
         const q = new URL(String(input), "http://x").searchParams.get("q");
@@ -141,7 +143,9 @@ describe("CommandPalette search (D93)", () => {
   it("opens the first hit on Enter without an arrow press", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => {
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).includes("/assistant/config/"))
+          return new Response("{}", { status: 403 });
         const results = [hit("project", "a", "Zebra study"), hit("task", "b", "Feed zebra")];
         return new Response(JSON.stringify({ results }), { status: 200 });
       }),
@@ -156,14 +160,18 @@ describe("CommandPalette search (D93)", () => {
   });
 
   it("does not search below two characters and keeps static commands", async () => {
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn(async () => new Response("{}", { status: 403 }));
     vi.stubGlobal("fetch", fetchMock);
     const unregister = registerCommands([{ id: "s", label: "Static thing", onSelect: () => {} }]);
     wrap(<CommandPalette labId="lab1" />);
     open();
     await userEvent.type(screen.getByRole("combobox"), "s");
     await new Promise((r) => setTimeout(r, 400));
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      (fetchMock.mock.calls as unknown[][]).filter(
+        (c) => !String(c[0]).includes("/assistant/config/"),
+      ),
+    ).toEqual([]);
     expect(screen.getByText("Static thing")).toBeInTheDocument();
     unregister();
   });

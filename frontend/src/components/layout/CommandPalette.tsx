@@ -1,3 +1,4 @@
+import { Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   CommandDialog,
@@ -7,8 +8,10 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { useAssistantReady } from "@/hooks/assistant";
 import { groupHits, useLabSearch } from "@/hooks/search";
 import { useCommands, type Command } from "@/lib/commands";
+import { openAssistant } from "@/lib/assistant";
 import { MOD_KEY, OPEN_SEARCH_EVENT } from "@/lib/constants";
 
 interface Props {
@@ -24,6 +27,8 @@ export function CommandPalette({ labId, onGo }: Props) {
   const [text, setText] = useState("");
   const [selected, setSelected] = useState("");
   const commands = useCommands();
+  const assistantReady = useAssistantReady(open ? labId : undefined);
+  const ask = text.trim();
   const { hits, loading, error } = useLabSearch(open ? labId : undefined, text);
 
   useEffect(() => {
@@ -105,6 +110,22 @@ export function CommandPalette({ labId, onGo }: Props) {
           <p role="alert" className="px-2 py-1.5 text-xs text-muted-foreground">
             Search is unavailable right now. Actions still work.
           </p>
+        )}
+        {ask && assistantReady && (
+          <CommandGroup heading="Assistant" forceMount>
+            <CommandItem
+              value="assistant:ask"
+              forceMount
+              onSelect={() => {
+                setOpen(false);
+                setText("");
+                openAssistant(ask);
+              }}
+            >
+              <Sparkles aria-hidden />
+              <span className="min-w-0 truncate">Ask the assistant: &ldquo;{ask}&rdquo;</span>
+            </CommandItem>
+          </CommandGroup>
         )}
         {[...groups].map(([group, items]) => (
           <CommandGroup key={group} heading={group}>
