@@ -202,7 +202,7 @@ describe("reassign from the list", () => {
     await screen.findByRole("heading", { name: "Open tasks (2)" });
     await pick(/Reassign all open tasks/, "Alex");
     set(rep([]));
-    await userEvent.click(screen.getByRole("button", { name: "Reassign all to�" }));
+    await userEvent.click(screen.getByRole("button", { name: "Reassign all to…" }));
     expect(await screen.findByRole("heading", { name: "Open tasks (0)" })).toBeInTheDocument();
     const patches = calls.filter((c) => c.method === "PATCH");
     expect(patches.map((c) => [c.path, c.body])).toEqual([
@@ -223,7 +223,7 @@ describe("reassign from the list", () => {
     await screen.findByRole("heading", { name: "Open tasks (2)" });
     await pick(/Reassign all open tasks/, "Alex");
     set(rep(["B"]));
-    await userEvent.click(screen.getByRole("button", { name: "Reassign all to�" }));
+    await userEvent.click(screen.getByRole("button", { name: "Reassign all to…" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Alex is not on this project.");
     expect(screen.getByRole("heading", { name: "Open tasks (1)" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "B" })).toBeInTheDocument();

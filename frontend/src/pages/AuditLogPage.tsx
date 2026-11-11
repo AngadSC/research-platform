@@ -375,11 +375,20 @@ export function AuditLogPage() {
   );
 }
 
-/** Hide raw ids that backend labels sometimes embed (e.g. "<uuid> is member"). */
+const ROLE_WORDS: Record<string, string> = {
+  pi: "PI",
+  lab_admin: "Lab admin",
+  member: "Member",
+  viewer: "Viewer",
+};
+
+/** Hide raw ids that older backend labels embed (e.g. "<uuid> is viewer"). */
 const cleanTarget = (label?: string | null) =>
   label
-    ? label.replace(
-        /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}( is member)?/g,
-        "a lab member",
-      )
+    ? label
+        .replace(
+          /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12} is (pi|lab_admin|member|viewer)/g,
+          (_, role: string) => `A lab member (${ROLE_WORDS[role]})`,
+        )
+        .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, "a lab member")
     : "—";

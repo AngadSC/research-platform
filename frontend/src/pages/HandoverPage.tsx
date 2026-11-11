@@ -305,8 +305,8 @@ export function HandoverPage() {
               {canAct && isTasks && s.items.length > 0 && (
                 <PickAndGo
                   label={`Reassign all ${s.label.toLowerCase()} to`}
-                  button="Reassign all to�"
-                  progress="Reassigning�"
+                  button="Reassign all to…"
+                  progress="Reassigning…"
                   people={people}
                   run={(userId) => bulk(s.items, userId)}
                 />

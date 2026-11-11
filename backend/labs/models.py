@@ -69,8 +69,8 @@ class LabMembership(LabScopedModel):
         constraints = [models.UniqueConstraint(fields=["lab", "user"], name="labmember_unique")]
         indexes = [models.Index(fields=["user"], name="labmember_user_idx")]
 
-    def __str__(self):
-        return f"{self.user_id} is {self.role}"
+    def __str__(self):  # shown as the audit log's target, so plain words, never an id
+        return f"{self.user.display_name or 'A lab member'} ({self.get_role_display()})"
 
 
 class Invite(LabScopedModel):
