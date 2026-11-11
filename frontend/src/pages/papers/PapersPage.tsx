@@ -159,7 +159,13 @@ export function PaperDialog({
             <div className="min-w-0 flex-1">
               <FormField label="DOI" error={f.doi}>
                 {(p) => (
-                  <Input {...p} value={form.doi} onChange={set("doi")} placeholder="10.1234/abcd" />
+                  <Input
+                    maxLength={200}
+                    {...p}
+                    value={form.doi}
+                    onChange={set("doi")}
+                    placeholder="10.1234/abcd"
+                  />
                 )}
               </FormField>
             </div>
@@ -173,7 +179,7 @@ export function PaperDialog({
             </Button>
           </div>
           <FormField label="Title" error={f.title}>
-            {(p) => <Input {...p} value={form.title} onChange={set("title")} />}
+            {(p) => <Input maxLength={500} {...p} value={form.title} onChange={set("title")} />}
           </FormField>
           <FormField label="Authors" error={f.authors} hint={AUTHOR_HINT}>
             {(p) => <Textarea {...p} rows={3} value={form.authors} onChange={set("authors")} />}
@@ -183,14 +189,30 @@ export function PaperDialog({
               {(p) => <Input {...p} type="number" value={form.year} onChange={set("year")} />}
             </FormField>
             <FormField label="Journal or conference" error={f.venue}>
-              {(p) => <Input {...p} value={form.venue} onChange={set("venue")} />}
+              {(p) => <Input maxLength={300} {...p} value={form.venue} onChange={set("venue")} />}
             </FormField>
           </div>
           <FormField label="Link" error={f.url}>
-            {(p) => <Input {...p} value={form.url} onChange={set("url")} placeholder="https://" />}
+            {(p) => (
+              <Input
+                maxLength={500}
+                {...p}
+                value={form.url}
+                onChange={set("url")}
+                placeholder="https://"
+              />
+            )}
           </FormField>
           <FormField label="Abstract" error={f.abstract}>
-            {(p) => <Textarea {...p} rows={4} value={form.abstract} onChange={set("abstract")} />}
+            {(p) => (
+              <Textarea
+                maxLength={20000}
+                {...p}
+                rows={4}
+                value={form.abstract}
+                onChange={set("abstract")}
+              />
+            )}
           </FormField>
           {!paper && (
             <>

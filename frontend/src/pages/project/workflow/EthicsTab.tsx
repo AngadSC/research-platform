@@ -112,13 +112,13 @@ export default function EthicsTab({ labId, projectId, project }: ProjectTabProps
           {(e) => (
             <>
               <FormField label="Approval number" error={e.approval_number}>
-                {(p) => <Input {...p} name="approval_number" autoComplete="off" />}
+                {(p) => <Input maxLength={100} {...p} name="approval_number" autoComplete="off" />}
               </FormField>
               <FormField label="Ethics board" error={e.board}>
-                {(p) => <Input {...p} name="board" autoComplete="off" />}
+                {(p) => <Input maxLength={200} {...p} name="board" autoComplete="off" />}
               </FormField>
               <FormField label="Title" error={e.title}>
-                {(p) => <Input {...p} name="title" autoComplete="off" />}
+                {(p) => <Input maxLength={300} {...p} name="title" autoComplete="off" />}
               </FormField>
               <div className="grid grid-cols-2 gap-3">
                 <FormField label="Approval date" error={e.approval_date}>

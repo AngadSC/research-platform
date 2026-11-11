@@ -233,7 +233,13 @@ export default function ParticipantsTab({ labId, projectId, project }: ProjectTa
               </FormField>
               <FormField label="Notes" error={e.notes}>
                 {(p) => (
-                  <Textarea {...p} name="notes" rows={4} defaultValue={plan.data?.notes ?? ""} />
+                  <Textarea
+                    maxLength={5000}
+                    {...p}
+                    name="notes"
+                    rows={4}
+                    defaultValue={plan.data?.notes ?? ""}
+                  />
                 )}
               </FormField>
             </>

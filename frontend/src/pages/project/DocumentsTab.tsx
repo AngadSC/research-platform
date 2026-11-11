@@ -327,6 +327,7 @@ function EmbedDialog({
           <FormField label="Link" error={errors.fields.embed_url}>
             {(p) => (
               <Input
+                maxLength={2000}
                 {...p}
                 required
                 type="url"

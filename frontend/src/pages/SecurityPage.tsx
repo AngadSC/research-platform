@@ -81,7 +81,15 @@ export function NameSection() {
       {me ? (
         <form onSubmit={submit} noValidate className="grid max-w-sm gap-4">
           <FormField label="Name" error={error}>
-            {(p) => <Input {...p} name="name" defaultValue={me.display_name} autoComplete="name" />}
+            {(p) => (
+              <Input
+                maxLength={120}
+                {...p}
+                name="name"
+                defaultValue={me.display_name}
+                autoComplete="name"
+              />
+            )}
           </FormField>
           <Button type="submit" className="justify-self-start" disabled={update.isPending}>
             Save
@@ -389,7 +397,7 @@ function EmailSection({ run: reauthRun }: { run: Reauth["run"] }) {
       )}
       <form onSubmit={add} noValidate className="grid max-w-sm gap-4">
         <FormField label="Add an email address" error={error}>
-          {(p) => <Input {...p} name="email" type="email" autoComplete="email" />}
+          {(p) => <Input maxLength={254} {...p} name="email" type="email" autoComplete="email" />}
         </FormField>
         <Button type="submit" className="justify-self-start" disabled={act.isPending}>
           Add email

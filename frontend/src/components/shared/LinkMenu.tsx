@@ -295,6 +295,7 @@ function PasteLinker({
       <FormField label={`${p.label} link`} error={errors.url}>
         {(props) => (
           <Input
+            maxLength={2000}
             {...props}
             type="url"
             placeholder="https://"

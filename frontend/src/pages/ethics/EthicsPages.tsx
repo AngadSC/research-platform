@@ -338,13 +338,20 @@ export function ApprovalForm({ labId, approval }: { labId: string; approval?: Et
       <form onSubmit={submit} noValidate className="grid gap-4">
         <FormError message={formError} />
         <FormField label="Approval number" error={errors.approval_number}>
-          {(p) => <Input {...p} name="approval_number" defaultValue={approval?.approval_number} />}
+          {(p) => (
+            <Input
+              maxLength={100}
+              {...p}
+              name="approval_number"
+              defaultValue={approval?.approval_number}
+            />
+          )}
         </FormField>
         <FormField label="Ethics board" error={errors.board}>
-          {(p) => <Input {...p} name="board" defaultValue={approval?.board} />}
+          {(p) => <Input maxLength={200} {...p} name="board" defaultValue={approval?.board} />}
         </FormField>
         <FormField label="Title" error={errors.title}>
-          {(p) => <Input {...p} name="title" defaultValue={approval?.title} />}
+          {(p) => <Input maxLength={300} {...p} name="title" defaultValue={approval?.title} />}
         </FormField>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Approval date" error={errors.approval_date}>

@@ -53,7 +53,7 @@ export function CreateLabPage() {
           hint="For example, the name of your research group."
           error={errors.fields.name}
         >
-          {(p) => <Input {...p} name="name" autoComplete="off" />}
+          {(p) => <Input maxLength={200} {...p} name="name" autoComplete="off" />}
         </FormField>
         <FormField
           label="University (optional)"
@@ -65,10 +65,18 @@ export function CreateLabPage() {
         {picked && (
           <div key={picked.id} className="grid gap-4">
             <FormField label="Address (optional)" error={errors.fields.address}>
-              {(p) => <Textarea {...p} name="address" rows={2} defaultValue={picked.address} />}
+              {(p) => (
+                <Textarea
+                  maxLength={1000}
+                  {...p}
+                  name="address"
+                  rows={2}
+                  defaultValue={picked.address}
+                />
+              )}
             </FormField>
             <FormField label="Website (optional)" error={errors.fields.website}>
-              {(p) => <Input {...p} name="website" defaultValue={picked.website} />}
+              {(p) => <Input maxLength={300} {...p} name="website" defaultValue={picked.website} />}
             </FormField>
           </div>
         )}

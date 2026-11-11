@@ -73,7 +73,7 @@ export function LabDetailsSection({ lab }: { lab: Lab }) {
         className="grid max-w-2xl gap-4"
       >
         <FormField label="Lab name" error={f.name}>
-          {(p) => <Input {...p} name="name" defaultValue={lab.name} />}
+          {(p) => <Input maxLength={200} {...p} name="name" defaultValue={lab.name} />}
         </FormField>
         <FormField
           label="Institution"
@@ -90,17 +90,33 @@ export function LabDetailsSection({ lab }: { lab: Lab }) {
           )}
         </FormField>
         <FormField label="Department" error={f.department}>
-          {(p) => <Input {...p} name="department" defaultValue={lab.department} />}
+          {(p) => <Input maxLength={200} {...p} name="department" defaultValue={lab.department} />}
         </FormField>
         <FormField label="Description" error={f.description}>
-          {(p) => <Textarea {...p} name="description" rows={3} defaultValue={lab.description} />}
+          {(p) => (
+            <Textarea
+              maxLength={5000}
+              {...p}
+              name="description"
+              rows={3}
+              defaultValue={lab.description}
+            />
+          )}
         </FormField>
         <FormField label="Address" error={f.address}>
-          {(p) => <Textarea {...p} name="address" rows={2} defaultValue={lab.address} />}
+          {(p) => (
+            <Textarea maxLength={1000} {...p} name="address" rows={2} defaultValue={lab.address} />
+          )}
         </FormField>
         <FormField label="Contact email" error={f.contact_email}>
           {(p) => (
-            <Input {...p} name="contact_email" type="email" defaultValue={lab.contact_email} />
+            <Input
+              maxLength={254}
+              {...p}
+              name="contact_email"
+              type="email"
+              defaultValue={lab.contact_email}
+            />
           )}
         </FormField>
         <label className="flex items-start gap-2 text-sm">
@@ -119,7 +135,7 @@ export function LabDetailsSection({ lab }: { lab: Lab }) {
           </span>
         </label>
         <FormField label="Website" error={f.website}>
-          {(p) => <Input {...p} name="website" defaultValue={lab.website} />}
+          {(p) => <Input maxLength={300} {...p} name="website" defaultValue={lab.website} />}
         </FormField>
         <FormError message={errors.form} />
         <Button type="submit" className="justify-self-start" disabled={update.isPending}>

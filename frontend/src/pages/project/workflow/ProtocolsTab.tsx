@@ -324,10 +324,18 @@ function ProtocolDialog({
         <DialogDescription className="sr-only">Protocol name and reagents</DialogDescription>
         <form onSubmit={submit} noValidate className="grid gap-3">
           <FormField label="Name">
-            {(p) => <Input {...p} name="name" defaultValue={protocol?.name} />}
+            {(p) => <Input maxLength={200} {...p} name="name" defaultValue={protocol?.name} />}
           </FormField>
           <FormField label="Notes">
-            {(p) => <Textarea {...p} name="notes" rows={2} defaultValue={protocol?.notes} />}
+            {(p) => (
+              <Textarea
+                maxLength={5000}
+                {...p}
+                name="notes"
+                rows={2}
+                defaultValue={protocol?.notes}
+              />
+            )}
           </FormField>
           <div className="grid gap-2">
             <p className="text-sm font-medium">Reagents</p>

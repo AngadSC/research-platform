@@ -155,7 +155,9 @@ export function MyTrainingPage() {
             <FormField label="Certificate (optional)">
               {(p) => <input {...p} ref={fileRef} type="file" accept=".pdf,image/*" />}
             </FormField>
-            <FormField label="Notes (optional)">{(p) => <Input {...p} name="notes" />}</FormField>
+            <FormField label="Notes (optional)">
+              {(p) => <Input maxLength={2000} {...p} name="notes" />}
+            </FormField>
             <FormError message={errors.form} />
             <Button type="submit" className="justify-self-start" disabled={createRecord.isPending}>
               Save record

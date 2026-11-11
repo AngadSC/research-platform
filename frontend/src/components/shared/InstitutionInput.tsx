@@ -48,6 +48,7 @@ export function InstitutionInput({
       }}
     >
       <Input
+        maxLength={200}
         {...field}
         name={name}
         value={text}

@@ -94,6 +94,18 @@ const FIELDS: Record<Kind, Field[]> = {
 
 type Values = Record<string, string | string[]>;
 
+/** Server limits by field name. Every kind uses the same limit for a shared name. */
+const RESEARCH_MAX_LENGTH: Record<string, number> = {
+  name: 200,
+  version_label: 100,
+  checksum: 140,
+  title: 300,
+  code_commit: 40,
+  code_repo_url: 200,
+  location_url: 200,
+  url: 200,
+};
+
 /** Client-side checks; messages say what to do. Exported for tests. */
 // eslint-disable-next-line react-refresh/only-export-components -- pure helper, also unit-tested
 export function validate(kind: Kind, v: Values): Record<string, string> {
@@ -222,6 +234,7 @@ export function ResearchForm({ labId, projectId, kind, record, onSaved, onCancel
             f.type === "textarea" ? (
               <Textarea
                 {...p}
+                maxLength={RESEARCH_MAX_LENGTH[f.name]}
                 value={v[f.name] as string}
                 onChange={(e) => set(f.name, e.target.value)}
               />
@@ -255,6 +268,7 @@ export function ResearchForm({ labId, projectId, kind, record, onSaved, onCancel
             ) : (
               <Input
                 {...p}
+                maxLength={RESEARCH_MAX_LENGTH[f.name]}
                 type={f.type === "date" ? "date" : f.type === "url" ? "url" : "text"}
                 value={v[f.name] as string}
                 onChange={(e) => set(f.name, e.target.value)}

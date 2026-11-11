@@ -6,6 +6,7 @@ import { FormField } from "@/components/shared/FormField";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useDmp } from "@/hooks/dmp";
 import { useAttachments } from "@/hooks/projects";
@@ -233,7 +234,12 @@ export function DmpPanel({ labId, projectId, project }: ProjectTabProps) {
       {showHistory && (
         <div aria-label="Plan history" className="grid gap-1 border-t pt-3 text-sm">
           <h3 className="font-medium">History</h3>
-          {history.isLoading && <p className="text-muted-foreground">Loading...</p>}
+          {history.isLoading && (
+            <div aria-busy="true" aria-label="Loading plan history" className="grid gap-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          )}
           <ol className="grid gap-1">
             {(history.data ?? []).map((r) => {
               const snap = r.snapshot as { status?: string };
@@ -319,7 +325,7 @@ function DmpForm({
       )}
       {DMP_SECTIONS.map(([k, title, hint]) => (
         <FormField key={k} label={title} hint={hint} error={err[k]}>
-          {(p) => <Textarea {...p} name={k} rows={4} defaultValue={plan[k]} />}
+          {(p) => <Textarea maxLength={20000} {...p} name={k} rows={4} defaultValue={plan[k]} />}
         </FormField>
       ))}
       <div className="grid gap-4 sm:grid-cols-2">
@@ -353,6 +359,7 @@ function DmpForm({
       >
         {(p) => (
           <Input
+            maxLength={500}
             {...p}
             type="url"
             name="external_url"

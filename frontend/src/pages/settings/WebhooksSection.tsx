@@ -236,7 +236,14 @@ function AddDialog({
           </DialogDescription>
           <FormError message={failure} />
           <FormField label="Name" error={errors.name}>
-            {(p) => <Input {...p} value={name} onChange={(e) => setName(e.target.value)} />}
+            {(p) => (
+              <Input
+                maxLength={120}
+                {...p}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            )}
           </FormField>
           <FormField label="Where to send it" hint={KIND_HELP[kind]}>
             {(p) => (

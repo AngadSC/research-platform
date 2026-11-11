@@ -85,6 +85,7 @@ function CredentialsForm({
         <FormField label="Email" error={errors.fields.email}>
           {(p) => (
             <Input
+              maxLength={254}
               {...p}
               name="email"
               type="email"
@@ -191,7 +192,7 @@ function EmailStep({
     <div className="grid gap-4">
       <form onSubmit={submit} noValidate className="grid gap-4">
         <FormField label="Email" error={error}>
-          {(p) => <Input {...p} name="email" type="email" autoComplete="email" />}
+          {(p) => <Input maxLength={254} {...p} name="email" type="email" autoComplete="email" />}
         </FormField>
         <Button type="submit" disabled={busy}>
           Continue

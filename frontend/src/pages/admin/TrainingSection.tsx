@@ -117,7 +117,7 @@ export function TrainingSection({ labId }: { labId: string }) {
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <FormField label="Training name" error={errors.fields.name}>
-            {(p) => <Input {...p} name="name" />}
+            {(p) => <Input maxLength={200} {...p} name="name" />}
           </FormField>
           <FormField label="Category" error={errors.fields.category}>
             {(p) => (
@@ -190,9 +190,11 @@ export function TrainingSection({ labId }: { labId: string }) {
           error={errors.fields.url}
           hint="Where people take it. Must start with https://"
         >
-          {(p) => <Input {...p} name="url" type="url" />}
+          {(p) => <Input maxLength={500} {...p} name="url" type="url" />}
         </FormField>
-        <FormField label="Notes (optional)">{(p) => <Input {...p} name="notes" />}</FormField>
+        <FormField label="Notes (optional)">
+          {(p) => <Input maxLength={2000} {...p} name="notes" />}
+        </FormField>
         <FormError message={errors.form} />
         <Button type="submit" className="justify-self-start" disabled={createRequirement.isPending}>
           Add training

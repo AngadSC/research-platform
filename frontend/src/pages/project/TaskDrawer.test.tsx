@@ -109,6 +109,14 @@ describe("task drawer", () => {
     expect(await within(drawer).findByText("Plates arrived")).toBeInTheDocument();
   });
 
+  it("stops the title at the server's 300-character limit", async () => {
+    mockFetch(base(["view_project", "edit_content"]));
+    renderRoute("/labs/lab1/projects/p1/tasks?view=list");
+    await userEvent.click(await screen.findByRole("cell", { name: "Run assay" }));
+    const drawer = await screen.findByRole("dialog");
+    expect(within(drawer).getByLabelText("Title")).toHaveAttribute("maxLength", "300");
+  });
+
   it("changes the status and the assignee, offering only people who can edit", async () => {
     const calls = mockFetch({
       ...base(["view_project", "edit_content"]),

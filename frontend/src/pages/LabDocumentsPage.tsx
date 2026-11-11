@@ -86,13 +86,15 @@ export function LabDocumentsPage() {
           <DialogDescription className="sr-only">Name the document.</DialogDescription>
           <form onSubmit={submit} noValidate className="grid gap-4">
             <FormField label="Title" error={errors.fields.title}>
-              {(p) => <Input {...p} name="title" autoComplete="off" />}
+              {(p) => <Input maxLength={300} {...p} name="title" autoComplete="off" />}
             </FormField>
             <FormField
               label="Link to a Google or Microsoft file (optional)"
               error={errors.fields.embed_url}
             >
-              {(p) => <Input {...p} name="embed_url" type="url" autoComplete="off" />}
+              {(p) => (
+                <Input maxLength={2000} {...p} name="embed_url" type="url" autoComplete="off" />
+              )}
             </FormField>
             <FormError message={errors.form} />
             <div className="flex justify-end gap-2">

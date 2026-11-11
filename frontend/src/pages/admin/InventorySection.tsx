@@ -125,7 +125,7 @@ function ItemDialog({
         <DialogDescription className="sr-only">Inventory item details</DialogDescription>
         <form key={item?.id ?? "new"} onSubmit={submit} noValidate className="grid gap-3">
           <FormField label="Name" error={f.name}>
-            {(p) => <Input {...p} name="name" defaultValue={item?.name} />}
+            {(p) => <Input maxLength={200} {...p} name="name" defaultValue={item?.name} />}
           </FormField>
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="Category" error={f.category}>
@@ -163,10 +163,12 @@ function ItemDialog({
               )}
             </FormField>
             <FormField label="Unit" error={f.unit}>
-              {(p) => <Input {...p} name="unit" defaultValue={item?.unit} />}
+              {(p) => <Input maxLength={32} {...p} name="unit" defaultValue={item?.unit} />}
             </FormField>
             <FormField label="Location" error={f.location}>
-              {(p) => <Input {...p} name="location" defaultValue={item?.location} />}
+              {(p) => (
+                <Input maxLength={200} {...p} name="location" defaultValue={item?.location} />
+              )}
             </FormField>
             <FormField label="Owner" error={f.owner}>
               {(p) => (
@@ -181,7 +183,14 @@ function ItemDialog({
               )}
             </FormField>
             <FormField label="Serial or asset number" error={f.serial_number}>
-              {(p) => <Input {...p} name="serial_number" defaultValue={item?.serial_number} />}
+              {(p) => (
+                <Input
+                  maxLength={100}
+                  {...p}
+                  name="serial_number"
+                  defaultValue={item?.serial_number}
+                />
+              )}
             </FormField>
             <FormField label="Purchase date" error={f.purchase_date}>
               {(p) => (
@@ -209,7 +218,9 @@ function ItemDialog({
             </FormField>
           </div>
           <FormField label="Notes" error={f.notes}>
-            {(p) => <Textarea {...p} name="notes" rows={3} defaultValue={item?.notes} />}
+            {(p) => (
+              <Textarea maxLength={5000} {...p} name="notes" rows={3} defaultValue={item?.notes} />
+            )}
           </FormField>
           <FormError message={errors.form} />
           <div className="flex justify-end gap-2">
