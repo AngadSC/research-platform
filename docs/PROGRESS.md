@@ -111,3 +111,11 @@
 - Orchestrator gate before fixes: backend 3206 passed / 97 skipped / 3 failed (2 training digest, tenancy lint on a DMP test), Vitest 261, licenses 83 py / 451 npm, lint clean after 4 small fixes. Started RF5 (sonnet high): 8 review findings + 3 failures.
 - RF5 done (sonnet high): exact redirect URIs (D193), reauth for consent/PAT + revoke all AI grants on password/MFA change and deactivation (D194-D195), global stream cap + 300 s deadline + heartbeat (D196), untrusted-content wrapper + one-lab read-only consent default + named approval preview + own-origin links (D197-D199), DCR prune (D200), SLS route removed (D201), require-SSO on any verified address and method (D202), lab grant view scoped (D203), tests use for_lab (D204). Backend 3262 passed / 97 skipped / 0 failed; Vitest 267. Orchestrator: lint clean, no missing migrations. Committed.
 - W5 done (sonnet): Playwright 24/24 (2 spec fixes for the Dashboard landing), screenshots 58-67 new (sensitive sections cropped), all regenerated, seed adds fake DMP draft + fake OAuth client. HANDOFF Run 5 summary written. Committed and pushed.
+
+## Night run (2026-11-10)
+
+- Audit fixes: duplicate Projects group removed from the command palette, New task dialog description and title `maxLength` 300 (D247). Black and Prettier formatting fixed on two files that failed lint (`test_review_fixes5.py`, `TasksTab.tsx`).
+- Merged ideas: none (no implementer branches).
+- Dropped ideas: none.
+- Not covered: full pass for spinners, empty states, labels and jargon; check against SPEC sections 1, 4, 6 and HANDOFF item by item; `maxLength` on other forms.
+- Gate: lint clean (13 existing warnings, 0 errors), Vitest 428 passed (53 files), licenses 84 Python / 451 npm, no missing migrations, schema and types current. Backend full suite: 4323 passed, 128 skipped, 0 failed.
