@@ -272,3 +272,41 @@ describe("Decision references form (D95)", () => {
     ]);
   });
 });
+
+describe("analysis detail", () => {
+  const edit = ["view_project", "edit_content"];
+  const URL = "/labs/lab1/projects/p1/workflow/analysis/analyses/a1";
+  const newer = {
+    ...ds,
+    id: "d2",
+    version_label: "v3",
+    previous_version: { id: "d1" },
+    created_at: "2026-03-01T00:00:00Z",
+  };
+  const old = { ...ds, previous_version: null, created_at: "2026-01-01T00:00:00Z" };
+
+  it("disables run again when no dataset has a newer version", async () => {
+    mockFetch(base(edit, { [`GET ${P}/datasets/`]: { body: [old] } }));
+    renderRoute(URL);
+    expect(await screen.findByRole("button", { name: "Run again on newer data" })).toBeDisabled();
+  });
+
+  it("creates a new analysis on the newest dataset version", async () => {
+    const calls = mockFetch(
+      base(edit, {
+        [`GET ${P}/datasets/`]: { body: [old, newer] },
+        [`POST ${P}/analyses/`]: { status: 201, body: { ...analysis, id: "a2" } },
+        "GET /api/labs/lab1/analyses/a2/": { body: { ...analysis, id: "a2" } },
+      }),
+    );
+    renderRoute(URL);
+    const btn = await screen.findByRole("button", { name: "Run again on newer data" });
+    await waitFor(() => expect(btn).toBeEnabled());
+    await userEvent.click(btn);
+    await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+    const sent = calls.find((c) => c.method === "POST")?.body as Record<string, unknown>;
+    expect(sent.datasets).toEqual(["d2"]);
+    expect(sent.code_commit).toBe("abc1234def");
+    expect(sent.description).toContain("Alpha diversity");
+  });
+});
