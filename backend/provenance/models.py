@@ -78,6 +78,8 @@ class DatasetRecord(ProvenanceModel):
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
     )
+    # VISION A3: AI tools never see a flagged item (assistant/privacy.py).
+    contains_participant_data = models.BooleanField(default=False)
 
     lab_parents = ("project", "previous_version")
 

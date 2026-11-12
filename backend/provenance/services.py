@@ -10,6 +10,7 @@ from django.db.models import Prefetch, ProtectedError, Sum
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
+from assistant.privacy import set_flag
 from audit.models import AuditAction
 from audit.services import record
 from core.models import NotificationKind, User
@@ -247,6 +248,7 @@ def update(kind, obj, *, user, data, request=None):
     spec = SPECS[kind]
     project = obj.project
     values, m2m = _resolve(spec, project, data, actor=user, creating=False)
+    flag = values.pop("contains_participant_data", None)  # its own audit event (VISION A3)
     if values.get("previous_version") == obj:
         raise ValidationError({"previous_version": "A dataset cannot be its own previous version."})
     for key, value in values.items():
@@ -258,6 +260,10 @@ def update(kind, obj, *, user, data, request=None):
     _keep_letter_private(obj)
     for field, items in m2m.items():
         getattr(obj, field).set(items)
+    if flag is not None:
+        set_flag(obj, flag, user=user, request=request)
+    if not (values or m2m) and flag is not None:
+        return obj
     record(
         spec.updated,
         actor=user,

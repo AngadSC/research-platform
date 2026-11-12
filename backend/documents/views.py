@@ -10,6 +10,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
+from assistant.privacy import set_flag
 from audit.models import AuditAction
 from audit.services import record
 from core.permissions import Perm, can_view_ethics_files, require, visible_projects
@@ -26,9 +27,10 @@ from documents.serializers import (
     DocumentSaveSerializer,
     DocumentSerializer,
     FolderCreateSerializer,
-    FolderRenameSerializer,
     FolderSerializer,
+    FolderUpdateSerializer,
     ItemMoveSerializer,
+    ParticipantFlagSerializer,
     RevisionListSerializer,
     RevisionSerializer,
 )
@@ -148,7 +150,12 @@ class LabDocumentListCreateView(LabScopedViewMixin, generics.GenericAPIView):
 class DocumentDetailView(DocumentMixin, generics.GenericAPIView):
     serializer_class = DocumentSerializer
     lookup_url_kwarg = "document_id"
-    perms = {"GET": Perm.VIEW_PROJECT, "PUT": Perm.EDIT_CONTENT, "DELETE": Perm.EDIT_CONTENT}
+    perms = {
+        "GET": Perm.VIEW_PROJECT,
+        "PUT": Perm.EDIT_CONTENT,
+        "PATCH": Perm.EDIT_CONTENT,
+        "DELETE": Perm.EDIT_CONTENT,
+    }
 
     @extend_schema(responses=DocumentSerializer)
     def get(self, request, lab_id, document_id):
@@ -172,6 +179,11 @@ class DocumentDetailView(DocumentMixin, generics.GenericAPIView):
         ser.is_valid(raise_exception=True)
         doc = services.save_document(doc, user=request.user, request=request, **ser.validated_data)
         return Response(self.get_serializer(doc).data)
+
+    @extend_schema(request=ParticipantFlagSerializer, responses=DocumentSerializer)
+    def patch(self, request, lab_id, document_id):
+        """Tick or clear "Contains participant data" (VISION A3). Saving content is PUT."""
+        return Response(self.get_serializer(_set_flag(request, self.get_object())).data)
 
     @extend_schema(responses={204: None})
     def delete(self, request, lab_id, document_id):
@@ -290,6 +302,7 @@ class AttachmentListCreateView(AttachmentMixin, generics.GenericAPIView):
             folder=self.resolve_folder(ser.validated_data.get("folder")),
             request=request,
             pi_only=pi_only,
+            contains_participant_data=ser.validated_data["contains_participant_data"],
         )
         return Response(self.get_serializer(attachment).data, status=status.HTTP_201_CREATED)
 
@@ -297,11 +310,16 @@ class AttachmentListCreateView(AttachmentMixin, generics.GenericAPIView):
 class AttachmentDetailView(AttachmentMixin, generics.GenericAPIView):
     serializer_class = AttachmentSerializer
     lookup_url_kwarg = "attachment_id"
-    perms = {"GET": Perm.VIEW_PROJECT, "DELETE": Perm.EDIT_CONTENT}
+    perms = {"GET": Perm.VIEW_PROJECT, "PATCH": Perm.EDIT_CONTENT, "DELETE": Perm.EDIT_CONTENT}
 
     @extend_schema(responses=AttachmentSerializer)
     def get(self, request, lab_id, attachment_id):
         return Response(self.get_serializer(self.get_object()).data)
+
+    @extend_schema(request=ParticipantFlagSerializer, responses=AttachmentSerializer)
+    def patch(self, request, lab_id, attachment_id):
+        """Tick or clear "Contains participant data" (VISION A3)."""
+        return Response(self.get_serializer(_set_flag(request, self.get_object())).data)
 
     @extend_schema(responses={204: None})
     def delete(self, request, lab_id, attachment_id):
@@ -395,17 +413,29 @@ class FolderDetailView(FolderMixin, generics.GenericAPIView):
     lookup_url_kwarg = "folder_id"
     perms = {"PATCH": Perm.EDIT_CONTENT, "DELETE": Perm.EDIT_CONTENT}
 
-    @extend_schema(request=FolderRenameSerializer, responses=FolderSerializer)
+    @extend_schema(request=FolderUpdateSerializer, responses=FolderSerializer)
     def patch(self, request, lab_id, folder_id):
-        ser = FolderRenameSerializer(data=request.data)
+        ser = FolderUpdateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
-        folder = services.rename_folder(self.get_object(), name=ser.validated_data["name"])
+        folder = self.get_object()
+        if "name" in ser.validated_data:
+            folder = services.rename_folder(folder, name=ser.validated_data["name"])
+        if "contains_participant_data" in ser.validated_data:
+            flag = ser.validated_data["contains_participant_data"]
+            folder = set_flag(folder, flag, user=request.user, request=request)
         return Response(self.get_serializer(folder).data)
 
     @extend_schema(responses={204: None})
     def delete(self, request, lab_id, folder_id):
         services.delete_folder(self.get_object())
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _set_flag(request, obj):
+    ser = ParticipantFlagSerializer(data=request.data)
+    ser.is_valid(raise_exception=True)
+    flag = ser.validated_data["contains_participant_data"]
+    return set_flag(obj, flag, user=request.user, request=request)
 
 
 def download_response(request, attachment):

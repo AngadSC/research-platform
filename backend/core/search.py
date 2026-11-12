@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from django.db import connection
 from django.db.models import Q
 
+from assistant.privacy import ai_visible
 from core.permissions import Perm, can, scope
 from documents.models import Document
 from documents.services import lab_documents
@@ -146,7 +147,8 @@ def _snippet(obj, spec, q) -> str:
     return ""
 
 
-def search(user, lab, q: str, types=None) -> list[dict]:
+def search(user, lab, q: str, types=None, for_ai=False) -> list[dict]:
+    """`for_ai` leaves out items marked "Contains participant data" (assistant/privacy.py)."""
     q = " ".join(q.split())[:MAX_Q]
     if len(q) < MIN_Q:
         return []
@@ -159,6 +161,8 @@ def search(user, lab, q: str, types=None) -> list[dict]:
             qs = qs | lab_documents(lab)
         if spec.deleted:
             qs = qs.filter(deleted_at__isnull=True)
+        if for_ai:
+            qs = ai_visible(qs)
         if hasattr(spec.model, "project"):
             qs = qs.select_related("project")
         qs = match(qs, (spec.title, *spec.text), q).order_by("-updated_at", "pk")

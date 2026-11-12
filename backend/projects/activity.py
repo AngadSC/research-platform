@@ -47,7 +47,7 @@ def _project_id(instance):
 
 
 def stamp(sender, instance, **kwargs):
-    if not isinstance(instance, LabScopedModel):
+    if not isinstance(instance, LabScopedModel) or getattr(instance, "not_an_edit", False):
         return
     request = _request.get()
     user = getattr(request, "user", None)

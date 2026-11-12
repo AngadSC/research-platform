@@ -178,12 +178,14 @@ export function useAttachments(labId: string, projectId: string) {
       onProgress?: (f: number) => void;
       folder?: string | null;
       piOnly?: boolean;
+      participant?: boolean;
     }) => {
       const form = new FormData();
       form.append("file", v.file);
       form.append("acknowledged_notice", "true");
       if (v.folder) form.append("folder", v.folder);
       if (v.piOnly) form.append("pi_only", "true");
+      if (v.participant) form.append("contains_participant_data", "true");
       return upload<Attachment>(
         `${base(labId)}/projects/${projectId}/attachments/`,
         form,

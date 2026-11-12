@@ -21,6 +21,8 @@ class Folder(LabScopedModel):
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
     )
+    # VISION A3: AI tools never see a flagged item (assistant/privacy.py). Copied down from folders.
+    contains_participant_data = models.BooleanField(default=False)
 
     lab_parents = ("project", "parent")
     permission_domain = "project"
@@ -62,6 +64,8 @@ class Document(LabScopedModel):
     retention_note = models.TextField(blank=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
     search_text = models.TextField(blank=True, editable=False)  # D93: derived from content
+    # VISION A3: AI tools never see a flagged item (assistant/privacy.py). Copied down from folders.
+    contains_participant_data = models.BooleanField(default=False)
 
     lab_parents = ("project", "folder")
     permission_domain = "project"
@@ -159,6 +163,12 @@ class Attachment(LabScopedModel):
     # opening it goes to Drive. Set only from Drive's own answer, never from the browser.
     drive_file_id = models.CharField(max_length=255, blank=True)
     external_url = models.URLField(max_length=2000, blank=True)
+    # VISION A3: AI tools never see a flagged item (assistant/privacy.py). Copied down from folders.
+    contains_participant_data = models.BooleanField(default=False)
+    # VISION S1: "link" is a one-time upload link (MATLAB on the person's computer, through Claude)
+    source = models.CharField(
+        max_length=8, choices=[("web", "Web"), ("link", "Link")], default="web", editable=False
+    )
 
     @property
     def from_drive(self) -> bool:

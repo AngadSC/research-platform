@@ -16,12 +16,14 @@ from django.core.files.uploadedfile import SimpleUploadedFile  # documents/attac
 from django.urls import URLPattern, URLResolver, get_resolver, reverse
 from rest_framework.test import APIClient
 
+from assistant import file_links  # file links (VISION S1)
 from assistant.ai import keys as ai_keys  # in-app assistant (Run 5)
 from assistant.models import AIGrant, AIProviderKey, Conversation, Message  # AI access (Run 5)
 from assistant.services import register_client  # AI access (Run 5)
 from assistant.tests.reauth import sign_in  # AI access (Run 5)
 from core.models import Institution, Notification, NotificationKind, User
 from documents import services as document_services  # documents/attachments (Phase 3)
+from documents.models import Attachment  # file links (VISION S1)
 from ethics.models import EthicsApproval  # ethics (Phase 5)
 from integrations import http as integrations_http  # integrations (Run 2)
 from integrations import registry, webhooks
@@ -181,6 +183,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "documents:lab-document-list"): "401 404 2 2 2 2 2 2 403",
     ("GET",    "documents:document-detail"): "401 404 2 2 2 2 2 404 2",
     ("PUT",    "documents:document-detail"): "401 404 2 2 2 2 403 404 403",
+    ("PATCH",  "documents:document-detail"): "401 404 2 2 2 2 403 404 403",  # participant flag
     ("DELETE", "documents:document-detail"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:revision-list"): "401 404 2 2 2 2 2 404 2",
     ("GET",    "documents:revision-detail"): "401 404 2 2 2 2 2 404 2",
@@ -188,6 +191,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "documents:attachment-list"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "documents:attachment-list"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:attachment-detail"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "documents:attachment-detail"): "401 404 2 2 2 2 403 404 403",  # participant flag
     ("DELETE", "documents:attachment-detail"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:attachment-download"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "documents:document-move"): "401 404 2 2 2 2 403 404 403",
@@ -487,6 +491,12 @@ MATRIX: dict[tuple[str, str], str] = {
     ("DELETE", "assistant:conversation-detail"): "401 404 2 404 404 404 404 404 404",
     ("POST",   "assistant:conversation-message"): "401 404 2 404 404 404 404 404 404",
     ("POST",   "assistant:conversation-approval"): "401 404 2 404 404 404 404 404 404",
+    # VISION S1: a download or one-time upload link made by an AI tool. The token is the only
+    # credential (anon has none: 401) and it acts as the person who made it, whose access is read
+    # again on use: outsider is not in Lab A and nonproj cannot see P1 (404); viewers may
+    # download but not add files (403).
+    ("GET",    "assistant:file-link"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "assistant:file-link"): "401 404 2 2 2 2 403 404 403",
     # --- end in-app assistant (Run 5) ---
 }
 # fmt: on
@@ -1305,6 +1315,8 @@ PAYLOADS = {
     ("POST", "documents:attachment-move"): lambda user, w: {"folder": None},
     ("POST", "documents:folder-list"): lambda user, w: {"name": "New folder"},
     ("PATCH", "documents:folder-detail"): lambda user, w: {"name": "Renamed folder"},
+    ("PATCH", "documents:document-detail"): lambda user, w: {"contains_participant_data": True},
+    ("PATCH", "documents:attachment-detail"): lambda user, w: {"contains_participant_data": True},
     # --- end documents/attachments (Phase 3) ---
     # --- provenance (Phase 4): links point at Lab A / P1 fixtures, so allowed calls return 2xx ---
     ("POST", "provenance:dataset-list"): lambda user, w: {
@@ -1515,7 +1527,22 @@ PAYLOADS = {
         "decisions": {"toolu_matrix": True}
     },
     # --- end in-app assistant (Run 5) ---
+    # --- file links (VISION S1); a POST carries its token in the form, as a query string can ---
+    ("GET", "assistant:file-link"): lambda user, w: _file_link(user, w, "download"),
+    ("POST", "assistant:file-link"): lambda user, w: {
+        **_file_link(user, w, "upload"),
+        "file": SimpleUploadedFile("fig.png", b"png", content_type="image/png"),
+    },
 }
+
+
+def _file_link(user, w, kind):
+    if user is None:
+        return {}
+    att = Attachment.objects.for_lab(w.a["lab_id"]).get(pk=w.a["attachment_id"])
+    targets = {"attachment": att} if kind == "download" else {}
+    _, url = file_links.issue(kind, user=user, project=att.project, via="in_app", **targets)
+    return {"token": url.split("token=")[1]}
 
 
 # ---------------------------------------------------------------- enumeration

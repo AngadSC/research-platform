@@ -842,6 +842,44 @@ paths:
               schema:
                 $ref: '#/components/schemas/Attachment'
           description: ''
+    patch:
+      operationId: labs_attachments_partial_update
+      description: Tick or clear "Contains participant data" (VISION A3).
+      parameters:
+      - in: path
+        name: attachment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedParticipantFlag'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedParticipantFlag'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedParticipantFlag'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attachment'
+          description: ''
     delete:
       operationId: labs_attachments_destroy
       description: |-
@@ -1076,6 +1114,11 @@ paths:
           - papers.imported
           - paper.deleted
           - paper_note.deleted
+          - folder.participant_flag_changed
+          - document.participant_flag_changed
+          - attachment.participant_flag_changed
+          - dataset.participant_flag_changed
+          - file_link.created
           type: string
           minLength: 1
         description: |-
@@ -1208,6 +1251,11 @@ paths:
           * `papers.imported` - Papers Imported
           * `paper.deleted` - Paper Deleted
           * `paper_note.deleted` - Paper Note Deleted
+          * `folder.participant_flag_changed` - Folder Participant Flag Changed
+          * `document.participant_flag_changed` - Document Participant Flag Changed
+          * `attachment.participant_flag_changed` - Attachment Participant Flag Changed
+          * `dataset.participant_flag_changed` - Dataset Participant Flag Changed
+          * `file_link.created` - File Link Created
       - in: query
         name: actor
         schema:
@@ -2251,6 +2299,45 @@ paths:
               schema:
                 $ref: '#/components/schemas/Conflict'
           description: ''
+    patch:
+      operationId: labs_documents_partial_update
+      description: Tick or clear "Contains participant data" (VISION A3). Saving content
+        is PUT.
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedParticipantFlag'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedParticipantFlag'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedParticipantFlag'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+          description: ''
     delete:
       operationId: labs_documents_destroy
       description: Routes under `documents/<document_id>/`, and the project's document
@@ -2857,13 +2944,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatchedFolderRename'
+              $ref: '#/components/schemas/PatchedFolderUpdate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/PatchedFolderRename'
+              $ref: '#/components/schemas/PatchedFolderUpdate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/PatchedFolderRename'
+              $ref: '#/components/schemas/PatchedFolderUpdate'
       security:
       - sessionAuth: []
       responses:
@@ -9088,6 +9175,11 @@ components:
       - papers.imported
       - paper.deleted
       - paper_note.deleted
+      - folder.participant_flag_changed
+      - document.participant_flag_changed
+      - attachment.participant_flag_changed
+      - dataset.participant_flag_changed
+      - file_link.created
       type: string
       description: |-
         * `auth.login` - Auth Login
@@ -9219,6 +9311,11 @@ components:
         * `papers.imported` - Papers Imported
         * `paper.deleted` - Paper Deleted
         * `paper_note.deleted` - Paper Note Deleted
+        * `folder.participant_flag_changed` - Folder Participant Flag Changed
+        * `document.participant_flag_changed` - Document Participant Flag Changed
+        * `attachment.participant_flag_changed` - Attachment Participant Flag Changed
+        * `dataset.participant_flag_changed` - Dataset Participant Flag Changed
+        * `file_link.created` - File Link Created
     AiAccessEnum:
       enum:
       - read
@@ -9457,7 +9554,15 @@ components:
           type: string
           format: uri
           readOnly: true
+        contains_participant_data:
+          type: boolean
+          readOnly: true
+        source:
+          allOf:
+          - $ref: '#/components/schemas/SourceEnum'
+          readOnly: true
       required:
+      - contains_participant_data
       - content_type
       - created_at
       - drive_file_id
@@ -9470,6 +9575,7 @@ components:
       - project
       - sha256
       - size_bytes
+      - source
       - uploaded_by
     AttachmentRef:
       type: object
@@ -9512,6 +9618,9 @@ components:
           type: boolean
           default: false
         pi_only:
+          type: boolean
+          default: false
+        contains_participant_data:
           type: boolean
           default: false
     AuditEvent:
@@ -10743,6 +10852,9 @@ components:
           items:
             $ref: '#/components/schemas/AnalysisRef'
           readOnly: true
+        contains_participant_data:
+          type: boolean
+          readOnly: true
         created_by:
           allOf:
           - $ref: '#/components/schemas/User'
@@ -10759,6 +10871,7 @@ components:
       - access_notes
       - analyses
       - checksum
+      - contains_participant_data
       - controlled_by
       - created_at
       - created_by
@@ -10801,6 +10914,8 @@ components:
           type: string
           format: uuid
           nullable: true
+        contains_participant_data:
+          type: boolean
       required:
       - name
       - version_label
@@ -11181,6 +11296,9 @@ components:
         retention_note:
           type: string
           readOnly: true
+        contains_participant_data:
+          type: boolean
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -11200,6 +11318,7 @@ components:
           format: uri
           readOnly: true
       required:
+      - contains_participant_data
       - content
       - created_at
       - created_by
@@ -11230,6 +11349,9 @@ components:
         embed_url:
           type: string
           maxLength: 2000
+        contains_participant_data:
+          type: boolean
+          default: false
       required:
       - title
     DocumentList:
@@ -11271,6 +11393,9 @@ components:
         retention_note:
           type: string
           readOnly: true
+        contains_participant_data:
+          type: boolean
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -11280,6 +11405,7 @@ components:
           format: date-time
           readOnly: true
       required:
+      - contains_participant_data
       - created_at
       - embed_url
       - folder
@@ -11879,6 +12005,9 @@ components:
         name:
           type: string
           readOnly: true
+        contains_participant_data:
+          type: boolean
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -11888,6 +12017,7 @@ components:
           format: date-time
           readOnly: true
       required:
+      - contains_participant_data
       - created_at
       - id
       - name
@@ -14069,6 +14199,8 @@ components:
           type: string
           format: uuid
           nullable: true
+        contains_participant_data:
+          type: boolean
     PatchedDeadlineInput:
       type: object
       properties:
@@ -14226,12 +14358,15 @@ components:
           type: string
           format: uuid
           nullable: true
-    PatchedFolderRename:
+    PatchedFolderUpdate:
       type: object
+      description: Rename, tick or clear "Contains participant data", or both.
       properties:
         name:
           type: string
           maxLength: 200
+        contains_participant_data:
+          type: boolean
     PatchedFundingInput:
       type: object
       properties:
@@ -14547,6 +14682,11 @@ components:
         abstract:
           type: string
           maxLength: 20000
+    PatchedParticipantFlag:
+      type: object
+      properties:
+        contains_participant_data:
+          type: boolean
     PatchedPolicy:
       type: object
       properties:
@@ -15792,6 +15932,14 @@ components:
             $ref: '#/components/schemas/SearchHit'
       required:
       - results
+    SourceEnum:
+      enum:
+      - web
+      - link
+      type: string
+      description: |-
+        * `web` - Web
+        * `link` - Link
     StageEnum:
       enum:
       - funding

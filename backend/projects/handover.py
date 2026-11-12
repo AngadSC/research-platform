@@ -8,6 +8,7 @@ The number of queries is constant: one per section plus a few for the "no other 
 from django.db.models import Count, Q
 from django.utils import timezone
 
+from assistant.privacy import ai_visible
 from audit.models import AuditAction, AuditEvent
 from audit.services import record
 from documents.models import Document
@@ -56,14 +57,16 @@ def _item(lab_id, kind, obj, title, project, path, reason):
     }
 
 
-def build_report(*, requester, lab, membership, project=None) -> dict:
+def build_report(*, requester, lab, membership, project=None, for_ai=False) -> dict:
     """`membership` is the target's LabMembership; `project` limits the report to one project
-    the requester can already see."""
+    the requester can already see. `for_ai` leaves out participant data (assistant/privacy.py)."""
     target = membership.user
     lid = lab.pk
 
     def scoped(model):
         qs = model.objects.visible_to(requester, lab)
+        if for_ai:
+            qs = ai_visible(qs)
         if project is None:
             return qs
         return qs.filter(pk=project.pk) if model is Project else qs.filter(project=project)

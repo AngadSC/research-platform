@@ -8,6 +8,7 @@ import { DetailPanel } from "@/components/shared/DetailPanel";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { LinkedFiles } from "@/components/shared/LinkedFiles";
+import { ParticipantBadge } from "@/components/shared/ParticipantData";
 import type { LinkTarget } from "@/components/shared/LinkMenu";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ReferenceList } from "@/components/shared/References";
@@ -76,7 +77,16 @@ const NotFound = () => <FormError message="We couldn't find that page." />;
 
 const COLUMNS: { [K in Kind]: Column<AnyRecord>[] } = {
   datasets: [
-    { key: "n", header: "Name", cell: (r) => (r as Dataset).name },
+    {
+      key: "n",
+      header: "Name",
+      cell: (r) => (
+        <span className="flex items-center gap-2">
+          {(r as Dataset).name}
+          {(r as Dataset).contains_participant_data && <ParticipantBadge />}
+        </span>
+      ),
+    },
     { key: "v", header: "Version", cell: (r) => (r as Dataset).version_label },
     {
       key: "c",
@@ -304,6 +314,7 @@ function fields(kind: Kind, r: AnyRecord, labId: string, base: string): [string,
         ["Access controlled by", who(d.controlled_by)],
         ["How to get access", d.access_notes || "None"],
         ["Checksum", d.checksum || "None"],
+        ["Participant data", d.contains_participant_data ? <ParticipantBadge key="pd" /> : "No"],
         [
           "New version of",
           <Refs

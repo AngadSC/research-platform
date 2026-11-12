@@ -11,6 +11,8 @@ const IDS: Record<string, [string, string]> = {
   project_id: ["project", "Project"],
   task_id: ["task", "Task"],
   assignee_id: ["person", "Assign to"],
+  folder_id: ["folder", "Folder"],
+  analysis_id: ["analysis", "Analysis"],
 };
 
 /** The rows of one action: names instead of ids, then every other argument not already shown in

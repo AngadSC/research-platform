@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
 import { LinkedFiles } from "@/components/shared/LinkedFiles";
+import { PARTICIPANT_HINT, ParticipantBadge } from "@/components/shared/ParticipantData";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -39,6 +40,8 @@ import {
   useCurrentFolder,
   useDeleteDocument,
   useDocuments,
+  useFolders,
+  useParticipantFlag,
 } from "@/hooks/documents";
 import { downloadUrl, useAttachments } from "@/hooks/projects";
 import { personName, type Attachment, type DocumentRow } from "@/lib/api-types";
@@ -62,6 +65,7 @@ const rowId = (r: Row) => (r.doc ? r.doc.id : r.file.id);
 const rowName = (r: Row) => (r.doc ? r.doc.title : r.file.original_filename);
 const rowDate = (r: Row) => (r.doc ? r.doc.updated_at : r.file.created_at);
 const rowFolder = (r: Row) => (r.doc ? r.doc.folder : r.file.folder) ?? null;
+const rowFlagged = (r: Row) => (r.doc ?? r.file).contains_participant_data;
 
 /** Documents and uploaded files together, in one folder tree. Every server check is unchanged. */
 export default function DocumentsTab({ labId, projectId, project }: ProjectTabProps) {
@@ -72,6 +76,24 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
   const { list: files, uploadFile, remove: removeFile } = useAttachments(labId, projectId);
   const canEdit = project.my_permissions.includes("edit_content");
   const folder = useCurrentFolder();
+  const { data: folders = [] } = useFolders(labId, projectId);
+  const folderFlagged = folders.find((f) => f.id === folder)?.contains_participant_data ?? false;
+  const flag = useParticipantFlag(labId);
+  const toggleFlag = (r: Row) => {
+    const value = !rowFlagged(r);
+    flag.mutate(
+      { kind: r.doc ? "documents" : "attachments", id: rowId(r), value },
+      {
+        onSuccess: () =>
+          toast.success(
+            value ? `Marked as participant data. ${PARTICIPANT_HINT}` : "No longer marked",
+          ),
+        onError: (e) => toast.error(formErrors(e, []).form ?? "Something went wrong."),
+      },
+    );
+  };
+  const flagLabel = (r: Row) =>
+    rowFlagged(r) ? "Not participant data" : "Mark as participant data";
   const [deleting, setDeleting] = useState<Row | null>(null);
   const [moving, setMoving] = useState<Movable | null>(null);
   const [embedding, setEmbedding] = useState(false);
@@ -115,7 +137,12 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
     {
       key: "name",
       header: "Name",
-      cell: (r) => <span className="font-medium">{rowName(r)}</span>,
+      cell: (r) => (
+        <span className="flex items-center gap-2">
+          <span className="font-medium">{rowName(r)}</span>
+          {rowFlagged(r) && <ParticipantBadge />}
+        </span>
+      ),
     },
     {
       key: "type",
@@ -178,6 +205,16 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
               >
                 <Trash2 aria-hidden />
               </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" aria-label={`More for ${rowName(r)}`}>
+                    <MoreHorizontal aria-hidden />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => toggleFlag(r)}>{flagLabel(r)}</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           )}
           {canEdit && r.doc && (
@@ -189,6 +226,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onSelect={() => startMove(r)}>Move to folder</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => toggleFlag(r)}>{flagLabel(r)}</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setDeleting(r)}>Delete</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -260,7 +298,10 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
       <UploadDialog
         open={uploading}
         onOpenChange={setUploading}
-        send={(file, onProgress) => uploadFile.mutateAsync({ file, onProgress, folder })}
+        participant={folderFlagged}
+        send={(file, onProgress, participant) =>
+          uploadFile.mutateAsync({ file, onProgress, folder, participant })
+        }
       />
       <EmbedDialog
         open={embedding}

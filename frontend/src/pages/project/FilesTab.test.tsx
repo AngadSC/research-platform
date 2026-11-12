@@ -103,17 +103,31 @@ describe("files", () => {
     expect((FakeXHR.sent[0]!.get("file") as File).name).toBe("n.pdf");
   });
 
+  it("sends the participant data tick, which also changes what is confirmed", async () => {
+    mockFetch(base(["edit_content"]));
+    renderRoute(FILES);
+    const u = userEvent.setup();
+    await openDialog(u);
+    expect(screen.getByText("Claude and other AI tools will never see this.")).toBeInTheDocument();
+    await u.upload(screen.getByLabelText("Choose file"), pdf());
+    await u.click(screen.getByRole("checkbox", { name: "Contains participant data" }));
+    await u.click(screen.getByRole("checkbox", { name: /ethics approval allows/i }));
+    await u.click(screen.getByRole("button", { name: "Upload" }));
+    await waitFor(() => expect(FakeXHR.sent).toHaveLength(1));
+    expect(FakeXHR.sent[0]!.get("contains_participant_data")).toBe("true");
+  });
+
   it("shows the notice unticked again on a second upload", async () => {
     mockFetch(base(["edit_content"]));
     renderRoute(FILES);
     const u = userEvent.setup();
     await openDialog(u);
-    await u.click(screen.getByRole("checkbox"));
+    await u.click(screen.getByRole("checkbox", { name: /no participant identifiers/i }));
     await u.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     await openDialog(u);
     expect(screen.getByText(/Do not upload participant identifiers/)).toBeInTheDocument();
-    expect(screen.getByRole("checkbox")).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /no participant identifiers/i })).not.toBeChecked();
   });
 
   it("rejects oversize files client-side", async () => {
@@ -125,7 +139,7 @@ describe("files", () => {
     Object.defineProperty(big, "size", { value: 51 * 1024 * 1024 });
     await u.upload(screen.getByLabelText("Choose file"), big);
     expect(await screen.findByText(/The limit is 50 MB/)).toBeInTheDocument();
-    await u.click(screen.getByRole("checkbox"));
+    await u.click(screen.getByRole("checkbox", { name: /no participant identifiers/i }));
     expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled();
   });
 
@@ -139,6 +153,32 @@ describe("files", () => {
     expect(calls.some((c) => c.method === "DELETE")).toBe(false);
     await userEvent.click(await screen.findByRole("button", { name: "Delete file" }));
     await waitFor(() => expect(calls.some((c) => c.method === "DELETE")).toBe(true));
+  });
+
+  it("badges participant data and marks a file from its menu", async () => {
+    const flagged = {
+      ...att,
+      id: "a2",
+      original_filename: "raw.csv",
+      contains_participant_data: true,
+    };
+    const calls = mockFetch({
+      ...base(["edit_content"], [att, flagged]),
+      "PATCH /api/labs/lab1/attachments/a1/": { body: { ...att, contains_participant_data: true } },
+    });
+    renderRoute(FILES);
+    expect(await screen.findByRole("cell", { name: /^raw\.csv/ })).toHaveTextContent(
+      "Participant data",
+    );
+    expect(screen.getAllByText("Participant data")).toHaveLength(1); // paper.pdf has none
+    await userEvent.click(screen.getByRole("button", { name: "More for paper.pdf" }));
+    await userEvent.click(
+      await screen.findByRole("menuitem", { name: "Mark as participant data" }),
+    );
+    await waitFor(() => {
+      const patch = calls.find((c) => c.method === "PATCH");
+      expect(patch?.body).toEqual({ contains_participant_data: true });
+    });
   });
 
   it("hides upload and delete without edit_content", async () => {

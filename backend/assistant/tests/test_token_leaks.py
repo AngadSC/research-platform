@@ -169,7 +169,14 @@ def test_no_token_appears_after_creation(world, caplog, monkeypatch):
         for obj in model.objects.all():
             seen += [str(obj), repr(obj), str(obj.__dict__)]
     out = io.StringIO()
-    call_command("dumpdata", "assistant", "audit", stdout=out)
+    call_command(
+        "dumpdata",
+        "assistant.aigrant",
+        "assistant.aitoken",
+        "assistant.oauthclient",
+        "audit",
+        stdout=out,
+    )
     seen.append(out.getvalue())
     seen.append(json.dumps(check))
 

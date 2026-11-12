@@ -6,6 +6,7 @@ import { ConflictDialog } from "@/components/documents/ConflictDialog";
 import { StaleDocumentBanner } from "@/components/documents/StaleDocumentBanner";
 import { RevisionsPanel } from "@/components/documents/RevisionsPanel";
 import { LinkedFiles } from "@/components/shared/LinkedFiles";
+import { PARTICIPANT_HINT, ParticipantBadge } from "@/components/shared/ParticipantData";
 import { FormField } from "@/components/shared/FormField";
 import { FormError } from "@/components/shared/FormError";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useDeleteDocument, useDocument, useSaveDocument } from "@/hooks/documents";
+import {
+  useDeleteDocument,
+  useDocument,
+  useParticipantFlag,
+  useSaveDocument,
+} from "@/hooks/documents";
 import { useMentionPeople } from "@/hooks/mentions";
 import { useProject } from "@/hooks/projects";
 import { useLab } from "@/hooks/workspace";
@@ -138,6 +144,21 @@ function DocumentEditor({
   const { mutateAsync } = save;
   const remove = useDeleteDocument(labId, projectId);
   const [title, setTitle] = useState(doc.title);
+  const [flagged, setFlagged] = useState(doc.contains_participant_data);
+  const flag = useParticipantFlag(labId);
+  const toggleFlag = () =>
+    flag.mutate(
+      { kind: "documents", id: doc.id, value: !flagged },
+      {
+        onSuccess: () => {
+          toast.success(
+            flagged ? "No longer marked" : `Marked as participant data. ${PARTICIPANT_HINT}`,
+          );
+          setFlagged(!flagged);
+        },
+        onError: (e) => toast.error(formErrors(e, []).form ?? "Something went wrong."),
+      },
+    );
   const [dirty, setDirty] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [conflict, setConflict] = useState<DocumentConflict | null>(null);
@@ -333,6 +354,11 @@ function DocumentEditor({
             schedule();
           }}
         />
+        {flagged && (
+          <span className="shrink-0 pt-2.5">
+            <ParticipantBadge />
+          </span>
+        )}
         <span aria-live="polite" className="shrink-0 pt-3 text-xs text-muted-foreground">
           {saveState === "saving" && "Saving…"}
           {saveState === "saved" && !dirty && "Saved"}
@@ -373,6 +399,11 @@ function DocumentEditor({
               </>
             )}
             <DropdownMenuItem onSelect={() => setPanel("history")}>History</DropdownMenuItem>
+            {canEdit && (
+              <DropdownMenuItem onSelect={toggleFlag}>
+                {flagged ? "Not participant data" : "Mark as participant data"}
+              </DropdownMenuItem>
+            )}
             {projectId && (
               <>
                 <DropdownMenuItem onSelect={() => setPanel("retention")}>

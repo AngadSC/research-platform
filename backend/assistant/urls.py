@@ -3,7 +3,7 @@ sit at fixed root paths; the rest is under /api/ like every other endpoint."""
 
 from django.urls import path
 
-from assistant import ai_views, mcp, oauth, views
+from assistant import ai_views, file_links, mcp, oauth, views
 
 app_name = "assistant"
 L = "api/labs/<uuid:lab_id>/"
@@ -23,6 +23,8 @@ urlpatterns = [
         views.LabGrantDetailView.as_view(),
         name="lab-grant-detail",
     ),
+    # VISION S1: download and upload links for tools on the person's computer (MATLAB)
+    path("api/file-link", file_links.FileLinkView.as_view(), name="file-link"),
     # In-app assistant (D187-D192)
     path("api/ai/keys/", ai_views.KeyListView.as_view(), name="key-list"),
     path("api/ai/keys/<str:ai_provider>/", ai_views.KeyDetailView.as_view(), name="key-detail"),

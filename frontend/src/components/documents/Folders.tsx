@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { toast } from "sonner";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 import { FormField } from "@/components/shared/FormField";
+import { ParticipantBadge, ParticipantCheckbox } from "@/components/shared/ParticipantData";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -53,9 +54,10 @@ export function FolderBrowser({
 }) {
   const current = useCurrentFolder();
   const { data: folders = [] } = useFolders(labId, projectId);
-  const { create, rename, remove } = useFolderActions(labId, projectId);
+  const { create, update, remove } = useFolderActions(labId, projectId);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [name, setName] = useState("");
+  const [flagged, setFlagged] = useState(false);
   const byId = useMemo(() => byIdMap(folders), [folders]);
   const here = current ? byId.get(current) : undefined;
   const children = folders.filter((f) => (f.parent ?? null) === (current ?? null));
@@ -71,7 +73,19 @@ export function FolderBrowser({
     e.preventDefault();
     const handlers = { onSuccess: close, onError: fail };
     if (editing?.mode === "new") create.mutate({ name, parent: current }, handlers);
-    if (editing?.mode === "rename") rename.mutate({ id: editing.folder.id, name }, handlers);
+    if (editing?.mode === "rename") {
+      const was = editing.folder.contains_participant_data;
+      update.mutate(
+        { id: editing.folder.id, name, contains_participant_data: flagged },
+        {
+          ...handlers,
+          onSuccess: () => {
+            if (flagged && !was) toast.success("Everything in this folder is now participant data");
+            close();
+          },
+        },
+      );
+    }
   };
 
   return (
@@ -102,6 +116,7 @@ export function FolderBrowser({
               >
                 {f.name}
               </Link>
+              {f.contains_participant_data && <ParticipantBadge />}
               {canEdit && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -113,10 +128,11 @@ export function FolderBrowser({
                     <DropdownMenuItem
                       onSelect={() => {
                         setName(f.name);
+                        setFlagged(f.contains_participant_data);
                         setEditing({ mode: "rename", folder: f });
                       }}
                     >
-                      Rename
+                      Edit
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => setEditing({ mode: "delete", folder: f })}>
                       Delete
@@ -134,10 +150,10 @@ export function FolderBrowser({
       >
         <DialogContent>
           <DialogTitle className="text-base font-semibold">
-            {editing?.mode === "new" ? "New folder" : "Rename folder"}
+            {editing?.mode === "new" ? "New folder" : "Edit folder"}
           </DialogTitle>
           <DialogDescription className="sr-only">
-            {editing?.mode === "new" ? "Create a folder here." : "Give this folder a new name."}
+            {editing?.mode === "new" ? "Create a folder here." : "Rename this folder or mark it."}
           </DialogDescription>
           <form onSubmit={save} className="grid gap-3">
             <FormField label="Name">
@@ -152,13 +168,23 @@ export function FolderBrowser({
                 />
               )}
             </FormField>
+            {editing?.mode === "rename" && (
+              <>
+                <ParticipantCheckbox checked={flagged} onChange={setFlagged} />
+                {flagged && !editing.folder.contains_participant_data && (
+                  <p className="text-xs text-muted-foreground">
+                    Everything inside this folder will be marked too.
+                  </p>
+                )}
+              </>
+            )}
             <div className="flex justify-end gap-2">
               <DialogClose asChild>
                 <Button variant="outline" type="button">
                   Cancel
                 </Button>
               </DialogClose>
-              <Button type="submit" disabled={create.isPending || rename.isPending}>
+              <Button type="submit" disabled={create.isPending || update.isPending}>
                 Save
               </Button>
             </div>
