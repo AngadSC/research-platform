@@ -118,7 +118,7 @@ export function MarketingFooter() {
       <div className="lb-wrap lb-footer-bottom">
         <span>© {new Date().getFullYear()} labbenchos</span>
         <span>
-          <Link to="/">Privacy</Link> · <Link to="/">Terms</Link>
+          <Link to="/privacy">Privacy</Link> · <Link to="/terms">Terms</Link>
         </span>
       </div>
     </footer>

@@ -1716,3 +1716,43 @@
 .lbp-tile .lbp-link-btn {
   align-self: flex-start;
 }
+
+/* Privacy policy and terms: plain reading width. */
+.lbp-legal {
+  max-width: 760px;
+}
+.lbp-legal-updated {
+  margin: 10px 0 28px;
+  color: var(--lb-body);
+  font-size: 14px;
+}
+.lbp-legal h2 {
+  margin: 32px 0 10px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.lbp-legal p,
+.lbp-legal li {
+  color: var(--lb-body);
+  font-size: 16px;
+  line-height: 1.65;
+}
+.lbp-legal p {
+  margin: 0 0 12px;
+}
+.lbp-legal ul {
+  margin: 0 0 12px;
+  padding-left: 22px;
+  list-style: disc;
+}
+.lbp-legal li {
+  margin-bottom: 6px;
+}
+.lbp-legal a {
+  text-decoration: underline;
+}
+.lbp-legal code {
+  font-size: 0.9em;
+  overflow-wrap: anywhere;
+}
