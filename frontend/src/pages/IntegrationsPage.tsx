@@ -1,6 +1,6 @@
 import { Plug } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { ConnectDialog } from "@/components/shared/ConnectDialog";
 import { DataTable, type Column } from "@/components/shared/DataTable";
@@ -134,6 +134,13 @@ export function IntegrationsPage() {
         title="Integrations"
         description="Connect outside services to link their files to your projects. We only read details such as titles and modified times."
       />
+      <p className="text-sm text-muted-foreground">
+        Each person connects their own accounts here. Using Claude or ChatGPT?{" "}
+        <Link to="/settings#ai" className="font-medium text-foreground underline">
+          Connect them in Settings, under AI
+        </Link>
+        .
+      </p>
       <FormError message={failure ?? connectError(initialError)} />
       <section aria-labelledby="services" className="grid gap-3">
         <h2 id="services" className="text-base font-semibold">

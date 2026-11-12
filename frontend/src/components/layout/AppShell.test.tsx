@@ -174,6 +174,7 @@ describe("app shell", () => {
       .filter((t) => t !== "Sleep");
     expect(labels.slice(0, 5)).toEqual(["Home", "Projects", "My work", "Members", "Inventory"]);
     expect(labels).toContain("Training");
+    expect(labels).toContain("Integrations"); // every member connects their own accounts
     expect(main.queryByRole("link", { name: "Notifications" })).toBeNull();
     expect(screen.queryByRole("navigation", { name: "Admin" })).toBeNull();
   });
@@ -197,7 +198,6 @@ describe("app shell", () => {
     expect(admin.getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual([
       "/labs/lab1/audit-log",
       "/labs/lab1/retention",
-      "/labs/lab1/settings/integrations",
       "/labs/lab1/admin",
     ]);
     expect(

@@ -71,13 +71,11 @@ export function navItems(
     page("calendar", "Calendar", CalendarDays),
     page("chat", "Lab chat", MessagesSquare),
     page("papers", "Papers", BookOpen),
+    page("settings/integrations", "Integrations", Plug), // everyone connects their own accounts
     page("notifications", "Notifications", Bell), // the palette only; the sidebar has the bell
-    // These four permissions are held by PIs and lab admins only.
+    // These three permissions are held by PIs and lab admins only.
     ...(can("view_audit_log") ? [page("audit-log", "Audit log", History, true)] : []),
     ...(can("view_retention") ? [page("retention", "Retention", Archive, true)] : []),
-    ...(can("manage_lab_integrations")
-      ? [page("settings/integrations", "Integrations", Plug, true)]
-      : []),
     ...(can("manage_lab") ? [page("admin", "Lab details", Building2, true)] : []),
     help,
     settings,
