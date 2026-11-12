@@ -316,6 +316,7 @@ class ConversationListView(LabScopedViewMixin, generics.ListCreateAPIView):
             system_prompt=prompt.build(
                 lab=request.lab, project=project, today=timezone.localdate()
             ),
+            code_exec={} if d["provider"] == Provider.ANTHROPIC else None,  # VISION C1
         )
         return Response(ConversationSerializer(conv).data, status=status.HTTP_201_CREATED)
 

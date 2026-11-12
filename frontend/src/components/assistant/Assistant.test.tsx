@@ -379,6 +379,56 @@ describe("assistant panel", () => {
     await userEvent.selectOptions(await screen.findByLabelText("Conversation"), "c1");
     expect(await screen.findByRole("status")).toHaveTextContent(/declined to answer \(cyber\)/);
   });
+
+  it("shows code Claude ran collapsed in a native details element and links saved files", async () => {
+    stubFetch({
+      ...labs,
+      [`GET ${BASE}/config/`]: { body: config() },
+      [`GET ${BASE}/conversations/`]: { body: [answered] },
+      [`GET ${BASE}/conversations/c1/`]: {
+        body: detail({
+          items: [
+            { id: "u1", kind: "user", text: "Plot it" },
+            {
+              id: "m1:s1",
+              kind: "code",
+              title: "Ran code",
+              code: "python plot.py",
+              output: "mean 1.5",
+              status: "done",
+              files: [
+                {
+                  name: "fig.png",
+                  url: "/labs/lab1/projects/p1/documents",
+                  analysis_url: "/labs/lab1/projects/p1/workflow/analysis/analyses/a1",
+                },
+                { name: "table.csv", url: null, analysis_url: null },
+              ],
+            },
+          ],
+        }),
+      },
+    });
+    renderDrawer();
+    await open();
+    await userEvent.selectOptions(await screen.findByLabelText("Conversation"), "c1");
+    const summary = await screen.findByText("Ran code");
+    expect(screen.getByText("python plot.py")).not.toBeVisible();
+    // a native <details>: browsers open it with Enter or Space; jsdom only with a click
+    expect(summary.closest("summary")).not.toBeNull();
+    await userEvent.click(summary);
+    expect(screen.getByText("python plot.py")).toBeVisible();
+    expect(screen.getByText("mean 1.5")).toBeVisible();
+    expect(screen.getByRole("link", { name: "fig.png" })).toHaveAttribute(
+      "href",
+      "/labs/lab1/projects/p1/documents",
+    );
+    expect(screen.getByRole("link", { name: "Analysis" })).toHaveAttribute(
+      "href",
+      "/labs/lab1/projects/p1/workflow/analysis/analyses/a1",
+    );
+    expect(screen.getByText("table.csv (not saved yet)")).toBeInTheDocument();
+  });
 });
 
 describe("approving a write", () => {

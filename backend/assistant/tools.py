@@ -101,6 +101,7 @@ class Context:
     client: str = ""
     grant_id: str = ""
     request: object = None
+    run: object = None  # the in-app assistant's chat.Run (VISION C1); None everywhere else
 
 
 @dataclass(frozen=True)
@@ -112,6 +113,7 @@ class Tool:
     required: tuple
     handler: Callable
     write: bool = False
+    in_app: bool = False  # only the in-app assistant offers and runs it (code_exec.py)
 
     @property
     def input_schema(self) -> dict:
@@ -151,19 +153,30 @@ def untrusted(text, note=UNTRUSTED_NOTE) -> dict:
     return {"untrusted_content": text or "", "note": note}
 
 
-def tool(name, title, description, /, *, required=(), write=False, returns_text=False, **params):
+def tool(
+    name,
+    title,
+    description,
+    /,
+    *,
+    required=(),
+    write=False,
+    returns_text=False,
+    in_app=False,
+    **params,
+):
     if returns_text:
         description += UNTRUSTED_SENTENCE
 
     def register(fn):
-        TOOLS[name] = Tool(name, title, description, params, tuple(required), fn, write)
+        TOOLS[name] = Tool(name, title, description, params, tuple(required), fn, write, in_app)
         return fn
 
     return register
 
 
-def definitions() -> list[dict]:
-    """Neutral tool definitions, in a fixed order."""
+def definitions(in_app=False) -> list[dict]:
+    """Neutral tool definitions, in a fixed order. `in_app` adds the in-app-only tools."""
     return [
         {
             "name": t.name,
@@ -173,6 +186,7 @@ def definitions() -> list[dict]:
             "write": t.write,
         }
         for t in TOOLS.values()
+        if in_app or not t.in_app
     ]
 
 
@@ -180,6 +194,8 @@ def call(ctx: Context, name: str, args) -> dict:
     """Run one tool. Raises KeyError for an unknown tool and ToolError for anything the model can
     fix (bad input, no access, read-only grant)."""
     t = TOOLS[name]
+    if t.in_app and ctx.run is None:
+        raise KeyError(name)  # unknown everywhere but the in-app assistant
     if t.write and not ctx.can_write:
         raise WriteNotAllowed("This connection is read-only. Reconnect with read and write access.")
     args = _validate(t, args if args is not None else {})

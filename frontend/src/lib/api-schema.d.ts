@@ -4127,6 +4127,12 @@ export interface components {
             project: string | null;
             count: number;
         };
+        CodeFile: {
+            name: string;
+            /** @description Where it was saved; null until then. */
+            url: string | null;
+            analysis_url: string | null;
+        };
         /**
          * @description * `blue` - Blue
          *     * `orange` - Orange
@@ -6644,12 +6650,13 @@ export interface components {
          */
         TemplateEnum: "honours_thesis" | "secondary_data_analysis" | "survey_study";
         /**
-         * @description One row of the chat: kind `user`, `assistant`, `tool` or `usage` (tokens spent on turns
-         *     that produced no text). Only the fields of that kind are set.
+         * @description One row of the chat: kind `user`, `assistant`, `tool`, `code` (a step Claude ran in the
+         *     code sandbox, VISION C1) or `usage` (tokens spent on turns that produced no text). Only the
+         *     fields of that kind are set.
          */
         TimelineItem: {
             id: string;
-            /** @description user, assistant, tool or usage */
+            /** @description user, assistant, tool, code or usage */
             kind: string;
             text?: string;
             /** @description The model that answered. */
@@ -6668,6 +6675,12 @@ export interface components {
             };
             /** @description Tool rows: running, pending, done, error or declined. */
             status?: string;
+            /** @description Code rows: what ran. */
+            code?: string;
+            /** @description Code rows. */
+            output?: string;
+            /** @description Code rows: files it made. */
+            files?: components["schemas"]["CodeFile"][];
         };
         Token: {
             token: string;

@@ -21,6 +21,7 @@ from assistant.ai.types import ProviderError, ToolCall, TurnResult, provider_err
 LABEL = "Anthropic"
 BETA_FALLBACK = "server-side-fallback-2026-07-01"
 STOPS = {"end_turn": "end", "stop_sequence": "end", "pause_turn": "pause"}
+CODE_RESULTS = {"bash_code_execution_tool_result", "text_editor_code_execution_tool_result"}
 MAX_JSON_RETRIES = 2  # a tool input the SDK could not parse at all: re-issue the turn, bounded
 
 
@@ -115,6 +116,8 @@ def _usage(final) -> dict:
 def _result(final) -> TurnResult:
     stop = STOPS.get(final.stop_reason, final.stop_reason or "end")
     meta = {"request_id": getattr(final, "_request_id", None)}
+    container = getattr(final, "container", None)
+    meta["container"] = getattr(container, "id", None)  # code execution (VISION C1)
     iterations = getattr(final.usage, "iterations", None) or []
     meta["fallback"] = any(getattr(i, "type", "") == "fallback_message" for i in iterations)
     if stop == "refusal":  # stop_details is only meaningful on a refusal
@@ -134,9 +137,10 @@ def _result(final) -> TurnResult:
 
 
 @sensitive_variables("api_key")
-def stream_turn(*, api_key, model, system, messages, tools, fallback=True):
-    """Generator of events {"type": "text"|"tool_start"|"ping"|"retry", ...}; the last item is the
-    TurnResult. Raises ProviderError (fixed text, retryable flag)."""
+def stream_turn(*, api_key, model, system, messages, tools, fallback=True, container=None):
+    """Generator of events {"type": "text"|"tool_start"|"tool"|"ping"|"retry", ...}; the last item
+    is the TurnResult. Raises ProviderError (fixed text, retryable flag). `container` reuses a code
+    execution container (VISION C1)."""
     client = _client(api_key)
     kwargs = {
         "model": model,
@@ -149,6 +153,8 @@ def stream_turn(*, api_key, model, system, messages, tools, fallback=True):
         "output_config": {"effort": catalog.CLAUDE_EFFORT},
         "cache_control": {"type": "ephemeral"},
     }
+    if container:
+        kwargs["container"] = container
     use_fallback = fallback and model not in catalog.NO_FALLBACK
     api = client.beta.messages if use_fallback else client.messages
     if use_fallback:
@@ -158,12 +164,20 @@ def stream_turn(*, api_key, model, system, messages, tools, fallback=True):
         try:
             with api.stream(**kwargs) as stream:
                 for event in stream:
+                    block = event.content_block.type if event.type == "content_block_start" else ""
                     if event.type == "text":
                         yield {"type": "text", "delta": event.text}
-                    elif event.type == "content_block_start" and (
-                        event.content_block.type == "tool_use"
-                    ):
+                    elif block == "tool_use":
                         yield {"type": "tool_start", "name": event.content_block.name}
+                    elif block == "server_tool_use":  # code execution runs on Anthropic's side
+                        yield {"type": "tool_start", "name": "run_code"}
+                    elif block in CODE_RESULTS:
+                        yield {
+                            "type": "tool",
+                            "name": "run_code",
+                            "title": "Ran code",
+                            "status": "done",
+                        }
                     else:
                         yield {"type": "ping"}
                 final = stream.get_final_message()

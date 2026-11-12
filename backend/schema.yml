@@ -10119,6 +10119,22 @@ components:
       required:
       - count
       - project
+    CodeFile:
+      type: object
+      properties:
+        name:
+          type: string
+        url:
+          type: string
+          nullable: true
+          description: Where it was saved; null until then.
+        analysis_url:
+          type: string
+          nullable: true
+      required:
+      - analysis_url
+      - name
+      - url
     ColorEnum:
       enum:
       - blue
@@ -16621,14 +16637,15 @@ components:
     TimelineItem:
       type: object
       description: |-
-        One row of the chat: kind `user`, `assistant`, `tool` or `usage` (tokens spent on turns
-        that produced no text). Only the fields of that kind are set.
+        One row of the chat: kind `user`, `assistant`, `tool`, `code` (a step Claude ran in the
+        code sandbox, VISION C1) or `usage` (tokens spent on turns that produced no text). Only the
+        fields of that kind are set.
       properties:
         id:
           type: string
         kind:
           type: string
-          description: user, assistant, tool or usage
+          description: user, assistant, tool, code or usage
         text:
           type: string
         model:
@@ -16660,6 +16677,17 @@ components:
         status:
           type: string
           description: 'Tool rows: running, pending, done, error or declined.'
+        code:
+          type: string
+          description: 'Code rows: what ran.'
+        output:
+          type: string
+          description: Code rows.
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/CodeFile'
+          description: 'Code rows: files it made.'
       required:
       - id
       - kind

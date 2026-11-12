@@ -17,7 +17,7 @@ from django.db.models import Max
 from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
 
-from assistant import tools
+from assistant import code_exec, tools
 from assistant.ai import catalog, claude, lab_keys, openai_responses
 from assistant.ai.types import ProviderError, ToolCall, TurnResult, provider_error
 from assistant.models import Conversation, LabAIKey, Message, Provider, Role
@@ -136,9 +136,12 @@ def awaiting_approval(conv, messages=None) -> list[dict]:
             tools.validate_args(call.name, call.arguments)
         except tools.ToolError:
             continue
+        described = tools.describe_call(ctx, call.name, call.arguments)
+        if call.name == code_exec.SAVE:
+            described["preview"] += code_exec.preview(conv, call.arguments)
         out.append(
             {"id": call.id, "name": call.name, "title": t.title, "arguments": call.arguments}
-            | tools.describe_call(ctx, call.name, call.arguments)
+            | described
         )
     return out
 
@@ -175,6 +178,7 @@ def timeline(conv) -> list[dict]:
         if m.role == Role.USER and not (m.content and m.content[0].get("type") == "text"):
             results |= adapter.results_of(m.content)
     pending = {p["id"] for p in awaiting_approval(conv, messages)}
+    code_results = code_exec.results_by_id(messages)
     items, acc = [], {}
     for m in messages:
         if m.role == Role.USER:
@@ -189,6 +193,7 @@ def timeline(conv) -> list[dict]:
                 )
             continue
         _add(acc, m.usage)
+        items += code_exec.items(conv, m, code_results)  # VISION C1: code it ran, files made
         text = adapter.text_of(m.content)
         refusal = m.meta.get("refusal")
         truncated = m.stop_reason == "max_tokens"
@@ -242,7 +247,10 @@ class Run:
         self.conv, self.user, self.request = conv, user, request
         self.key = key
         self.adapter = adapter_for(conv)
-        self.tool_params = self.adapter.tool_params(tools.definitions())
+        self.code = code_exec.on(conv)  # VISION C1: Claude chats can run code
+        self.tool_params = self.adapter.tool_params(tools.definitions(in_app=self.code))
+        if self.code:
+            self.tool_params.append(code_exec.TOOL)
         self.seq = conv.messages.aggregate(m=Max("seq"))["m"] or 0
 
     # -- persistence
@@ -263,6 +271,7 @@ class Run:
             client=f"in-app assistant ({self.conv.provider} {self.conv.model})",
             grant_id="",
             request=self.request,
+            run=self,
         )
 
     # -- entry points
@@ -361,6 +370,7 @@ class Run:
         history = self.adapter.history(_messages(self.conv))
         sent = json.dumps(history, default=str)
         self._sent_chars = len(self.conv.system_prompt or "") + len(sent)
+        extra = {"container": code_exec.container_for(self.conv, self.key)} if self.code else {}
         yield from self.adapter.stream_turn(
             api_key=api_key,
             model=self.conv.model,
@@ -368,6 +378,7 @@ class Run:
             messages=history,
             tools=self.tool_params,
             fallback=getattr(self.key, "refusal_fallback", True),
+            **extra,
         )
 
     _done = False
@@ -381,6 +392,8 @@ class Run:
         lab_keys.record_usage(self.key, self.user, usage, self.conv.model)
 
     def _finish_turn(self, result: TurnResult):
+        if self.code:
+            code_exec.after_turn(self, result)
         calls = self.adapter.tool_calls(result.content)
         stop = result.stop
         # A refused turn, or one cut off inside a tool call, cannot be replayed: it is kept and
