@@ -1,3 +1,4 @@
+import { markMine } from "@/hooks/liveRefresh";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMe } from "@/hooks/workspace";
 import { api, upload } from "@/lib/api";
@@ -164,12 +165,13 @@ export function useTasks(labId: string, projectId: string) {
   return { list, create, update, remove, move };
 }
 
-export function useAttachments(labId: string, projectId: string) {
+export function useAttachments(labId: string, projectId: string, pollMs?: number) {
   const qc = useQueryClient();
   const key = [...pKey(labId, projectId), "attachments"];
   const list = useQuery({
     queryKey: key,
     queryFn: () => api<Attachment[]>(`${base(labId)}/projects/${projectId}/attachments/`),
+    refetchInterval: pollMs,
   });
   // The notice is acknowledged by the caller on every upload; nothing is remembered here.
   const uploadFile = useMutation({
@@ -192,7 +194,10 @@ export function useAttachments(labId: string, projectId: string) {
         v.onProgress,
       );
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: key }),
+    onSuccess: (a) => {
+      markMine(a?.id);
+      return qc.invalidateQueries({ queryKey: key });
+    },
   });
   const remove = useMutation({
     mutationFn: (id: string) => api(`${base(labId)}/attachments/${id}/`, { method: "DELETE" }),
