@@ -4,8 +4,10 @@ hidden exactly like a personal key (assistant/ai/keys.py). A person's own key fo
 conversation's provider always wins; otherwise the lab key is used while this month's lab spend is
 under the cap. Spend is each turn's tokens at list price (catalog.cost), per person per month."""
 
+from datetime import timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import F, Sum
 from django.utils import timezone
@@ -14,7 +16,7 @@ from rest_framework.exceptions import ValidationError
 
 from assistant.ai import catalog, keys
 from assistant.ai.types import ProviderError
-from assistant.models import AIProviderKey, LabAIKey, LabAIUsage
+from assistant.models import AIProviderKey, LabAIKey, LabAIReservation, LabAIUsage
 from audit.models import AuditAction
 from audit.services import record
 
@@ -48,8 +50,15 @@ def spent(lab) -> Decimal:
     return total or Decimal(0)
 
 
+def pending(lab) -> Decimal:
+    """Held estimates of model calls that are running now."""
+    since = timezone.now() - timedelta(seconds=settings.ASSISTANT_LOCK_TTL)
+    held = LabAIReservation.objects.for_lab(lab).filter(created_at__gt=since)
+    return held.aggregate(s=Sum("cost_usd"))["s"] or Decimal(0)
+
+
 def under_cap(row: LabAIKey) -> bool:
-    return spent(row.lab_id) < row.monthly_cap_usd
+    return spent(row.lab_id) + pending(row.lab_id) < row.monthly_cap_usd
 
 
 def usage(lab) -> list[dict]:
@@ -89,15 +98,26 @@ def key_for(user, lab, provider):
     return row
 
 
-def recheck(row: LabAIKey) -> LabAIKey:
+def reserve(row: LabAIKey, turn_usage: dict, *models) -> tuple[LabAIKey, LabAIReservation]:
     """Before each model call of a running answer: the key may have been removed or replaced, or
-    the cap reached, since the answer started."""
-    fresh = LabAIKey.objects.for_lab(row.lab_id).filter(provider=row.provider).first()
-    if fresh is None:
-        raise Unavailable("no_key", GONE_MESSAGE)
-    if not under_cap(fresh):
-        raise Unavailable("lab_limit", LIMIT_MESSAGE)
-    return fresh
+    the cap reached (counting calls running now), since the answer started. The check and the
+    hold on the estimated cost happen under a lock on the key row, so two answers cannot both
+    pass on the same headroom. The caller deletes the hold once the real cost is recorded."""
+    with transaction.atomic():
+        fresh = (
+            LabAIKey.objects.for_lab(row.lab_id)
+            .select_for_update()
+            .filter(provider=row.provider)
+            .first()
+        )
+        if fresh is None:
+            raise Unavailable("no_key", GONE_MESSAGE)
+        if not under_cap(fresh):
+            raise Unavailable("lab_limit", LIMIT_MESSAGE)
+        hold = LabAIReservation.objects.create(
+            lab_id=fresh.lab_id, cost_usd=catalog.cost(turn_usage, *models)
+        )
+    return fresh, hold
 
 
 def record_usage(row: LabAIKey, user, turn_usage: dict, *models) -> None:

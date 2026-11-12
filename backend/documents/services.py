@@ -267,7 +267,8 @@ def _link_drive_file(
             copied_from=copied_from,
         )
         record(
-            AuditAction.ATTACHMENT_UPLOADED,
+            # D244: lab admins read the audit log, and funding.* is hidden from them
+            AuditAction.FUNDING_UPDATED if pi_only else AuditAction.ATTACHMENT_UPLOADED,
             actor=user,
             lab=owner.lab,
             target=attachment,
@@ -415,7 +416,8 @@ def edit_in_google(attachment, *, user, request=None) -> Attachment:
         raise ValidationError({"file": "Google Drive did not answer. Try again."}) from None
     # The bytes have left: recorded now, so a failure to link the copy below still leaves a trace.
     record(
-        AuditAction.ATTACHMENT_DOWNLOADED,
+        # D244, as upload_attachment: a PI-only file's name must not reach lab admins
+        AuditAction.FUNDING_UPDATED if attachment.pi_only else AuditAction.ATTACHMENT_DOWNLOADED,
         actor=user,
         lab=attachment.lab,
         target=attachment,

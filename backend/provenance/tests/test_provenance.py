@@ -415,3 +415,29 @@ def test_references_are_saved_in_order_and_can_be_replaced(w):
     r = w.client().patch(url, {"references": []}, format="json")
     assert r.json()["references"] == []
     assert w.post("decision-list", {"title": "D", "references": [GOOD_REF] * 50}).status_code == 201
+
+
+def test_a_new_version_of_flagged_data_stays_flagged_unless_unticked(w):
+    """VISION A3: a flagged dataset's next version must not slip past the AI tools by default."""
+    v1 = w.make(
+        "dataset-list", {"name": "D", "version_label": "v1", "contains_participant_data": True}
+    )
+    v2 = w.make("dataset-list", {"name": "D", "version_label": "v2", "previous_version": v1})
+    v3 = w.make(
+        "dataset-list",
+        {
+            "name": "D",
+            "version_label": "v3",
+            "previous_version": v2,
+            "contains_participant_data": False,
+        },
+    )
+    plain = w.make("dataset-list", {"name": "E", "version_label": "v1"})
+    v2_of_plain = w.make(
+        "dataset-list", {"name": "E", "version_label": "v2", "previous_version": plain}
+    )
+    flags = {
+        pk: DatasetRecord.objects.for_lab(w.lab).get(pk=pk).contains_participant_data
+        for pk in (v1, v2, v3, v2_of_plain)
+    }
+    assert flags == {v1: True, v2: True, v3: False, v2_of_plain: False}

@@ -1366,8 +1366,10 @@ def read_file(ctx, lab_id, file_id, offset=0):
     f"A link that downloads one project file without signing in, for a tool on the person's own "
     f"computer. In MATLAB: websave('name.ext', url). It works for {LINK_MINUTES} minutes and "
     "anyone holding it can download the file until then, so pass it only to the person's own "
-    "tools. Making it is recorded in the lab's audit log, and so is each download.",
+    "tools. Making it is recorded in the lab's audit log, and so is each download. Because "
+    "anyone holding the link can download the file, the person approves each link.",
     required=("lab_id", "file_id"),
+    write=True,  # a login-free link to lab data is a grant of access, so it needs approval
     returns_text=True,
     lab_id=LAB,
     file_id=FILE,
@@ -1387,6 +1389,7 @@ def get_file_link(ctx, lab_id, file_id):
         request=ctx.request,
         attachment=a,
     )
+    _audit_write(ctx, lab, "get_file_link", link)
     return {"file": _file_row(a), "download_url": url, "expires_at": link.expires_at}
 
 
@@ -1655,6 +1658,11 @@ def describe_call(ctx, name, args) -> dict:
                         names.setdefault("project", obj.project.name)
                 except ToolError:
                     names[label] = NOT_FOUND
+        if args.get("file_id"):
+            try:
+                names["file"] = _file(ctx, lab, args["file_id"]).original_filename
+            except ToolError:
+                names["file"] = NOT_FOUND
         if args.get("assignee_id"):
             member = (
                 LabMembership.objects.for_lab(lab)
@@ -1673,6 +1681,41 @@ def describe_call(ctx, name, args) -> dict:
     if name == "update_task" and args.get("due_date") == "":
         preview.append({"label": "New due date", "text": "None (the due date will be cleared)"})
     return {"resolved": names, "preview": preview}
+
+
+# Tools whose stored results carry item content. The in-app assistant replays the whole chat to
+# the model every turn, so before it does, `still_readable` re-checks each of these results.
+REPLAY_CHECKED = frozenset({"get_document", "read_file", "read_paper", "search"})
+
+
+def still_readable(ctx, call, text) -> bool:
+    """False if the result `text` of an earlier `call` shows an item that AI tools may not read
+    now: flagged "Contains participant data" since (folders and Google copies included), deleted,
+    or no longer visible to this person. Fails closed on anything it cannot make sense of."""
+    try:
+        args = call.arguments
+        forget(ctx.user)
+        lab = _lab(ctx, args["lab_id"])
+        if call.name == "get_document":
+            _get(ctx, lab, Document, args["document_id"], "document", deleted_at__isnull=True)
+        elif call.name == "read_file":
+            _file(ctx, lab, args["file_id"])
+        elif call.name == "read_paper":
+            pdf = paper_services.live_pdf(_paper(ctx, lab, args["paper_id"]))
+            return pdf is None or not privacy.is_flagged(pdf)
+        elif call.name == "search":
+            for hit in json.loads(text)["results"]:
+                item = (
+                    SEARCH_TYPES[hit["type"]]
+                    .model.objects.for_lab(lab.pk)
+                    .filter(pk=hit["id"])
+                    .first()
+                )
+                if item is not None and privacy.is_flagged(item):
+                    return False
+        return True
+    except (ToolError, KeyError, TypeError, ValueError):
+        return False
 
 
 def _id_or_none(value):

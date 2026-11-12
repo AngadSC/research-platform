@@ -195,6 +195,6 @@ def test_list_files_says_which_drive_files_can_be_read(world, transport):
 
 def test_get_file_link_still_refuses_drive_files(world, transport):
     att = linked(world, DOC)
-    c = tools.Context(user=world.u.pi, lab_ids=frozenset({str(world.lab_a.pk)}), can_write=False)
+    c = tools.Context(user=world.u.pi, lab_ids=frozenset({str(world.lab_a.pk)}), can_write=True)
     with pytest.raises(tools.ToolError, match="Google Drive"):
         tools.call(c, "get_file_link", {"lab_id": str(world.lab_a.pk), "file_id": str(att.pk)})

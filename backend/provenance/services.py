@@ -231,6 +231,10 @@ def create(kind, *, project, user, data, request=None):
         values.setdefault("ran_at", timezone.now())
     if kind == "decision":
         values.setdefault("decided_on", datetime.date.today())
+    previous = values.get("previous_version") if kind == "dataset" else None
+    if previous and previous.contains_participant_data:
+        # a new version of flagged data stays flagged unless the form said otherwise
+        values.setdefault("contains_participant_data", True)
     obj = spec.model(lab=project.lab, project=project, **values)
     if kind == "analysis":
         _check_analysis(obj)

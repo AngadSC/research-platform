@@ -66,6 +66,16 @@ def tool_results(results: list[tuple[ToolCall, bool, str]]) -> list[dict]:
     ]
 
 
+def refuse_results(content: list, ids: set, text: str) -> list:
+    """The same results with those calls' output replaced by `text`."""
+    return [
+        i | {"output": text}
+        if i.get("type") == "function_call_output" and i["call_id"] in ids
+        else i
+        for i in content
+    ]
+
+
 def results_of(content: list) -> dict[str, tuple[bool, str]]:
     """call id -> (succeeded, text), for the timeline."""
     out = {}

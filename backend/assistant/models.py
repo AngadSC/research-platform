@@ -187,6 +187,20 @@ class LabAIUsage(LabScopedModel):
         return f"AI usage {self.month:%Y-%m}"
 
 
+class LabAIReservation(LabScopedModel):
+    """What a model call on the lab key is expected to cost, held from before the call until its
+    real cost is recorded, so that answers running at the same moment each see the others' spend
+    against the monthly cap. One that is never released (a crash) stops counting after
+    ASSISTANT_LOCK_TTL seconds."""
+
+    cost_usd = models.DecimalField(max_digits=12, decimal_places=6)
+
+    permission_domain = "lab"
+
+    def __str__(self):
+        return "AI cost reservation"
+
+
 class Role(models.TextChoices):
     USER = "user"
     ASSISTANT = "assistant"

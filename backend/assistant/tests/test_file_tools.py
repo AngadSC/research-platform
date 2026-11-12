@@ -150,12 +150,25 @@ def refused(c, name, **args):
 def test_tools_are_registered_for_mcp_and_the_assistant():
     by = {d["name"]: d for d in tools.definitions()}
     assert not by["list_files"]["write"] and not by["read_file"]["write"]
-    assert not by["get_file_link"]["write"] and by["create_upload_link"]["write"]
+    assert by["get_file_link"]["write"] and by["create_upload_link"]["write"]
     assert "websave" in by["get_file_link"]["description"]
     assert "MultipartFormProvider" in by["create_upload_link"]["description"]
     listed = {t["name"]: t for t in mcp._tool_list()}
     assert listed["create_upload_link"]["annotations"]["readOnlyHint"] is False
     assert listed["read_file"]["annotations"]["readOnlyHint"] is True
+    assert listed["get_file_link"]["annotations"]["readOnlyHint"] is False
+
+
+def test_get_file_link_needs_a_write_connection_and_names_the_file(world, ctx, files):
+    """A login-free download link is a grant of access: a read-only connection cannot make one,
+    and the in-app approval dialog names the file instead of showing its id."""
+    args = {"lab_id": a(world), "file_id": str(files["csv"].pk)}
+    with pytest.raises(tools.WriteNotAllowed):
+        tools.call(ctx(world.u.contrib, world.lab_a, via="in_app"), "get_file_link", args)
+    shown = tools.describe_call(
+        ctx(world.u.contrib, world.lab_a, via="in_app"), "get_file_link", args
+    )
+    assert shown["resolved"]["file"] == "rt.csv"
 
 
 # ---------------------------------------------------------------- list_files
@@ -307,7 +320,9 @@ def test_read_file_refuses_flagged_and_cross_lab(world, ctx, files):
 
 
 def link_for(world, ctx, user, att):
-    out = run(ctx(user, world.lab_a), "get_file_link", lab_id=a(world), file_id=str(att.pk))
+    out = run(
+        ctx(user, world.lab_a, write=True), "get_file_link", lab_id=a(world), file_id=str(att.pk)
+    )
     return out, path(out["download_url"])
 
 
@@ -333,7 +348,7 @@ def test_download_link_works_without_a_session_and_is_audited(world, ctx, files)
 
 
 def test_get_file_link_refuses_flagged_files(world, ctx, files):
-    c = ctx(world.u.pi, world.lab_a)
+    c = ctx(world.u.pi, world.lab_a, write=True)
     assert (
         refused(c, "get_file_link", lab_id=a(world), file_id=str(files["flagged"].pk))
         == privacy.REFUSAL
@@ -376,7 +391,7 @@ def test_download_rechecks_access_on_every_use(world, ctx, files):
 
 
 def test_link_dies_with_the_connection_that_made_it(world, ctx, files):
-    c = ctx(world.u.contrib, world.lab_a)
+    c = ctx(world.u.contrib, world.lab_a, write=True)
     out = run(c, "get_file_link", lab_id=a(world), file_id=str(files["csv"].pk))
     url = path(out["download_url"])
     assert APIClient().get(url).status_code == 200
@@ -391,7 +406,7 @@ def test_link_dies_with_the_connection_that_made_it(world, ctx, files):
 
 
 def test_in_app_link_needs_the_in_app_assistant(world, ctx, files):
-    c = ctx(world.u.contrib, world.lab_a, via="in_app")
+    c = ctx(world.u.contrib, world.lab_a, via="in_app", write=True)
     out = run(c, "get_file_link", lab_id=a(world), file_id=str(files["csv"].pk))
     url = path(out["download_url"])
     assert APIClient().get(url).status_code == 200

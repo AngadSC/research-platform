@@ -17,7 +17,7 @@ from django.db.models import Max
 from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
 
-from assistant import tools
+from assistant import privacy, tools
 from assistant.ai import catalog, claude, lab_keys, openai_responses
 from assistant.ai.types import ProviderError, ToolCall, TurnResult, provider_error
 from assistant.models import Conversation, LabAIKey, Message, Provider, Role
@@ -329,21 +329,30 @@ class Run:
         for _step in range(catalog.MAX_STEPS):
             if not lab_allows(self.conv.lab_id):
                 raise PolicyOff
+            history = self.adapter.history(self._replayable())
+            self._sent_chars = len(self.conv.system_prompt or "") + len(
+                json.dumps(history, default=str)
+            )
+            hold = None
             if isinstance(self.key, LabAIKey):  # VISION A5: removed, replaced or at the cap?
-                self.key = lab_keys.recheck(self.key)
+                self.key, hold = lab_keys.reserve(self.key, self._estimate(), self.conv.model)
             result, self._done = None, False
-            turn = self._turn()
             try:
-                for ev in turn:
-                    if isinstance(ev, TurnResult):
-                        result = ev
-                    else:
-                        yield ev
+                turn = self._turn(history)
+                try:
+                    for ev in turn:
+                        if isinstance(ev, TurnResult):
+                            result = ev
+                        else:
+                            yield ev
+                finally:
+                    turn.close()  # D196: a closed connection must close the provider's stream now
+                    if result is None and isinstance(self.key, LabAIKey):
+                        self._charge_unfinished()
+                yield from self._finish_turn(result)
             finally:
-                turn.close()  # D196: a closed connection must close the provider's stream now
-                if result is None and isinstance(self.key, LabAIKey):
-                    self._charge_unfinished()
-            yield from self._finish_turn(result)
+                if hold is not None:  # the real cost is recorded by now (or the call failed)
+                    hold.delete()
             if self._done:
                 return
         yield {
@@ -353,14 +362,11 @@ class Run:
         }
 
     @sensitive_variables("api_key")
-    def _turn(self):
+    def _turn(self, history):
         try:
             api_key = self.key.api_key()
         except Exception:
             raise provider_error("key_invalid", self.adapter.LABEL) from None
-        history = self.adapter.history(_messages(self.conv))
-        sent = json.dumps(history, default=str)
-        self._sent_chars = len(self.conv.system_prompt or "") + len(sent)
         yield from self.adapter.stream_turn(
             api_key=api_key,
             model=self.conv.model,
@@ -373,12 +379,43 @@ class Run:
     _done = False
     _sent_chars = 0
 
+    def _estimate(self) -> dict:
+        """What a turn may cost before the provider reports it: the request at about 3 characters
+        a token plus the largest possible answer. Held against the lab's cap during the call, and
+        charged if the turn is cut short."""
+        return {"input_tokens": self._sent_chars // 3, "output_tokens": catalog.MAX_OUTPUT_TOKENS}
+
     def _charge_unfinished(self):
         """A turn cut short (Stop, closed tab, deadline, provider error) is still billed to the lab
-        key, but the provider only reports usage at the end. Charge a conservative estimate: the
-        request at about 3 characters a token plus the largest possible answer."""
-        usage = {"input_tokens": self._sent_chars // 3, "output_tokens": catalog.MAX_OUTPUT_TOKENS}
-        lab_keys.record_usage(self.key, self.user, usage, self.conv.model)
+        key, but the provider only reports usage at the end, so charge the estimate."""
+        lab_keys.record_usage(self.key, self.user, self._estimate(), self.conv.model)
+
+    def _replayable(self) -> list[Message]:
+        """The log as it goes back to the model. A read result stored earlier is withheld if its
+        item is flagged "Contains participant data" now, or has been deleted or hidden since: its
+        text is replaced by the refusal, in this copy only, before any provider adapter sees it."""
+        messages = _messages(self.conv)
+        calls = {
+            c.id: c
+            for m in messages
+            if m.role == Role.ASSISTANT and m.in_context
+            for c in self.adapter.tool_calls(m.content)
+            if c.name in tools.REPLAY_CHECKED
+        }
+        if not calls:
+            return messages
+        ctx = self._context(can_write=False)
+        for m in messages:
+            if m.role != Role.USER or not m.in_context:
+                continue
+            gone = {
+                i
+                for i, (ok, text) in self.adapter.results_of(m.content).items()
+                if ok and i in calls and not tools.still_readable(ctx, calls[i], text)
+            }
+            if gone:
+                m.content = self.adapter.refuse_results(m.content, gone, privacy.REFUSAL)
+        return messages
 
     def _finish_turn(self, result: TurnResult):
         calls = self.adapter.tool_calls(result.content)

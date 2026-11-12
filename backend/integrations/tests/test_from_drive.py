@@ -275,6 +275,31 @@ def test_edit_in_google_copies_into_your_drive_and_links_back(transport, world):
     assert sent_out.metadata == {"via": "google_copy", "drive_file_id": COPY_ID}
 
 
+def test_edit_in_google_of_a_pi_only_file_stays_out_of_the_lab_admins_log(transport, world):
+    lab, users, project = world
+    att = upload(world)
+    # a grant letter (D244)
+    Attachment.objects.for_lab(lab.pk).filter(pk=att.pk).update(pi_only=True)
+    connect_drive(transport, users["pi"], lab)
+    transport.on("POST", google_drive.UPLOAD_URL, response(200, {"id": COPY_ID}))
+    google_doc = "application/vnd.google-apps.document"
+    copy = drive_file(id=COPY_ID, name="Notes", mimeType=google_doc, webViewLink=WEB)
+    transport.on("GET", COPY_URL, response(200, copy))
+
+    r = edit_in_google(api(users["pi"]), lab, att)
+    assert r.status_code == 201, r.content
+    copy_row = Attachment.objects.for_lab(lab.pk).get(pk=r.json()["id"])
+    assert copy_row.pi_only is True
+    # neither the copy nor the send-out is a file event: funding.* is hidden from lab admins
+    assert not AuditEvent.objects.filter(
+        action__in=[AuditAction.ATTACHMENT_UPLOADED, AuditAction.ATTACHMENT_DOWNLOADED]
+    ).exists()
+    assert AuditEvent.objects.filter(action=AuditAction.FUNDING_UPDATED).count() == 2
+    admin_view = api(users["lab_admin"]).get(f"/api/labs/{lab.pk}/audit-events/")
+    assert admin_view.status_code == 200
+    assert "google_copy" not in admin_view.content.decode()
+
+
 def test_edit_in_google_needs_your_own_google_connection(transport, world):
     lab, users, _ = world
     att = upload(world)
