@@ -72,6 +72,60 @@ function ToolRow({ label, status }: { label: string; status: string }) {
   );
 }
 
+/** VISION C1: one step Claude ran in the code sandbox, collapsed, with the files it made. */
+function CodeRow({ item }: { item: TimelineItem }) {
+  const status = item.status ?? "done";
+  const pre =
+    "max-h-60 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 font-mono";
+  return (
+    <div className="grid gap-1 text-xs text-muted-foreground">
+      <details>
+        <summary className="flex cursor-pointer items-center gap-2 rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+          <ToolStatus status={status} />
+          <span>
+            {item.title ?? "Ran code"}{" "}
+            <span className="sr-only">({STATUS_WORD[status] ?? status}, show the code)</span>
+          </span>
+        </summary>
+        <div className="mt-1 grid gap-1 pl-5">
+          <pre className={`${pre} text-foreground`}>{item.code}</pre>
+          {item.output && (
+            <>
+              <p>Output</p>
+              <pre className={pre}>{item.output}</pre>
+            </>
+          )}
+        </div>
+      </details>
+      {item.files && item.files.length > 0 && (
+        <ul className="grid gap-0.5 pl-5" aria-label="Files it made">
+          {item.files.map((f, i) => (
+            <li key={i}>
+              {f.url ? (
+                <>
+                  <Link className="underline underline-offset-4" to={f.url}>
+                    {f.name}
+                  </Link>
+                  {f.analysis_url && (
+                    <>
+                      {" · "}
+                      <Link className="underline underline-offset-4" to={f.analysis_url}>
+                        Analysis
+                      </Link>
+                    </>
+                  )}
+                </>
+              ) : (
+                `${f.name} (not saved yet)`
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function Notice({
   code,
   refusal,
@@ -117,6 +171,7 @@ function Item({ item, config }: { item: TimelineItem; config?: AssistantConfig }
     );
   if (item.kind === "tool")
     return <ToolRow label={item.title ?? item.name ?? "Tool"} status={item.status ?? "done"} />;
+  if (item.kind === "code") return <CodeRow item={item} />;
   if (item.kind === "usage")
     return (
       <p className="text-xs text-muted-foreground">

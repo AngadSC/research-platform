@@ -222,6 +222,10 @@ class Conversation(models.Model):
     model = models.CharField(max_length=40)
     title = models.CharField(max_length=120, blank=True)
     system_prompt = models.TextField(editable=False)
+    # VISION C1, assistant/code_exec.py. None: no code execution (OpenAI, or a chat made before it
+    # existed; like the system prompt, the tool list is fixed for a conversation's life). A Claude
+    # chat holds {"container", "inputs", "outputs", "saved_seq"} here.
+    code_exec = models.JSONField(null=True, blank=True, default=None, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

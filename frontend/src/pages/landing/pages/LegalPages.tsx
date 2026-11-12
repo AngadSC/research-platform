@@ -108,9 +108,10 @@ export function PrivacyPage() {
         or one your lab has set up. When you use it, the parts of your lab you ask about, including
         the contents of files you ask it to read, are sent to that provider under that
         account&rsquo;s agreement with them. Anything marked &ldquo;Contains participant data&rdquo;
-        is never sent to an AI provider. If you connect an AI app such as Claude or ChatGPT to
-        labbenchos, it can only see what your role in the lab allows, and you can revoke it at any
-        time.
+        is never sent to an AI provider. If you ask Claude to analyse files, copies of them go to
+        Anthropic&rsquo;s code sandbox, which Anthropic keeps for up to 30 days. If you connect an
+        AI app such as Claude or ChatGPT to labbenchos, it can only see what your role in the lab
+        allows, and you can revoke it at any time.
       </p>
       <p>Access tokens and API keys for connected services are stored encrypted.</p>
 

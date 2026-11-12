@@ -281,7 +281,7 @@ def _dispatch(request, rid, method, params, modern, grant, ctx):
 
 def _call_tool(rid, params, modern, grant, ctx):
     name = params.get("name")
-    if not isinstance(name, str) or name not in tools.TOOLS:
+    if not isinstance(name, str) or name not in tools.TOOLS or tools.TOOLS[name].in_app:
         return _rpc_error(rid, -32602, "Unknown tool", 400 if modern else 200)
     t = tools.TOOLS[name]
     if t.write and not ctx.can_write and grant.kind == GrantKind.OAUTH:

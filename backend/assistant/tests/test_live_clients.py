@@ -54,7 +54,7 @@ def test_every_tool_is_one_any_client_accepts(world):
         world.u.contrib, name="x", lab_ids=[world.lab_a.pk], access="read", days=1
     )[1]
     listed, _ = legacy_session(token)
-    assert len(listed) == len(tools.TOOLS)
+    assert len(listed) == len(tools.definitions())  # in-app-only tools are not offered
     for t in listed:
         name = t["name"]
         assert len(name) <= 64 and name.replace("_", "").isalnum(), name  # Claude and OpenAI

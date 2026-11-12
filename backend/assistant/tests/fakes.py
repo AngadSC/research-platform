@@ -54,10 +54,12 @@ class _Manager:
         for block in self.script.content:
             if block.type == "text":
                 yield SimpleNamespace(type="text", text=block.text)
-            elif block.type == "tool_use":
+            elif block.type in ("tool_use", "server_tool_use") or block.type.endswith(
+                "code_execution_tool_result"
+            ):
                 yield SimpleNamespace(
                     type="content_block_start",
-                    content_block=SimpleNamespace(type="tool_use", name=block.name),
+                    content_block=SimpleNamespace(type=block.type, name=getattr(block, "name", "")),
                 )
             else:
                 yield SimpleNamespace(type="content_block_delta")
@@ -66,14 +68,39 @@ class _Manager:
         return self.script
 
 
+class FakeFiles:
+    """The Files API (VISION C1): uploads and deletes are recorded; `outputs` are the files code
+    execution made, by id, as (name, bytes)."""
+
+    def __init__(self):
+        self.uploaded, self.deleted, self.outputs = {}, [], {}
+
+    def upload(self, *, file):
+        file_id = f"file_in{len(self.uploaded) + 1}"
+        self.uploaded[file_id] = (file[0], file[1])
+        return SimpleNamespace(id=file_id)
+
+    def delete(self, file_id):
+        self.deleted.append(file_id)
+
+    def retrieve_metadata(self, file_id):
+        name, data = self.outputs[file_id]
+        return SimpleNamespace(filename=name, size_bytes=len(data))
+
+    def download(self, file_id):
+        return SimpleNamespace(read=lambda: self.outputs[file_id][1])
+
+
 class FakeClaude:
-    """Each `stream()` call pops the next script: a BetaMessage, or an Exception to raise."""
+    """Each `stream()` or `create()` call pops the next script: a BetaMessage, or an Exception to
+    raise."""
 
     def __init__(self, *scripts):
         self.scripts = list(scripts)
         self.calls = []  # the keyword arguments of every request
         self.beta = SimpleNamespace(messages=self)
         self.messages = self
+        self.files = FakeFiles()
         self.models = SimpleNamespace(list=self._list)
         self.listed = []
         self.list_error = None  # raised by models.list: the key check made when a key is saved
@@ -81,6 +108,13 @@ class FakeClaude:
     def stream(self, **kwargs):
         self.calls.append(kwargs)
         return _Manager(self.scripts.pop(0))
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        script = self.scripts.pop(0)
+        if isinstance(script, Exception):
+            raise script
+        return script
 
     def _list(self, **kwargs):
         self.listed.append(kwargs)

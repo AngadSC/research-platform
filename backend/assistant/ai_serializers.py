@@ -135,12 +135,19 @@ class RefusalSerializer(serializers.Serializer):
     recommended_model = serializers.CharField(allow_null=True, required=False)
 
 
+class CodeFileSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    url = serializers.CharField(allow_null=True, help_text="Where it was saved; null until then.")
+    analysis_url = serializers.CharField(allow_null=True)
+
+
 class TimelineItemSerializer(serializers.Serializer):
-    """One row of the chat: kind `user`, `assistant`, `tool` or `usage` (tokens spent on turns
-    that produced no text). Only the fields of that kind are set."""
+    """One row of the chat: kind `user`, `assistant`, `tool`, `code` (a step Claude ran in the
+    code sandbox, VISION C1) or `usage` (tokens spent on turns that produced no text). Only the
+    fields of that kind are set."""
 
     id = serializers.CharField()
-    kind = serializers.CharField(help_text="user, assistant, tool or usage")
+    kind = serializers.CharField(help_text="user, assistant, tool, code or usage")
     text = serializers.CharField(required=False)
     model = serializers.CharField(required=False, help_text="The model that answered.")
     usage = UsageSerializer(required=False)
@@ -156,6 +163,9 @@ class TimelineItemSerializer(serializers.Serializer):
     status = serializers.CharField(
         required=False, help_text="Tool rows: running, pending, done, error or declined."
     )
+    code = serializers.CharField(required=False, help_text="Code rows: what ran.")
+    output = serializers.CharField(required=False, allow_blank=True, help_text="Code rows.")
+    files = CodeFileSerializer(many=True, required=False, help_text="Code rows: files it made.")
 
 
 class PreviewSerializer(serializers.Serializer):

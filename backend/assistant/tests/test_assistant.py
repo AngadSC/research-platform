@@ -144,7 +144,9 @@ def test_request_parameters_follow_the_claude_api_rules(keyed, monkeypatch):
     assert kw["betas"] == ["server-side-fallback-2026-07-01"] and kw["fallbacks"] == "default"
     assert "budget_tokens" not in json.dumps(kw["thinking"])
     assert kw["messages"][-1]["role"] == "user"  # no assistant prefill
-    assert kw["tools"] and all(t["eager_input_streaming"] is True for t in kw["tools"])
+    ours = [t for t in kw["tools"] if "input_schema" in t]  # server tools take no such field
+    assert ours and all(t["eager_input_streaming"] is True for t in ours)
+    assert {"type": "code_execution_20260521", "name": "code_execution"} in kw["tools"]
     assert [t["name"] for t in kw["tools"]][:2] == ["list_labs", "list_projects"]
     assert "research assistant" in kw["system"] and str(keyed.lab_a.pk) in kw["system"]
 
