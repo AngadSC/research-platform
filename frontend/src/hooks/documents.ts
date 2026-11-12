@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
+import { markMine } from "@/hooks/liveRefresh";
 import { api } from "@/lib/api";
 import type {
   DocumentFull,
@@ -42,7 +43,10 @@ export function useCreateDocument(labId: string, projectId: string) {
         method: "POST",
         body: { content: [], ...(typeof input === "string" ? { title: input } : input) },
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: listKey(labId, projectId) }),
+    onSuccess: (d) => {
+      markMine(d?.id);
+      return qc.invalidateQueries({ queryKey: listKey(labId, projectId) });
+    },
   });
 }
 

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { downloadUrl } from "@/hooks/projects";
+import { LIVE_POLL_MS, useNewItemToasts } from "@/hooks/liveRefresh";
 import { useDeleteRecord, useRecord, useRecords } from "@/hooks/research";
 import { ApiError } from "@/lib/api";
 import {
@@ -123,7 +124,18 @@ function List({
   base: string;
   navigate: (to: string) => void | Promise<void>;
 }) {
-  const list = useRecords<AnyRecord>(labId, projectId, kind);
+  const list = useRecords<AnyRecord>(
+    labId,
+    projectId,
+    kind,
+    kind === "analyses" ? LIVE_POLL_MS : undefined,
+  );
+  useNewItemToasts(
+    `${projectId}/${kind}`,
+    kind === "analyses" ? (list.data as { id: string; title: string }[] | undefined) : undefined,
+    "analysis",
+    (r) => r.title,
+  );
   const k = KINDS[kind];
   const add = canEdit ? (
     <Button asChild>

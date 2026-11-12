@@ -1,14 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { markMine } from "@/hooks/liveRefresh";
 import type { Kind } from "@/lib/research";
 
 export const root = (labId: string) => ["labs", labId, "research"] as const;
 const lab = (labId: string) => `/api/labs/${labId}`;
 
-export function useRecords<T>(labId: string, projectId: string, kind: Kind) {
+export function useRecords<T>(labId: string, projectId: string, kind: Kind, pollMs?: number) {
   return useQuery({
     queryKey: [...root(labId), "list", projectId, kind],
     queryFn: () => api<T[]>(`${lab(labId)}/projects/${projectId}/${kind}/`),
+    refetchInterval: pollMs,
   });
 }
 export function useRecord<T>(labId: string, kind: Kind, id: string) {
@@ -26,7 +28,10 @@ export function useSaveRecord<T>(labId: string, projectId: string, kind: Kind, i
       id
         ? api<T>(`${lab(labId)}/${kind}/${id}/`, { method: "PATCH", body: v })
         : api<T>(`${lab(labId)}/projects/${projectId}/${kind}/`, { method: "POST", body: v }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: root(labId) }),
+    onSuccess: (r) => {
+      markMine((r as { id?: string } | undefined)?.id);
+      return qc.invalidateQueries({ queryKey: root(labId) });
+    },
   });
 }
 export function useDeleteRecord(labId: string, kind: Kind) {

@@ -43,6 +43,7 @@ import {
 import { downloadUrl, useAttachments } from "@/hooks/projects";
 import { personName, type Attachment, type DocumentRow } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
+import { LIVE_POLL_MS, useNewItemToasts } from "@/hooks/liveRefresh";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { UploadDialog } from "@/pages/project/UploadDialog";
 import { FromDriveButton } from "@/components/shared/FromDriveButton";
@@ -66,10 +67,15 @@ const rowFolder = (r: Row) => (r.doc ? r.doc.folder : r.file.folder) ?? null;
 /** Documents and uploaded files together, in one folder tree. Every server check is unchanged. */
 export default function DocumentsTab({ labId, projectId, project }: ProjectTabProps) {
   const navigate = useNavigate();
-  const docs = useDocuments(labId, projectId);
+  const docs = useDocuments(labId, projectId, LIVE_POLL_MS);
   const create = useCreateDocument(labId, projectId);
   const removeDoc = useDeleteDocument(labId, projectId);
-  const { list: files, uploadFile, remove: removeFile } = useAttachments(labId, projectId);
+  const {
+    list: files,
+    uploadFile,
+    remove: removeFile,
+  } = useAttachments(labId, projectId, LIVE_POLL_MS);
+  useNewItemToasts(`${projectId}/files`, files.data, "file", (f) => f.original_filename);
   const canEdit = project.my_permissions.includes("edit_content");
   const folder = useCurrentFolder();
   const [deleting, setDeleting] = useState<Row | null>(null);
