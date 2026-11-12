@@ -323,6 +323,24 @@ def test_the_container_is_dropped_once_a_loaded_file_is_flagged(world, monkeypat
     assert Conversation.objects.get(pk=conv).code_exec["inputs"] == []
 
 
+def test_what_code_printed_from_a_file_flagged_since_is_withheld(world, monkeypatch):
+    lab, a = world.lab_a, put(world.p1, world.u.pi, "trials.csv")
+    fake = patch_claude(
+        monkeypatch,
+        claude_message([load_call(lab, a)], stop="tool_use"),
+        claude_message([text("/files/trials.csv")], container=CONTAINER),
+        claude_message([*ran("srv_1", "python stats.py"), text("Done.")], container=CONTAINER),
+        claude_message([text("Hi.")]),
+    )
+    c = api(world.u.contrib)
+    conv = new_conv(c, lab)
+    send(c, lab, conv)
+    privacy.set_flag(a, True, user=world.u.pi)
+    send(c, lab, conv, "Again")
+    sent = json.dumps(fake.calls[-1]["messages"])
+    assert "mean 1.5" not in sent and privacy.REFUSAL in sent
+
+
 def test_no_code_tools_outside_new_claude_chats(world, monkeypatch):
     lab = world.lab_a
     fake = patch_claude(monkeypatch, claude_message([text("Hi.")]), claude_message([text("Hi.")]))

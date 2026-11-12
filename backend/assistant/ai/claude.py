@@ -74,6 +74,20 @@ def refuse_results(content: list, ids: set, text: str) -> list:
     ]
 
 
+def refuse_code_output(content: list, text: str) -> list:
+    """The turn with what code printed or read replaced by `text` (its input was flagged since)."""
+    bash = {"type": "bash_code_execution_result", "stdout": text, "stderr": "", "return_code": 0}
+    editor = {"type": "text_editor_code_execution_tool_result_error", "error_code": "unavailable"}
+    return [
+        b | {"content": bash | {"content": []}}
+        if b.get("type") == "bash_code_execution_tool_result"
+        else b | {"content": editor}
+        if b.get("type") == "text_editor_code_execution_tool_result"
+        else b
+        for b in content
+    ]
+
+
 def drop_thinking(content: list) -> list:
     """The turn without its thinking blocks (they are bound to the history they came from)."""
     return [b for b in content if b.get("type") not in ("thinking", "redacted_thinking")]

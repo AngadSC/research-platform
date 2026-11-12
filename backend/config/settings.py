@@ -199,6 +199,10 @@ STORAGES = {
     "lab_files": _lab_files,
 }
 ATTACHMENT_MAX_BYTES = 50 * 1024 * 1024
+# VISION C2: our own analysis runner on a second server (runner/, docs/DEPLOY.md). The run_code
+# AI tool is offered only when both are set.
+ANALYSIS_RUNNER_URL = os.environ.get("ANALYSIS_RUNNER_URL", "")
+ANALYSIS_RUNNER_SECRET = os.environ.get("ANALYSIS_RUNNER_SECRET", "")
 FILE_UPLOAD_HANDLERS = [  # D53: the size cap goes first, before anything spools to disk
     "core.uploads.SizeLimitUploadHandler",
     "django.core.files.uploadhandler.MemoryFileUploadHandler",

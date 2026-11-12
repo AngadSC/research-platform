@@ -66,6 +66,10 @@ def tool_results(results: list[tuple[ToolCall, bool, str]]) -> list[dict]:
     ]
 
 
+def refuse_code_output(content: list, text: str) -> list:
+    return content  # no code execution on this provider
+
+
 def drop_thinking(content: list) -> list:
     """The turn without its reasoning items (replayed reasoning is optional context)."""
     return [i for i in content if i.get("type") != "reasoning"]

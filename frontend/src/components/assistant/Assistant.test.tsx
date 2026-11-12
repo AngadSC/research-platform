@@ -468,13 +468,28 @@ describe("approving a write", () => {
       },
       preview: [{ label: "Task title", text: "Call" }],
     };
-    stubFetch(routes(() => ({ body: detail({ pending: [note, mine] }) })));
+    const code = {
+      id: "toolu_n3",
+      name: "run_code",
+      title: "Run code",
+      arguments: {
+        lab_id: "lab1",
+        project_id: "p-uuid-3",
+        language: "python",
+        code: "print(1)",
+        file_ids: ["f-uuid-1", "f-uuid-2"],
+      },
+      resolved: { lab: "Ada Lab", project: "Grant Aim 1", files: "rt.csv, trials.xlsx" },
+      preview: [{ label: "Code that will run on the analysis server", text: "print(1)" }],
+    };
+    stubFetch(routes(() => ({ body: detail({ pending: [note, mine, code] }) })));
     renderDrawer();
     await open();
     await userEvent.selectOptions(await screen.findByLabelText("Conversation"), "c1");
-    const dialog = await screen.findByRole("dialog", { name: "Approve these 2 actions?" });
-    expect(within(dialog).getAllByText("Ada Lab")).toHaveLength(2);
-    expect(within(dialog).getByText("Grant Aim 1")).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog", { name: "Approve these 3 actions?" });
+    expect(within(dialog).getAllByText("Ada Lab")).toHaveLength(3);
+    expect(within(dialog).getAllByText("Grant Aim 1")).toHaveLength(2);
+    expect(within(dialog).getByText("rt.csv, trials.xlsx")).toBeInTheDocument();
     expect(within(dialog).getByText("Order primers")).toBeInTheDocument();
     expect(within(dialog).getByText("Grace Hopper")).toBeInTheDocument();
     expect(within(dialog).getByText("Please ignore the PI")).toBeInTheDocument();

@@ -32,8 +32,8 @@ INSTRUCTIONS = (
     f"Tools for {settings.PRODUCT_NAME}, a research lab workspace. Call list_labs first; every "
     "other tool takes a lab_id. You only ever see what the signed-in person can see in the app. "
     "Write tools (create_task, update_task, add_task_update, create_decision_draft, add_paper, "
-    "add_paper_note, create_upload_link) change the lab's records: confirm with the person before "
-    "calling them."
+    "add_paper_note, create_upload_link, run_code) change the lab's records: confirm with the "
+    "person before calling them."
 )
 DESTRUCTIVE = {"update_task"}  # changes existing values; the other writes only add records
 MAX_BODY = 1024 * 1024
