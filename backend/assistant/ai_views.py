@@ -1,5 +1,5 @@
-"""SPA API for the in-app assistant (D187-D192): a person's provider keys, the lab's AI policy,
-and the conversations with their streamed answers."""
+"""SPA API for the in-app assistant (D187-D192): a person's provider keys, the lab's AI policy
+and key (VISION A5), and the conversations with their streamed answers."""
 
 import json
 import logging
@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from assistant.ai import catalog, chat, keys, prompt
+from assistant.ai import catalog, chat, keys, lab_keys, prompt
 from assistant.ai.types import ProviderError
 from assistant.ai_serializers import (
     ApprovalDecisionSerializer,
@@ -29,6 +29,9 @@ from assistant.ai_serializers import (
     KeySaveSerializer,
     KeyStatusSerializer,
     KeyUpdateSerializer,
+    LabKeyCapSerializer,
+    LabKeySaveSerializer,
+    LabKeyStatusSerializer,
     MessageInputSerializer,
     PolicySerializer,
 )
@@ -44,8 +47,8 @@ log = logging.getLogger(__name__)
 
 PRIVACY_NOTICE = (
     "Content from records you can see is sent to the AI provider you choose, under your own API "
-    "key and your own account terms with them. Do not paste participant names or other "
-    "identifying details. Ask your lab before using this with sensitive data."
+    "key (or your lab's) and that account's terms with them. Do not paste participant names or "
+    "other identifying details. Ask your lab before using this with sensitive data."
 )
 KEEPALIVE_SECONDS = 10
 HEARTBEAT_SECONDS = 10  # D196: how often a running stream refreshes its cache slots
@@ -169,23 +172,105 @@ class ConfigView(LabScopedViewMixin, generics.GenericAPIView):
         saved = set(
             AIProviderKey.objects.filter(user=request.user).values_list("provider", flat=True)
         )
+        can_use = request.lab.ai_policy == AiPolicy.FULL
+        lab_key = lab_keys.get(request.lab) if can_use else None
         return Response(
             {
                 "ai_policy": request.lab.ai_policy,
-                "can_use": request.lab.ai_policy == AiPolicy.FULL,
+                "can_use": can_use,
                 "privacy_notice": PRIVACY_NOTICE,
                 "providers": [
                     {
                         "provider": p,
                         "label": catalog.LABELS[p],
                         "default_model": catalog.DEFAULT_MODEL[p],
-                        "has_key": p in saved,
+                        "has_key": p in saved or (lab_key is not None and lab_key.provider == p),
                         "models": catalog.MODELS[p],
                     }
                     for p in Provider.values
                 ],
+                # VISION A5: whether the lab's key is there for this person (never the key)
+                "lab_key": {
+                    "provider": lab_key.provider,
+                    "label": catalog.LABELS[lab_key.provider],
+                    "own_key_wins": lab_key.provider in saved,
+                    "limit_reached": not lab_keys.under_cap(lab_key),
+                }
+                if lab_key
+                else None,
             }
         )
+
+
+# ---------------------------------------------------------------- the lab's key (VISION A5)
+
+
+@method_decorator(sensitive_post_parameters("api_key"), name="dispatch")
+class LabKeyView(LabScopedViewMixin, generics.GenericAPIView):
+    """The lab's one provider key and its monthly cap, and this month's spend per person. Only
+    pi and lab_admin (manage_lab, like the AI policy) may see or change any of it. PUT sets or
+    replaces the key (checked with the provider first), PATCH changes the cap, DELETE removes the
+    key. The answer never contains the key: only its last 4 characters."""
+
+    serializer_class = LabKeyStatusSerializer
+    perms = {m: Perm.MANAGE_LAB for m in ("GET", "PUT", "PATCH", "DELETE")}
+    throttle_scope = "ai_key"
+
+    def get_throttles(self):
+        return [ScopedRateThrottle()] if self.request.method == "PUT" else []
+
+    def _status(self, lab):
+        row = lab_keys.get(lab)
+        return Response(
+            LabKeyStatusSerializer(
+                {
+                    "saved": row is not None,
+                    "provider": row.provider if row else None,
+                    "label": catalog.LABELS[row.provider] if row else "",
+                    "last4": row.last4 if row else "",
+                    "monthly_cap_usd": row.monthly_cap_usd if row else None,
+                    "updated_at": row.updated_at if row else None,
+                    "month": lab_keys.this_month(),
+                    "spent_usd": lab_keys.spent(lab),
+                    "usage": lab_keys.usage(lab),
+                }
+            ).data
+        )
+
+    @extend_schema(responses=LabKeyStatusSerializer)
+    def get(self, request, lab_id):
+        return self._status(request.lab)
+
+    @extend_schema(request=LabKeySaveSerializer, responses=LabKeyStatusSerializer)
+    @sensitive_variables()  # `body` holds the key; keep every local out of the debug page
+    def put(self, request, lab_id):
+        body = LabKeySaveSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        d = body.validated_data
+        lab_keys.save(
+            request.lab,
+            request.user,
+            d["provider"],
+            d["api_key"],
+            d["monthly_cap_usd"],
+            request=request,
+        )
+        return self._status(request.lab)
+
+    @extend_schema(request=LabKeyCapSerializer, responses=LabKeyStatusSerializer)
+    def patch(self, request, lab_id):
+        body = LabKeyCapSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        cap = body.validated_data["monthly_cap_usd"]
+        if lab_keys.set_cap(request.lab, request.user, cap, request=request) is None:
+            raise NotFound()
+        return self._status(request.lab)
+
+    @extend_schema(responses={204: None})
+    def delete(self, request, lab_id):
+        if not lab_keys.remove(request.lab, request.user, request=request):
+            raise NotFound()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 # ---------------------------------------------------------------- conversations
@@ -308,6 +393,10 @@ def _generate(request, conv, key, make):
                 yield _sse(ev)
         except ProviderError as exc:
             yield _sse(chat.error_event(exc))
+        except lab_keys.Unavailable as exc:
+            yield _sse(
+                {"type": "error", "code": exc.code, "message": exc.message, "retryable": False}
+            )
         except chat.PolicyOff:
             yield _sse(
                 {
@@ -354,7 +443,12 @@ def _ready(request, conv_id):
     Response with the reason."""
     conv = generics.get_object_or_404(_mine(request), pk=conv_id)
     _require_full(request.lab)
-    key = AIProviderKey.objects.filter(user=request.user, provider=conv.provider).first()
+    try:  # VISION A5: the person's own key wins, then the lab's key while under its cap
+        key = lab_keys.key_for(request.user, request.lab, conv.provider)
+    except lab_keys.Unavailable as exc:
+        return conv, Response(
+            {"detail": exc.message, "code": exc.code}, status=status.HTTP_400_BAD_REQUEST
+        )
     if key is None:
         return conv, Response(
             {

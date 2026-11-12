@@ -14,6 +14,7 @@ import { Section } from "@/pages/admin/common";
 import { SecuritySections } from "@/pages/SecurityPage";
 import { AiAccessSections } from "@/pages/settings/AiAccessSections";
 import { AiKeysSection } from "@/pages/settings/AiKeysSection";
+import { LabKeyNotice } from "@/pages/settings/LabAiKeySection";
 import { CustomThemes } from "@/pages/settings/CustomThemes";
 import { ProfileSection } from "@/pages/settings/ProfileSection";
 
@@ -203,6 +204,7 @@ export function SettingsPage() {
               label: "AI",
               content: (
                 <div className="grid gap-8">
+                  <LabKeyNotice />
                   <AiKeysSection />
                   <AiAccessSections />
                 </div>

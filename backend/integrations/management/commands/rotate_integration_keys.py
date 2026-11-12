@@ -13,5 +13,5 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.stdout.write(f"Re-encrypted tokens of {rotate_token_encryption()} account(s).")
-        self.stdout.write(f"Re-encrypted {rotate_all()} AI provider key(s).")
+        self.stdout.write(f"Re-encrypted {rotate_all()} AI provider key(s), lab keys included.")
         self.stdout.write(f"Re-encrypted {rotate_keys()} webhook(s).")

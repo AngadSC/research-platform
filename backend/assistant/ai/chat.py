@@ -17,9 +17,9 @@ from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
 
 from assistant import tools
-from assistant.ai import catalog, claude, openai_responses
+from assistant.ai import catalog, claude, lab_keys, openai_responses
 from assistant.ai.types import ProviderError, ToolCall, TurnResult, provider_error
-from assistant.models import Conversation, Message, Provider, Role
+from assistant.models import Conversation, LabAIKey, Message, Provider, Role
 from labs.models import AiPolicy, Lab
 
 log = logging.getLogger(__name__)
@@ -308,6 +308,8 @@ class Run:
         for _step in range(catalog.MAX_STEPS):
             if not lab_allows(self.conv.lab_id):
                 raise PolicyOff
+            if isinstance(self.key, LabAIKey):  # VISION A5: removed, replaced or at the cap?
+                self.key = lab_keys.recheck(self.key)
             result, self._done = None, False
             turn = self._turn()
             try:
@@ -360,6 +362,8 @@ class Run:
             in_context=replayable,
             meta=meta,
         )
+        if isinstance(self.key, LabAIKey):
+            lab_keys.record_usage(self.key, self.user, result.usage, result.model, self.conv.model)
         yield {
             "type": "assistant",
             "id": str(msg.pk),

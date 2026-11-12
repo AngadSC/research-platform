@@ -12,10 +12,11 @@ from rest_framework.exceptions import ValidationError
 
 from assistant.ai import catalog, claude, openai_responses
 from assistant.ai.types import ProviderError
-from assistant.models import AIProviderKey, Provider
+from assistant.models import AIProviderKey, LabAIKey, Provider
 from audit.models import AuditAction
 from audit.services import record
 from core.permissions import labs_for
+from labs.models import Lab
 
 CHECKERS = {Provider.ANTHROPIC: claude, Provider.OPENAI: openai_responses}
 # Shapes only, so a pasted sentence or the wrong provider's key is caught before any network call.
@@ -100,12 +101,14 @@ def _audit(action, user, provider, request):
 
 
 def rotate_all() -> int:
-    """Re-encrypt every stored key under the newest INTEGRATION_ENCRYPTION_KEYS key (D63)."""
+    """Re-encrypt every stored key, personal and lab (VISION A5), under the newest
+    INTEGRATION_ENCRYPTION_KEYS key (D63)."""
     from integrations import crypto
 
-    n = 0
-    for row in AIProviderKey.objects.all():
+    rows = list(AIProviderKey.objects.all())
+    for lab in Lab.objects.all():
+        rows += list(LabAIKey.objects.for_lab(lab))
+    for row in rows:
         row.key_ciphertext = crypto.rotate(row.key_ciphertext)
         row.save(update_fields=["key_ciphertext", "updated_at"])
-        n += 1
-    return n
+    return len(rows)

@@ -1,7 +1,8 @@
 """Token-leak test for AI access (D162). Real tokens (a PAT, an authorization code, access and
 refresh tokens, a PKCE verifier) go through creation, use, refresh, replay, revocation and errors;
 after creation none of them may appear in any API response, log line, audit event, model repr,
-dumpdata output, MCP or OAuth error body, or the DEBUG 500 page.
+dumpdata output, MCP or OAuth error body, or the DEBUG 500 page. Nor may the lab's AI key
+(VISION A5), set before any of it.
 
 The one allowed exposure is the response that creates the token (the PAT create response, the
 consent redirect carrying the code, the token endpoint's success body)."""
@@ -17,7 +18,9 @@ from django.test import Client
 from django.test.utils import override_settings
 
 from assistant import services
+from assistant.ai import keys
 from assistant.models import AIGrant, AIToken, OAuthClient
+from assistant.tests.fakes import LAB_CANARY
 from assistant.tests.reauth import sign_in
 from assistant.tests.test_mcp import CLAUDE_CB, authorize, pkce, register, rpc, token_request
 from audit.models import AuditEvent
@@ -42,6 +45,16 @@ def test_no_token_appears_after_creation(world, caplog, monkeypatch):
 
     def dump(resp):
         return f"{resp.status_code} {dict(resp.headers)} {resp.content.decode(errors='replace')}"
+
+    # --- the lab's AI key: never part of anything an AI app or token can reach
+    monkeypatch.setattr(keys, "check", lambda provider, api_key: None)
+    lab_key = sign_in(Client(), world.u.pi).put(
+        f"/api/labs/{world.lab_a.pk}/ai-key/",
+        {"provider": "anthropic", "api_key": LAB_CANARY, "monthly_cap_usd": "20"},
+        "application/json",
+    )
+    assert lab_key.status_code == 200
+    canaries.append(LAB_CANARY)
 
     # --- a personal access token
     api = sign_in(Client(), world.u.contrib)
@@ -181,6 +194,6 @@ def test_no_token_appears_after_creation(world, caplog, monkeypatch):
     seen.append(json.dumps(check))
 
     text = "\n".join(seen)
-    assert len(canaries) == 14
+    assert len(canaries) == 15
     leaked = [c[:8] + "..." for c in canaries if c in text]
     assert not leaked, leaked

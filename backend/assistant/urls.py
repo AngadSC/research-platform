@@ -29,6 +29,7 @@ urlpatterns = [
     path("api/ai/keys/", ai_views.KeyListView.as_view(), name="key-list"),
     path("api/ai/keys/<str:ai_provider>/", ai_views.KeyDetailView.as_view(), name="key-detail"),
     path(L + "ai-policy/", ai_views.PolicyView.as_view(), name="ai-policy"),
+    path(L + "ai-key/", ai_views.LabKeyView.as_view(), name="lab-ai-key"),  # VISION A5
     path(L + "assistant/config/", ai_views.ConfigView.as_view(), name="assistant-config"),
     path(
         L + "assistant/conversations/",

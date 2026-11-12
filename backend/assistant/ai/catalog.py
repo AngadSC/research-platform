@@ -6,7 +6,10 @@ Claude ids are exactly the strings in Anthropic's docs, with no date suffix, che
 explicit effort, auto tool choice, the server-side fallback). OpenAI ids were read
 from developers.openai.com/api/docs/models on 2026-11-05 (the docs say GPT-6 models need the
 Responses API for tool calling, which is what the OpenAI adapter uses). Prices are USD per million
-tokens, list price, used only for the "about $x" estimate shown next to a message."""
+tokens, list price, used for the "about $x" estimate shown next to a message and for the lab
+key's monthly cap (`cost`)."""
+
+from decimal import Decimal
 
 from assistant.models import Provider
 
@@ -42,3 +45,25 @@ NO_FALLBACK = {"claude-haiku-5-5"}
 
 def model_ids(provider) -> list[str]:
     return [m["id"] for m in MODELS[provider]]
+
+
+def cost(usage: dict, *models: str) -> Decimal:
+    """USD at list price for one turn's tokens, the same sum as the panel's estimate
+    (frontend/src/lib/assistant.ts): cached reads at a tenth, cache writes at 1.25 times. Priced
+    by the first listed model in `models` (the model that answered, then the conversation's)."""
+    listed = {m["id"]: m for ms in MODELS.values() for m in ms}
+    price = next((listed[m] for m in models if m in listed), None)
+    if price is None:
+        return Decimal(0)
+    p_in, p_out = Decimal(str(price["input"])), Decimal(str(price["output"]))
+    u = {k: int(usage.get(k) or 0) for k in USAGE_KEYS}
+    total = (
+        u["input_tokens"] * p_in
+        + u["cache_read_tokens"] * p_in / 10
+        + u["cache_write_tokens"] * p_in * Decimal("1.25")
+        + u["output_tokens"] * p_out
+    )
+    return total / 1_000_000
+
+
+USAGE_KEYS = ("input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens")
