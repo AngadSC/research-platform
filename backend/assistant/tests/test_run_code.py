@@ -335,3 +335,22 @@ def test_the_client_signs_the_job_and_checks_the_answer(on, monkeypatch):
     monkeypatch.setattr(requests, "post", down)
     with pytest.raises(runner.RunnerError, match="could not be reached"):
         runner.run("python", "1", [])
+
+
+def test_pi_only_files_never_reach_the_runner(world, files, on, sent):
+    files["grant"] = put(world.p1, world.u.pi, "grant-letter.csv", b"award", flagged=False)
+    Attachment.objects.for_lab(world.lab_a).filter(pk=files["grant"].pk).update(pi_only=True)
+    c = ctx(world.u.pi, world.lab_a)
+    assert "only PIs" in refused(c, args(world, "grant", files=files))
+    assert sent.jobs == []
+    assert not AuditEvent.objects.filter(
+        action=AuditAction.ATTACHMENT_DOWNLOADED, target_id=files["grant"].pk
+    ).exists()
+
+
+def test_a_saved_run_with_a_lot_of_non_ascii_output_still_returns(world, files, on, sent):
+    sent.answer = {**sent.answer, "stdout": "\u00b1" * 20_000, "stderr": "\u00b5" * 20_000}
+    c = ctx(world.u.contrib, world.lab_a, via="in_app")
+    out = tools.call(c, "run_code", args(world, "csv", files=files))
+    assert out["saved"] is True
+    assert len(json.dumps(out)) < tools.MAX_RESULT_CHARS

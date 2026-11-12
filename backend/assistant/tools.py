@@ -1690,6 +1690,8 @@ def run_code(ctx, lab_id, project_id, language, code, file_ids=(), title=""):
     inputs = []
     for file_id in dict.fromkeys(file_ids):
         a = _file(ctx, lab, file_id)  # permission, lab and participant data, as read_file
+        if a.pi_only:  # D244: outputs and the Analysis text are readable by every member
+            raise ToolError("Files only PIs can open cannot be used in a run.")
         if a.project_id != p.pk:
             raise ToolError("No file with that id in this project.")
         inputs.append(a)
@@ -1719,8 +1721,9 @@ def run_code(ctx, lab_id, project_id, language, code, file_ids=(), title=""):
     out = {
         "exit_code": got.get("exit_code"),
         "timed_out": bool(got.get("timed_out")),
-        "stdout": untrusted(got.get("stdout", ""), RUN_NOTE),
-        "stderr": untrusted(got.get("stderr", ""), RUN_NOTE),
+        # cut so the JSON (6 characters per non-ASCII one) stays under MAX_RESULT_CHARS
+        "stdout": untrusted(_cut(got.get("stdout", ""), 8000), RUN_NOTE),
+        "stderr": untrusted(_cut(got.get("stderr", ""), 8000), RUN_NOTE),
         "outputs_not_returned": got.get("skipped_outputs", 0),
         "saved": ok,
     }

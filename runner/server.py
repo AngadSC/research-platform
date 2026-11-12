@@ -161,6 +161,7 @@ def docker_args(name, language):
         "docker", "run", "--rm", "-i", f"--name={name}", "--pull=never",
         f"--runtime={RUNTIME}",
         "--network=none",
+        "--log-driver=none",  # the result tar must not be copied into the daemon's log on disk
         "--read-only",
         f"--tmpfs=/work:{tmpfs}{WORK_SIZE}",
         f"--tmpfs=/tmp:{tmpfs}64m",
@@ -199,11 +200,11 @@ def read_back(data: bytes) -> dict:
     names, total = set(), 0
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:") as tar:
         for m in tar:
-            if not m.isfile():  # links, folders and devices never come back
+            if not m.isfile() or m.issparse():  # links, folders, devices, sparse: never
                 continue
             path = posixpath.normpath(m.name.removeprefix("./"))
             if path in (".stdout", ".stderr"):
-                got[path[1:]] = _log_text(tar.extractfile(m).read())
+                got[path[1:]] = _log_text(tar.extractfile(m).read(MAX_LOG * 4 + 1))
             elif path == ".exit":
                 try:
                     got["exit_code"] = int(tar.extractfile(m).read(16))
@@ -227,35 +228,86 @@ def read_back(data: bytes) -> dict:
     return got
 
 
+def _bytes(size: str) -> int:
+    return int(size[:-1]) * {"k": 2**10, "m": 2**20, "g": 2**30}[size[-1].lower()]
+
+
+class OutputTooLarge(Exception):
+    pass
+
+
+def _run_docker(args, stdin, timeout):
+    """(exit code, stdout, stderr) of docker. Reads at most WORK_SIZE + 1 MB of stdout (the
+    result tar), so a job that floods its output cannot fill the runner's memory."""
+    cap = _bytes(WORK_SIZE) + 2**20
+    proc = subprocess.Popen(
+        args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    out, err = [], []
+
+    def feed():
+        try:
+            proc.stdin.write(stdin)
+            proc.stdin.close()
+        except OSError:
+            pass
+
+    reader = threading.Thread(target=lambda: out.append(proc.stdout.read(cap + 1)), daemon=True)
+    for t in (
+        threading.Thread(target=feed, daemon=True),
+        reader,
+        threading.Thread(target=lambda: err.append(proc.stderr.read(64_000)), daemon=True),
+    ):
+        t.start()
+    try:
+        reader.join(timeout)
+        if reader.is_alive():
+            raise subprocess.TimeoutExpired(args, timeout)
+        if len(out[0]) > cap:
+            raise OutputTooLarge
+        proc.wait(timeout=30)
+    except BaseException:
+        proc.kill()
+        raise
+    finally:
+        for pipe in (proc.stdout, proc.stderr):
+            pipe.close()
+    return proc.returncode, out[0], (err[0] if err else b"")
+
+
+def _failed(job, stderr, exit_code=None, timed_out=False):
+    return {
+        "job": job["job"],
+        "exit_code": exit_code,
+        "timed_out": timed_out,
+        "stdout": "",
+        "stderr": stderr,
+        "outputs": [],
+        "skipped_outputs": 0,
+    }
+
+
 def run_job(job) -> dict:
     name = f"job-{uuid.uuid4().hex}"
     stdin = job_tar(job["language"], job["code"], job["files"])
     try:
-        proc = subprocess.run(
-            docker_args(name, job["language"]), input=stdin, capture_output=True, timeout=TIMEOUT
-        )
+        code, stdout, stderr = _run_docker(docker_args(name, job["language"]), stdin, TIMEOUT)
     except subprocess.TimeoutExpired:
-        return {
-            "job": job["job"],
-            "exit_code": None,
-            "timed_out": True,
-            "stdout": "",
-            "stderr": f"The run was stopped after {TIMEOUT} seconds.",
-            "outputs": [],
-            "skipped_outputs": 0,
-        }
+        return _failed(job, f"The run was stopped after {TIMEOUT} seconds.", timed_out=True)
+    except OutputTooLarge:
+        return _failed(job, "The run produced too much output and was stopped.")
     finally:  # kills it if it is still running (time limit), and removes it if --rm did not
         subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=30)
     try:
-        got = read_back(proc.stdout)
+        got = read_back(stdout)
     except tarfile.TarError:
         got = None
     if got is None or got["exit_code"] is None:  # no tar: out of memory, or docker failed
-        log.warning("job %s: docker exit %s: %s", name, proc.returncode, proc.stderr[-500:])
-        oom = proc.returncode == 137
+        log.warning("job %s: docker exit %s: %s", name, code, stderr[-500:])
+        oom = code == 137
         return {
             "job": job["job"],
-            "exit_code": proc.returncode,
+            "exit_code": code,
             "timed_out": False,
             "stdout": "",
             "stderr": "The run ran out of memory."

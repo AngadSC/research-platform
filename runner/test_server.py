@@ -7,6 +7,7 @@ import io
 import json
 import os
 import subprocess
+import sys
 import tarfile
 import time
 import unittest
@@ -126,6 +127,7 @@ class DockerArgs(unittest.TestCase):
         for flag in (
             "--runtime=runsc",
             "--network=none",
+            "--log-driver=none",
             "--read-only",
             "--user=65534:65534",
             "--cap-drop=ALL",
@@ -188,6 +190,18 @@ class ReadBack(unittest.TestCase):
         got = server.read_back(tar_of({".exit": b"0", "out/a/x": b"1", "out/b/x": b"2"}))
         self.assertEqual(len(got["outputs"]), 1)  # the same base name twice
 
+    def test_sparse_members_and_huge_logs_are_bounded(self):
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w", format=tarfile.GNU_FORMAT) as tar:
+            info = tarfile.TarInfo(".stdout")
+            info.size = 3
+            tar.addfile(info, io.BytesIO(b"abc"))
+        with mock.patch.object(tarfile.TarInfo, "issparse", lambda self: True):
+            got = server.read_back(buf.getvalue())
+        self.assertEqual(got["stdout"], "")  # a sparse member is skipped outright
+        big = server.read_back(tar_of({".exit": b"0", ".stdout": b"y" * (server.MAX_LOG * 9)}))
+        self.assertLess(len(big["stdout"]), server.MAX_LOG * 4 + 100)
+
     def test_long_output_is_cut(self):
         got = server.read_back(tar_of({".exit": b"1", ".stderr": b"e" * (server.MAX_LOG + 50)}))
         self.assertTrue(got["stderr"].endswith("[cut: 50 more characters]"))
@@ -201,41 +215,51 @@ class RunJob(unittest.TestCase):
         back = tar_of({".stdout": b"1\n", ".stderr": b"", ".exit": b"0", "out/a.txt": b"A"})
         calls = []
 
-        def fake(args, **kw):
-            calls.append((args, kw))
-            return subprocess.CompletedProcess(args, 0, back if args[1] == "run" else b"", b"")
+        def docker(args, stdin, timeout):
+            calls.append((args, stdin, timeout))
+            return 0, back, b""
 
-        with mock.patch.object(server.subprocess, "run", side_effect=fake):
+        with (
+            mock.patch.object(server, "_run_docker", side_effect=docker),
+            mock.patch.object(server.subprocess, "run") as rm,
+        ):
             got = server.run_job(self.JOB)
         self.assertEqual((got["exit_code"], got["stdout"], got["job"]), (0, "1\n", "j1"))
-        run_args, run_kw = calls[0]
+        run_args, stdin, timeout = calls[0]
         name = next(a for a in run_args if a.startswith("--name=")).removeprefix("--name=")
-        self.assertEqual(run_kw["timeout"], server.TIMEOUT)
-        with tarfile.open(fileobj=io.BytesIO(run_kw["input"])) as tar:
+        self.assertEqual(timeout, server.TIMEOUT)
+        with tarfile.open(fileobj=io.BytesIO(stdin)) as tar:
             self.assertEqual(sorted(tar.getnames()), [".job/main.py", "rt.csv"])
-        self.assertEqual(calls[1][0], ["docker", "rm", "-f", name])
+        self.assertEqual(rm.call_args[0][0], ["docker", "rm", "-f", name])
 
     def test_the_time_limit_kills_the_container(self):
-        calls = []
+        def docker(args, stdin, timeout):
+            raise subprocess.TimeoutExpired(args, timeout)
 
-        def fake(args, **kw):
-            calls.append(args)
-            if args[1] == "run":
-                raise subprocess.TimeoutExpired(args, kw["timeout"])
-            return subprocess.CompletedProcess(args, 0, b"", b"")
-
-        with mock.patch.object(server.subprocess, "run", side_effect=fake):
+        with (
+            mock.patch.object(server, "_run_docker", side_effect=docker),
+            mock.patch.object(server.subprocess, "run") as rm,
+        ):
             got = server.run_job(self.JOB)
         self.assertTrue(got["timed_out"])
         self.assertEqual(got["outputs"], [])
-        name = next(a for a in calls[0] if a.startswith("--name=")).removeprefix("--name=")
-        self.assertEqual(calls[1], ["docker", "rm", "-f", name])
+        self.assertEqual(rm.call_args[0][0][:3], ["docker", "rm", "-f"])
 
     def test_out_of_memory(self):
-        done = subprocess.CompletedProcess([], 137, b"", b"")
-        with mock.patch.object(server.subprocess, "run", return_value=done):
+        with (
+            mock.patch.object(server, "_run_docker", return_value=(137, b"", b"")),
+            mock.patch.object(server.subprocess, "run"),
+        ):
             got = server.run_job(self.JOB)
         self.assertEqual((got["exit_code"], got["stderr"]), (137, "The run ran out of memory."))
+
+    def test_a_flood_of_output_is_stopped_not_buffered(self):
+        flood = [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'x' * 2_000_000)"]
+        with mock.patch.object(server, "WORK_SIZE", "1k"):
+            with self.assertRaises(server.OutputTooLarge):
+                server._run_docker(flood, b"", 20)
+        code, out, _ = server._run_docker([sys.executable, "-c", "print('hi')"], b"", 20)
+        self.assertEqual((code, out.strip()), (0, b"hi"))
 
 
 @unittest.skipUnless(os.environ.get("RUNNER_SMOKE"), "set RUNNER_SMOKE=1 to run a real container")
