@@ -1,4 +1,5 @@
 import { ExternalLink } from "lucide-react";
+import { Link } from "react-router";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -109,6 +110,90 @@ export function HelpPage() {
               </div>
             ))}
           </dl>
+        </section>
+
+        <section aria-labelledby="help-claude-chrome" className="grid gap-3">
+          <h2 id="help-claude-chrome" className="text-base font-semibold">
+            Use Claude next to labbenchos
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Claude in Chrome is Anthropic&apos;s Chrome extension. It opens Claude in a side panel
+            next to any website, including labbenchos. It works with a paid Claude plan.{" "}
+            <a
+              href="https://claude.com/chrome"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              Get Claude in Chrome
+              <span className="sr-only">(opens in a new tab)</span>
+            </a>
+          </p>
+          <ol className="grid list-decimal gap-1 pl-5 text-sm text-muted-foreground">
+            <li>Install Claude in Chrome from the link above.</li>
+            <li>Sign in to Claude.</li>
+            <li>Open labbenchos.</li>
+            <li>Open the side panel.</li>
+          </ol>
+          <p className="text-sm text-muted-foreground">
+            To let Claude see your lab&apos;s documents, tasks and files, connect labbenchos to
+            Claude in{" "}
+            <Link to="/settings#ai" className="underline">
+              Settings, under AI
+            </Link>
+            .
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Claude only sees what you can see. It never sees files marked &quot;Contains participant
+            data&quot;.
+          </p>
+        </section>
+
+        <section aria-labelledby="help-matlab" className="grid gap-3">
+          <h2 id="help-matlab" className="text-base font-semibold">
+            Use MATLAB with Claude
+          </h2>
+          <h3 className="text-sm font-medium">What you need</h3>
+          <ul className="grid list-disc gap-1 pl-5 text-sm text-muted-foreground">
+            <li>MATLAB R2020b or later. Your university usually provides a licence.</li>
+            <li>The Claude Desktop app, with a paid Claude plan.</li>
+            <li>
+              The labbenchos connector. Add it in{" "}
+              <Link to="/settings#ai" className="underline">
+                Settings, under AI
+              </Link>
+              .
+            </li>
+            <li>
+              MathWorks&apos; free MATLAB MCP Core Server. Follow its{" "}
+              <a
+                href="https://github.com/matlab/matlab-mcp-core-server"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+              >
+                Claude Desktop install steps
+                <span className="sr-only">(opens in a new tab)</span>
+              </a>
+              .
+            </li>
+          </ul>
+          <h3 className="text-sm font-medium">How it works</h3>
+          <ol className="grid list-decimal gap-1 pl-5 text-sm text-muted-foreground">
+            <li>
+              Ask Claude, for example: &quot;Run a t-test on the reaction times file in my Pilot
+              project and make a figure.&quot;
+            </li>
+            <li>Claude gets a short-lived download link for the file from labbenchos.</li>
+            <li>MATLAB on your computer downloads the file and runs the analysis.</li>
+            <li>MATLAB uploads the figure and results back with a one-time upload link.</li>
+            <li>They appear in the project within seconds.</li>
+          </ol>
+          <p className="text-sm text-muted-foreground">
+            Your data is processed on your own computer, by your own MATLAB. Files marked
+            &quot;Contains participant data&quot; cannot be used this way. Links expire after 15
+            minutes, and each upload link works once.
+          </p>
         </section>
 
         <section aria-labelledby="help-feedback" className="grid gap-3">
