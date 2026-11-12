@@ -3,7 +3,8 @@ may see: every tool in assistant/tools.py (the in-app assistant and the MCP serv
 `ai_visible` for lists and search and `is_flagged` for an item asked for by id.
 
 An item counts as flagged when its own "Contains participant data" box is ticked, or when it sits
-directly in a folder that is (so moving a file into a flagged folder hides it at once).
+directly in a folder that is (so moving a file into a flagged folder hides it at once). A Google
+copy of a file counts as flagged when the original is.
 """
 
 from django.db import transaction
@@ -31,6 +32,8 @@ def _flagged_q(model) -> Q:
     q = Q(contains_participant_data=True)
     if container := _CONTAINER[model]:
         q |= Q(**{f"{container}__contains_participant_data": True})
+    if model is Attachment:  # a Google copy follows the upload it was made from
+        q |= Q(copied_from__contains_participant_data=True)
     return q
 
 
@@ -45,7 +48,10 @@ def is_flagged(obj) -> bool:
         return False
     container = _CONTAINER[type(obj)]
     parent = getattr(obj, container) if container else None
-    return obj.contains_participant_data or bool(parent and parent.contains_participant_data)
+    if obj.contains_participant_data or (parent and parent.contains_participant_data):
+        return True
+    original = getattr(obj, "copied_from", None) if isinstance(obj, Attachment) else None
+    return bool(original and original.contains_participant_data)
 
 
 @transaction.atomic

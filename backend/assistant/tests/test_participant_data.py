@@ -119,3 +119,20 @@ def test_privacy_helpers(world, flagged):
     )
     assert privacy.is_flagged(sub)
     assert list(privacy.ai_visible(Folder.objects.for_lab(world.lab_a))) == []
+
+
+def test_google_copy_follows_flag_set_on_original_later(world):
+    from documents.models import Attachment
+
+    lab, pi = world.lab_a, world.u.pi
+    kw = {"lab": lab, "project": world.p1, "uploaded_by": pi, "size_bytes": 0, "sha256": ""}
+    orig = Attachment.objects.create(original_filename="Raw.csv", storage_key="k1", **kw)
+    copy = Attachment.objects.create(
+        original_filename="Raw", storage_key="k2", copied_from=orig, **kw
+    )
+    qs = Attachment.objects.for_lab(lab).filter(pk__in=[orig.pk, copy.pk])
+    assert set(privacy.ai_visible(qs)) == {orig, copy}
+    privacy.set_flag(orig, True, user=pi)
+    assert list(privacy.ai_visible(qs)) == []
+    copy.refresh_from_db()
+    assert privacy.is_flagged(copy) and not copy.contains_participant_data
