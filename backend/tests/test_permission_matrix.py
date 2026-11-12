@@ -18,7 +18,13 @@ from rest_framework.test import APIClient
 
 from assistant import file_links  # file links (VISION S1)
 from assistant.ai import keys as ai_keys  # in-app assistant (Run 5)
-from assistant.models import AIGrant, AIProviderKey, Conversation, Message  # AI access (Run 5)
+from assistant.models import (  # AI access (Run 5); lab AI key (VISION A5)
+    AIGrant,
+    AIProviderKey,
+    Conversation,
+    LabAIKey,
+    Message,
+)
 from assistant.services import register_client  # AI access (Run 5)
 from assistant.tests.reauth import sign_in  # AI access (Run 5)
 from core.models import Institution, Notification, NotificationKind, User
@@ -487,6 +493,12 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "assistant:ai-policy"): "401 404 2 2 2 2 2 2 2",
     ("PATCH",  "assistant:ai-policy"): "401 404 2 2 403 403 403 403 403",
     ("GET",    "assistant:assistant-config"): "401 404 2 2 2 2 2 2 2",
+    # VISION A5: the lab's AI key, its cap and the spend per person: manage_lab only, like the
+    # policy. Members learn only whether a lab key is there for them, from assistant-config.
+    ("GET",    "assistant:lab-ai-key"): "401 404 2 2 403 403 403 403 403",
+    ("PUT",    "assistant:lab-ai-key"): "401 404 2 2 403 403 403 403 403",
+    ("PATCH",  "assistant:lab-ai-key"): "401 404 2 2 403 403 403 403 403",
+    ("DELETE", "assistant:lab-ai-key"): "401 404 2 2 403 403 403 403 403",
     ("GET",    "assistant:conversation-list"): "401 404 2 2 2 2 2 2 2",
     ("POST",   "assistant:conversation-list"): "401 404 2 2 2 2 2 2 2",
     ("GET",    "assistant:conversation-detail"): "401 404 2 404 404 404 404 404 404",
@@ -925,7 +937,11 @@ def _ai_consent(user, w):
 
 # --- in-app assistant (Run 5) ---
 def _assistant_fixtures(lab, owner, project, tag):
-    """The owner's conversation, ending on a write that waits for approval."""
+    """The owner's conversation, ending on a write that waits for approval; and the lab's AI
+    key (VISION A5), so changing and removing it can succeed."""
+    lab_key = LabAIKey(lab=lab, provider="anthropic", monthly_cap_usd=10)
+    lab_key.set_key("sk-ant-api03-matrix-lab-key-abcdefghijklmnop")
+    lab_key.save()
     conv = Conversation.objects.create(
         user=owner,
         lab=lab,
@@ -1535,6 +1551,12 @@ PAYLOADS = {
     },
     ("PATCH", "assistant:key-detail"): lambda user, w: {"refusal_fallback": True},
     ("PATCH", "assistant:ai-policy"): lambda user, w: {"ai_policy": "full"},
+    ("PUT", "assistant:lab-ai-key"): lambda user, w: {
+        "provider": "openai",
+        "api_key": "sk-proj-matrix-lab-key-abcdefghijklmnop",
+        "monthly_cap_usd": "20",
+    },
+    ("PATCH", "assistant:lab-ai-key"): lambda user, w: {"monthly_cap_usd": "30"},
     ("POST", "assistant:conversation-list"): lambda user, w: {"provider": "anthropic"},
     ("POST", "assistant:conversation-message"): lambda user, w: {"text": "Hello"},
     ("POST", "assistant:conversation-approval"): lambda user, w: {

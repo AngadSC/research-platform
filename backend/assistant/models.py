@@ -144,6 +144,49 @@ class AIProviderKey(models.Model):
         return crypto.decrypt(self.key_ciphertext)
 
 
+class LabAIKey(LabScopedModel):
+    """VISION A5: one provider key a PI or lab admin sets for the whole lab, used by members who
+    have no key of their own for that provider, until this month's spend reaches the cap. Stored
+    exactly like a personal key: encrypted, never returned (only `last4`), never logged."""
+
+    provider = models.CharField(max_length=12, choices=Provider.choices)
+    key_ciphertext = models.TextField(editable=False)
+    last4 = models.CharField(max_length=4, editable=False)
+    monthly_cap_usd = models.DecimalField(max_digits=9, decimal_places=2)
+
+    permission_domain = "lab"
+
+    class Meta(LabScopedModel.Meta):
+        constraints = [models.UniqueConstraint(fields=["lab"], name="labaikey_one_per_lab")]
+
+    def __str__(self):
+        return f"{self.provider} lab key"  # never the key, not even its last characters
+
+    set_key = AIProviderKey.set_key
+    api_key = AIProviderKey.api_key
+
+
+class LabAIUsage(LabScopedModel):
+    """What one person's turns on the lab key cost in one month (VISION A5), at list prices
+    (catalog.cost). `month` is the first day of the month."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    month = models.DateField()
+    cost_usd = models.DecimalField(max_digits=12, decimal_places=6, default=0)
+    input_tokens = models.BigIntegerField(default=0)  # cached reads and writes included
+    output_tokens = models.BigIntegerField(default=0)
+
+    permission_domain = "lab"
+
+    class Meta(LabScopedModel.Meta):
+        constraints = [
+            models.UniqueConstraint(fields=["lab", "user", "month"], name="labaiusage_unique")
+        ]
+
+    def __str__(self):
+        return f"AI usage {self.month:%Y-%m}"
+
+
 class Role(models.TextChoices):
     USER = "user"
     ASSISTANT = "assistant"

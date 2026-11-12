@@ -450,6 +450,126 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/ai-key/:
+    get:
+      operationId: labs_ai_key_retrieve
+      description: |-
+        The lab's one provider key and its monthly cap, and this month's spend per person. Only
+        pi and lab_admin (manage_lab, like the AI policy) may see or change any of it. PUT sets or
+        replaces the key (checked with the provider first), PATCH changes the cap, DELETE removes the
+        key. The answer never contains the key: only its last 4 characters.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabKeyStatus'
+          description: ''
+    put:
+      operationId: labs_ai_key_update
+      description: |-
+        The lab's one provider key and its monthly cap, and this month's spend per person. Only
+        pi and lab_admin (manage_lab, like the AI policy) may see or change any of it. PUT sets or
+        replaces the key (checked with the provider first), PATCH changes the cap, DELETE removes the
+        key. The answer never contains the key: only its last 4 characters.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LabKeySave'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LabKeySave'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LabKeySave'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabKeyStatus'
+          description: ''
+    patch:
+      operationId: labs_ai_key_partial_update
+      description: |-
+        The lab's one provider key and its monthly cap, and this month's spend per person. Only
+        pi and lab_admin (manage_lab, like the AI policy) may see or change any of it. PUT sets or
+        replaces the key (checked with the provider first), PATCH changes the cap, DELETE removes the
+        key. The answer never contains the key: only its last 4 characters.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedLabKeyCap'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedLabKeyCap'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedLabKeyCap'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabKeyStatus'
+          description: ''
+    delete:
+      operationId: labs_ai_key_destroy
+      description: |-
+        The lab's one provider key and its monthly cap, and this month's spend per person. Only
+        pi and lab_admin (manage_lab, like the AI policy) may see or change any of it. PUT sets or
+        replaces the key (checked with the provider first), PATCH changes the cap, DELETE removes the
+        key. The answer never contains the key: only its last 4 characters.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/ai-policy/:
     get:
       operationId: labs_ai_policy_retrieve
@@ -1125,6 +1245,10 @@ paths:
           - ai_tool.write
           - ai_key.saved
           - ai_key.removed
+          - lab_ai_key.set
+          - lab_ai_key.replaced
+          - lab_ai_key.removed
+          - lab_ai_key.cap_changed
           - training_requirement.created
           - training_requirement.updated
           - training_requirement.deleted
@@ -1262,6 +1386,10 @@ paths:
           * `ai_tool.write` - Ai Tool Write
           * `ai_key.saved` - Ai Key Saved
           * `ai_key.removed` - Ai Key Removed
+          * `lab_ai_key.set` - Lab Ai Key Set
+          * `lab_ai_key.replaced` - Lab Ai Key Replaced
+          * `lab_ai_key.removed` - Lab Ai Key Removed
+          * `lab_ai_key.cap_changed` - Lab Ai Cap Changed
           * `training_requirement.created` - Training Requirement Created
           * `training_requirement.updated` - Training Requirement Updated
           * `training_requirement.deleted` - Training Requirement Deleted
@@ -9186,6 +9314,10 @@ components:
       - ai_tool.write
       - ai_key.saved
       - ai_key.removed
+      - lab_ai_key.set
+      - lab_ai_key.replaced
+      - lab_ai_key.removed
+      - lab_ai_key.cap_changed
       - training_requirement.created
       - training_requirement.updated
       - training_requirement.deleted
@@ -9322,6 +9454,10 @@ components:
         * `ai_tool.write` - Ai Tool Write
         * `ai_key.saved` - Ai Key Saved
         * `ai_key.removed` - Ai Key Removed
+        * `lab_ai_key.set` - Lab Ai Key Set
+        * `lab_ai_key.replaced` - Lab Ai Key Replaced
+        * `lab_ai_key.removed` - Lab Ai Key Removed
+        * `lab_ai_key.cap_changed` - Lab Ai Cap Changed
         * `training_requirement.created` - Training Requirement Created
         * `training_requirement.updated` - Training Requirement Updated
         * `training_requirement.deleted` - Training Requirement Deleted
@@ -9524,9 +9660,15 @@ components:
             $ref: '#/components/schemas/ProviderConfig'
         privacy_notice:
           type: string
+        lab_key:
+          allOf:
+          - $ref: '#/components/schemas/LabKeyAvailability'
+          nullable: true
+          description: The lab's AI key, when the lab has one and allows the assistant.
       required:
       - ai_policy
       - can_use
+      - lab_key
       - privacy_notice
       - providers
     Attachment:
@@ -13176,6 +13318,88 @@ components:
       - revoked_at
       - revoked_reason
       - user
+    LabKeyAvailability:
+      type: object
+      properties:
+        provider:
+          $ref: '#/components/schemas/ProviderEnum'
+        label:
+          type: string
+        own_key_wins:
+          type: boolean
+          description: You have your own key for this provider, so yours is used instead.
+        limit_reached:
+          type: boolean
+          description: This month's lab spend is at the cap.
+      required:
+      - label
+      - limit_reached
+      - own_key_wins
+      - provider
+    LabKeySave:
+      type: object
+      properties:
+        provider:
+          $ref: '#/components/schemas/ProviderEnum'
+        api_key:
+          type: string
+          writeOnly: true
+          maxLength: 500
+        monthly_cap_usd:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,7}(?:\.\d{0,2})?$
+      required:
+      - api_key
+      - monthly_cap_usd
+      - provider
+    LabKeyStatus:
+      type: object
+      properties:
+        saved:
+          type: boolean
+        provider:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/ProviderEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        label:
+          type: string
+        last4:
+          type: string
+          description: Last 4 characters of the key; empty if none.
+        monthly_cap_usd:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,7}(?:\.\d{0,2})?$
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        month:
+          type: string
+          format: date
+          description: First day of the month the spend covers.
+        spent_usd:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        usage:
+          type: array
+          items:
+            $ref: '#/components/schemas/LabUsage'
+          description: This month's spend per person, at list price.
+      required:
+      - label
+      - last4
+      - month
+      - monthly_cap_usd
+      - provider
+      - saved
+      - spent_usd
+      - updated_at
+      - usage
     LabRef:
       type: object
       properties:
@@ -13199,6 +13423,28 @@ components:
         * `lab_admin` - Lab Admin
         * `member` - Member
         * `viewer` - Viewer
+    LabUsage:
+      type: object
+      properties:
+        user:
+          type: string
+          format: uuid
+        name:
+          type: string
+        cost_usd:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        input_tokens:
+          type: integer
+        output_tokens:
+          type: integer
+      required:
+      - cost_usd
+      - input_tokens
+      - name
+      - output_tokens
+      - user
     Lineage:
       type: object
       properties:
@@ -13743,6 +13989,9 @@ components:
         * `training_expiry` - Training Expiry
         * `training_digest` - Training Digest
         * `mention` - Mention
+    NullEnum:
+      enum:
+      - null
     OnboardingItem:
       type: object
       properties:
@@ -14604,6 +14853,13 @@ components:
         notes:
           type: string
           maxLength: 5000
+    PatchedLabKeyCap:
+      type: object
+      properties:
+        monthly_cap_usd:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,7}(?:\.\d{0,2})?$
     PatchedManuscriptInput:
       type: object
       properties:

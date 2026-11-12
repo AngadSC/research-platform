@@ -1,4 +1,5 @@
-"""Key-leak test for the in-app assistant (D187). Two real-looking provider keys go through saving,
+"""Key-leak test for the in-app assistant (D187). Two real-looking provider keys and a lab's key
+(VISION A5) go through saving,
 checking, use in a chat, provider errors, deletion and crashes. After they are saved neither may
 appear in any API response (not even the one that saves it), event stream, log line, audit event,
 model repr, dumpdata output, admin, or Django's DEBUG 500 page. The stored ciphertext may not
@@ -12,15 +13,17 @@ from types import SimpleNamespace
 import anthropic
 import httpx2 as httpx
 import pytest
+from django.core import serializers
 from django.core.management import call_command
 from django.test import Client
 from django.test.utils import override_settings
 
 from assistant import ai_views, tools
-from assistant.ai import keys
-from assistant.models import AIProviderKey, Conversation, Message
+from assistant.ai import keys, lab_keys
+from assistant.models import AIProviderKey, Conversation, LabAIKey, LabAIUsage, Message
 from assistant.tests.fakes import (
     CANARY_KEY,
+    LAB_CANARY,
     OPENAI_CANARY,
     claude_message,
     patch_claude,
@@ -105,6 +108,32 @@ def test_no_provider_key_appears_anywhere(world, caplog, monkeypatch):
     seen.append(dump(send(c, world.lab_a, conv, "and again")))  # an unexpected error: generic text
     seen.append(dump(c.delete("/api/ai/keys/openai/")))
 
+    # --- the lab's key (VISION A5): set, read, capped, used by a member, echoed in an error
+    lab_url = f"/api/labs/{world.lab_a.pk}/ai-key/"
+    body = {"provider": "anthropic", "api_key": LAB_CANARY, "monthly_cap_usd": "50"}
+    seen.append(dump(c.put(lab_url, body, "application/json")))
+    seen.append(dump(c.put(lab_url, body, "application/json")))  # replaced
+    seen.append(dump(c.patch(lab_url, {"monthly_cap_usd": "60"}, "application/json")))
+    seen.append(dump(other.put(lab_url, body, "application/json")))  # a member: 403
+    seen.append(dump(other.get(lab_url)))
+    lab_ciphertext = LabAIKey.objects.for_lab(world.lab_a).get().key_ciphertext
+    ciphertexts.append(lab_ciphertext)
+    seen.append(dump(other.get(f"/api/labs/{world.lab_a.pk}/assistant/config/")))
+    member_conv = new_conv(other, world.lab_a)
+    patch_claude(monkeypatch, claude_message([text("Answer")]))
+    seen.append(dump(send(other, world.lab_a, member_conv, "hello")))
+    lab_rejected = anthropic.AuthenticationError(
+        f"invalid x-api-key {LAB_CANARY}",
+        response=httpx.Response(401, request=req, json={"error": {"message": LAB_CANARY}}),
+        body={"error": LAB_CANARY},
+    )
+    patch_claude(monkeypatch, lab_rejected)
+    seen.append(dump(send(other, world.lab_a, member_conv, "again")))
+    patch_claude(monkeypatch, RuntimeError(f"unexpected {LAB_CANARY}"))
+    seen.append(dump(send(other, world.lab_a, member_conv, "and again")))
+    seen.append(dump(c.get(lab_url)))
+    assert LabAIUsage.objects.for_lab(world.lab_a).filter(user=world.u.contrib).exists()
+
     # --- DEBUG 500 pages with the key in memory
     raw = Client(raise_request_exception=False)
     raw.force_login(world.u.pi)
@@ -113,6 +142,17 @@ def test_no_provider_key_appears_anywhere(world, caplog, monkeypatch):
         monkeypatch.setattr(keys, "check", _boom)  # the key is in scope inside keys.save
         pages.append(
             dump(raw.put("/api/ai/keys/anthropic/", {"api_key": CANARY_KEY}, "application/json"))
+        )
+        monkeypatch.undo()
+        monkeypatch.setattr(lab_keys.keys, "check", _boom)  # the lab key is in scope too
+        pages.append(
+            dump(
+                raw.put(
+                    f"/api/labs/{world.lab_a.pk}/ai-key/",
+                    {"provider": "anthropic", "api_key": LAB_CANARY, "monthly_cap_usd": "5"},
+                    "application/json",
+                )
+            )
         )
         monkeypatch.undo()
         patch_claude(monkeypatch)
@@ -144,13 +184,20 @@ def test_no_provider_key_appears_anywhere(world, caplog, monkeypatch):
                 repr(obj),
                 str(obj.__dict__) if model is not AIProviderKey else str(obj),
             ]
+    for obj in [*LabAIKey.objects.for_lab(world.lab_a), *LabAIUsage.objects.for_lab(world.lab_a)]:
+        seen += [str(obj), repr(obj)]
     out = io.StringIO()
     call_command("dumpdata", "assistant.conversation", "assistant.message", "audit", stdout=out)
     seen.append(out.getvalue())
+    # lab models: dumpdata's default manager needs a lab, so serialize the scoped rows instead
+    seen.append(serializers.serialize("json", LabAIUsage.objects.for_lab(world.lab_a)))
+    lab_dump = serializers.serialize("json", LabAIKey.objects.for_lab(world.lab_a))
 
     joined = "\n".join(seen)
     assert CANARY_KEY not in joined and OPENAI_CANARY not in joined
+    assert LAB_CANARY not in joined
     assert not [x[:12] for x in ciphertexts if x in joined]
+    assert LAB_CANARY[-4:] not in json.dumps(list(AuditEvent.objects.values_list("metadata")))
     assert CANARY_KEY[-4:] not in "".join(
         e["metadata"]
         for e in [
@@ -162,6 +209,7 @@ def test_no_provider_key_appears_anywhere(world, caplog, monkeypatch):
     with_db = io.StringIO()
     call_command("dumpdata", "assistant.aiproviderkey", stdout=with_db)
     assert CANARY_KEY not in with_db.getvalue() and "key_ciphertext" in with_db.getvalue()
+    assert LAB_CANARY not in lab_dump and lab_ciphertext in lab_dump
 
 
 def test_the_system_prompt_and_ciphertext_are_never_serialized(world, monkeypatch):

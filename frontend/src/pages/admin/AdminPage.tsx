@@ -6,6 +6,7 @@ import { HashTabs } from "@/components/shared/TabNav";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLab } from "@/hooks/workspace";
 import { AiPolicySection } from "@/pages/settings/AiPolicySection";
+import { LabAiKeySection } from "@/pages/settings/LabAiKeySection";
 import { LabDetailsSection } from "./LabDetailsSection";
 import { OnboardingSection } from "./OnboardingSection";
 import { ResourcesEditor } from "./ResourcesEditor";
@@ -46,7 +47,16 @@ export function AdminPage() {
           { id: "about", label: "About", content: <LabDetailsSection lab={lab} /> },
           { id: "onboarding", label: "Onboarding", content: <OnboardingSection labId={labId} /> },
           { id: "links", label: "Links", content: <ResourcesEditor labId={labId} /> },
-          { id: "ai", label: "AI", content: <AiPolicySection labId={labId} labName={lab.name} /> },
+          {
+            id: "ai",
+            label: "AI",
+            content: (
+              <div className="grid gap-8">
+                <AiPolicySection labId={labId} labName={lab.name} />
+                <LabAiKeySection labId={labId} />
+              </div>
+            ),
+          },
         ]}
       />
     </>

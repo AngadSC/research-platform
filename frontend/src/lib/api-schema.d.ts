@@ -262,6 +262,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/ai-key/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The lab's one provider key and its monthly cap, and this month's spend per person. Only
+         *     pi and lab_admin (manage_lab, like the AI policy) may see or change any of it. PUT sets or
+         *     replaces the key (checked with the provider first), PATCH changes the cap, DELETE removes the
+         *     key. The answer never contains the key: only its last 4 characters.
+         */
+        get: operations["labs_ai_key_retrieve"];
+        /**
+         * @description The lab's one provider key and its monthly cap, and this month's spend per person. Only
+         *     pi and lab_admin (manage_lab, like the AI policy) may see or change any of it. PUT sets or
+         *     replaces the key (checked with the provider first), PATCH changes the cap, DELETE removes the
+         *     key. The answer never contains the key: only its last 4 characters.
+         */
+        put: operations["labs_ai_key_update"];
+        post?: never;
+        /**
+         * @description The lab's one provider key and its monthly cap, and this month's spend per person. Only
+         *     pi and lab_admin (manage_lab, like the AI policy) may see or change any of it. PUT sets or
+         *     replaces the key (checked with the provider first), PATCH changes the cap, DELETE removes the
+         *     key. The answer never contains the key: only its last 4 characters.
+         */
+        delete: operations["labs_ai_key_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description The lab's one provider key and its monthly cap, and this month's spend per person. Only
+         *     pi and lab_admin (manage_lab, like the AI policy) may see or change any of it. PUT sets or
+         *     replaces the key (checked with the provider first), PATCH changes the cap, DELETE removes the
+         *     key. The answer never contains the key: only its last 4 characters.
+         */
+        patch: operations["labs_ai_key_partial_update"];
+        trace?: never;
+    };
     "/api/labs/{lab_id}/ai-policy/": {
         parameters: {
             query?: never;
@@ -3782,6 +3822,10 @@ export interface components {
          *     * `ai_tool.write` - Ai Tool Write
          *     * `ai_key.saved` - Ai Key Saved
          *     * `ai_key.removed` - Ai Key Removed
+         *     * `lab_ai_key.set` - Lab Ai Key Set
+         *     * `lab_ai_key.replaced` - Lab Ai Key Replaced
+         *     * `lab_ai_key.removed` - Lab Ai Key Removed
+         *     * `lab_ai_key.cap_changed` - Lab Ai Cap Changed
          *     * `training_requirement.created` - Training Requirement Created
          *     * `training_requirement.updated` - Training Requirement Updated
          *     * `training_requirement.deleted` - Training Requirement Deleted
@@ -3807,7 +3851,7 @@ export interface components {
          *     * `file_link.created` - File Link Created
          * @enum {string}
          */
-        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
+        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
         /**
          * @description * `read` - Read
          *     * `write` - Write
@@ -3885,6 +3929,8 @@ export interface components {
             can_use: boolean;
             providers: components["schemas"]["ProviderConfig"][];
             privacy_notice: string;
+            /** @description The lab's AI key, when the lab has one and allows the assistant. */
+            lab_key: components["schemas"]["LabKeyAvailability"] | null;
         };
         Attachment: {
             /** Format: uuid */
@@ -5272,6 +5318,40 @@ export interface components {
             readonly revoked_reason: string;
             readonly user: components["schemas"]["GrantUser"];
         };
+        LabKeyAvailability: {
+            provider: components["schemas"]["ProviderEnum"];
+            label: string;
+            /** @description You have your own key for this provider, so yours is used instead. */
+            own_key_wins: boolean;
+            /** @description This month's lab spend is at the cap. */
+            limit_reached: boolean;
+        };
+        LabKeySave: {
+            provider: components["schemas"]["ProviderEnum"];
+            api_key: string;
+            /** Format: decimal */
+            monthly_cap_usd: string;
+        };
+        LabKeyStatus: {
+            saved: boolean;
+            provider: (components["schemas"]["ProviderEnum"] | components["schemas"]["NullEnum"]) | null;
+            label: string;
+            /** @description Last 4 characters of the key; empty if none. */
+            last4: string;
+            /** Format: decimal */
+            monthly_cap_usd: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+            /**
+             * Format: date
+             * @description First day of the month the spend covers.
+             */
+            month: string;
+            /** Format: decimal */
+            spent_usd: string;
+            /** @description This month's spend per person, at list price. */
+            usage: components["schemas"]["LabUsage"][];
+        };
         LabRef: {
             /** Format: uuid */
             id: string;
@@ -5285,6 +5365,15 @@ export interface components {
          * @enum {string}
          */
         LabRoleEnum: "pi" | "lab_admin" | "member" | "viewer";
+        LabUsage: {
+            /** Format: uuid */
+            user: string;
+            name: string;
+            /** Format: decimal */
+            cost_usd: string;
+            input_tokens: number;
+            output_tokens: number;
+        };
         Lineage: {
             nodes: components["schemas"]["LineageNode"][];
             edges: components["schemas"]["LineageEdge"][];
@@ -5510,6 +5599,8 @@ export interface components {
          * @enum {string}
          */
         NotificationKindEnum: "ethics_expiry" | "retention_due" | "invite_accepted" | "task_assigned" | "task_unassigned" | "project_exported" | "integration_issue" | "task_post" | "training_expiry" | "training_digest" | "mention";
+        /** @enum {unknown} */
+        NullEnum: null;
         OnboardingItem: {
             /** Format: uuid */
             readonly id: string;
@@ -5833,6 +5924,10 @@ export interface components {
             /** Format: date */
             end_date?: string | null;
             notes?: string;
+        };
+        PatchedLabKeyCap: {
+            /** Format: decimal */
+            monthly_cap_usd?: string;
         };
         PatchedManuscriptInput: {
             title?: string;
@@ -7234,6 +7329,101 @@ export interface operations {
             };
         };
     };
+    labs_ai_key_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabKeyStatus"];
+                };
+            };
+        };
+    };
+    labs_ai_key_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabKeySave"];
+                "application/x-www-form-urlencoded": components["schemas"]["LabKeySave"];
+                "multipart/form-data": components["schemas"]["LabKeySave"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabKeyStatus"];
+                };
+            };
+        };
+    };
+    labs_ai_key_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_ai_key_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedLabKeyCap"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedLabKeyCap"];
+                "multipart/form-data": components["schemas"]["PatchedLabKeyCap"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabKeyStatus"];
+                };
+            };
+        };
+    };
     labs_ai_policy_retrieve: {
         parameters: {
             query?: never;
@@ -7776,6 +7966,10 @@ export interface operations {
                  *     * `ai_tool.write` - Ai Tool Write
                  *     * `ai_key.saved` - Ai Key Saved
                  *     * `ai_key.removed` - Ai Key Removed
+                 *     * `lab_ai_key.set` - Lab Ai Key Set
+                 *     * `lab_ai_key.replaced` - Lab Ai Key Replaced
+                 *     * `lab_ai_key.removed` - Lab Ai Key Removed
+                 *     * `lab_ai_key.cap_changed` - Lab Ai Cap Changed
                  *     * `training_requirement.created` - Training Requirement Created
                  *     * `training_requirement.updated` - Training Requirement Updated
                  *     * `training_requirement.deleted` - Training Requirement Deleted
@@ -7800,7 +7994,7 @@ export interface operations {
                  *     * `dataset.participant_flag_changed` - Dataset Participant Flag Changed
                  *     * `file_link.created` - File Link Created
                  */
-                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
+                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
                 actor?: string;
                 /** @description Pagination cursor */
                 cursor?: string;

@@ -9,6 +9,7 @@ from openai.types.responses import Response
 
 CANARY_KEY = "sk-ant-api03-CANARYKEYabcdefghijklmnop1234"
 OPENAI_CANARY = "sk-proj-CANARYOPENAIabcdefghijklmnop5678"
+LAB_CANARY = "sk-ant-api03-CANARYLABKEYabcdefghijklmn9753"  # a lab's key (VISION A5)
 
 # ---------------------------------------------------------------- Claude
 

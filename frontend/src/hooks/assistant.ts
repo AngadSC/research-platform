@@ -12,6 +12,7 @@ export type TimelineItem = S["TimelineItem"];
 export type PendingCall = S["PendingCall"];
 export type AiPolicy = S["AiPolicyEnum"];
 export type Provider = S["ProviderEnum"];
+export type LabKeyStatus = S["LabKeyStatus"];
 
 const KEYS = ["ai-keys"];
 const lab = (labId: string) => ["assistant", labId];
@@ -74,6 +75,35 @@ export function useSetLabAiPolicy(labId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: lab(labId) }),
   });
 }
+
+// ---- the lab's AI key and monthly cap (VISION A5), pi and lab_admin only
+
+const labKey = (labId: string) => [...lab(labId), "lab-key"];
+
+export function useLabAiKey(labId: string) {
+  return useQuery({
+    queryKey: labKey(labId),
+    queryFn: () => api<LabKeyStatus>(`/api/labs/${labId}/ai-key/`),
+  });
+}
+
+function useLabKeyMutation<T>(labId: string, method: "PUT" | "PATCH" | "DELETE") {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: T) =>
+      api<LabKeyStatus>(`/api/labs/${labId}/ai-key/`, {
+        method,
+        ...(method === "DELETE" ? {} : { body }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: lab(labId) }),
+  });
+}
+
+export const useSaveLabAiKey = (labId: string) =>
+  useLabKeyMutation<{ provider: Provider; api_key: string; monthly_cap_usd: string }>(labId, "PUT");
+export const useSetLabAiCap = (labId: string) =>
+  useLabKeyMutation<{ monthly_cap_usd: string }>(labId, "PATCH");
+export const useRemoveLabAiKey = (labId: string) => useLabKeyMutation<void>(labId, "DELETE");
 
 // ---- the assistant panel
 

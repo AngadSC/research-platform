@@ -1,6 +1,8 @@
 """Serializers for the in-app assistant (D187-D192). Explicit field lists: no key, ciphertext or
 system prompt is ever serialized."""
 
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from assistant.ai import catalog
@@ -40,11 +42,59 @@ class ProviderConfigSerializer(serializers.Serializer):
     models = ModelInfoSerializer(many=True)
 
 
+class LabKeyAvailabilitySerializer(serializers.Serializer):
+    provider = serializers.ChoiceField(choices=Provider.choices)
+    label = serializers.CharField()
+    own_key_wins = serializers.BooleanField(
+        help_text="You have your own key for this provider, so yours is used instead."
+    )
+    limit_reached = serializers.BooleanField(help_text="This month's lab spend is at the cap.")
+
+
 class AssistantConfigSerializer(serializers.Serializer):
     ai_policy = serializers.ChoiceField(choices=AiPolicy.choices)
     can_use = serializers.BooleanField()
     providers = ProviderConfigSerializer(many=True)
     privacy_notice = serializers.CharField()
+    lab_key = LabKeyAvailabilitySerializer(
+        allow_null=True,
+        help_text="The lab's AI key, when the lab has one and allows the assistant.",
+    )
+
+
+# ---------------------------------------------------------------- the lab's key (VISION A5)
+
+CAP = {"max_digits": 9, "decimal_places": 2, "min_value": Decimal("1"), "max_value": 100000}
+
+
+class LabKeySaveSerializer(serializers.Serializer):
+    provider = serializers.ChoiceField(choices=Provider.choices)
+    api_key = serializers.CharField(max_length=500, write_only=True, trim_whitespace=False)
+    monthly_cap_usd = serializers.DecimalField(**CAP)
+
+
+class LabKeyCapSerializer(serializers.Serializer):
+    monthly_cap_usd = serializers.DecimalField(**CAP)
+
+
+class LabUsageSerializer(serializers.Serializer):
+    user = serializers.UUIDField()
+    name = serializers.CharField()
+    cost_usd = serializers.DecimalField(max_digits=12, decimal_places=2)
+    input_tokens = serializers.IntegerField()
+    output_tokens = serializers.IntegerField()
+
+
+class LabKeyStatusSerializer(serializers.Serializer):
+    saved = serializers.BooleanField()
+    provider = serializers.ChoiceField(choices=Provider.choices, allow_null=True)
+    label = serializers.CharField()
+    last4 = serializers.CharField(help_text="Last 4 characters of the key; empty if none.")
+    monthly_cap_usd = serializers.DecimalField(max_digits=9, decimal_places=2, allow_null=True)
+    updated_at = serializers.DateTimeField(allow_null=True)
+    month = serializers.DateField(help_text="First day of the month the spend covers.")
+    spent_usd = serializers.DecimalField(max_digits=12, decimal_places=2)
+    usage = LabUsageSerializer(many=True, help_text="This month's spend per person, at list price.")
 
 
 class PolicySerializer(serializers.Serializer):

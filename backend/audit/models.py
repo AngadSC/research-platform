@@ -127,6 +127,11 @@ class AuditAction(models.TextChoices):
     # Run 5 (in-app assistant, D187-D192): a person's own provider key; the key never appears
     AI_KEY_SAVED = "ai_key.saved"
     AI_KEY_REMOVED = "ai_key.removed"
+    # VISION A5: the lab's own key and its monthly cap; the key never appears
+    LAB_AI_KEY_SET = "lab_ai_key.set"
+    LAB_AI_KEY_REPLACED = "lab_ai_key.replaced"
+    LAB_AI_KEY_REMOVED = "lab_ai_key.removed"
+    LAB_AI_CAP_CHANGED = "lab_ai_key.cap_changed"
     # Run 5 (training, D175-D179)
     TRAINING_REQUIREMENT_CREATED = "training_requirement.created"
     TRAINING_REQUIREMENT_UPDATED = "training_requirement.updated"
