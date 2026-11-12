@@ -135,6 +135,11 @@ def test_a_streamed_oversize_body_is_aborted_at_the_cap(server):
     assert server.client_gone.wait(3)  # aborted: the sender is cut off long before 256 MB
 
 
+def test_a_budget_sets_its_own_byte_cap(server):
+    with http.budget(max_bytes=5), pytest.raises(http.ResponseTooLarge):  # VISION B4
+        http.send("GET", server.url("ok"), provider=FAKE_PUBLIC)
+
+
 def test_retries_and_backoff_never_outlast_the_deadline(server):
     start = time.monotonic()
     resp = http.send("GET", server.url("busy"), provider=FAKE_PUBLIC)

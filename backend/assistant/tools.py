@@ -29,7 +29,7 @@ from django.http import Http404
 from django.utils import timezone
 from rest_framework.exceptions import APIException, ValidationError
 
-from assistant import file_links, privacy
+from assistant import drive_files, file_links, privacy
 from assistant.models import FileLinkKind
 from audit.models import AuditAction
 from audit.services import record
@@ -53,6 +53,9 @@ from documents import filetext
 from documents import services as document_services
 from documents.models import Attachment, Document, Folder
 from ethics.models import EthicsApproval
+from integrations import http as integration_http
+from integrations import services as integration_services
+from integrations.providers import google_drive
 from labs.models import LabMembership
 from papers import citation as paper_citation
 from papers import services as paper_services
@@ -1173,6 +1176,18 @@ FILE_NOTE = (
 )
 FILE_CHUNK = PDF_MAX_CHARS  # non-ASCII text is escaped to six characters in the JSON
 LINK_MINUTES = int(file_links.TTL.total_seconds() // 60)
+DRIVE_MAX_BYTES = 20 * 1024 * 1024  # VISION B4: one Drive file, downloaded on every read_file
+DRIVE_KINDS = {  # a Drive file's MIME type -> filetext kind (Google's own formats are exported)
+    **dict.fromkeys(drive_files.EXPORTS, "text"),
+    **dict.fromkeys(("text/plain", "text/csv", "text/markdown", "application/json"), "text"),
+    "application/pdf": "pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+}
+NO_GOOGLE = "Connect Google in Integrations to let AI tools read your Drive files."
+NO_DRIVE_ACCESS = (
+    "You can't open this Drive file. Pick it once with From Drive to give labbenchos access."
+)
 
 
 def _file(ctx, lab, file_id):
@@ -1187,6 +1202,41 @@ def _file(ctx, lab, file_id):
         project__isnull=False,
         project__deleted_at__isnull=True,
     )
+
+
+def _kind(a):
+    """The filetext kind of a file, or None when it can't be read as text."""
+    if a.from_drive:
+        return DRIVE_KINDS.get(a.content_type) or filetext.kind(a.original_filename)
+    return filetext.kind(a.original_filename)
+
+
+def _google_account(ctx, lab):
+    """The asking person's own Google connection here, or None. Never another member's."""
+    try:
+        return integration_services.active_account_or_404(lab, ctx.user, google_drive.PROVIDER)
+    except Http404:
+        return None
+
+
+def _drive_bytes(ctx, lab, a):
+    """(bytes, kind) of a Drive file, read with the asking person's own connection only."""
+    account = _google_account(ctx, lab)
+    if account is None:
+        raise ToolError(NO_GOOGLE)
+    try:
+        with integration_http.budget(settings.INTEGRATION_ENDPOINT_BUDGET):
+            got = drive_files.read_content(account, a.drive_file_id, DRIVE_MAX_BYTES)
+    except integration_http.ResponseTooLarge:
+        raise ToolError(
+            f"This Drive file is too large to read here ({DRIVE_MAX_BYTES // 2**20} MB maximum)."
+        ) from None
+    except integration_http.IntegrationError as exc:  # safe to show: no tokens or bodies
+        raise ToolError(str(exc)) from None
+    if got is None:
+        raise ToolError(NO_DRIVE_ACCESS)
+    data, mime = got
+    return data, DRIVE_KINDS.get(mime) or filetext.kind(a.original_filename)
 
 
 def _file_row(a):
@@ -1212,7 +1262,9 @@ def _project_folder(ctx, lab, p, folder_id):
     "list_files",
     "List files",
     "Files uploaded to a project (25 per page), newest first, with their folder. Pass folder_id "
-    "for one folder only. read_file reads a file's text; get_file_link gives a download link.",
+    "for one folder only. read_file reads a file's text when `readable` is true; get_file_link "
+    "gives a download link (not for Google Drive files). A Drive file is read with the person's "
+    "own Google connection, so Google may still refuse one they never picked themselves.",
     required=("lab_id", "project_id"),
     returns_text=True,
     lab_id=LAB,
@@ -1229,8 +1281,13 @@ def list_files(ctx, lab_id, project_id, folder_id=None, cursor=None):
     if folder_id:
         qs = qs.filter(folder=_project_folder(ctx, lab, p, folder_id))
     rows, nxt = _page(qs.select_related("folder").order_by("-updated_at", "id"), cursor)
+    google = any(a.from_drive for a in rows) and _google_account(ctx, lab) is not None
     return {
-        "files": [_file_row(a) for a in rows if can(ctx.user, Perm.VIEW_PROJECT, a)],
+        "files": [
+            {**_file_row(a), "readable": _kind(a) is not None and (google or not a.from_drive)}
+            for a in rows
+            if can(ctx.user, Perm.VIEW_PROJECT, a)
+        ],
         "next_cursor": nxt,
         "url": _url(f"/labs/{lab.pk}/projects/{p.pk}/documents"),
     }
@@ -1241,8 +1298,10 @@ def list_files(ctx, lab_id, project_id, folder_id=None, cursor=None):
     "Read a file",
     f"The text of a project file: PDF, Word (.docx), Excel (.xlsx, as CSV per sheet), CSV, TXT, "
     f"Markdown or JSON, {FILE_CHUNK} characters (a PDF: up to {PDF_MAX_RANGE} pages) at a time; "
-    "pass next_offset to read on. Other types cannot be read as text. Reading is recorded in the "
-    "lab's audit log, as a download is in the app.",
+    "pass next_offset to read on. Google Drive files are read too, with the person's own Google "
+    "connection: Docs and Slides as text, Sheets as CSV (first sheet only), and the types above "
+    f"up to {DRIVE_MAX_BYTES // 2**20} MB. Other types cannot be read as text. Reading is "
+    "recorded in the lab's audit log, as a download is in the app.",
     required=("lab_id", "file_id"),
     returns_text=True,
     lab_id=LAB,
@@ -1251,19 +1310,25 @@ def list_files(ctx, lab_id, project_id, folder_id=None, cursor=None):
 )
 def read_file(ctx, lab_id, file_id, offset=0):
     lab = _lab(ctx, lab_id)
-    a = _file(ctx, lab, file_id)
-    kind = filetext.kind(a.original_filename)
+    a = _file(ctx, lab, file_id)  # refuses a flagged file before anything reaches Google
+    unreadable = "This type of file cannot be read as text. " + (
+        "Open it in Google Drive instead."
+        if a.from_drive
+        else "Use get_file_link to download it instead."
+    )
+    if _kind(a) is None:
+        raise ToolError(unreadable)
     if a.from_drive:
-        raise ToolError("This file is in Google Drive, so it can't be read here. Open it in Drive.")
-    if kind is None:
-        raise ToolError(
-            "This type of file cannot be read as text. Use get_file_link to download it instead."
-        )
-    try:
-        with document_services.lab_files().open(a.storage_key, "rb") as fh:
-            data = fh.read()
-    except FileNotFoundError:
-        raise ToolError("The stored file could not be found.") from None
+        data, kind = _drive_bytes(ctx, lab, a)
+        if kind is None:  # the file changed type in Drive since it was linked
+            raise ToolError(unreadable)
+    else:
+        kind = _kind(a)
+        try:
+            with document_services.lab_files().open(a.storage_key, "rb") as fh:
+                data = fh.read()
+        except FileNotFoundError:
+            raise ToolError("The stored file could not be found.") from None
     try:
         if kind == "pdf":
             out = read_pages(data, offset + 1, offset + PDF_MAX_RANGE)
