@@ -13599,6 +13599,8 @@ components:
         text:
           type: string
           maxLength: 8000
+        page:
+          $ref: '#/components/schemas/Page'
       required:
       - text
     ModelInfo:
@@ -13824,6 +13826,36 @@ components:
       required:
       - kind
       - title
+    Page:
+      type: object
+      description: |-
+        Which page the person has open: a kind and ids only, never page text. The model still has
+        to use its tools, which check access.
+      properties:
+        kind:
+          $ref: '#/components/schemas/PageKindEnum'
+        id:
+          type: string
+          format: uuid
+        project:
+          type: string
+          format: uuid
+      required:
+      - kind
+    PageKindEnum:
+      enum:
+      - lab
+      - project
+      - document
+      - task
+      - dataset
+      type: string
+      description: |-
+        * `lab` - lab
+        * `project` - project
+        * `document` - document
+        * `task` - task
+        * `dataset` - dataset
     PaginatedAuditEventList:
       type: object
       required:

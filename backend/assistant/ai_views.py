@@ -400,7 +400,12 @@ class MessageView(LabScopedViewMixin, generics.GenericAPIView):
         if not conv.title:
             conv.title = text[:60]
             conv.save(update_fields=["title"])
-        return _stream_response(request, conv, key, lambda run: run.send(text))
+        return _stream_response(
+            request,
+            conv,
+            key,
+            lambda run: run.send(text, body.validated_data.get("page")),
+        )
 
 
 class ApprovalView(LabScopedViewMixin, generics.GenericAPIView):

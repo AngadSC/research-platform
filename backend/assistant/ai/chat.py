@@ -8,6 +8,7 @@ results yet, so a page reload, a second tab or a restart all see the same thing.
 
 import json
 import logging
+import re
 import uuid
 
 from django.conf import settings
@@ -150,6 +151,20 @@ def _add(acc, usage):
         acc[k] = acc.get(k, 0) + v
 
 
+_PAGE_PREFIX = re.compile(r"\A\[The person is looking at: [^\]]*\]\n\n")
+
+
+def page_prefix(page) -> str:
+    """One line naming the open page by kind and ids (already validated), put before the message
+    so the system prompt, which must not change, stays as it is."""
+    if not page:
+        return ""
+    where = page["kind"] if page["kind"] == "lab" else f"{page['kind']} {page['id']}"
+    if page["kind"] not in ("lab", "project") and page.get("project"):
+        where += f" in project {page['project']}"
+    return f"[The person is looking at: {where}]\n\n"
+
+
 def timeline(conv) -> list[dict]:
     """The log as the panel draws it: user text, assistant text with the model that answered and
     the tokens used, and one row per tool call with its outcome."""
@@ -165,7 +180,13 @@ def timeline(conv) -> list[dict]:
         if m.role == Role.USER:
             if m.content and m.content[0].get("type") == "text":
                 acc = {}
-                items.append({"id": m.pk, "kind": "user", "text": adapter.text_of(m.content)})
+                items.append(
+                    {
+                        "id": m.pk,
+                        "kind": "user",
+                        "text": _PAGE_PREFIX.sub("", adapter.text_of(m.content)),
+                    }
+                )
             continue
         _add(acc, m.usage)
         text = adapter.text_of(m.content)
@@ -245,9 +266,9 @@ class Run:
         )
 
     # -- entry points
-    def send(self, text):
+    def send(self, text, page=None):
         yield from self._settle()
-        self._append(Role.USER, self.adapter.user_content(text))
+        self._append(Role.USER, self.adapter.user_content(page_prefix(page) + text))
         yield from self._loop()
 
     def decide(self, decisions: dict[str, bool]):

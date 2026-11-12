@@ -126,7 +126,7 @@ export function AppShell() {
   return (
     <TooltipProvider>
       <NamePrompt />
-      <div className="flex h-screen bg-background text-foreground print:block print:h-auto">
+      <div className="flex h-screen bg-background text-foreground md:pr-[var(--assistant-w,0px)] print:block print:h-auto print:pr-0">
         <Sidebar open={navOpen} desktopHidden={sidebarHidden} onClose={() => setNavOpen(false)} />
         {navOpen && (
           <div
