@@ -19,3 +19,7 @@ export function googleEditor(a: Pick<Attachment, "content_type" | "drive_file_id
 
 export const isImage = (a: Pick<Attachment, "content_type" | "drive_file_id">) =>
   !a.drive_file_id && /^image\/(png|jpe?g|gif|webp|svg\+xml)$/.test(a.content_type);
+
+/** An upload that "Edit in Google" can turn into a Google Doc, Sheet or Slides copy (VISION B3). */
+export const convertible = (a: Pick<Attachment, "original_filename" | "drive_file_id">) =>
+  !a.drive_file_id && /\.(docx|xlsx|pptx)$/i.test(a.original_filename);

@@ -445,6 +445,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/attachments/{attachment_id}/edit-in-google/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description VISION B3: copy a Word, Excel or PowerPoint upload into the person's own Google Drive. */
+        post: operations["labs_attachments_edit_in_google_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/attachments/{attachment_id}/move/": {
         parameters: {
             query?: never;
@@ -3890,6 +3907,8 @@ export interface components {
             readonly drive_file_id: string;
             /** Format: uri */
             readonly external_url: string;
+            /** Format: uuid */
+            readonly copied_from: string | null;
             readonly contains_participant_data: boolean;
             readonly source: components["schemas"]["SourceEnum"];
         };
@@ -7568,6 +7587,28 @@ export interface operations {
                 };
                 content: {
                     "application/octet-stream": string;
+                };
+            };
+        };
+    };
+    labs_attachments_edit_in_google_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"];
                 };
             };
         };

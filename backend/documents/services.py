@@ -208,7 +208,9 @@ def _safe_content_type(declared) -> str:
     )
 
 
-def _link_drive_file(*, user, file_id, owners, folder, request, pi_only, flag) -> Attachment:
+def _link_drive_file(
+    *, user, file_id, owners, folder, request, pi_only, flag, copied_from=None
+) -> Attachment:
     """D257: attach a Google Drive file by reference. The id comes from the Google Picker, but
     the title, type and address are read from Drive with the person's own connection, so the
     browser cannot name a file they cannot open or a link that goes anywhere but Drive. Nothing
@@ -262,6 +264,7 @@ def _link_drive_file(*, user, file_id, owners, folder, request, pi_only, flag) -
             contains_participant_data=flag,
             drive_file_id=file_id,
             external_url=meta["url"],
+            copied_from=copied_from,
         )
         record(
             AuditAction.ATTACHMENT_UPLOADED,
@@ -270,8 +273,9 @@ def _link_drive_file(*, user, file_id, owners, folder, request, pi_only, flag) -
             target=attachment,
             request=request,
             metadata={
-                "source": "google_drive",
+                "source": "google_copy" if copied_from else "google_drive",
                 "drive_file_id": file_id,
+                **({"copied_from": str(copied_from.pk)} if copied_from else {}),
                 "ethics_approval": str(approval.pk) if approval else None,
                 "training_record": str(training_record.pk) if training_record else None,
                 "paper": str(paper.pk) if paper else None,
@@ -364,6 +368,70 @@ def upload_attachment(
         lab_files().delete(saved)  # nothing references these bytes yet
         raise
     return attachment
+
+
+def edit_in_google(attachment, *, user, request=None) -> Attachment:
+    """VISION B3: copy a Word, Excel or PowerPoint upload into the person's own Google Drive as a
+    Google Doc, Sheet or Slides file, and attach that copy next to the original, pointing back at
+    it. The caller has checked edit rights on the project. Participant data stays here."""
+    from assistant.privacy import is_flagged
+    from integrations.http import IntegrationError
+    from integrations.models import AccountStatus, ConnectedAccount
+    from integrations.providers import google_drive
+
+    stem, dot, ext = attachment.original_filename.rpartition(".")
+    ext = f".{ext.lower()}" if dot else ""
+    if (
+        attachment.from_drive
+        or attachment.project_id is None
+        or ext not in google_drive.CONVERTIBLE
+    ):
+        raise ValidationError(
+            {"file": "Only Word, Excel and PowerPoint files can be edited in Google."}
+        )
+    if is_flagged(attachment):
+        raise ValidationError({"file": "Files marked as participant data stay in labbenchos."})
+    limit = google_drive.CONVERT_MAX_BYTES
+    too_big = f"This file is too large to copy to Google ({limit // 1048576} MB maximum)."
+    if attachment.size_bytes > limit:
+        raise ValidationError({"file": too_big})
+    account = (
+        ConnectedAccount.objects.for_lab(attachment.lab_id)
+        .filter(user=user, provider=google_drive.PROVIDER.name, status=AccountStatus.ACTIVE)
+        .first()
+    )
+    if account is None:
+        raise ValidationError({"file": "Connect Google in Integrations first."})
+    try:
+        with lab_files().open(attachment.storage_key, "rb") as fh:
+            data = fh.read(limit + 1)
+    except FileNotFoundError:
+        raise Http404 from None
+    if len(data) > limit:
+        raise ValidationError({"file": too_big})
+    try:
+        file_id = google_drive.create_converted(account, name=stem, extension=ext, data=data)
+    except IntegrationError:  # AccountUnavailable too
+        raise ValidationError({"file": "Google Drive did not answer. Try again."}) from None
+    # The bytes have left: recorded now, so a failure to link the copy below still leaves a trace.
+    record(
+        AuditAction.ATTACHMENT_DOWNLOADED,
+        actor=user,
+        lab=attachment.lab,
+        target=attachment,
+        request=request,
+        metadata={"via": "google_copy", "drive_file_id": file_id},
+    )
+    return _link_drive_file(
+        user=user,
+        file_id=file_id,
+        owners=(attachment.project, None, None, None),
+        folder=attachment.folder,
+        request=request,
+        pi_only=attachment.pi_only,
+        flag=False,
+        copied_from=attachment,
+    )
 
 
 @transaction.atomic

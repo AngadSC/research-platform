@@ -28,6 +28,7 @@ from ethics.models import EthicsApproval  # ethics (Phase 5)
 from integrations import http as integrations_http  # integrations (Run 2)
 from integrations import registry, webhooks
 from integrations.models import ConnectedAccount, ExternalLink, Webhook  # integrations (Run 2)
+from integrations.providers import google_drive  # Edit in Google (VISION B3)
 from integrations.providers import zotero as zotero_provider  # Zotero import (D242)
 from integrations.tests.fake import FAKE  # integrations (Run 2)
 from labs.models import (  # admin area (Run 4)
@@ -194,6 +195,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("PATCH",  "documents:attachment-detail"): "401 404 2 2 2 2 403 404 403",  # participant flag
     ("DELETE", "documents:attachment-detail"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:attachment-download"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "documents:attachment-edit-in-google"): "401 404 2 2 2 2 403 404 403",  # B3
     ("POST",   "documents:document-move"): "401 404 2 2 2 2 403 404 403",
     ("POST",   "documents:attachment-move"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:folder-list"): "401 404 2 2 2 2 2 404 2",
@@ -867,6 +869,17 @@ def _matrix_fake_provider(monkeypatch, settings):
     monkeypatch.setattr(
         zotero_provider, "paper_fields", lambda account, external_id: {"title": "Imported paper"}
     )
+    # Edit in Google (VISION B3): the copy and its metadata, without Google.
+    monkeypatch.setattr(google_drive, "create_converted", lambda account, **kw: "gcopy1")
+    monkeypatch.setattr(
+        google_drive,
+        "fetch_item",
+        lambda account, file_id: {
+            "title": "Notes",
+            "url": "https://docs.google.com/document/d/gcopy1/edit",
+            "mime_type": "application/vnd.google-apps.document",
+        },
+    )
     monkeypatch.setattr(integrations_http, "_resolve", lambda host: ["93.184.216.34"])
     monkeypatch.setattr(webhooks, "_post", lambda hook, message: 200)
     settings.INTEGRATION_CLIENTS = {
@@ -1313,6 +1326,7 @@ PAYLOADS = {
     },
     ("POST", "documents:document-move"): lambda user, w: {"folder": None},
     ("POST", "documents:attachment-move"): lambda user, w: {"folder": None},
+    ("POST", "documents:attachment-edit-in-google"): lambda user, w: _as_docx(w),
     ("POST", "documents:folder-list"): lambda user, w: {"name": "New folder"},
     ("PATCH", "documents:folder-detail"): lambda user, w: {"name": "Renamed folder"},
     ("PATCH", "documents:document-detail"): lambda user, w: {"contains_participant_data": True},
@@ -1534,6 +1548,14 @@ PAYLOADS = {
         "file": SimpleUploadedFile("fig.png", b"png", content_type="image/png"),
     },
 }
+
+
+def _as_docx(w):
+    """Edit in Google (VISION B3) takes Word, Excel and PowerPoint files only."""
+    Attachment.objects.for_lab(w.a["lab_id"]).filter(pk=w.a["attachment_id"]).update(
+        original_filename="Notes.docx"
+    )
+    return {}
 
 
 def _file_link(user, w, kind):

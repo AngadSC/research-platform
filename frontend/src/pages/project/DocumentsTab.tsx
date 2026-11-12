@@ -54,7 +54,7 @@ import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { UploadDialog } from "@/pages/project/UploadDialog";
 import { FromDriveButton } from "@/components/shared/FromDriveButton";
 import { attachFromDrive } from "@/lib/drive";
-import { googleEditor, isImage } from "@/lib/googleFiles";
+import { convertible, googleEditor, isImage } from "@/lib/googleFiles";
 
 const isPdf = (a: Attachment) =>
   a.content_type === "application/pdf" || a.original_filename.toLowerCase().endsWith(".pdf");
@@ -83,6 +83,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
     list: files,
     uploadFile,
     remove: removeFile,
+    editInGoogle,
   } = useAttachments(labId, projectId, LIVE_POLL_MS);
   useNewItemToasts(`${projectId}/files`, files.data, "file", (f) => f.original_filename);
   const canEdit = project.my_permissions.includes("edit_content");
@@ -129,6 +130,14 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
     .filter((r) => rowFolder(r) === folder)
     .sort((a, b) => rowDate(b).localeCompare(rowDate(a)));
 
+  const copyToGoogle = (f: Attachment) =>
+    editInGoogle.mutate(f.id, {
+      onSuccess: (copy) => {
+        toast.success("Copied to your Google Drive. Changes there do not change the original.");
+        setPanel({ file: copy, edit: true });
+      },
+      onError: (e) => toast.error(formErrors(e, []).form ?? "Something went wrong."),
+    });
   const preview = (f: Attachment) =>
     googleEditor(f) ? setPanel({ file: f, edit: false }) : setPreviewing(f);
   const startMove = (r: Row) =>
@@ -209,6 +218,17 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
               onClick={() => setPanel({ file: r.file, edit: true })}
             >
               <Pencil aria-hidden />
+            </Button>
+          )}
+          {canEdit && r.file && convertible(r.file) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={editInGoogle.isPending}
+              onClick={() => copyToGoogle(r.file)}
+            >
+              <Pencil aria-hidden /> Edit in Google
+              <span className="sr-only"> ({rowName(r)})</span>
             </Button>
           )}
           {r.file && (

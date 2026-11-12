@@ -224,3 +224,116 @@ def test_a_paper_takes_a_drive_pdf_only_and_explains_it_cannot_be_read(transport
     p = Paper.objects.for_lab(lab).get()
     with pytest.raises(paper_services.PdfTextError, match="in Google Drive"):
         paper_services.read_pdf_text(p, first=1, last=1)
+
+
+# ---- "Edit in Google" (VISION B3): a Word, Excel or PowerPoint upload copied into Drive
+
+COPY_ID = "gCopy-1"
+COPY_URL = f"https://www.googleapis.com/drive/v3/files/{COPY_ID}?fields={google_drive.FIELDS}"
+DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
+def upload(world, name="Notes.docx", **kw):
+    from documents import services as document_services
+
+    lab, users, project = world
+    f = SimpleUploadedFile(name, b"PK\x03\x04 fake docx", content_type=DOCX)
+    return document_services.upload_attachment(project=project, user=users["pi"], file=f, **kw)
+
+
+def edit_in_google(client, lab, att):
+    return client.post(f"/api/labs/{lab.pk}/attachments/{att.pk}/edit-in-google/")
+
+
+def test_edit_in_google_copies_into_your_drive_and_links_back(transport, world):
+    lab, users, project = world
+    from documents.models import Folder
+
+    folder = Folder.objects.create(lab=lab, project=project, name="Drafts", created_by=users["pi"])
+    att = upload(world, folder=folder)
+    connect_drive(transport, users["member"], lab)
+    transport.on("POST", google_drive.UPLOAD_URL, response(200, {"id": COPY_ID}))
+    google_doc = "application/vnd.google-apps.document"
+    copy = drive_file(id=COPY_ID, name="Notes", mimeType=google_doc, webViewLink=WEB)
+    transport.on("GET", COPY_URL, response(200, copy))
+
+    r = edit_in_google(api(users["member"]), lab, att)
+    assert r.status_code == 201, r.content
+    body = r.json()
+    assert body["copied_from"] == str(att.pk) and body["drive_file_id"] == COPY_ID
+    assert body["folder"] == str(folder.pk) and body["content_type"] == google_doc
+    (sent,) = transport.sent("POST", google_drive.UPLOAD_URL)
+    assert sent["headers"]["Content-Type"].startswith("multipart/related; boundary=")
+    assert b'"mimeType": "application/vnd.google-apps.document"' in sent["data"]
+    assert b"PK\x03\x04 fake docx" in sent["data"] and b'"name": "Notes"' in sent["data"]
+    event = AuditEvent.objects.get(
+        action=AuditAction.ATTACHMENT_UPLOADED, metadata__copied_from=str(att.pk)
+    )
+    assert event.actor == users["member"] and event.metadata["drive_file_id"] == COPY_ID
+    assert event.metadata["source"] == "google_copy"
+    sent_out = AuditEvent.objects.get(action=AuditAction.ATTACHMENT_DOWNLOADED, target_id=att.pk)
+    assert sent_out.metadata == {"via": "google_copy", "drive_file_id": COPY_ID}
+
+
+def test_edit_in_google_needs_your_own_google_connection(transport, world):
+    lab, users, _ = world
+    att = upload(world)
+    connect_drive(transport, users["pi"], lab)  # someone else's connection does not count
+    before = len(transport.calls)
+    r = edit_in_google(api(users["member"]), lab, att)
+    assert r.status_code == 400 and err(r, "file") == "Connect Google in Integrations first."
+    assert len(transport.calls) == before
+
+
+@pytest.mark.parametrize("where", ["file", "folder"])
+def test_participant_data_never_goes_to_google(transport, world, where):
+    lab, users, project = world
+    from documents.models import Folder
+
+    folder = Folder.objects.create(
+        lab=lab,
+        project=project,
+        name="Raw",
+        created_by=users["pi"],
+        contains_participant_data=where == "folder",
+    )
+    att = upload(world, folder=folder, contains_participant_data=where == "file")
+    if where == "folder":  # moved in after upload: the folder alone counts
+        Attachment.objects.for_lab(lab).filter(pk=att.pk).update(contains_participant_data=False)
+    connect_drive(transport, users["member"], lab)
+    before = len(transport.calls)
+    r = edit_in_google(api(users["member"]), lab, att)
+    assert r.status_code == 400
+    assert err(r, "file") == "Files marked as participant data stay in labbenchos."
+    assert len(transport.calls) == before
+
+
+def test_a_viewer_cannot_edit_in_google(transport, world):
+    lab, users, project = world
+    ProjectMembership.objects.create(
+        lab=lab, project=project, user=users["viewer"], role=ProjectRole.VIEWER
+    )
+    att = upload(world)
+    connect_drive(transport, users["viewer"], lab)
+    before = len(transport.calls)
+    assert edit_in_google(api(users["viewer"]), lab, att).status_code == 403
+    assert len(transport.calls) == before
+
+
+def test_a_file_too_large_for_google_is_refused(transport, world, monkeypatch):
+    lab, users, _ = world
+    monkeypatch.setattr(google_drive, "CONVERT_MAX_BYTES", 8)
+    att = upload(world)
+    connect_drive(transport, users["member"], lab)
+    before = len(transport.calls)
+    r = edit_in_google(api(users["member"]), lab, att)
+    assert r.status_code == 400 and "too large" in err(r, "file")
+    assert len(transport.calls) == before
+
+
+def test_only_word_excel_and_powerpoint_files_can_be_edited_in_google(transport, world):
+    lab, users, _ = world
+    att = upload(world, name="Protocol.pdf")
+    connect_drive(transport, users["member"], lab)
+    r = edit_in_google(api(users["member"]), lab, att)
+    assert r.status_code == 400 and "Word, Excel and PowerPoint" in err(r, "file")

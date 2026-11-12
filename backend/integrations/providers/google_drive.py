@@ -1,7 +1,9 @@
 """Google Drive (ARCHITECTURE section 9, D64, D70, D76 to D78). Scope `drive.file` only: per-file
 access to what the person picks in the Google Picker. Metadata only: never `alt=media`, an export
-or a download."""
+or a download. The one write is "Edit in Google" (end of file): a copy the person asks for."""
 
+import json
+import secrets
 from urllib.parse import quote
 
 from django.utils.dateparse import parse_datetime
@@ -108,3 +110,56 @@ PROVIDER = Provider(
     link_hosts=frozenset({"docs.google.com", "drive.google.com"}),
     apply_to_target=apply_to_target,
 )
+
+
+# ---- "Edit in Google" (VISION B3): a Word, Excel or PowerPoint upload copied into the person's
+# own Drive as a Google Doc, Sheet or Slides file. drive.file covers files the app creates.
+
+# extension -> (the upload's type, the Google type Drive converts it to)
+CONVERTIBLE = {
+    ".docx": (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.google-apps.document",
+    ),
+    ".xlsx": (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.google-apps.spreadsheet",
+    ),
+    ".pptx": (
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.google-apps.presentation",
+    ),
+}
+# Drive's limit for a multipart upload. ponytail: a resumable upload if bigger files are needed.
+CONVERT_MAX_BYTES = 5 * 1024 * 1024
+UPLOAD_URL = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id"
+
+
+def create_converted(account, *, name, extension, data) -> str:
+    """Drive v3 `files.create` (multipart): upload `data` as a new file in the person's own
+    Drive, converted to the Google type for `extension`. Returns the new file's id."""
+    source, target = CONVERTIBLE[extension]
+    boundary = secrets.token_hex(16)
+    meta = json.dumps({"name": name, "mimeType": target})
+    body = (
+        (
+            f"--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n{meta}\r\n"
+            f"--{boundary}\r\nContent-Type: {source}\r\n\r\n"
+        ).encode()
+        + data
+        + f"\r\n--{boundary}--\r\n".encode()
+    )
+    resp = http.send(
+        "POST",
+        UPLOAD_URL,
+        provider=PROVIDER,
+        account=account,
+        data=body,
+        headers={"Content-Type": f"multipart/related; boundary={boundary}"},
+    )
+    if resp.status_code != 200:
+        raise http.IntegrationError("Google Drive did not make the copy")
+    try:
+        return str(resp.json()["id"])  # checked when it is linked
+    except (ValueError, KeyError, TypeError):
+        raise http.IntegrationError("Google Drive returned an unreadable answer") from None

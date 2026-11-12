@@ -203,7 +203,16 @@ export function useAttachments(labId: string, projectId: string, pollMs?: number
     mutationFn: (id: string) => api(`${base(labId)}/attachments/${id}/`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: key }),
   });
-  return { list, uploadFile, remove };
+  // VISION B3: a Google copy of a Word, Excel or PowerPoint file, made in the person's own Drive.
+  const editInGoogle = useMutation({
+    mutationFn: (id: string) =>
+      api<Attachment>(`${base(labId)}/attachments/${id}/edit-in-google/`, { method: "POST" }),
+    onSuccess: (a) => {
+      markMine(a?.id);
+      return qc.invalidateQueries({ queryKey: key });
+    },
+  });
+  return { list, uploadFile, remove, editInGoogle };
 }
 
 /** The only way files are fetched: the authenticated same-origin endpoint. */

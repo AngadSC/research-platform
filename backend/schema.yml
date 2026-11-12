@@ -936,6 +936,35 @@ paths:
                 type: string
                 format: binary
           description: ''
+  /api/labs/{lab_id}/attachments/{attachment_id}/edit-in-google/:
+    post:
+      operationId: labs_attachments_edit_in_google_create
+      description: 'VISION B3: copy a Word, Excel or PowerPoint upload into the person''s
+        own Google Drive.'
+      parameters:
+      - in: path
+        name: attachment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attachment'
+          description: ''
   /api/labs/{lab_id}/attachments/{attachment_id}/move/:
     post:
       operationId: labs_attachments_move_create
@@ -9554,6 +9583,11 @@ components:
           type: string
           format: uri
           readOnly: true
+        copied_from:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
         contains_participant_data:
           type: boolean
           readOnly: true
@@ -9564,6 +9598,7 @@ components:
       required:
       - contains_participant_data
       - content_type
+      - copied_from
       - created_at
       - drive_file_id
       - ethics_approval

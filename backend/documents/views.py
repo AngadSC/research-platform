@@ -342,6 +342,21 @@ class AttachmentMoveView(AttachmentMixin, generics.GenericAPIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class AttachmentEditInGoogleView(AttachmentMixin, generics.GenericAPIView):
+    """VISION B3: copy a Word, Excel or PowerPoint upload into the person's own Google Drive."""
+
+    serializer_class = AttachmentSerializer
+    lookup_url_kwarg = "attachment_id"
+    perms = {"POST": Perm.EDIT_CONTENT}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "uploads"
+
+    @extend_schema(request=None, responses={201: AttachmentSerializer})
+    def post(self, request, lab_id, attachment_id):
+        copy = services.edit_in_google(self.get_object(), user=request.user, request=request)
+        return Response(self.get_serializer(copy).data, status=status.HTTP_201_CREATED)
+
+
 class AttachmentDownloadView(AttachmentMixin, generics.GenericAPIView):
     serializer_class = AttachmentSerializer
     lookup_url_kwarg = "attachment_id"

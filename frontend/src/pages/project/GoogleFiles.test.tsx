@@ -272,3 +272,51 @@ describe("From Drive picks several files", () => {
     expect(await screen.findByText("Added 2 files from Drive")).toBeInTheDocument();
   });
 });
+
+describe("Edit in Google (Word, Excel, PowerPoint)", () => {
+  const word = file({ id: "w1", original_filename: "Draft.docx", content_type: "application/x" });
+  const COPY = "POST /api/labs/lab1/attachments/w1/edit-in-google/";
+
+  it("copies the file to Google and opens the copy in the editor panel", async () => {
+    const calls = mockFetch({
+      ...base(["edit_content"], [word]),
+      [COPY]: {
+        status: 201,
+        body: gdoc("g9", "Draft", "document", { copied_from: "w1", folder: null }),
+      },
+    });
+    renderRoute(DOCS);
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Edit in Google.*Draft\.docx/ }),
+    );
+    const panel = await screen.findByRole("complementary", { name: /Draft in Google Docs/ });
+    expect(within(panel).getByTitle("Draft")).toHaveAttribute(
+      "src",
+      "https://docs.google.com/document/d/drv-g9/edit",
+    );
+    expect(calls.some((c) => `${c.method} ${c.path}` === COPY)).toBe(true);
+  });
+
+  it("shows the server's reason when the copy is refused", async () => {
+    mockFetch({
+      ...base(["edit_content"], [word]),
+      [COPY]: {
+        status: 400,
+        body: { file: "Files marked as participant data stay in labbenchos." },
+      },
+    });
+    renderRoute(DOCS);
+    await userEvent.click(await screen.findByRole("button", { name: /Edit in Google/ }));
+    expect(
+      await screen.findByText("Files marked as participant data stay in labbenchos."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: /in Google/ })).toBeNull();
+  });
+
+  it("is not offered to viewers or on other kinds of file", async () => {
+    mockFetch(base(["view_project"], [word]));
+    renderRoute(DOCS);
+    await screen.findByRole("cell", { name: "Draft.docx" });
+    expect(screen.queryByRole("button", { name: /Edit in Google/ })).toBeNull();
+  });
+});

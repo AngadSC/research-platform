@@ -142,6 +142,7 @@ class AttachmentSerializer(serializers.ModelSerializer):
             "created_at",
             "drive_file_id",
             "external_url",
+            "copied_from",
             "contains_participant_data",
             "source",
         ]

@@ -163,6 +163,10 @@ class Attachment(LabScopedModel):
     # opening it goes to Drive. Set only from Drive's own answer, never from the browser.
     drive_file_id = models.CharField(max_length=255, blank=True)
     external_url = models.URLField(max_length=2000, blank=True)
+    # VISION B3: "Edit in Google". The upload this Google copy was made from.
+    copied_from = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
     # VISION A3: AI tools never see a flagged item (assistant/privacy.py). Copied down from folders.
     contains_participant_data = models.BooleanField(default=False)
     # VISION S1: "link" is a one-time upload link (MATLAB on the person's computer, through Claude)
@@ -174,7 +178,14 @@ class Attachment(LabScopedModel):
     def from_drive(self) -> bool:
         return bool(self.drive_file_id)
 
-    lab_parents = ("project", "ethics_approval", "training_record", "folder", "paper")
+    lab_parents = (
+        "project",
+        "ethics_approval",
+        "training_record",
+        "folder",
+        "paper",
+        "copied_from",
+    )
     permission_domain = "project"
     project_path = "project"
 
