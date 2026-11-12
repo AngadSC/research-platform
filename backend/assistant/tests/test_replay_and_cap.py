@@ -69,6 +69,30 @@ def test_a_document_flagged_after_it_was_read_is_withheld_from_the_next_turn(key
     assert SECRET in json.dumps(list(Conversation.objects.get(pk=conv).messages.values("content")))
 
 
+def test_withholding_drops_thinking_blocks_so_the_edited_history_is_not_rejected(
+    keyed, monkeypatch
+):
+    doc = make_doc(keyed)
+    think = {"type": "thinking", "thinking": "", "signature": "sig"}
+    fake = patch_claude(
+        monkeypatch,
+        claude_message(
+            [think, tool_use("toolu_1", "get_document", args(keyed, doc))], stop="tool_use"
+        ),
+        claude_message([think, text("Read it")]),
+        claude_message([text("Next")]),
+        claude_message([text("Last")]),
+    )
+    c = api(keyed.u.pi)
+    conv = new_conv(c, keyed.lab_a)
+    events(send(c, keyed.lab_a, conv))
+    events(send(c, keyed.lab_a, conv, "And now?"))
+    assert '"signature"' in json.dumps(fake.calls[2]["messages"])  # untouched history keeps them
+    privacy.set_flag(doc, True, user=keyed.u.pi)
+    events(send(c, keyed.lab_a, conv, "Again?"))
+    assert '"signature"' not in json.dumps(fake.calls[3]["messages"])
+
+
 def test_a_document_deleted_after_it_was_read_is_withheld_too(keyed, monkeypatch):
     doc = make_doc(keyed)
     fake = patch_claude(

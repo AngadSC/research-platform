@@ -405,6 +405,7 @@ class Run:
         if not calls:
             return messages
         ctx = self._context(can_write=False)
+        edited = False
         for m in messages:
             if m.role != Role.USER or not m.in_context:
                 continue
@@ -415,6 +416,12 @@ class Run:
             }
             if gone:
                 m.content = self.adapter.refuse_results(m.content, gone, privacy.REFUSAL)
+                edited = True
+        if edited:  # an edited earlier turn invalidates every later thinking block (the API
+            # answers 400); dropping all of them is the allowed shape, so do that on this copy
+            for m in messages:
+                if m.role == Role.ASSISTANT:
+                    m.content = self.adapter.drop_thinking(m.content)
         return messages
 
     def _finish_turn(self, result: TurnResult):

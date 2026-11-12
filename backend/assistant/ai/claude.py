@@ -73,6 +73,11 @@ def refuse_results(content: list, ids: set, text: str) -> list:
     ]
 
 
+def drop_thinking(content: list) -> list:
+    """The turn without its thinking blocks (they are bound to the history they came from)."""
+    return [b for b in content if b.get("type") not in ("thinking", "redacted_thinking")]
+
+
 def results_of(content: list) -> dict[str, tuple[bool, str]]:
     """call id -> (succeeded, text), for the timeline."""
     return {
