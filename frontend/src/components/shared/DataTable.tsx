@@ -26,6 +26,11 @@ interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
 }
 
+/** Column classes that drop a lower-value column when the content area (not the viewport) is
+ * narrow, e.g. with the assistant docked. Use on columns whose data is also in the row's detail. */
+export const HIDE_NARROW = "hidden @2xl:table-cell";
+export const HIDE_NARROWER = "hidden @4xl:table-cell";
+
 const SKELETON_ROWS = 5;
 
 export function DataTable<T>({

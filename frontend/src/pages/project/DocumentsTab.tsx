@@ -16,7 +16,7 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { FilePreview } from "@/components/documents/FilePreview";
 import { FolderBrowser, MoveDialog, type Movable } from "@/components/documents/Folders";
-import { DataTable, type Column } from "@/components/shared/DataTable";
+import { DataTable, HIDE_NARROW, HIDE_NARROWER, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
@@ -162,9 +162,12 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
     {
       key: "name",
       header: "Name",
+      className: "w-full max-w-0",
       cell: (r) => (
         <span className="flex items-center gap-2">
-          <span className="font-medium">{rowName(r)}</span>
+          <span className="truncate font-medium" title={rowName(r)}>
+            {rowName(r)}
+          </span>
           {rowFlagged(r) && <ParticipantBadge />}
         </span>
       ),
@@ -172,6 +175,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
     {
       key: "type",
       header: "Type",
+      className: HIDE_NARROW,
       cell: (r) => {
         if (r.doc) return "Document";
         const g = googleEditor(r.file);
@@ -186,9 +190,15 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
     {
       key: "by",
       header: "Last changed by",
+      className: HIDE_NARROWER,
       cell: (r) => personName(r.doc ? r.doc.updated_by : r.file.uploaded_by),
     },
-    { key: "at", header: "Updated", cell: (r) => <RelativeTime value={rowDate(r)} /> },
+    {
+      key: "at",
+      header: "Updated",
+      className: HIDE_NARROW,
+      cell: (r) => <RelativeTime value={rowDate(r)} />,
+    },
     {
       key: "actions",
       header: "",

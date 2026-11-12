@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
-import { DataTable, type Column } from "@/components/shared/DataTable";
+import { DataTable, HIDE_NARROW, HIDE_NARROWER, type Column } from "@/components/shared/DataTable";
 import { DetailPanel } from "@/components/shared/DetailPanel";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
@@ -93,16 +93,23 @@ const COLUMNS: { [K in Kind]: Column<AnyRecord>[] } = {
     {
       key: "c",
       header: "Access controlled by",
+      className: HIDE_NARROW,
       cell: (r) => ((r as Dataset).controlled_by ? personName((r as Dataset).controlled_by) : ""),
     },
   ],
   analyses: [
     { key: "t", header: "Title", cell: (r) => (r as Analysis).title },
     { key: "d", header: "Run on", cell: (r) => date((r as Analysis).ran_at) },
-    { key: "c", header: "Commit", cell: (r) => short((r as Analysis).code_commit) },
+    {
+      key: "c",
+      header: "Commit",
+      className: HIDE_NARROW,
+      cell: (r) => short((r as Analysis).code_commit),
+    },
     {
       key: "b",
       header: "Run by",
+      className: HIDE_NARROWER,
       cell: (r) => ((r as Analysis).ran_by ? personName((r as Analysis).ran_by) : ""),
     },
   ],

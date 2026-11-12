@@ -2,7 +2,7 @@ import { LayoutList, ListChecks, MoreHorizontal, Plus, SquareKanban } from "luci
 import { useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
-import { DataTable, type Column } from "@/components/shared/DataTable";
+import { DataTable, HIDE_NARROW, type Column } from "@/components/shared/DataTable";
 import { DetailPanel } from "@/components/shared/DetailPanel";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
@@ -330,6 +330,7 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
     {
       key: "assignee",
       header: "Assignee",
+      className: HIDE_NARROW,
       cell: (t) => (t.assignee ? personName(t.assignee) : "Unassigned"),
     },
     { key: "due", header: "Due", cell: (t) => day(t.due_date) || "No date" },
