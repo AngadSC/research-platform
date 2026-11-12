@@ -40,6 +40,7 @@ import { isKind, KINDS, recordTitle, type AnyRecord, type Kind } from "@/lib/res
 import { recordPath, SECTION_KINDS, sectionOf, type ResearchSection } from "@/lib/workflow";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { ResearchForm, ResultSetForm } from "@/pages/project/ResearchForm";
+import { AnalysisOutputs, DownloadCode, RunAgain } from "@/pages/project/AnalysisExtras";
 
 const short = (c: string) => c.slice(0, 7) || "None";
 const date = (s: string) => new Date(s).toLocaleDateString(undefined, { dateStyle: "medium" });
@@ -97,6 +98,7 @@ const COLUMNS: { [K in Kind]: Column<AnyRecord>[] } = {
   ],
   analyses: [
     { key: "t", header: "Title", cell: (r) => (r as Analysis).title },
+    { key: "d", header: "Run on", cell: (r) => date((r as Analysis).ran_at) },
     { key: "c", header: "Commit", cell: (r) => short((r as Analysis).code_commit) },
     {
       key: "b",
@@ -159,7 +161,13 @@ function List({
       {(list.data?.length ?? 0) > 0 && <div className="flex justify-end">{add}</div>}
       <DataTable
         columns={COLUMNS[kind]}
-        rows={list.data ?? []}
+        rows={
+          kind === "analyses"
+            ? [...(list.data ?? [])].sort((a, b) =>
+                (b as Analysis).ran_at.localeCompare((a as Analysis).ran_at),
+              )
+            : (list.data ?? [])
+        }
         getRowKey={(r) => r.id}
         loading={list.isLoading}
         onRowClick={(r) => void navigate(recordPath(base, kind, r.id))}
@@ -344,7 +352,14 @@ function fields(kind: Kind, r: AnyRecord, labId: string, base: string): [string,
       return [
         ["Description", a.description || "None"],
         ["Code repository", <Ext key="r" url={a.code_repo_url} />],
-        ["Commit", a.code_commit || "None"],
+        [
+          "Commit",
+          a.code_commit && a.code_repo_url ? (
+            <Ext key="c" url={`${a.code_repo_url.replace(/\/$/, "")}/commit/${a.code_commit}`} />
+          ) : (
+            a.code_commit || "None"
+          ),
+        ],
         [
           "Attached code",
           <Files
@@ -464,6 +479,10 @@ function Detail({
                 View in lineage
               </Link>
             </Button>
+            {kind === "analyses" && <DownloadCode labId={labId} analysis={r as Analysis} />}
+            {kind === "analyses" && canEdit && (
+              <RunAgain labId={labId} projectId={projectId} base={base} analysis={r as Analysis} />
+            )}
             {canEdit && (
               <>
                 <Button variant="outline" onClick={() => setEditing(true)}>
@@ -485,6 +504,9 @@ function Detail({
           </div>
         ))}
       </dl>
+      {kind === "analyses" && (
+        <AnalysisOutputs labId={labId} projectId={projectId} analysisId={id} />
+      )}
       {kind in LINK_FIELD && (
         <section aria-labelledby="linked-files" className="grid gap-2">
           <h2 id="linked-files" className="text-sm font-medium">
