@@ -71,24 +71,24 @@ reaching labbenchos through our connector. Everything here costs us nothing per 
 | S1 | File links for tools on the person's computer: `get_file_link` (short-lived download link to one file, permission-checked, refuses flagged files) and `create_upload_link` (one-time upload into a project, size and type limits, optional link to an Analysis). Both are audited and expire within 15 minutes. Needs A3 | M | opus / high | done (D269) |
 | S2 | Results appear right away: the project's files, analyses and documents refresh on their own while open (polling, about every 10 seconds) and show a "New from Claude" notice | S | sonnet / medium | done (D270) |
 | S3 | MATLAB on your own computer: a help page and a one-page setup for Claude Desktop with MathWorks' MATLAB MCP Core Server and the labbenchos connector. Claude fetches the lab file with S1, runs MATLAB locally, and MATLAB uploads the figure and results with S1, so they show in the project within seconds | S | sonnet / medium | done (D271) |
-| S4 | Claude in Chrome: Anthropic's Chrome extension opens a Claude side panel on any site, labbenchos included, on the person's own plan. Test our main pages with it, fix anything it cannot read or click, and add a help page. This is the side panel we can offer today without paying for AI | S | sonnet / medium | help page done (D271); Chrome testing to do |
+| S4 | Claude in Chrome: Anthropic's Chrome extension opens a Claude side panel on any site, labbenchos included, on the person's own plan. Test our main pages with it, fix anything it cannot read or click, and add a help page. This is the side panel we can offer today without paying for AI | S | sonnet / medium | done (D271; pages checked with Claude in Chrome 2026-11-12) |
 
 ### Phase A: quick wins (do first)
 | ID | Task | Size | Model / effort | Status |
 |---|---|---|---|---|
 | A1 | Integrations link in every member's sidebar; pointer to Claude and ChatGPT setup | S | orchestrator | done |
-| A2 | Later, needs paid AI. Docked Claude panel: right side, stays open across pages, resizable and collapsible, remembers its state per browser, sends the current page as context; keyboard shortcut; phone keeps the full-screen sheet | M | sonnet / medium | todo |
+| A2 | Later, needs paid AI. Docked Claude panel: right side, stays open across pages, resizable and collapsible, remembers its state per browser, sends the current page as context; keyboard shortcut; phone keeps the full-screen sheet | M | sonnet / medium | done (D276) |
 | A3 | Participant-data flag on files, folders, datasets and documents; asked on upload, copied down from folders; every AI tool, AI search and the MCP server refuse flagged items; tests in the permission matrix | M | opus / high | done (D268) |
 | A4 | AI file tools: `list_files`, `read_file` (PDF, Word, Excel or CSV, text, images) with size limits and untrusted-content wrapping; refuses flagged files (needs A3) | M | opus / high | done (D269) |
-| A5 | Later, needs paid AI. Lab AI key: a PI or lab admin sets one key for the lab, with a monthly spending cap and per-person usage shown; a person's own key still wins | M | sonnet / medium | todo |
+| A5 | Later, needs paid AI. Lab AI key: a PI or lab admin sets one key for the lab, with a monthly spending cap and per-person usage shown; a person's own key still wins | M | sonnet / medium | done (D277) |
 
 ### Phase B: Google inside the app
 | ID | Task | Size | Model / effort | Status |
 |---|---|---|---|---|
-| B1 | Spike, half a day: embed a private Google Doc's editor in Chrome, Edge, Safari and Firefox; pick a folder with `drive.file` and check whether its files can be read. Write the result into DECISIONS.md | S | sonnet / medium | todo |
-| B2 | Project Files page: one list of uploads, Drive files and app-made files; preview; Edit opens the Google editor in a side panel (or a new tab where B1 says it fails); multi-select "From Drive" picker | L | sonnet / high | todo |
-| B3 | Word and Excel: "Edit in Google" makes a Google copy in the person's Drive, linked back to the original | M | sonnet / medium | todo |
-| B4 | Claude reads linked Google Docs and Sheets (export to text or CSV), same rules as A4 | S | opus / medium | todo |
+| B1 | Spike, half a day: embed a private Google Doc's editor in Chrome, Edge, Safari and Firefox; pick a folder with `drive.file` and check whether its files can be read. Write the result into DECISIONS.md | S | sonnet / medium | done for Chrome (D272) |
+| B2 | Project Files page: one list of uploads, Drive files and app-made files; preview; Edit opens the Google editor in a side panel (or a new tab where B1 says it fails); multi-select "From Drive" picker | L | sonnet / high | done (D272) |
+| B3 | Word and Excel: "Edit in Google" makes a Google copy in the person's Drive, linked back to the original | M | sonnet / medium | done (D273) |
+| B4 | Claude reads linked Google Docs and Sheets (export to text or CSV), same rules as A4 | S | opus / medium | done (D274) |
 | B5 | Decision only: apply for Google's restricted Drive permission if B2 picking is not enough (cost and time in the table above) | S | founders | todo |
 
 ### Phase C: analysis
@@ -96,12 +96,12 @@ reaching labbenchos through our connector. Everything here costs us nothing per 
 |---|---|---|---|---|
 | C1 | Later, needs paid AI. Claude runs Python with Anthropic's code-execution tool on chosen, unflagged files; figures and tables are saved back to the project; each run becomes an Analysis in lineage with its code and inputs | L | opus / high | todo |
 | C2 | Our own runner on a separate server: Python, R and Octave in locked-down containers (gVisor, no network, CPU, memory and time limits); same UI as C1; security review before launch | L | opus / high | todo |
-| C3 | Analyses page: list runs per project, open outputs, rerun on a newer dataset version, download the code | M | sonnet / medium | todo |
+| C3 | Analyses page: list runs per project, open outputs, rerun on a newer dataset version, download the code | M | sonnet / medium | done (D275) |
 
 ### Phase D: MATLAB
 | ID | Task | Size | Model / effort | Status |
 |---|---|---|---|---|
-| D1 | Help page: use your own MATLAB with Claude Desktop (MathWorks' MATLAB MCP Core Server) together with the labbenchos connector | S | haiku / low | todo |
+| D1 | Help page: use your own MATLAB with Claude Desktop (MathWorks' MATLAB MCP Core Server) together with the labbenchos connector | S | haiku / low | done (D271) |
 | D2 | Octave in the C2 runner for `.m` scripts | S | sonnet / medium | todo |
 | D3 | Optional, only if labs ask: a small helper app that links a person's own MATLAB to the in-app Claude panel | L | opus / high | todo |
 

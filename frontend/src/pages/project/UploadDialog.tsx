@@ -10,6 +10,8 @@ import { formErrors } from "@/lib/forms";
 export const MAX_BYTES = 50 * 1024 * 1024;
 export const NOTICE =
   "Do not upload participant identifiers. Upload only anonymized or aggregate data.";
+const FLAGGED_NOTICE =
+  "Keep participant data here only if your ethics approval allows it. Claude and other AI tools will never see this file.";
 
 interface Props {
   open: boolean;
@@ -91,7 +93,7 @@ function UploadForm({
         role="note"
         className="rounded-md border border-primary/40 bg-primary/10 p-3 text-sm font-medium"
       >
-        {NOTICE}
+        {flagged ? FLAGGED_NOTICE : NOTICE}
       </p>
       <div
         onDragOver={(e) => e.preventDefault()}

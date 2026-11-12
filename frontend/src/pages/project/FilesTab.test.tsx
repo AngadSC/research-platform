@@ -111,6 +111,8 @@ describe("files", () => {
     expect(screen.getByText("Claude and other AI tools will never see this.")).toBeInTheDocument();
     await u.upload(screen.getByLabelText("Choose file"), pdf());
     await u.click(screen.getByRole("checkbox", { name: "Contains participant data" }));
+    expect(screen.queryByText(/Do not upload participant identifiers/)).not.toBeInTheDocument();
+    expect(screen.getByText(/only if your ethics approval allows it/)).toBeInTheDocument();
     await u.click(screen.getByRole("checkbox", { name: /ethics approval allows/i }));
     await u.click(screen.getByRole("button", { name: "Upload" }));
     await waitFor(() => expect(FakeXHR.sent).toHaveLength(1));

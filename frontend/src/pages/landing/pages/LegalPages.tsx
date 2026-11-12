@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { CONTACT_EMAILS } from "../content";
 
-const UPDATED = "November 11, 2026";
+const UPDATED = "November 12, 2026";
 
 function Contact() {
   return (
@@ -71,8 +71,10 @@ export function PrivacyPage() {
       <ul>
         <li>
           <strong>Google Drive</strong> (<code>drive.file</code>): access only to the files you pick
-          or that labbenchos creates, so you can link and open them from your lab. We cannot see the
-          rest of your Drive.
+          or that labbenchos creates, so you can link, open and edit them from your lab, and, when
+          you ask, make a Google copy of a Word, Excel or PowerPoint file in your Drive. If you ask
+          the AI assistant about a Drive file, we read that file with your own connection and send
+          it to your AI provider (see below). We cannot see the rest of your Drive.
         </li>
         <li>
           <strong>Google Calendar and Meet</strong> (<code>calendar.events</code> and{" "}
@@ -102,10 +104,13 @@ export function PrivacyPage() {
         connection is for.
       </p>
       <p>
-        The AI assistant uses your own AI provider account or API key (such as Anthropic or OpenAI).
-        When you use it, the parts of your lab you ask about are sent to that provider under your
-        agreement with them. If you connect an AI app such as Claude or ChatGPT to labbenchos, it
-        can only see what your role in the lab allows, and you can revoke it at any time.
+        The AI assistant uses your own AI provider account or API key (such as Anthropic or OpenAI),
+        or one your lab has set up. When you use it, the parts of your lab you ask about, including
+        the contents of files you ask it to read, are sent to that provider under that
+        account&rsquo;s agreement with them. Anything marked &ldquo;Contains participant data&rdquo;
+        is never sent to an AI provider. If you connect an AI app such as Claude or ChatGPT to
+        labbenchos, it can only see what your role in the lab allows, and you can revoke it at any
+        time.
       </p>
       <p>Access tokens and API keys for connected services are stored encrypted.</p>
 
