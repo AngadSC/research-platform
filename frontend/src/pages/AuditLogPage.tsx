@@ -177,7 +177,6 @@ function EventDetails({ e }: { e: AuditEvent }) {
       <Field label="Action">{actionLabel(e.action)}</Field>
       <Field label="Target">{cleanTarget(e.target_label)}</Field>
       {e.target_type && <Field label="Target type">{humanKey(e.target_type)}</Field>}
-      <Field label="IP address">{e.ip ?? "—"}</Field>
       {meta.length > 0 && (
         <Field label="Details">
           <dl className="grid gap-2 rounded-md border p-3">
@@ -202,7 +201,6 @@ const columns: Column<AuditEvent>[] = [
   { key: "who", header: "Who", cell: who },
   { key: "action", header: "Action", cell: (e) => actionLabel(e.action) },
   { key: "target", header: "Target", cell: (e) => cleanTarget(e.target_label) },
-  { key: "ip", header: "IP address", cell: (e) => e.ip ?? "—" },
 ];
 
 const ALL = "all";

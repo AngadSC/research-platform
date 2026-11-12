@@ -9540,10 +9540,6 @@ components:
         target_label:
           type: string
           readOnly: true
-        ip:
-          type: string
-          readOnly: true
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -9555,7 +9551,6 @@ components:
       - actor
       - created_at
       - id
-      - ip
       - metadata
       - target_id
       - target_label

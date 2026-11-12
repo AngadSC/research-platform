@@ -10,7 +10,6 @@ const ev = (i: number) => ({
   target_type: "invite",
   target_id: null,
   target_label: `bob${i}@uni.edu`,
-  ip: "10.0.0.1",
   created_at: new Date(Date.now() - 3600_000).toISOString(),
   metadata: { role: "member" },
 });

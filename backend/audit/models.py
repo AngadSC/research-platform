@@ -181,7 +181,6 @@ class AuditEvent(models.Model):
     target_id = models.UUIDField(null=True, blank=True)
     target_repr = models.CharField(max_length=200, blank=True)
     project_id = models.UUIDField(null=True, blank=True)
-    ip = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.CharField(max_length=256, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
 

@@ -3912,7 +3912,6 @@ export interface components {
             /** Format: uuid */
             readonly target_id: string | null;
             readonly target_label: string;
-            readonly ip: string | null;
             /** Format: date-time */
             readonly created_at: string;
             readonly metadata: unknown;

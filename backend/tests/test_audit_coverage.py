@@ -3,7 +3,7 @@ AuditEvent with the right actor, action, target, lab and IP (ARCHITECTURE sectio
 
 import pytest
 from allauth.mfa.totp.internal import auth as totp
-from django.test import Client, TestCase, override_settings
+from django.test import Client, TestCase
 from rest_framework.test import APIClient
 
 from audit.models import AuditAction, AuditEvent
@@ -29,8 +29,8 @@ def one(action):
     return qs.get()
 
 
-def check(event, *, actor, lab, target=None, ip=IP):
-    assert event.actor == actor and event.lab == lab and event.ip == ip
+def check(event, *, actor, lab, target=None):
+    assert event.actor == actor and event.lab == lab
     if target is None:
         assert event.target_type == "" and event.target_id is None
     else:
@@ -81,7 +81,7 @@ def test_role_change_and_removal(lab_pi, make_user, join):
     check(one(AuditAction.MEMBERSHIP_ROLE_CHANGED), actor=pi, lab=lab, target=m)
     assert api(pi).delete(url).status_code == 204
     event = one(AuditAction.MEMBERSHIP_REMOVED)  # the row is gone, so compare by label and id
-    assert (event.actor, event.lab, event.ip) == (pi, lab, IP)
+    assert (event.actor, event.lab) == (pi, lab)
     assert (event.target_type, event.target_id) == ("labs.LabMembership", m.pk)
 
 
@@ -137,15 +137,6 @@ def test_mfa_enable_and_disable(auth_user, django_capture_on_commit_callbacks):
     with django_capture_on_commit_callbacks(execute=True):
         assert client.delete(url, headers=_csrf(client)).status_code == 200
     check(one(AuditAction.AUTH_MFA_DISABLED), actor=auth_user, lab=None)
-
-
-def test_forwarded_for_only_trusted_behind_proxies(auth_user):
-    xff = {"HTTP_X_FORWARDED_FOR": "198.51.100.1, 198.51.100.2"}
-    _login(Client(REMOTE_ADDR=IP, **xff))  # TRUSTED_PROXY_COUNT is 0: the header is ignored
-    with override_settings(TRUSTED_PROXY_COUNT=1):
-        _login(Client(REMOTE_ADDR=IP, **xff))
-    ips = AuditEvent.objects.filter(action=AuditAction.AUTH_LOGIN).values_list("ip", flat=True)
-    assert sorted(ips) == ["198.51.100.2", IP]
 
 
 def test_chat_message_deleted_keeps_no_text(lab_pi, make_project):

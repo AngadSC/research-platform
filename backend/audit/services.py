@@ -7,6 +7,7 @@ from core.tenancy import project_of
 
 
 def _client_ip(request) -> str | None:
+    """The caller's address, for rate limits only. Never stored (D266)."""
     raw = request.META.get("REMOTE_ADDR", "")
     proxies = settings.TRUSTED_PROXY_COUNT
     if proxies > 0:
@@ -45,7 +46,6 @@ def record(
             "project_id": project.pk if project is not None else None,
         }
     if request is not None:
-        fields["ip"] = _client_ip(request)
         fields["user_agent"] = request.META.get("HTTP_USER_AGENT", "")[:256]
     return AuditEvent.objects.create(
         action=action,

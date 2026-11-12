@@ -46,7 +46,6 @@ def test_shape_scope_order_and_cursor(setup, make_user, monkeypatch):
         "target_type",
         "target_id",
         "target_label",
-        "ip",
         "created_at",
         "metadata",
     }

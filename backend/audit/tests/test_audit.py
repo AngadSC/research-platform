@@ -3,7 +3,7 @@ from django.db import DatabaseError, connection, transaction
 from django.test import RequestFactory, override_settings
 
 from audit.models import AuditAction, AuditEvent, AuditImmutableError
-from audit.services import record
+from audit.services import _client_ip, record
 
 pytestmark = pytest.mark.django_db
 
@@ -30,13 +30,16 @@ def test_record_rejects_bad_input(make_lab):
     assert record(AuditAction.AUTH_LOGIN, actor=None, lab=None).lab is None
 
 
-def test_record_request_ip_and_trusted_proxy():
+def test_record_keeps_no_ip_and_rate_limit_ip_trusts_proxies_only_when_told():
     req = RequestFactory().get(
         "/", REMOTE_ADDR="10.0.0.1", HTTP_X_FORWARDED_FOR="1.2.3.4, 5.6.7.8", HTTP_USER_AGENT="ua"
     )
-    assert record(AuditAction.AUTH_LOGIN, actor=None, lab=None, request=req).ip == "10.0.0.1"
+    event = record(AuditAction.AUTH_LOGIN, actor=None, lab=None, request=req)
+    assert event.user_agent == "ua"
+    assert "ip" not in {f.name for f in AuditEvent._meta.get_fields()}  # D266
+    assert _client_ip(req) == "10.0.0.1"
     with override_settings(TRUSTED_PROXY_COUNT=1):
-        assert record(AuditAction.AUTH_LOGIN, actor=None, lab=None, request=req).ip == "5.6.7.8"
+        assert _client_ip(req) == "5.6.7.8"
 
 
 def test_model_level_update_and_delete_rejected(event):

@@ -31,7 +31,7 @@ The platform does **not** store raw participant data. Labs keep raw data in appr
 **Phase 2. Permissions and audit log**
 - One permission module (`backend/core/permissions.py`) that every endpoint, background job and future search or AI feature uses. No ad hoc permission checks scattered through views.
 - Explicit permissions for sensitive actions: `manage_members`, `export`, `view_audit_log`, `manage_billing`, `delete_project`.
-- An append-only `AuditEvent` table: who, what action, which object, when, from which IP. Log views of documents, downloads, exports, membership changes, permission changes and deletions.
+- An append-only `AuditEvent` table: who, what action, which object, when. No IP addresses (D266). Log views of documents, downloads, exports, membership changes, permission changes and deletions.
 - **Permission test matrix.** A parametrized test that hits every API endpoint as every role (plus anonymous and other-lab user) and checks the expected allow or deny. When a new endpoint is added, the test fails until the endpoint is added to the matrix. This is the gate for all later phases.
 - Acceptance: The matrix covers 100% of endpoints and passes. Audit events are written for the listed actions.
 
