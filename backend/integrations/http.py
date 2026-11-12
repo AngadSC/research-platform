@@ -9,9 +9,9 @@
   Instance URLs are also checked when they are entered (`validate_instance_url`).
 - Time and size (D120): every response is streamed under a total wall-clock deadline
   (`INTEGRATION_HTTP_DEADLINE`, or the job value in `budget(per_request=...)`) and a body cap
-  (`INTEGRATION_HTTP_MAX_BYTES`), and always closed. `budget()` / `interactive` bound a whole
-  endpoint, retries and backoff included. The per-read timeout alone is not a limit: a server
-  can drip one byte every few seconds forever.
+  (`INTEGRATION_HTTP_MAX_BYTES`, or `budget(max_bytes=...)`), and always closed. `budget()` /
+  `interactive` bound a whole endpoint, retries and backoff included. The per-read timeout alone
+  is not a limit: a server can drip one byte every few seconds forever.
 - Idempotent methods retry on network errors and 429/5xx with exponential backoff
   (Retry-After honoured, capped), never past the deadline.
 - With an `account`, its credentials are attached (`provider.sign`). OAuth: an expiring token is
@@ -60,6 +60,10 @@ class IntegrationError(Exception):
 
 class AccountUnavailable(IntegrationError):
     """The connected account is not active (expired, revoked or in error): reconnect it."""
+
+
+class ResponseTooLarge(IntegrationError):
+    """The response passed the byte cap (`INTEGRATION_HTTP_MAX_BYTES`, or `budget(max_bytes=)`)."""
 
 
 class InstanceURLError(IntegrationError):
@@ -211,8 +215,8 @@ class _Limits:
     may pass (a whole endpoint, or one background link); `per_request` is how long one request
     may take, connect to last body byte."""
 
-    def __init__(self, deadline=None, per_request=None):
-        self.deadline, self.per_request = deadline, per_request
+    def __init__(self, deadline=None, per_request=None, max_bytes=None):
+        self.deadline, self.per_request, self.max_bytes = deadline, per_request, max_bytes
 
 
 _limits = contextvars.ContextVar("integration_limits", default=None)
@@ -223,16 +227,19 @@ def _current() -> _Limits:
 
 
 @contextlib.contextmanager
-def budget(total=None, *, per_request=None):
+def budget(total=None, *, per_request=None, max_bytes=None):
     """Bound everything sent inside to `total` seconds in all (retries and backoff included).
     Nested budgets can only tighten the outer one; `per_request` overrides the per-request
-    deadline (background jobs use `INTEGRATION_JOB_HTTP_DEADLINE`)."""
+    deadline (background jobs use `INTEGRATION_JOB_HTTP_DEADLINE`) and `max_bytes` the body cap
+    (the AI tool read_file reading a Drive file)."""
     outer = _current()
     deadline = outer.deadline
     if total is not None:
         mine = time.monotonic() + total
         deadline = mine if deadline is None else min(deadline, mine)
-    token = _limits.set(_Limits(deadline, per_request or outer.per_request))
+    token = _limits.set(
+        _Limits(deadline, per_request or outer.per_request, max_bytes or outer.max_bytes)
+    )
     try:
         yield
     finally:
@@ -292,7 +299,7 @@ def _read_body(resp, deadline, provider):
     transport) is left alone."""
     if resp._content is not False:
         return
-    cap = settings.INTEGRATION_HTTP_MAX_BYTES
+    cap = _current().max_bytes or settings.INTEGRATION_HTTP_MAX_BYTES
     fired, timer = threading.Event(), None
     try:
         timer = threading.Timer(_remaining(deadline, provider), _abort, (resp, fired))
@@ -300,12 +307,12 @@ def _read_body(resp, deadline, provider):
         timer.start()
         declared = resp.headers.get("Content-Length", "")
         if declared.isdigit() and int(declared) > cap:
-            raise IntegrationError(f"{provider.label}: the response was too large")
+            raise ResponseTooLarge(f"{provider.label}: the response was too large")
         chunks, size = [], 0
         for chunk in resp.iter_content(chunk_size=8192):
             size += len(chunk)
             if size > cap:
-                raise IntegrationError(f"{provider.label}: the response was too large")
+                raise ResponseTooLarge(f"{provider.label}: the response was too large")
             chunks.append(chunk)
             _remaining(deadline, provider)
         if fired.is_set():  # the socket was cut under us: a short read is not a whole body
