@@ -46,8 +46,19 @@
 
 	# Everything else is the React SPA, built by frontend/Dockerfile.prod into /srv.
 	# Unknown paths fall back to index.html so client-side routes survive a reload.
+	# Built assets have hashed names, so they never change: cache them for good, and answer a
+	# missing one with 404 instead of index.html (a stale page then fails loudly, not blank).
+	handle /assets/* {
+		root * /srv
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
 	handle {
 		root * /srv
+		# index.html must be rechecked on every load, or a browser keeps a page that names
+		# assets the last deploy removed and shows a blank screen.
+		header Cache-Control "no-cache"
 		try_files {path} /index.html
 		file_server
 
