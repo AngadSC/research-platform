@@ -53,8 +53,8 @@ def cost(usage: dict, *models: str) -> Decimal:
     by the first listed model in `models` (the model that answered, then the conversation's)."""
     listed = {m["id"]: m for ms in MODELS.values() for m in ms}
     price = next((listed[m] for m in models if m in listed), None)
-    if price is None:
-        return Decimal(0)
+    if price is None:  # fail closed: an unlisted model is priced as the dearest one
+        price = max(listed.values(), key=lambda m: Decimal(str(m["output"])))
     p_in, p_out = Decimal(str(price["input"])), Decimal(str(price["output"]))
     u = {k: int(usage.get(k) or 0) for k in USAGE_KEYS}
     total = (

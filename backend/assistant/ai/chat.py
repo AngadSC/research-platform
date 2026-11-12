@@ -320,6 +320,8 @@ class Run:
                         yield ev
             finally:
                 turn.close()  # D196: a closed connection must close the provider's stream now
+                if result is None and isinstance(self.key, LabAIKey):
+                    self._charge_unfinished()
             yield from self._finish_turn(result)
             if self._done:
                 return
@@ -335,16 +337,27 @@ class Run:
             api_key = self.key.api_key()
         except Exception:
             raise provider_error("key_invalid", self.adapter.LABEL) from None
+        history = self.adapter.history(_messages(self.conv))
+        sent = json.dumps(history, default=str)
+        self._sent_chars = len(self.conv.system_prompt or "") + len(sent)
         yield from self.adapter.stream_turn(
             api_key=api_key,
             model=self.conv.model,
             system=self.conv.system_prompt,
-            messages=self.adapter.history(_messages(self.conv)),
+            messages=history,
             tools=self.tool_params,
             fallback=getattr(self.key, "refusal_fallback", True),
         )
 
     _done = False
+    _sent_chars = 0
+
+    def _charge_unfinished(self):
+        """A turn cut short (Stop, closed tab, deadline, provider error) is still billed to the lab
+        key, but the provider only reports usage at the end. Charge a conservative estimate: the
+        request at about 3 characters a token plus the largest possible answer."""
+        usage = {"input_tokens": self._sent_chars // 3, "output_tokens": catalog.MAX_OUTPUT_TOKENS}
+        lab_keys.record_usage(self.key, self.user, usage, self.conv.model)
 
     def _finish_turn(self, result: TurnResult):
         calls = self.adapter.tool_calls(result.content)

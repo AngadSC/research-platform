@@ -6,8 +6,8 @@ from decimal import Decimal
 import pytest
 from django.core.cache import cache
 
-from assistant.ai import catalog, claude, keys, lab_keys
-from assistant.models import AIProviderKey, LabAIKey, LabAIUsage
+from assistant.ai import catalog, chat, claude, keys, lab_keys
+from assistant.models import AIProviderKey, Conversation, LabAIKey, LabAIUsage
 from assistant.tests.fakes import FakeClaude, claude_message, text, tool_use
 from assistant.tests.test_assistant import api, events, new_conv, send
 from audit.models import AuditAction, AuditEvent
@@ -296,3 +296,20 @@ def test_rotate_re_encrypts_lab_keys(world):
     row = LabAIKey.objects.for_lab(world.lab_a).get()
     assert row.api_key() == LAB_KEY and row.key_ciphertext != before
     assert LAB_KEY[-4:] not in str(row) + repr(row)
+
+
+def test_a_stopped_answer_is_still_charged_to_the_lab(world, monkeypatch):
+    row = set_lab_key(world.lab_a)
+    fake_claude(monkeypatch, claude_message([text("A long answer")]))
+    c = api(world.u.contrib)
+    conv = Conversation.objects.get(pk=new_conv(c, world.lab_a))
+    run = chat.Run(conv, world.u.contrib, None, row)
+    stream = run.send("Hello")
+    next(stream)
+    stream.close()  # Stop, or the browser went away, before the answer finished
+    assert LabAIUsage.objects.for_lab(world.lab_a).get(user=world.u.contrib).cost_usd > 0
+
+
+def test_an_unlisted_model_is_not_free():
+    usage = {"output_tokens": 1_000_000}
+    assert catalog.cost(usage, "claude-removed") >= catalog.cost(usage, "claude-opus-5-5") > 0
