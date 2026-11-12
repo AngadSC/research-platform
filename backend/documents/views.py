@@ -455,8 +455,8 @@ def _set_flag(request, obj):
 
 def download_response(request, attachment):
     """Audit the download, then stream it (or presign it). Callers have checked access."""
-    record(
-        AuditAction.ATTACHMENT_DOWNLOADED,
+    record(  # D244: a PI-only file's name stays out of the log lab admins read
+        AuditAction.FUNDING_UPDATED if attachment.pi_only else AuditAction.ATTACHMENT_DOWNLOADED,
         actor=request.user,
         lab=request.lab,
         target=attachment,

@@ -257,6 +257,15 @@ def test_every_download_is_audited(setup):
     assert AuditEvent.objects.filter(lab=lab, action=AuditAction.ATTACHMENT_DOWNLOADED).count() == 2
 
 
+def test_downloading_a_pi_only_file_stays_out_of_file_events(setup):
+    lab, _, project, client = setup
+    att_id = upload(client, lab, project).json()["id"]
+    Attachment.objects.for_lab(lab).filter(pk=att_id).update(pi_only=True)  # D244
+    assert client.get(url("attachment-download", lab, attachment_id=att_id)).status_code == 200
+    assert not AuditEvent.objects.filter(lab=lab, action=AuditAction.ATTACHMENT_DOWNLOADED).exists()
+    assert AuditEvent.objects.filter(lab=lab, action=AuditAction.FUNDING_UPDATED).exists()
+
+
 def test_attachment_delete_is_soft_and_keeps_bytes(setup, lab_files):
     lab, user, project, client = setup
     att_id = upload(client, lab, project).json()["id"]
