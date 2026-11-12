@@ -161,3 +161,28 @@ def test_dataset_flag_alone_writes_only_the_flag_event(w):
     assert (
         AuditEvent.objects.filter(action=AuditAction.DATASET_PARTICIPANT_FLAG_CHANGED).count() == 2
     )
+
+
+def test_flag_sticks_to_items_when_their_folder_goes_away(w):
+    from documents import services
+    from documents.models import Attachment, Document
+
+    lab, project, _, pi, _ = w
+    box = folder(pi, lab, project, "Raw")
+    sub = folder(pi, lab, project, "Sub", parent=box["id"])
+    moved_doc, moved_file = doc(pi, lab, project), upload(pi, lab, project)
+    d = Document.objects.for_lab(lab).get(pk=moved_doc["id"])
+    f = Attachment.objects.for_lab(lab).get(pk=moved_file["id"])
+    services.move_to_folder(d, Folder.objects.for_lab(lab).get(pk=box["id"]))
+    services.move_to_folder(f, Folder.objects.for_lab(lab).get(pk=box["id"]))
+    flag_folder(pi, lab, box["id"], True)  # the new items sit in it, the moved ones too
+    # one more moved in after the box was flagged (a plain move, no flag of its own yet)
+    late = Attachment.objects.for_lab(lab).get(pk=upload(pi, lab, project)["id"])
+    services.move_to_folder(late, Folder.objects.for_lab(lab).get(pk=box["id"]))
+    assert late.contains_participant_data
+    Attachment.objects.for_lab(lab).filter(pk=f.pk).update(contains_participant_data=False)
+    services.delete_folder(Folder.objects.for_lab(lab).get(pk=box["id"]))
+    for model, pk in ((Document, d.pk), (Attachment, f.pk), (Attachment, late.pk)):
+        item = model.objects.for_lab(lab).get(pk=pk)
+        assert item.folder is None and item.contains_participant_data
+    assert Folder.objects.for_lab(lab).get(pk=sub["id"]).contains_participant_data

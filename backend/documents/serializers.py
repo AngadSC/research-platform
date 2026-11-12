@@ -143,6 +143,7 @@ class AttachmentSerializer(serializers.ModelSerializer):
             "drive_file_id",
             "external_url",
             "contains_participant_data",
+            "source",
         ]
         read_only_fields = fields
 

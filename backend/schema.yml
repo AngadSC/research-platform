@@ -1118,6 +1118,7 @@ paths:
           - document.participant_flag_changed
           - attachment.participant_flag_changed
           - dataset.participant_flag_changed
+          - file_link.created
           type: string
           minLength: 1
         description: |-
@@ -1254,6 +1255,7 @@ paths:
           * `document.participant_flag_changed` - Document Participant Flag Changed
           * `attachment.participant_flag_changed` - Attachment Participant Flag Changed
           * `dataset.participant_flag_changed` - Dataset Participant Flag Changed
+          * `file_link.created` - File Link Created
       - in: query
         name: actor
         schema:
@@ -9177,6 +9179,7 @@ components:
       - document.participant_flag_changed
       - attachment.participant_flag_changed
       - dataset.participant_flag_changed
+      - file_link.created
       type: string
       description: |-
         * `auth.login` - Auth Login
@@ -9312,6 +9315,7 @@ components:
         * `document.participant_flag_changed` - Document Participant Flag Changed
         * `attachment.participant_flag_changed` - Attachment Participant Flag Changed
         * `dataset.participant_flag_changed` - Dataset Participant Flag Changed
+        * `file_link.created` - File Link Created
     AiAccessEnum:
       enum:
       - read
@@ -9553,6 +9557,10 @@ components:
         contains_participant_data:
           type: boolean
           readOnly: true
+        source:
+          allOf:
+          - $ref: '#/components/schemas/SourceEnum'
+          readOnly: true
       required:
       - contains_participant_data
       - content_type
@@ -9567,6 +9575,7 @@ components:
       - project
       - sha256
       - size_bytes
+      - source
       - uploaded_by
     AttachmentRef:
       type: object
@@ -15923,6 +15932,14 @@ components:
             $ref: '#/components/schemas/SearchHit'
       required:
       - results
+    SourceEnum:
+      enum:
+      - web
+      - link
+      type: string
+      description: |-
+        * `web` - Web
+        * `link` - Link
     StageEnum:
       enum:
       - funding

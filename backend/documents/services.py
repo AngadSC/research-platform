@@ -293,6 +293,7 @@ def upload_attachment(
     folder=None,
     pi_only=False,
     contains_participant_data=False,
+    source="web",
 ) -> Attachment:
     """The caller has already checked `acknowledged_notice` (the serializer) and access to the
     owner: exactly one of `project`, an ethics `approval`, a `training_record` or a `paper` (D38,
@@ -340,6 +341,7 @@ def upload_attachment(
                 notice_acknowledged_at=now,
                 pi_only=pi_only,
                 contains_participant_data=flag,
+                source=source,
             )
             record(
                 # D244: lab admins read the audit log, and funding.* is hidden from them
@@ -355,6 +357,7 @@ def upload_attachment(
                     "notice_acknowledged_at": now.isoformat(),
                     "size_bytes": attachment.size_bytes,
                     "sha256": attachment.sha256,
+                    "source": source,
                 },
             )
     except Exception:
@@ -411,7 +414,11 @@ def move_to_folder(item, folder) -> None:
     """`item` is a Document or an Attachment; `folder` None is the project's top level."""
     _check_folder(folder, item.project_id)
     item.folder = folder
-    item.save(update_fields=["folder"])  # not updated_at: a move is not an edit
+    fields = ["folder"]  # not updated_at: a move is not an edit
+    if _inherit(False, folder):  # the flag sticks to the item if the folder goes away
+        item.contains_participant_data = True
+        fields.append("contains_participant_data")
+    item.save(update_fields=fields)
 
 
 @transaction.atomic
@@ -420,11 +427,14 @@ def delete_folder(folder) -> None:
     Rows are saved one by one because `update()` may not change a lab_parents field."""
     folder = Folder.objects.for_lab(folder.lab_id).select_for_update().get(pk=folder.pk)
     parent = folder.parent
+    flagged = folder.contains_participant_data  # what moves up keeps the flag
     for model in (Document, Attachment):
         for item in model.objects.for_lab(folder.lab_id).filter(folder=folder):
             item.folder = parent
-            item.save(update_fields=["folder"])
+            item.contains_participant_data = item.contains_participant_data or flagged
+            item.save(update_fields=["folder", "contains_participant_data"])
     for child in Folder.objects.for_lab(folder.lab_id).filter(parent=folder):
         child.parent = parent
-        child.save(update_fields=["parent", "updated_at"])
+        child.contains_participant_data = child.contains_participant_data or flagged
+        child.save(update_fields=["parent", "contains_participant_data", "updated_at"])
     folder.delete()

@@ -358,6 +358,7 @@ REST_FRAMEWORK = {
         "ai_token": "20/hour",  # D164: personal access tokens created
         "ai_key": "20/hour",  # D187: each key save makes one provider call
         "ai_chat": "240/hour",  # D190: messages and approvals to the in-app assistant
+        "file_links": "120/hour",  # VISION S1: download and upload links, per address
     },
     "DEFAULT_PERMISSION_CLASSES": ["core.permissions.HasPerm"],
     "DEFAULT_AUTHENTICATION_CLASSES": ["core.auth.SessionAuthentication"],

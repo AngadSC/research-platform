@@ -71,7 +71,7 @@ def _flag_contents(folder) -> int:
     """Flag every folder, document and file under `folder`. Returns how many changed."""
     folders = Folder.objects.for_lab(folder.lab_id)
     ids, frontier = [folder.pk], [folder.pk]
-    while frontier:  # parents never change, so this always ends
+    while frontier:  # the folder tree has no cycles, so this always ends
         frontier = list(folders.filter(parent__in=frontier).values_list("pk", flat=True))
         ids += frontier
     n = folders.filter(pk__in=ids, contains_participant_data=False).update(

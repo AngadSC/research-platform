@@ -154,6 +154,8 @@ class AuditAction(models.TextChoices):
     DOCUMENT_PARTICIPANT_FLAG_CHANGED = "document.participant_flag_changed"
     ATTACHMENT_PARTICIPANT_FLAG_CHANGED = "attachment.participant_flag_changed"
     DATASET_PARTICIPANT_FLAG_CHANGED = "dataset.participant_flag_changed"
+    # Run 6: a 15-minute download or upload link for tools on the person's computer (VISION S1)
+    FILE_LINK_CREATED = "file_link.created"
 
 
 class AuditQuerySet(models.QuerySet):

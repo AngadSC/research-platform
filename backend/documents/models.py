@@ -165,6 +165,10 @@ class Attachment(LabScopedModel):
     external_url = models.URLField(max_length=2000, blank=True)
     # VISION A3: AI tools never see a flagged item (assistant/privacy.py). Copied down from folders.
     contains_participant_data = models.BooleanField(default=False)
+    # VISION S1: "link" is a one-time upload link (MATLAB on the person's computer, through Claude)
+    source = models.CharField(
+        max_length=8, choices=[("web", "Web"), ("link", "Link")], default="web", editable=False
+    )
 
     @property
     def from_drive(self) -> bool:

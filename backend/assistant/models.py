@@ -1,13 +1,16 @@
 """AI access (D160-D169): OAuth clients, grants and hashed tokens for the MCP server.
 
 Not lab-scoped: a grant belongs to a user and names one or more labs. The labs only narrow what
-the user may already see; every tool call re-checks membership and roles (D163)."""
+the user may already see; every tool call re-checks membership and roles (D163). `FileLink`
+(VISION S1) is the exception: it points at one project's files, so it is lab-scoped."""
 
 import uuid
 
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
+
+from core.tenancy import LabScopedModel
 
 
 class ClientKind(models.TextChoices):
@@ -204,3 +207,49 @@ class Message(models.Model):
         if not self._state.adding:
             raise RuntimeError("Messages are append-only.")
         super().save(*args, **kwargs)
+
+
+# ---------------------------------------------------------------- file links (VISION S1)
+
+
+class FileLinkKind(models.TextChoices):
+    DOWNLOAD = "download"
+    UPLOAD = "upload"
+
+
+class FileLink(LabScopedModel):
+    """A 15-minute link that lets a tool on the person's own computer (MATLAB's websave or
+    webwrite) download one project file or upload one file into a project, without a session.
+    Only the token's sha256 is stored. The link names the person who made it, and their access is
+    read again on every use (assistant/file_links.py). An upload link works once."""
+
+    kind = models.CharField(max_length=8, choices=FileLinkKind.choices)
+    token_hash = models.CharField(max_length=64, unique=True, editable=False)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+"
+    )
+    project = models.ForeignKey("projects.Project", on_delete=models.CASCADE, related_name="+")
+    attachment = models.ForeignKey(  # download links
+        "documents.Attachment", on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+    )
+    folder = models.ForeignKey(  # upload links: where the file goes
+        "documents.Folder", on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+    )
+    analysis = models.ForeignKey(  # upload links: record the file as this analysis' output
+        "provenance.Analysis", on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+    )
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    # what made the link: "mcp" (with the AI connection `grant`) or "in_app"; checked again on use
+    via = models.CharField(max_length=12, blank=True)
+    grant = models.ForeignKey(
+        AIGrant, on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+    )
+
+    lab_parents = ("project", "attachment", "folder", "analysis")
+    not_an_edit = True  # making a link does not change "last edited" (projects/activity.py)
+    permission_domain = "project"
+    project_path = "project"
+
+    def __str__(self):
+        return f"{self.kind} link"
