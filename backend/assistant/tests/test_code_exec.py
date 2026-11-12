@@ -26,6 +26,7 @@ from assistant.tests.fakes import (
 from audit.models import AuditAction, AuditEvent
 from documents import services as document_services
 from documents.models import Folder
+from projects.models import Project, ProjectMembership, ProjectRole
 from provenance.models import Analysis, Result
 
 pytestmark = pytest.mark.django_db
@@ -218,6 +219,8 @@ def test_uploads_are_deleted_when_loading_fails(world, monkeypatch):
     assert fake.files.deleted == list(fake.files.uploaded) == ["file_in1"]
     assert last_result(fake.calls[2])["is_error"]
     assert "container" not in Conversation.objects.get(pk=conv).code_exec
+    ev = AuditEvent.objects.get(action=AuditAction.ATTACHMENT_DOWNLOADED, target_id=a.pk)
+    assert ev.metadata["for"] == "code_execution" and ev.metadata["loaded"] is False
 
 
 def save_call(lab, project, **extra):
@@ -360,3 +363,88 @@ def test_the_lab_key_is_charged_for_the_loading_request(world, monkeypatch):
     usage = LabAIUsage.objects.for_lab(lab).get(user=world.u.contrib)
     # three requests at 100 input tokens each would cost far less than the loading one alone
     assert usage.cost_usd >= Decimal("4.00") and usage.input_tokens >= 1_000_000
+
+
+def approve(c, lab, conv):
+    stream(
+        c.post(
+            url(lab, "conversations", conv, "approvals"),
+            {"decisions": {"toolu_s1": True}},
+            "application/json",
+        )
+    )
+
+
+def test_outputs_made_from_a_file_flagged_later_cannot_be_saved(world, monkeypatch):
+    lab, a = world.lab_a, put(world.p1, world.u.pi, "trials.csv")
+    fake = patch_claude(
+        monkeypatch,
+        claude_message([load_call(lab, a)], stop="tool_use"),
+        claude_message([text("/files/trials.csv")], container=CONTAINER),
+        claude_message([*ran("srvtoolu_1", "python plot.py", ["file_out1"]), text("Done.")]),
+        claude_message([save_call(lab, world.p1)], stop="tool_use"),
+        claude_message([text("Sorry.")]),
+    )
+    fake.files.outputs = {"file_out1": ("fig.png", PNG)}
+    c = api(world.u.contrib)
+    conv = new_conv(c, lab)
+    send(c, lab, conv)
+    privacy.set_flag(a, True, user=world.u.pi)
+    send(c, lab, conv, "Save it")
+    approve(c, lab, conv)
+    assert "no new files" in last_result(fake.calls[-1])["content"]
+    assert not Analysis.objects.for_lab(lab).filter(title="Mean RT").exists()
+    assert Conversation.objects.get(pk=conv).code_exec["outputs"] == {}
+    assert "file_out1" in fake.files.deleted
+
+
+def test_saved_outputs_are_deleted_from_the_files_api(
+    world, monkeypatch, django_capture_on_commit_callbacks
+):
+    lab, a = world.lab_a, put(world.p1, world.u.pi, "trials.csv")
+    p3 = Project.objects.create(lab=lab, name="P3 other", created_by=world.u.pi, status="active")
+    ProjectMembership.objects.create(
+        lab=lab, project=p3, user=world.u.contrib, role=ProjectRole.CONTRIBUTOR
+    )
+    other = put(p3, world.u.pi, "secret.csv")  # a file of another project
+    fake = patch_claude(
+        monkeypatch,
+        claude_message([load_call(lab, a)], stop="tool_use"),
+        claude_message([text("/files/trials.csv")], container=CONTAINER),
+        claude_message(
+            [*ran("srvtoolu_1", "python plot.py", ["file_out1"]), save_call(lab, world.p1)],
+            stop="tool_use",
+        ),
+        claude_message([text("Saved.")]),
+    )
+    fake.files.outputs = {"file_out1": ("fig.png", PNG)}
+    c = api(world.u.contrib)
+    conv = new_conv(c, lab)
+    send(c, lab, conv)
+    state = Conversation.objects.get(pk=conv).code_exec
+    state["inputs"].append(str(other.pk))
+    Conversation.objects.filter(pk=conv).update(code_exec=state)
+    with django_capture_on_commit_callbacks(execute=True):
+        approve(c, lab, conv)
+    assert "file_out1" in fake.files.deleted
+    an = Analysis.objects.for_lab(lab).get(title="Mean RT")
+    assert "trials.csv" in an.description and "secret.csv" not in an.description
+
+
+def test_a_replaced_key_drops_the_container(world, monkeypatch):
+    lab, a = world.lab_a, put(world.p1, world.u.pi, "trials.csv")
+    fake = patch_claude(
+        monkeypatch,
+        claude_message([load_call(lab, a)], stop="tool_use"),
+        claude_message([text("/files/trials.csv")], container=CONTAINER),
+        claude_message([text("Loaded.")], container=CONTAINER),
+        claude_message([text("Hi.")]),
+    )
+    c = api(world.u.contrib)
+    conv = new_conv(c, lab)
+    send(c, lab, conv)
+    row = AIProviderKey.objects.get(user=world.u.contrib, provider="anthropic")
+    row.set_key(CANARY_KEY + "other")  # same row, a key from another organisation
+    row.save()
+    send(c, lab, conv, "Again")
+    assert "container" not in fake.calls[-1]

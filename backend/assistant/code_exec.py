@@ -18,12 +18,14 @@ made back to the project as an Analysis.
 """
 
 import datetime
+import hashlib
 import logging
 import posixpath
 
 import anthropic
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import transaction
 from django.utils import timezone
 
 from assistant import drive_files, privacy, tools
@@ -80,7 +82,9 @@ def _store(conv):
 
 
 def _key_tag(key) -> str:
-    return f"{key._meta.model_name}:{key.pk}"
+    # the ciphertext changes whenever the key is replaced in place (another org or workspace)
+    digest = hashlib.sha256(key.key_ciphertext.encode()).hexdigest()[:12]
+    return f"{key._meta.model_name}:{key.pk}:{digest}"
 
 
 def safe_name(name, fallback="output") -> str:
@@ -103,7 +107,12 @@ def container_for(conv, key):
     inputs = state.get("inputs", [])
     visible = (
         privacy.ai_visible(scope(Attachment, conv.user, conv.lab))
-        .filter(pk__in=inputs, deleted_at__isnull=True)
+        .filter(
+            pk__in=inputs,
+            deleted_at__isnull=True,
+            project__isnull=False,
+            project__deleted_at__isnull=True,
+        )
         .count()
     )
     old = timezone.now() - datetime.datetime.fromisoformat(c["created"])
@@ -114,9 +123,28 @@ def container_for(conv, key):
     ):
         state.pop("container")
         state["inputs"] = []
+        # what the code made from those files must not be saved either (a flagged source)
+        outputs = state.get("outputs", {})
+        state["outputs"] = {k: v for k, v in outputs.items() if v["attachment"]}
         _store(conv)
+        _delete_files(key, [k for k in outputs if k not in state["outputs"]])
         return None
     return c["id"]
+
+
+def _delete_files(key, file_ids):
+    """Best effort: remove files from the key holder's Files API."""
+    if not file_ids:
+        return
+    try:
+        client = claude._client(key.api_key())
+    except Exception:
+        return
+    for file_id in file_ids:
+        try:
+            client.files.delete(file_id)
+        except Exception:
+            log.warning("could not delete a code output")
 
 
 def keep_container(conv, key, container_id):
@@ -357,20 +385,40 @@ def load_files_for_analysis(ctx, lab_id, file_ids):
             name = f"{a.pk.hex[:6]}-{name}"
         seen.add(name)
         blobs.append((a, name, data))
+    if isinstance(run.key, LabAIKey):  # the side request counts against the cap like a turn
+        try:
+            run.key = lab_keys.recheck(run.key)
+        except lab_keys.Unavailable as exc:
+            raise tools.ToolError(exc.message) from None
     client = claude._client(run.key.api_key())
-    uploaded = []
+    uploaded, loaded = [], False  # uploaded: (file, Files API id)
     try:
-        for _a, name, data in blobs:
-            uploaded.append(client.files.upload(file=(name, data)).id)
-        resp = _place(client, run, uploaded, container_for(run.conv, run.key))
+        for a, name, data in blobs:
+            uploaded.append((a, client.files.upload(file=(name, data)).id))
+        resp = _place(client, run, [i for _a, i in uploaded], container_for(run.conv, run.key))
+        loaded = True
     except Exception as exc:
         raise tools.ToolError(claude.translate(exc).message) from None
     finally:
-        for file_id in uploaded:  # the container has its copy; nothing stays in the Files API
+        for a, file_id in uploaded:  # the container has its copy; nothing stays in the Files API
             try:
                 client.files.delete(file_id)
             except Exception:
                 log.warning("could not delete an uploaded code input")
+            # the bytes left the server, so it is recorded even when the load then failed
+            record(
+                AuditAction.ATTACHMENT_DOWNLOADED,
+                actor=ctx.user,
+                lab=lab,
+                target=a,
+                request=ctx.request,
+                metadata={
+                    "via": ctx.via,
+                    "client": ctx.client,
+                    "for": "code_execution",
+                    "loaded": loaded,
+                },
+            )
     if isinstance(run.key, LabAIKey):
         lab_keys.record_usage(run.key, ctx.user, claude._usage(resp), resp.model, run.conv.model)
     container = getattr(resp.container, "id", None) if resp.container else None
@@ -380,15 +428,6 @@ def load_files_for_analysis(ctx, lab_id, file_ids):
     state = run.conv.code_exec
     state["inputs"] = list(dict.fromkeys(state.get("inputs", []) + [str(a.pk) for a in files]))
     _store(run.conv)
-    for a in files:
-        record(
-            AuditAction.ATTACHMENT_DOWNLOADED,
-            actor=ctx.user,
-            lab=lab,
-            target=a,
-            request=ctx.request,
-            metadata={"via": ctx.via, "client": ctx.client, "for": "code_execution"},
-        )
     paths = claude.text_of([b.to_dict() for b in resp.content]).strip()
     return {
         "loaded": [{"id": a.pk, "name": name} for a, name, _d in blobs],
@@ -426,6 +465,7 @@ def save_analysis_outputs(ctx, lab_id, project_id, title, summary="", files=None
     lab = tools._lab(ctx, lab_id)
     p = tools._get(ctx, lab, Project, project_id, "project", deleted_at__isnull=True)
     tools._require_edit(ctx, p)
+    container_for(conv, run.key)  # drops outputs of a file flagged since the code ran
     picked = pending(conv, files)
     if not picked:
         raise tools.ToolError("There are no new files from your code to save.")
@@ -437,8 +477,11 @@ def save_analysis_outputs(ctx, lab_id, project_id, title, summary="", files=None
         if ext not in OUTPUT_TYPES:
             skipped.append({"name": name, "reason": "This type of file cannot be saved."})
             continue
+        if out["size"] > MAX_BYTES:
+            skipped.append({"name": name, "reason": "The file is too large."})
+            continue
         try:
-            data = client.files.download(file_id).read()
+            data = client.files.download(file_id).read()  # size was checked from its metadata
         except Exception as exc:
             raise tools.ToolError(claude.translate(exc).message) from None
         if len(data) > MAX_BYTES:
@@ -447,6 +490,7 @@ def save_analysis_outputs(ctx, lab_id, project_id, title, summary="", files=None
         upload = SimpleUploadedFile(name, data, OUTPUT_TYPES[ext])
         saved.append(
             (
+                file_id,
                 out,
                 document_services.upload_attachment(
                     user=ctx.user, file=upload, project=p, request=ctx.request, source="link"
@@ -466,7 +510,10 @@ def save_analysis_outputs(ctx, lab_id, project_id, title, summary="", files=None
         request=ctx.request,
         source="link",
     )
-    inputs = Attachment.objects.for_lab(lab).filter(pk__in=conv.code_exec.get("inputs", []))
+    # only inputs of this project: the Analysis is readable by everyone who can see it
+    inputs = privacy.ai_visible(Attachment.objects.for_lab(lab)).filter(
+        pk__in=conv.code_exec.get("inputs", []), project=p, deleted_at__isnull=True
+    )
     description = "\n\n".join(
         x
         for x in (
@@ -493,14 +540,17 @@ def save_analysis_outputs(ctx, lab_id, project_id, title, summary="", files=None
             "title": title,
             "summary": summary,
             "analysis": analysis.pk,
-            "attachments": [a.pk for _o, a in saved],
+            "attachments": [a.pk for _f, _o, a in saved],
         },
         request=ctx.request,
     )
-    for out, a in saved:
+    for _f, out, a in saved:
         out.update(attachment=str(a.pk), project=str(p.pk), analysis=str(analysis.pk))
     conv.code_exec["saved_seq"] = conv.messages.order_by("-seq").values_list("seq", flat=True)[0]
     _store(conv)
+    # the copies in the Files API are no longer needed (after the save is committed)
+    done = [f for f, _o, _a in saved]
+    transaction.on_commit(lambda: _delete_files(run.key, done))
     tools._audit_write(ctx, lab, SAVE, analysis)
     base = f"/labs/{lab.pk}/projects/{p.pk}"
     return {
@@ -509,7 +559,7 @@ def save_analysis_outputs(ctx, lab_id, project_id, title, summary="", files=None
             "title": analysis.title,
             "url": tools._url(f"{base}/workflow/analysis/analyses/{analysis.pk}"),
         },
-        "saved": [{"id": a.pk, "name": a.original_filename} for _o, a in saved],
+        "saved": [{"id": a.pk, "name": a.original_filename} for _f, _o, a in saved],
         "skipped": skipped,
         "url": tools._url(f"{base}/documents"),
     }

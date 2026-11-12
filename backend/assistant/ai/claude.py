@@ -189,6 +189,11 @@ def stream_turn(*, api_key, model, system, messages, tools, fallback=True, conta
             if attempts > MAX_JSON_RETRIES:
                 raise provider_error("unknown", LABEL) from None
             yield {"type": "retry"}
+        except (anthropic.BadRequestError, anthropic.NotFoundError) as exc:
+            if "container" not in kwargs:
+                raise translate(exc) from None
+            kwargs.pop("container")  # a stale container (another org's, or expired): start anew
+            yield {"type": "retry"}
         except Exception as exc:
             raise translate(exc) from None
     yield _result(final)
