@@ -68,18 +68,18 @@ reaching labbenchos through our connector. Everything here costs us nothing per 
 
 | ID | Task | Size | Model / effort | Status |
 |---|---|---|---|---|
-| S1 | File links for tools on the person's computer: `get_file_link` (short-lived download link to one file, permission-checked, refuses flagged files) and `create_upload_link` (one-time upload into a project, size and type limits, optional link to an Analysis). Both are audited and expire within 15 minutes. Needs A3 | M | opus / high | todo |
-| S2 | Results appear right away: the project's files, analyses and documents refresh on their own while open (polling, about every 10 seconds) and show a "New from Claude" notice | S | sonnet / medium | todo |
-| S3 | MATLAB on your own computer: a help page and a one-page setup for Claude Desktop with MathWorks' MATLAB MCP Core Server and the labbenchos connector. Claude fetches the lab file with S1, runs MATLAB locally, and MATLAB uploads the figure and results with S1, so they show in the project within seconds | S | sonnet / medium | todo |
-| S4 | Claude in Chrome: Anthropic's Chrome extension opens a Claude side panel on any site, labbenchos included, on the person's own plan. Test our main pages with it, fix anything it cannot read or click, and add a help page. This is the side panel we can offer today without paying for AI | S | sonnet / medium | todo |
+| S1 | File links for tools on the person's computer: `get_file_link` (short-lived download link to one file, permission-checked, refuses flagged files) and `create_upload_link` (one-time upload into a project, size and type limits, optional link to an Analysis). Both are audited and expire within 15 minutes. Needs A3 | M | opus / high | done (D269) |
+| S2 | Results appear right away: the project's files, analyses and documents refresh on their own while open (polling, about every 10 seconds) and show a "New from Claude" notice | S | sonnet / medium | done (D270) |
+| S3 | MATLAB on your own computer: a help page and a one-page setup for Claude Desktop with MathWorks' MATLAB MCP Core Server and the labbenchos connector. Claude fetches the lab file with S1, runs MATLAB locally, and MATLAB uploads the figure and results with S1, so they show in the project within seconds | S | sonnet / medium | done (D271) |
+| S4 | Claude in Chrome: Anthropic's Chrome extension opens a Claude side panel on any site, labbenchos included, on the person's own plan. Test our main pages with it, fix anything it cannot read or click, and add a help page. This is the side panel we can offer today without paying for AI | S | sonnet / medium | help page done (D271); Chrome testing to do |
 
 ### Phase A: quick wins (do first)
 | ID | Task | Size | Model / effort | Status |
 |---|---|---|---|---|
 | A1 | Integrations link in every member's sidebar; pointer to Claude and ChatGPT setup | S | orchestrator | done |
 | A2 | Later, needs paid AI. Docked Claude panel: right side, stays open across pages, resizable and collapsible, remembers its state per browser, sends the current page as context; keyboard shortcut; phone keeps the full-screen sheet | M | sonnet / medium | todo |
-| A3 | Participant-data flag on files, folders, datasets and documents; asked on upload, copied down from folders; every AI tool, AI search and the MCP server refuse flagged items; tests in the permission matrix | M | opus / high | todo |
-| A4 | AI file tools: `list_files`, `read_file` (PDF, Word, Excel or CSV, text, images) with size limits and untrusted-content wrapping; refuses flagged files (needs A3) | M | opus / high | todo |
+| A3 | Participant-data flag on files, folders, datasets and documents; asked on upload, copied down from folders; every AI tool, AI search and the MCP server refuse flagged items; tests in the permission matrix | M | opus / high | done (D268) |
+| A4 | AI file tools: `list_files`, `read_file` (PDF, Word, Excel or CSV, text, images) with size limits and untrusted-content wrapping; refuses flagged files (needs A3) | M | opus / high | done (D269) |
 | A5 | Later, needs paid AI. Lab AI key: a PI or lab admin sets one key for the lab, with a monthly spending cap and per-person usage shown; a person's own key still wins | M | sonnet / medium | todo |
 
 ### Phase B: Google inside the app
