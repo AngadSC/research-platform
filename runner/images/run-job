@@ -1,0 +1,9 @@
+#!/bin/sh
+# Runs one job inside its own container (runner/server.py). stdin: a tar of the job (the code
+# in .job/, the input files next to it). stdout: a tar of .stdout, .stderr, .exit and out/.
+cd /work || exit 1
+tar -x -f - || exit 1
+mkdir -p out
+"$@" </dev/null >.stdout 2>.stderr
+echo "$?" >.exit
+exec tar -c -f - .stdout .stderr .exit out

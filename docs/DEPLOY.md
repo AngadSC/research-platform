@@ -320,5 +320,103 @@ Send one test sign-up to a real inbox and confirm the link works before you invi
 To go back, restore the backup from before the upgrade. Migrations are not reversed
 automatically.
 
+## 13. Analysis runner (VISION C2, off until there is a second server)
+
+The `run_code` AI tool sends a script and chosen project files to our own runner, which runs them
+in a locked-down container and sends back what the script printed and the files it wrote to
+`out/`. The runner must be on **its own server**, never on the app server: it runs code an AI
+wrote. The tool stays hidden until `ANALYSIS_RUNNER_URL` and `ANALYSIS_RUNNER_SECRET` are both set
+on the app server. Files marked "Contains participant data" are never sent. Have the runner
+reviewed for security before switching it on, and update the privacy policy to say lab files can
+be copied to the analysis server for a run.
+
+The code is in `runner/` (`server.py` is the whole service, Python standard library only) and the
+service file is `deploy/runner/labbench-runner.service`.
+
+**Server:** Ubuntu 24.04 with 2 vCPU and 4 GB RAM or more, in the same data centre as the app
+server. Each job may use 1 CPU and 2 GB (`RUNNER_CPUS`, `RUNNER_MEMORY`), and two run at once
+(`RUNNER_MAX_JOBS`), so size the server to match.
+
+1. **Docker and gVisor.** Install Docker Engine. Then install gVisor's `runsc` from its apt
+   repository (gvisor.dev, "Installation") and register it with Docker:
+
+   ```
+   sudo runsc install
+   sudo systemctl reload docker
+   docker run --rm --runtime=runsc hello-world   # proves gVisor works
+   ```
+
+2. **The network between the two servers.** Lab files travel to the runner, so they must not cross
+   the public internet in plain HTTP. Use the provider's private network if both servers are on
+   it; otherwise set up a WireGuard tunnel between them. The signature stops forged jobs and
+   forged answers, but it does not hide the files.
+
+3. **Firewall.** Only the app server may reach the runner port (8700). With ufw:
+
+   ```
+   sudo ufw default deny incoming
+   sudo ufw allow 22/tcp
+   sudo ufw allow from <app server private or tunnel IP> to any port 8700 proto tcp
+   sudo ufw enable
+   ```
+
+   The runner is a normal process on the host, not a published Docker port, so ufw applies to it.
+
+4. **Code and images.** Copy `runner/` to `/opt/labbench-runner`, then build the three images on
+   the runner server (they are never pulled while running: `--pull=never`):
+
+   ```
+   cd /opt/labbench-runner/images
+   docker build -t labbench-runner-python -f python/Dockerfile .
+   docker build -t labbench-runner-r -f r/Dockerfile .
+   docker build -t labbench-runner-octave -f octave/Dockerfile .
+   ```
+
+   R and GNU Octave are GPL programs. They run as separate programs inside their own images, and
+   none of their code is copied into labbenchos. The Octave image has no Ghostscript (AGPL), so
+   figures are saved with `print -dpngcairo` or `-dsvg`.
+
+5. **Secret and service.** Make a user and the environment file (mode 600, owned by root):
+
+   ```
+   sudo useradd --system --no-create-home labrunner
+   python3 -c "import secrets; print(secrets.token_urlsafe(48))"   # the shared secret
+   sudo install -m 600 /dev/null /etc/labbench-runner.env
+   sudoedit /etc/labbench-runner.env
+   ```
+
+   Put in it `RUNNER_SECRET=<the secret>` and `RUNNER_BIND=<this server's private or tunnel IP>`.
+   Optional: `RUNNER_PORT` (8700), `RUNNER_TIMEOUT` (120 seconds), `RUNNER_MEMORY` (2g),
+   `RUNNER_CPUS` (1), `RUNNER_PIDS` (256), `RUNNER_WORK_SIZE` (256m), `RUNNER_MAX_JOBS` (2).
+   Leave `RUNNER_RUNTIME` unset so jobs use gVisor (`runsc`); `runc` is for local testing only.
+   Then:
+
+   ```
+   sudo cp deploy/runner/labbench-runner.service /etc/systemd/system/   # from a copy of the repo
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now labbench-runner
+   curl http://<runner IP>:8700/health    # from the app server: {"ok": true}
+   ```
+
+   Being in the `docker` group is as powerful as root, which is why the service has its own user,
+   and why only the app server can reach it.
+
+6. **Check it.** On the runner server, run the tests, including one real job:
+
+   ```
+   cd /opt/labbench-runner
+   python3 -m unittest test_server
+   sudo -u labrunner env RUNNER_SMOKE=1 python3 -m unittest test_server.Smoke
+   ```
+
+7. **Switch it on.** In `deploy/.env.prod` on the app server set
+   `ANALYSIS_RUNNER_URL=http://<runner private or tunnel IP>:8700` and
+   `ANALYSIS_RUNNER_SECRET=<the same secret>`, then restart the backend
+   (`docker compose -f docker-compose.prod.yml up -d backend`). `run_code` then appears in the
+   in-app assistant and in the Claude connector.
+
+To switch it off, empty `ANALYSIS_RUNNER_URL` on the app server and restart the backend. To
+change the secret, change it on both servers and restart both.
+
 ## Content-Security-Policy and the Google Picker
 `script-src` in `deploy/Caddyfile` names the Picker's script paths (`apis.google.com/js/api.js`, `apis.google.com/_/scs/`, `www.gstatic.com/_/`), not whole Google hosts (D78). Google changes the paths it loads, and they could not be confirmed offline. Before go-live, open the Picker in a real browser with real Drive credentials, watch the console for CSP violations, and widen only the exact path reported.
