@@ -404,7 +404,10 @@ class Run:
     def _replayable(self) -> list[Message]:
         """The log as it goes back to the model. A read result stored earlier is withheld if its
         item is flagged "Contains participant data" now, or has been deleted or hidden since: its
-        text is replaced by the refusal, in this copy only, before any provider adapter sees it."""
+        text is replaced by the refusal, in this copy only, before any provider adapter sees it.
+        A withheld result stays withheld (unflagging later would change the history again), and
+        once anything is withheld no thinking block is replayed: an edited earlier turn
+        invalidates every later one, and dropping all of them is the shape the API accepts."""
         messages = _messages(self.conv)
         calls = {
             c.id: c
@@ -413,31 +416,34 @@ class Run:
             for c in self.adapter.tool_calls(m.content)
             if c.name in tools.REPLAY_CHECKED
         }
-        if not calls:
-            return messages
-        ctx = self._context(can_write=False)
-        edited = code_gone = False
+        state = dict(self.conv.withheld or {})
+        withheld = set(state.get("calls", []))
+        code = bool(state.get("code"))
+        ctx = self._context(can_write=False) if calls else None
         for m in messages:
             if m.role != Role.USER or not m.in_context:
                 continue
             gone = {
                 i
                 for i, (ok, text) in self.adapter.results_of(m.content).items()
-                if ok and i in calls and not tools.still_readable(ctx, calls[i], text)
+                if i in calls
+                and (i in withheld or (ok and not tools.still_readable(ctx, calls[i], text)))
             }
             if gone:
                 m.content = self.adapter.refuse_results(m.content, gone, privacy.REFUSAL)
-                edited = True
-                code_gone = code_gone or any(calls[i].name == code_exec.LOAD for i in gone)
-        if code_gone:  # what code printed from a file flagged since goes too
-            for m in messages:
-                if m.role == Role.ASSISTANT:
+                withheld |= gone
+                code = code or any(calls[i].name == code_exec.LOAD for i in gone)
+        if not withheld:
+            return messages
+        for m in messages:
+            if m.role == Role.ASSISTANT:
+                if code:  # what code printed from a file flagged since goes too
                     m.content = self.adapter.refuse_code_output(m.content, privacy.REFUSAL)
-        if edited:  # an edited earlier turn invalidates every later thinking block (the API
-            # answers 400); dropping all of them is the allowed shape, so do that on this copy
-            for m in messages:
-                if m.role == Role.ASSISTANT:
-                    m.content = self.adapter.drop_thinking(m.content)
+                m.content = self.adapter.drop_thinking(m.content)
+        new = {"calls": sorted(withheld), "code": code}
+        if new != state:
+            self.conv.withheld = new
+            Conversation.objects.filter(pk=self.conv.pk).update(withheld=new)
         return messages
 
     def _finish_turn(self, result: TurnResult):

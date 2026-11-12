@@ -94,15 +94,15 @@ reaching labbenchos through our connector. Everything here costs us nothing per 
 ### Phase C: analysis
 | ID | Task | Size | Model / effort | Status |
 |---|---|---|---|---|
-| C1 | Later, needs paid AI. Claude runs Python with Anthropic's code-execution tool on chosen, unflagged files; figures and tables are saved back to the project; each run becomes an Analysis in lineage with its code and inputs | L | opus / high | todo |
-| C2 | Our own runner on a separate server: Python, R and Octave in locked-down containers (gVisor, no network, CPU, memory and time limits); same UI as C1; security review before launch | L | opus / high | todo |
+| C1 | Later, needs paid AI. Claude runs Python with Anthropic's code-execution tool on chosen, unflagged files; figures and tables are saved back to the project; each run becomes an Analysis in lineage with its code and inputs | L | opus / high | done (D278) |
+| C2 | Our own runner on a separate server: Python, R and Octave in locked-down containers (gVisor, no network, CPU, memory and time limits); same UI as C1; security review before launch | L | opus / high | built, off until a second server (D279) |
 | C3 | Analyses page: list runs per project, open outputs, rerun on a newer dataset version, download the code | M | sonnet / medium | done (D275) |
 
 ### Phase D: MATLAB
 | ID | Task | Size | Model / effort | Status |
 |---|---|---|---|---|
 | D1 | Help page: use your own MATLAB with Claude Desktop (MathWorks' MATLAB MCP Core Server) together with the labbenchos connector | S | haiku / low | done (D271) |
-| D2 | Octave in the C2 runner for `.m` scripts | S | sonnet / medium | todo |
+| D2 | Octave in the C2 runner for `.m` scripts | S | sonnet / medium | built with C2 (D279) |
 | D3 | Optional, only if labs ask: a small helper app that links a person's own MATLAB to the in-app Claude panel | L | opus / high | todo |
 
 Order (revised after the founders' answers below): A3 first, because S1 and A4 both need the

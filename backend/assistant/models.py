@@ -226,6 +226,10 @@ class Conversation(models.Model):
     # existed; like the system prompt, the tool list is fixed for a conversation's life). A Claude
     # chat holds {"container", "inputs", "outputs", "saved_seq"} here.
     code_exec = models.JSONField(null=True, blank=True, default=None, editable=False)
+    # D280: tool calls whose stored results are withheld from the model (an item flagged, deleted
+    # or hidden since). Only ever grows, so the history sent never flips back, and while it is not
+    # empty no thinking block is replayed. "code" marks code output withheld too.
+    withheld = models.JSONField(default=dict, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

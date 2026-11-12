@@ -393,9 +393,9 @@ def load_files_for_analysis(ctx, lab_id, file_ids):
             run.key, hold = lab_keys.reserve(run.key, estimate, run.conv.model)
         except lab_keys.Unavailable as exc:
             raise tools.ToolError(exc.message) from None
-    client = claude._client(run.key.api_key())
     uploaded, loaded = [], False  # uploaded: (file, Files API id)
     try:
+        client = claude._client(run.key.api_key())
         for a, name, data in blobs:
             uploaded.append((a, client.files.upload(file=(name, data)).id))
         resp = _place(client, run, [i for _a, i in uploaded], container_for(run.conv, run.key))
@@ -403,29 +403,35 @@ def load_files_for_analysis(ctx, lab_id, file_ids):
     except Exception as exc:
         raise tools.ToolError(claude.translate(exc).message) from None
     finally:
-        for a, file_id in uploaded:  # the container has its copy; nothing stays in the Files API
-            try:
-                client.files.delete(file_id)
-            except Exception:
-                log.warning("could not delete an uploaded code input")
-            # the bytes left the server, so it is recorded even when the load then failed
-            record(
-                AuditAction.ATTACHMENT_DOWNLOADED,
-                actor=ctx.user,
-                lab=lab,
-                target=a,
-                request=ctx.request,
-                metadata={
-                    "via": ctx.via,
-                    "client": ctx.client,
-                    "for": "code_execution",
-                    "loaded": loaded,
-                },
-            )
-        if isinstance(run.key, LabAIKey) and loaded:
-            lab_keys.record_usage(run.key, ctx.user, claude._usage(resp), resp.model, run.conv.model)
-        if hold is not None:  # the real cost is recorded by now (or the load failed)
-            hold.delete()
+        try:
+            for (
+                a,
+                file_id,
+            ) in uploaded:  # the container has its copy; nothing stays in the Files API
+                try:
+                    client.files.delete(file_id)
+                except Exception:
+                    log.warning("could not delete an uploaded code input")
+                # the bytes left the server, so it is recorded even when the load then failed
+                record(
+                    AuditAction.ATTACHMENT_DOWNLOADED,
+                    actor=ctx.user,
+                    lab=lab,
+                    target=a,
+                    request=ctx.request,
+                    metadata={
+                        "via": ctx.via,
+                        "client": ctx.client,
+                        "for": "code_execution",
+                        "loaded": loaded,
+                    },
+                )
+            if isinstance(run.key, LabAIKey) and loaded:
+                usage = claude._usage(resp)
+                lab_keys.record_usage(run.key, ctx.user, usage, resp.model, run.conv.model)
+        finally:
+            if hold is not None:  # the real cost is recorded by now (or the load failed)
+                hold.delete()
     container = getattr(resp.container, "id", None) if resp.container else None
     if not container:
         raise tools.ToolError("The files could not be loaded. Try again.")

@@ -71,8 +71,9 @@ def refuse_code_output(content: list, text: str) -> list:
 
 
 def drop_thinking(content: list) -> list:
-    """The turn without its reasoning items (replayed reasoning is optional context)."""
-    return [i for i in content if i.get("type") != "reasoning"]
+    # OpenAI's encrypted reasoning is not bound to earlier history, and a function call replayed
+    # without its reasoning item is rejected, so keep it.
+    return content
 
 
 def refuse_results(content: list, ids: set, text: str) -> list:
