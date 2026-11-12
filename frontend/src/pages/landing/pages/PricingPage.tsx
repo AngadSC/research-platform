@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { CONTACT_EMAIL, PLANS } from "../content";
+import { CONTACT_EMAILS, PLANS } from "../content";
 import { Faq, Icon, ICONS, PageHero, SectionHead } from "../shared";
 
 const WHO = [
@@ -125,18 +125,15 @@ export function PricingPage() {
             </p>
           </div>
           <div className="lbp-contact-card">
-            {CONTACT_EMAIL ? (
-              <a
-                className="lbp-btn lbp-btn-primary"
-                href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("labbenchos enquiry")}`}
-              >
-                Email {CONTACT_EMAIL}
-              </a>
-            ) : (
-              <span className="lbp-btn lbp-btn-primary" aria-disabled="true">
-                [Contact email]
-              </span>
-            )}
+            <a
+              className="lbp-btn lbp-btn-primary"
+              href={`mailto:${CONTACT_EMAILS.join(",")}?subject=${encodeURIComponent("labbenchos enquiry")}`}
+            >
+              Email us
+            </a>
+            <p className="lb-lead" style={{ fontSize: 14, margin: 0 }}>
+              {CONTACT_EMAILS.join(" · ")}
+            </p>
             <Link to="/signup" className="lbp-btn lbp-btn-soft">
               Or create an account and look around
             </Link>

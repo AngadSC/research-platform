@@ -1,14 +1,19 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { CONTACT_EMAIL, CONTACT_PATH } from "../content";
+import { CONTACT_EMAILS } from "../content";
 
 const UPDATED = "November 11, 2026";
 
 function Contact() {
-  return CONTACT_EMAIL ? (
-    <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
-  ) : (
-    <Link to={CONTACT_PATH}>our contact page</Link>
+  return (
+    <>
+      {CONTACT_EMAILS.map((email, i) => (
+        <span key={email}>
+          {i > 0 && " or "}
+          <a href={`mailto:${email}`}>{email}</a>
+        </span>
+      ))}
+    </>
   );
 }
 
@@ -45,8 +50,9 @@ export function PrivacyPage() {
         </li>
         <li>
           <strong>Security records:</strong> when you sign in and when important things change, we
-          keep an audit log entry with the time, the action, your IP address and your
-          browser&rsquo;s user agent.
+          keep an audit log entry with the time, the action and your browser&rsquo;s user agent. We
+          do not store IP addresses. We use yours only for a short time to limit repeated sign-in
+          attempts, and then it is forgotten.
         </li>
         <li>
           <strong>Cookies:</strong> we use only the cookies needed to keep you signed in and to

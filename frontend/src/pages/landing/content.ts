@@ -3,7 +3,7 @@
 /** Where every "Contact us" button goes: the contact block at the bottom of the pricing page. */
 export const CONTACT_PATH = "/pricing#contact";
 /** Address shown in that block. Fill in before launch; the page shows a placeholder until then. */
-export const CONTACT_EMAIL = "";
+export const CONTACT_EMAILS = ["achahil@ualberta.ca", "jgogia@ualberta.ca"];
 
 export const STEPS = [
   {
