@@ -5425,6 +5425,7 @@ export interface components {
         };
         MessageInput: {
             text: string;
+            page?: components["schemas"]["Page"];
         };
         ModelInfo: {
             id: string;
@@ -5516,6 +5517,26 @@ export interface components {
             /** Format: uuid */
             training_requirement?: string | null;
         };
+        /**
+         * @description Which page the person has open: a kind and ids only, never page text. The model still has
+         *     to use its tools, which check access.
+         */
+        Page: {
+            kind: components["schemas"]["PageKindEnum"];
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            project?: string;
+        };
+        /**
+         * @description * `lab` - lab
+         *     * `project` - project
+         *     * `document` - document
+         *     * `task` - task
+         *     * `dataset` - dataset
+         * @enum {string}
+         */
+        PageKindEnum: "lab" | "project" | "document" | "task" | "dataset";
         PaginatedAuditEventList: {
             /**
              * Format: uri

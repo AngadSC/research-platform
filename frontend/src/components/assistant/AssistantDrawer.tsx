@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useMatches } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Ban, Check, Loader2, Plus, Sparkles, Trash2, X } from "lucide-react";
+import {
+  Ban,
+  Check,
+  Loader2,
+  PanelRightClose,
+  PanelRightOpen,
+  Plus,
+  Sparkles,
+  Trash2,
+  X,
+} from "lucide-react";
 import { ApprovalDialog } from "@/components/assistant/ApprovalDialog";
 import { FormError } from "@/components/shared/FormError";
 import { Button } from "@/components/ui/button";
@@ -31,6 +41,7 @@ import {
   tokensIn,
   type Live,
 } from "@/lib/assistant";
+import { MOD_KEY } from "@/lib/constants";
 import { MessageText } from "@/lib/markdown";
 import { NativeSelect } from "@/pages/admin/common";
 
@@ -163,13 +174,23 @@ export function Setup({
 function AssistantPanel({
   labId,
   projectId,
+  page,
   initialText = "",
+  prefill,
+  docked = false,
   onClose,
+  onCollapse,
 }: {
   labId: string;
   projectId?: string;
+  /** The open page as kind and ids only; sent with each message. */
+  page?: PageContext;
   initialText?: string;
+  /** Docked: the panel stays mounted, so a new prefill replaces the box. */
+  prefill?: { text: string; n: number };
+  docked?: boolean;
   onClose: () => void;
+  onCollapse?: () => void;
 }) {
   const qc = useQueryClient();
   const config = useAssistantConfig(labId, true);
@@ -183,6 +204,11 @@ function AssistantPanel({
   const [provider, setProvider] = useState<Provider | null>(null);
   const [model, setModel] = useState("");
   const [text, setText] = useState(initialText);
+  const [seenPrefill, setSeenPrefill] = useState(prefill);
+  if (prefill !== seenPrefill) {
+    setSeenPrefill(prefill);
+    if (prefill?.text) setText(prefill.text);
+  }
   const [live, setLive] = useState<Live | null>(null);
   const [streaming, setStreaming] = useState(false);
   const [dismissedFor, setDismissedFor] = useState("");
@@ -259,7 +285,12 @@ function AssistantPanel({
         return;
       }
     }
-    await run(`/api/labs/${labId}/assistant/conversations/${id}/messages/`, { text: msg }, id, msg);
+    await run(
+      `/api/labs/${labId}/assistant/conversations/${id}/messages/`,
+      { text: msg, ...(page ? { page } : {}) },
+      id,
+      msg,
+    );
   }
 
   async function decide(approve: boolean) {
@@ -285,9 +316,13 @@ function AssistantPanel({
 
   return (
     <>
-      <div className="flex items-start justify-between gap-2 pr-8">
+      <div className={`flex items-start justify-between gap-2 ${docked ? "" : "pr-8"}`}>
         <div>
-          <SheetTitle className="text-base">Assistant</SheetTitle>
+          {docked ? (
+            <h2 className="text-base font-semibold">Assistant</h2>
+          ) : (
+            <SheetTitle className="text-base">Assistant</SheetTitle>
+          )}
           <p className="text-xs text-muted-foreground">
             {lab?.name ?? "This lab"}
             {scope ? ` · ${scope}` : ""}. It sees only what you can see.
@@ -310,6 +345,27 @@ function AssistantPanel({
               <Trash2 aria-hidden />
             </Button>
           )}
+          {docked && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Collapse the assistant"
+                onClick={onCollapse}
+              >
+                <PanelRightClose aria-hidden />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Close the assistant"
+                title={`Close (${MOD_KEY} .)`}
+                onClick={onClose}
+              >
+                <X aria-hidden />
+              </Button>
+            </>
+          )}
         </div>
       </div>
       <p role="note" className="rounded-md bg-muted px-3 py-2 text-xs">
@@ -323,7 +379,9 @@ function AssistantPanel({
           <Skeleton className="h-16 w-full" />
         </div>
       )}
-      {cfg && usable.length === 0 && <Setup config={cfg} onOpenSettings={onClose} />}
+      {cfg && usable.length === 0 && (
+        <Setup config={cfg} onOpenSettings={docked ? undefined : onClose} />
+      )}
 
       {cfg && usable.length > 0 && (
         <>
@@ -491,42 +549,217 @@ function AssistantPanel({
   );
 }
 
-/** The header button and the side drawer (D190). Scoped to the current lab, and to the current
- * project when the page is inside one; a new chat starts whenever that scope changes. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+type PageContext = { kind: "project" | "document" | "dataset"; id: string; project?: string };
+
+/** What the person has open, as a kind and ids only (never page text). */
+function pageContext(params: Record<string, string | undefined>): PageContext | undefined {
+  const { projectId: project, documentId, kind, id } = params;
+  const ok = (v?: string): v is string => !!v && UUID.test(v);
+  const inProject = ok(project) ? { project } : {};
+  if (ok(documentId)) return { kind: "document", id: documentId, ...inProject };
+  if (kind === "datasets" && ok(id)) return { kind: "dataset", id, ...inProject };
+  return ok(project) ? { kind: "project", id: project } : undefined;
+}
+
+const DOCK_KEY = "assistant-dock";
+const MIN_W = 320;
+const MAX_W = 640;
+const STRIP_W = 40;
+type Dock = { mode: "open" | "strip" | "closed"; width: number };
+const clampWidth = (w: number) =>
+  Math.round(Math.min(Math.max(w, MIN_W), Math.max(MIN_W, Math.min(MAX_W, window.innerWidth / 2))));
+
+function readDock(): Dock {
+  try {
+    const d = JSON.parse(localStorage.getItem(DOCK_KEY) ?? "{}") as Partial<Dock>;
+    return {
+      mode: d.mode === "open" || d.mode === "strip" ? d.mode : "closed",
+      width: clampWidth(typeof d.width === "number" ? d.width : 384),
+    };
+  } catch {
+    return { mode: "closed", width: 384 }; // storage is blocked: start closed
+  }
+}
+
+const WIDE = "(min-width: 768px)";
+
+/** True from 768px up, where the assistant docks instead of covering the page. */
+function useWide() {
+  const [wide, setWide] = useState(() => !!window.matchMedia?.(WIDE).matches);
+  useEffect(() => {
+    const mq = window.matchMedia?.(WIDE);
+    if (!mq) return;
+    const on = () => setWide(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return wide;
+}
+
+/** The header button and the assistant. From 768px up it is a panel docked on the right that
+ * pushes the page over and stays open across pages (D272); on phones it is a full-screen sheet
+ * (D190). Scoped to the current lab, and to the current project when the page is inside one. */
 export function AssistantDrawer({ labId }: { labId: string }) {
-  const [open, setOpen] = useState(false);
-  const [prefill, setPrefill] = useState("");
-  const projectId = useMatches()
-    .map((m) => m.params.projectId)
-    .find(Boolean);
+  const wide = useWide();
+  const [open, setOpen] = useState(false); // the phone sheet
+  const [dock, setDock] = useState(readDock);
+  const [mounted, setMounted] = useState(dock.mode !== "closed"); // keeps the chat once started
+  const [prefill, setPrefill] = useState({ text: "", n: 0 });
+  const params = Object.assign({}, ...useMatches().map((m) => m.params)) as Record<
+    string,
+    string | undefined
+  >;
+  const projectId = params.projectId;
+  const page = pageContext(params);
+  const shown = wide && dock.mode !== "closed";
+
+  const setMode = (mode: Dock["mode"]) => {
+    if (mode !== "closed") setMounted(true);
+    setDock((d) => ({ ...d, mode }));
+  };
+  useEffect(() => {
+    try {
+      localStorage.setItem(DOCK_KEY, JSON.stringify(dock));
+    } catch {
+      // storage is blocked: the choice lasts until the page reloads
+    }
+  }, [dock]);
+  // the page makes room: AppShell pads itself by this
+  useEffect(() => {
+    if (!shown) return;
+    document.documentElement.style.setProperty(
+      "--assistant-w",
+      `${dock.mode === "strip" ? STRIP_W : dock.width}px`,
+    );
+    return () => {
+      document.documentElement.style.removeProperty("--assistant-w");
+    };
+  }, [shown, dock]);
+
+  const toggle = () => (wide ? setMode(dock.mode === "open" ? "closed" : "open") : setOpen(!open));
+  const toggleRef = useRef(toggle);
+  useEffect(() => {
+    toggleRef.current = toggle;
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === ".") {
+        e.preventDefault();
+        toggleRef.current();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   useEffect(() => {
     const onPrefill = (e: Event) => {
-      setPrefill((e as CustomEvent<string>).detail);
-      setOpen(true);
+      setPrefill((p) => ({ text: (e as CustomEvent<string>).detail, n: p.n + 1 }));
+      if (wide) setMode("open");
+      else setOpen(true);
     };
     window.addEventListener(ASSISTANT_PREFILL, onPrefill);
     return () => window.removeEventListener(ASSISTANT_PREFILL, onPrefill);
-  }, []);
+  }, [wide]);
+
+  const button = (
+    <Button
+      variant="secondary"
+      size="sm"
+      aria-label="Assistant"
+      title={`Assistant (${MOD_KEY} .)`}
+      aria-expanded={wide ? dock.mode === "open" : undefined}
+      onClick={wide ? toggle : undefined}
+    >
+      <Sparkles aria-hidden />
+      <span className="hidden sm:inline">Assistant</span>
+    </Button>
+  );
+
+  if (wide)
+    return (
+      <>
+        {button}
+        {mounted && (
+          <aside
+            aria-label="Assistant"
+            style={{ width: dock.mode === "strip" ? STRIP_W : dock.width }}
+            className={`fixed inset-y-0 right-0 z-30 border-l bg-background print:hidden ${
+              dock.mode === "closed" ? "hidden" : "flex"
+            }`}
+          >
+            {dock.mode === "strip" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="mx-auto mt-3"
+                aria-label="Open the assistant"
+                title={`Open the assistant (${MOD_KEY} .)`}
+                onClick={() => setMode("open")}
+              >
+                <PanelRightOpen aria-hidden />
+              </Button>
+            )}
+            <div
+              className={
+                dock.mode === "open" ? "flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4" : "hidden"
+              }
+            >
+              <AssistantPanel
+                key={labId}
+                labId={labId}
+                projectId={projectId}
+                page={page}
+                prefill={prefill}
+                docked
+                onClose={() => setMode("closed")}
+                onCollapse={() => setMode("strip")}
+              />
+            </div>
+            {dock.mode === "open" && (
+              <div
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize the assistant"
+                aria-valuemin={MIN_W}
+                aria-valuemax={MAX_W}
+                aria-valuenow={dock.width}
+                tabIndex={0}
+                className="absolute inset-y-0 -left-1 w-2 cursor-col-resize touch-none hover:bg-border focus-visible:bg-ring focus-visible:outline-none"
+                onPointerDown={(e) => e.currentTarget.setPointerCapture(e.pointerId)}
+                onPointerMove={(e) => {
+                  if (e.currentTarget.hasPointerCapture(e.pointerId))
+                    setDock((d) => ({ ...d, width: clampWidth(window.innerWidth - e.clientX) }));
+                }}
+                onKeyDown={(e) => {
+                  const step = e.key === "ArrowLeft" ? 24 : e.key === "ArrowRight" ? -24 : 0;
+                  if (!step) return;
+                  e.preventDefault();
+                  setDock((d) => ({ ...d, width: clampWidth(d.width + step) }));
+                }}
+              />
+            )}
+          </aside>
+        )}
+      </>
+    );
+
   return (
     <Sheet
       open={open}
       onOpenChange={(o) => {
         setOpen(o);
-        if (!o) setPrefill("");
+        if (!o) setPrefill({ text: "", n: prefill.n });
       }}
     >
-      <SheetTrigger asChild>
-        <Button variant="secondary" size="sm" aria-label="Assistant">
-          <Sparkles aria-hidden />
-          <span className="hidden sm:inline">Assistant</span>
-        </Button>
-      </SheetTrigger>
+      <SheetTrigger asChild>{button}</SheetTrigger>
       <SheetContent className="max-w-xl gap-3 p-4" aria-describedby={undefined}>
         <AssistantPanel
           key={`${labId}:${projectId ?? ""}`}
           labId={labId}
           projectId={projectId}
-          initialText={prefill}
+          page={page}
+          initialText={prefill.text}
           onClose={() => setOpen(false)}
         />
       </SheetContent>

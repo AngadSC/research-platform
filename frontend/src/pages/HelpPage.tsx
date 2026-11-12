@@ -39,6 +39,7 @@ const SHORTCUTS = [
   [`${MOD_KEY} S`, "Save the document you are editing"],
   ["/", "In a document, open the list of things to add"],
   ["Up, Down, Enter", "Move through the search results and open one"],
+  [`${MOD_KEY} .`, "Open or close the assistant"],
   ["Esc", "Close a dialog, menu or the side menu"],
 ] as const;
 

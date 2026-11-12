@@ -133,8 +133,23 @@ class ConversationDetailSerializer(ConversationSerializer):
         read_only_fields = fields
 
 
+class PageSerializer(serializers.Serializer):
+    """Which page the person has open: a kind and ids only, never page text. The model still has
+    to use its tools, which check access."""
+
+    kind = serializers.ChoiceField(choices=["lab", "project", "document", "task", "dataset"])
+    id = serializers.UUIDField(required=False)
+    project = serializers.UUIDField(required=False)
+
+    def validate(self, attrs):
+        if attrs["kind"] not in ("lab", "project") and "id" not in attrs:
+            raise serializers.ValidationError({"id": "This is required for this kind of page."})
+        return attrs
+
+
 class MessageInputSerializer(serializers.Serializer):
     text = serializers.CharField(max_length=catalog.MAX_TEXT)
+    page = PageSerializer(required=False)
 
 
 class ApprovalDecisionSerializer(serializers.Serializer):
