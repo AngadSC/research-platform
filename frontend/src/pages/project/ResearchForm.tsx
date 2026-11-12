@@ -4,6 +4,7 @@ import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
+import { ParticipantCheckbox } from "@/components/shared/ParticipantData";
 import { ReferencesEditor } from "@/components/shared/References";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { root, useSaveRecord } from "@/hooks/research";
 import { useAttachments } from "@/hooks/projects";
 import { api } from "@/lib/api";
-import { personName, type Decision, type Reference } from "@/lib/api-types";
+import { personName, type Dataset, type Decision, type Reference } from "@/lib/api-types";
 import { formErrors } from "@/lib/forms";
 import {
   isCommit,
@@ -182,6 +183,9 @@ export function ResearchForm({ labId, projectId, kind, record, onSaved, onCancel
     kind === "decisions" ? ((record as Decision | undefined)?.references ?? []) : [],
   );
   const [refErrors, setRefErrors] = useState<RefErrors[]>([]);
+  const [participant, setParticipant] = useState(
+    kind === "datasets" && !!(record as Dataset | undefined)?.contains_participant_data,
+  );
   const [uploading, setUploading] = useState(false);
   const save = useSaveRecord<{ id: string }>(labId, projectId, kind, record?.id);
   const { uploadFile } = useAttachments(labId, projectId);
@@ -203,6 +207,7 @@ export function ResearchForm({ labId, projectId, kind, record, onSaved, onCancel
       body[f.name] = NULLABLE.has(f.name) && !x ? null : typeof x === "string" ? x.trim() : x;
     }
     if (kind === "decisions") body.references = cleanReferences(refs);
+    if (kind === "datasets") body.contains_participant_data = participant;
     save.mutate(body, {
       onSuccess: (r) => {
         toast.success("Saved");
@@ -296,6 +301,9 @@ export function ResearchForm({ labId, projectId, kind, record, onSaved, onCancel
       ))}
       {kind === "decisions" && (
         <ReferencesEditor rows={refs} errors={refErrors} onChange={setRefs} />
+      )}
+      {kind === "datasets" && (
+        <ParticipantCheckbox checked={participant} onChange={setParticipant} />
       )}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>

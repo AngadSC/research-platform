@@ -9,7 +9,9 @@ Rules every tool follows (ARCHITECTURE section 3, "Future search and AI"):
 - writes go through the existing services, inside one transaction with an `ai_tool.write` audit
   event naming the tool, the transport (`via`) and the client (D167);
 - results are compact JSON with capped text and paginated lists; nothing returns tokens, keys,
-  participant data (recruitment notes are never read) or funding to anyone but PIs (D226).
+  participant data (recruitment notes are never read) or funding to anyone but PIs (D226);
+- an item marked "Contains participant data" is never returned: lists and search drop it through
+  `privacy.ai_visible`, and `_get` refuses it by id (assistant/privacy.py, VISION A3).
 """
 
 import datetime
@@ -27,6 +29,7 @@ from django.http import Http404
 from django.utils import timezone
 from rest_framework.exceptions import APIException, ValidationError
 
+from assistant import privacy
 from audit.models import AuditAction
 from audit.services import record
 from core.models import Notification
@@ -288,6 +291,8 @@ def _get(ctx, lab, model, pk, label, perm=Perm.VIEW_PROJECT, **filters):
     obj = _scope(model, ctx.user, lab).filter(pk=_id(pk, f"{label} id"), **filters).first()
     if obj is None or not can(ctx.user, perm, obj):
         raise ToolError(f"No {label} with that id that you can see in this lab.")
+    if privacy.is_flagged(obj):
+        raise ToolError(privacy.REFUSAL)
     return obj
 
 
@@ -443,7 +448,7 @@ def project_overview(ctx, lab_id, project_id):
     )
 
     def count(model, **kw):
-        return _scope(model, ctx.user, lab).filter(project=p, **kw).count()
+        return privacy.ai_visible(_scope(model, ctx.user, lab)).filter(project=p, **kw).count()
 
     approvals = [
         a
@@ -504,7 +509,7 @@ def project_overview(ctx, lab_id, project_id):
 )
 def search(ctx, lab_id, query, types=None):
     lab = _lab(ctx, lab_id)
-    hits = lab_search(ctx.user, lab, query, set(types or ()))
+    hits = lab_search(ctx.user, lab, query, set(types or ()), for_ai=True)
     return {
         "results": [
             {**h, "snippet": untrusted(h.get("snippet")), "url": _url(h["url"])} for h in hits
@@ -588,7 +593,9 @@ def get_task(ctx, lab_id, task_id):
         ],
         "documents": [
             {"id": d.pk, "title": d.title}
-            for d in t.documents.filter(deleted_at__isnull=True).order_by("title")[:20]
+            for d in privacy.ai_visible(t.documents.filter(deleted_at__isnull=True)).order_by(
+                "title"
+            )[:20]
         ],
         "url": _url(f"/labs/{lab.pk}/projects/{t.project_id}/tasks"),
     }
@@ -641,9 +648,14 @@ def _dataset(d, depth=0):
         "checksum": d.checksum,
         "location_url": d.location_url,
     }
-    if d.previous_version_id and depth < 5:
-        out["previous_version"] = _dataset(d.previous_version, depth + 1)
+    prev = d.previous_version if d.previous_version_id and depth < 5 else None
+    if prev is not None and not privacy.is_flagged(prev):
+        out["previous_version"] = _dataset(prev, depth + 1)
     return out
+
+
+def _datasets(owner):
+    return privacy.ai_visible(owner.datasets.all()).order_by("name", "id")
 
 
 def _analysis(a):
@@ -656,7 +668,7 @@ def _analysis(a):
         "code_attached": a.code_attachment_id is not None,
         "ran_at": a.ran_at,
         "ran_by": _name(a.ran_by),
-        "datasets": [_dataset(d) for d in a.datasets.order_by("name", "id")[:20]],
+        "datasets": [_dataset(d) for d in _datasets(a)[:20]],
     }
 
 
@@ -688,7 +700,7 @@ LINEAGE = {
             "decided_on": d.decided_on,
             "analyses": [_analysis(a) for a in d.analyses.order_by("title", "id")[:10]],
             "results": [_result(r) for r in d.results.order_by("title", "id")[:10]],
-            "datasets": [_dataset(x) for x in d.datasets.order_by("name", "id")[:10]],
+            "datasets": [_dataset(x) for x in _datasets(d)[:10]],
         },
     ),
 }
@@ -929,7 +941,7 @@ def handover_report(ctx, lab_id, person, project_id=None):
     ):  # the rules of MemberHandoverView
         raise ToolError("Your role does not allow you to see another person's handover list.")
     report = project_handover.build_report(
-        requester=ctx.user, lab=lab, membership=membership, project=p
+        requester=ctx.user, lab=lab, membership=membership, project=p, for_ai=True
     )
     project_handover.record_generated(
         report,
@@ -1070,6 +1082,8 @@ def read_paper(ctx, lab_id, paper_id, first_page=1, last_page=None):
         attachment, out = paper_services.read_pdf_text(p, first=first_page, last=last)
     except PdfTextError as exc:
         raise ToolError(str(exc)) from None
+    if privacy.is_flagged(attachment):
+        raise ToolError(privacy.REFUSAL)
     record(
         AuditAction.ATTACHMENT_DOWNLOADED,
         actor=ctx.user,

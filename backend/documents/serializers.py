@@ -22,6 +22,7 @@ class DocumentListSerializer(serializers.ModelSerializer):
             "updated_by",
             "retain_until",
             "retention_note",
+            "contains_participant_data",
             "created_at",
             "updated_at",
         ]
@@ -46,6 +47,7 @@ class DocumentCreateSerializer(FolderRefMixin):
     title = serializers.CharField(max_length=300, validators=[no_control_chars])
     content = serializers.JSONField(default=list, validators=[services.validate_content])
     embed_url = serializers.CharField(max_length=2000, required=False, allow_blank=True)
+    contains_participant_data = serializers.BooleanField(default=False)
 
 
 class DocumentSaveSerializer(serializers.Serializer):
@@ -67,7 +69,15 @@ class ItemMoveSerializer(serializers.Serializer):
 class FolderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Folder
-        fields = ["id", "project", "parent", "name", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "project",
+            "parent",
+            "name",
+            "contains_participant_data",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = fields
 
 
@@ -76,8 +86,15 @@ class FolderCreateSerializer(serializers.Serializer):
     parent = serializers.UUIDField(allow_null=True, required=False)
 
 
-class FolderRenameSerializer(serializers.Serializer):
-    name = serializers.CharField(max_length=200, validators=[no_control_chars])
+class FolderUpdateSerializer(serializers.Serializer):
+    """Rename, tick or clear "Contains participant data", or both."""
+
+    name = serializers.CharField(max_length=200, validators=[no_control_chars], required=False)
+    contains_participant_data = serializers.BooleanField(required=False)
+
+
+class ParticipantFlagSerializer(serializers.Serializer):
+    contains_participant_data = serializers.BooleanField()
 
 
 class ConflictSerializer(serializers.Serializer):
@@ -125,6 +142,7 @@ class AttachmentSerializer(serializers.ModelSerializer):
             "created_at",
             "drive_file_id",
             "external_url",
+            "contains_participant_data",
         ]
         read_only_fields = fields
 
@@ -136,6 +154,7 @@ class AttachmentUploadSerializer(FolderRefMixin):
     drive_file_id = serializers.CharField(max_length=255, required=False)
     acknowledged_notice = serializers.BooleanField(default=False)
     pi_only = serializers.BooleanField(default=False)  # D244: honoured on project files only
+    contains_participant_data = serializers.BooleanField(default=False)  # VISION A3
 
     def validate(self, data):
         data = super().validate(data)

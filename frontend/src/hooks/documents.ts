@@ -78,12 +78,16 @@ export function useFolderActions(labId: string, projectId: string) {
         api<Folder>(`${base(labId)}/projects/${projectId}/folders/`, { method: "POST", body: v }),
       onSuccess,
     }),
-    rename: useMutation({
-      mutationFn: (v: { id: string; name: string }) =>
-        api<Folder>(`${base(labId)}/folders/${v.id}/`, {
-          method: "PATCH",
-          body: { name: v.name },
-        }),
+    /** Rename, and/or tick or clear "Contains participant data" (ticking flags the contents). */
+    update: useMutation({
+      mutationFn: ({
+        id,
+        ...body
+      }: {
+        id: string;
+        name?: string;
+        contains_participant_data?: boolean;
+      }) => api<Folder>(`${base(labId)}/folders/${id}/`, { method: "PATCH", body }),
       onSuccess,
     }),
     remove: useMutation({
@@ -99,6 +103,20 @@ export function useFolderActions(labId: string, projectId: string) {
       onSuccess,
     }),
   };
+}
+
+/** VISION A3: tick or clear "Contains participant data" on a document or file. */
+export function useParticipantFlag(labId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { kind: "documents" | "attachments"; id: string; value: boolean }) =>
+      api(`${base(labId)}/${v.kind}/${v.id}/`, {
+        method: "PATCH",
+        body: { contains_participant_data: v.value },
+      }),
+    // the project lists only: an open document keeps its editor state (DocumentPage tracks it)
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["labs", labId, "projects"] }),
+  });
 }
 
 export function useDocument(labId: string, id: string) {

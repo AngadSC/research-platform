@@ -93,10 +93,18 @@ def lab_documents(lab):
 
 @transaction.atomic
 def create_document(
-    *, user, title, content, project=None, lab=None, embed_url="", folder=None
+    *,
+    user,
+    title,
+    content,
+    project=None,
+    lab=None,
+    embed_url="",
+    folder=None,
+    contains_participant_data=False,
 ) -> Document:
     """A non-empty `embed_url` makes a document that frames an outside file (documents.embed).
-    `lab` instead of `project` makes a lab-wide document (D233)."""
+    `lab` instead of `project` makes a lab-wide document (D233). A flagged folder flags it."""
     validate_content(content)
     _check_folder(folder, project.pk if project else None)
     frame, open_url = embed.normalise(embed_url) if embed_url else ("", "")
@@ -111,6 +119,7 @@ def create_document(
         version=1,
         created_by=user,
         updated_by=user,
+        contains_participant_data=_inherit(contains_participant_data, folder),
     )
     DocumentRevision.objects.create(
         document=doc, version=1, title=title, content=content, created_by=user
@@ -199,7 +208,7 @@ def _safe_content_type(declared) -> str:
     )
 
 
-def _link_drive_file(*, user, file_id, owners, folder, request, pi_only) -> Attachment:
+def _link_drive_file(*, user, file_id, owners, folder, request, pi_only, flag) -> Attachment:
     """D257: attach a Google Drive file by reference. The id comes from the Google Picker, but
     the title, type and address are read from Drive with the person's own connection, so the
     browser cannot name a file they cannot open or a link that goes anywhere but Drive. Nothing
@@ -250,6 +259,7 @@ def _link_drive_file(*, user, file_id, owners, folder, request, pi_only) -> Atta
             uploaded_by=user,
             notice_acknowledged_at=None,
             pi_only=pi_only,
+            contains_participant_data=flag,
             drive_file_id=file_id,
             external_url=meta["url"],
         )
@@ -282,6 +292,7 @@ def upload_attachment(
     request=None,
     folder=None,
     pi_only=False,
+    contains_participant_data=False,
 ) -> Attachment:
     """The caller has already checked `acknowledged_notice` (the serializer) and access to the
     owner: exactly one of `project`, an ethics `approval`, a `training_record` or a `paper` (D38,
@@ -289,6 +300,7 @@ def upload_attachment(
     if sum(o is not None for o in (project, approval, training_record, paper)) != 1:
         raise ValueError("an attachment has exactly one owner")
     owner = project or approval or training_record or paper
+    flag = _inherit(contains_participant_data, folder)
     if drive_file_id:
         return _link_drive_file(
             user=user,
@@ -297,6 +309,7 @@ def upload_attachment(
             folder=folder,
             request=request,
             pi_only=pi_only,
+            flag=flag,
         )
     _check_folder(folder, project.pk if project else None)
     if file.size > settings.ATTACHMENT_MAX_BYTES:
@@ -326,6 +339,7 @@ def upload_attachment(
                 uploaded_by=user,
                 notice_acknowledged_at=now,
                 pi_only=pi_only,
+                contains_participant_data=flag,
             )
             record(
                 # D244: lab admins read the audit log, and funding.* is hidden from them
@@ -366,6 +380,11 @@ def delete_attachment(attachment, *, user, request=None) -> None:
 # ---------------------------------------------------------------- folders
 
 
+def _inherit(flag, folder) -> bool:
+    """VISION A3: something new in a flagged folder is flagged too."""
+    return bool(flag or (folder is not None and folder.contains_participant_data))
+
+
 def _check_folder(folder, project_id) -> None:
     if folder is not None and folder.project_id != project_id:
         raise ValidationError({"folder": "That folder is not in this project."})
@@ -373,7 +392,13 @@ def _check_folder(folder, project_id) -> None:
 
 def create_folder(*, project, user, name, parent=None) -> Folder:
     _check_folder(parent, project.pk)
-    return Folder.objects.create(project=project, parent=parent, name=name, created_by=user)
+    return Folder.objects.create(
+        project=project,
+        parent=parent,
+        name=name,
+        created_by=user,
+        contains_participant_data=_inherit(False, parent),
+    )
 
 
 def rename_folder(folder, *, name) -> Folder:

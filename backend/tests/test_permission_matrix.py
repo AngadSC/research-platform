@@ -181,6 +181,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "documents:lab-document-list"): "401 404 2 2 2 2 2 2 403",
     ("GET",    "documents:document-detail"): "401 404 2 2 2 2 2 404 2",
     ("PUT",    "documents:document-detail"): "401 404 2 2 2 2 403 404 403",
+    ("PATCH",  "documents:document-detail"): "401 404 2 2 2 2 403 404 403",  # participant flag
     ("DELETE", "documents:document-detail"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:revision-list"): "401 404 2 2 2 2 2 404 2",
     ("GET",    "documents:revision-detail"): "401 404 2 2 2 2 2 404 2",
@@ -188,6 +189,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "documents:attachment-list"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "documents:attachment-list"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:attachment-detail"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "documents:attachment-detail"): "401 404 2 2 2 2 403 404 403",  # participant flag
     ("DELETE", "documents:attachment-detail"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:attachment-download"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "documents:document-move"): "401 404 2 2 2 2 403 404 403",
@@ -1305,6 +1307,8 @@ PAYLOADS = {
     ("POST", "documents:attachment-move"): lambda user, w: {"folder": None},
     ("POST", "documents:folder-list"): lambda user, w: {"name": "New folder"},
     ("PATCH", "documents:folder-detail"): lambda user, w: {"name": "Renamed folder"},
+    ("PATCH", "documents:document-detail"): lambda user, w: {"contains_participant_data": True},
+    ("PATCH", "documents:attachment-detail"): lambda user, w: {"contains_participant_data": True},
     # --- end documents/attachments (Phase 3) ---
     # --- provenance (Phase 4): links point at Lab A / P1 fixtures, so allowed calls return 2xx ---
     ("POST", "provenance:dataset-list"): lambda user, w: {

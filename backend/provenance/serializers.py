@@ -136,6 +136,7 @@ class DatasetSerializer(serializers.ModelSerializer):
             "checksum",
             "previous_version",
             "analyses",
+            "contains_participant_data",
             "created_by",
             "created_at",
             "updated_at",
@@ -452,6 +453,7 @@ class DatasetInputSerializer(serializers.Serializer):
         max_length=140, allow_blank=True, required=False, validators=[validate_checksum]
     )
     previous_version = serializers.UUIDField(allow_null=True, required=False)
+    contains_participant_data = serializers.BooleanField(required=False)  # VISION A3
 
 
 class AnalysisInputSerializer(serializers.Serializer):

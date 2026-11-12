@@ -2,6 +2,7 @@ import { Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { FormError } from "@/components/shared/FormError";
+import { ParticipantCheckbox } from "@/components/shared/ParticipantData";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { formErrors } from "@/lib/forms";
@@ -13,9 +14,12 @@ export const NOTICE =
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  send: (file: File, onProgress: (f: number) => void) => Promise<unknown>;
+  /** `participant` is the "Contains participant data" tick (false when the box is not shown). */
+  send: (file: File, onProgress: (f: number) => void, participant: boolean) => Promise<unknown>;
   /** Choose several files; `send` is called once for each, in order. */
   multiple?: boolean;
+  /** Show "Contains participant data", starting ticked when true (a flagged folder). */
+  participant?: boolean;
 }
 
 /** Mounted fresh on every open, so the notice tick is never remembered. */
@@ -23,13 +27,16 @@ function UploadForm({
   send,
   onDone,
   multiple,
+  participant,
 }: {
   send: Props["send"];
   onDone: () => void;
   multiple?: boolean;
+  participant?: boolean;
 }) {
   const [files, setFiles] = useState<File[]>([]);
   const [ack, setAck] = useState(false);
+  const [flagged, setFlagged] = useState(participant ?? false);
   const [error, setError] = useState<string>();
   const [progress, setProgress] = useState<number | null>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -56,7 +63,7 @@ function UploadForm({
     let done = 0;
     try {
       for (const [i, file] of files.entries()) {
-        await send(file, (f) => setProgress((i + f) / files.length));
+        await send(file, (f) => setProgress((i + f) / files.length), flagged);
         done = i + 1;
       }
       toast.success(files.length > 1 ? `${files.length} files uploaded` : "File uploaded");
@@ -113,6 +120,7 @@ function UploadForm({
         </Button>
         <p className="text-xs text-muted-foreground">Up to 50 MB{multiple && " each"}.</p>
       </div>
+      {participant !== undefined && <ParticipantCheckbox checked={flagged} onChange={setFlagged} />}
       <label className="flex items-start gap-2 text-sm">
         <input
           type="checkbox"
@@ -120,7 +128,9 @@ function UploadForm({
           onChange={(e) => setAck(e.target.checked)}
           className="mt-0.5"
         />
-        I confirm this file contains no participant identifiers
+        {flagged
+          ? "I confirm my ethics approval allows keeping this participant data here"
+          : "I confirm this file contains no participant identifiers"}
       </label>
       <FormError message={error} />
       {progress !== null && (
@@ -138,11 +148,18 @@ function UploadForm({
   );
 }
 
-export function UploadDialog({ open, onOpenChange, send, multiple }: Props) {
+export function UploadDialog({ open, onOpenChange, send, multiple, participant }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        {open && <UploadForm send={send} multiple={multiple} onDone={() => onOpenChange(false)} />}
+        {open && (
+          <UploadForm
+            send={send}
+            multiple={multiple}
+            participant={participant}
+            onDone={() => onOpenChange(false)}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
