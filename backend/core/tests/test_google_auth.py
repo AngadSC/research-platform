@@ -135,6 +135,34 @@ def test_unverified_local_address_never_links(google, make_user, verify_email):
     assert squatter.has_usable_password()
 
 
+def test_google_claims_an_abandoned_password_signup(google, make_user, verify_email, mailoutbox):
+    """D265: someone signed up with a password but never confirmed; Google proves the address,
+    so it links, confirms the address, wipes the password and sends no email."""
+    user = make_user(email="me@gmail.com")
+    verify_email(user, verified=False)
+    client = Client()
+    assert google_login(client, email="me@gmail.com", verified=True) == CALLBACK
+    assert session_user(client) == str(user.pk)
+    assert User.objects.count() == 1 and SocialAccount.objects.get().user == user
+    user.refresh_from_db()
+    assert not user.has_usable_password()  # whoever typed that password is locked out
+    assert EmailAddress.objects.get(user=user).verified
+    assert not [m for m in mailoutbox if "confirm" in m.subject.lower()]
+
+
+def test_unverified_added_address_never_links_even_when_vouched(google, make_user, verify_email):
+    """D72 still holds: an address added to someone else's account is never claimed."""
+    squatter = make_user(email="sq@example.com")
+    verify_email(squatter)
+    verify_email(squatter, verified=False, email="victim@gmail.com")
+    client = Client()
+    google_login(client, email="victim@gmail.com", verified=True)
+    assert session_user(client) is None
+    assert not SocialAccount.objects.exists()
+    squatter.refresh_from_db()
+    assert squatter.has_usable_password()
+
+
 def test_disconnect_needs_a_password(google):
     client = Client()
     google_login(client, email="g@example.com", verified=True)

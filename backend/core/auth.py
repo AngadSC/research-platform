@@ -182,25 +182,23 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         return apps
 
     def authenticate_by_email(self, sociallogin):
-        """D62: link only when the provider says the email is verified AND it is a verified
-        address of a local account. allauth's default also matches unverified local addresses
-        (and then wipes the password); we never link those. No match means a new account."""
-        provider = sociallogin.account.provider
-        if provider.startswith("saml:"):  # D154: an IdP vouches only for its own domains
-            cfg = _sso_config(provider)
-            vouched = set(cfg.email_domains) if cfg else set()
-        else:  # D73: Google only vouches for gmail.com and its own Workspace domain
-            hd = str(sociallogin.account.extra_data.get("hd") or "").lower()
-            vouched = GOOGLE_MAIL_DOMAINS | ({hd} if hd else set())
+        """D62: link only when the provider says the email is verified and it is a verified
+        address of a local account. allauth's default also matches unverified local addresses;
+        we allow one case only (D265): an abandoned password signup, where that unverified address
+        is the account's only address and it has no other way in. allauth then wipes the password
+        before linking, so whoever typed it is locked out, and `_social_added` marks the address
+        verified. No match means a new account."""
+        vouched = _vouched_domains(sociallogin)
         for addr in sociallogin.email_addresses:
             if not addr.verified or _domain(addr.email) not in vouched:
                 continue
             local = (
-                EmailAddress.objects.filter(email__iexact=addr.email, verified=True)
+                EmailAddress.objects.filter(email__iexact=addr.email)
+                .order_by("-verified")
                 .select_related("user")
                 .first()
             )
-            if local:
+            if local and (local.verified or _abandoned_signup(local)):
                 return local.user, local.email
         return None
 
@@ -232,6 +230,28 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
                 extra_context={"state": sociallogin.state},
             )
         )
+
+
+def _vouched_domains(sociallogin) -> set[str]:
+    provider = sociallogin.account.provider
+    if provider.startswith("saml:"):  # D154: an IdP vouches only for its own domains
+        cfg = _sso_config(provider)
+        return set(cfg.email_domains) if cfg else set()
+    # D73: Google only vouches for gmail.com and its own Workspace domain
+    hd = str(sociallogin.account.extra_data.get("hd") or "").lower()
+    return GOOGLE_MAIL_DOMAINS | ({hd} if hd else set())
+
+
+def _abandoned_signup(address) -> bool:
+    """D265: an unverified signup address that is the account's only address, on an account with
+    no social login and no second factor. Never an address added to someone else's account (D72)."""
+    user = address.user
+    return (
+        address.primary
+        and not EmailAddress.objects.filter(user=user).exclude(pk=address.pk).exists()
+        and not user.socialaccount_set.exists()
+        and not user.authenticator_set.exists()
+    )
 
 
 # ---- Institutional SSO (SAML 2.0, D152 to D157)
@@ -470,6 +490,13 @@ def _social_connected(request, user, account):
 
 @receiver(social_account_added)
 def _social_added(sender, request, sociallogin, **kwargs):
+    # D265: the provider vouched for these addresses; runs after allauth's password wipe.
+    vouched = _vouched_domains(sociallogin)
+    for addr in sociallogin.email_addresses:
+        if addr.verified and _domain(addr.email) in vouched:
+            EmailAddress.objects.filter(
+                user=sociallogin.user, email__iexact=addr.email, verified=False
+            ).update(verified=True)
     _social_connected(request, sociallogin.user, sociallogin.account)
 
 

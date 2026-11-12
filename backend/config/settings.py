@@ -314,6 +314,8 @@ SOCIALACCOUNT_ADAPTER = "core.auth.SocialAccountAdapter"
 # Link to an existing account by email; core.auth.SocialAccountAdapter only matches verified ones.
 SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
 SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
+# D265: Google and institution SSO vouch for the address, so they never send a confirmation email.
+SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
