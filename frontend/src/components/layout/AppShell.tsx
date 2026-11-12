@@ -184,7 +184,7 @@ export function AppShell() {
               {labId && <NotificationBell labId={labId} />}
             </div>
           </header>
-          <main className="min-h-0 flex-1 overflow-y-auto print:overflow-visible">
+          <main className="@container min-h-0 flex-1 overflow-y-auto print:overflow-visible">
             <div className="px-4 py-4 md:px-8 print:px-0">
               <div className="mb-4 print:hidden">
                 <Breadcrumbs items={crumbs} />

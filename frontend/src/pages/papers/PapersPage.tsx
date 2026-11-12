@@ -2,7 +2,7 @@ import { BookOpen, FileText, Plus } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
-import { DataTable, type Column } from "@/components/shared/DataTable";
+import { DataTable, HIDE_NARROW, HIDE_NARROWER, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
@@ -319,9 +319,14 @@ export function PapersPage() {
         </Link>
       ),
     },
-    { key: "authors", header: "Authors", cell: (p) => authorsShort(p.authors) },
+    {
+      key: "authors",
+      header: "Authors",
+      className: HIDE_NARROW,
+      cell: (p) => authorsShort(p.authors),
+    },
     { key: "year", header: "Year", cell: (p) => p.year ?? "-" },
-    { key: "venue", header: "Journal", cell: (p) => p.venue || "-" },
+    { key: "venue", header: "Journal", className: HIDE_NARROWER, cell: (p) => p.venue || "-" },
     {
       key: "pdf",
       header: "PDF",
@@ -334,7 +339,7 @@ export function PapersPage() {
           "-"
         ),
     },
-    { key: "notes", header: "Notes", cell: (p) => p.note_count },
+    { key: "notes", header: "Notes", className: HIDE_NARROWER, cell: (p) => p.note_count },
   ];
 
   return (

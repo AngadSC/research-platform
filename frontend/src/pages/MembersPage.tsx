@@ -3,7 +3,7 @@ import { RelativeTime } from "@/components/shared/RelativeTime";
 import { useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router";
 import { toast } from "sonner";
-import { DataTable, type Column } from "@/components/shared/DataTable";
+import { DataTable, HIDE_NARROW, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
@@ -223,7 +223,12 @@ export function MembersPage() {
           <RoleName role={m.role} roles={ROLES} />
         ),
     },
-    { key: "joined", header: "Joined", cell: (m) => <RelativeTime value={m.created_at} /> },
+    {
+      key: "joined",
+      header: "Joined",
+      className: HIDE_NARROW,
+      cell: (m) => <RelativeTime value={m.created_at} />,
+    },
     {
       key: "actions",
       header: "Actions",
