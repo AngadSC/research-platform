@@ -4,7 +4,7 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { fetchPickerToken, useProviders } from "@/hooks/integrations";
-import { pickDriveFile, type PickedFile } from "@/lib/drive";
+import { pickDriveFile, pickDriveFiles, type PickedFile } from "@/lib/drive";
 import { formErrors } from "@/lib/forms";
 import { pickerReady } from "@/lib/integrations";
 
@@ -40,7 +40,8 @@ export function DriveLogo({ className = "size-4" }: { className?: string }) {
   );
 }
 
-/** "From Drive": opens Google's file picker and hands the chosen file to `onPick`. Hidden when
+/** "From Drive": opens Google's file picker and hands the chosen file to `onPick` (with
+ * `multiple`, once for each chosen file). Hidden when
  * the site has no Google Drive set up; when you have not connected yours, it says how. */
 export function FromDriveButton({
   labId,
@@ -50,6 +51,7 @@ export function FromDriveButton({
   label = "From Drive",
   disabled,
   quiet,
+  multiple,
 }: {
   labId: string;
   onPick: (file: PickedFile) => Promise<unknown>;
@@ -59,6 +61,8 @@ export function FromDriveButton({
   disabled?: boolean;
   /** Only chooses the file (a form saves it later), so no "Added" message. */
   quiet?: boolean;
+  /** Lets the person choose several files at once. */
+  multiple?: boolean;
 }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -67,6 +71,11 @@ export function FromDriveButton({
   const drive = providers.find((p) => p.name === "google_drive");
   if (!drive?.configured || !pickerReady(drive)) return null;
   const connected = drive.account?.status === "active";
+
+  const reason = (e: unknown) => {
+    const { fields, form } = formErrors(e, ["drive_file_id", "file"]);
+    return fields.drive_file_id ?? fields.file ?? form ?? "Google Drive did not answer.";
+  };
 
   async function run() {
     if (!connected) {
@@ -81,18 +90,40 @@ export function FromDriveButton({
     setBusy(true);
     try {
       const { access_token: token } = await fetchPickerToken(labId);
-      const file = await pickDriveFile({
+      const opts = {
         apiKey: drive!.public_config.api_key!,
         appId: drive!.public_config.app_id!,
         token,
-      });
-      if (!file) return;
-      await onPick(file);
-      void qc.invalidateQueries({ queryKey: ["labs", labId] }); // every list that shows files
-      if (!quiet) toast.success(`Added "${file.name}" from Drive`);
+      };
+      const files = multiple
+        ? await pickDriveFiles(opts)
+        : [await pickDriveFile(opts)].filter((f): f is PickedFile => !!f);
+      if (!files.length) return;
+      // One at a time: each is checked with Drive by the server, and one bad file must not
+      // stop the rest.
+      let added = 0;
+      let lastError: unknown;
+      for (const file of files) {
+        try {
+          await onPick(file);
+          added++;
+        } catch (e) {
+          lastError = e;
+        }
+      }
+      if (added) void qc.invalidateQueries({ queryKey: ["labs", labId] }); // every list that shows files
+      if (added < files.length) {
+        const why = reason(lastError);
+        toast.error(added ? `Added ${added} of ${files.length} files. ${why}` : why);
+      } else if (!quiet) {
+        toast.success(
+          files.length === 1
+            ? `Added "${files[0]!.name}" from Drive`
+            : `Added ${files.length} files from Drive`,
+        );
+      }
     } catch (e) {
-      const { fields, form } = formErrors(e, ["drive_file_id", "file"]);
-      toast.error(fields.drive_file_id ?? fields.file ?? form ?? "Google Drive did not answer.");
+      toast.error(reason(e));
     } finally {
       setBusy(false);
     }

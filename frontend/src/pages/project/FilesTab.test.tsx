@@ -209,11 +209,7 @@ describe("files", () => {
     expect(await screen.findByRole("cell", { name: "Protocol" })).toBeInTheDocument();
     expect(await screen.findByRole("cell", { name: "paper.pdf" })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/labs/lab1/projects/p1/documents");
-    // The PDF viewer keeps its own address: it must not resolve against /documents.
-    expect(screen.getByRole("link", { name: "Open paper.pdf" })).toHaveAttribute(
-      "href",
-      `${FILES}/a1`,
-    );
+    expect(screen.getByRole("button", { name: "Preview paper.pdf" })).toBeInTheDocument();
   });
 
   it("viewer requests the authenticated download endpoint", async () => {

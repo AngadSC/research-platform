@@ -5,19 +5,22 @@ import {
   FolderInput,
   Link2,
   MoreHorizontal,
+  Pencil,
   Plus,
   Trash2,
   Upload,
 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { RelativeTime } from "@/components/shared/RelativeTime";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { toast } from "sonner";
+import { FilePreview } from "@/components/documents/FilePreview";
 import { FolderBrowser, MoveDialog, type Movable } from "@/components/documents/Folders";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
+import { GoogleEditorPanel } from "@/components/shared/GoogleEditorPanel";
 import { LinkedFiles } from "@/components/shared/LinkedFiles";
 import { PARTICIPANT_HINT, ParticipantBadge } from "@/components/shared/ParticipantData";
 import { Button } from "@/components/ui/button";
@@ -51,9 +54,11 @@ import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { UploadDialog } from "@/pages/project/UploadDialog";
 import { FromDriveButton } from "@/components/shared/FromDriveButton";
 import { attachFromDrive } from "@/lib/drive";
+import { googleEditor, isImage } from "@/lib/googleFiles";
 
 const isPdf = (a: Attachment) =>
   a.content_type === "application/pdf" || a.original_filename.toLowerCase().endsWith(".pdf");
+const previewable = (a: Attachment) => !a.drive_file_id && (isPdf(a) || isImage(a));
 const size = (n: number) =>
   n < 1024
     ? `${n} B`
@@ -104,6 +109,9 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
   const [moving, setMoving] = useState<Movable | null>(null);
   const [embedding, setEmbedding] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [previewing, setPreviewing] = useState<Attachment | null>(null);
+  const [panel, setPanel] = useState<{ file: Attachment; edit: boolean } | null>(null);
+  const panelEditor = panel && googleEditor(panel.file);
   const base = `/labs/${labId}/projects/${projectId}`;
   const open = (id: string) => void navigate(`${base}/documents/${id}`);
   const add = () =>
@@ -121,6 +129,8 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
     .filter((r) => rowFolder(r) === folder)
     .sort((a, b) => rowDate(b).localeCompare(rowDate(a)));
 
+  const preview = (f: Attachment) =>
+    googleEditor(f) ? setPanel({ file: f, edit: false }) : setPreviewing(f);
   const startMove = (r: Row) =>
     setMoving({
       kind: r.doc ? "documents" : "attachments",
@@ -153,10 +163,16 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
     {
       key: "type",
       header: "Type",
-      cell: (r) =>
-        r.doc
-          ? "Document"
-          : `${isPdf(r.file) ? "PDF" : r.file.content_type || "File"}, ${size(r.file.size_bytes)}`,
+      cell: (r) => {
+        if (r.doc) return "Document";
+        const g = googleEditor(r.file);
+        const kind = g
+          ? g.label
+          : r.file.drive_file_id
+            ? "Google Drive file"
+            : `${isPdf(r.file) ? "PDF" : r.file.content_type || "File"}, ${size(r.file.size_bytes)}`;
+        return r.file.source === "link" ? `${kind}, added through Claude` : kind;
+      },
     },
     {
       key: "by",
@@ -175,11 +191,24 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
         >
-          {r.file && isPdf(r.file) && (
-            <Button variant="ghost" size="sm" asChild>
-              <Link to={`${base}/files/${r.file.id}`} aria-label={`Open ${rowName(r)}`}>
-                <Eye aria-hidden />
-              </Link>
+          {r.file && (previewable(r.file) || googleEditor(r.file)) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Preview ${rowName(r)}`}
+              onClick={() => preview(r.file)}
+            >
+              <Eye aria-hidden />
+            </Button>
+          )}
+          {canEdit && r.file && googleEditor(r.file) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Edit ${rowName(r)}`}
+              onClick={() => setPanel({ file: r.file, edit: true })}
+            >
+              <Pencil aria-hidden />
             </Button>
           )}
           {r.file && (
@@ -244,104 +273,124 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
 
   const noun = deleting?.doc ? "document" : "file";
   return (
-    <div className="grid gap-4">
-      {canEdit && (
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button variant="outline" onClick={() => setEmbedding(true)}>
-            <Link2 className="size-4" /> Embed a document
-          </Button>
-          <Button variant="outline" onClick={() => setUploading(true)}>
-            <Upload aria-hidden /> Upload file
-          </Button>
-          <FromDriveButton
-            labId={labId}
-            size="default"
-            onPick={(f) =>
-              attachFromDrive(
-                `/api/labs/${labId}/projects/${projectId}/attachments/`,
-                f.id,
-                folder ? { folder } : {},
-              )
-            }
-          />
-          <Button disabled={create.isPending} onClick={add}>
-            <Plus className="size-4" /> New document
-          </Button>
-        </div>
-      )}
-      <FolderBrowser labId={labId} projectId={projectId} canEdit={canEdit} />
-      <DataTable
-        loading={docs.isLoading || files.isLoading}
-        rows={rows}
-        columns={cols}
-        getRowKey={rowId}
-        onRowClick={(r) => {
-          if (r.doc) open(r.doc.id);
-          else if (r.file.external_url) window.open(r.file.external_url, "_blank", "noopener");
-          else if (isPdf(r.file)) void navigate(`${base}/files/${r.file.id}`);
-          else window.location.assign(downloadUrl(labId, r.file.id));
-        }}
-        empty={
-          <EmptyState
-            icon={FileText}
-            title={folder ? "Nothing in this folder" : "No documents or files yet"}
-            description="Notes, protocols and write-ups for this project live here, with anonymized or aggregate data and papers. PDFs open right here."
-          />
-        }
-      />
-      <MoveDialog
-        labId={labId}
-        projectId={projectId}
-        item={moving}
-        onClose={() => setMoving(null)}
-      />
-      <section aria-labelledby="linked-files" className="grid gap-2">
-        <h2 id="linked-files" className="text-sm font-medium">
-          Linked files
-        </h2>
-        <LinkedFiles labId={labId} projectId={projectId} canEdit={canEdit} />
-      </section>
-      <UploadDialog
-        open={uploading}
-        onOpenChange={setUploading}
-        participant={folderFlagged}
-        send={(file, onProgress, participant) =>
-          uploadFile.mutateAsync({ file, onProgress, folder, participant })
-        }
-      />
-      <EmbedDialog
-        open={embedding}
-        onOpenChange={setEmbedding}
-        submitting={create.isPending}
-        onSubmit={(title, url, onError) =>
-          create.mutate(
-            { title, embed_url: url, folder },
-            { onSuccess: (d) => open(d.id), onError },
-          )
-        }
-      />
-      <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
-        <DialogContent>
-          <DialogTitle className="text-base font-semibold">
-            Delete {deleting && rowName(deleting)}?
-          </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
-            The {noun} will be removed from this project.
-          </DialogDescription>
-          <div className="flex justify-end gap-2">
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-            <Button
-              variant="destructive"
-              disabled={removeDoc.isPending || removeFile.isPending}
-              onClick={confirmDelete}
-            >
-              Delete {noun}
+    <div className="flex flex-col items-start gap-4 lg:flex-row">
+      <div className="grid w-full min-w-0 flex-1 gap-4">
+        {canEdit && (
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="outline" onClick={() => setEmbedding(true)}>
+              <Link2 className="size-4" /> Embed a document
+            </Button>
+            <Button variant="outline" onClick={() => setUploading(true)}>
+              <Upload aria-hidden /> Upload file
+            </Button>
+            <FromDriveButton
+              labId={labId}
+              size="default"
+              multiple
+              onPick={(f) =>
+                attachFromDrive(
+                  `/api/labs/${labId}/projects/${projectId}/attachments/`,
+                  f.id,
+                  folder ? { folder } : {},
+                )
+              }
+            />
+            <Button disabled={create.isPending} onClick={add}>
+              <Plus className="size-4" /> New document
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        )}
+        <FolderBrowser labId={labId} projectId={projectId} canEdit={canEdit} />
+        <DataTable
+          loading={docs.isLoading || files.isLoading}
+          rows={rows}
+          columns={cols}
+          getRowKey={rowId}
+          onRowClick={(r) => {
+            if (r.doc) open(r.doc.id);
+            else if (googleEditor(r.file) || previewable(r.file)) preview(r.file);
+            else if (r.file.external_url) window.open(r.file.external_url, "_blank", "noopener");
+            else window.location.assign(downloadUrl(labId, r.file.id));
+          }}
+          empty={
+            <EmptyState
+              icon={FileText}
+              title={folder ? "Nothing in this folder" : "No documents or files yet"}
+              description="Notes, protocols and write-ups for this project live here, with anonymized or aggregate data and papers. PDFs open right here."
+            />
+          }
+        />
+        <MoveDialog
+          labId={labId}
+          projectId={projectId}
+          item={moving}
+          onClose={() => setMoving(null)}
+        />
+        <section aria-labelledby="linked-files" className="grid gap-2">
+          <h2 id="linked-files" className="text-sm font-medium">
+            Linked files
+          </h2>
+          <LinkedFiles labId={labId} projectId={projectId} canEdit={canEdit} />
+        </section>
+        <UploadDialog
+          open={uploading}
+          onOpenChange={setUploading}
+          participant={folderFlagged}
+          send={(file, onProgress, participant) =>
+            uploadFile.mutateAsync({ file, onProgress, folder, participant })
+          }
+        />
+        <EmbedDialog
+          open={embedding}
+          onOpenChange={setEmbedding}
+          submitting={create.isPending}
+          onSubmit={(title, url, onError) =>
+            create.mutate(
+              { title, embed_url: url, folder },
+              { onSuccess: (d) => open(d.id), onError },
+            )
+          }
+        />
+        {previewing && (
+          <FilePreview
+            labId={labId}
+            file={previewing}
+            fullPage={`${base}/files/${previewing.id}`}
+            onClose={() => setPreviewing(null)}
+          />
+        )}
+        <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+          <DialogContent>
+            <DialogTitle className="text-base font-semibold">
+              Delete {deleting && rowName(deleting)}?
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              The {noun} will be removed from this project.
+            </DialogDescription>
+            <div className="flex justify-end gap-2">
+              <DialogClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button
+                variant="destructive"
+                disabled={removeDoc.isPending || removeFile.isPending}
+                onClick={confirmDelete}
+              >
+                Delete {noun}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+      {panel && panelEditor && (
+        <GoogleEditorPanel
+          title={panel.file.original_filename}
+          label={panelEditor.label}
+          src={panel.edit ? panelEditor.edit : panelEditor.preview}
+          openUrl={panelEditor.edit}
+          onClose={() => setPanel(null)}
+        />
+      )}
     </div>
   );
 }

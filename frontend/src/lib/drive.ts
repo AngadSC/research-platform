@@ -13,8 +13,10 @@ interface PickerResponse {
 }
 interface PickerNs {
   Action: { PICKED: string; CANCEL: string };
+  Feature: { MULTISELECT_ENABLED: string };
   DocsView: new () => { setIncludeFolders(on: boolean): unknown };
   PickerBuilder: new () => {
+    enableFeature(feature: string): unknown;
     setAppId(id: string): unknown;
     setDeveloperKey(key: string): unknown;
     setOAuthToken(token: string): unknown;
@@ -55,13 +57,13 @@ export interface PickedFile {
   name: string;
 }
 
-/** Opens the Picker for one file. Resolves null when the person cancels. The token only ever
- * reaches Google's Picker; it is not stored. */
-export async function pickDriveFile(opts: {
+interface PickerOpts {
   apiKey: string;
   appId: string;
   token: string;
-}): Promise<PickedFile | null> {
+}
+
+async function openPicker(opts: PickerOpts, multiple: boolean): Promise<PickedFile[]> {
   await loadPicker();
   const g = window.google?.picker;
   if (!g) throw new Error("Google Drive could not be loaded. Try again.");
@@ -73,14 +75,24 @@ export async function pickDriveFile(opts: {
     picker.setDeveloperKey(opts.apiKey);
     picker.setOAuthToken(opts.token);
     picker.addView(view);
+    if (multiple) picker.enableFeature(g.Feature.MULTISELECT_ENABLED);
     picker.setCallback((r) => {
-      if (r.action === g.Action.PICKED && r.docs?.[0]) {
-        resolve({ id: r.docs[0].id, name: r.docs[0].name });
-      } else if (r.action === g.Action.CANCEL) resolve(null);
+      if (r.action === g.Action.PICKED && r.docs?.length) {
+        resolve(r.docs.map((d) => ({ id: d.id, name: d.name })));
+      } else if (r.action === g.Action.CANCEL) resolve([]);
     });
     picker.build().setVisible(true);
   });
 }
+
+/** Opens the Picker for one file. Resolves null when the person cancels. The token only ever
+ * reaches Google's Picker; it is not stored. */
+export async function pickDriveFile(opts: PickerOpts): Promise<PickedFile | null> {
+  return (await openPicker(opts, false))[0] ?? null;
+}
+
+/** The same Picker with several files selectable. Resolves [] when the person cancels. */
+export const pickDriveFiles = (opts: PickerOpts) => openPicker(opts, true);
 
 /** Posts a Drive file id to any upload endpoint that takes files (D257). Nothing is uploaded:
  * the server asks Drive itself for the file's name and link. */
