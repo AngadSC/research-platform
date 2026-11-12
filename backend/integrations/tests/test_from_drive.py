@@ -291,9 +291,10 @@ def test_edit_in_google_of_a_pi_only_file_stays_out_of_the_lab_admins_log(transp
     copy_row = Attachment.objects.for_lab(lab.pk).get(pk=r.json()["id"])
     assert copy_row.pi_only is True
     # neither the copy nor the send-out is a file event: funding.* is hidden from lab admins
-    assert not AuditEvent.objects.filter(
+    later = AuditEvent.objects.exclude(action=AuditAction.ATTACHMENT_UPLOADED, target_id=att.pk)
+    assert not later.filter(
         action__in=[AuditAction.ATTACHMENT_UPLOADED, AuditAction.ATTACHMENT_DOWNLOADED]
-    ).exists()
+    ).exists()  # (the first upload, before it became a grant letter, is the only one)
     assert AuditEvent.objects.filter(action=AuditAction.FUNDING_UPDATED).count() == 2
     admin_view = api(users["lab_admin"]).get(f"/api/labs/{lab.pk}/audit-events/")
     assert admin_view.status_code == 200
