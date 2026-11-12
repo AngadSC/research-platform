@@ -2,6 +2,8 @@
 
 (Copied from the orchestrator prompt. Subagent briefs refer to sections by number.)
 
+Where the product goes next (everything in one place, the Claude side panel, analysis, MATLAB) is in [VISION.md](VISION.md).
+
 ## 1. What we are building
 
 A browser-based workspace for research labs, starting with human-participant labs (psychology, neuroscience, clinical, social science). It is closed source and paid. A PI pays for the lab on a tier set by lab size.

@@ -155,3 +155,9 @@ Same status values. Model and effort follow orchestrator section 8. Shared-tree 
 | D5 | Data management plans, Borealis and FRDR providers | sonnet / medium | done |
 | B5 | In-app bring-your-own-key assistant (Claude, OpenAI) | sonnet / medium | done |
 | R5 | Security review + fixes, screenshots, notes, push | opus / sonnet / orchestrator | done |
+
+---
+
+# Plan: Run 6
+
+The vision, the can and can't table, and the full task list (phases A to D) are in [VISION.md](VISION.md#run-6-plan). Status is tracked there.
