@@ -62,14 +62,25 @@ Sizes: S is days, M is about a week, L is two weeks or more. The model column fo
 orchestrator's rule of thumb (haiku for mechanical work, sonnet for features, opus for security and
 AI work).
 
+### Phase S: subscription first (now)
+Nobody pays for AI yet, so for now Claude runs on each person's own Claude plan, in Anthropic's apps,
+reaching labbenchos through our connector. Everything here costs us nothing per use.
+
+| ID | Task | Size | Model / effort | Status |
+|---|---|---|---|---|
+| S1 | File links for tools on the person's computer: `get_file_link` (short-lived download link to one file, permission-checked, refuses flagged files) and `create_upload_link` (one-time upload into a project, size and type limits, optional link to an Analysis). Both are audited and expire within 15 minutes. Needs A3 | M | opus / high | todo |
+| S2 | Results appear right away: the project's files, analyses and documents refresh on their own while open (polling, about every 10 seconds) and show a "New from Claude" notice | S | sonnet / medium | todo |
+| S3 | MATLAB on your own computer: a help page and a one-page setup for Claude Desktop with MathWorks' MATLAB MCP Core Server and the labbenchos connector. Claude fetches the lab file with S1, runs MATLAB locally, and MATLAB uploads the figure and results with S1, so they show in the project within seconds | S | sonnet / medium | todo |
+| S4 | Claude in Chrome: Anthropic's Chrome extension opens a Claude side panel on any site, labbenchos included, on the person's own plan. Test our main pages with it, fix anything it cannot read or click, and add a help page. This is the side panel we can offer today without paying for AI | S | sonnet / medium | todo |
+
 ### Phase A: quick wins (do first)
 | ID | Task | Size | Model / effort | Status |
 |---|---|---|---|---|
 | A1 | Integrations link in every member's sidebar; pointer to Claude and ChatGPT setup | S | orchestrator | done |
-| A2 | Docked Claude panel: right side, stays open across pages, resizable and collapsible, remembers its state per browser, sends the current page as context; keyboard shortcut; phone keeps the full-screen sheet | M | sonnet / medium | todo |
+| A2 | Later, needs paid AI. Docked Claude panel: right side, stays open across pages, resizable and collapsible, remembers its state per browser, sends the current page as context; keyboard shortcut; phone keeps the full-screen sheet | M | sonnet / medium | todo |
 | A3 | Participant-data flag on files, folders, datasets and documents; asked on upload, copied down from folders; every AI tool, AI search and the MCP server refuse flagged items; tests in the permission matrix | M | opus / high | todo |
 | A4 | AI file tools: `list_files`, `read_file` (PDF, Word, Excel or CSV, text, images) with size limits and untrusted-content wrapping; refuses flagged files (needs A3) | M | opus / high | todo |
-| A5 | Lab AI key: a PI or lab admin sets one key for the lab, with a monthly spending cap and per-person usage shown; a person's own key still wins | M | sonnet / medium | todo |
+| A5 | Later, needs paid AI. Lab AI key: a PI or lab admin sets one key for the lab, with a monthly spending cap and per-person usage shown; a person's own key still wins | M | sonnet / medium | todo |
 
 ### Phase B: Google inside the app
 | ID | Task | Size | Model / effort | Status |
@@ -83,7 +94,7 @@ AI work).
 ### Phase C: analysis
 | ID | Task | Size | Model / effort | Status |
 |---|---|---|---|---|
-| C1 | Claude runs Python with Anthropic's code-execution tool on chosen, unflagged files; figures and tables are saved back to the project; each run becomes an Analysis in lineage with its code and inputs | L | opus / high | todo |
+| C1 | Later, needs paid AI. Claude runs Python with Anthropic's code-execution tool on chosen, unflagged files; figures and tables are saved back to the project; each run becomes an Analysis in lineage with its code and inputs | L | opus / high | todo |
 | C2 | Our own runner on a separate server: Python, R and Octave in locked-down containers (gVisor, no network, CPU, memory and time limits); same UI as C1; security review before launch | L | opus / high | todo |
 | C3 | Analyses page: list runs per project, open outputs, rerun on a newer dataset version, download the code | M | sonnet / medium | todo |
 
@@ -94,24 +105,37 @@ AI work).
 | D2 | Octave in the C2 runner for `.m` scripts | S | sonnet / medium | todo |
 | D3 | Optional, only if labs ask: a small helper app that links a person's own MATLAB to the in-app Claude panel | L | opus / high | todo |
 
-Order: A2, A3 and A4 first (A4 needs A3), B1 next because it decides B2, then C1. C2 and D3 wait for
-real lab demand and a server budget.
+Order (revised after the founders' answers below): A3 first, because S1 and A4 both need the
+participant-data flag. Then Phase S and A4, then B1, which decides B2. A2, A5 and C1 need an API key,
+so they wait until labs pay for AI. C2 waits for a server budget.
 
-## Questions for the founders
+## Founders' answers (2026-11-11)
 
-1. **Who pays for AI?** Each person's own key (today), a lab key set by the PI, or AI included in
-   our price?
-2. **Participant data:** is a flag that people set, plus a warning scan, enough for your ethics
-   board, or should flagged files be blocked from upload altogether?
-3. **Sending lab content to Anthropic:** are you comfortable with documents and files (never
-   participant data) going to Anthropic's API when someone asks Claude about them?
-4. **Budget:** a second server for the analysis runner (C2), and possibly Google's yearly security
-   assessment (B5).
-5. **MATLAB:** how many of our first labs rely on MATLAB toolboxes that Octave lacks? That decides
-   whether D3 is ever worth building.
+1. **Who pays for AI:** nobody yet. For now Claude runs on each person's own Claude subscription
+   (Phase S). Later labs will pay for AI through us, which unlocks A2, A5 and C1.
+2. **Participant data:** default decision, since nothing changes for users who never upload it.
+   People can upload a file with participant information only if they tick "Contains participant
+   data". Claude never sees ticked files, and we keep recommending that raw participant data stays
+   in the institution's approved systems (SPEC section 1). Each lab confirms with its own ethics board.
+3. **Sending lab content to Anthropic:** up to each person. Nothing is sent unless they ask Claude
+   about it, and flagged participant data is never sent.
+4. **Costs:**
+   - Now: nothing extra. Phase S runs on people's own Claude plans and their own MATLAB.
+   - Analysis server (C2, later): today's server has 2 CPUs and 4 GB of memory with about 1.9 GB
+     free. That is fine for the website but not for running analyses too. A second server with
+     4 CPUs and 8 GB is roughly CA$30 to $60 a month (an estimate; check CanHost's prices).
+   - Google's full-Drive permission (B5, probably never): a yearly third-party security assessment,
+     an estimated several hundred to a few thousand US dollars a year plus weeks of work. Not
+     needed while picking files works.
+   - AI through us (later): charged per use by Anthropic. Measure real use in a pilot before
+     setting lab prices.
+5. **MATLAB:** universities give everyone a MATLAB licence, so it runs on each person's own
+   computer (S3). Results reach the website through upload links (S1) and show up right away (S2).
+   Octave on our server (D2) is only a fallback for people without MATLAB.
 
 ## Sources
 
+- Claude in Chrome: https://claude.com/chrome
 - MathWorks MATLAB MCP Core Server and its licence terms: https://github.com/matlab/matlab-mcp-core-server
 - Google Drive scopes (`drive.file`, restricted scopes): https://developers.google.com/workspace/drive/api/guides/api-specific-auth
 - Picker and folder access (forum reports, not official): https://groups.google.com/g/google-apps-script-community/c/_W-NKbttfbo
