@@ -267,7 +267,7 @@ export function HandoverPage() {
   return (
     <div className="grid gap-6">
       <PageHeader
-        title={`Work to pass on: ${personName({ display_name: data.person.display_name, email: data.person.email })}`}
+        title={`Handover for ${personName({ display_name: data.person.display_name, email: data.person.email })}`}
         description={`Everything this person owns or leads, so it can be given to someone else when they leave. Made ${date}. ${scope}`}
         actions={
           <Button variant="outline" className="print:hidden" onClick={() => window.print()}>

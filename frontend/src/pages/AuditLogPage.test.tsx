@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import { fullDate } from "@/lib/format";
 import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
 
 const ev = (i: number) => ({
@@ -19,7 +20,8 @@ const base = (perms: string[]) => ({
   "GET /api/labs/lab1/": { body: makeLab(perms) },
   "GET /api/labs/lab1/members/": { body: [] },
 });
-const EVENTS = "GET /api/labs/lab1/audit-events/?";
+const EVENTS = "GET /api/labs/lab1/audit-events/?changes_only=true";
+const ALL = "GET /api/labs/lab1/audit-events/?";
 
 describe("audit log", () => {
   it("renders rows, loads more, opens details", async () => {
@@ -28,7 +30,7 @@ describe("audit log", () => {
       [EVENTS]: {
         body: { next: "http://x/api/labs/lab1/audit-events/?cursor=abc", results: [ev(1)] },
       },
-      [`${EVENTS}cursor=abc`]: { body: { next: null, results: [ev(2)] } },
+      [`${EVENTS}&cursor=abc`]: { body: { next: null, results: [ev(2)] } },
     });
     renderRoute("/labs/lab1/audit-log");
     expect(await screen.findByText("bob1@uni.edu")).toBeInTheDocument();
@@ -82,14 +84,45 @@ describe("audit log", () => {
     const calls = mockFetch({
       ...base(["view_audit_log"]),
       [EVENTS]: { body: { next: null, results: [ev(1)] } },
-      [`${EVENTS}date_from=2026-01-02`]: { body: { next: null, results: [] } },
+      [`${ALL}date_from=2026-01-02&changes_only=true`]: { body: { next: null, results: [] } },
     });
     const router = renderRoute("/labs/lab1/audit-log");
     await screen.findByText("bob1@uni.edu");
     fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-01-02" } });
     await waitFor(() => expect(router.state.location.search).toBe("?date_from=2026-01-02"));
     expect(await screen.findByText("No matching activity")).toBeInTheDocument();
-    expect(calls.some((c) => c.path.endsWith("?date_from=2026-01-02"))).toBe(true);
+    expect(calls.some((c) => c.path.endsWith("?date_from=2026-01-02&changes_only=true"))).toBe(
+      true,
+    );
+  });
+
+  it("shows changes by default and reads in one click", async () => {
+    const calls = mockFetch({
+      ...base(["view_audit_log"]),
+      [EVENTS]: { body: { next: null, results: [ev(1)] } },
+      [ALL]: {
+        body: {
+          next: null,
+          results: [{ ...ev(2), action: "handover.generated", target_label: "Grace (Member)" }],
+        },
+      },
+    });
+    const router = renderRoute("/labs/lab1/audit-log");
+    await screen.findByText("bob1@uni.edu");
+    await userEvent.click(screen.getByRole("checkbox", { name: "Include views and downloads" }));
+    await waitFor(() => expect(router.state.location.search).toBe("?reads=1"));
+    expect(await screen.findByText("Opened a handover")).toBeInTheDocument();
+    expect(calls.some((c) => c.path.endsWith("audit-events/?"))).toBe(true);
+  });
+
+  it("shows the exact time beside the relative one", async () => {
+    const at = "2026-03-04T15:06:00Z";
+    mockFetch({
+      ...base(["view_audit_log"]),
+      [EVENTS]: { body: { next: null, results: [{ ...ev(1), created_at: at }] } },
+    });
+    renderRoute("/labs/lab1/audit-log");
+    expect(await screen.findByText(fullDate(at))).toBeInTheDocument();
   });
 
   it("hides the nav entry and explains without the permission", async () => {

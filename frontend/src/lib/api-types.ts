@@ -6,18 +6,26 @@ type Schemas = components["schemas"];
 
 export type Role = Schemas["LabRoleEnum"];
 export const ROLES: { value: Role; label: string; help: string }[] = [
-  { value: "pi", label: "PI", help: "Runs the lab. Can change anything in it." },
+  {
+    value: "pi",
+    label: "PI",
+    help: "Runs the lab. Can change anything, and is the only role that sees funding.",
+  },
   {
     value: "lab_admin",
     label: "Lab admin",
-    help: "Helps run the lab. Can do what a PI can, except billing.",
+    help: "Helps run the lab. Sees every project and manages members, but not funding or billing.",
   },
   {
     value: "member",
     label: "Member",
-    help: "Works in the lab. Can start projects and add papers, notes and inventory.",
+    help: "Works in the lab. Sees projects they are added to and can start their own.",
   },
-  { value: "viewer", label: "Viewer", help: "Can read lab information but not change it." },
+  {
+    value: "viewer",
+    label: "Viewer",
+    help: "Can read the lab and projects they are added to, but not change their work.",
+  },
 ];
 export const roleLabel = (r: string) => ROLES.find((x) => x.value === r)?.label ?? r;
 

@@ -24,6 +24,7 @@ from projects.models import (
     ProjectDeadline,
     ProjectMembership,
     ProjectRole,
+    ProjectStatus,
     Task,
     TaskPost,
     TaskStatus,
@@ -68,16 +69,23 @@ def create_project(*, lab, user, data, request=None) -> Project:
 def update_project(*, project, user, data, request=None) -> Project:
     changes = retention_changes(project, data)
     guard_retention(user, project.lab, changes)
+    old_status = project.status
     for key, value in data.items():
         setattr(project, key, value)
     project.save()
+    metadata = {"fields": sorted(data)}
+    if project.status != old_status:
+        metadata |= {"old_status": old_status, "new_status": project.status}
+    # Archiving needs only edit_project, so a project's lead can do it; deleting stays with
+    # PIs and lab admins (D28).
+    archived = project.status == ProjectStatus.ARCHIVED and old_status != ProjectStatus.ARCHIVED
     record(
-        AuditAction.PROJECT_UPDATED,
+        AuditAction.PROJECT_ARCHIVED if archived else AuditAction.PROJECT_UPDATED,
         actor=user,
         lab=project.lab,
         target=project,
         request=request,
-        metadata={"fields": sorted(data)},
+        metadata=metadata,
     )
     audit_retention(user, project.lab, project, changes, request)
     return project

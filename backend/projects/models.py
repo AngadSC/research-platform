@@ -173,6 +173,7 @@ class ChatReadState(LabScopedModel):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
     last_read_at = models.DateTimeField()
 
+    not_an_edit = True  # reading the chat is not activity (projects/activity.py)
     lab_parents = ("project",)
     permission_domain = "project"
     project_path = "project"

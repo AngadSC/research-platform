@@ -55,3 +55,33 @@ def record(
         metadata=metadata or {},
         **fields,
     )
+
+
+def person_id(e):
+    m = e.metadata if isinstance(e.metadata, dict) else {}
+    return m.get("user_id") or m.get("person")
+
+
+def label_context(events, user, lab) -> dict:
+    """Names for one page of events, limited to what `user` may see: projects they can open, and
+    no PI-only file names unless they are a PI (D226, D244)."""
+    from core.models import User  # imported here: most apps import this module
+    from core.permissions import can_access_funding, visible_projects
+    from documents.models import Attachment
+
+    # Only ids this lab's own events stored, so everyone named was in the lab at the time.
+    people = {str(pid) for e in events if (pid := person_id(e))}
+    names = {str(u.pk): u.display_name or u.email for u in User.objects.filter(pk__in=people)}
+    project_ids = {e.project_id for e in events if e.project_id}
+    projects = {
+        p.pk: p.name for p in visible_projects(user, lab).filter(pk__in=project_ids).only("name")
+    }
+    hidden = set()
+    if not can_access_funding(user, lab):
+        files = {e.target_id for e in events if e.target_type == "documents.Attachment"}
+        hidden = set(
+            Attachment.objects.for_lab(lab)
+            .filter(pk__in=files, pi_only=True)
+            .values_list("pk", flat=True)
+        )
+    return {"names": names, "projects": projects, "hidden_files": hidden}

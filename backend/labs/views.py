@@ -242,10 +242,22 @@ class InviteDetailView(LabScopedViewMixin, generics.GenericAPIView):
     model = Invite
     serializer_class = InviteSerializer
     lookup_url_kwarg = "invite_id"
-    perms = {"DELETE": Perm.MANAGE_MEMBERS}
+    perms = {"PATCH": Perm.MANAGE_MEMBERS, "DELETE": Perm.MANAGE_MEMBERS}
 
     def get_queryset(self):
         return super().get_queryset().filter(accepted_at__isnull=True, revoked_at__isnull=True)
+
+    @extend_schema(request=RoleSerializer, responses=InviteSerializer)
+    def patch(self, request, lab_id, invite_id):
+        ser = RoleSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        invite = services.change_invite_role(
+            invite=self.get_object(),
+            by=request.user,
+            role=ser.validated_data["role"],
+            request=request,
+        )
+        return Response(self.get_serializer(invite).data)
 
     @extend_schema(responses={204: None})
     def delete(self, request, lab_id, invite_id):

@@ -1145,6 +1145,7 @@ paths:
           - membership.invited
           - membership.invite_revoked
           - membership.invite_accepted
+          - membership.invite_role_changed
           - membership.role_changed
           - membership.removed
           - project_membership.added
@@ -1152,6 +1153,7 @@ paths:
           - project_membership.removed
           - project.created
           - project.updated
+          - project.archived
           - project.deleted
           - project.exported
           - document.viewed
@@ -1286,6 +1288,7 @@ paths:
           * `membership.invited` - Membership Invited
           * `membership.invite_revoked` - Membership Invite Revoked
           * `membership.invite_accepted` - Membership Invite Accepted
+          * `membership.invite_role_changed` - Membership Invite Role Changed
           * `membership.role_changed` - Membership Role Changed
           * `membership.removed` - Membership Removed
           * `project_membership.added` - Project Membership Added
@@ -1293,6 +1296,7 @@ paths:
           * `project_membership.removed` - Project Membership Removed
           * `project.created` - Project Created
           * `project.updated` - Project Updated
+          * `project.archived` - Project Archived
           * `project.deleted` - Project Deleted
           * `project.exported` - Project Exported
           * `document.viewed` - Document Viewed
@@ -1418,6 +1422,12 @@ paths:
         schema:
           type: string
           format: uuid
+      - in: query
+        name: changes_only
+        schema:
+          type: boolean
+          default: false
+        description: Leave out views, downloads and other reads.
       - in: query
         name: cursor
         schema:
@@ -4088,6 +4098,46 @@ paths:
                 $ref: '#/components/schemas/Invite'
           description: ''
   /api/labs/{lab_id}/invites/{invite_id}/:
+    patch:
+      operationId: labs_invites_partial_update
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: invite_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedRole'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedRole'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedRole'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invite'
+          description: ''
     delete:
       operationId: labs_invites_destroy
       description: |-
@@ -5486,6 +5536,12 @@ paths:
           type: string
           format: uuid
         required: true
+      - in: query
+        name: unflagged
+        schema:
+          type: boolean
+        description: 'Leave out files that identify participants (the analysis code
+          picker: Claude may run an analysis''s code, VISION C1).'
       tags:
       - labs
       security:
@@ -9214,6 +9270,7 @@ components:
       - membership.invited
       - membership.invite_revoked
       - membership.invite_accepted
+      - membership.invite_role_changed
       - membership.role_changed
       - membership.removed
       - project_membership.added
@@ -9221,6 +9278,7 @@ components:
       - project_membership.removed
       - project.created
       - project.updated
+      - project.archived
       - project.deleted
       - project.exported
       - document.viewed
@@ -9354,6 +9412,7 @@ components:
         * `membership.invited` - Membership Invited
         * `membership.invite_revoked` - Membership Invite Revoked
         * `membership.invite_accepted` - Membership Invite Accepted
+        * `membership.invite_role_changed` - Membership Invite Role Changed
         * `membership.role_changed` - Membership Role Changed
         * `membership.removed` - Membership Removed
         * `project_membership.added` - Project Membership Added
@@ -9361,6 +9420,7 @@ components:
         * `project_membership.removed` - Project Membership Removed
         * `project.created` - Project Created
         * `project.updated` - Project Updated
+        * `project.archived` - Project Archived
         * `project.deleted` - Project Deleted
         * `project.exported` - Project Exported
         * `document.viewed` - Document Viewed
@@ -9825,6 +9885,9 @@ components:
           nullable: true
         target_label:
           type: string
+          description: |-
+            Plain words naming who and where, for membership and handover events, which store
+            only ids. Without `label_context` in the context this is the stored label.
           readOnly: true
         created_at:
           type: string

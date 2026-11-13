@@ -75,23 +75,23 @@ describe("role explanations", () => {
     renderRoute("/labs/lab1/members");
     await screen.findByText("Grace");
     screen.getAllByRole("button", { name: "Member" })[0]!.focus();
-    expect(await screen.findByRole("tooltip")).toHaveTextContent(/Can start projects/);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(/can start their own/);
   });
 });
 
 describe("handover actions", () => {
-  it("hides Work to pass on without manage_members but offers My work to pass on", async () => {
+  it("hides Handover without manage_members but offers My handover", async () => {
     mockFetch(base(["view_lab"]));
     renderRoute("/labs/lab1/members");
     expect(await screen.findByText("Grace")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /My work to pass on/ })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /^Work to pass on/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /My handover/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^Handover/ })).not.toBeInTheDocument();
   });
 
-  it("shows Work to pass on for other members with manage_members", async () => {
+  it("shows Handover for other members with manage_members", async () => {
     mockFetch(base(["view_lab", "manage_members"]));
     renderRoute("/labs/lab1/members");
-    const link = await screen.findByRole("link", { name: /^Work to pass on for grace@uni.edu/ });
+    const link = await screen.findByRole("link", { name: /^Handover for grace@uni.edu/ });
     expect(link).toHaveAttribute("href", "/labs/lab1/members/m2/handover");
   });
 
@@ -123,13 +123,13 @@ describe("handover actions", () => {
     mockFetch(overview(["view_project"]));
     renderRoute("/labs/lab1/projects/p1/overview");
     expect(await screen.findByText("Grace")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /^Work to pass on/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^Handover/ })).not.toBeInTheDocument();
   });
 
   it("shows the project member action with manage_project_members", async () => {
     mockFetch(overview(["view_project", "manage_project_members"]));
     renderRoute("/labs/lab1/projects/p1/overview");
-    const link = await screen.findByRole("link", { name: /^Work to pass on for grace@uni.edu/ });
+    const link = await screen.findByRole("link", { name: /^Handover for grace@uni.edu/ });
     expect(link).toHaveAttribute("href", "/labs/lab1/projects/p1/handover?user=u2");
   });
 });

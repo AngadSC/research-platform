@@ -3,8 +3,8 @@ from rest_framework import generics
 from rest_framework.pagination import CursorPagination
 
 from audit.models import AuditAction, AuditEvent
-from audit.serializers import AuditEventSerializer, AuditFilterSerializer
-from audit.services import record
+from audit.serializers import READ_ACTIONS, AuditEventSerializer, AuditFilterSerializer
+from audit.services import label_context, record
 from core.permissions import Perm, can_access_funding
 from core.views import LabScopedViewMixin
 
@@ -39,6 +39,8 @@ class AuditEventListView(LabScopedViewMixin, generics.ListAPIView):
         for key in ("action", "target_type", "target_id"):
             if key in q:
                 qs = qs.filter(**{key: q[key]})
+        if q["changes_only"]:
+            qs = qs.exclude(action__in=READ_ACTIONS)
         if "actor" in q:
             qs = qs.filter(actor_id=q["actor"])
         if "date_from" in q:
@@ -48,6 +50,9 @@ class AuditEventListView(LabScopedViewMixin, generics.ListAPIView):
         return qs
 
     def list(self, request, *args, **kwargs):
-        response = super().list(request, *args, **kwargs)
+        page = self.paginate_queryset(self.get_queryset())
+        context = self.get_serializer_context() | label_context(page, request.user, request.lab)
+        data = AuditEventSerializer(page, many=True, context=context).data
+        response = self.get_paginated_response(data)
         record(AuditAction.AUDIT_LOG_VIEWED, actor=request.user, lab=request.lab, request=request)
         return response

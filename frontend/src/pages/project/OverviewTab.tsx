@@ -22,12 +22,14 @@ import { useAssistantReady } from "@/hooks/assistant";
 import { openAssistant } from "@/lib/assistant";
 import { useApprovals } from "@/hooks/ethics";
 import { useLab } from "@/hooks/workspace";
-import { useDeadlines, useProjectMembers } from "@/hooks/projects";
+import { useDeadlines, useProjectMembers, useUpdateProject } from "@/hooks/projects";
+import { useFunding } from "@/hooks/workflow";
 import { RoleName } from "@/components/shared/RoleName";
 import { useMembers } from "@/hooks/workspace";
 import {
   PROJECT_ROLES,
   PROJECT_STATUSES,
+  roleLabel,
   personName,
   type Deadline,
   type DeadlinePriority,
@@ -38,13 +40,22 @@ import { formErrors, type FormErrors } from "@/lib/forms";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { NativeSelect } from "@/pages/project/workflow/parts";
 import { RelativeTime } from "@/components/shared/RelativeTime";
-import { label, PRIORITIES, PRIORITY_TONE } from "@/lib/workflow";
+import { FUNDING_STATUSES, label, PRIORITIES, PRIORITY_TONE } from "@/lib/workflow";
 
 const fail = (e: unknown) => toast.error(formErrors(e, []).form ?? "Something went wrong.");
 const day = (iso: string | null) =>
   iso
     ? new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { dateStyle: "medium" })
     : "Not set";
+
+/** D19: a lab role can override the project role. Says what the person can really do, or "". */
+const effectiveRoleHint = (name: string, labRole: string | undefined, role: ProjectRole) => {
+  if ((labRole === "pi" || labRole === "lab_admin") && role !== "lead")
+    return `${name} is a ${roleLabel(labRole)}, so they can change everything here anyway.`;
+  if (labRole === "viewer" && role !== "viewer")
+    return `${name} is a lab Viewer, so they can only read here.`;
+  return "";
+};
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
@@ -274,6 +285,8 @@ function AddMember({
   const [role, setRole] = useState<ProjectRole>("contributor");
   const [error, setError] = useState<string>();
   const options = (labMembers.data ?? []).filter((m) => !existing.has(m.user.id));
+  const chosen = options.find((m) => m.user.id === user);
+  const hint = chosen ? effectiveRoleHint(personName(chosen.user), chosen.role, role) : "";
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!user) return setError("Choose a person to add");
@@ -282,6 +295,7 @@ function AddMember({
       await onAdd({ user, role });
       toast.success("Member added");
       setUser("");
+      setRole("contributor");
     } catch (err) {
       setError(formErrors(err, []).form);
     }
@@ -312,7 +326,7 @@ function AddMember({
         </FormField>
       </div>
       <div className="w-44">
-        <FormField label="Role">
+        <FormField label="Role" hint={hint || undefined}>
           {(p) => (
             <Select value={role} onValueChange={(v) => setRole(v as ProjectRole)}>
               <SelectTrigger {...p}>
@@ -346,6 +360,7 @@ function Members({
   canManage: boolean;
 }) {
   const { list, create, update, remove } = useProjectMembers(labId, projectId);
+  const labRoles = new Map((useMembers(labId).data ?? []).map((m) => [m.user.id, m.role]));
   const cols: Column<ProjectMembership>[] = [
     {
       key: "name",
@@ -355,21 +370,28 @@ function Members({
     {
       key: "role",
       header: "Role",
-      cell: (m) =>
-        canManage ? (
-          <RoleSelect
-            label={`Role for ${m.user.email}`}
-            value={m.role}
-            onChange={(role) =>
-              update.mutate(
-                { id: m.id, patch: { role } },
-                { onSuccess: () => toast.success("Saved"), onError: fail },
-              )
-            }
-          />
-        ) : (
-          <RoleName role={m.role} roles={PROJECT_ROLES} />
-        ),
+      cell: (m) => {
+        const hint = effectiveRoleHint(personName(m.user), labRoles.get(m.user.id), m.role);
+        return (
+          <div className="grid gap-1">
+            {canManage ? (
+              <RoleSelect
+                label={`Role for ${m.user.email}`}
+                value={m.role}
+                onChange={(role) =>
+                  update.mutate(
+                    { id: m.id, patch: { role } },
+                    { onSuccess: () => toast.success("Saved"), onError: fail },
+                  )
+                }
+              />
+            ) : (
+              <RoleName role={m.role} roles={PROJECT_ROLES} />
+            )}
+            {hint && <p className="max-w-56 text-xs text-muted-foreground">{hint}</p>}
+          </div>
+        );
+      },
     },
     ...(canManage
       ? [
@@ -382,10 +404,10 @@ function Members({
                 <Button variant="ghost" size="sm" asChild>
                   <Link
                     to={`/labs/${labId}/projects/${projectId}/handover?user=${m.user.id}`}
-                    aria-label={`Work to pass on for ${m.user.email}`}
+                    aria-label={`Handover for ${m.user.email}`}
                     title="Lists everything this person owns or leads in this project, so it can be given to someone else."
                   >
-                    Work to pass on
+                    Handover
                   </Link>
                 </Button>
                 <Button
@@ -464,6 +486,104 @@ function ProjectApprovals({ labId, projectId }: { labId: string; projectId: stri
   );
 }
 
+/** D226: rendered for PIs only, so nobody else ever asks for funding. */
+function FundingSummary({ labId, projectId }: { labId: string; projectId: string }) {
+  const { list } = useFunding(labId, projectId);
+  const rows = list.data ?? [];
+  return (
+    <section className="grid gap-3" aria-labelledby="overview-funding">
+      <div className="flex items-center justify-between">
+        <h2 id="overview-funding" className="text-base font-semibold">
+          Funding
+        </h2>
+        <Button variant="outline" size="sm" asChild>
+          <Link to={`/labs/${labId}/projects/${projectId}/workflow/funding`}>
+            {rows.length ? "Open funding" : "Add funding"}
+          </Link>
+        </Button>
+      </div>
+      {list.isLoading ? null : rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No funding recorded. Only PIs see this.</p>
+      ) : (
+        <ul className="grid divide-y rounded-lg border">
+          {rows.map((f) => (
+            <li key={f.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+              <span className="font-medium">
+                {[f.funder, f.program].filter(Boolean).join(", ")}
+              </span>
+              <span className="text-muted-foreground">
+                {label(FUNDING_STATUSES, f.status)}
+                {f.end_date && <> · ends {day(f.end_date)}</>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** A project's lead archives it (edit_project); deleting stays with PIs and lab admins (D28). */
+function ArchiveProject({
+  labId,
+  projectId,
+  name,
+  canDelete,
+}: {
+  labId: string;
+  projectId: string;
+  name: string;
+  canDelete: boolean;
+}) {
+  const update = useUpdateProject(labId, projectId);
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="grid gap-2">
+      <div>
+        <Button variant="outline" onClick={() => setOpen(true)}>
+          Archive project
+        </Button>
+      </div>
+      {!canDelete && (
+        <p className="text-xs text-muted-foreground">
+          Archiving keeps everything, and you can reopen it by changing its status. To delete the
+          project, ask a PI or lab admin.
+        </p>
+      )}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogTitle className="text-base font-semibold">Archive {name}?</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            Nothing is deleted. Set its status back to Active any time to reopen it.
+          </DialogDescription>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={update.isPending}
+              onClick={() =>
+                update.mutate(
+                  { status: "archived" },
+                  {
+                    onSuccess: () => {
+                      toast.success("Project archived");
+                      setOpen(false);
+                    },
+                    onError: fail,
+                  },
+                )
+              }
+            >
+              Archive
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+}
+
 // Props: { labId, projectId, project } (ProjectTabProps).
 export default function OverviewTab({ labId, projectId, project }: ProjectTabProps) {
   const can = (p: string) => project.my_permissions.includes(p);
@@ -508,9 +628,18 @@ export default function OverviewTab({ labId, projectId, project }: ProjectTabPro
           <p className="text-xs text-muted-foreground">Retention note: {project.retention_note}</p>
         )}
       </section>
+      {can("access_funding") && <FundingSummary labId={labId} projectId={projectId} />}
       <ProjectApprovals labId={labId} projectId={projectId} />
       <Deadlines labId={labId} projectId={projectId} canEdit={can("edit_project")} />
       <Members labId={labId} projectId={projectId} canManage={can("manage_project_members")} />
+      {can("edit_project") && project.status !== "archived" && (
+        <ArchiveProject
+          labId={labId}
+          projectId={projectId}
+          name={project.name}
+          canDelete={can("delete_project")}
+        />
+      )}
     </div>
   );
 }

@@ -2,7 +2,7 @@ from django.conf import settings
 from django.core.files.storage import storages
 from django.http import FileResponse, Http404, HttpResponseRedirect
 from django.utils.http import content_disposition_header
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.generics import get_object_or_404
@@ -10,7 +10,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
-from assistant.privacy import set_flag
+from assistant.privacy import ai_visible, set_flag
 from audit.models import AuditAction
 from audit.services import record
 from core.permissions import Perm, can_view_ethics_files, require, visible_projects
@@ -282,9 +282,21 @@ class AttachmentListCreateView(AttachmentMixin, generics.GenericAPIView):
     def get_throttles(self):  # uploads only; listing is not rate limited
         return super().get_throttles() if self.request.method == "POST" else []
 
-    @extend_schema(responses=AttachmentSerializer(many=True))
+    @extend_schema(
+        responses=AttachmentSerializer(many=True),
+        parameters=[
+            OpenApiParameter(
+                "unflagged",
+                bool,
+                description="Leave out files that identify participants (the analysis code "
+                "picker: Claude may run an analysis's code, VISION C1).",
+            )
+        ],
+    )
     def get(self, request, lab_id, project_id):
         qs = self.get_queryset().select_related("uploaded_by").order_by("-created_at")
+        if request.query_params.get("unflagged") in ("1", "true"):
+            qs = ai_visible(qs)
         return Response(self.get_serializer(qs, many=True).data)
 
     @extend_schema(request=AttachmentUploadSerializer, responses={201: AttachmentSerializer})
