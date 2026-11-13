@@ -214,17 +214,43 @@ describe("assistant panel", () => {
       ...labs,
       [`GET ${BASE}/config/`]: { body: config({}, false) },
       [`GET ${BASE}/conversations/`]: { body: [] },
+      "GET /api/ai/grants/": { body: [] },
     });
     renderDrawer();
     await open();
     expect(await screen.findByRole("note")).toHaveTextContent(/sent to the AI provider/);
-    expect(screen.getByText(/Add your own API key/)).toBeInTheDocument();
+    expect(screen.getByText(/Use Claude with this lab/)).toBeInTheDocument();
+    expect(screen.getByText(/Click Connect to Claude/)).toBeInTheDocument();
+    expect(screen.getByText(/add your own API key/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Set up a key" })).toHaveAttribute(
       "href",
       "/settings#ai",
     );
     expect(screen.getByText(/ask your lab admin to add a lab key/)).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Message" })).toBeDisabled();
+    expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+  });
+
+  it("opens Claude in a window sized to the right of the screen, and shows only the button once connected", async () => {
+    stubFetch({
+      ...labs,
+      [`GET ${BASE}/config/`]: { body: config({}, false) },
+      [`GET ${BASE}/conversations/`]: { body: [] },
+      "GET /api/ai/grants/": {
+        body: [{ id: "g1", kind: "oauth", client_name: "Claude", revoked_at: null }],
+      },
+    });
+    const opened = vi.spyOn(window, "open").mockReturnValue({} as Window);
+    renderDrawer();
+    await open();
+    expect(await screen.findByText(/Claude is connected/)).toBeInTheDocument();
+    expect(screen.queryByText(/Click Connect to Claude/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("link", { name: "Open Claude beside this page" }));
+    expect(opened).toHaveBeenCalledWith(
+      "https://claude.ai/new",
+      "labbenchos-claude",
+      expect.stringMatching(/width=\d+/),
+    );
+    opened.mockRestore();
   });
 
   it.each([

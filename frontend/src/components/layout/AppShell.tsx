@@ -150,7 +150,7 @@ export function AppShell() {
         Skip to main content
       </a>
       <NamePrompt />
-      <div className="flex h-screen bg-background text-foreground md:pr-[var(--assistant-w,0px)] print:block print:h-auto print:pr-0">
+      <div className="flex h-screen bg-background text-foreground md:pr-[calc(var(--assistant-w,0px)+var(--google-w,0px))] print:block print:h-auto print:pr-0">
         <Sidebar open={navOpen} desktopHidden={sidebarHidden} onClose={() => setNavOpen(false)} />
         {navOpen && (
           <div

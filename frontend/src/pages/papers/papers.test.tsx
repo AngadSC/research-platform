@@ -72,6 +72,7 @@ const handlers = (perms: string[], cfg = config()) => ({
   "GET /api/labs/lab1/papers/p1/": { body: detail },
   "GET /api/labs/lab1/papers/p1/citation/": { body: citations },
   "GET /api/labs/lab1/assistant/config/": { body: cfg },
+  "GET /api/ai/grants/": { body: [] },
   "GET /api/labs/lab1/assistant/conversations/": { body: [] },
 });
 
@@ -122,7 +123,7 @@ describe("paper detail", () => {
   it.each([
     [config({ ai_policy: "off", can_use: false }), /turned off for this lab/],
     [config({ ai_policy: "mcp", can_use: false }), /MCP only/],
-    [config({ providers: [{ ...config().providers[0], has_key: false }] }), /Add your own API key/],
+    [config({ providers: [{ ...config().providers[0], has_key: false }] }), /add your own API key/],
   ])("explains instead of offering AI buttons (%#)", async (cfg, message) => {
     mockFetch(handlers(["view_lab", "contribute_lab"], cfg));
     renderRoute("/labs/lab1/papers/p1");

@@ -14,6 +14,12 @@ import {
 } from "lucide-react";
 import { ApprovalDialog } from "@/components/assistant/ApprovalDialog";
 import { FormError } from "@/components/shared/FormError";
+import {
+  announcePanel,
+  DockHandle,
+  PANEL_OPENED,
+  type PanelName,
+} from "@/components/shared/DockHandle";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,6 +35,8 @@ import {
   type Provider,
   type TimelineItem,
 } from "@/hooks/assistant";
+import { useAiGrants } from "@/hooks/ai";
+import { ClaudeSteps } from "@/pages/settings/AiAccessSections";
 import { useProject } from "@/hooks/projects";
 import { useLabs } from "@/hooks/workspace";
 import {
@@ -213,20 +221,69 @@ export function Setup({
       </p>
     );
   return (
-    <div className="grid justify-items-start gap-2 rounded-md border p-3 text-sm">
-      <p>
-        Add your own API key to use the assistant. It is billed to your account with the provider.
-      </p>
-      <Button asChild size="sm">
-        <Link to="/settings#ai" onClick={onOpenSettings}>
+    <div className="grid gap-3">
+      <ClaudeOption />
+      <div className="grid justify-items-start gap-1 text-sm">
+        <p className="text-muted-foreground">
+          Or add your own API key to use the assistant here. It is billed to your account with the
+          provider.
+        </p>
+        <Link
+          to="/settings#ai"
+          className="font-medium underline underline-offset-2"
+          onClick={onOpenSettings}
+        >
           Set up a key
         </Link>
-      </Button>
-      {!config.lab_key && (
-        <p className="text-xs text-muted-foreground">
-          Or ask your lab admin to add a lab key, so everyone can use the assistant.
-        </p>
+        {!config.lab_key && (
+          <p className="text-xs text-muted-foreground">
+            Or ask your lab admin to add a lab key, so everyone can use the assistant.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** A popup docked to the right 40% of the screen, where claude.ai can sit beside this page. */
+function claudeWindowFeatures() {
+  const s = window.screen as Screen & { availLeft?: number; availTop?: number };
+  const width = Math.round(s.availWidth * 0.4);
+  const left = (s.availLeft ?? 0) + s.availWidth - width;
+  return `popup=yes,width=${width},height=${s.availHeight},left=${left},top=${s.availTop ?? 0}`;
+}
+
+/** No key: steer people to Claude through our connector instead. claude.ai cannot be framed, so
+ * it opens in a window beside this page (a plain new tab if the popup is blocked). */
+function ClaudeOption() {
+  const grants = useAiGrants();
+  const connected = !!grants.data?.some(
+    (g) => g.kind === "oauth" && !g.revoked_at && /claude/i.test(g.client_name),
+  );
+  return (
+    <div className="grid justify-items-start gap-2 rounded-md border p-3 text-sm">
+      <h3 className="font-medium">Use Claude with this lab</h3>
+      {connected ? (
+        <p className="text-muted-foreground">Claude is connected to your labs.</p>
+      ) : (
+        <ClaudeSteps />
       )}
+      <Button asChild size="sm">
+        <a
+          href="https://claude.ai/new"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => {
+            if (window.open("https://claude.ai/new", "labbenchos-claude", claudeWindowFeatures()))
+              e.preventDefault(); // a popup opened; otherwise the link opens a new tab
+          }}
+        >
+          Open Claude beside this page
+        </a>
+      </Button>
+      <p className="text-xs text-muted-foreground">
+        In Chrome you can also drag this tab next to Claude for split view.
+      </p>
     </div>
   );
 }
@@ -442,22 +499,6 @@ function AssistantPanel({
       {cfg && usable.length === 0 && (
         <Setup config={cfg} onOpenSettings={docked ? undefined : onClose} />
       )}
-      {cfg?.can_use && usable.length === 0 && (
-        <form className="mt-auto grid gap-2" onSubmit={(e) => e.preventDefault()}>
-          <Textarea
-            aria-label="Message"
-            placeholder="Set up a key to ask the assistant…"
-            rows={2}
-            disabled
-          />
-          <div className="flex justify-end">
-            <Button type="submit" disabled>
-              Send
-            </Button>
-          </div>
-        </form>
-      )}
-
       {cfg && usable.length > 0 && (
         <>
           {(convs.data ?? []).length > 0 && (
@@ -691,6 +732,7 @@ export function AssistantDrawer({ labId }: { labId: string }) {
 
   const setMode = (mode: Dock["mode"]) => {
     if (mode !== "closed") setMounted(true);
+    if (mode === "open") announcePanel("assistant");
     setDock((d) => ({ ...d, mode }));
   };
   useEffect(() => {
@@ -712,7 +754,20 @@ export function AssistantDrawer({ labId }: { labId: string }) {
     };
   }, [shown, dock]);
 
-  const toggle = () => (wide ? setMode(dock.mode === "open" ? "closed" : "open") : setOpen(!open));
+  useEffect(() => {
+    const onOther = (e: Event) => {
+      if ((e as CustomEvent<PanelName>).detail !== "google") return;
+      setDock((d) => ({ ...d, mode: "closed" }));
+      setOpen(false);
+    };
+    window.addEventListener(PANEL_OPENED, onOther);
+    return () => window.removeEventListener(PANEL_OPENED, onOther);
+  }, []);
+
+  const toggle = () =>
+    wide
+      ? setMode(dock.mode === "open" ? "closed" : "open")
+      : (announcePanel("assistant"), setOpen(!open));
   const toggleRef = useRef(toggle);
   useEffect(() => {
     toggleRef.current = toggle;
@@ -800,26 +855,12 @@ export function AssistantDrawer({ labId }: { labId: string }) {
               />
             </div>
             {dock.mode === "open" && (
-              <div
-                role="separator"
-                aria-orientation="vertical"
-                aria-label="Resize the assistant"
-                aria-valuemin={MIN_W}
-                aria-valuemax={MAX_W}
-                aria-valuenow={dock.width}
-                tabIndex={0}
-                className="absolute inset-y-0 -left-1 w-2 cursor-col-resize touch-none hover:bg-border focus-visible:bg-ring focus-visible:outline-none"
-                onPointerDown={(e) => e.currentTarget.setPointerCapture(e.pointerId)}
-                onPointerMove={(e) => {
-                  if (e.currentTarget.hasPointerCapture(e.pointerId))
-                    setDock((d) => ({ ...d, width: clampWidth(window.innerWidth - e.clientX) }));
-                }}
-                onKeyDown={(e) => {
-                  const step = e.key === "ArrowLeft" ? 24 : e.key === "ArrowRight" ? -24 : 0;
-                  if (!step) return;
-                  e.preventDefault();
-                  setDock((d) => ({ ...d, width: clampWidth(d.width + step) }));
-                }}
+              <DockHandle
+                label="Resize the assistant"
+                width={dock.width}
+                min={MIN_W}
+                max={MAX_W}
+                onWidth={(w) => setDock((d) => ({ ...d, width: clampWidth(w) }))}
               />
             )}
           </aside>
