@@ -4,7 +4,7 @@ from django.db.models import Prefetch
 from rest_framework import serializers
 
 from core.permissions import can_access_funding
-from core.serializers import UserSerializer, no_control_chars
+from core.serializers import SaneDateTimeField, UserSerializer, no_control_chars
 from documents.models import Attachment, Document
 from documents.serializers import (
     AttachmentSerializer,
@@ -466,7 +466,7 @@ class AnalysisInputSerializer(serializers.Serializer):
     code_attachment = serializers.UUIDField(allow_null=True, required=False)
     datasets = _ids()
     ran_by = serializers.UUIDField(required=False)
-    ran_at = serializers.DateTimeField(required=False)
+    ran_at = SaneDateTimeField(required=False)
 
 
 class ResultInputSerializer(serializers.Serializer):

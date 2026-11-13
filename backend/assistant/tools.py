@@ -92,7 +92,10 @@ class LocalTimeEncoder(DjangoJSONEncoder):
 
     def default(self, o):
         if isinstance(o, datetime.datetime) and timezone.is_aware(o):
-            o = timezone.localtime(o)
+            try:
+                o = timezone.localtime(o)
+            except OverflowError:  # year 1 or 9999 does not fit a zone west or east of UTC
+                pass
         return super().default(o)
 
 

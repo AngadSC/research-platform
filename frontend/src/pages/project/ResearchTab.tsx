@@ -131,7 +131,9 @@ const COLUMNS: { [K in Kind]: Column<AnyRecord>[] } = {
 
 /** Same name together, newest version first. */
 const sortVersions = (all: Dataset[]) =>
-  [...all].sort((a, b) => a.name.localeCompare(b.name) || b.created_at.localeCompare(a.created_at));
+  [...all].sort(
+    (a, b) => a.name.localeCompare(b.name) || Date.parse(b.created_at) - Date.parse(a.created_at),
+  );
 
 /** The dataset columns, with a chip on versions that replace or have been replaced. */
 function datasetColumns(all: Dataset[]): Column<AnyRecord>[] {
@@ -188,8 +190,8 @@ function List({
   const k = KINDS[kind];
   const rows =
     kind === "analyses"
-      ? [...(list.data ?? [])].sort((a, b) =>
-          (b as Analysis).ran_at.localeCompare((a as Analysis).ran_at),
+      ? [...(list.data ?? [])].sort(
+          (a, b) => Date.parse((b as Analysis).ran_at) - Date.parse((a as Analysis).ran_at),
         )
       : kind === "datasets"
         ? sortVersions((list.data ?? []) as Dataset[])

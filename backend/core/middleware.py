@@ -2,6 +2,8 @@
 D291: dates follow the signed-in person's own time zone."""
 
 import datetime
+import functools
+import importlib.resources
 import zoneinfo
 
 from django.conf import settings
@@ -36,11 +38,27 @@ class UploadSizeLimitMiddleware:
         return self.get_response(request)
 
 
+@functools.cache
+def _canonical():
+    """Old zone name -> current one, from the tzdata package. Python accepts names Postgres 16
+    lacks (Asia/Calcutta, which Chrome reports for all of India), and a zone name that reaches
+    SQL `AT TIME ZONE` must exist there. UTC is left alone."""
+    text = importlib.resources.files("tzdata.zoneinfo").joinpath("tzdata.zi").read_text()
+    links = (line.split() for line in text.splitlines() if line.startswith("L "))
+    return {link: target for _, target, link in links if link != "UTC"}
+
+
+def canonical_zone(name):
+    return _canonical().get(name, name)
+
+
 def user_zone(user):
     """The time zone the person's browser last reported (`preferences.time_zone`), else UTC."""
     try:
-        return zoneinfo.ZoneInfo((getattr(user, "preferences", None) or {}).get("time_zone"))
-    except (TypeError, ValueError, KeyError):  # unset, malformed or unknown
+        return zoneinfo.ZoneInfo(
+            canonical_zone((getattr(user, "preferences", None) or {}).get("time_zone"))
+        )
+    except Exception:  # unset, malformed or unknown: never lock someone out over a bad value
         return datetime.UTC
 
 

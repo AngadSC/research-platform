@@ -36,7 +36,8 @@ class Unavailable(Exception):
 
 
 def this_month():
-    return timezone.localdate().replace(day=1)
+    """The billing month is UTC for everyone, whatever zone the person is in (D291)."""
+    return timezone.now().date().replace(day=1)
 
 
 def get(lab) -> LabAIKey | None:

@@ -18,7 +18,7 @@ from rest_framework.throttling import ScopedRateThrottle
 
 from core.auth import recent_auth_required
 from core.permissions import Perm, get_lab_or_404
-from core.serializers import no_control_chars
+from core.serializers import SaneDateTimeField, no_control_chars
 from core.tenancy import by_secret
 from core.views import LabScopedViewMixin
 from ethics.models import ApprovalStatus, EthicsApproval
@@ -126,8 +126,8 @@ class MeetingSerializer(serializers.ModelSerializer):
 
 class MeetingInputSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=200, validators=[no_control_chars])
-    starts_at = serializers.DateTimeField()
-    ends_at = serializers.DateTimeField()
+    starts_at = SaneDateTimeField()
+    ends_at = SaneDateTimeField()
     join_url = serializers.URLField(
         max_length=500, allow_blank=True, required=False, validators=[validate_join_url]
     )

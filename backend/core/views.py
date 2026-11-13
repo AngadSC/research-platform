@@ -1,4 +1,5 @@
 from django.core.files.storage import storages
+from django.db import transaction
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -65,6 +66,14 @@ class MeView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        # Lock the row and re-read it, so two saves at once (the zone sync and the recent-items
+        # tracker on first load) merge their preferences instead of one wiping the other.
+        with transaction.atomic():
+            User.objects.select_for_update().filter(pk=request.user.pk).first()
+            request.user.refresh_from_db()
+            return super().update(request, *args, **kwargs)
 
 
 class MyAvatarView(APIView):
