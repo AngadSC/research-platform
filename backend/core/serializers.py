@@ -6,6 +6,7 @@ from rest_framework import serializers
 
 from core import avatars
 from core.models import Notification, User
+from core.notifications import live_body, live_title, notification_url
 
 
 def no_control_chars(value):
@@ -161,6 +162,11 @@ class MeSerializer(UserSerializer):
 
 
 class NotificationSerializer(serializers.ModelSerializer):
+    """`title` and `body` are as they read today (core/notifications.py); `url` is the page the
+    notification is about."""
+
+    url = serializers.SerializerMethodField()
+
     class Meta:
         model = Notification
         fields = [
@@ -170,7 +176,16 @@ class NotificationSerializer(serializers.ModelSerializer):
             "body",
             "target_type",
             "target_id",
+            "url",
             "read_at",
             "created_at",
         ]
         read_only_fields = fields
+
+    def get_url(self, n) -> str:
+        return notification_url(n, self.context["request"].user)
+
+    def to_representation(self, n):
+        data = super().to_representation(n)
+        data["title"], data["body"] = live_title(n), live_body(n)
+        return data

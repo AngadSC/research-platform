@@ -98,13 +98,3 @@ export function useRetentionDue(labId: string | undefined, enabled: boolean) {
     enabled: !!labId && enabled,
   });
 }
-
-/** Where a notification leads. Retention notices go to the review page (documents need no project id). */
-export function notificationLink(labId: string, n: AppNotification): string {
-  if (n.kind === "retention_due") return `/labs/${labId}/retention`;
-  if (!n.target_id) return `/labs/${labId}`;
-  const type = n.target_type.toLowerCase();
-  if (type === "ethics.ethicsapproval") return `/labs/${labId}/ethics/${n.target_id}`;
-  if (type === "projects.project") return `/labs/${labId}/projects/${n.target_id}`;
-  return `/labs/${labId}`;
-}

@@ -7865,7 +7865,8 @@ paths:
         schema:
           type: string
         description: 'Comma-separated: project, task, document, dataset, analysis,
-          result, decision, manuscript, funding, review, ethics, link, paper, paper_note'
+          result, decision, manuscript, funding, review, ethics, link, file, meeting,
+          paper, paper_note'
       tags:
       - labs
       security:
@@ -13938,6 +13939,9 @@ components:
       - body
     Notification:
       type: object
+      description: |-
+        `title` and `body` are as they read today (core/notifications.py); `url` is the page the
+        notification is about.
       properties:
         id:
           type: string
@@ -13961,6 +13965,9 @@ components:
           format: uuid
           readOnly: true
           nullable: true
+        url:
+          type: string
+          readOnly: true
         read_at:
           type: string
           format: date-time
@@ -13979,6 +13986,7 @@ components:
       - target_id
       - target_type
       - title
+      - url
     NotificationKindEnum:
       enum:
       - ethics_expiry
