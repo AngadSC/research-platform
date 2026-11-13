@@ -48,6 +48,7 @@ const base = (perms: string[], extra: Record<string, unknown> = {}) => ({
   [`GET ${P}/manuscripts/`]: { body: [] },
   [`GET ${P}/members/`]: { body: [] },
   [`GET ${P}/attachments/`]: { body: [] },
+  [`GET ${P}/attachments/?unflagged=1`]: { body: [] },
   "GET /api/labs/lab1/analyses/a1/": { body: analysis },
   ...extra,
 });
@@ -310,6 +311,28 @@ describe("analysis detail", () => {
     expect(sent.datasets).toEqual(["d2"]);
     expect(sent.code_commit).toBe("abc1234def");
     expect(sent.description).toContain("Alpha diversity");
+  });
+});
+
+describe("code file picker", () => {
+  const edit = ["view_project", "edit_content"];
+  const form = (kind: string) => `/labs/lab1/projects/p1/workflow/analysis/${kind}/new`;
+
+  it("leaves out files that identify participants", async () => {
+    const calls = mockFetch(base(edit));
+    renderRoute(form("analyses"));
+    await screen.findByLabelText("Or attach the code");
+    await waitFor(() =>
+      expect(calls.map((c) => c.path)).toContain(`${P}/attachments/?unflagged=1`),
+    );
+  });
+
+  it("does not filter the figures list", async () => {
+    const calls = mockFetch(base(edit));
+    renderRoute(form("results"));
+    await screen.findByText("Figures and tables");
+    await waitFor(() => expect(calls.map((c) => c.path)).toContain(`${P}/attachments/`));
+    expect(calls.map((c) => c.path)).not.toContain(`${P}/attachments/?unflagged=1`);
   });
 });
 

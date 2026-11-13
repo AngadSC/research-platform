@@ -35,6 +35,8 @@ interface Field {
   required?: boolean;
   hint?: string;
   source?: Source;
+  /** Leave out files that identify participants (Claude may run attached code). */
+  unflagged?: boolean;
 }
 
 const F = (name: string, label: string, type: Type, extra: Partial<Field> = {}): Field => ({
@@ -65,7 +67,10 @@ const FIELDS: Record<Kind, Field[]> = {
       hint: "Use this with a commit, or attach the code below.",
     }),
     F("code_commit", "Commit", "text", { hint: "7 to 40 characters, 0-9 and a-f." }),
-    F("code_attachment", "Or attach the code", "select", { source: "attachments" }),
+    F("code_attachment", "Or attach the code", "select", {
+      source: "attachments",
+      unflagged: true,
+    }),
     F("datasets", "Datasets used", "multi", { source: "datasets" }),
   ],
   results: [
@@ -148,11 +153,13 @@ interface Row {
   original_filename?: string;
   user?: { id: string; display_name?: string; email: string };
 }
-function useOptions(labId: string, projectId: string, source: Source) {
+function useOptions(labId: string, projectId: string, source: Source, unflagged = false) {
   return useQuery({
-    queryKey: [...root(labId), "opts", projectId, source],
+    queryKey: [...root(labId), "opts", projectId, source, unflagged],
     queryFn: async () => {
-      const rows = await api<Row[]>(`/api/labs/${labId}/projects/${projectId}/${source}/`);
+      const rows = await api<Row[]>(
+        `/api/labs/${labId}/projects/${projectId}/${source}/${unflagged ? "?unflagged=1" : ""}`,
+      );
       return rows.map((r) => ({
         id: r.user?.id ?? r.id,
         label: r.user
@@ -564,7 +571,7 @@ function Select({
   value: string;
   onChange: (v: string) => void;
 }) {
-  const opts = useOptions(labId, projectId, f.source ?? "datasets");
+  const opts = useOptions(labId, projectId, f.source ?? "datasets", f.unflagged);
   const choices =
     f.type === "status"
       ? MANUSCRIPT_STATUSES.map(([id, label]) => ({ id, label }))
@@ -598,7 +605,7 @@ function Multi({
   onChange: (v: string[]) => void;
   extra?: ReactNode;
 }) {
-  const opts = useOptions(labId, projectId, f.source!);
+  const opts = useOptions(labId, projectId, f.source!, f.unflagged);
   return (
     <div id={id} role="group" aria-label={f.label} className="grid gap-1 rounded-md border p-2">
       {opts.data?.length === 0 && (
