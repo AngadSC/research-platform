@@ -182,6 +182,36 @@ describe("files", () => {
     });
   });
 
+  it("asks before removing the identifying mark, and Cancel leaves it marked", async () => {
+    const flagged = { ...att, original_filename: "raw.csv", contains_participant_data: true };
+    const calls = mockFetch({
+      ...base(["edit_content"], [flagged]),
+      "PATCH /api/labs/lab1/attachments/a1/": {
+        body: { ...flagged, contains_participant_data: false },
+      },
+    });
+    renderRoute(FILES);
+    const open = async () => {
+      await userEvent.click(await screen.findByRole("button", { name: "Actions for raw.csv" }));
+      await userEvent.click(
+        await screen.findByRole("menuitem", { name: "Remove identifying mark" }),
+      );
+    };
+    await open();
+    await userEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    expect(calls.some((c) => c.method === "PATCH")).toBe(false);
+    expect(screen.getByRole("cell", { name: /^raw\.csv/ })).toHaveTextContent(
+      "Identifies participants",
+    );
+    await open();
+    await userEvent.click(await screen.findByRole("button", { name: "Remove mark" }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({
+        contains_participant_data: false,
+      }),
+    );
+  });
+
   it("hides upload and delete without edit_content", async () => {
     mockFetch(base(["view_project"], [att]));
     renderRoute(FILES);

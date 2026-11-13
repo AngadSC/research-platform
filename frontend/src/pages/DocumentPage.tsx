@@ -6,7 +6,12 @@ import { ConflictDialog } from "@/components/documents/ConflictDialog";
 import { StaleDocumentBanner } from "@/components/documents/StaleDocumentBanner";
 import { RevisionsPanel } from "@/components/documents/RevisionsPanel";
 import { LinkedFiles } from "@/components/shared/LinkedFiles";
-import { PARTICIPANT_HINT, ParticipantBadge } from "@/components/shared/ParticipantData";
+import {
+  PARTICIPANT_HINT,
+  ParticipantBadge,
+  markLabel,
+  useConfirmUnmark,
+} from "@/components/shared/ParticipantData";
 import { FormField } from "@/components/shared/FormField";
 import { FormError } from "@/components/shared/FormError";
 import { Button } from "@/components/ui/button";
@@ -148,6 +153,7 @@ function DocumentEditor({
   const [title, setTitle] = useState(doc.title);
   const [flagged, setFlagged] = useState(doc.contains_participant_data);
   const flag = useParticipantFlag(labId);
+  const { confirm, dialog } = useConfirmUnmark();
   const toggleFlag = () =>
     flag.mutate(
       { kind: "documents", id: doc.id, value: !flagged },
@@ -155,7 +161,7 @@ function DocumentEditor({
         onSuccess: () => {
           toast.success(
             flagged
-              ? "No longer marked"
+              ? "Identifying mark removed"
               : `Marked as identifying participants. ${PARTICIPANT_HINT}`,
           );
           setFlagged(!flagged);
@@ -381,6 +387,7 @@ function DocumentEditor({
 
   return (
     <div className={cn("flex flex-col gap-2", FILL_HEIGHT)}>
+      {dialog}
       <div className="flex items-start gap-2">
         <Input
           aria-label="Title"
@@ -441,8 +448,8 @@ function DocumentEditor({
             )}
             <DropdownMenuItem onSelect={() => setPanel("history")}>History</DropdownMenuItem>
             {canEdit && (
-              <DropdownMenuItem onSelect={toggleFlag}>
-                {flagged ? "Not identifying" : "Mark as identifying"}
+              <DropdownMenuItem onSelect={() => confirm(flagged, doc.title, toggleFlag)}>
+                {markLabel(flagged)}
               </DropdownMenuItem>
             )}
             {projectId && (

@@ -4,7 +4,11 @@ import { Link } from "react-router";
 import { toast } from "sonner";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 import { FormField } from "@/components/shared/FormField";
-import { ParticipantBadge, ParticipantCheckbox } from "@/components/shared/ParticipantData";
+import {
+  ParticipantBadge,
+  ParticipantCheckbox,
+  useConfirmUnmark,
+} from "@/components/shared/ParticipantData";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -58,6 +62,7 @@ export function FolderBrowser({
   const [editing, setEditing] = useState<Editing | null>(null);
   const [name, setName] = useState("");
   const [flagged, setFlagged] = useState(false);
+  const { confirm, dialog } = useConfirmUnmark();
   const byId = useMemo(() => byIdMap(folders), [folders]);
   const here = current ? byId.get(current) : undefined;
   const children = folders.filter((f) => (f.parent ?? null) === (current ?? null));
@@ -74,23 +79,29 @@ export function FolderBrowser({
     const handlers = { onSuccess: close, onError: fail };
     if (editing?.mode === "new") create.mutate({ name, parent: current }, handlers);
     if (editing?.mode === "rename") {
-      const was = editing.folder.contains_participant_data;
-      update.mutate(
-        { id: editing.folder.id, name, contains_participant_data: flagged },
-        {
-          ...handlers,
-          onSuccess: () => {
-            if (flagged && !was)
-              toast.success("Everything in this folder is now marked as identifying participants");
-            close();
+      const { folder } = editing;
+      const was = folder.contains_participant_data;
+      const run = () =>
+        update.mutate(
+          { id: folder.id, name, contains_participant_data: flagged },
+          {
+            ...handlers,
+            onSuccess: () => {
+              if (flagged && !was)
+                toast.success(
+                  "Everything in this folder is now marked as identifying participants",
+                );
+              close();
+            },
           },
-        },
-      );
+        );
+      confirm(was && !flagged, folder.name, run);
     }
   };
 
   return (
     <div className="grid gap-2">
+      {dialog}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Breadcrumbs items={crumbs} label="Folders" />
         {canEdit && (

@@ -11,7 +11,12 @@ import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
 import { GoogleEditorPanel } from "@/components/shared/GoogleEditorPanel";
 import { LinkedFiles } from "@/components/shared/LinkedFiles";
-import { PARTICIPANT_HINT, ParticipantBadge } from "@/components/shared/ParticipantData";
+import {
+  PARTICIPANT_HINT,
+  ParticipantBadge,
+  markLabel,
+  useConfirmUnmark,
+} from "@/components/shared/ParticipantData";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -113,6 +118,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
   const { data: folders = [] } = useFolders(labId, projectId);
   const folderFlagged = folders.find((f) => f.id === folder)?.contains_participant_data ?? false;
   const flag = useParticipantFlag(labId);
+  const { confirm, dialog } = useConfirmUnmark();
   const toggleFlag = (r: Row) => {
     const value = !rowFlagged(r);
     flag.mutate(
@@ -120,13 +126,14 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
       {
         onSuccess: () =>
           toast.success(
-            value ? `Marked as identifying participants. ${PARTICIPANT_HINT}` : "No longer marked",
+            value
+              ? `Marked as identifying participants. ${PARTICIPANT_HINT}`
+              : "Identifying mark removed",
           ),
         onError: (e) => toast.error(formErrors(e, []).form ?? "Something went wrong."),
       },
     );
   };
-  const flagLabel = (r: Row) => (rowFlagged(r) ? "Not identifying" : "Mark as identifying");
   const [deleting, setDeleting] = useState<Row | null>(null);
   const [deleteError, setDeleteError] = useState<string>();
   const [moving, setMoving] = useState<Movable | null>(null);
@@ -294,8 +301,10 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
                     <DropdownMenuItem onSelect={() => startMove(r)}>
                       Move to folder
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => toggleFlag(r)}>
-                      {flagLabel(r)}
+                    <DropdownMenuItem
+                      onSelect={() => confirm(rowFlagged(r), rowName(r), () => toggleFlag(r))}
+                    >
+                      {markLabel(rowFlagged(r))}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -319,6 +328,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
   const noun = deleting?.doc ? "document" : "file";
   return (
     <div>
+      {dialog}
       <div className="grid w-full min-w-0 gap-4">
         {canEdit && (
           <div className="flex flex-wrap justify-end gap-2">
