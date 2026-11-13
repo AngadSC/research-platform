@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, Link, Outlet, RouterProvider } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AssistantDrawer } from "@/components/assistant/AssistantDrawer";
+import { announcePanel } from "@/components/shared/DockHandle";
 import { makeLab } from "@/test/utils";
 
 const P1 = "11111111-1111-4111-8111-111111111111";
@@ -109,6 +110,20 @@ afterEach(() => {
 });
 
 describe("docked assistant", () => {
+  it("closes when the Google panel opens, and announces itself when it opens", async () => {
+    stubFetch();
+    renderApp();
+    const heard = vi.fn();
+    window.addEventListener("labbenchos:panel-opened", heard);
+    await userEvent.click(screen.getByRole("button", { name: "Assistant" }));
+    expect(heard).toHaveBeenCalledTimes(1);
+    await screen.findByRole("complementary", { name: "Assistant" });
+    act(() => announcePanel("google"));
+    await waitFor(() => expect(saved().mode).toBe("closed"));
+    expect(saved()).toMatchObject({ mode: "closed", width: 384 });
+    window.removeEventListener("labbenchos:panel-opened", heard);
+  });
+
   it("docks on the right, makes room, stays on route change, and remembers its state", async () => {
     stubFetch();
     renderApp();

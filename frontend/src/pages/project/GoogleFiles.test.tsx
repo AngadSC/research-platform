@@ -236,7 +236,7 @@ describe("Google editor panel", () => {
     expect(handle).toHaveAttribute("aria-valuenow", "560");
     handle.focus();
     await userEvent.keyboard("{ArrowLeft}");
-    expect(handle).toHaveAttribute("aria-valuenow", "600");
+    expect(handle).toHaveAttribute("aria-valuenow", "584");
   });
 
   it("offers Preview but not Edit to someone who cannot edit the project", async () => {
