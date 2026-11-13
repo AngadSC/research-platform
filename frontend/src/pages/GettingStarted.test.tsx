@@ -62,6 +62,21 @@ describe("getting started", () => {
     expect(calls.find((c) => c.method === "POST")?.body).toEqual({ dismissed: true });
   });
 
+  it("leaves a way back once dismissed", async () => {
+    const calls = mockFetch(
+      home(
+        { steps, dismissed: true },
+        { [`POST ${L}/getting-started/`]: { body: { steps, dismissed: false } } },
+      ),
+    );
+    renderRoute("/labs/lab1/dashboard");
+    await userEvent.click(await screen.findByRole("button", { name: "Show getting started" }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "POST")?.body).toEqual({ dismissed: false }),
+    );
+    expect(await screen.findByRole("region", { name: "Get your lab set up" })).toBeVisible();
+  });
+
   it("is hidden once every step is done", async () => {
     mockFetch(home({ steps: [{ key: "project", done: true, can_act: true }], dismissed: false }));
     renderRoute("/labs/lab1/dashboard");

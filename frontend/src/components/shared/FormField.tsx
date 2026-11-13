@@ -5,17 +5,20 @@ export interface FieldControlProps {
   id: string;
   "aria-describedby"?: string;
   "aria-invalid"?: boolean;
+  "aria-required"?: boolean;
 }
 
 interface FormFieldProps {
   label: string;
   hint?: string;
   error?: string;
+  /** Marks the label with an asterisk and tells screen readers the field is required. */
+  required?: boolean;
   /** Spread the given props onto the input, textarea or select trigger. */
   children: (props: FieldControlProps) => ReactNode;
 }
 
-export function FormField({ label, hint, error, children }: FormFieldProps) {
+export function FormField({ label, hint, error, required, children }: FormFieldProps) {
   const id = useId();
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
@@ -23,8 +26,18 @@ export function FormField({ label, hint, error, children }: FormFieldProps) {
 
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      {children({ id, "aria-describedby": describedBy, "aria-invalid": error ? true : undefined })}
+      <Label
+        htmlFor={id}
+        className={required ? "after:ml-0.5 after:text-destructive after:content-['*']" : undefined}
+      >
+        {label}
+      </Label>
+      {children({
+        id,
+        "aria-describedby": describedBy,
+        "aria-invalid": error ? true : undefined,
+        "aria-required": required ? true : undefined,
+      })}
       {hint && (
         <p id={hintId} className="text-xs text-muted-foreground">
           {hint}

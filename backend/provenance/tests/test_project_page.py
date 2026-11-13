@@ -57,11 +57,11 @@ def analysis(w):
 def test_progress_walks_the_stages_in_order(w):
     assert next_stage(w) == "funding"
 
-    # Applying for money is not having it.
-    funding = w.make("funding-list", {"funder": "NSERC", "status": "applied"})
+    # A declined grant does not count; any other record does.
+    funding = w.make("funding-list", {"funder": "NSERC", "status": "declined"})
     assert next_stage(w) == "funding"
     w.client().patch(
-        w.url("funding-detail", fundingrecord_id=funding), {"status": "awarded"}, format="json"
+        w.url("funding-detail", fundingrecord_id=funding), {"status": "applied"}, format="json"
     )
     assert next_stage(w) == "ethics"
 

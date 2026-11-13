@@ -97,7 +97,9 @@ export function WorkflowLayout(props: ProjectTabProps) {
           <p className="text-sm">
             {next ? (
               <>
-                <span className="font-semibold">Do this next: {nameOf(next)}.</span>{" "}
+                <span className="font-semibold">
+                  {canEdit ? "Do this next" : "Next for the project's editors"}: {nameOf(next)}.
+                </span>{" "}
                 {NEXT_STEP[next]}
               </>
             ) : next === null ? (

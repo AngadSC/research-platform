@@ -1,18 +1,19 @@
 import { ListChecks } from "lucide-react";
 import { Link } from "react-router";
+import { DueChip } from "@/components/dashboard/DueChip";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { useMyTasks } from "@/hooks/projects";
+import { useLab } from "@/hooks/workspace";
 import { taskStatusLabel, type MyTask } from "@/lib/api-types";
 import { shortDate } from "@/lib/dashboard";
-import { localDateISO } from "@/lib/format";
 import { formErrors } from "@/lib/forms";
 
 /** Your open tasks across the lab, soonest due first. On My work, and on Home for members. */
 export function MyTasksList({ labId }: { labId: string }) {
   const { data, isLoading, error } = useMyTasks(labId);
-  const today = localDateISO();
+  const viewer = useLab(labId).data?.my_role === "viewer";
   const cols: Column<MyTask>[] = [
     {
       key: "title",
@@ -34,10 +35,11 @@ export function MyTasksList({ labId }: { labId: string }) {
       cell: (t) =>
         !t.due_date ? (
           <span className="text-muted-foreground">No date</span>
-        ) : t.due_date < today ? (
-          <span className="font-medium text-danger-text">{shortDate(t.due_date)} (overdue)</span>
         ) : (
-          shortDate(t.due_date)
+          <span className="flex flex-wrap items-center gap-2">
+            {shortDate(t.due_date)}
+            <DueChip due={t.due_date} status={t.status} />
+          </span>
         ),
     },
   ];
@@ -52,7 +54,11 @@ export function MyTasksList({ labId }: { labId: string }) {
         <EmptyState
           icon={ListChecks}
           title="Nothing assigned to you"
-          description="Tasks assigned to you in any project will show up here."
+          description={
+            viewer
+              ? "Viewers can't be given tasks. Ask a PI or lab admin if you need to take part."
+              : "Tasks assigned to you in any project will show up here."
+          }
         />
       }
     />

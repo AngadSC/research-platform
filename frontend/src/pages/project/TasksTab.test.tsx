@@ -1,6 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import { localDateISO } from "@/lib/format";
 import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
 
 const user = { id: "u1", email: "ada@uni.edu", display_name: "Ada" };
@@ -143,6 +144,35 @@ describe("tasks", () => {
     mockFetch(base(["edit_content"]));
     renderRoute(TASKS);
     expect(await screen.findByText("No tasks yet")).toBeInTheDocument();
+  });
+});
+
+describe("task dates and board headings", () => {
+  const dated = (id: string, due: string, status = "todo") => ({
+    ...task(id, `Task ${id}`, status),
+    due_date: due,
+  });
+  const iso = (days: number) => localDateISO(new Date(Date.now() + days * 86_400_000));
+
+  it("flags overdue and due-today tasks, but not done or later ones", async () => {
+    mockFetch(
+      base(
+        ["view_project"],
+        [dated("a", iso(-2)), dated("b", iso(0)), dated("c", iso(3)), dated("d", iso(-2), "done")],
+      ),
+    );
+    renderRoute(`${TASKS}?view=list`);
+    await screen.findByText("Task a");
+    expect(screen.getAllByText("Overdue")).toHaveLength(1);
+    expect(screen.getAllByText("Due today")).toHaveLength(1);
+  });
+
+  it("counts '1 task', and column headings sit under the page heading", async () => {
+    mockFetch(base(["view_project"], [task("t1", "Seed")]));
+    renderRoute(`${TASKS}?view=board`);
+    expect(await screen.findByLabelText("1 task")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: /To do/ })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 3 })).toBeNull();
   });
 });
 

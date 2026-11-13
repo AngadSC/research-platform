@@ -41,7 +41,20 @@ const STEPS: Record<string, { title: string; hint: string; path: string; action:
 export function GettingStarted({ labId }: { labId: string }) {
   const { data } = useGettingStarted(labId);
   const dismiss = useSetGettingStartedDismissed(labId);
-  if (!data || data.dismissed || data.steps.every((s) => s.done)) return null;
+  if (!data || data.steps.every((s) => s.done)) return null;
+  if (data.dismissed)
+    return (
+      <div className="mb-4 flex justify-end">
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={dismiss.isPending}
+          onClick={() => dismiss.mutate(false)}
+        >
+          Show getting started
+        </Button>
+      </div>
+    );
   const done = data.steps.filter((s) => s.done).length;
   return (
     <section aria-labelledby="getting-started" className="mb-8 rounded-lg border p-4">

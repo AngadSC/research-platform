@@ -328,10 +328,10 @@ def workflow_progress(project, user) -> dict:
     reviews = mine(ReviewItem)
     found = {
         "funding": FundingRecord.objects.visible_to(user, project.lab_id)
-        .filter(
-            project=project,
-            status__in=(FundingStatus.AWARDED, FundingStatus.ACTIVE, FundingStatus.CLOSED),
-        )
+        .filter(project=project)
+        .exclude(
+            status=FundingStatus.DECLINED
+        )  # a record is enough; a declined grant pays for nothing
         .exists(),
         "ethics": EthicsApproval.objects.visible_to(user, project.lab_id)
         .filter(

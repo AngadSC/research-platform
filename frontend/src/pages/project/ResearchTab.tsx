@@ -1,7 +1,7 @@
 import { FlaskConical, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { DataTable, HIDE_NARROW, HIDE_NARROWER, type Column } from "@/components/shared/DataTable";
 import { DetailPanel } from "@/components/shared/DetailPanel";
@@ -13,6 +13,7 @@ import type { LinkTarget } from "@/components/shared/LinkMenu";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ReferenceList } from "@/components/shared/References";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -128,6 +129,35 @@ const COLUMNS: { [K in Kind]: Column<AnyRecord>[] } = {
   ],
 };
 
+/** Same name together, newest version first. */
+const sortVersions = (all: Dataset[]) =>
+  [...all].sort((a, b) => a.name.localeCompare(b.name) || b.created_at.localeCompare(a.created_at));
+
+/** The dataset columns, with a chip on versions that replace or have been replaced. */
+function datasetColumns(all: Dataset[]): Column<AnyRecord>[] {
+  const replaced = new Set(all.map((d) => d.previous_version?.id));
+  return COLUMNS.datasets.map((c) =>
+    c.key !== "v"
+      ? c
+      : {
+          ...c,
+          cell: (r) => {
+            const d = r as Dataset;
+            return (
+              <span className="flex items-center gap-2">
+                {d.version_label}
+                {replaced.has(d.id) ? (
+                  <Badge variant="secondary">Replaced</Badge>
+                ) : (
+                  d.previous_version && <Badge variant="success">Latest</Badge>
+                )}
+              </span>
+            );
+          },
+        },
+  );
+}
+
 function List({
   labId,
   projectId,
@@ -156,6 +186,14 @@ function List({
     (r) => r.title,
   );
   const k = KINDS[kind];
+  const rows =
+    kind === "analyses"
+      ? [...(list.data ?? [])].sort((a, b) =>
+          (b as Analysis).ran_at.localeCompare((a as Analysis).ran_at),
+        )
+      : kind === "datasets"
+        ? sortVersions((list.data ?? []) as Dataset[])
+        : (list.data ?? []);
   const add = canEdit ? (
     <Button asChild>
       <Link to={recordPath(base, kind, "new")}>
@@ -167,14 +205,8 @@ function List({
     <div className="grid gap-4">
       {(list.data?.length ?? 0) > 0 && <div className="flex justify-end">{add}</div>}
       <DataTable
-        columns={COLUMNS[kind]}
-        rows={
-          kind === "analyses"
-            ? [...(list.data ?? [])].sort((a, b) =>
-                (b as Analysis).ran_at.localeCompare((a as Analysis).ran_at),
-              )
-            : (list.data ?? [])
-        }
+        columns={kind === "datasets" ? datasetColumns(rows as Dataset[]) : COLUMNS[kind]}
+        rows={rows}
         getRowKey={(r) => r.id}
         loading={list.isLoading}
         onRowClick={(r) => void navigate(recordPath(base, kind, r.id))}
@@ -194,13 +226,19 @@ function List({
 export function ResearchNew(props: ProjectTabProps) {
   const kind = useKind();
   const navigate = useNavigate();
+  const from = useSearchParams()[0].get("from") ?? "";
+  const source = useRecord<Dataset>(props.labId, "datasets", kind === "datasets" ? from : "");
   if (!kind) return <NotFound />;
   if (!props.project.my_permissions.includes("edit_content"))
     return <FormError message="You don't have permission to add records here." />;
   const base = projectBase(props);
   const back = `${base}/workflow/${sectionOf(kind)}`;
+  if (from && kind === "datasets" && !source.data && !source.error)
+    return <Skeleton aria-busy="true" aria-label="Loading" className="h-40 w-full" />;
   const one = (
     <ResearchForm
+      key={source.data?.id}
+      prefill={source.data}
       labId={props.labId}
       projectId={props.projectId}
       kind={kind}
@@ -210,7 +248,15 @@ export function ResearchNew(props: ProjectTabProps) {
   );
   return (
     <div className="grid max-w-xl gap-4">
-      <PageHeader title={kind === "results" ? "Add results" : `New ${KINDS[kind].one}`} />
+      <PageHeader
+        title={
+          kind === "results"
+            ? "Add results"
+            : source.data
+              ? `New version of ${source.data.name}`
+              : `New ${KINDS[kind].one}`
+        }
+      />
       {kind === "results" ? (
         <NewResults
           labId={props.labId}
@@ -489,6 +535,11 @@ function Detail({
                 View in lineage
               </Link>
             </Button>
+            {kind === "datasets" && canEdit && (
+              <Button variant="outline" asChild>
+                <Link to={`${recordPath(base, "datasets", "new")}?from=${id}`}>New version</Link>
+              </Button>
+            )}
             {kind === "analyses" && <DownloadCode labId={labId} analysis={r as Analysis} />}
             {kind === "analyses" && canEdit && (
               <RunAgain labId={labId} projectId={projectId} base={base} analysis={r as Analysis} />

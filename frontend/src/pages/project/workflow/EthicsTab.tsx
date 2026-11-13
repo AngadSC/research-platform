@@ -6,12 +6,15 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { FormField } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useSaveApproval } from "@/hooks/ethics";
+import { useApprovals, useSaveApproval } from "@/hooks/ethics";
 import { useLab } from "@/hooks/workspace";
 import { useProjectApprovals } from "@/hooks/workflow";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { InstitutionLinks } from "@/pages/project/workflow/InstitutionLinks";
-import { LocalErrors, RecordDialog, str } from "@/pages/project/workflow/parts";
+import { fail, LocalErrors, NativeSelect, RecordDialog, str } from "@/pages/project/workflow/parts";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import type { EthicsApproval } from "@/lib/api-types";
 
 const FIELDS = ["approval_number", "board", "title", "approval_date", "expiry_date", "projects"];
 
@@ -28,9 +31,17 @@ export default function EthicsTab({ labId, projectId, project }: ProjectTabProps
   const approvals = useProjectApprovals(labId, projectId, canView);
   const save = useSaveApproval(labId);
   const [adding, setAdding] = useState(false);
+  const [linking, setLinking] = useState(false);
   const rows = approvals.data ?? [];
 
-  const add = canCreate ? <Button onClick={() => setAdding(true)}>New approval</Button> : undefined;
+  const add = canCreate ? (
+    <span className="flex gap-2">
+      <Button variant="outline" onClick={() => setLinking(true)}>
+        Link existing
+      </Button>
+      <Button onClick={() => setAdding(true)}>New approval</Button>
+    </span>
+  ) : undefined;
   return (
     <div className="grid gap-6">
       <section aria-label="Ethics approvals" className="grid gap-3">
@@ -57,7 +68,11 @@ export default function EthicsTab({ labId, projectId, project }: ProjectTabProps
           <EmptyState
             icon={ShieldCheck}
             title="No ethics approvals linked yet"
-            description="Link the approvals that cover this project so expiry reminders reach the right people."
+            description={
+              canCreate
+                ? "Link an approval the lab already has, or add a new one, so expiry reminders reach the right people."
+                : "Only editors can link approvals. Ask the project lead."
+            }
             action={add}
           />
         ) : (
@@ -82,6 +97,14 @@ export default function EthicsTab({ labId, projectId, project }: ProjectTabProps
         category="ethics"
         title="Ethics resources at your institution"
       />
+      {linking && (
+        <LinkExisting
+          labId={labId}
+          projectId={projectId}
+          linked={rows}
+          onClose={() => setLinking(false)}
+        />
+      )}
       {adding && (
         <RecordDialog
           title="New ethics approval"
@@ -111,20 +134,20 @@ export default function EthicsTab({ labId, projectId, project }: ProjectTabProps
         >
           {(e) => (
             <>
-              <FormField label="Approval number" error={e.approval_number}>
+              <FormField label="Approval number" required error={e.approval_number}>
                 {(p) => <Input maxLength={100} {...p} name="approval_number" autoComplete="off" />}
               </FormField>
-              <FormField label="Ethics board" error={e.board}>
+              <FormField label="Ethics board" required error={e.board}>
                 {(p) => <Input maxLength={200} {...p} name="board" autoComplete="off" />}
               </FormField>
-              <FormField label="Title" error={e.title}>
+              <FormField label="Title" required error={e.title}>
                 {(p) => <Input maxLength={300} {...p} name="title" autoComplete="off" />}
               </FormField>
               <div className="grid grid-cols-2 gap-3">
-                <FormField label="Approval date" error={e.approval_date}>
+                <FormField label="Approval date" required error={e.approval_date}>
                   {(p) => <Input {...p} type="date" name="approval_date" />}
                 </FormField>
-                <FormField label="Expiry date" error={e.expiry_date}>
+                <FormField label="Expiry date" required error={e.expiry_date}>
                   {(p) => <Input {...p} type="date" name="expiry_date" />}
                 </FormField>
               </div>
@@ -143,5 +166,75 @@ export default function EthicsTab({ labId, projectId, project }: ProjectTabProps
         </RecordDialog>
       )}
     </div>
+  );
+}
+
+/** Link an approval the lab already has. The server keeps the approval's other links as they are. */
+function LinkExisting({
+  labId,
+  projectId,
+  linked,
+  onClose,
+}: {
+  labId: string;
+  projectId: string;
+  linked: EthicsApproval[];
+  onClose: () => void;
+}) {
+  const all = useApprovals(labId);
+  const [pick, setPick] = useState("");
+  const save = useSaveApproval(labId, pick);
+  const options = (all.data ?? []).filter((a) => !linked.some((l) => l.id === a.id));
+  const chosen = options.find((a) => a.id === pick);
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogTitle className="text-base font-semibold">Link an existing approval</DialogTitle>
+        <DialogDescription className="sr-only">
+          Pick an approval the lab already has.
+        </DialogDescription>
+        {options.length === 0 && !all.isLoading ? (
+          <p className="text-sm text-muted-foreground">
+            Every approval you can see is already linked to this project. Use New approval to add
+            another.
+          </p>
+        ) : (
+          <FormField label="Approval" required>
+            {(p) => (
+              <NativeSelect {...p} value={pick} onChange={(e) => setPick(e.target.value)}>
+                <option value="">Choose an approval</option>
+                {options.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.approval_number}: {a.title}
+                  </option>
+                ))}
+              </NativeSelect>
+            )}
+          </FormField>
+        )}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            disabled={!chosen || save.isPending}
+            onClick={() =>
+              save.mutate(
+                { projects: [...chosen!.projects.map((p) => p.id), projectId] },
+                {
+                  onSuccess: () => {
+                    toast.success("Approval linked");
+                    onClose();
+                  },
+                  onError: fail,
+                },
+              )
+            }
+          >
+            Link
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

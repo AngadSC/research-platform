@@ -121,7 +121,11 @@ export default function ParticipantsTab({ labId, projectId, project }: ProjectTa
             <EmptyState
               icon={Users}
               title="No recruitment entries yet"
-              description="Add a dated entry each time the counts change: how many were screened, enrolled, withdrew or completed."
+              description={
+                canEdit
+                  ? "Add a dated entry each time the counts change: how many were screened, enrolled, withdrew or completed."
+                  : "Only editors can add entries. Ask the project lead."
+              }
               action={add}
             />
           }

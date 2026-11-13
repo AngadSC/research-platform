@@ -368,7 +368,14 @@ export function InventorySection({
         getRowKey={(i) => i.id}
         loading={list.isLoading}
         empty={
-          <EmptyState title="No inventory items" description="Items you add will appear here." />
+          <EmptyState
+            title="No inventory items"
+            description={
+              canEdit
+                ? "Items you add will appear here."
+                : "Only people who manage inventory can add items. Ask a PI or lab admin."
+            }
+          />
         }
       />
       <ItemDialog

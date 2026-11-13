@@ -2,6 +2,7 @@ import { LayoutList, ListChecks, MoreHorizontal, Plus, SquareKanban } from "luci
 import { useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
+import { DueChip } from "@/components/dashboard/DueChip";
 import { DataTable, HIDE_NARROW, type Column } from "@/components/shared/DataTable";
 import { DetailPanel } from "@/components/shared/DetailPanel";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -33,6 +34,7 @@ import {
   type TaskStatus,
 } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
+import { plural } from "@/lib/format";
 import { TASK_TONES } from "@/lib/taskColors";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { ImportTasksDialog } from "@/pages/project/ImportTasksDialog";
@@ -219,15 +221,16 @@ function Board({
             }}
             className="flex min-h-40 flex-col gap-2 rounded-lg border-2 p-3"
           >
-            <h3
+            <h2
               className="flex items-center justify-between rounded-md px-2 py-1 text-sm font-semibold"
               style={{
                 backgroundColor: TASK_TONES[s.value].strong,
                 color: TASK_TONES[s.value].onStrong,
               }}
             >
-              <span>{s.label}</span> <span aria-label={`${col.length} tasks`}>{col.length}</span>
-            </h3>
+              <span>{s.label}</span>{" "}
+              <span aria-label={plural(col.length, "task")}>{col.length}</span>
+            </h2>
             {col.map((t) => (
               <article
                 key={t.id}
@@ -261,11 +264,12 @@ function Board({
                     {[
                       t.assignee && personName(t.assignee),
                       day(t.due_date),
-                      t.post_count > 0 && `${t.post_count} update${t.post_count === 1 ? "" : "s"}`,
+                      t.post_count > 0 && plural(t.post_count, "update"),
                     ]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
+                  <DueChip due={t.due_date} status={t.status} />
                 </div>
                 {canEdit && <MoveMenu task={t} tasks={tasks} move={move} />}
               </article>
@@ -333,7 +337,16 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
       className: HIDE_NARROW,
       cell: (t) => (t.assignee ? personName(t.assignee) : "Unassigned"),
     },
-    { key: "due", header: "Due", cell: (t) => day(t.due_date) || "No date" },
+    {
+      key: "due",
+      header: "Due",
+      cell: (t) => (
+        <span className="flex flex-wrap items-center gap-2">
+          {day(t.due_date) || "No date"}
+          <DueChip due={t.due_date} status={t.status} />
+        </span>
+      ),
+    },
     ...(canEdit
       ? [
           {
@@ -359,7 +372,11 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
     <EmptyState
       icon={ListChecks}
       title="No tasks yet"
-      description="Add a task to track what needs doing in this project."
+      description={
+        canEdit
+          ? "Add a task to track what needs doing in this project."
+          : "Only editors can add tasks. Ask the project lead."
+      }
       action={newTask}
     />
   );

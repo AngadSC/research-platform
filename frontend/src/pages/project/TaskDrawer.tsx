@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FocusEvent } from "react";
 import { toast } from "sonner";
 import { DetailPanel } from "@/components/shared/DetailPanel";
 import { FormError } from "@/components/shared/FormError";
@@ -76,16 +76,26 @@ export function TaskDrawer({
     }
   }
 
-  function saveDetails(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget);
-    const title = String(f.get("title") ?? "").trim();
-    if (!title) return setErrors({ fields: { title: "Enter a title" } });
-    void patch({
-      title,
-      description: String(f.get("description") ?? ""),
-      due_date: String(f.get("due_date") ?? "") || null,
-    });
+  // Title, description and due date save when you leave the field, like status and assignee.
+  function saveField(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
+    const { name, value } = e.currentTarget;
+    if (name === "title") {
+      const title = value.trim();
+      if (!title) return setErrors({ fields: { title: "Enter a title" } });
+      if (title !== task.title) void patch({ title });
+    } else if (name === "description") {
+      if (value !== task.description) void patch({ description: value });
+    } else if ((value || null) !== task.due_date) void patch({ due_date: value || null });
+  }
+
+  // The panel focuses its first field and selects it; put the cursor at the end instead, so a
+  // stray keypress doesn't replace the title.
+  const firstFocus = useRef(true);
+  function unselect(e: FocusEvent<HTMLInputElement>) {
+    if (!firstFocus.current) return;
+    firstFocus.current = false;
+    const el = e.currentTarget;
+    setTimeout(() => el.setSelectionRange(el.value.length, el.value.length), 0);
   }
 
   return (
@@ -94,8 +104,7 @@ export function TaskDrawer({
         {canEdit ? (
           <>
             <form
-              key={task.updated_at}
-              onSubmit={saveDetails}
+              onSubmit={(e) => e.preventDefault()}
               noValidate
               className="grid gap-3"
               aria-label="Task details"
@@ -108,23 +117,33 @@ export function TaskDrawer({
                     name="title"
                     defaultValue={task.title}
                     autoComplete="off"
+                    onFocus={unselect}
+                    onBlur={saveField}
                   />
                 )}
               </FormField>
               <FormField label="Description" error={errors.fields.description}>
-                {(p) => <Textarea {...p} name="description" defaultValue={task.description} />}
+                {(p) => (
+                  <Textarea
+                    {...p}
+                    name="description"
+                    defaultValue={task.description}
+                    onBlur={saveField}
+                  />
+                )}
               </FormField>
               <FormField label="Due date" error={errors.fields.due_date}>
                 {(p) => (
-                  <Input {...p} type="date" name="due_date" defaultValue={task.due_date ?? ""} />
+                  <Input
+                    {...p}
+                    type="date"
+                    name="due_date"
+                    defaultValue={task.due_date ?? ""}
+                    onBlur={saveField}
+                  />
                 )}
               </FormField>
               <FormError message={errors.form} />
-              <div className="flex justify-end">
-                <Button type="submit" size="sm">
-                  Save details
-                </Button>
-              </div>
             </form>
             <div className="grid grid-cols-2 gap-3">
               <FormField label="Status" error={errors.fields.status}>
