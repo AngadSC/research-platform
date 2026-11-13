@@ -106,7 +106,9 @@ export function CommandPalette({ labId, onGo }: Props) {
         onValueChange={setText}
       />
       <CommandList>
-        <CommandEmpty>{loading ? "Searching..." : "No matches."}</CommandEmpty>
+        {hits.length === 0 && (
+          <CommandEmpty>{loading ? "Searching..." : "No matches."}</CommandEmpty>
+        )}
         {groupHits(hits).map(([label, items]) => (
           <CommandGroup key={label} heading={label} forceMount>
             {items.map((h) => (

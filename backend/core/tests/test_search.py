@@ -162,7 +162,7 @@ def test_every_type_is_found_with_a_spa_url(w):
     assert by["meeting"]["url"] == f"/labs/{w.lab.pk}/calendar"
     assert WORD in by["document"]["snippet"]
     assert by["chat"]["title"] == f"the {WORD} ran"  # markdown marks dropped
-    assert by["chat"]["url"] == f"/labs/{w.lab.pk}/projects/{w.p1.pk}?chat=1"
+    assert by["chat"]["url"] == f"/labs/{w.lab.pk}/projects/{w.p1.pk}/overview?chat=1"
     assert by["chat"]["snippet"] == (w.u["pi"].display_name or w.u["pi"].email)
     assert {h["type"] for h in run(w, "pi", types="task")} == {"task"}
 

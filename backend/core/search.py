@@ -133,7 +133,7 @@ SPECS = [
         ChatMessage,
         "body",
         (),
-        lambda o: f"{_p(o)}?chat=1",
+        lambda o: f"{_p(o)}/overview?chat=1",
         label=lambda o: _plain(o.body),
         ai=False,
     ),

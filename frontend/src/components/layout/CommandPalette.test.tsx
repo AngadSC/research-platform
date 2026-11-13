@@ -59,6 +59,7 @@ describe("CommandPalette", () => {
     await screen.findByText("Tester doc.docx");
     expect(screen.getByText("Files")).toBeInTheDocument();
     expect(screen.getByText("Chat")).toBeInTheDocument();
+    expect(screen.queryByText("No matches.")).not.toBeInTheDocument(); // not beside real hits
     expect(screen.getAllByText("Projects")).toHaveLength(1); // the search group only
     expect(screen.queryByText("Go to project Gut study")).not.toBeInTheDocument();
     const goTo = screen.getByText("Go to").closest("[cmdk-group]") as HTMLElement;
