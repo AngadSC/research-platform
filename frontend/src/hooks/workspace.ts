@@ -99,6 +99,17 @@ export function useCreateInvite(labId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["labs", labId, "invites"] }),
   });
 }
+export function useUpdateInvite(labId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string; role: Role }) =>
+      api<Invite>(`/api/labs/${labId}/invites/${v.id}/`, {
+        method: "PATCH",
+        ...j({ role: v.role }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["labs", labId, "invites"] }),
+  });
+}
 export function useRevokeInvite(labId: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -128,6 +139,8 @@ export interface AuditFilters {
   actor?: string;
   date_from?: string;
   date_to?: string;
+  /** Leave out views, downloads and other reads. */
+  changes_only?: string;
 }
 /** Cursor-paginated audit log; `next` is a full URL, so only its cursor is kept. */
 export function useAuditEvents(labId: string, filters: AuditFilters, enabled: boolean) {

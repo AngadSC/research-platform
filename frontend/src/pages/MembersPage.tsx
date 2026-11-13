@@ -32,11 +32,12 @@ import {
   useMembers,
   useRemoveMember,
   useRevokeInvite,
+  useUpdateInvite,
   useUpdateMember,
 } from "@/hooks/workspace";
 import { RoleName } from "@/components/shared/RoleName";
 import { UserAvatar } from "@/components/shared/UserAvatar";
-import { ROLES, roleLabel, type Invite, type Membership, type Role } from "@/lib/api-types";
+import { ROLES, type Invite, type Membership, type Role } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
 
 const fail = (e: unknown) => toast.error(formErrors(e, []).form ?? "Something went wrong.");
@@ -136,30 +137,34 @@ function InviteForm({ labId }: { labId: string }) {
   );
 }
 
-function ConfirmRemove({
-  member,
+function Confirm({
+  open,
+  title,
+  description,
+  action,
   onConfirm,
   onClose,
 }: {
-  member: Membership | null;
+  open: boolean;
+  title: string;
+  description: string;
+  action: string;
   onConfirm: () => void;
   onClose: () => void;
 }) {
   return (
-    <Dialog open={!!member} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
-        <DialogTitle className="text-base font-semibold">
-          Remove {member?.user.display_name || member?.user.email}?
-        </DialogTitle>
+        <DialogTitle className="text-base font-semibold">{title}</DialogTitle>
         <DialogDescription className="text-sm text-muted-foreground">
-          They will lose access to this lab and its projects. You can invite them again later.
+          {description}
         </DialogDescription>
         <div className="flex justify-end gap-2">
           <DialogClose asChild>
             <Button variant="outline">Cancel</Button>
           </DialogClose>
           <Button variant="destructive" onClick={onConfirm}>
-            Remove
+            {action}
           </Button>
         </div>
       </DialogContent>
@@ -178,7 +183,9 @@ export function MembersPage() {
   const update = useUpdateMember(labId);
   const remove = useRemoveMember(labId);
   const revoke = useRevokeInvite(labId);
+  const updateInvite = useUpdateInvite(labId);
   const [removing, setRemoving] = useState<Membership | null>(null);
+  const [revoking, setRevoking] = useState<Invite | null>(null);
 
   const memberCols: Column<Membership>[] = [
     {
@@ -239,10 +246,10 @@ export function MembersPage() {
           <Button variant="ghost" size="sm" asChild>
             <Link
               to={`/labs/${labId}/members/${m.id}/handover`}
-              aria-label={`${mine ? "My work to pass on" : "Work to pass on"} for ${m.user.email}`}
+              aria-label={`${mine ? "My handover" : "Handover"} for ${m.user.email}`}
               title="Lists everything this person owns or leads, so it can be given to someone else when they leave."
             >
-              {mine ? "My work to pass on" : "Work to pass on"}
+              {mine ? "My handover" : "Handover"}
             </Link>
           </Button>
         );
@@ -267,7 +274,22 @@ export function MembersPage() {
 
   const inviteCols: Column<Invite>[] = [
     { key: "email", header: "Email", cell: (i) => i.email },
-    { key: "role", header: "Role", cell: (i) => roleLabel(i.role) },
+    {
+      key: "role",
+      header: "Role",
+      cell: (i) => (
+        <RoleSelect
+          label={`Role for the invitation to ${i.email}`}
+          value={i.role}
+          onChange={(role) =>
+            updateInvite.mutate(
+              { id: i.id, role },
+              { onSuccess: () => toast.success("Invitation role changed"), onError: fail },
+            )
+          }
+        />
+      ),
+    },
     { key: "expires", header: "Expires", cell: (i) => <RelativeTime value={i.expires_at} /> },
     {
       key: "actions",
@@ -278,12 +300,7 @@ export function MembersPage() {
           variant="ghost"
           size="sm"
           aria-label={`Revoke invitation for ${i.email}`}
-          onClick={() =>
-            revoke.mutate(i.id, {
-              onSuccess: () => toast.success("Invitation revoked"),
-              onError: fail,
-            })
-          }
+          onClick={() => setRevoking(i)}
         >
           Revoke
         </Button>
@@ -328,8 +345,26 @@ export function MembersPage() {
           />
         </section>
       )}
-      <ConfirmRemove
-        member={removing}
+      <Confirm
+        open={!!revoking}
+        title={`Revoke the invitation to ${revoking?.email ?? ""}?`}
+        description="The link in their email will stop working. You can invite them again later."
+        action="Revoke"
+        onClose={() => setRevoking(null)}
+        onConfirm={() => {
+          if (!revoking) return;
+          revoke.mutate(revoking.id, {
+            onSuccess: () => toast.success("Invitation revoked"),
+            onError: fail,
+            onSettled: () => setRevoking(null),
+          });
+        }}
+      />
+      <Confirm
+        open={!!removing}
+        title={`Remove ${removing?.user.display_name || removing?.user.email || ""}?`}
+        description="They will lose access to this lab and its projects. You can invite them again later."
+        action="Remove"
         onClose={() => setRemoving(null)}
         onConfirm={() => {
           if (!removing) return;

@@ -1,10 +1,12 @@
 """D139: `Project.last_activity_at/by`, the "Last edited" line on the overview.
 
 Any save of a project or of lab data that belongs to one, made while a signed-in user's request
-is being served, stamps that project. Jobs, imports and shell saves carry no request and leave
-it alone. Project content is visible to everyone who can see the project, so the stored value
-needs no per-viewer filtering. ponytail: deletes are not stamped (post_delete has no cheap
-"who"); add a post_delete receiver if "removed a task" should count."""
+is being served, stamps that project. Reads never do: a GET that happens to save something, or a
+model marked `not_an_edit` (such as how far someone has read the chat), is not activity. Jobs,
+imports and shell saves carry no request and leave it alone. Project content is visible to
+everyone who can see the project, so the stored value needs no per-viewer filtering. ponytail:
+deletes are not stamped (post_delete has no cheap "who"); add a post_delete receiver if "removed
+a task" should count."""
 
 from contextvars import ContextVar
 
@@ -50,6 +52,8 @@ def stamp(sender, instance, **kwargs):
     if not isinstance(instance, LabScopedModel) or getattr(instance, "not_an_edit", False):
         return
     request = _request.get()
+    if request is None or getattr(request, "method", None) in ("GET", "HEAD", "OPTIONS"):
+        return
     user = getattr(request, "user", None)
     if user is None or not user.is_authenticated:
         return

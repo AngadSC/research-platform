@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { useAuditEvents, useLab, useMembers, type AuditFilters } from "@/hooks/workspace";
 import { ApiError } from "@/lib/api";
+import { fullDate } from "@/lib/format";
 import type { AuditEvent } from "@/lib/api-types";
 
 const ACTIONS: Record<AuditEvent["action"], string> = {
@@ -35,6 +36,7 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "membership.invited": "Invited a member",
   "membership.invite_revoked": "Revoked an invitation",
   "membership.invite_accepted": "Accepted an invitation",
+  "membership.invite_role_changed": "Changed an invitation's role",
   "membership.role_changed": "Changed a member's role",
   "membership.removed": "Removed a member",
   "project_membership.added": "Added someone to a project",
@@ -42,6 +44,7 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "project_membership.removed": "Removed someone from a project",
   "project.created": "Created a project",
   "project.updated": "Updated a project",
+  "project.archived": "Archived a project",
   "project.deleted": "Deleted a project",
   "project.exported": "Exported a project",
   "document.viewed": "Viewed a document",
@@ -76,7 +79,7 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "ethics_approval.deleted": "Deleted an ethics approval",
   "retention.changed": "Changed how long project data is kept",
   "audit_log.viewed": "Viewed the audit log",
-  "handover.generated": "Listed someone's work to pass on",
+  "handover.generated": "Opened a handover",
   "integration.connected": "Connected an outside service",
   "integration.disconnected": "Disconnected an outside service",
   "integration.revoked": "Removed someone's connected service",
@@ -175,12 +178,22 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/** Relative time, with the exact local time under it (and on hover). */
+function When({ value }: { value: string }) {
+  return (
+    <span className="grid">
+      <RelativeTime value={value} />
+      <span className="text-xs text-muted-foreground">{fullDate(value)}</span>
+    </span>
+  );
+}
+
 function EventDetails({ e }: { e: AuditEvent }) {
   const meta = e.metadata && typeof e.metadata === "object" ? Object.entries(e.metadata) : [];
   return (
     <dl className="grid gap-4 py-4">
       <Field label="When">
-        <RelativeTime value={e.created_at} />
+        <When value={e.created_at} />
       </Field>
       <Field label="Who">{who(e)}</Field>
       <Field label="Action">{actionLabel(e.action)}</Field>
@@ -205,7 +218,7 @@ const columns: Column<AuditEvent>[] = [
   {
     key: "when",
     header: "When",
-    cell: (e) => <RelativeTime value={e.created_at} />,
+    cell: (e) => <When value={e.created_at} />,
   },
   { key: "who", header: "Who", cell: who },
   { key: "action", header: "Action", cell: (e) => actionLabel(e.action) },
@@ -226,7 +239,13 @@ export function AuditLogPage() {
     date_from: params.get("date_from") ?? undefined,
     date_to: params.get("date_to") ?? undefined,
   };
-  const events = useAuditEvents(labId, filters, !!allowed);
+  // Changes by default; views and downloads only when asked for (or when picked as the action).
+  const withReads = params.get("reads") === "1";
+  const events = useAuditEvents(
+    labId,
+    { ...filters, changes_only: withReads || filters.action ? undefined : "true" },
+    !!allowed,
+  );
   const [open, setOpen] = useState<AuditEvent | null>(null);
 
   const set = (key: string, value: string) =>
@@ -325,6 +344,14 @@ export function AuditLogPage() {
             onChange={(e) => set("date_to", e.target.value)}
           />
         </div>
+        <label className="flex h-9 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={withReads}
+            onChange={(e) => set("reads", e.target.checked ? "1" : "")}
+          />
+          Include views and downloads
+        </label>
         {filtered && (
           <Button variant="ghost" onClick={() => setParams({}, { replace: true })}>
             Clear filters

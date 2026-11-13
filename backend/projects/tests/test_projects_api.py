@@ -216,7 +216,11 @@ def test_deadline_delete_audit_and_project_update_audit(lab, people):
     assert c.delete(f"{base(lab)}/deadlines/{dl['id']}/").status_code == 204
     assert one(AuditAction.DEADLINE_DELETED).project_id == project.pk
     c.patch(f"{base(lab)}/projects/{project.pk}/", {"status": "active"}, "json")
-    assert one(AuditAction.PROJECT_UPDATED).metadata == {"fields": ["status"]}
+    assert one(AuditAction.PROJECT_UPDATED).metadata == {
+        "fields": ["status"],
+        "old_status": "planning",
+        "new_status": "active",
+    }
 
 
 def test_new_projects_take_the_least_used_colour(lab, people):

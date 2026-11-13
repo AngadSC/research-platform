@@ -10,7 +10,7 @@ from django.db.models import Prefetch, ProtectedError, Sum
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
-from assistant.privacy import set_flag
+from assistant.privacy import is_flagged, set_flag
 from audit.models import AuditAction
 from audit.services import record
 from core.models import NotificationKind, User
@@ -188,6 +188,10 @@ def _resolve(spec, project, data, *, actor, creating):
     for field, (model, live) in spec.fks.items():
         if data.get(field) is not None:
             data[field] = _one(project, field, model, live, data[field])
+    code = data.get("code_attachment")
+    if code is not None and is_flagged(code):  # VISION C1: Claude may run an analysis's code
+        msg = "This file identifies participants, so it can't be attached as code."
+        raise ValidationError({"code_attachment": msg})
     for field in spec.users:
         if creating and data.get(field) is None:
             data[field] = actor  # D50: the person recording it, unless a lead says otherwise

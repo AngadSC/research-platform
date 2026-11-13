@@ -127,6 +127,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("DELETE", "labs:member-detail"):    "401 404      2  2     403  403     403     403     403",
     ("GET",    "labs:invite-list"):      "401 404      2  2     403  403     403     403     403",
     ("POST",   "labs:invite-list"):      "401 404      2  2     403  403     403     403     403",
+    ("PATCH",  "labs:invite-detail"):    "401 404      2  2     403  403     403     403     403",
     ("DELETE", "labs:invite-detail"):    "401 404      2  2     403  403     403     403     403",
     ("GET",    "audit:audit-event-list"): "401 404      2  2     403  403     403     403     403",
     ("POST",   "labs:invite-preview"):   "2   2        2  2     2    2       2       2       2",
@@ -1294,6 +1295,7 @@ PAYLOADS = {
     ("POST", "documents:lab-document-list"): lambda user, w: {"title": "Lab manual", "content": []},
     ("PATCH", "labs:lab-detail"): lambda user, w: {"name": "Renamed Lab"},
     ("PATCH", "labs:member-detail"): lambda user, w: {"role": "viewer"},
+    ("PATCH", "labs:invite-detail"): lambda user, w: {"role": "viewer"},
     ("POST", "labs:invite-list"): lambda user, w: {
         "email": f"new{next(_n)}@example.com",
         "role": "member",

@@ -20,6 +20,10 @@ class LabRole(models.TextChoices):
     VIEWER = "viewer"
 
 
+# Shown to people (the audit log): "PI", not the "Pi" that get_role_display() gives.
+LAB_ROLE_WORDS = {"pi": "PI", "lab_admin": "Lab admin", "member": "Member", "viewer": "Viewer"}
+
+
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
@@ -70,7 +74,7 @@ class LabMembership(LabScopedModel):
         indexes = [models.Index(fields=["user"], name="labmember_user_idx")]
 
     def __str__(self):  # shown as the audit log's target, so plain words, never an id
-        return f"{self.user.display_name or 'A lab member'} ({self.get_role_display()})"
+        return f"{self.user.display_name or 'A lab member'} ({LAB_ROLE_WORDS[self.role]})"
 
 
 class Invite(LabScopedModel):

@@ -158,6 +158,27 @@ def revoke_invite(*, invite, by, request=None) -> None:
     _revoke(invite=invite, by=by, request=request)
 
 
+@transaction.atomic
+def change_invite_role(*, invite, by, role, request=None) -> Invite:
+    """Change a pending invite's role. The changer becomes `invited_by`, so the D40 check on
+    accepting (can the inviter still grant this role?) is about the person who chose it."""
+    old = invite.role
+    if role == old:
+        return invite
+    _require_pi_for_pi_role(by, invite.lab, old, role)
+    invite.role, invite.invited_by = role, by
+    invite.save(update_fields=["role", "invited_by", "updated_at"])
+    record(
+        AuditAction.MEMBERSHIP_INVITE_ROLE_CHANGED,
+        actor=by,
+        lab=invite.lab,
+        target=invite,
+        request=request,
+        metadata={"email": invite.email, "old_role": old, "new_role": role},
+    )
+    return invite
+
+
 def _revoke(*, invite, by, request=None) -> None:
     invite.revoked_at = timezone.now()
     invite.save(update_fields=["revoked_at", "updated_at"])
