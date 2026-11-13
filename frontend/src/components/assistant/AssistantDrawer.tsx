@@ -213,16 +213,21 @@ export function Setup({
       </p>
     );
   return (
-    <p className="rounded-md border p-3 text-sm">
-      Add your own API key to use the assistant. It is billed to your account with the provider.{" "}
-      <Link
-        className="font-medium underline underline-offset-4"
-        to="/settings#ai"
-        onClick={onOpenSettings}
-      >
-        Add your key under Assistant API keys in Settings
-      </Link>
-    </p>
+    <div className="grid justify-items-start gap-2 rounded-md border p-3 text-sm">
+      <p>
+        Add your own API key to use the assistant. It is billed to your account with the provider.
+      </p>
+      <Button asChild size="sm">
+        <Link to="/settings#ai" onClick={onOpenSettings}>
+          Set up a key
+        </Link>
+      </Button>
+      {!config.lab_key && (
+        <p className="text-xs text-muted-foreground">
+          Or ask your lab admin to add a lab key, so everyone can use the assistant.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -374,7 +379,7 @@ function AssistantPanel({
       <div className={`flex items-start justify-between gap-2 ${docked ? "" : "pr-8"}`}>
         <div>
           {docked ? (
-            <h2 className="text-base font-semibold">Assistant</h2>
+            <p className="text-base font-semibold">Assistant</p>
           ) : (
             <SheetTitle className="text-base">Assistant</SheetTitle>
           )}
@@ -405,7 +410,7 @@ function AssistantPanel({
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="Collapse the assistant"
+                aria-label="Collapse the assistant to a side strip"
                 onClick={onCollapse}
               >
                 <PanelRightClose aria-hidden />
@@ -436,6 +441,21 @@ function AssistantPanel({
       )}
       {cfg && usable.length === 0 && (
         <Setup config={cfg} onOpenSettings={docked ? undefined : onClose} />
+      )}
+      {cfg?.can_use && usable.length === 0 && (
+        <form className="mt-auto grid gap-2" onSubmit={(e) => e.preventDefault()}>
+          <Textarea
+            aria-label="Message"
+            placeholder="Set up a key to ask the assistant�"
+            rows={2}
+            disabled
+          />
+          <div className="flex justify-end">
+            <Button type="submit" disabled>
+              Send
+            </Button>
+          </div>
+        </form>
       )}
 
       {cfg && usable.length > 0 && (
@@ -740,8 +760,8 @@ export function AssistantDrawer({ labId }: { labId: string }) {
             aria-label="Assistant"
             style={{ width: dock.mode === "strip" ? STRIP_W : dock.width }}
             className={`fixed inset-y-0 right-0 z-30 border-l bg-background print:hidden ${
-              dock.mode === "closed" ? "hidden" : "flex"
-            }`}
+              dock.mode === "strip" ? "flex-col items-center bg-muted" : ""
+            } ${dock.mode === "closed" ? "hidden" : "flex"}`}
           >
             {dock.mode === "strip" && (
               <Button
@@ -754,6 +774,14 @@ export function AssistantDrawer({ labId }: { labId: string }) {
               >
                 <PanelRightOpen aria-hidden />
               </Button>
+            )}
+            {dock.mode === "strip" && (
+              <span
+                aria-hidden
+                className="mt-3 text-xs font-medium text-muted-foreground [writing-mode:vertical-rl]"
+              >
+                Assistant
+              </span>
             )}
             <div
               className={

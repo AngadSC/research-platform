@@ -132,9 +132,13 @@ export function ProjectPage() {
         actions={
           <>
             <StatusBadge status={project.status} />
-            <Button variant="outline" onClick={() => setChatOpen(true)}>
+            <Button
+              variant="outline"
+              aria-label={unread > 0 ? `Chat, ${unread} unread` : undefined}
+              onClick={() => setChatOpen(true)}
+            >
               <MessagesSquare aria-hidden /> Chat
-              <UnreadBadge count={unread} noun="message" />
+              <UnreadBadge count={unread} noun="message" decorative />
             </Button>
             {can("export") && (
               <Button
@@ -169,7 +173,10 @@ export function ProjectPage() {
       {/* The sidebar dropdown holds these from md up; below that the sidebar is a drawer. */}
       <TabNav
         label="Project sections"
-        tabs={PROJECT_SECTIONS.map(({ to, label }) => [to, label])}
+        tabs={PROJECT_SECTIONS.map((s) => {
+          const hint = (s as { hint?: string }).hint;
+          return [s.to, s.label, hint && <span className="sr-only">. {hint}</span>] as const;
+        })}
         className="mb-6 md:hidden"
       />
       <Outlet context={{ labId, projectId, project } satisfies ProjectTabProps} />

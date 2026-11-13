@@ -2,6 +2,7 @@ import { useState } from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { RichComposer, type Person } from "@/components/composer/RichComposer";
 
 const ADA = { id: "11111111-1111-1111-1111-111111111111", name: "Ada Lovelace" };
@@ -167,6 +168,26 @@ describe("@mention picker", () => {
     await userEvent.keyboard("{Escape}");
     expect(screen.queryByRole("listbox")).toBeNull();
     expect(box()).toHaveValue("@");
+  });
+
+  it("Escape closes only the list, not a dialog around the box", async () => {
+    const onClose = vi.fn();
+    render(
+      <Dialog open onOpenChange={(o) => !o && onClose()}>
+        <DialogContent>
+          <DialogTitle>Update</DialogTitle>
+          <DialogDescription>Write one</DialogDescription>
+          <Harness />
+        </DialogContent>
+      </Dialog>,
+    );
+    await userEvent.type(box(), "@");
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+    await userEvent.keyboard("{Escape}"); // with no list open, it closes the dialog as usual
+    expect(onClose).toHaveBeenCalled();
   });
 
   it("the @ button starts a mention, and a click chooses", async () => {

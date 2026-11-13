@@ -77,14 +77,24 @@ function ProjectItem({
       </div>
       {open && (
         <ul id={listId} className="mt-0.5 ml-3 grid grid-cols-1 gap-0.5 border-l pl-2">
-          {PROJECT_SECTIONS.map(({ to, label, icon: Icon }) => (
-            <li key={to}>
-              <NavLink to={`${base}/${to}`} className={linkClass} onClick={onNavigate}>
-                <Icon aria-hidden />
-                {label}
-              </NavLink>
-            </li>
-          ))}
+          {PROJECT_SECTIONS.map((section) => {
+            const { to, label, icon: Icon } = section;
+            const hint = (section as { hint?: string }).hint;
+            return (
+              <li key={to}>
+                <NavLink
+                  to={`${base}/${to}`}
+                  className={linkClass}
+                  onClick={onNavigate}
+                  title={hint}
+                  aria-description={hint}
+                >
+                  <Icon aria-hidden />
+                  {label}
+                </NavLink>
+              </li>
+            );
+          })}
         </ul>
       )}
     </li>
@@ -189,7 +199,7 @@ export function Sidebar({
     <aside
       id="app-sidebar"
       className={cn(
-        "w-64 shrink-0 flex-col gap-6 overflow-y-auto bg-sidebar p-4 print:hidden",
+        "w-64 shrink-0 flex-col gap-4 overflow-hidden bg-sidebar p-4 print:hidden",
         // Below md the sidebar is a drawer that only exists while open.
         open
           ? "fixed inset-y-0 left-0 z-50 flex md:static md:z-auto"
@@ -221,61 +231,63 @@ export function Sidebar({
           unread={unread}
         />
       </div>
-      <PinnedNav onNavigate={onClose} />
-      <nav aria-label="Main" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
-        {items
-          .filter((item) => !item.admin)
-          .map((item) =>
-            item.to.endsWith("/projects") ? (
-              <div key={item.to} className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
-                <div className="flex items-center gap-0.5">
-                  <NavLink
-                    to={item.to}
-                    end={item.end}
-                    className={(s) => cn(linkClass(s), "min-w-0 flex-1")}
-                    onClick={onClose}
-                  >
-                    <item.icon aria-hidden />
-                    {item.label}
-                  </NavLink>
-                  {current?.my_permissions.includes("create_project") && (
-                    <button
-                      type="button"
-                      aria-label="New project"
-                      onClick={() => {
-                        onClose();
-                        void navigate(`${item.to}?new=project`);
-                      }}
-                      className={iconButton}
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+        <PinnedNav onNavigate={onClose} />
+        <nav aria-label="Main" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+          {items
+            .filter((item) => !item.admin)
+            .map((item) =>
+              item.to.endsWith("/projects") ? (
+                <div key={item.to} className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+                  <div className="flex items-center gap-0.5">
+                    <NavLink
+                      to={item.to}
+                      end={item.end}
+                      className={(s) => cn(linkClass(s), "min-w-0 flex-1")}
+                      onClick={onClose}
                     >
-                      <Plus aria-hidden />
-                    </button>
-                  )}
+                      <item.icon aria-hidden />
+                      {item.label}
+                    </NavLink>
+                    {current?.my_permissions.includes("create_project") && (
+                      <button
+                        type="button"
+                        aria-label="New project"
+                        onClick={() => {
+                          onClose();
+                          void navigate(`${item.to}?new=project`);
+                        }}
+                        className={iconButton}
+                      >
+                        <Plus aria-hidden />
+                      </button>
+                    )}
+                  </div>
+                  <ul className="ml-3 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+                    {projects.map((p) => (
+                      <ProjectItem
+                        key={p.id}
+                        labId={labId!}
+                        project={p}
+                        isCurrent={p.id === projectId}
+                        unread={chatUnread[p.id] ?? 0}
+                        onNavigate={onClose}
+                      />
+                    ))}
+                  </ul>
                 </div>
-                <ul className="ml-3 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
-                  {projects.map((p) => (
-                    <ProjectItem
-                      key={p.id}
-                      labId={labId!}
-                      project={p}
-                      isCurrent={p.id === projectId}
-                      unread={chatUnread[p.id] ?? 0}
-                      onNavigate={onClose}
-                    />
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              link(item)
-            ),
-          )}
-      </nav>
-      {adminItems.length > 0 && (
-        <nav aria-label="Admin" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
-          <span className="px-2 pb-1 text-xs text-muted-foreground">Admin</span>
-          {adminItems.map(link)}
+              ) : (
+                link(item)
+              ),
+            )}
         </nav>
-      )}
+        {adminItems.length > 0 && (
+          <nav aria-label="Admin" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+            <span className="px-2 pb-1 text-xs text-muted-foreground">Admin</span>
+            {adminItems.map(link)}
+          </nav>
+        )}
+      </div>
       <SidebarFooter onNavigate={onClose} role={current?.my_role} />
     </aside>
   );

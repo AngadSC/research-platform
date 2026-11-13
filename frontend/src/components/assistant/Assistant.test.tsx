@@ -219,11 +219,12 @@ describe("assistant panel", () => {
     await open();
     expect(await screen.findByRole("note")).toHaveTextContent(/sent to the AI provider/);
     expect(screen.getByText(/Add your own API key/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Assistant API keys/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Set up a key" })).toHaveAttribute(
       "href",
       "/settings#ai",
     );
-    expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+    expect(screen.getByText(/ask your lab admin to add a lab key/)).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Message" })).toBeDisabled();
   });
 
   it.each([

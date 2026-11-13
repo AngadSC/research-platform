@@ -131,7 +131,9 @@ describe("docked assistant", () => {
     screen.getByRole("separator", { name: "Resize the assistant" }).focus();
     await userEvent.keyboard("{ArrowLeft}");
     expect(saved().width).toBe(408);
-    await userEvent.click(screen.getByRole("button", { name: "Collapse the assistant" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Collapse the assistant to a side strip" }),
+    );
     expect(saved().mode).toBe("strip");
     expect(document.documentElement.style.getPropertyValue("--assistant-w")).toBe("40px");
     await userEvent.click(screen.getByRole("button", { name: "Open the assistant" }));

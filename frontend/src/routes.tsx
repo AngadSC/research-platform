@@ -192,7 +192,7 @@ export const routes: RouteObject[] = [
                       {
                         path: "external",
                         element: <ProjectTab as={ExternalTab} />,
-                        handle: { crumb: "External" },
+                        handle: { crumb: "Posters and talks" },
                       },
                       {
                         path: "documents",
@@ -326,6 +326,9 @@ export const routes: RouteObject[] = [
               },
               { path: "audit-log", element: <AuditLogPage />, handle: { crumb: "Audit log" } },
               { path: "admin", element: <AdminPage />, handle: { crumb: "Lab details" } },
+              // Guessable addresses for pages that live elsewhere.
+              { path: "settings", element: <Navigate to="../admin" replace /> },
+              { path: "integrations", element: <Navigate to="../settings/integrations" replace /> },
               { path: "inventory", element: <InventoryPage />, handle: { crumb: "Inventory" } },
               { path: "chat", element: <LabChatPage />, handle: { crumb: "Lab chat" } },
               { path: "calendar", element: <CalendarPage />, handle: { crumb: "Calendar" } },

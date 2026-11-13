@@ -31,8 +31,17 @@ export function useAuth() {
     queryKey: SESSION_KEY,
     queryFn: () => allauth("/auth/session"),
     staleTime: 60_000,
+    // While the server is briefly down (a deploy), keep trying instead of treating it as a logout.
+    refetchInterval: (query) => (query.state.status === "error" ? 5000 : false),
   });
+  // A 4xx answer means "not signed in". A 5xx or no answer at all (status 0) says nothing about that.
+  const unavailable =
+    q.isError &&
+    !q.data &&
+    !(q.error instanceof ApiError && q.error.status >= 400 && q.error.status < 500);
   return {
+    unavailable,
+    retry: () => void q.refetch(),
     isLoading: q.isLoading,
     isAuthenticated: q.data?.authenticated ?? false,
     email: q.data?.env.data?.user?.email,

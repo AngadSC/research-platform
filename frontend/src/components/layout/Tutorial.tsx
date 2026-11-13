@@ -40,6 +40,16 @@ const STEPS = [
     path: "calendar",
   },
   {
+    title: "The assistant",
+    body: `The Assistant button opens an AI helper that sees only what you can see. It needs an API key, which you add in Settings (or your lab admin adds one for everyone). ${MOD_KEY} . opens and closes it.`,
+    path: "dashboard",
+  },
+  {
+    title: "Integrations",
+    body: "Connect Google Drive and other tools, or connect Claude and other AI apps to your lab, from the Integrations page.",
+    path: "settings/integrations",
+  },
+  {
     title: "Finding things",
     body: `Press ${MOD_KEY} K on any page to search for a project, document or page. This Help page has answers and shortcuts, and you can restart the tour from here.`,
     path: "/help",
@@ -47,6 +57,8 @@ const STEPS = [
 ];
 
 function readStep(): number | null {
+  // A tour left midway does not come back on a phone, where the card would cover the page.
+  if (window.matchMedia?.("(max-width: 639px)").matches) return null;
   try {
     const n = Number(localStorage.getItem(KEY) ?? NaN);
     return Number.isInteger(n) && STEPS[n] ? n : null;
@@ -70,16 +82,24 @@ export function Tutorial() {
   const labId = useCurrentLabId();
   const [step, setStep] = useState(readStep);
   const heading = useRef<HTMLHeadingElement>(null);
+  const opener = useRef<Element | null>(null);
 
   const go = useCallback(
     (next: number | null) => {
+      if (step === null) opener.current = document.activeElement; // where focus goes back to
+      if (next === null) {
+        const el = opener.current;
+        const back =
+          el instanceof HTMLElement && el.isConnected && el !== document.body ? el : null;
+        (back ?? document.getElementById("main"))?.focus();
+      }
       setStep(next);
       saveStep(next);
       const path = next === null ? undefined : STEPS[next]?.path;
       if (path?.startsWith("/")) void navigate(path);
       else if (path && labId) void navigate(`/labs/${labId}/${path}`);
     },
-    [navigate, labId],
+    [navigate, labId, step],
   );
 
   useEffect(() => {
@@ -97,6 +117,8 @@ export function Tutorial() {
   const last = step === STEPS.length - 1;
   return (
     <section
+      role="dialog"
+      aria-modal="false"
       aria-label="Tutorial"
       className="fixed right-4 bottom-4 left-4 z-30 rounded-lg border bg-card p-4 text-card-foreground shadow-lg sm:left-auto sm:w-96 print:hidden"
     >

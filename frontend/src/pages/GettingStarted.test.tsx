@@ -83,14 +83,14 @@ describe("tutorial and help", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Account menu" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: /Help/ }));
     await userEvent.click(await screen.findByRole("button", { name: "Take the tour" }));
-    const tour = await screen.findByRole("region", { name: "Tutorial" });
-    expect(within(tour).getByText("Step 1 of 7")).toBeVisible();
+    const tour = await screen.findByRole("dialog", { name: "Tutorial" });
+    expect(within(tour).getByText("Step 1 of 9")).toBeVisible();
     expect(router.state.location.pathname).toBe("/labs/lab1/dashboard");
     await userEvent.click(within(tour).getByRole("button", { name: "Next" }));
-    expect(within(tour).getByText("Step 2 of 7")).toBeVisible();
+    expect(within(tour).getByText("Step 2 of 9")).toBeVisible();
     expect(router.state.location.pathname).toBe("/labs/lab1/projects");
     await userEvent.click(within(tour).getByRole("button", { name: "Close tutorial" }));
-    expect(screen.queryByRole("region", { name: "Tutorial" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Tutorial" })).toBeNull();
     expect(localStorage.getItem("tutorial-step")).toBeNull();
   });
 
