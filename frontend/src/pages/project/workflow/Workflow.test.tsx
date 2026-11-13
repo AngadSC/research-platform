@@ -68,6 +68,22 @@ const progress = (next: string | null, done: string[] = [], marked: string[] = [
 });
 
 describe("Workflow progress", () => {
+  it("tells a viewer what they cannot do instead of asking them to do it", async () => {
+    mockFetch(
+      base(["view_project"], ["view_lab"], {
+        [`GET ${P}/workflow-progress/`]: { body: progress("participants") },
+        [`GET ${P}/recruitment-entries/`]: { body: [] },
+        [`GET ${P}/recruitment-plan/`]: { body: { target_enrolment: null, notes: "" } },
+      }),
+    );
+    renderRoute(`${W}/participants`);
+    expect(
+      await screen.findByText("Next for the project's editors: Participants."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Only editors can add entries. Ask the project lead.")).toBeVisible();
+    expect(screen.queryByText(/Add a dated entry/)).toBeNull();
+  });
+
   it("opens on the first stage not done and says what to do", async () => {
     mockFetch(
       base(PI, ["view_lab"], {
@@ -131,7 +147,8 @@ describe("Workflow progress", () => {
       }),
     );
     renderRoute(`${W}/funding`);
-    await screen.findByText("Do this next: Funding.");
+    await screen.findByText("Next for the project's editors: Funding.");
+    expect(screen.queryByText("Do this next: Funding.")).toBeNull();
     expect(screen.queryByRole("button", { name: "Done or not needed" })).toBeNull();
   });
 
@@ -249,14 +266,15 @@ describe("Funding", () => {
     });
   });
 
-  it("sends anyone but a PI away from Funding and hides it from the Workflow bar", async () => {
+  it("tells anyone but a PI that Funding is PI-only, and hides it from the Workflow bar", async () => {
     mockFetch(
       base(LEAD, ["view_lab"], {
         [`GET ${P}/workflow-progress/`]: { body: progress("ethics") },
       }),
     );
     const router = renderRoute(`${W}/funding`);
-    await waitFor(() => expect(router.state.location.pathname).toBe(`${W}/ethics`));
+    expect(await screen.findByText("Funding is visible to PIs only")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(`${W}/funding`);
     const nav = await screen.findByRole("navigation", { name: "Workflow sections" });
     expect(within(nav).queryByRole("link", { name: /Funding/ })).toBeNull();
   });
@@ -399,6 +417,57 @@ describe("Ethics", () => {
       projects: ["p1"],
       restricted: true,
     });
+  });
+});
+
+describe("Ethics: link and required fields", () => {
+  const LAB = ["view_lab", "view_ethics", "edit_ethics"];
+  const other = {
+    id: "ap2",
+    approval_number: "IRB-2",
+    board: "Example IRB",
+    title: "Sleep study",
+    approval_date: "2026-01-01",
+    expiry_date: "2099-01-01",
+    status: "active",
+    restricted: false,
+    projects: [{ id: "p9", name: "Other project" }],
+    attachments: [],
+    can_view_files: true,
+    created_by: user,
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+  };
+
+  it("links an approval the lab already has, keeping its other projects", async () => {
+    const calls = mockFetch(
+      base(CONTRIB, LAB, {
+        "GET /api/labs/lab1/ethics-approvals/?project=p1": { body: [] },
+        "GET /api/labs/lab1/ethics-approvals/": { body: [other] },
+        "GET /api/labs/lab1/institution-resources/?category=ethics": { body: [] },
+        "PATCH /api/labs/lab1/ethics-approvals/ap2/": { body: other },
+      }),
+    );
+    renderRoute(`${W}/ethics`);
+    await userEvent.click(await screen.findByRole("button", { name: "Link existing" }));
+    await userEvent.selectOptions(await screen.findByLabelText("Approval"), "ap2");
+    await userEvent.click(screen.getByRole("button", { name: "Link" }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ projects: ["p9", "p1"] }),
+    );
+  });
+
+  it("marks the required fields of a new approval", async () => {
+    mockFetch(
+      base(CONTRIB, LAB, {
+        "GET /api/labs/lab1/ethics-approvals/?project=p1": { body: [] },
+        "GET /api/labs/lab1/institution-resources/?category=ethics": { body: [] },
+      }),
+    );
+    renderRoute(`${W}/ethics`);
+    await userEvent.click(await screen.findByRole("button", { name: "New approval" }));
+    expect(await screen.findByLabelText("Approval date")).toBeRequired();
+    expect(screen.getByLabelText("Expiry date")).toBeRequired();
   });
 });
 

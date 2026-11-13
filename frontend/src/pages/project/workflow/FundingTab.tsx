@@ -1,6 +1,5 @@
 import { Landmark } from "lucide-react";
 import { useState } from "react";
-import { Navigate } from "react-router";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -31,7 +30,13 @@ import { attachFromDrive } from "@/lib/drive";
 /** Workflow > Funding (D133, D226): PIs only, so everyone who reaches this page can edit it. */
 export default function FundingTab(props: ProjectTabProps) {
   if (!props.project.my_permissions.includes("access_funding")) {
-    return <Navigate to="../ethics" replace />;
+    return (
+      <EmptyState
+        icon={Landmark}
+        title="Funding is visible to PIs only"
+        description="Ask a PI on this project if you need to know how it is funded."
+      />
+    );
   }
   return <FundingPanel {...props} />;
 }
@@ -199,7 +204,7 @@ function FundingDialog({
     >
       {(e) => (
         <>
-          <FormField label="Funder" error={e.funder}>
+          <FormField label="Funder" required error={e.funder}>
             {(p) => (
               <Input
                 maxLength={200}

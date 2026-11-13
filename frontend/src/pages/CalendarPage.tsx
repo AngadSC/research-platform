@@ -65,7 +65,12 @@ function Entry({
         )}
       />
       <span className="sr-only">{KIND[item.kind]}: </span>
-      <span className={cn("min-w-0 truncate", item.done && "text-muted-foreground line-through")}>
+      <span
+        className={cn(
+          "min-w-0 break-words line-clamp-2",
+          item.done && "text-muted-foreground line-through",
+        )}
+      >
         {item.starts_at &&
           `${new Date(item.starts_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })} `}
         {item.title}
@@ -98,7 +103,7 @@ function GoogleEntry({ event }: { event: GoogleEvent }) {
     <>
       <CalendarDays aria-hidden className="mt-0.5 size-3 shrink-0 text-muted-foreground" />
       <span className="sr-only">Your Google Calendar: </span>
-      <span className="min-w-0 truncate italic">
+      <span className="min-w-0 break-words line-clamp-2 italic">
         {time}
         {event.title}
       </span>

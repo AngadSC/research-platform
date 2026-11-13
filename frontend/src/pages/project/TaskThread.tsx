@@ -127,7 +127,13 @@ export function TaskThread({
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!text.trim()) return;
-    create.mutate(text, { onSuccess: () => setText(""), onError: fail });
+    create.mutate(text, {
+      onSuccess: () => {
+        setText("");
+        toast.success("Update posted");
+      },
+      onError: fail,
+    });
   }
 
   return (

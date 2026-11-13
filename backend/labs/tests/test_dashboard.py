@@ -21,7 +21,7 @@ from projects.models import (
     Task,
     TaskStatus,
 )
-from provenance.models import DataManagementPlan, FundingRecord
+from provenance.models import DataManagementPlan, DatasetRecord, FundingRecord
 
 pytestmark = pytest.mark.django_db
 TODAY = date.today()
@@ -280,11 +280,27 @@ def test_projects_without_an_approved_dmp(world):
     ok = Project.objects.create(lab=lab, name="Approved", created_by=pi, status="active")
     DataManagementPlan.objects.create(lab=lab, project=draft, updated_by=pi)
     DataManagementPlan.objects.create(lab=lab, project=ok, status="approved", updated_by=pi)
+    old = timezone.now() - timedelta(days=15)
+    Project.objects.for_lab(lab).update(created_at=old)  # past the grace period
     data = get(world)
     got = {i["project_name"]: i["dmp_status"] for i in data["attention"]["dmp"]["items"]}
     assert got == {"P1": "none", "Drafty": "draft"}  # completed and approved ones are not listed
     assert data["attention"]["dmp"]["total"] == 2 == data["summary"]["projects_without_dmp"]
     assert done.name not in got
+
+
+def test_a_new_project_gets_a_grace_period_before_the_dmp_flag(world):
+    lab, pi = world["lab"], world["pi"]
+    fresh = Project.objects.create(lab=lab, name="Fresh", created_by=pi, status="planning")
+    Project.objects.for_lab(lab).exclude(pk=fresh.pk).update(
+        created_at=timezone.now() - timedelta(days=30)
+    )
+    names = lambda: {i["project_name"] for i in get(world)["attention"]["dmp"]["items"]}  # noqa: E731
+    assert names() == {"P1"}  # Fresh is days old and holds no data
+    DatasetRecord.objects.create(
+        lab=lab, project=fresh, name="D", version_label="v1", created_by=pi
+    )
+    assert names() == {"P1", "Fresh"}  # holding a dataset ends the grace period
 
 
 def test_query_count_is_flat(world, make_user, join):

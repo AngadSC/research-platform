@@ -103,7 +103,11 @@ export default function ReviewTab(props: ProjectTabProps) {
             <EmptyState
               icon={ClipboardCheck}
               title="No review items yet"
-              description="Ask a colleague to review or sign off on part of the project, and track where each request stands."
+              description={
+                canEdit
+                  ? "Ask a colleague to review or sign off on part of the project, and track where each request stands."
+                  : "Only editors can request a review. Ask the project lead."
+              }
               action={add}
             />
           }

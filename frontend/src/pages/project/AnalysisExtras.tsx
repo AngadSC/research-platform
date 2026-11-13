@@ -59,15 +59,23 @@ export function RunAgain({
         onError: (e) => toast.error(formErrors(e, []).form),
       },
     );
+  const why = "None of its datasets has a newer version yet.";
   return (
-    <Button
-      variant="outline"
-      disabled={!hasNewer || save.isPending}
-      title={hasNewer ? undefined : "None of its datasets has a newer version yet."}
-      onClick={run}
-    >
-      Run again on newer data
-    </Button>
+    <span title={hasNewer ? undefined : why} className="inline-flex">
+      <Button
+        variant="outline"
+        disabled={!hasNewer || save.isPending}
+        aria-describedby={hasNewer ? undefined : "run-again-why"}
+        onClick={run}
+      >
+        Run again on newer data
+      </Button>
+      {!hasNewer && (
+        <span id="run-again-why" className="sr-only">
+          {why}
+        </span>
+      )}
+    </span>
   );
 }
 

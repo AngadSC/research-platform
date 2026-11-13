@@ -1,8 +1,10 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { localDateISO } from "@/lib/format";
 import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
 
+const ago = (n: number) => localDateISO(new Date(Date.now() - n * 86_400_000));
 const PI = ["view_lab", "manage_lab"];
 const list = <T,>(items: T[], total = items.length) => ({ total, items });
 const project = (over: Record<string, unknown> = {}) => ({
@@ -66,7 +68,7 @@ const dash = (over: Record<string, unknown> = {}) => ({
         id: "e1",
         title: "Pilot REB",
         approval_number: "REB-1",
-        expiry_date: "2026-11-01",
+        expiry_date: ago(4),
         days_left: -4,
         expired: true,
       },
@@ -261,6 +263,16 @@ describe("Dashboard", () => {
     expect(calls.some((c) => c.path === "/api/labs/lab1/contributions/?user=u1")).toBe(true);
   });
 
+  it("tells a viewer they cannot be given tasks, instead of promising some", async () => {
+    mockFetch({
+      ...base(dash(), ["view_lab"]),
+      "GET /api/labs/lab1/": { body: makeLab(["view_lab"], "viewer") },
+    });
+    renderRoute("/labs/lab1");
+    expect(await screen.findByText(/Viewers can't be given tasks/)).toBeInTheDocument();
+    expect(screen.queryByText(/will show up here/)).toBeNull();
+  });
+
   it("shows a member their own tasks on Home and never asks for the lab's dashboard", async () => {
     const calls = mockFetch({
       ...base(dash(), ["view_lab", "create_project"]),
@@ -282,7 +294,7 @@ describe("Dashboard", () => {
       "href",
       "/labs/lab1/projects/p1/tasks?task=t9",
     );
-    expect(screen.getByText(/overdue/)).toBeInTheDocument();
+    expect(screen.getByText("Overdue")).toBeInTheDocument();
     expect(calls.some((c) => c.path.endsWith("/dashboard/"))).toBe(false);
     expect(calls.some((c) => c.path.includes("/contributions/"))).toBe(false);
   });

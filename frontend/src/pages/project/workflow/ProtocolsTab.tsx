@@ -74,7 +74,11 @@ export default function ProtocolsTab({ labId, projectId, project }: ProjectTabPr
           <EmptyState
             icon={FlaskConical}
             title="No protocols yet"
-            description="List the reagents and amounts a protocol uses. When you run it, record what you used and it comes off the lab's stock."
+            description={
+              canEdit
+                ? "List the reagents and amounts a protocol uses. When you run it, record what you used and it comes off the lab's stock."
+                : "Only editors can add protocols. Ask the project lead."
+            }
             action={
               canEdit ? <Button onClick={() => setEditing("new")}>Add protocol</Button> : undefined
             }

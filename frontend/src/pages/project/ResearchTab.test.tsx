@@ -288,7 +288,9 @@ describe("analysis detail", () => {
   it("disables run again when no dataset has a newer version", async () => {
     mockFetch(base(edit, { [`GET ${P}/datasets/`]: { body: [old] } }));
     renderRoute(URL);
-    expect(await screen.findByRole("button", { name: "Run again on newer data" })).toBeDisabled();
+    const btn = await screen.findByRole("button", { name: "Run again on newer data" });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAccessibleDescription("None of its datasets has a newer version yet.");
   });
 
   it("creates a new analysis on the newest dataset version", async () => {
@@ -308,5 +310,81 @@ describe("analysis detail", () => {
     expect(sent.datasets).toEqual(["d2"]);
     expect(sent.code_commit).toBe("abc1234def");
     expect(sent.description).toContain("Alpha diversity");
+  });
+});
+
+describe("dataset versions", () => {
+  const edit = ["view_project", "edit_content"];
+  const full = {
+    id: "d1",
+    project: "p1",
+    name: "Stool",
+    version_label: "v1",
+    location_text: "secure server",
+    location_url: "",
+    controlled_by: null,
+    access_notes: "ask Ada",
+    checksum: "abc",
+    previous_version: null,
+    analyses: [],
+    contains_participant_data: false,
+    created_at: "2026-01-01T00:00:00Z",
+  };
+  const v2 = {
+    ...full,
+    id: "d2",
+    version_label: "v2",
+    previous_version: { id: "d1", name: "Stool", version_label: "v1" },
+    created_at: "2026-02-01T00:00:00Z",
+  };
+  const NEW = "/labs/lab1/projects/p1/workflow/data/datasets/new";
+
+  it("offers New version on a dataset, pre-filled from it", async () => {
+    mockFetch(
+      base(edit, {
+        [`GET ${P}/datasets/`]: { body: [full] },
+        "GET /api/labs/lab1/datasets/d1/": { body: full },
+      }),
+    );
+    renderRoute("/labs/lab1/projects/p1/workflow/data/datasets/d1");
+    expect(await screen.findByRole("link", { name: "New version" })).toHaveAttribute(
+      "href",
+      `${NEW}?from=d1`,
+    );
+  });
+
+  it("starts the new version with the old details and 'New version of' set", async () => {
+    const calls = mockFetch(
+      base(edit, {
+        [`GET ${P}/datasets/`]: { body: [full] },
+        "GET /api/labs/lab1/datasets/d1/": { body: full },
+        [`POST ${P}/datasets/`]: { status: 201, body: v2 },
+        "GET /api/labs/lab1/datasets/d2/": { body: v2 },
+      }),
+    );
+    renderRoute(`${NEW}?from=d1`);
+    expect(await screen.findByRole("heading", { name: "New version of Stool" })).toBeVisible();
+    expect(screen.getByLabelText(/^Name/)).toHaveValue("Stool");
+    expect(screen.getByLabelText(/^Where it lives/)).toHaveValue("secure server");
+    expect(screen.getByLabelText(/^Version/)).toHaveValue("");
+    await userEvent.type(screen.getByLabelText(/^Version/), "v2");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+    expect(calls.find((c) => c.method === "POST")?.body).toMatchObject({
+      name: "Stool",
+      version_label: "v2",
+      previous_version: "d1",
+      location_text: "secure server",
+    });
+  });
+
+  it("lists versions together, newest first, with Latest and Replaced chips", async () => {
+    mockFetch(base(edit, { [`GET ${P}/datasets/`]: { body: [full, v2] } }));
+    renderRoute("/labs/lab1/projects/p1/workflow/data");
+    const rows = await screen.findAllByRole("row");
+    expect(rows[1]).toHaveTextContent("v2");
+    expect(rows[1]).toHaveTextContent("Latest");
+    expect(rows[2]).toHaveTextContent("v1");
+    expect(rows[2]).toHaveTextContent("Replaced");
   });
 });

@@ -68,7 +68,11 @@ export function LabHomePage() {
           <EmptyState
             icon={FolderKanban}
             title="No projects yet"
-            description="Projects hold your tasks, documents and files for one piece of research."
+            description={
+              canCreate
+                ? "Projects hold your tasks, documents and files for one piece of research."
+                : "Only PIs and lab admins can create projects. Ask one of them to add you to one."
+            }
             action={
               canCreate ? <Button onClick={() => setCreating(true)}>New project</Button> : undefined
             }

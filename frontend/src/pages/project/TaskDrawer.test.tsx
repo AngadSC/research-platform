@@ -136,6 +136,48 @@ describe("task drawer", () => {
     await waitFor(() => expect(taskPatches().at(-1)?.body).toEqual({ status: "done" }));
   });
 
+  it("saves the title, description and due date when you leave the field", async () => {
+    const calls = mockFetch({
+      ...base(["view_project", "edit_content"]),
+      [`PATCH ${LAB}/tasks/t1/`]: { body: task({ title: "Run the assay" }) },
+    });
+    const patches = () =>
+      calls.filter((c) => c.path === `${LAB}/tasks/t1/` && c.method === "PATCH");
+    renderRoute(TASKS);
+    const drawer = await screen.findByRole("dialog");
+    expect(within(drawer).queryByRole("button", { name: "Save details" })).toBeNull();
+    const title = within(drawer).getByLabelText("Title");
+    await userEvent.click(title);
+    await userEvent.type(title, " now");
+    expect(patches()).toHaveLength(0); // nothing until you leave the field
+    await userEvent.tab();
+    await waitFor(() => expect(patches().at(0)?.body).toEqual({ title: "Run assay now" }));
+    await userEvent.clear(within(drawer).getByLabelText("Due date"));
+    await userEvent.tab();
+    await waitFor(() => expect(patches().at(-1)?.body).toEqual({ due_date: null }));
+  });
+
+  it("does not save an unchanged field or an empty title", async () => {
+    const calls = mockFetch(base(["view_project", "edit_content"]));
+    renderRoute(TASKS);
+    const drawer = await screen.findByRole("dialog");
+    const title = within(drawer).getByLabelText("Title");
+    await userEvent.click(title);
+    await userEvent.tab();
+    await userEvent.clear(title);
+    await userEvent.tab();
+    expect(await within(drawer).findByText("Enter a title")).toBeInTheDocument();
+    expect(calls.filter((c) => c.path === `${LAB}/tasks/t1/` && c.method === "PATCH")).toEqual([]);
+  });
+
+  it("opens with the cursor in the title, not the text selected", async () => {
+    mockFetch(base(["view_project", "edit_content"]));
+    renderRoute(TASKS);
+    const title = (await screen.findByLabelText("Title")) as HTMLInputElement;
+    await waitFor(() => expect(title).toHaveFocus());
+    await waitFor(() => expect(title.selectionStart).toBe(title.selectionEnd));
+  });
+
   it("deletes only after confirming", async () => {
     const calls = mockFetch({
       ...base(["view_project", "edit_content"]),
@@ -210,6 +252,7 @@ describe("task thread", () => {
     await waitFor(() =>
       expect(calls.find((c) => c.method === "POST")?.body).toEqual({ body: "Started" }),
     );
+    expect(await screen.findByText("Update posted")).toBeInTheDocument();
   });
 
   it("lets authors edit and delete their own posts, and leads delete any", async () => {

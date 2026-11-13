@@ -26,9 +26,16 @@ from projects.models import (
     Task,
     TaskStatus,
 )
-from provenance.models import DataManagementPlan, DmpStatus, FundingRecord, FundingStatus
+from provenance.models import (
+    DataManagementPlan,
+    DatasetRecord,
+    DmpStatus,
+    FundingRecord,
+    FundingStatus,
+)
 
 LIMIT = 20  # per attention list; the total is reported separately
+DMP_GRACE_DAYS = 14  # a new project is not flagged for a missing plan until it is this old
 ETHICS_DAYS, FUNDING_DAYS, DEADLINE_DAYS, STALLED_DAYS, DONE_DAYS = 60, 90, 14, 30, 30
 ACTIVE_FUNDING = (FundingStatus.AWARDED, FundingStatus.ACTIVE)
 _PRIORITY_RANK = Case(
@@ -286,6 +293,9 @@ def build_dashboard(user, lab) -> dict:
         DataManagementPlan.objects.visible_to(user, lab).values_list("project_id", "status")
     )
 
+    # A brand-new project is not flagged yet: wait DMP_GRACE_DAYS, or until it holds a dataset.
+    has_data = set(DatasetRecord.objects.for_lab(lab.pk).values_list("project_id", flat=True))
+
     members = list(LabMembership.objects.for_lab(lab).select_related("user").order_by("created_at"))
     last_active = {
         r["actor_id"]: r["at"]
@@ -400,6 +410,7 @@ def build_dashboard(user, lab) -> dict:
         for p in projects
         if p.status in (ProjectStatus.PLANNING, ProjectStatus.ACTIVE)
         and dmp_status.get(p.pk) != DmpStatus.APPROVED
+        and (p.created_at <= now - timedelta(days=DMP_GRACE_DAYS) or p.pk in has_data)
     ]
     unassigned_items = [
         {

@@ -75,7 +75,11 @@ export function LabDocumentsPage() {
           <EmptyState
             icon={FileText}
             title="No lab documents yet"
-            description="Write something the whole lab needs, such as a lab manual or an SOP."
+            description={
+              canAdd
+                ? "Write something the whole lab needs, such as a lab manual or an SOP."
+                : "Only lab members who can edit can add documents. Ask a PI or lab admin."
+            }
             action={addButton}
           />
         }

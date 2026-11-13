@@ -36,6 +36,7 @@ import {
 } from "@/hooks/dashboard";
 import { useLab } from "@/hooks/workspace";
 import { roleLabel } from "@/lib/api-types";
+import { daysUntil } from "@/lib/ethics";
 import { dueText, HEALTH_LABEL, shortDate, sortProjects, type SortKey } from "@/lib/dashboard";
 import { formErrors } from "@/lib/forms";
 import { plural } from "@/lib/format";
@@ -456,8 +457,8 @@ export function DashboardPage() {
                       tone={e.expired ? "red" : "amber"}
                       meta={
                         e.expired
-                          ? `Expired ${dueText(e.days_left, "ago")}`
-                          : `Expires ${dueText(e.days_left)}`
+                          ? `Expired ${dueText(daysUntil(e.expiry_date), "ago")}`
+                          : `Expires ${dueText(daysUntil(e.expiry_date))}`
                       }
                     />
                   ))}
@@ -465,7 +466,7 @@ export function DashboardPage() {
                 <Card
                   id="funding"
                   title="Funding ending"
-                  tone={a.funding.items.some((f) => f.days_left < 0) ? "red" : "amber"}
+                  tone={a.funding.items.some((f) => daysUntil(f.end_date) < 0) ? "red" : "amber"}
                   total={a.funding.total}
                   shown={a.funding.items.length}
                 >
@@ -474,8 +475,8 @@ export function DashboardPage() {
                       key={f.id}
                       to={`${base}/projects/${f.project_id}/workflow/funding`}
                       title={`${f.funder} · ${f.project_name}`}
-                      tone={f.days_left < 0 ? "red" : "amber"}
-                      meta={`${f.days_left < 0 ? "Ended" : "Ends"} ${shortDate(f.end_date)} (${dueText(f.days_left, "ago")})`}
+                      tone={daysUntil(f.end_date) < 0 ? "red" : "amber"}
+                      meta={`${daysUntil(f.end_date) < 0 ? "Ended" : "Ends"} ${shortDate(f.end_date)} (${dueText(daysUntil(f.end_date), "ago")})`}
                     />
                   ))}
                 </Card>
@@ -491,9 +492,9 @@ export function DashboardPage() {
                       key={d.id}
                       to={`${base}/projects/${d.project_id}/overview`}
                       title={d.title}
-                      tone={d.days_left < 0 ? "red" : "amber"}
+                      tone={daysUntil(d.due_date) < 0 ? "red" : "amber"}
                       badge={priorityBadge(d.priority)}
-                      meta={`${d.project_name} · ${shortDate(d.due_date)} (${d.days_left < 0 ? dueText(d.days_left, "late") : dueText(d.days_left)})`}
+                      meta={`${d.project_name} · ${shortDate(d.due_date)} (${daysUntil(d.due_date) < 0 ? dueText(daysUntil(d.due_date), "late") : dueText(daysUntil(d.due_date))})`}
                     />
                   ))}
                 </Card>

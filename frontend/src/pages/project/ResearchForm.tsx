@@ -171,12 +171,26 @@ interface Props {
   projectId: string;
   kind: Kind;
   record?: AnyRecord;
+  /** A new dataset version starts from this one: same details, "New version of" set to it. */
+  prefill?: Dataset;
   onSaved: (r: { id: string }) => void;
   onCancel: () => void;
 }
 
-export function ResearchForm({ labId, projectId, kind, record, onSaved, onCancel }: Props) {
-  const [v, setV] = useState<Values>(() => initial(kind, record));
+export function ResearchForm({
+  labId,
+  projectId,
+  kind,
+  record,
+  prefill,
+  onSaved,
+  onCancel,
+}: Props) {
+  const [v, setV] = useState<Values>(() =>
+    prefill
+      ? { ...initial(kind, prefill), version_label: "", checksum: "", previous_version: prefill.id }
+      : initial(kind, record),
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string>();
   const [refs, setRefs] = useState<Reference[]>(() =>
@@ -184,7 +198,8 @@ export function ResearchForm({ labId, projectId, kind, record, onSaved, onCancel
   );
   const [refErrors, setRefErrors] = useState<RefErrors[]>([]);
   const [participant, setParticipant] = useState(
-    kind === "datasets" && !!(record as Dataset | undefined)?.contains_participant_data,
+    kind === "datasets" &&
+      !!((record ?? prefill) as Dataset | undefined)?.contains_participant_data,
   );
   const [uploading, setUploading] = useState(false);
   const save = useSaveRecord<{ id: string }>(labId, projectId, kind, record?.id);
@@ -234,9 +249,21 @@ export function ResearchForm({ labId, projectId, kind, record, onSaved, onCancel
           Store a pointer only. Do not upload participant data.
         </p>
       )}
+      {kind === "analyses" && (
+        <p role="note" className="text-sm text-muted-foreground">
+          <span className="text-destructive">*</span> Required. Code is also required: add a
+          repository link and commit, or attach the code.
+        </p>
+      )}
       <FormError message={formError} />
       {FIELDS[kind].map((f) => (
-        <FormField key={f.name} label={f.label} hint={f.hint} error={errors[f.name]}>
+        <FormField
+          key={f.name}
+          label={f.label}
+          hint={f.hint}
+          required={f.required}
+          error={errors[f.name]}
+        >
           {(p) =>
             f.type === "textarea" ? (
               <Textarea
