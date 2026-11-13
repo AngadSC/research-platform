@@ -117,7 +117,7 @@ describe("admin area", () => {
       user: "u2",
       done: true,
     });
-    expect(screen.getByRole("link", { name: /Work to pass on for Bob/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Handover for Bob/ })).toBeInTheDocument();
   });
 
   it("lets a member edit inventory but a viewer only read it", async () => {

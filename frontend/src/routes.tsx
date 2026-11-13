@@ -154,7 +154,7 @@ export const routes: RouteObject[] = [
                   {
                     path: ":membershipId/handover",
                     element: <HandoverPage />,
-                    handle: { crumb: "Work to pass on" },
+                    handle: { crumb: "Handover" },
                   },
                 ],
               },
@@ -177,7 +177,7 @@ export const routes: RouteObject[] = [
                       {
                         path: "handover",
                         element: <HandoverPage />,
-                        handle: { crumb: "Work to pass on" },
+                        handle: { crumb: "Handover" },
                       },
                       {
                         path: "tasks",

@@ -173,10 +173,7 @@ export function ProjectPage() {
       {/* The sidebar dropdown holds these from md up; below that the sidebar is a drawer. */}
       <TabNav
         label="Project sections"
-        tabs={PROJECT_SECTIONS.map((s) => {
-          const hint = (s as { hint?: string }).hint;
-          return [s.to, s.label, hint && <span className="sr-only">. {hint}</span>] as const;
-        })}
+        tabs={PROJECT_SECTIONS.map(({ to, label }) => [to, label])}
         className="mb-6 md:hidden"
       />
       <Outlet context={{ labId, projectId, project } satisfies ProjectTabProps} />
