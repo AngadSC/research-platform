@@ -21,6 +21,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from types import SimpleNamespace
 
+from django.apps import apps
 from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
@@ -33,7 +34,7 @@ from assistant import drive_files, file_links, privacy
 from assistant.models import FileLinkKind
 from audit.models import AuditAction
 from audit.services import record
-from core.models import Notification
+from core.models import Notification, NotificationKind
 from core.notifications import live_body, live_title, notification_url, visible_notifications
 from core.permissions import (
     Perm,
@@ -878,19 +879,36 @@ def my_notifications(ctx, lab_id, unread_only=True):
     qs = _scope(Notification, ctx.user, lab).order_by("-created_at", "id")
     if unread_only:
         qs = qs.filter(read_at__isnull=True)
-    return {
-        "notifications": [
-            {
-                "kind": n.kind,
+    out = []
+    for n in visible_notifications(ctx.user, lab, qs, limit=50):
+        if _targets_flagged(n, lab):  # titles and notes can quote the item: say nothing about it
+            what = "Retention review" if n.kind == NotificationKind.RETENTION_DUE else "Notice"
+            row = {"title": f"{what}: an item marked as identifying participants", "body": ""}
+            row["url"] = _url(f"/labs/{n.lab_id}")
+        else:
+            row = {
                 "title": live_title(n),
                 "body": untrusted(_cut(live_body(n), 500)),
-                "created_at": n.created_at,
-                "read": n.read_at is not None,
                 "url": _url(notification_url(n, ctx.user)),
             }
-            for n in visible_notifications(ctx.user, lab, qs, limit=50)
-        ]
-    }
+        out.append(
+            {"kind": n.kind, **row, "created_at": n.created_at, "read": n.read_at is not None}
+        )
+    return {"notifications": out}
+
+
+def _targets_flagged(n, lab) -> bool:
+    """True when the notification is about an item AI tools may not open."""
+    if not n.target_id or not n.target_type:
+        return False
+    try:
+        model = apps.get_model(n.target_type)
+    except (LookupError, ValueError):
+        return False
+    if model not in privacy._CONTAINER:
+        return False
+    obj = model.objects.for_lab(lab).filter(pk=n.target_id).first()
+    return obj is not None and privacy.is_flagged(obj)
 
 
 # ---------------------------------------------------------------- people and handover

@@ -136,3 +136,18 @@ def test_google_copy_follows_flag_set_on_original_later(world):
     assert list(privacy.ai_visible(qs)) == []
     copy.refresh_from_db()
     assert privacy.is_flagged(copy) and not copy.contains_participant_data
+
+
+def test_retention_notice_for_a_flagged_document_says_nothing_about_it(world, ctx, flagged):
+    import datetime
+
+    from projects import jobs
+
+    own = flagged["own"]
+    own.retain_until = datetime.date(2020, 1, 1)
+    own.retention_note = f"Note {MARK} keep"
+    own.save()
+    jobs.retention_scan()
+    out = run(ctx(world.u.pi, world.lab_a), "my_notifications", lab_id=str(world.lab_a.pk))
+    assert "Retention review: an item marked as identifying participants" in out
+    assert MARK not in out
