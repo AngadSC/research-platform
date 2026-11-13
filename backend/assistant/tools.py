@@ -10,7 +10,7 @@ Rules every tool follows (ARCHITECTURE section 3, "Future search and AI"):
   event naming the tool, the transport (`via`) and the client (D167);
 - results are compact JSON with capped text and paginated lists; nothing returns tokens, keys,
   participant data (recruitment notes are never read) or funding to anyone but PIs (D226);
-- an item marked "Contains participant data" is never returned: lists and search drop it through
+- an item marked as identifying participants is never returned: lists and search drop it through
   `privacy.ai_visible`, and `_get` refuses it by id (assistant/privacy.py, VISION A3).
 """
 
@@ -34,7 +34,7 @@ from assistant.models import FileLinkKind
 from audit.models import AuditAction
 from audit.services import record
 from core.models import Notification
-from core.notifications import visible_notifications
+from core.notifications import live_body, live_title, notification_url, visible_notifications
 from core.permissions import (
     Perm,
     can,
@@ -46,6 +46,7 @@ from core.permissions import (
     project_role,
 )
 from core.permissions import scope as _scope
+from core.search import AI_TYPES
 from core.search import TYPES as SEARCH_TYPES
 from core.search import match as text_match
 from core.search import search as lab_search
@@ -371,6 +372,14 @@ def _project_ref(p):
     return {"id": p.pk, "name": p.name}
 
 
+def _hidden(n):
+    """VISION A3: how many items marked as identifying participants were left out, never which."""
+    if not n:
+        return {}
+    note = f"Items marked as identifying participants are left out. Open {settings.PRODUCT_NAME}"
+    return {"hidden_identifying_items": n, "hidden_note": note + " to see them."}
+
+
 def _audit_write(ctx, lab, tool_name, target):
     record(
         AuditAction.AI_TOOL_WRITE,
@@ -480,8 +489,15 @@ def project_overview(ctx, lab_id, project_id):
         .values_list("status", "n")
     )
 
+    hidden = 0
+
     def count(model, **kw):
-        return privacy.ai_visible(_scope(model, ctx.user, lab)).filter(project=p, **kw).count()
+        nonlocal hidden
+        qs = _scope(model, ctx.user, lab).filter(project=p, **kw)
+        shown = privacy.ai_visible(qs).count()
+        if model in (Document, DatasetRecord):  # the counted kinds that can carry the mark
+            hidden += qs.count() - shown
+        return shown
 
     approvals = [
         a
@@ -515,6 +531,7 @@ def project_overview(ctx, lab_id, project_id):
                 else {}
             ),
         },
+        **_hidden(hidden),
         "ethics_approvals": [
             {"id": a.pk, "title": a.title, "status": a.status, "expiry_date": a.expiry_date}
             for a in approvals
@@ -526,17 +543,19 @@ def project_overview(ctx, lab_id, project_id):
 @tool(
     "search",
     "Search the lab",
-    "Full-text search across projects, tasks, documents, datasets, analyses, results, decisions, "
-    "manuscripts, funding, review items, ethics approvals and linked files you can see. At most "
-    "40 hits, 8 per type.",
+    "Full-text search across the projects, tasks, documents, datasets, analyses, results, "
+    "decisions, manuscripts, funding (PIs only), review items, ethics approvals, external links, "
+    "project files (uploads and Google Drive files, by name: read them with read_file), papers "
+    "and paper notes you can see. Items marked as identifying participants are never returned. "
+    "At most 40 hits, 8 per type.",
     required=("lab_id", "query"),
     returns_text=True,
     lab_id=LAB,
     query={"type": "string", "maxLength": 100, "_min": 2, "description": "Words to look for."},
     types={
         "type": "array",
-        "items": {"type": "string", "enum": list(SEARCH_TYPES)},
-        "maxItems": len(SEARCH_TYPES),
+        "items": {"type": "string", "enum": AI_TYPES},
+        "maxItems": len(AI_TYPES),
         "description": "Only these kinds of item.",
     },
 )
@@ -863,10 +882,11 @@ def my_notifications(ctx, lab_id, unread_only=True):
         "notifications": [
             {
                 "kind": n.kind,
-                "title": n.title,
-                "body": untrusted(_cut(n.body, 500)),
+                "title": live_title(n),
+                "body": untrusted(_cut(live_body(n), 500)),
                 "created_at": n.created_at,
                 "read": n.read_at is not None,
+                "url": _url(notification_url(n, ctx.user)),
             }
             for n in visible_notifications(ctx.user, lab, qs, limit=50)
         ]
@@ -973,9 +993,18 @@ def handover_report(ctx, lab_id, person, project_id=None):
         and not can(ctx.user, Perm.MANAGE_MEMBERS, lab)
     ):  # the rules of MemberHandoverView
         raise ToolError("Your role does not allow you to see another person's handover list.")
-    report = project_handover.build_report(
-        requester=ctx.user, lab=lab, membership=membership, project=p, for_ai=True
-    )
+
+    def build(for_ai):
+        return project_handover.build_report(
+            requester=ctx.user, lab=lab, membership=membership, project=p, for_ai=for_ai
+        )
+
+    def size(r):
+        return sum(len(s["items"]) for s in r["sections"])
+
+    report = build(True)
+    # ponytail: builds the list twice to count what was left out; fine at handover sizes
+    hidden = size(build(False)) - size(report)
     project_handover.record_generated(
         report,
         actor=ctx.user,
@@ -994,6 +1023,7 @@ def handover_report(ctx, lab_id, person, project_id=None):
             {"key": s["key"], "label": s["label"], **_handover_items(s["items"])}
             for s in report["sections"]
         ],
+        **_hidden(hidden),
     }
 
 
@@ -1011,7 +1041,8 @@ def _paper_row(lab, p):
     return {
         "id": p.pk,
         "title": p.title,
-        "authors": p.authors[:30],
+        # a trailing comma marks an organisation in storage and citations; not shown here
+        "authors": [a.removesuffix(",").strip() for a in p.authors[:30]],
         "more_authors": max(0, len(p.authors) - 30),
         "year": p.year,
         "venue": p.venue,
@@ -1219,16 +1250,27 @@ NO_DRIVE_ACCESS = (
 
 def _file(ctx, lab, file_id):
     """A live file of a project the person can see. Refuses flagged files (`_get`)."""
-    return _get(
-        ctx,
-        lab,
-        Attachment,
-        file_id,
-        "file",
-        deleted_at__isnull=True,
-        project__isnull=False,
-        project__deleted_at__isnull=True,
-    )
+    try:
+        return _get(
+            ctx,
+            lab,
+            Attachment,
+            file_id,
+            "file",
+            deleted_at__isnull=True,
+            project__isnull=False,
+            project__deleted_at__isnull=True,
+        )
+    except ToolError:
+        # a common mix-up; hinted only for a document this person can open, so it reveals nothing
+        doc = (
+            _scope(Document, ctx.user, lab)
+            .filter(pk=_id_or_none(file_id), deleted_at__isnull=True)
+            .first()
+        )
+        if doc is not None and can(ctx.user, Perm.VIEW_PROJECT, doc):
+            raise ToolError("That id is a document; use get_document.") from None
+        raise
 
 
 def _kind(a):
@@ -1266,11 +1308,49 @@ def _drive_bytes(ctx, lab, a):
     return data, DRIVE_KINDS.get(mime) or filetext.kind(a.original_filename)
 
 
+KIND_NAMES = {  # MIME type or file extension -> what people call it
+    "application/vnd.google-apps.document": "Google Docs",
+    "application/vnd.google-apps.spreadsheet": "Google Sheets",
+    "application/vnd.google-apps.presentation": "Google Slides",
+    "application/pdf": "PDF",
+    ".pdf": "PDF",
+    ".doc": "Word",
+    ".docx": "Word",
+    ".xls": "Excel",
+    ".xlsx": "Excel",
+    ".ppt": "PowerPoint",
+    ".pptx": "PowerPoint",
+    ".csv": "CSV",
+    ".tsv": "TSV",
+    ".txt": "Text",
+    ".md": "Markdown",
+    ".json": "JSON",
+    ".zip": "ZIP",
+    ".m": "MATLAB",
+    ".mat": "MATLAB data",
+    ".py": "Python",
+    ".r": "R",
+}
+
+
+def _kind_name(a):
+    """A friendly name for a file's type, such as "Word" or "Google Docs"."""
+    ext = "." + a.original_filename.rsplit(".", 1)[-1].lower() if "." in a.original_filename else ""
+    major = a.content_type.split("/")[0]
+    return (
+        KIND_NAMES.get(a.content_type)
+        or KIND_NAMES.get(ext)
+        or {"image": "Image", "video": "Video", "audio": "Audio"}.get(major)
+        or (ext[1:].upper() if ext else "File")
+    )
+
+
 def _file_row(a):
     return {
         "id": a.pk,
         "name": a.original_filename,
         "type": a.content_type,
+        "kind": _kind_name(a),
         "size_bytes": a.size_bytes,
         "folder": {"id": a.folder_id, "name": a.folder.name} if a.folder_id else None,
         "in_google_drive": a.from_drive,
@@ -1394,7 +1474,7 @@ def read_file(ctx, lab_id, file_id, offset=0):
     f"computer. In MATLAB: websave('name.ext', url). It works for {LINK_MINUTES} minutes and "
     "anyone holding it can download the file until then, so pass it only to the person's own "
     "tools. Making it is recorded in the lab's audit log, and so is each download. Because "
-    "anyone holding the link can download the file, the person approves each link.",
+    "anyone holding the link can download the file, ask the person before making one.",
     required=("lab_id", "file_id"),
     write=True,  # a login-free link to lab data is a grant of access, so it needs approval
     returns_text=True,
@@ -1513,16 +1593,19 @@ def update_task(ctx, lab_id, task_id, title=None, status=None, due_date=None, as
 @tool(
     "create_decision_draft",
     "Draft a decision",
-    "Record a draft decision on a project (title starts with 'Draft:' and you are named as the "
-    "decider) for people to review and finalise in the app.",
+    "Record a decision on a project, titled 'Draft: ...' with you named as the decider. Decisions "
+    "have no separate draft state: tell the person to review it in the app and edit the title "
+    "(removing 'Draft:') and the rationale there. Pass decided_on as the person's own local date; "
+    "without it the date is today in UTC.",
     required=("lab_id", "project_id", "title"),
     write=True,
     lab_id=LAB,
     project_id=PROJECT,
     title={"type": "string", "maxLength": 290, "_min": 1},
     rationale={"type": "string", "maxLength": 20_000},
+    decided_on={"type": "string", "maxLength": 10, "description": "YYYY-MM-DD."},
 )
-def create_decision_draft(ctx, lab_id, project_id, title, rationale=""):
+def create_decision_draft(ctx, lab_id, project_id, title, rationale="", decided_on=None):
     lab = _lab(ctx, lab_id)
     p = _get(ctx, lab, Project, project_id, "project", deleted_at__isnull=True)
     _require_edit(ctx, p)
@@ -1533,12 +1616,16 @@ def create_decision_draft(ctx, lab_id, project_id, title, rationale=""):
         "decision",
         project=p,
         user=ctx.user,
-        data={"title": title, "rationale": rationale},
+        data={
+            "title": title,
+            "rationale": rationale,
+            **({"decided_on": _date(decided_on, "decided_on")} if decided_on else {}),
+        },
         request=ctx.request,
     )
     _audit_write(ctx, lab, "create_decision_draft", d)
     return {
-        "created": {"id": d.pk, "title": d.title},
+        "created": {"id": d.pk, "title": d.title, "decided_on": d.decided_on},
         "url": _url(f"/labs/{lab.pk}/projects/{p.pk}/workflow/review/decisions/{d.pk}"),
     }
 
@@ -1676,8 +1763,8 @@ def _run_input(ctx, lab, a):
     f"internet, at most 2 minutes and 2 GB of memory, and only files the code writes to the out/ "
     f"folder come back (for example plt.savefig('out/figure.png')). When the run succeeds the "
     f"code and the out/ files are saved to the project and recorded as an Analysis; a failed run "
-    f"saves nothing, so fix the code and run again. Files marked as participant data can never "
-    f"be used. Needs permission to edit the project's content.",
+    f"saves nothing, so fix the code and run again. Files marked as identifying participants "
+    f"can never be used. Needs permission to edit the project's content.",
     required=("lab_id", "project_id", "language", "code"),
     write=True,
     enabled=runner.configured,
@@ -1766,7 +1853,11 @@ def run_code(ctx, lab_id, project_id, language, code, file_ids=(), title=""):
 PREVIEW = {
     "create_task": (("title", "Task title"), ("description", "Task description")),
     "add_task_update": (("body", "Text that will be posted on the task thread"),),
-    "create_decision_draft": (("title", "Decision title"), ("rationale", "Rationale")),
+    "create_decision_draft": (
+        ("title", "Decision title"),
+        ("rationale", "Rationale"),
+        ("decided_on", "Decided on"),
+    ),
     "add_paper": (("title", "Paper title"), ("doi", "DOI"), ("abstract", "Abstract")),
     "add_paper_note": (("body", "Text that will be saved as a note the whole lab can read"),),
     "update_task": (("title", "New title"), ("status", "New status"), ("due_date", "New due date")),
