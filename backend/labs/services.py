@@ -162,6 +162,20 @@ def revoke_invite(*, invite, by, request=None) -> None:
 def change_invite_role(*, invite, by, role, request=None) -> Invite:
     """Change a pending invite's role. The changer becomes `invited_by`, so the D40 check on
     accepting (can the inviter still grant this role?) is about the person who chose it."""
+    invite = (  # locked and re-checked: it may have been accepted, revoked or expired meanwhile
+        Invite.objects.for_lab(invite.lab_id)
+        .select_for_update(of=("self",))
+        .select_related("lab")
+        .filter(
+            pk=invite.pk,
+            accepted_at__isnull=True,
+            revoked_at__isnull=True,
+            expires_at__gt=timezone.now(),
+        )
+        .first()
+    )
+    if invite is None:
+        raise Http404
     old = invite.role
     if role == old:
         return invite

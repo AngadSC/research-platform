@@ -201,3 +201,14 @@ def test_create_lab_makes_creator_pi_on_placeholder_institution(make_user):
     assert events(AuditAction.LAB_CREATED).filter(actor=user).count() == 1
     listed = api(user).get("/api/labs/").json()
     assert [lab["id"] for lab in listed] == [data["id"]]
+
+
+def test_expired_invite_role_cannot_be_changed(setup):
+    lab, pi, _ = setup
+    data, _token = send_invite(lab, pi)
+    Invite.objects.for_lab(lab).filter(pk=data["id"]).update(
+        expires_at=timezone.now() - timedelta(seconds=1)
+    )
+    resp = api(pi).patch(f"/api/labs/{lab.pk}/invites/{data['id']}/", {"role": "pi"}, "json")
+    assert resp.status_code == 404
+    assert Invite.objects.for_lab(lab).get(pk=data["id"]).role == "member"

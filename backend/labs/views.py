@@ -1,3 +1,4 @@
+from django.utils import timezone
 from drf_spectacular.utils import (
     OpenApiParameter,
     extend_schema,
@@ -245,7 +246,10 @@ class InviteDetailView(LabScopedViewMixin, generics.GenericAPIView):
     perms = {"PATCH": Perm.MANAGE_MEMBERS, "DELETE": Perm.MANAGE_MEMBERS}
 
     def get_queryset(self):
-        return super().get_queryset().filter(accepted_at__isnull=True, revoked_at__isnull=True)
+        qs = super().get_queryset().filter(accepted_at__isnull=True, revoked_at__isnull=True)
+        if self.request.method == "PATCH":  # an expired invite can still be revoked, not edited
+            qs = qs.filter(expires_at__gt=timezone.now())
+        return qs
 
     @extend_schema(request=RoleSerializer, responses=InviteSerializer)
     def patch(self, request, lab_id, invite_id):
