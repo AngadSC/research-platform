@@ -197,7 +197,7 @@ class DashboardSerializer(serializers.Serializer):
 
 def build_dashboard(user, lab) -> dict:
     now = timezone.now()
-    today = now.date()
+    today = timezone.localdate(now)
     projects = list(visible_projects(user, lab).select_related("last_activity_by").order_by("name"))
     pname = {p.pk: p.name for p in projects}
 

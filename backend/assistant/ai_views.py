@@ -38,6 +38,7 @@ from assistant.ai_serializers import (
 from assistant.models import AIProviderKey, Conversation, Provider
 from audit.models import AuditAction
 from audit.services import record
+from core.middleware import user_zone
 from core.permissions import Perm
 from core.views import LabScopedViewMixin
 from labs.models import AiPolicy
@@ -360,6 +361,7 @@ def _generate(request, conv, key, make):
     from projects.activity import _request  # a write the assistant makes stamps "last edited"
 
     token = _request.set(request)
+    timezone.activate(user_zone(request.user))  # D291: the body runs after the middleware is done
     lease = inner = None
     try:
         try:
@@ -429,6 +431,7 @@ def _generate(request, conv, key, make):
             _request.reset(token)
         except ValueError:  # reset from another context (server closed the stream)
             pass
+        timezone.deactivate()
 
 
 def _stream_response(request, conv, key, make):

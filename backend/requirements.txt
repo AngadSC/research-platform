@@ -12,6 +12,7 @@ redis==8.1.0
 packaging==26.3  # kombu's redis transport imports it but doesn't declare it; dev had it via pytest
 
 psycopg[binary]==3.3.8
+tzdata==2026.6  # Apache-2.0; D291: zones browsers report (Asia/Calcutta) that slim images leave out
 django-storages==1.14.6
 requests==2.34.2  # D124: PinnedAdapter relies on get_connection_with_tls_context (requests >= 2.32.2)
 boto3==1.43.123

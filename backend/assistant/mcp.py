@@ -16,11 +16,13 @@ import json
 
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.debug import sensitive_variables
 
 from assistant import services, tools
 from assistant.models import GrantKind
+from core.middleware import user_zone
 
 MODERN = ("2026-07-28",)
 LEGACY = ("2025-11-25", "2025-06-18", "2025-03-26")
@@ -189,7 +191,8 @@ def mcp_endpoint(request):
         grant_id=str(grant.pk),
         request=request,
     )
-    return _dispatch(request, rid, method, params, modern, grant, ctx)
+    with timezone.override(user_zone(grant.user)):  # D291: a bearer request has no session user
+        return _dispatch(request, rid, method, params, modern, grant, ctx)
 
 
 def _client_label(grant, reported):

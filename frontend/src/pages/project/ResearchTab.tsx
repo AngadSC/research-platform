@@ -36,6 +36,7 @@ import {
   type Manuscript,
   type ResearchResult,
 } from "@/lib/api-types";
+import { shortDate } from "@/lib/format";
 import { formErrors } from "@/lib/forms";
 import { isKind, KINDS, recordTitle, type AnyRecord, type Kind } from "@/lib/research";
 import { recordPath, SECTION_KINDS, sectionOf, type ResearchSection } from "@/lib/workflow";
@@ -44,7 +45,6 @@ import { ResearchForm, ResultSetForm } from "@/pages/project/ResearchForm";
 import { AnalysisOutputs, DownloadCode, RunAgain } from "@/pages/project/AnalysisExtras";
 
 const short = (c: string) => c.slice(0, 7) || "None";
-const date = (s: string) => new Date(s).toLocaleDateString(undefined, { dateStyle: "medium" });
 const projectBase = (p: ProjectTabProps) => `/labs/${p.labId}/projects/${p.projectId}`;
 
 /** The records of one Workflow section (Data, Analysis, Manuscript), each kind in its own list. */
@@ -100,7 +100,7 @@ const COLUMNS: { [K in Kind]: Column<AnyRecord>[] } = {
   ],
   analyses: [
     { key: "t", header: "Title", cell: (r) => (r as Analysis).title },
-    { key: "d", header: "Run on", cell: (r) => date((r as Analysis).ran_at) },
+    { key: "d", header: "Run on", cell: (r) => shortDate((r as Analysis).ran_at) },
     {
       key: "c",
       header: "Commit",
@@ -120,7 +120,7 @@ const COLUMNS: { [K in Kind]: Column<AnyRecord>[] } = {
   ],
   decisions: [
     { key: "t", header: "Title", cell: (r) => (r as Decision).title },
-    { key: "d", header: "Date", cell: (r) => date((r as Decision).decided_on) },
+    { key: "d", header: "Date", cell: (r) => shortDate((r as Decision).decided_on) },
   ],
   manuscripts: [
     { key: "t", header: "Title", cell: (r) => (r as Manuscript).title },
@@ -428,7 +428,7 @@ function fields(kind: Kind, r: AnyRecord, labId: string, base: string): [string,
         ["Datasets used", <Refs key="d" base={base} kind="datasets" items={ds(a.datasets)} />],
         ["Results", <Refs key="s" base={base} kind="results" items={t(a.results)} />],
         ["Run by", who(a.ran_by)],
-        ["Run on", date(a.ran_at)],
+        ["Run on", shortDate(a.ran_at)],
       ];
     }
     case "results": {
@@ -450,7 +450,7 @@ function fields(kind: Kind, r: AnyRecord, labId: string, base: string): [string,
       const d = r as Decision;
       return [
         ["Why", d.rationale || "None"],
-        ["Decided on", date(d.decided_on)],
+        ["Decided on", shortDate(d.decided_on)],
         ["Decided by", who(d.decided_by)],
         [
           "Supporting documents",

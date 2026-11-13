@@ -239,12 +239,12 @@ def _item(
 
 
 def _meeting_item(m):
-    # `date` is the UTC day; the browser re-files it on the viewer's local day from `starts_at`.
+    # `date` is the viewer's day (D291); the browser re-files it from `starts_at` as well.
     item = _item(
         "meeting",
         m,
         m.title,
-        m.starts_at.date(),
+        timezone.localdate(m.starts_at),
         notes=m.notes,
         starts_at=m.starts_at,
         ends_at=m.ends_at,
@@ -652,7 +652,7 @@ class CalendarIcsView(views.APIView):
             return HttpResponse(status=401)
         lab = get_lab_or_404(feed.user, feed.lab_id)  # 404 once they have left or are deactivated
         mine = request.query_params.get("mine") == "1"
-        today = timezone.now().date()
+        today = timezone.localdate()  # UTC: a feed has no session; the window is weeks wide
         items = build_calendar(feed.user, lab, today - FEED_PAST, today + FEED_FUTURE, mine=mine)
         # D244: a subscribed calendar copies this to another company, so funding never goes
         items = [i for i in items if i["kind"] != "funding"]

@@ -1,8 +1,6 @@
 """Data management plan (Run 5, D180 to D183): one plan per project in the Tri-Agency RDM / DMP
 Assistant sections, a numbered revision after every save, approval by project leads."""
 
-import datetime
-
 from django.db import transaction
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
@@ -161,7 +159,7 @@ def approve_plan(*, project, user, request=None):
     if plan is None:
         raise ValidationError({"detail": "Save the plan before approving it."})
     plan.status, plan.approved_by, plan.approved_at = DmpStatus.APPROVED, user, timezone.now()
-    plan.last_reviewed = datetime.date.today()
+    plan.last_reviewed = timezone.localdate()
     plan.updated_by = user
     plan.save()
     _revise(plan, user)

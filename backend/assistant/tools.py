@@ -87,6 +87,15 @@ MAX_RESULT_CHARS = 100_000
 DOC_CHUNK = 20_000
 
 
+class LocalTimeEncoder(DjangoJSONEncoder):
+    """D291: datetimes in the person's own zone, so the AI reads the same day the app shows."""
+
+    def default(self, o):
+        if isinstance(o, datetime.datetime) and timezone.is_aware(o):
+            o = timezone.localtime(o)
+        return super().default(o)
+
+
 class ToolError(Exception):
     """A message the model can act on. Never carries data the user may not see."""
 
@@ -227,7 +236,7 @@ def call(ctx: Context, name: str, args) -> dict:
             result = t.handler(ctx, **args)
     except (ValidationError, APIException) as exc:  # a service refused the write
         raise ToolError(_message(exc.detail)) from None
-    text = json.dumps(result, cls=DjangoJSONEncoder)
+    text = json.dumps(result, cls=LocalTimeEncoder)
     if len(text) > MAX_RESULT_CHARS:
         raise ToolError("The result is too large. Narrow the filters or use a smaller page.")
     return json.loads(text)
@@ -1613,8 +1622,8 @@ def update_task(ctx, lab_id, task_id, title=None, status=None, due_date=None, as
     "Draft a decision",
     "Record a decision on a project, titled 'Draft: ...' with you named as the decider. Decisions "
     "have no separate draft state: tell the person to review it in the app and edit the title "
-    "(removing 'Draft:') and the rationale there. Pass decided_on as the person's own local date; "
-    "without it the date is today in UTC.",
+    "(removing 'Draft:') and the rationale there. decided_on defaults to today in the person's own "
+    "time zone.",
     required=("lab_id", "project_id", "title"),
     write=True,
     lab_id=LAB,

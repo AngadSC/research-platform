@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { useUnreadChats } from "@/hooks/chat";
 import { useCrumbs, useCurrentLabId } from "@/hooks/crumbs";
-import { usePins, useTrackRecent } from "@/hooks/preferences";
+import { usePins, useSyncTimeZone, useTrackRecent } from "@/hooks/preferences";
 import { useProjects } from "@/hooks/projects";
 import { useLabs } from "@/hooks/workspace";
 import { useRegisterCommands, type Command } from "@/lib/commands";
@@ -91,6 +91,7 @@ export function AppShell() {
     }
   };
   useAccountTheme((useMe().data as { preferences?: unknown } | undefined)?.preferences);
+  useSyncTimeZone();
 
   // Below md the sidebar is a drawer: Escape closes it.
   useEffect(() => {

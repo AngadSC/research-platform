@@ -11,7 +11,7 @@ interface Lists {
   pins?: Pin[];
   recents?: Recent[];
 }
-type Me = User & { preferences?: Lists };
+type Me = User & { preferences?: Lists & { time_zone?: string } };
 const ME = ["me"];
 
 /** Shows the change at once, then saves it. A failed save reloads what the account really has. */
@@ -62,4 +62,24 @@ export function useTrackRecent(crumbs: Crumb[]) {
     const next = addRecent(recents, { url, label, kind, at: new Date().toISOString() });
     if (next) save({ recents: next });
   }, [qc, save, url, label, kind]);
+}
+
+/** D291: tells the account which time zone this browser is in, so the server's "today" (and the
+ * dates Claude sees) match this person's. Silent: a refused or failed save is simply dropped. */
+export function useSyncTimeZone() {
+  const qc = useQueryClient();
+  const me = useMe().data as Me | undefined;
+  const saved = me?.preferences?.time_zone;
+  const loaded = !!me;
+  useEffect(() => {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!loaded || !zone || zone === saved) return;
+    void api<User>("/api/me/", {
+      method: "PATCH",
+      body: { preferences: { time_zone: zone } },
+    }).then(
+      (u) => qc.setQueryData(ME, u),
+      () => {},
+    );
+  }, [qc, loaded, saved]);
 }
