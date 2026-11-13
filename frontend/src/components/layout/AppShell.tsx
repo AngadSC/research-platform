@@ -223,7 +223,7 @@ export function AppShell() {
       </div>
       <CommandPalette labId={labId} onGo={(url) => void navigate(url)} />
       <Tutorial />
-      <Toaster />
+      <Toaster position="top-center" />
     </TooltipProvider>
   );
 }
