@@ -7,14 +7,14 @@ import pytest
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from core.search import SPECS, search
+from core.search import AI_TYPES, SPECS, search
 from documents.models import Attachment, Document
 from documents.services import create_document, save_document
 from documents.text import extract_text
 from ethics.models import EthicsApproval
 from labs.models import LabRole, Meeting
 from papers import services as paper_services
-from projects.models import ProjectMembership, ProjectRole, Task
+from projects.models import ChatMessage, ProjectMembership, ProjectRole, Task
 from provenance import services as prov
 
 pytestmark = pytest.mark.django_db
@@ -95,6 +95,10 @@ def meeting(w, title, *people):
     return m
 
 
+def say(w, project, who, body):
+    return ChatMessage.objects.create(lab=w.lab, project=project, author=w.u[who], body=body)
+
+
 def approval(w, number, restricted=False, title=f"{WORD} eth", board="Board"):
     a = EthicsApproval.objects.create(
         lab=w.lab,
@@ -143,6 +147,7 @@ def test_every_type_is_found_with_a_spa_url(w):
     approval(w, "Z-1")
     attach(w, w.p1, f"{WORD} raw.csv")
     meeting(w, f"{WORD} sync", w.u["pi"])
+    say(w, w.p1, "pi", f"the **{WORD}** ran")
     hits = run(w, "pi")
     assert {h["type"] for h in hits} == {s.type for s in SPECS if s.type != "link"}
     by = {h["type"]: h for h in hits}
@@ -156,6 +161,9 @@ def test_every_type_is_found_with_a_spa_url(w):
     assert by["file"]["url"] == f"/labs/{w.lab.pk}/projects/{w.p1.pk}/documents"
     assert by["meeting"]["url"] == f"/labs/{w.lab.pk}/calendar"
     assert WORD in by["document"]["snippet"]
+    assert by["chat"]["title"] == f"the {WORD} ran"  # markdown marks dropped
+    assert by["chat"]["url"] == f"/labs/{w.lab.pk}/projects/{w.p1.pk}?chat=1"
+    assert by["chat"]["snippet"] == w.u["pi"].display_name
     assert {h["type"] for h in run(w, "pi", types="task")} == {"task"}
 
 
@@ -288,3 +296,18 @@ def test_meetings_only_for_the_people_on_them_and_never_for_ai(w):
     assert f"{WORD} lab meeting" in titles(run(w, "member"))
     assert f"{WORD} lab meeting" not in titles(run(w, "nonproj"))
     assert search(w.u["member"], w.lab, WORD, {"meeting"}, for_ai=True) == []
+
+
+def test_chat_follows_the_chat_endpoint_and_never_reaches_ai(w, make_project):
+    say(w, w.p1, "pi", f"{WORD} in open")
+    say(w, w.p2, "pi", f"{WORD} in hidden")
+    other = make_project(w.other, "B project")
+    ChatMessage.objects.create(lab=w.other, project=other, author=w.u["bpi"], body=f"{WORD} in B")
+    for who in ("member", "viewer"):  # viewers can read the chat (D206)
+        assert titles(run(w, who, types="chat")) == {f"{WORD} in open"}
+    assert titles(run(w, "pi", types="chat")) == {f"{WORD} in open", f"{WORD} in hidden"}
+    assert run(w, "nonproj", types="chat") == []
+    assert "chat" not in AI_TYPES
+    assert search(w.u["pi"], w.lab, WORD, {"chat"}, for_ai=True) == []
+    assert search(w.u["pi"], w.lab, WORD, None, for_ai=True) != []
+    assert all(h["type"] != "chat" for h in search(w.u["pi"], w.lab, WORD, None, for_ai=True))

@@ -12688,7 +12688,7 @@ export interface operations {
             query?: {
                 /** @description At least 2 characters, at most 100. */
                 q?: string;
-                /** @description Comma-separated: project, task, document, dataset, analysis, result, decision, manuscript, funding, review, ethics, link, file, meeting, paper, paper_note */
+                /** @description Comma-separated: project, task, document, dataset, analysis, result, decision, manuscript, funding, review, ethics, link, file, meeting, chat, paper, paper_note */
                 types?: string;
             };
             header?: never;

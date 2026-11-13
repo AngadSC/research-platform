@@ -20,7 +20,7 @@ from ethics.models import EthicsApproval
 from integrations.models import ExternalLink
 from labs.models import Meeting
 from papers.models import Paper, PaperNote
-from projects.models import Project, Task
+from projects.models import ChatMessage, Project, Task
 from provenance.models import (
     Analysis,
     DatasetRecord,
@@ -56,6 +56,14 @@ def _p(o):
 def _r(section, kind):
     """D132: records live at /workflow/<section>/<kind>/<id> (the old /research URLs redirect)."""
     return lambda o: f"{_p(o)}/workflow/{section}/{kind}/{o.pk}"
+
+
+def _plain(body: str) -> str:
+    """A chat message as one short plain line: link syntax and basic markdown marks dropped."""
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", lambda m: m[1], body)
+    text = re.sub(r"[*_~`]", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:80]
 
 
 def _w(tab):
@@ -119,6 +127,16 @@ SPECS = [
         perm=Perm.VIEW_LAB,
         ai=False,
     ),
+    Spec(  # Same rule as the chat endpoint: anyone who can see the project, viewers too (D206).
+        # Messages cannot be marked as identifying participants, so chat stays out of AI tools.
+        "chat",
+        ChatMessage,
+        "body",
+        (),
+        lambda o: f"{_p(o)}?chat=1",
+        label=lambda o: _plain(o.body),
+        ai=False,
+    ),
     Spec(
         "paper",
         Paper,
@@ -155,6 +173,8 @@ def match(qs, fields, q):
 
 def _snippet(obj, spec, q) -> str:
     """Text around the first match in the type's own text fields, else its start."""
+    if spec.type == "chat":  # the title is the message; the snippet says who wrote it
+        return obj.author.display_name or obj.author.email
     for field in spec.text:
         text = re.sub(r"\s+", " ", str(getattr(obj, field) or "")).strip()
         if not text:
@@ -187,6 +207,8 @@ def search(user, lab, q: str, types=None, for_ai=False) -> list[dict]:
             qs = ai_visible(qs)
         if hasattr(spec.model, "project"):
             qs = qs.select_related("project")
+        if spec.model is ChatMessage:
+            qs = qs.select_related("author")
         qs = match(qs, (spec.title, *spec.text), q).order_by("-updated_at", "pk")
         for obj in qs[:PER_TYPE]:
             if not can(user, spec.perm, obj):
