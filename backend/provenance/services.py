@@ -146,21 +146,24 @@ SPECS = {
 FUNDING_LEAD_ONLY = ("amount", "currency")
 
 
-def _scoped(project, model, live):
-    qs = model.objects.for_lab(project.lab_id).filter(project=project)
+def _scoped(project, model, live, actor):
+    if model is Attachment:  # PI-only files (grant letters) stay out of reach of everyone else
+        qs = Attachment.objects.visible_to(actor, project.lab_id).filter(project=project)
+    else:
+        qs = model.objects.for_lab(project.lab_id).filter(project=project)
     return qs.filter(deleted_at__isnull=True) if live else qs
 
 
-def _one(project, field, model, live, pk):
-    obj = _scoped(project, model, live).filter(pk=pk).first()
+def _one(project, field, model, live, pk, actor):
+    obj = _scoped(project, model, live, actor).filter(pk=pk).first()
     if obj is None:
         raise ValidationError({field: "This item does not exist in this project."})
     return obj
 
 
-def _many(project, field, model, live, ids):
+def _many(project, field, model, live, ids, actor):
     ids = set(ids)
-    found = list(_scoped(project, model, live).filter(pk__in=ids))
+    found = list(_scoped(project, model, live, actor).filter(pk__in=ids))
     if len(found) != len(ids):
         raise ValidationError({field: "One or more items do not exist in this project."})
     return found
@@ -184,10 +187,10 @@ def _check_analysis(obj):
 def _resolve(spec, project, data, *, actor, creating):
     """Split `data` into column values (links turned into objects) and M2M lists."""
     data = dict(data)
-    m2m = {f: _many(project, f, *spec.m2ms[f], data.pop(f)) for f in spec.m2ms if f in data}
+    m2m = {f: _many(project, f, *spec.m2ms[f], data.pop(f), actor) for f in spec.m2ms if f in data}
     for field, (model, live) in spec.fks.items():
         if data.get(field) is not None:
-            data[field] = _one(project, field, model, live, data[field])
+            data[field] = _one(project, field, model, live, data[field], actor)
     code = data.get("code_attachment")
     if code is not None and is_flagged(code):  # VISION C1: Claude may run an analysis's code
         msg = "This file identifies participants, so it can't be attached as code."

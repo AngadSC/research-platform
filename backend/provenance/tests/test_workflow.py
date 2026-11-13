@@ -452,3 +452,13 @@ def test_search_urls_point_at_workflow(w):
     hits = {h["type"]: h for h in search(w.pi, w.lab, "Wellcome")}
     assert hits["funding"]["url"].endswith(f"/projects/{w.project.pk}/workflow/funding")
     assert hits["dataset"]["url"].endswith(f"/workflow/data/datasets/{ds}")
+
+
+def test_a_non_pi_cannot_attach_a_pi_only_file_as_code(w):
+    """Files are looked up as the file list shows them, so a hidden one reads as unknown."""
+    lead = w.member(ProjectRole.LEAD)
+    letter = _letter(w, pi_only=True)
+    body = {"title": "A", "datasets": [], "code_attachment": str(letter.pk)}
+    resp = post(w, "analysis-list", body, lead)
+    assert resp.status_code == 400
+    assert "code_attachment" in resp.json()
