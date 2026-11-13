@@ -36,7 +36,7 @@ import {
   type TimelineItem,
 } from "@/hooks/assistant";
 import { useAiGrants } from "@/hooks/ai";
-import { ClaudeSteps } from "@/pages/settings/AiAccessSections";
+import { ClaudeSteps, claudeConnectUrl } from "@/pages/settings/AiAccessSections";
 import { useProject } from "@/hooks/projects";
 import { useLabs } from "@/hooks/workspace";
 import {
@@ -260,6 +260,8 @@ function ClaudeOption() {
   const connected = !!grants.data?.some(
     (g) => g.kind === "oauth" && !g.revoked_at && /claude/i.test(g.client_name),
   );
+  // Not connected yet: the button is step 1 ("Connect to Claude"), opened in the same side window.
+  const url = connected ? "https://claude.ai/new" : claudeConnectUrl();
   return (
     <div className="grid justify-items-start gap-2 rounded-md border p-3 text-sm">
       <h3 className="font-medium">Use Claude with this lab</h3>
@@ -270,15 +272,14 @@ function ClaudeOption() {
       )}
       <Button asChild size="sm">
         <a
-          href="https://claude.ai/new"
+          href={url}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => {
-            if (window.open("https://claude.ai/new", "labbenchos-claude", claudeWindowFeatures()))
-              e.preventDefault(); // a popup opened; otherwise the link opens a new tab
+            if (window.open(url, "labbenchos-claude", claudeWindowFeatures())) e.preventDefault(); // a popup opened; otherwise the link opens a new tab
           }}
         >
-          Open Claude beside this page
+          {connected ? "Open Claude beside this page" : "Connect to Claude"}
         </a>
       </Button>
       <p className="text-xs text-muted-foreground">

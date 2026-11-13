@@ -52,6 +52,9 @@ function EndedNotice({ grants }: { grants: AiGrant[] }) {
 const CLAUDE_CONNECT =
   "https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=labbenchos&connectorUrl=";
 
+/** claude.ai's "add connector" page with labbenchos filled in. */
+export const claudeConnectUrl = () => CLAUDE_CONNECT + encodeURIComponent(mcpUrl());
+
 function copy(text: string) {
   (navigator.clipboard?.writeText(text) ?? Promise.reject(new Error("no clipboard"))).then(
     () => toast.success("Copied."),
@@ -85,11 +88,7 @@ export function ConnectClaude() {
       <ClaudeSteps />
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" asChild>
-          <a
-            href={CLAUDE_CONNECT + encodeURIComponent(mcpUrl())}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+          <a href={claudeConnectUrl()} target="_blank" rel="noopener noreferrer">
             Connect to Claude
           </a>
         </Button>

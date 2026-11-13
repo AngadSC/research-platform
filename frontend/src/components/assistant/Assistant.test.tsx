@@ -221,6 +221,11 @@ describe("assistant panel", () => {
     expect(await screen.findByRole("note")).toHaveTextContent(/sent to the AI provider/);
     expect(screen.getByText(/Use Claude with this lab/)).toBeInTheDocument();
     expect(screen.getByText(/Click Connect to Claude/)).toBeInTheDocument();
+    // Not connected yet, so the button is step 1 and opens claude.ai's add-connector page.
+    expect(screen.getByRole("link", { name: "Connect to Claude" })).toHaveAttribute(
+      "href",
+      expect.stringContaining("claude.ai/customize/connectors"),
+    );
     expect(screen.getByText(/add your own API key/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Set up a key" })).toHaveAttribute(
       "href",
