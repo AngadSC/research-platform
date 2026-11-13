@@ -39,6 +39,7 @@ import { useProject } from "@/hooks/projects";
 import { useLab } from "@/hooks/workspace";
 import { ApiError } from "@/lib/api";
 import type { DocumentConflict, DocumentFull } from "@/lib/api-types";
+import { useAuth } from "@/hooks/auth";
 import { blocksToText } from "@/lib/blocks";
 import { formErrors } from "@/lib/forms";
 import { cn } from "@/lib/utils";
@@ -143,6 +144,7 @@ function DocumentEditor({
   const people = useMentionPeople(labId, projectId || undefined);
   const { mutateAsync } = save;
   const remove = useDeleteDocument(labId, projectId);
+  const { email } = useAuth();
   const [title, setTitle] = useState(doc.title);
   const [flagged, setFlagged] = useState(doc.contains_participant_data);
   const flag = useParticipantFlag(labId);
@@ -334,7 +336,15 @@ function DocumentEditor({
   const discardIfBlank = useRef(() => {});
   useEffect(() => {
     discardIfBlank.current = () => {
-      if (gone.current || !canDelete || doc.embed_url || flagged || version.current !== 1) return;
+      if (
+        gone.current ||
+        !canDelete ||
+        doc.created_by.email !== email ||
+        doc.embed_url ||
+        flagged ||
+        version.current !== 1
+      )
+        return;
       if (dirtyRef.current || doc.title !== "Untitled document" || titleRef.current !== doc.title)
         return;
       if (blocksToText(content.current).trim()) return;

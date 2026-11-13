@@ -376,6 +376,12 @@ describe("leaving a blank new document", () => {
     expect((await run(blank)).some((c) => c.method === "DELETE")).toBe(true);
   });
 
+  it("keeps a blank document made by someone else", async () => {
+    expect((await run({ ...blank, created_by: other })).some((c) => c.method === "DELETE")).toBe(
+      false,
+    );
+  });
+
   it("keeps a document that was ever saved", async () => {
     expect((await run({ ...blank, version: 2 })).some((c) => c.method === "DELETE")).toBe(false);
   });
