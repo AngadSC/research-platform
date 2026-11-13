@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 const MIN = 320;
 const MAX = 1000;
 
-/** A Google Doc, Sheet or Slides file shown in Google's own page, docked on the right of the
- * page and resizable. It runs on the person's own Google sign-in and nothing goes through our
+/** A Google Doc, Sheet or Slides file shown in Google's own page, a drawer over the right of the
+ * page (so the list keeps its width) and resizable. It runs on the person's own Google sign-in and nothing goes through our
  * server (D239). A page cannot tell when Google refuses to be framed, so "Open in Google" and the
  * sign-in note are always on screen. */
 export function GoogleEditorPanel({
@@ -36,7 +36,7 @@ export function GoogleEditorPanel({
   return (
     <aside
       aria-label={`${title} in ${label}`}
-      className="relative flex h-[75dvh] w-full flex-col rounded-lg border bg-background lg:sticky lg:top-4 lg:h-[calc(100dvh-2rem)] lg:w-(--panel-w) lg:shrink-0"
+      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-full flex-col border-l bg-background shadow-lg sm:w-(--panel-w)"
       style={{ "--panel-w": `${width}px` } as CSSProperties}
     >
       <div
@@ -54,7 +54,7 @@ export function GoogleEditorPanel({
         }}
         onPointerMove={move}
         onPointerUp={() => (drag.current = null)}
-        className="absolute inset-y-0 -left-1.5 z-10 hidden w-3 cursor-col-resize touch-none rounded hover:bg-primary/20 focus-visible:bg-primary/30 focus-visible:outline-none lg:block"
+        className="absolute inset-y-0 -left-1.5 z-10 hidden w-3 cursor-col-resize touch-none rounded hover:bg-primary/20 focus-visible:bg-primary/30 focus-visible:outline-none sm:block"
       />
       <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
         <h2 className="truncate text-sm font-semibold">{title}</h2>
@@ -79,7 +79,7 @@ export function GoogleEditorPanel({
         // The same sandbox as embedded documents (DocumentPage), plus downloads for File > Download.
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
         referrerPolicy="no-referrer"
-        className="min-h-0 w-full flex-1 rounded-b-lg"
+        className="min-h-0 w-full flex-1 "
       />
     </aside>
   );

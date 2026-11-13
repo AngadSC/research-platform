@@ -151,7 +151,9 @@ describe("documents tab", () => {
       }),
     );
     renderRoute(TAB);
-    await userEvent.click(await screen.findByRole("button", { name: "Embed a document" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Embed a Google or Office doc" }),
+    );
     await userEvent.type(screen.getByLabelText("Title"), "Shared");
     await userEvent.type(screen.getByLabelText("Link"), "https://example.com/x");
     await userEvent.click(screen.getByRole("button", { name: "Embed" }));
@@ -350,5 +352,37 @@ describe("document page", () => {
       "https://docs.google.com/document/d/x/edit",
     );
     expect(screen.queryByLabelText("Document content")).not.toBeInTheDocument();
+  });
+});
+
+describe("leaving a blank new document", () => {
+  const blank = { ...doc(1, "Untitled document"), content: [] };
+  const run = async (d: unknown) => {
+    const calls = mockFetch(
+      handlers(EDIT, {
+        "GET /api/labs/lab1/documents/d1/": { body: d },
+        "DELETE /api/labs/lab1/documents/d1/": { body: {} },
+      }),
+    );
+    const router = renderRoute(DOC);
+    await screen.findByLabelText("Title");
+    await router.navigate(TAB);
+    await screen.findByText("No documents or files yet");
+    await new Promise((r) => setTimeout(r, 20));
+    return calls;
+  };
+
+  it("deletes it", async () => {
+    expect((await run(blank)).some((c) => c.method === "DELETE")).toBe(true);
+  });
+
+  it("keeps a blank document made by someone else", async () => {
+    expect((await run({ ...blank, created_by: other })).some((c) => c.method === "DELETE")).toBe(
+      false,
+    );
+  });
+
+  it("keeps a document that was ever saved", async () => {
+    expect((await run({ ...blank, version: 2 })).some((c) => c.method === "DELETE")).toBe(false);
   });
 });

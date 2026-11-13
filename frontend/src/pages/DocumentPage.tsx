@@ -39,6 +39,7 @@ import { useProject } from "@/hooks/projects";
 import { useLab } from "@/hooks/workspace";
 import { ApiError } from "@/lib/api";
 import type { DocumentConflict, DocumentFull } from "@/lib/api-types";
+import { useAuth } from "@/hooks/auth";
 import { blocksToText } from "@/lib/blocks";
 import { formErrors } from "@/lib/forms";
 import { cn } from "@/lib/utils";
@@ -143,6 +144,7 @@ function DocumentEditor({
   const people = useMentionPeople(labId, projectId || undefined);
   const { mutateAsync } = save;
   const remove = useDeleteDocument(labId, projectId);
+  const { email } = useAuth();
   const [title, setTitle] = useState(doc.title);
   const [flagged, setFlagged] = useState(doc.contains_participant_data);
   const flag = useParticipantFlag(labId);
@@ -326,8 +328,42 @@ function DocumentEditor({
     await reload();
   };
 
+  // "New document" saves a blank document straight away. If the person leaves without typing
+  // anything, soft-delete it (history and audit keep it) rather than leave "Untitled document"
+  // behind. Only a never-saved (version 1), untitled, empty, unmarked document qualifies.
+  const gone = useRef(false);
+  const alive = useRef(true);
+  const discardIfBlank = useRef(() => {});
+  useEffect(() => {
+    discardIfBlank.current = () => {
+      if (
+        gone.current ||
+        !canDelete ||
+        doc.created_by.email !== email ||
+        doc.embed_url ||
+        flagged ||
+        version.current !== 1
+      )
+        return;
+      if (dirtyRef.current || doc.title !== "Untitled document" || titleRef.current !== doc.title)
+        return;
+      if (blocksToText(content.current).trim()) return;
+      gone.current = true;
+      remove.mutate(doc.id);
+    };
+  });
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      // Strict mode re-mounts at once; a real leave stays unmounted.
+      setTimeout(() => alive.current || discardIfBlank.current(), 0);
+    };
+  }, []);
+
   const deleteDocument = () => {
     clearTimeout(timer.current);
+    gone.current = true;
     remove.mutate(doc.id, {
       onSuccess: () => {
         markDirty(false);
@@ -336,7 +372,10 @@ function DocumentEditor({
           projectId ? `/labs/${labId}/projects/${projectId}/documents` : `/labs/${labId}/documents`,
         );
       },
-      onError: (e) => toast.error(formErrors(e, []).form ?? "Something went wrong."),
+      onError: (e) => {
+        gone.current = false;
+        toast.error(formErrors(e, []).form ?? "Something went wrong.");
+      },
     });
   };
 

@@ -23,3 +23,16 @@ describe("UploadDialog", () => {
     expect(send.mock.calls.map(([f]) => f.name)).toEqual(["a", "b", "b", "c"]);
   });
 });
+
+describe("UploadDialog help", () => {
+  it("says why Upload is disabled and puts focus on Browse files", async () => {
+    const u = userEvent.setup();
+    render(<UploadDialog open onOpenChange={() => {}} send={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Browse files" })).toHaveFocus();
+    await u.upload(screen.getByLabelText("Choose file"), file("a"));
+    expect(screen.getByText("Tick the confirmation to upload.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled();
+    await u.click(screen.getByRole("checkbox"));
+    expect(screen.queryByText("Tick the confirmation to upload.")).toBeNull();
+  });
+});

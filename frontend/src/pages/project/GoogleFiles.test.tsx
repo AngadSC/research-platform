@@ -153,7 +153,7 @@ describe("project files: one list", () => {
     expect(await screen.findByRole("cell", { name: "Methods" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "paper.pdf" })).toBeInTheDocument();
     expect(screen.getByText("Google Docs")).toBeInTheDocument();
-    expect(screen.getByText(/image\/png.*added through Claude/)).toBeInTheDocument();
+    expect(screen.getByText(/Image · .*added through Claude/)).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: /^raw\.csv/ })).toHaveTextContent(
       "Identifies participants",
     );
@@ -288,9 +288,8 @@ describe("Edit in Google (Word, Excel, PowerPoint)", () => {
       },
     });
     renderRoute(DOCS);
-    await userEvent.click(
-      await screen.findByRole("button", { name: /Edit in Google.*Draft\.docx/ }),
-    );
+    await userEvent.click(await screen.findByRole("button", { name: "Actions for Draft.docx" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Edit in Google" }));
     const panel = await screen.findByRole("complementary", { name: /Draft in Google Docs/ });
     expect(within(panel).getByTitle("Draft")).toHaveAttribute(
       "src",
@@ -308,7 +307,8 @@ describe("Edit in Google (Word, Excel, PowerPoint)", () => {
       },
     });
     renderRoute(DOCS);
-    await userEvent.click(await screen.findByRole("button", { name: /Edit in Google/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Actions for Draft.docx" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Edit in Google" }));
     expect(
       await screen.findByText("Files marked as identifying participants stay in labbenchos."),
     ).toBeInTheDocument();
@@ -319,6 +319,65 @@ describe("Edit in Google (Word, Excel, PowerPoint)", () => {
     mockFetch(base(["view_project"], [word]));
     renderRoute(DOCS);
     await screen.findByRole("cell", { name: "Draft.docx" });
-    expect(screen.queryByRole("button", { name: /Edit in Google/ })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Actions for Draft.docx" }));
+    expect(screen.queryByRole("menuitem", { name: "Edit in Google" })).toBeNull();
+  });
+});
+
+describe("documents table", () => {
+  const word = file({
+    id: "w1",
+    original_filename: "Draft.docx",
+    content_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    size_bytes: 1331,
+    contains_participant_data: true,
+  });
+
+  it("names the type plainly, puts the name before the badge and labels a Google copy", async () => {
+    const copy = gdoc("g9", "Draft", "document", { copied_from: "w1" });
+    mockFetch(
+      base(
+        ["edit_content"],
+        [
+          word,
+          copy,
+          file({ id: "c1", original_filename: "n.csv", content_type: "text/csv", size_bytes: 48 }),
+        ],
+      ),
+    );
+    renderRoute(DOCS);
+    const cell = await screen.findByRole("cell", { name: /^Draft\.docx/ });
+    expect(cell.textContent).toMatch(/^Draft\.docx.*Identifies participants/);
+    expect(screen.getByText("Word · 1.3 KB")).toBeInTheDocument();
+    expect(screen.getByText("CSV · 48 B")).toBeInTheDocument();
+    expect(screen.getByText("Google copy of Draft.docx")).toBeInTheDocument();
+  });
+
+  it("downloads a file with no preview when its row is clicked", async () => {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    mockFetch(
+      base(
+        ["edit_content"],
+        [file({ id: "c1", original_filename: "n.csv", content_type: "text/csv" })],
+      ),
+    );
+    renderRoute(DOCS);
+    await userEvent.click(await screen.findByText("n.csv"));
+    expect(click).toHaveBeenCalledTimes(1);
+    click.mockRestore();
+  });
+
+  it("says a Drive file stays in Drive, and keeps the dialog open with the reason when delete fails", async () => {
+    mockFetch({
+      ...base(["edit_content"], [gdoc("g1", "Methods", "document")]),
+      "DELETE /api/labs/lab1/attachments/g1/": { status: 502, body: { detail: "Bad gateway." } },
+    });
+    renderRoute(DOCS);
+    await userEvent.click(await screen.findByRole("button", { name: "Actions for Methods" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
+    expect(await screen.findByText(/stays in your Google Drive/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Delete file" }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete file" })).toBeInTheDocument();
   });
 });

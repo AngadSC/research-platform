@@ -115,9 +115,10 @@ function UploadForm({
           multiple={multiple}
           aria-label="Choose file"
           className="sr-only"
+          tabIndex={-1} // "Browse files" is the one keyboard control for this
           onChange={(e) => pick(e.target.files)}
         />
-        <Button variant="outline" size="sm" onClick={() => input.current?.click()}>
+        <Button variant="outline" size="sm" autoFocus onClick={() => input.current?.click()}>
           Browse files
         </Button>
         <p className="text-xs text-muted-foreground">Up to 50 MB{multiple && " each"}.</p>
@@ -138,11 +139,22 @@ function UploadForm({
       {progress !== null && (
         <progress aria-label="Upload progress" value={progress} max={1} className="w-full" />
       )}
+      {progress === null && (!files.length || !ack) && (
+        <p id="upload-hint" className="text-xs text-muted-foreground">
+          {files.length
+            ? "Tick the confirmation to upload."
+            : "Choose a file, then tick the confirmation to upload."}
+        </p>
+      )}
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onDone} disabled={progress !== null}>
           Cancel
         </Button>
-        <Button onClick={() => void submit()} disabled={!files.length || !ack || progress !== null}>
+        <Button
+          aria-describedby="upload-hint"
+          onClick={() => void submit()}
+          disabled={!files.length || !ack || progress !== null}
+        >
           Upload
         </Button>
       </div>

@@ -151,7 +151,8 @@ describe("files", () => {
       "DELETE /api/labs/lab1/attachments/a1/": { body: {} },
     });
     renderRoute(FILES);
-    await userEvent.click(await screen.findByRole("button", { name: /delete paper/i }));
+    await userEvent.click(await screen.findByRole("button", { name: "Actions for paper.pdf" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
     expect(calls.some((c) => c.method === "DELETE")).toBe(false);
     await userEvent.click(await screen.findByRole("button", { name: "Delete file" }));
     await waitFor(() => expect(calls.some((c) => c.method === "DELETE")).toBe(true));
@@ -173,7 +174,7 @@ describe("files", () => {
       "Identifies participants",
     );
     expect(screen.getAllByText("Identifies participants")).toHaveLength(1); // paper.pdf has none
-    await userEvent.click(screen.getByRole("button", { name: "More for paper.pdf" }));
+    await userEvent.click(screen.getByRole("button", { name: "Actions for paper.pdf" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: "Mark as identifying" }));
     await waitFor(() => {
       const patch = calls.find((c) => c.method === "PATCH");
@@ -185,9 +186,10 @@ describe("files", () => {
     mockFetch(base(["view_project"], [att]));
     renderRoute(FILES);
     expect(await screen.findByRole("cell", { name: "paper.pdf" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /delete paper/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /upload file/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /download paper/i })).toHaveAttribute(
+    await userEvent.click(screen.getByRole("button", { name: "Actions for paper.pdf" }));
+    expect(screen.queryByRole("menuitem", { name: "Delete" })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Download" })).toHaveAttribute(
       "href",
       "/api/labs/lab1/attachments/a1/download/",
     );
