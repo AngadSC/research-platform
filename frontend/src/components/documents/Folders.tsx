@@ -80,7 +80,8 @@ export function FolderBrowser({
         {
           ...handlers,
           onSuccess: () => {
-            if (flagged && !was) toast.success("Everything in this folder is now participant data");
+            if (flagged && !was)
+              toast.success("Everything in this folder is now marked as identifying participants");
             close();
           },
         },

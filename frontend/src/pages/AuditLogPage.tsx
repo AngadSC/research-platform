@@ -153,10 +153,10 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "webhook.deleted": "Removed a webhook",
   "tasks.imported": "Imported tasks",
   "papers.imported": "Imported papers",
-  "folder.participant_flag_changed": "Changed a folder's participant data mark",
-  "document.participant_flag_changed": "Changed a document's participant data mark",
-  "attachment.participant_flag_changed": "Changed a file's participant data mark",
-  "dataset.participant_flag_changed": "Changed a dataset's participant data mark",
+  "folder.participant_flag_changed": "Changed a folder's identifying mark",
+  "document.participant_flag_changed": "Changed a document's identifying mark",
+  "attachment.participant_flag_changed": "Changed a file's identifying mark",
+  "dataset.participant_flag_changed": "Changed a dataset's identifying mark",
   "file_link.created": "Made a download or upload link for a file",
 };
 const humanKey = (k: string) => k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());

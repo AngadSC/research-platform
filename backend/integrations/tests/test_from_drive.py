@@ -330,7 +330,7 @@ def test_participant_data_never_goes_to_google(transport, world, where):
     before = len(transport.calls)
     r = edit_in_google(api(users["member"]), lab, att)
     assert r.status_code == 400
-    assert err(r, "file") == "Files marked as participant data stay in labbenchos."
+    assert err(r, "file") == "Files marked as identifying participants stay in labbenchos."
     assert len(transport.calls) == before
 
 

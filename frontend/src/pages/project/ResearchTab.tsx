@@ -341,7 +341,10 @@ function fields(kind: Kind, r: AnyRecord, labId: string, base: string): [string,
         ["Access controlled by", who(d.controlled_by)],
         ["How to get access", d.access_notes || "None"],
         ["Checksum", d.checksum || "None"],
-        ["Participant data", d.contains_participant_data ? <ParticipantBadge key="pd" /> : "No"],
+        [
+          "Identifies participants",
+          d.contains_participant_data ? <ParticipantBadge key="pd" /> : "No",
+        ],
         [
           "New version of",
           <Refs

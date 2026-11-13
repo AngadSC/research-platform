@@ -145,8 +145,8 @@ export function HelpPage() {
             .
           </p>
           <p className="text-sm text-muted-foreground">
-            Claude only sees what you can see. It never sees files marked &quot;Contains participant
-            data&quot;.
+            Claude only sees what you can see. It never sees files marked &quot;Identifies
+            participants&quot;.
           </p>
         </section>
 
@@ -192,7 +192,7 @@ export function HelpPage() {
           </ol>
           <p className="text-sm text-muted-foreground">
             Your data is processed on your own computer, by your own MATLAB. Files marked
-            &quot;Contains participant data&quot; cannot be used this way. Links expire after 15
+            &quot;Identifies participants&quot; cannot be used this way. Links expire after 15
             minutes, and each upload link works once.
           </p>
         </section>

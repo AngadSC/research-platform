@@ -391,7 +391,9 @@ def edit_in_google(attachment, *, user, request=None) -> Attachment:
             {"file": "Only Word, Excel and PowerPoint files can be edited in Google."}
         )
     if is_flagged(attachment):
-        raise ValidationError({"file": "Files marked as participant data stay in labbenchos."})
+        raise ValidationError(
+            {"file": "Files marked as identifying participants stay in labbenchos."}
+        )
     limit = google_drive.CONVERT_MAX_BYTES
     too_big = f"This file is too large to copy to Google ({limit // 1048576} MB maximum)."
     if attachment.size_bytes > limit:

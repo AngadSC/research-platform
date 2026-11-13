@@ -98,14 +98,13 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
       {
         onSuccess: () =>
           toast.success(
-            value ? `Marked as participant data. ${PARTICIPANT_HINT}` : "No longer marked",
+            value ? `Marked as identifying participants. ${PARTICIPANT_HINT}` : "No longer marked",
           ),
         onError: (e) => toast.error(formErrors(e, []).form ?? "Something went wrong."),
       },
     );
   };
-  const flagLabel = (r: Row) =>
-    rowFlagged(r) ? "Not participant data" : "Mark as participant data";
+  const flagLabel = (r: Row) => (rowFlagged(r) ? "Not identifying" : "Mark as identifying");
   const [deleting, setDeleting] = useState<Row | null>(null);
   const [moving, setMoving] = useState<Movable | null>(null);
   const [embedding, setEmbedding] = useState(false);

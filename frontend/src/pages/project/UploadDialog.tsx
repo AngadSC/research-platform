@@ -11,16 +11,16 @@ export const MAX_BYTES = 50 * 1024 * 1024;
 export const NOTICE =
   "Do not upload participant identifiers. Upload only anonymized or aggregate data.";
 const FLAGGED_NOTICE =
-  "Keep participant data here only if your ethics approval allows it. Claude and other AI tools will never see this file.";
+  "Keep identifying participant data here only if your ethics approval allows it. Claude and other AI tools will never see this file.";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** `participant` is the "Contains participant data" tick (false when the box is not shown). */
+  /** `participant` is the "Identifies participants" tick (false when the box is not shown). */
   send: (file: File, onProgress: (f: number) => void, participant: boolean) => Promise<unknown>;
   /** Choose several files; `send` is called once for each, in order. */
   multiple?: boolean;
-  /** Show "Contains participant data", starting ticked when true (a flagged folder). */
+  /** Show "Identifies participants", starting ticked when true (a flagged folder). */
   participant?: boolean;
 }
 
@@ -131,7 +131,7 @@ function UploadForm({
           className="mt-0.5"
         />
         {flagged
-          ? "I confirm my ethics approval allows keeping this participant data here"
+          ? "I confirm my ethics approval allows keeping this identifying participant data here"
           : "I confirm this file contains no participant identifiers"}
       </label>
       <FormError message={error} />

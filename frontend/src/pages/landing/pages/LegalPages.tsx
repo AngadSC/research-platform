@@ -107,7 +107,7 @@ export function PrivacyPage() {
         The AI assistant uses your own AI provider account or API key (such as Anthropic or OpenAI),
         or one your lab has set up. When you use it, the parts of your lab you ask about, including
         the contents of files you ask it to read, are sent to that provider under that
-        account&rsquo;s agreement with them. Anything marked &ldquo;Contains participant data&rdquo;
+        account&rsquo;s agreement with them. Anything marked &ldquo;Identifies participants&rdquo;
         is never sent to an AI provider. If you ask Claude to analyse files, copies of them go to
         Anthropic&rsquo;s code sandbox, which Anthropic keeps for up to 30 days. Files the code
         makes are deleted from that account once saved to your project; any not saved can stay there

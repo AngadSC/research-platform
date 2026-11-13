@@ -530,9 +530,11 @@ def save_analysis_outputs(ctx, lab_id, project_id, title, summary="", files=None
         for x in (
             summary,
             "Run by Claude in the in-app assistant.",
-            "Input files: " + ", ".join(sorted(a.original_filename for a in inputs))
-            if inputs
-            else "",
+            (
+                "Input files: " + ", ".join(sorted(a.original_filename for a in inputs))
+                if inputs
+                else ""
+            ),
         )
         if x
     )

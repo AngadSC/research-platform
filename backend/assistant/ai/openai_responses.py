@@ -79,9 +79,11 @@ def drop_thinking(content: list) -> list:
 def refuse_results(content: list, ids: set, text: str) -> list:
     """The same results with those calls' output replaced by `text`."""
     return [
-        i | {"output": text}
-        if i.get("type") == "function_call_output" and i["call_id"] in ids
-        else i
+        (
+            i | {"output": text}
+            if i.get("type") == "function_call_output" and i["call_id"] in ids
+            else i
+        )
         for i in content
     ]
 

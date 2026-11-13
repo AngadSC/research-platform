@@ -190,14 +190,16 @@ class ConfigView(LabScopedViewMixin, generics.GenericAPIView):
                     for p in Provider.values
                 ],
                 # VISION A5: whether the lab's key is there for this person (never the key)
-                "lab_key": {
-                    "provider": lab_key.provider,
-                    "label": catalog.LABELS[lab_key.provider],
-                    "own_key_wins": lab_key.provider in saved,
-                    "limit_reached": not lab_keys.under_cap(lab_key),
-                }
-                if lab_key
-                else None,
+                "lab_key": (
+                    {
+                        "provider": lab_key.provider,
+                        "label": catalog.LABELS[lab_key.provider],
+                        "own_key_wins": lab_key.provider in saved,
+                        "limit_reached": not lab_keys.under_cap(lab_key),
+                    }
+                    if lab_key
+                    else None
+                ),
             }
         )
 

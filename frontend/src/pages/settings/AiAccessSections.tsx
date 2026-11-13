@@ -59,6 +59,31 @@ function copy(text: string) {
   );
 }
 
+/** "Connect to Claude", "Copy address" and the connection address (also shown on Integrations). */
+export function ConnectClaude() {
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" asChild>
+          <a
+            href={CLAUDE_CONNECT + encodeURIComponent(mcpUrl())}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Connect to Claude
+          </a>
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => copy(mcpUrl())}>
+          Copy address
+        </Button>
+      </div>
+      <p className="text-sm">
+        Connection address: <code className="break-all">{mcpUrl()}</code>
+      </p>
+    </>
+  );
+}
+
 const accessLabel = (a: string) => (a === "write" ? "Read and write" : "Read only");
 
 function GrantMeta({ g }: { g: AiGrant }) {
@@ -292,23 +317,7 @@ export function AiAccessSections() {
           Read only is the default. Read and write also lets the app create tasks, post task updates
           and draft decisions.
         </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" asChild>
-            <a
-              href={CLAUDE_CONNECT + encodeURIComponent(mcpUrl())}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Connect to Claude
-            </a>
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => copy(mcpUrl())}>
-            Copy address
-          </Button>
-        </div>
-        <p className="text-sm">
-          Connection address: <code className="break-all">{mcpUrl()}</code>
-        </p>
+        <ConnectClaude />
         <div className="text-sm">
           <p className="font-medium">Using ChatGPT?</p>
           <ol className="list-decimal pl-5 text-muted-foreground">

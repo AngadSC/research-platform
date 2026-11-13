@@ -82,7 +82,7 @@ export function useFolderActions(labId: string, projectId: string) {
         api<Folder>(`${base(labId)}/projects/${projectId}/folders/`, { method: "POST", body: v }),
       onSuccess,
     }),
-    /** Rename, and/or tick or clear "Contains participant data" (ticking flags the contents). */
+    /** Rename, and/or tick or clear "Identifies participants" (ticking flags the contents). */
     update: useMutation({
       mutationFn: ({
         id,
@@ -109,7 +109,7 @@ export function useFolderActions(labId: string, projectId: string) {
   };
 }
 
-/** VISION A3: tick or clear "Contains participant data" on a document or file. */
+/** VISION A3: tick or clear "Identifies participants" on a document or file. */
 export function useParticipantFlag(labId: string) {
   const qc = useQueryClient();
   return useMutation({

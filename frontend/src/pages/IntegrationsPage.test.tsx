@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ExternalLinkItem } from "@/components/shared/ExternalLinkItem";
@@ -64,6 +64,20 @@ describe("Integrations page", () => {
     await userEvent.click(screen.getByRole("button", { name: "Connect Google Drive" }));
     await waitFor(() => expect(assign).toHaveBeenCalledWith("https://accounts.example/consent"));
     expect(calls.some((c) => c.method === "POST")).toBe(true);
+  });
+
+  it("shows the Claude connector with connected apps and a link to Settings", async () => {
+    const app = { id: "g1", kind: "oauth", client_name: "Claude", labs: [], access: "read" };
+    mockFetch({ ...base(MEMBER, []), "GET /api/ai/grants/": { body: [app] } });
+    renderRoute(PAGE);
+    const region = await screen.findByRole("region", { name: "Claude and other AI apps" });
+    expect(await within(region).findByText(/Connected: Claude/)).toBeInTheDocument();
+    expect(within(region).getByRole("link", { name: "Connect to Claude" })).toBeInTheDocument();
+    expect(within(region).getByRole("button", { name: "Copy address" })).toBeInTheDocument();
+    expect(within(region).getByRole("link", { name: "Manage in Settings" })).toHaveAttribute(
+      "href",
+      "/settings#ai",
+    );
   });
 
   it("shows a skeleton while loading, then an empty state with no services", async () => {

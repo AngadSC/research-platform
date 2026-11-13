@@ -152,7 +152,9 @@ function DocumentEditor({
       {
         onSuccess: () => {
           toast.success(
-            flagged ? "No longer marked" : `Marked as participant data. ${PARTICIPANT_HINT}`,
+            flagged
+              ? "No longer marked"
+              : `Marked as identifying participants. ${PARTICIPANT_HINT}`,
           );
           setFlagged(!flagged);
         },
@@ -401,7 +403,7 @@ function DocumentEditor({
             <DropdownMenuItem onSelect={() => setPanel("history")}>History</DropdownMenuItem>
             {canEdit && (
               <DropdownMenuItem onSelect={toggleFlag}>
-                {flagged ? "Not participant data" : "Mark as participant data"}
+                {flagged ? "Not identifying" : "Mark as identifying"}
               </DropdownMenuItem>
             )}
             {projectId && (

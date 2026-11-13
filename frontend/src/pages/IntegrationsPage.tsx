@@ -20,12 +20,14 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAccounts, useConnect, useDisconnect, useProviders } from "@/hooks/integrations";
+import { useAiGrants } from "@/hooks/ai";
 import { useLab } from "@/hooks/workspace";
 import type { ConnectedAccount, IntegrationProvider } from "@/lib/api-types";
 import { personName } from "@/lib/api-types";
 import { useRegisterCommands } from "@/lib/commands";
 import { formErrors } from "@/lib/forms";
 import { CATEGORIES, connectError, needsReconnect, STATUS_HELP } from "@/lib/integrations";
+import { ConnectClaude } from "@/pages/settings/AiAccessSections";
 import { WebhooksSection } from "@/pages/settings/WebhooksSection";
 
 interface Confirm {
@@ -134,13 +136,7 @@ export function IntegrationsPage() {
         title="Integrations"
         description="Connect outside services to link their files to your projects. We only read details such as titles and modified times."
       />
-      <p className="text-sm text-muted-foreground">
-        Each person connects their own accounts here. Using Claude or ChatGPT?{" "}
-        <Link to="/settings#ai" className="font-medium text-foreground underline">
-          Connect them in Settings, under AI
-        </Link>
-        .
-      </p>
+      <p className="text-sm text-muted-foreground">Each person connects their own accounts here.</p>
       <FormError message={failure ?? connectError(initialError)} />
       <section aria-labelledby="services" className="grid gap-3">
         <h2 id="services" className="text-base font-semibold">
@@ -209,6 +205,7 @@ export function IntegrationsPage() {
           />
         )}
       </section>
+      <AiAppsSection />
       {canSeeAll && <WebhooksSection labId={labId} />}
       {canSeeAll && (
         <section aria-labelledby="everyone" className="grid gap-3">
@@ -247,6 +244,31 @@ export function IntegrationsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/** Claude and other AI apps connect through the MCP address, not an OAuth service; Settings > AI
+ * holds the full list and Revoke. */
+function AiAppsSection() {
+  const apps = (useAiGrants().data ?? []).filter((g) => g.kind === "oauth" && !g.revoked_at);
+  return (
+    <section aria-labelledby="ai-apps" className="grid gap-3">
+      <h2 id="ai-apps" className="text-base font-semibold">
+        Claude and other AI apps
+      </h2>
+      <div className="grid gap-3 rounded-lg border bg-background px-4 py-3">
+        <p className="text-sm text-muted-foreground">
+          {apps.length
+            ? `Connected: ${apps.map((g) => g.client_name).join(", ")}.`
+            : "No AI app connected."}{" "}
+          They see only what you can see, in the labs you choose.{" "}
+          <Link to="/settings#ai" className="font-medium text-foreground underline">
+            Manage in Settings
+          </Link>
+        </p>
+        <ConnectClaude />
+      </div>
+    </section>
   );
 }
 

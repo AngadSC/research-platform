@@ -154,7 +154,9 @@ describe("project files: one list", () => {
     expect(screen.getByRole("cell", { name: "paper.pdf" })).toBeInTheDocument();
     expect(screen.getByText("Google Docs")).toBeInTheDocument();
     expect(screen.getByText(/image\/png.*added through Claude/)).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: /^raw\.csv/ })).toHaveTextContent("Participant data");
+    expect(screen.getByRole("cell", { name: /^raw\.csv/ })).toHaveTextContent(
+      "Identifies participants",
+    );
   });
 
   it("previews a PDF in a dialog through the download endpoint", async () => {
@@ -302,13 +304,13 @@ describe("Edit in Google (Word, Excel, PowerPoint)", () => {
       ...base(["edit_content"], [word]),
       [COPY]: {
         status: 400,
-        body: { file: "Files marked as participant data stay in labbenchos." },
+        body: { file: "Files marked as identifying participants stay in labbenchos." },
       },
     });
     renderRoute(DOCS);
     await userEvent.click(await screen.findByRole("button", { name: /Edit in Google/ }));
     expect(
-      await screen.findByText("Files marked as participant data stay in labbenchos."),
+      await screen.findByText("Files marked as identifying participants stay in labbenchos."),
     ).toBeInTheDocument();
     expect(screen.queryByRole("complementary", { name: /in Google/ })).toBeNull();
   });

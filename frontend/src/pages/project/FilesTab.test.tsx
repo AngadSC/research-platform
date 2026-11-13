@@ -103,14 +103,14 @@ describe("files", () => {
     expect((FakeXHR.sent[0]!.get("file") as File).name).toBe("n.pdf");
   });
 
-  it("sends the participant data tick, which also changes what is confirmed", async () => {
+  it("sends the identifies-participants tick, which also changes what is confirmed", async () => {
     mockFetch(base(["edit_content"]));
     renderRoute(FILES);
     const u = userEvent.setup();
     await openDialog(u);
-    expect(screen.getByText("Claude and other AI tools will never see this.")).toBeInTheDocument();
+    expect(screen.getByText(/Claude and other AI tools will never see this./)).toBeInTheDocument();
     await u.upload(screen.getByLabelText("Choose file"), pdf());
-    await u.click(screen.getByRole("checkbox", { name: "Contains participant data" }));
+    await u.click(screen.getByRole("checkbox", { name: "Identifies participants" }));
     expect(screen.queryByText(/Do not upload participant identifiers/)).not.toBeInTheDocument();
     expect(screen.getByText(/only if your ethics approval allows it/)).toBeInTheDocument();
     await u.click(screen.getByRole("checkbox", { name: /ethics approval allows/i }));
@@ -157,7 +157,7 @@ describe("files", () => {
     await waitFor(() => expect(calls.some((c) => c.method === "DELETE")).toBe(true));
   });
 
-  it("badges participant data and marks a file from its menu", async () => {
+  it("badges identifying files and marks a file from its menu", async () => {
     const flagged = {
       ...att,
       id: "a2",
@@ -170,13 +170,11 @@ describe("files", () => {
     });
     renderRoute(FILES);
     expect(await screen.findByRole("cell", { name: /^raw\.csv/ })).toHaveTextContent(
-      "Participant data",
+      "Identifies participants",
     );
-    expect(screen.getAllByText("Participant data")).toHaveLength(1); // paper.pdf has none
+    expect(screen.getAllByText("Identifies participants")).toHaveLength(1); // paper.pdf has none
     await userEvent.click(screen.getByRole("button", { name: "More for paper.pdf" }));
-    await userEvent.click(
-      await screen.findByRole("menuitem", { name: "Mark as participant data" }),
-    );
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Mark as identifying" }));
     await waitFor(() => {
       const patch = calls.find((c) => c.method === "PATCH");
       expect(patch?.body).toEqual({ contains_participant_data: true });
