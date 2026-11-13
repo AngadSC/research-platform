@@ -68,7 +68,7 @@ describe("app shell", () => {
     expect(skip).toHaveFocus();
     await userEvent.keyboard("{Enter}");
     expect(screen.getByRole("main")).toHaveFocus();
-    await waitFor(() => expect(document.title).toBe("Members · labbenchos"));
+    await waitFor(() => expect(document.title).toBe("Members Â· labbenchos"));
   });
 
   it("a server error on the session check is not a logout", async () => {

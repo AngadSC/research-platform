@@ -446,7 +446,7 @@ function AssistantPanel({
         <form className="mt-auto grid gap-2" onSubmit={(e) => e.preventDefault()}>
           <Textarea
             aria-label="Message"
-            placeholder="Set up a key to ask the assistant�"
+            placeholder="Set up a key to ask the assistant…"
             rows={2}
             disabled
           />

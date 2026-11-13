@@ -22,7 +22,7 @@ export function ProtectedLayout() {
         <h1 className="text-lg font-semibold">labbenchos is briefly unavailable</h1>
         <p className="text-sm text-muted-foreground">
           This usually takes a minute, for example while we update. Your work is safe. We are
-          retrying…
+          retryingâ€¦
         </p>
         <Button variant="outline" onClick={retry}>
           Try again now

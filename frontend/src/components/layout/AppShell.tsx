@@ -59,12 +59,12 @@ function PinButton({ crumbs }: { crumbs: Crumb[] }) {
   );
 }
 
-/** "Tasks � Pilot Attention Study � labbenchos", from the breadcrumb trail. */
+/** "Tasks · Pilot Attention Study · labbenchos", from the breadcrumb trail. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function pageTitle(crumbs: Crumb[]) {
   const loaded = crumbs.filter((c) => !c.pending);
   return loaded.length === crumbs.length && crumbs.length > 0
-    ? `${pinLabel(crumbs)} � ${APP_NAME}`
+    ? `${pinLabel(crumbs)} · ${APP_NAME}`
     : APP_NAME;
 }
 
