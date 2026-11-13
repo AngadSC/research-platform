@@ -94,6 +94,105 @@ function Entry({
   );
 }
 
+const AGENDA_DAYS = 60;
+const clock = (iso: string) =>
+  new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+
+/** Upcoming items by day: the full title is always visible, unlike the month cells. */
+function Agenda({
+  labId,
+  items,
+  google,
+  start,
+  loading,
+  onOpen,
+  onAdd,
+}: {
+  labId: string;
+  items: CalendarItem[];
+  google: GoogleEvent[];
+  start: Date;
+  loading: boolean;
+  onOpen: (item: CalendarItem) => void;
+  onAdd?: () => void;
+}) {
+  const groups = Array.from({ length: AGENDA_DAYS + 1 }, (_, i) => {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    const iso = localDateISO(d);
+    const rows = itemsOn(items, iso).sort((a, b) =>
+      (a.starts_at ?? "").localeCompare(b.starts_at ?? ""),
+    );
+    return { d, iso, rows, fromGoogle: googleOn(google, iso) };
+  }).filter((g) => g.rows.length + g.fromGoogle.length > 0);
+  if (groups.length === 0)
+    return loading ? null : (
+      <div className="rounded-lg border p-8 text-center">
+        <p className="font-medium">Nothing coming up</p>
+        <p className="mb-3 text-sm text-muted-foreground">
+          Nothing is scheduled in the next {AGENDA_DAYS} days.
+        </p>
+        {onAdd && <Button onClick={onAdd}>Add event</Button>}
+      </div>
+    );
+  return (
+    <div aria-busy={loading || undefined} className="grid gap-4">
+      {groups.map(({ d, iso, rows, fromGoogle }) => (
+        <section key={iso} aria-labelledby={`agenda-${iso}`}>
+          <h3 id={`agenda-${iso}`} className="mb-1 text-sm font-semibold">
+            <time dateTime={iso}>
+              {d.toLocaleDateString(undefined, {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}
+            </time>
+          </h3>
+          {fromGoogle.length > 0 && (
+            <ul className="mb-1 grid gap-1">
+              {fromGoogle.map((e) => (
+                <GoogleEntry key={`google:${e.id}`} event={e} />
+              ))}
+            </ul>
+          )}
+          <ul className={cn("divide-y rounded-lg border", rows.length === 0 && "hidden")}>
+            {rows.map((item) => {
+              const href = calendarHref(labId, item);
+              const row = (
+                <>
+                  <span className="w-20 shrink-0 text-muted-foreground">
+                    {item.starts_at ? clock(item.starts_at) : "All day"}
+                  </span>
+                  <span className={cn("min-w-0 flex-1 break-words", item.done && "line-through")}>
+                    {item.title}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {[KIND[item.kind], item.project_name].filter(Boolean).join(" · ")}
+                  </span>
+                </>
+              );
+              const cls =
+                "flex w-full items-baseline gap-3 px-3 py-2 text-left text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
+              return (
+                <li key={`${item.kind}:${item.id}`}>
+                  {href ? (
+                    <Link to={href} className={cls}>
+                      {row}
+                    </Link>
+                  ) : (
+                    <button type="button" className={cls} onClick={() => onOpen(item)}>
+                      {row}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 /** One of your own Google events (D256): only you see it, and it opens in Google Calendar. */
 function GoogleEntry({ event }: { event: GoogleEvent }) {
   const time = event.starts_at
@@ -257,11 +356,20 @@ export function CalendarPage() {
   const [cursor, setCursor] = useState(FIRST_OF_THIS_MONTH);
   const days = useMemo(() => monthGrid(cursor.getFullYear(), cursor.getMonth()), [cursor]);
   const [params, setParams] = useSearchParams();
-  const mine = params.get("view") === "mine";
+  // ?view= is "mine", "agenda" or "mine-agenda"; absent means the lab's month grid.
+  const view = params.get("view") ?? "";
+  const mine = view.startsWith("mine");
+  const agenda = view.endsWith("agenda");
+  const setView = (nextMine: boolean, nextAgenda: boolean) => {
+    const v = [nextMine && "mine", nextAgenda && "agenda"].filter(Boolean).join("-");
+    setParams(v ? { view: v } : {});
+  };
+  const now = new Date();
+  const agendaEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + AGENDA_DAYS);
   const { list, create, update, remove, meetings } = useCalendar(
     labId,
-    localDateISO(days[0]!),
-    localDateISO(days[days.length - 1]!),
+    agenda ? localDateISO(now) : localDateISO(days[0]!),
+    agenda ? localDateISO(agendaEnd) : localDateISO(days[days.length - 1]!),
     mine,
   );
   const [dialog, setDialog] = useState<{ kind: "event" | "meeting"; item?: CalendarItem } | null>(
@@ -273,8 +381,8 @@ export function CalendarPage() {
   const googleEvents =
     useGoogleEvents(
       labId,
-      localDateISO(days[0]!),
-      localDateISO(days[days.length - 1]!),
+      agenda ? localDateISO(now) : localDateISO(days[0]!),
+      agenda ? localDateISO(agendaEnd) : localDateISO(days[days.length - 1]!),
       !!google?.connected && google.show_google_events,
     ).data ?? [];
   const items = list.data ?? [];
@@ -315,7 +423,7 @@ export function CalendarPage() {
           size="sm"
           variant={mine ? "outline" : "secondary"}
           aria-pressed={!mine}
-          onClick={() => setParams({}, { replace: true })}
+          onClick={() => setView(false, agenda)}
         >
           Lab calendar
         </Button>
@@ -323,94 +431,134 @@ export function CalendarPage() {
           size="sm"
           variant={mine ? "secondary" : "outline"}
           aria-pressed={mine}
-          onClick={() => setParams({ view: "mine" }, { replace: true })}
+          onClick={() => setView(true, agenda)}
         >
           My calendar
         </Button>
-      </div>
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Button variant="outline" size="icon" aria-label="Previous month" onClick={() => move(-1)}>
-          <ChevronLeft aria-hidden />
+        <span className="mx-1" />
+        <Button
+          size="sm"
+          variant={agenda ? "outline" : "secondary"}
+          aria-pressed={!agenda}
+          onClick={() => setView(mine, false)}
+        >
+          Month
         </Button>
-        <Button variant="outline" onClick={() => setCursor(FIRST_OF_THIS_MONTH())}>
-          Today
+        <Button
+          size="sm"
+          variant={agenda ? "secondary" : "outline"}
+          aria-pressed={agenda}
+          onClick={() => setView(mine, true)}
+        >
+          Agenda
         </Button>
-        <Button variant="outline" size="icon" aria-label="Next month" onClick={() => move(1)}>
-          <ChevronRight aria-hidden />
-        </Button>
-        <h2 aria-live="polite" className="ml-2 text-base font-semibold">
-          {cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
-        </h2>
       </div>
-      {list.error && <FormError message={formErrors(list.error, []).form} />}
-      <div className="hidden grid-cols-7 pb-1 text-center text-xs text-muted-foreground sm:grid">
-        {days.slice(0, 7).map((d) => (
-          <span key={d.getDay()}>{d.toLocaleDateString(undefined, { weekday: "short" })}</span>
-        ))}
-      </div>
-      <ol
-        aria-busy={list.isLoading || undefined}
-        className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-7"
-      >
-        {days.map((d) => {
-          const iso = localDateISO(d);
-          const onDay = itemsOn(items, iso);
-          const fromGoogle = googleOn(googleEvents, iso);
-          const isToday = iso === today;
-          const outside = d.getMonth() !== cursor.getMonth();
-          return (
-            <li
-              key={iso}
-              aria-current={isToday ? "date" : undefined}
-              // Below sm the grid is a list of days with something on them, plus today.
-              className={cn(
-                "min-w-0 bg-card p-1.5 sm:min-h-24",
-                onDay.length === 0 && fromGoogle.length === 0 && !isToday && "hidden sm:block",
-                outside && "sm:bg-muted",
-              )}
+      {agenda && list.error && <FormError message={formErrors(list.error, []).form} />}
+      {agenda && (
+        <Agenda
+          labId={labId}
+          items={items}
+          google={googleEvents}
+          start={now}
+          loading={list.isLoading}
+          onOpen={(open) =>
+            setDialog({ kind: open.kind === "meeting" ? "meeting" : "event", item: open })
+          }
+          onAdd={canEdit && !mine ? () => setDialog({ kind: "event" }) : undefined}
+        />
+      )}
+      {!agenda && (
+        <>
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Previous month"
+              onClick={() => move(-1)}
             >
-              <time
-                dateTime={iso}
-                className={cn(
-                  "text-xs",
-                  isToday
-                    ? "rounded-full bg-primary px-1.5 py-0.5 font-semibold text-primary-foreground"
-                    : "text-muted-foreground",
-                )}
-              >
-                <span className="sm:hidden">
-                  {d.toLocaleDateString(undefined, {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </span>
-                <span className="hidden sm:inline">{d.getDate()}</span>
-              </time>
-              {onDay.length + fromGoogle.length > 0 && (
-                <ul className="mt-1 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
-                  {fromGoogle.map((e) => (
-                    <GoogleEntry key={`google:${e.id}`} event={e} />
-                  ))}
-                  {onDay.map((item) => (
-                    <Entry
-                      key={`${item.kind}:${item.id}`}
-                      labId={labId}
-                      item={item}
-                      onOpen={(open) =>
-                        setDialog({
-                          kind: open.kind === "meeting" ? "meeting" : "event",
-                          item: open,
-                        })
-                      }
-                    />
-                  ))}
-                </ul>
-              )}
-            </li>
-          );
-        })}
-      </ol>
+              <ChevronLeft aria-hidden />
+            </Button>
+            <Button variant="outline" onClick={() => setCursor(FIRST_OF_THIS_MONTH())}>
+              Today
+            </Button>
+            <Button variant="outline" size="icon" aria-label="Next month" onClick={() => move(1)}>
+              <ChevronRight aria-hidden />
+            </Button>
+            <h2 aria-live="polite" className="ml-2 text-base font-semibold">
+              {cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
+            </h2>
+          </div>
+          {list.error && <FormError message={formErrors(list.error, []).form} />}
+          <div className="hidden grid-cols-7 pb-1 text-center text-xs text-muted-foreground sm:grid">
+            {days.slice(0, 7).map((d) => (
+              <span key={d.getDay()}>{d.toLocaleDateString(undefined, { weekday: "short" })}</span>
+            ))}
+          </div>
+          <ol
+            aria-busy={list.isLoading || undefined}
+            className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-7"
+          >
+            {days.map((d) => {
+              const iso = localDateISO(d);
+              const onDay = itemsOn(items, iso);
+              const fromGoogle = googleOn(googleEvents, iso);
+              const isToday = iso === today;
+              const outside = d.getMonth() !== cursor.getMonth();
+              return (
+                <li
+                  key={iso}
+                  aria-current={isToday ? "date" : undefined}
+                  // Below sm the grid is a list of days with something on them, plus today.
+                  className={cn(
+                    "min-w-0 bg-card p-1.5 sm:min-h-24",
+                    onDay.length === 0 && fromGoogle.length === 0 && !isToday && "hidden sm:block",
+                    outside && "sm:bg-muted",
+                  )}
+                >
+                  <time
+                    dateTime={iso}
+                    className={cn(
+                      "text-xs",
+                      isToday
+                        ? "rounded-full bg-primary px-1.5 py-0.5 font-semibold text-primary-foreground"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    <span className="sm:hidden">
+                      {d.toLocaleDateString(undefined, {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                    <span className="hidden sm:inline">{d.getDate()}</span>
+                  </time>
+                  {onDay.length + fromGoogle.length > 0 && (
+                    <ul className="mt-1 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+                      {fromGoogle.map((e) => (
+                        <GoogleEntry key={`google:${e.id}`} event={e} />
+                      ))}
+                      {onDay.map((item) => (
+                        <Entry
+                          key={`${item.kind}:${item.id}`}
+                          labId={labId}
+                          item={item}
+                          onOpen={(open) =>
+                            setDialog({
+                              kind: open.kind === "meeting" ? "meeting" : "event",
+                              item: open,
+                            })
+                          }
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </>
+      )}
       <EventDialog
         key={dialog?.kind === "event" ? (dialog.item?.id ?? "new") : "closed"}
         event={dialog?.kind === "event" ? dialog.item : undefined}
