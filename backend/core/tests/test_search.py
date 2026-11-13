@@ -1,17 +1,18 @@
 """Lab-wide search (D93): permissions, soft delete, restricted ethics, throttle, text extraction."""
 
 import datetime
+import uuid
 
 import pytest
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from core.search import SPECS
-from documents.models import Document
+from core.search import SPECS, search
+from documents.models import Attachment, Document
 from documents.services import create_document, save_document
 from documents.text import extract_text
 from ethics.models import EthicsApproval
-from labs.models import LabRole
+from labs.models import LabRole, Meeting
 from papers import services as paper_services
 from projects.models import ProjectMembership, ProjectRole, Task
 from provenance import services as prov
@@ -67,6 +68,33 @@ def titles(hits):
     return {h["title"] for h in hits}
 
 
+def attach(w, project, name, **kw):
+    kw.setdefault("content_type", "text/csv")
+    return Attachment.objects.create(
+        lab=w.lab,
+        project=project,
+        storage_key=f"k/{uuid.uuid4()}",
+        original_filename=name,
+        size_bytes=1,
+        sha256="",
+        uploaded_by=w.u["pi"],
+        **kw,
+    )
+
+
+def meeting(w, title, *people):
+    start = datetime.datetime(2030, 1, 1, 9, tzinfo=datetime.UTC)
+    m = Meeting.objects.create(
+        lab=w.lab,
+        title=title,
+        starts_at=start,
+        ends_at=start + datetime.timedelta(hours=1),
+        created_by=people[0],
+    )
+    m.attendees.set(people)
+    return m
+
+
 def approval(w, number, restricted=False, title=f"{WORD} eth", board="Board"):
     a = EthicsApproval.objects.create(
         lab=w.lab,
@@ -113,6 +141,8 @@ def test_every_type_is_found_with_a_spa_url(w):
     paper = paper_services.create_paper(w.lab, user=u, data={"title": f"{WORD} in vivo"})
     paper_services.add_note(paper, author=u, body=f"the {WORD} result")
     approval(w, "Z-1")
+    attach(w, w.p1, f"{WORD} raw.csv")
+    meeting(w, f"{WORD} sync", w.u["pi"])
     hits = run(w, "pi")
     assert {h["type"] for h in hits} == {s.type for s in SPECS if s.type != "link"}
     by = {h["type"]: h for h in hits}
@@ -123,6 +153,8 @@ def test_every_type_is_found_with_a_spa_url(w):
     assert by["document"]["project"] == {"id": str(w.p1.pk), "name": w.p1.name}
     assert by["paper_note"]["title"] == f"Note on {paper.title}"
     assert by["paper_note"]["url"] == f"/labs/{w.lab.pk}/papers/{paper.pk}"
+    assert by["file"]["url"] == f"/labs/{w.lab.pk}/projects/{w.p1.pk}/documents"
+    assert by["meeting"]["url"] == f"/labs/{w.lab.pk}/calendar"
     assert WORD in by["document"]["snippet"]
     assert {h["type"] for h in run(w, "pi", types="task")} == {"task"}
 
@@ -207,3 +239,52 @@ def test_search_is_throttled(w, monkeypatch):
 
     monkeypatch.setitem(ScopedRateThrottle.THROTTLE_RATES, "search", "2/minute")
     assert [get(w, "pi").status_code for _ in range(3)] == [200, 200, 429]
+
+
+def test_files_are_found_by_name_with_the_file_lists_rules(w):
+    """Uploads and Drive files by name. A file in a project you are not on, a grant letter (D244)
+    and a deleted file stay hidden, exactly as in the project's file list."""
+    attach(w, w.p1, "Tester doc.docx")
+    google_doc = "application/vnd.google-apps.document"
+    attach(w, w.p1, "Tester doc", drive_file_id="d1", content_type=google_doc)
+    attach(w, w.p1, "Tester doc grant.pdf", pi_only=True)
+    attach(w, w.p2, "Tester doc hidden.pdf")
+    gone = attach(w, w.p1, "Tester doc old.pdf")
+    Attachment.objects.for_lab(w.lab).filter(pk=gone.pk).update(
+        deleted_at=datetime.datetime(2030, 1, 1, tzinfo=datetime.UTC)
+    )
+    member = run(w, "member", q="tester doc", types="file")
+    assert sorted(h["title"] for h in member) == ["Tester doc", "Tester doc.docx"]
+    assert all(h["project"]["id"] == str(w.p1.pk) for h in member)
+    assert titles(run(w, "viewer", q="tester doc")) == {"Tester doc", "Tester doc.docx"}
+    assert run(w, "nonproj", q="tester doc") == []
+    assert titles(run(w, "pi", q="tester doc")) == {
+        "Tester doc",
+        "Tester doc.docx",
+        "Tester doc grant.pdf",
+        "Tester doc hidden.pdf",
+    }
+
+
+def test_identifying_files_show_in_the_app_but_never_to_ai(w):
+    """In the app a flagged file shows to whoever can see it in the file list (it carries its
+    badge there); AI search leaves it out, also when its folder is the flagged one."""
+    from documents.models import Folder
+
+    attach(w, w.p1, f"{WORD} own.csv", contains_participant_data=True)
+    box = Folder.objects.create(
+        lab=w.lab, project=w.p1, name="Box", created_by=w.u["pi"], contains_participant_data=True
+    )
+    attach(w, w.p1, f"{WORD} in box.csv", folder=box)
+    attach(w, w.p1, f"{WORD} plain.csv")
+    app = {h["title"] for h in run(w, "member", types="file")}
+    assert app == {f"{WORD} own.csv", f"{WORD} in box.csv", f"{WORD} plain.csv"}
+    ai = {h["title"] for h in search(w.u["member"], w.lab, WORD, {"file"}, for_ai=True)}
+    assert ai == {f"{WORD} plain.csv"}
+
+
+def test_meetings_only_for_the_people_on_them_and_never_for_ai(w):
+    meeting(w, f"{WORD} lab meeting", w.u["pi"], w.u["member"])
+    assert f"{WORD} lab meeting" in titles(run(w, "member"))
+    assert f"{WORD} lab meeting" not in titles(run(w, "nonproj"))
+    assert search(w.u["member"], w.lab, WORD, {"meeting"}, for_ai=True) == []
