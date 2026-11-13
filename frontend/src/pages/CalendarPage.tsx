@@ -102,6 +102,7 @@ const clock = (iso: string) =>
 function Agenda({
   labId,
   items,
+  google,
   start,
   loading,
   onOpen,
@@ -109,6 +110,7 @@ function Agenda({
 }: {
   labId: string;
   items: CalendarItem[];
+  google: GoogleEvent[];
   start: Date;
   loading: boolean;
   onOpen: (item: CalendarItem) => void;
@@ -120,8 +122,8 @@ function Agenda({
     const rows = itemsOn(items, iso).sort((a, b) =>
       (a.starts_at ?? "").localeCompare(b.starts_at ?? ""),
     );
-    return { d, iso, rows };
-  }).filter((g) => g.rows.length > 0);
+    return { d, iso, rows, fromGoogle: googleOn(google, iso) };
+  }).filter((g) => g.rows.length + g.fromGoogle.length > 0);
   if (groups.length === 0)
     return loading ? null : (
       <div className="rounded-lg border p-8 text-center">
@@ -134,7 +136,7 @@ function Agenda({
     );
   return (
     <div aria-busy={loading || undefined} className="grid gap-4">
-      {groups.map(({ d, iso, rows }) => (
+      {groups.map(({ d, iso, rows, fromGoogle }) => (
         <section key={iso} aria-labelledby={`agenda-${iso}`}>
           <h3 id={`agenda-${iso}`} className="mb-1 text-sm font-semibold">
             <time dateTime={iso}>
@@ -145,7 +147,14 @@ function Agenda({
               })}
             </time>
           </h3>
-          <ul className="divide-y rounded-lg border">
+          {fromGoogle.length > 0 && (
+            <ul className="mb-1 grid gap-1">
+              {fromGoogle.map((e) => (
+                <GoogleEntry key={`google:${e.id}`} event={e} />
+              ))}
+            </ul>
+          )}
+          <ul className={cn("divide-y rounded-lg border", rows.length === 0 && "hidden")}>
             {rows.map((item) => {
               const href = calendarHref(labId, item);
               const row = (
@@ -372,8 +381,8 @@ export function CalendarPage() {
   const googleEvents =
     useGoogleEvents(
       labId,
-      localDateISO(days[0]!),
-      localDateISO(days[days.length - 1]!),
+      agenda ? localDateISO(now) : localDateISO(days[0]!),
+      agenda ? localDateISO(agendaEnd) : localDateISO(days[days.length - 1]!),
       !!google?.connected && google.show_google_events,
     ).data ?? [];
   const items = list.data ?? [];
@@ -449,6 +458,7 @@ export function CalendarPage() {
         <Agenda
           labId={labId}
           items={items}
+          google={googleEvents}
           start={now}
           loading={list.isLoading}
           onOpen={(open) =>
