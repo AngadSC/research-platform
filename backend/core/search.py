@@ -14,10 +14,11 @@ from django.db.models import Q
 
 from assistant.privacy import ai_visible
 from core.permissions import Perm, can, scope
-from documents.models import Document
+from documents.models import Attachment, Document
 from documents.services import lab_documents
 from ethics.models import EthicsApproval
 from integrations.models import ExternalLink
+from labs.models import Meeting
 from papers.models import Paper, PaperNote
 from projects.models import Project, Task
 from provenance.models import (
@@ -45,6 +46,7 @@ class Spec:
     perm: Perm = Perm.VIEW_PROJECT
     deleted: bool = False  # has a soft-delete column
     label: Callable | None = None  # obj -> hit title, when `title` is a path across a relation
+    ai: bool = True  # False: the app's own search only, never AI tools
 
 
 def _p(o):
@@ -99,6 +101,24 @@ SPECS = [
         deleted=True,
     ),
     Spec("link", ExternalLink, "title", (), _p),
+    Spec(  # uploads and Drive-linked files by name; scope() drops PI-only files (D244)
+        "file",
+        Attachment,
+        "original_filename",
+        (),
+        lambda o: f"{_p(o)}/documents",
+        deleted=True,
+    ),
+    Spec(  # D230: only the people on a meeting see it. Notes are free text that cannot be marked
+        # as identifying participants, so meetings stay out of AI tools.
+        "meeting",
+        Meeting,
+        "title",
+        ("notes",),
+        lambda o: f"/labs/{o.lab_id}/calendar",
+        perm=Perm.VIEW_LAB,
+        ai=False,
+    ),
     Spec(
         "paper",
         Paper,
@@ -118,6 +138,7 @@ SPECS = [
     ),
 ]
 TYPES = {s.type: s for s in SPECS}
+AI_TYPES = [s.type for s in SPECS if s.ai]
 
 
 def match(qs, fields, q):
@@ -148,13 +169,14 @@ def _snippet(obj, spec, q) -> str:
 
 
 def search(user, lab, q: str, types=None, for_ai=False) -> list[dict]:
-    """`for_ai` leaves out items marked "Contains participant data" (assistant/privacy.py)."""
+    """`for_ai` leaves out items marked as identifying participants (assistant/privacy.py) and
+    the kinds AI tools never get (`Spec.ai`)."""
     q = " ".join(q.split())[:MAX_Q]
     if len(q) < MIN_Q:
         return []
     hits: list[dict] = []
     for spec in SPECS:
-        if types and spec.type not in types:
+        if (types and spec.type not in types) or (for_ai and not spec.ai):
             continue
         qs = scope(spec.model, user, lab)
         if spec.model is Document:  # D233: lab-wide documents have no project for scope() to check

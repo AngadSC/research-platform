@@ -5,7 +5,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { notificationLink, useMarkRead, useNotifications, useRetentionDue } from "@/hooks/ethics";
+import { useMarkRead, useNotifications, useRetentionDue } from "@/hooks/ethics";
 import { useLab } from "@/hooks/workspace";
 import type { AppNotification, RetentionItem } from "@/lib/api-types";
 import { dayText } from "@/lib/ethics";
@@ -24,7 +24,7 @@ export function NotificationsPage() {
       cell: (n) => (
         <div className="grid">
           <Link
-            to={notificationLink(labId, n)}
+            to={n.url}
             className={n.read_at ? "hover:underline" : "font-medium hover:underline"}
             onClick={() => !n.read_at && one.mutate(n.id)}
           >

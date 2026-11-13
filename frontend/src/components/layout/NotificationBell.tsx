@@ -1,20 +1,20 @@
 import { Bell } from "lucide-react";
 import { RelativeTime } from "@/components/shared/RelativeTime";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { notificationLink, useMarkRead, useNotifications } from "@/hooks/ethics";
+import { useMarkRead, useNotifications } from "@/hooks/ethics";
 import { cn } from "@/lib/utils";
 import { UnreadBadge } from "./UnreadBadge";
 
 export function NotificationBell({ labId }: { labId: string }) {
   const { data = [] } = useNotifications(labId);
   const { one, all } = useMarkRead(labId);
-  const navigate = useNavigate();
   const unread = data.filter((n) => !n.read_at);
   return (
     <DropdownMenu>
@@ -42,18 +42,17 @@ export function NotificationBell({ labId }: { labId: string }) {
             <li className="px-3 py-4 text-sm text-muted-foreground">You are all caught up.</li>
           )}
           {unread.slice(0, 8).map((n) => (
-            <li key={n.id} className="grid gap-1 border-b px-3 py-2 last:border-b-0">
-              <button
-                type="button"
-                className="text-left text-sm font-medium hover:underline"
-                onClick={() => {
-                  one.mutate(n.id);
-                  void navigate(notificationLink(labId, n));
-                }}
-              >
-                {n.title}
-              </button>
-              <div className="flex items-center justify-between">
+            <li key={n.id} className="grid gap-1 border-b px-1 py-1 last:border-b-0">
+              {/* Every notification opens what it is about (a message, task, approval...). */}
+              <DropdownMenuItem asChild className="grid gap-0.5 px-2">
+                <Link to={n.url} onClick={() => one.mutate(n.id)}>
+                  <span className="font-medium">{n.title}</span>
+                  {n.body && (
+                    <span className="line-clamp-2 text-xs text-muted-foreground">{n.body}</span>
+                  )}
+                </Link>
+              </DropdownMenuItem>
+              <div className="flex items-center justify-between px-2">
                 <span className="text-xs text-muted-foreground">
                   <RelativeTime value={n.created_at} />
                 </span>

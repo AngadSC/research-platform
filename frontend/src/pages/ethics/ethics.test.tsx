@@ -34,6 +34,7 @@ const note = (id: string, read: string | null = null) => ({
   body: "",
   target_type: "ethics.EthicsApproval",
   target_id: "ap1",
+  url: "/labs/lab1/ethics/ap1",
   read_at: read,
   created_at: "2026-01-01T00:00:00Z",
 });

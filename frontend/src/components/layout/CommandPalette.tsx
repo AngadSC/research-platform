@@ -1,5 +1,5 @@
 import { Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   CommandDialog,
   CommandEmpty,
@@ -21,6 +21,10 @@ interface Props {
   onGo?: (url: string) => void;
 }
 
+/** Registered groups that jump somewhere; shown together under one "Go to" heading, so they never
+ * repeat a search group's heading ("Projects", "Documents"). */
+const GO_TO_GROUPS = new Set(["Navigate", "Projects", "Documents", "Research", "Workflow"]);
+
 /** Opens on Cmd/Ctrl+K; Cmd/Ctrl+F stays the browser's own find. Add entries with useRegisterCommands (see lib/commands.ts). */
 export function CommandPalette({ labId, onGo }: Props) {
   const [open, setOpen] = useState(false);
@@ -30,6 +34,24 @@ export function CommandPalette({ labId, onGo }: Props) {
   const assistantReady = useAssistantReady(open ? labId : undefined);
   const ask = text.trim();
   const { hits, loading, error } = useLabSearch(open ? labId : undefined, text);
+
+  // The palette opens from a shortcut or an event, not a dialog trigger, so the dialog has nothing
+  // to give focus back to. Remember what had focus before it opened (a layout effect runs before
+  // the dialog moves focus) and return it once the dialog has let go (a passive effect), unless
+  // what was chosen (the assistant, a form) has already taken focus somewhere else.
+  const returnTo = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (open && document.activeElement instanceof HTMLElement)
+      returnTo.current = document.activeElement;
+  }, [open]);
+  useEffect(() => {
+    if (open) return;
+    const el = returnTo.current;
+    returnTo.current = null;
+    const now = document.activeElement;
+    if (el?.isConnected && (!now || now === document.body || now.closest("[cmdk-root]")))
+      el.focus();
+  }, [open]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -58,9 +80,13 @@ export function CommandPalette({ labId, onGo }: Props) {
     setSelected(firstValue);
   }
 
+  // A search hit and a registered command for the same item (ids end in the item's id) show once,
+  // as the hit.
+  const hitIds = new Set(hits.map((h) => h.id));
   const groups = new Map<string, Command[]>();
   for (const c of commands) {
-    const g = c.group ?? "Actions";
+    if (hitIds.has(c.id.split(":").pop()!)) continue;
+    const g = c.group && GO_TO_GROUPS.has(c.group) ? "Go to" : (c.group ?? "Actions");
     groups.set(g, [...(groups.get(g) ?? []), c]);
   }
 

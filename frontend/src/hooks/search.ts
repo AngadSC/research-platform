@@ -14,6 +14,8 @@ const TYPE_LABELS: Record<string, string> = {
   manuscript: "Manuscripts",
   ethics: "Ethics approvals",
   link: "Linked files",
+  file: "Files",
+  meeting: "Meetings",
   paper: "Papers",
   paper_note: "Paper notes",
 };

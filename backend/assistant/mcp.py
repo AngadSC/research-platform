@@ -28,13 +28,21 @@ PV = "io.modelcontextprotocol/protocolVersion"
 CAPS = "io.modelcontextprotocol/clientCapabilities"
 CLIENT_INFO = "io.modelcontextprotocol/clientInfo"
 SERVER_INFO = {"name": "labbenchos", "title": settings.PRODUCT_NAME, "version": "1.0.0"}
-INSTRUCTIONS = (
-    f"Tools for {settings.PRODUCT_NAME}, a research lab workspace. Call list_labs first; every "
-    "other tool takes a lab_id. You only ever see what the signed-in person can see in the app. "
-    "Write tools (create_task, update_task, add_task_update, create_decision_draft, add_paper, "
-    "add_paper_note, create_upload_link, run_code) change the lab's records: confirm with the "
-    "person before calling them."
-)
+
+
+def instructions() -> str:
+    """Names only the write tools offered right now, so a switched-off one (run_code while the
+    runner is off) is never mentioned."""
+    writes = ", ".join(d["name"] for d in tools.definitions() if d["write"])
+    return (
+        f"Tools for {settings.PRODUCT_NAME}, a research lab workspace. Call list_labs first; every "
+        "other tool takes a lab_id. You only ever see what the signed-in person can see in the "
+        "app, and never items marked as identifying participants. "
+        f"Write tools ({writes}) change the lab's records or make links to its files: confirm "
+        "with the person before calling them."
+    )
+
+
 DESTRUCTIVE = {"update_task"}  # changes existing values; the other writes only add records
 MAX_BODY = 1024 * 1024
 RATE = 120  # requests per minute per grant (D166)
@@ -256,7 +264,7 @@ def _dispatch(request, rid, method, params, modern, grant, ctx):
                 "protocolVersion": asked if asked in LEGACY else LEGACY[0],
                 "capabilities": CAPABILITIES,
                 "serverInfo": SERVER_INFO,
-                "instructions": INSTRUCTIONS,
+                "instructions": instructions(),
             },
             modern,
         )
@@ -268,7 +276,7 @@ def _dispatch(request, rid, method, params, modern, grant, ctx):
             {
                 "supportedVersions": [*MODERN, *LEGACY],
                 "capabilities": CAPABILITIES,
-                "instructions": INSTRUCTIONS,
+                "instructions": instructions(),
             },
             modern,
         )

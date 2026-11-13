@@ -1,11 +1,13 @@
 """In-app notifications first; the kinds in EMAIL_KINDS are also emailed through core.email
 (SPEC phase 5, D14, D30, D71)."""
 
+import datetime
 import re
 import uuid
 from itertools import islice
 
 from django.apps import apps
+from django.utils import timezone
 
 from core.email import send_email
 from core.models import Notification, NotificationKind, User
@@ -137,3 +139,73 @@ def notify_mentions(*, lab, author, body, where, perm, target, key) -> None:
             target=target if target._meta.label != "labs.Lab" else None,
             dedupe_key=f"mention:{key}",
         )
+
+
+# ---------------------------------------------------------------- shown at read time
+
+_EXPIRES = re.compile(r"expires (?:today|in \d+ days?)$")
+_MARKS = [  # the composer's simple markdown (D260), as plain words
+    (re.compile(r"^\s*```.*$", re.M), ""),
+    (MENTION_TOKEN, r"@\1"),
+    (re.compile(r"\[([^\]\n]+)\]\((?:https?://|mailto:)[^\s)]+\)"), r"\1"),
+    (re.compile(r"\*\*([^*\n]+)\*\*"), r"\1"),
+    (re.compile(r"~~([^~\n]+)~~"), r"\1"),
+    (re.compile(r"\*([^*\n]+)\*"), r"\1"),
+    (re.compile(r"(?<!\w)_([^_\n]+)_(?!\w)"), r"\1"),
+    (re.compile(r"`([^`\n]+)`"), r"\1"),
+    (re.compile(r"^\s*(?:[-*>]|\d+\.) ?", re.M), ""),
+]
+
+
+def live_title(n) -> str:
+    """Expiry reminders were stored as "expires in 24 days" on the day they were made. The count
+    is worked out again from the expiry date kept in the dedupe key, so old rows read right too."""
+    if n.kind not in (NotificationKind.ETHICS_EXPIRY, NotificationKind.TRAINING_EXPIRY):
+        return n.title
+    try:
+        expiry = datetime.date.fromisoformat(n.dedupe_key.rsplit(":", 1)[-1])
+    except ValueError:
+        return n.title
+    days = (expiry - timezone.localdate()).days
+    if days < 0:
+        when = "expired yesterday" if days == -1 else f"expired {-days} days ago"
+    else:
+        when = "expires today" if days == 0 else f"expires in {days} day{'s' * (days != 1)}"
+    return _EXPIRES.sub(when, n.title)
+
+
+def live_body(n) -> str:
+    """Bodies quoting a message (mentions, task updates) as plain text, without markdown marks."""
+    if n.kind not in (NotificationKind.MENTION, NotificationKind.TASK_POST):
+        return n.body
+    text = n.body
+    for pattern, repl in _MARKS:
+        text = pattern.sub(repl, text)
+    return " ".join(text.split())
+
+
+def notification_url(n, user) -> str:
+    """The app page a notification is about. A task's project is looked up only for a task the
+    reader can still see, so the address never names a project they cannot."""
+    lab = f"/labs/{n.lab_id}"
+    target = n.target_type.lower()
+    if n.kind == NotificationKind.RETENTION_DUE:
+        return f"{lab}/retention"
+    if n.kind in (NotificationKind.TRAINING_EXPIRY, NotificationKind.TRAINING_DIGEST):
+        return f"{lab}/training"
+    if n.kind == NotificationKind.INTEGRATION_ISSUE:
+        return f"{lab}/settings/integrations"
+    if n.kind == NotificationKind.MENTION and n.dedupe_key.startswith("mention:labchat:"):
+        return f"{lab}/chat"
+    if target == "ethics.ethicsapproval" and n.target_id:
+        return f"{lab}/ethics/{n.target_id}"
+    if target == "projects.project" and n.target_id:
+        chat = "/chat" if n.kind == NotificationKind.MENTION else ""
+        return f"{lab}/projects/{n.target_id}{chat}"
+    if target == "projects.task" and n.target_id:
+        task = (
+            apps.get_model("projects", "Task").objects.for_lab(n.lab_id).filter(pk=n.target_id)
+        ).first()
+        if task is not None and can(user, Perm.VIEW_PROJECT, task):
+            return f"{lab}/projects/{task.project_id}/tasks?task={task.pk}"
+    return lab

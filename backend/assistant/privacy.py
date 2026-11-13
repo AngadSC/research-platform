@@ -15,7 +15,7 @@ from audit.services import record
 from documents.models import Attachment, Document, Folder
 from provenance.models import DatasetRecord
 
-REFUSAL = "This item contains participant data, so AI tools cannot open it."
+REFUSAL = "This item is marked as identifying participants, so AI tools cannot open it."
 
 # model -> the folder field that also counts (None: the item's own box only)
 _CONTAINER = {Folder: "parent", Document: "folder", Attachment: "folder", DatasetRecord: None}

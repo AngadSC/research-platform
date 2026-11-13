@@ -5586,6 +5586,10 @@ export interface components {
         NoteInput: {
             body: string;
         };
+        /**
+         * @description `title` and `body` are as they read today (core/notifications.py); `url` is the page the
+         *     notification is about.
+         */
         Notification: {
             /** Format: uuid */
             readonly id: string;
@@ -5595,6 +5599,7 @@ export interface components {
             readonly target_type: string;
             /** Format: uuid */
             readonly target_id: string | null;
+            readonly url: string;
             /** Format: date-time */
             readonly read_at: string | null;
             /** Format: date-time */
@@ -12683,7 +12688,7 @@ export interface operations {
             query?: {
                 /** @description At least 2 characters, at most 100. */
                 q?: string;
-                /** @description Comma-separated: project, task, document, dataset, analysis, result, decision, manuscript, funding, review, ethics, link, paper, paper_note */
+                /** @description Comma-separated: project, task, document, dataset, analysis, result, decision, manuscript, funding, review, ethics, link, file, meeting, paper, paper_note */
                 types?: string;
             };
             header?: never;

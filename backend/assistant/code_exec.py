@@ -356,8 +356,9 @@ def _place(client, run, file_ids, container):
     "numpy, scipy, statsmodels, matplotlib and seaborn are installed; there is no internet). "
     f"Pass file ids from list_files: up to {MAX_FILES} files, {MAX_BYTES // 2**20} MB in total. "
     "Google Docs and Slides arrive as text and Sheets as CSV (first sheet). Files marked as "
-    "participant data cannot be loaded. The result gives each file's path in the sandbox. To "
-    "keep a figure or table, write it to $OUTPUT_DIR, then call save_analysis_outputs. Loading "
+    "identifying participants cannot be loaded. The result gives each file's path in the "
+    "sandbox. To keep a figure or table, write it to $OUTPUT_DIR, then call "
+    "save_analysis_outputs. Loading "
     "is recorded in the lab's audit log, as a download is in the app.",
     required=("lab_id", "file_ids"),
     in_app=True,

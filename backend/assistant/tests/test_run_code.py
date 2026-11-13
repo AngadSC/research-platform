@@ -152,7 +152,7 @@ def test_offered_to_the_assistant_and_over_mcp_when_set_up(world, on):
     ]
     listed = {t["name"]: t for t in mcp._tool_list()}
     assert listed["run_code"]["annotations"]["readOnlyHint"] is False
-    assert "run_code" in mcp.INSTRUCTIONS
+    assert "run_code" in mcp.instructions()
 
 
 def test_runs_over_mcp_on_the_persons_own_plan(world, files, on, sent):
