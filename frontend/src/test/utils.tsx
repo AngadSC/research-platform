@@ -28,6 +28,9 @@ export function mockFetch(handlers: Record<string, Handler>) {
             : undefined,
       headers: (init?.headers ?? {}) as Record<string, string>,
     };
+    // useSyncTimeZone's silent save is in no test's story; preferences.test.tsx stubs fetch itself
+    if ((req.body as { preferences?: { time_zone?: string } })?.preferences?.time_zone)
+      throw new Error("The time zone sync is not mocked");
     calls.push(req);
     const h = handlers[`${req.method} ${req.path}`];
     if (!h) throw new Error(`Unmocked request: ${req.method} ${req.path}`);

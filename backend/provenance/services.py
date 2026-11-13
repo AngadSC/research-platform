@@ -2,7 +2,6 @@
 one project (D20, D31): an ID from another project or lab fails exactly like a missing ID.
 Writes record their audit event in the same transaction."""
 
-import datetime
 import uuid
 
 from django.db import IntegrityError, transaction
@@ -237,7 +236,7 @@ def create(kind, *, project, user, data, request=None):
     if kind == "analysis":
         values.setdefault("ran_at", timezone.now())
     if kind == "decision":
-        values.setdefault("decided_on", datetime.date.today())
+        values.setdefault("decided_on", timezone.localdate())
     previous = values.get("previous_version") if kind == "dataset" else None
     if previous and previous.contains_participant_data:
         # a new version of flagged data stays flagged unless the form said otherwise

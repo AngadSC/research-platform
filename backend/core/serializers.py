@@ -1,5 +1,6 @@
 import re
 import unicodedata
+import zoneinfo
 
 from django.utils.dateparse import parse_datetime
 from rest_framework import serializers
@@ -37,6 +38,8 @@ class UserSerializer(serializers.ModelSerializer):
 PREFERENCE_CHOICES = {
     "theme": ("light", "dark", "system"),
     "task_view": ("board", "list"),
+    # D291: the browser's own zone, sent by the app on its own (never typed in).
+    "time_zone": frozenset(zoneinfo.available_timezones()),
 }
 # Saved links: key -> (most entries, keys each entry carries).
 PREFERENCE_LINKS = {

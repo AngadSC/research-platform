@@ -5,6 +5,7 @@ import csv
 
 from django.db.models import Q
 from django.http import HttpResponse
+from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, status
@@ -383,7 +384,7 @@ class OrderExportView(OrderMixin, generics.GenericAPIView):
                 by = o.requested_by.display_name or o.requested_by.email
                 item = o.item.name if o.item else ""
                 row = [o.name, o.vendor, o.catalog_number, o.url, o.quantity, o.unit, o.status]
-                yield row + [item, by, o.created_at.date(), o.notes]
+                yield row + [item, by, timezone.localdate(o.created_at), o.notes]
 
         return _csv_export(request, "orders.csv", header, rows(), kind="orders")
 

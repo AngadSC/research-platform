@@ -1,10 +1,23 @@
-import { describe, expect, it } from "vitest";
-import { localDateISO, plural, relativeTime } from "@/lib/format";
+import { describe, expect, it, vi } from "vitest";
+import { localDateISO, plural, relativeTime, shortDate } from "@/lib/format";
 import { daysUntil, relativeDays } from "@/lib/ethics";
 
 const NOW = Date.parse("2026-11-04T12:00:00Z");
 const ago = (secs: number) => new Date(NOW - secs * 1000).toISOString();
 const ahead = (secs: number) => new Date(NOW + secs * 1000).toISOString();
+
+describe("shortDate", () => {
+  it("shows a bare date as that day, even west of UTC", () => {
+    vi.stubEnv("TZ", "America/Edmonton");
+    try {
+      const day = new Date(2026, 10, 12).toLocaleDateString(undefined, { dateStyle: "medium" });
+      expect(shortDate("2026-11-12")).toBe(day);
+      expect(shortDate("2026-11-13T03:02:00Z")).toBe(day); // 8:02 pm on the 12th in Edmonton
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+});
 
 describe("localDateISO", () => {
   it("uses the local calendar day, not the UTC one", () => {

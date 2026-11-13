@@ -5,6 +5,16 @@ export const when = (iso: string) =>
 export const fullDate = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { dateStyle: "long", timeStyle: "short" });
 
+/** "Nov 12, 2026". A bare "2026-11-12" is that calendar day (`new Date` reads it as UTC midnight,
+ * the day before west of UTC); a full timestamp shows the day where the reader is. */
+export const shortDate = (iso: string) =>
+  new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T00:00:00` : iso).toLocaleDateString(
+    undefined,
+    {
+      dateStyle: "medium",
+    },
+  );
+
 /** YYYY-MM-DD in the user's own timezone (`toISOString` would give the date in UTC). */
 export const localDateISO = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
