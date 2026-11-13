@@ -2,7 +2,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from core.permissions import PROJECT_PERMS, Perm, can, project_role
-from core.serializers import UserSerializer, no_control_chars
+from core.serializers import SaneDateTimeField, UserSerializer, no_control_chars
 from projects import templates
 from projects.models import (
     ChatMessage,
@@ -251,11 +251,11 @@ class ChatMessageInputSerializer(serializers.Serializer):
 
 
 class ChatMessageFilterSerializer(serializers.Serializer):
-    before = serializers.DateTimeField(required=False)
+    before = SaneDateTimeField(required=False)
 
 
 class ChatReadInputSerializer(serializers.Serializer):
-    last_read_at = serializers.DateTimeField()
+    last_read_at = SaneDateTimeField()
 
 
 class ChatUnreadSerializer(serializers.Serializer):

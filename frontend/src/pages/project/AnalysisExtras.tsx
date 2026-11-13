@@ -15,7 +15,7 @@ export function newestVersion(all: Dataset[], id: string): Dataset | undefined {
   for (;;) {
     const next = all
       .filter((d) => d.previous_version?.id === cur && !seen.has(d.id))
-      .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0];
     if (!next) return cur === id ? undefined : all.find((d) => d.id === cur);
     seen.add(next.id);
     cur = next.id;

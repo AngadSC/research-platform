@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Crumb } from "@/components/shared/Breadcrumbs";
@@ -71,9 +71,13 @@ export function useSyncTimeZone() {
   const me = useMe().data as Me | undefined;
   const saved = me?.preferences?.time_zone;
   const loaded = !!me;
+  const sent = useRef("");
   useEffect(() => {
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (!loaded || !zone || zone === saved) return;
+    // The server stores a current name for an old one (Asia/Calcutta), so `saved` can differ
+    // from `zone` for good: send each zone once.
+    if (!loaded || !zone || zone === saved || zone === sent.current) return;
+    sent.current = zone;
     void api<User>("/api/me/", {
       method: "PATCH",
       body: { preferences: { time_zone: zone } },

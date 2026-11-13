@@ -354,6 +354,13 @@ def _sse(event: dict) -> str:
 
 
 def _generate(request, conv, key, make):
+    # D291: the body runs after the middleware is done, so it sets the zone itself (and puts back
+    # whatever was there, even if the stream is closed early).
+    with timezone.override(user_zone(request.user)):
+        yield from _generate_body(request, conv, key, make)
+
+
+def _generate_body(request, conv, key, make):
     """The SSE body. The lock and the user message are taken when the first chunk is pulled, not
     when the view returns, so a response nobody reads leaves nothing behind. D196: a total
     deadline (shorter than the lock TTL), a heartbeat that keeps the slots alive, and the provider
@@ -361,7 +368,6 @@ def _generate(request, conv, key, make):
     from projects.activity import _request  # a write the assistant makes stamps "last edited"
 
     token = _request.set(request)
-    timezone.activate(user_zone(request.user))  # D291: the body runs after the middleware is done
     lease = inner = None
     try:
         try:
@@ -431,7 +437,6 @@ def _generate(request, conv, key, make):
             _request.reset(token)
         except ValueError:  # reset from another context (server closed the stream)
             pass
-        timezone.deactivate()
 
 
 def _stream_response(request, conv, key, make):

@@ -6,6 +6,7 @@ from django.utils.dateparse import parse_datetime
 from rest_framework import serializers
 
 from core import avatars
+from core.middleware import canonical_zone
 from core.models import Notification, User
 from core.notifications import live_body, live_title, notification_url
 
@@ -15,6 +16,19 @@ def no_control_chars(value):
     if any(unicodedata.category(c) in ("Cc", "Zl", "Zp") for c in value):
         raise serializers.ValidationError("Control characters are not allowed.")
     return value
+
+
+def _sane_datetime(value):
+    if not 1900 <= value.year <= 2200:
+        raise serializers.ValidationError("Enter a date between the years 1900 and 2200.")
+
+
+class SaneDateTimeField(serializers.DateTimeField):
+    """Every datetime a person can write. Near year 1 or 9999 converting to a viewer's time zone
+    overflows, which would break the list for everyone else. Model datetimes use it too
+    (core.apps)."""
+
+    default_validators = [_sane_datetime]
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -151,10 +165,12 @@ class MeSerializer(UserSerializer):
             elif key == "theme" and isinstance(val, str) and val.startswith("custom:"):
                 ok = True  # checked below, against the list as it will be saved
             else:
-                ok = val in PREFERENCE_CHOICES.get(key, ())
+                ok = not isinstance(val, (list, dict)) and val in PREFERENCE_CHOICES.get(key, ())
             if not ok:
                 raise serializers.ValidationError(f"Unsupported preference: {key}.")
-        # ponytail: concurrent PATCHes can overwrite each other's key; lock the row if that bites.
+        if "time_zone" in value:
+            value = {**value, "time_zone": canonical_zone(value["time_zone"])}
+        # MeView locks the user row, so two PATCHes merge instead of overwriting each other.
         merged = {**(self.instance.preferences if self.instance else {}), **value}
         theme = merged.get("theme", "")
         if theme.startswith("custom:") and theme[7:] not in {
