@@ -1,15 +1,4 @@
-import {
-  Download,
-  Eye,
-  FileText,
-  FolderInput,
-  Link2,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  Trash2,
-  Upload,
-} from "lucide-react";
+import { Eye, FileText, Link2, MoreHorizontal, Pencil, Plus, Upload } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { RelativeTime } from "@/components/shared/RelativeTime";
 import { useNavigate } from "react-router";
@@ -35,6 +24,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -65,6 +55,38 @@ const size = (n: number) =>
     : n < 1048576
       ? `${(n / 1024).toFixed(1)} KB`
       : `${(n / 1048576).toFixed(1)} MB`;
+
+/** "Word", "CSV", "PDF"... from the name or type, instead of the raw type string. */
+function kindOf(a: Attachment): string {
+  if (isPdf(a)) return "PDF";
+  const ext = /\.([a-z0-9]+)$/i.exec(a.original_filename)?.[1]?.toLowerCase() ?? "";
+  const named: Record<string, string> = {
+    docx: "Word",
+    doc: "Word",
+    xlsx: "Excel",
+    xls: "Excel",
+    pptx: "PowerPoint",
+    ppt: "PowerPoint",
+    csv: "CSV",
+    txt: "Text",
+    md: "Text",
+    json: "JSON",
+    zip: "Zip",
+  };
+  if (named[ext]) return named[ext]!;
+  if (a.content_type.startsWith("image/")) return "Image";
+  if (a.content_type === "text/csv") return "CSV";
+  if (a.content_type.startsWith("text/")) return "Text";
+  return ext ? ext.toUpperCase() : "File";
+}
+
+/** A browser download that never navigates away, for files with no preview. */
+function startDownload(href: string) {
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = "";
+  a.click();
+}
 
 type Row = { doc: DocumentRow; file?: never } | { file: Attachment; doc?: never };
 const rowId = (r: Row) => (r.doc ? r.doc.id : r.file.id);
@@ -106,6 +128,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
   };
   const flagLabel = (r: Row) => (rowFlagged(r) ? "Not identifying" : "Mark as identifying");
   const [deleting, setDeleting] = useState<Row | null>(null);
+  const [deleteError, setDeleteError] = useState<string>();
   const [moving, setMoving] = useState<Movable | null>(null);
   const [embedding, setEmbedding] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -149,32 +172,46 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
   const confirmDelete = () => {
     if (!deleting) return;
     const done = {
-      onSuccess: () => toast.success(deleting.doc ? "Document deleted" : "File deleted"),
-      onError: (e: unknown) => toast.error(formErrors(e, []).form ?? "Something went wrong."),
-      onSettled: () => setDeleting(null),
+      onSuccess: () => {
+        toast.success(deleting.doc ? "Document deleted" : "File deleted");
+        setDeleting(null);
+      },
+      // Stay open so the person sees why and can try again.
+      onError: (e: unknown) =>
+        setDeleteError(formErrors(e, []).form ?? "Something went wrong. Try again."),
     };
+    setDeleteError(undefined);
     if (deleting.doc) removeDoc.mutate(deleting.doc.id, done);
     else removeFile.mutate(deleting.file.id, done);
   };
 
+  const originals = new Map((files.data ?? []).map((f) => [f.id, f.original_filename]));
   const cols: Column<Row>[] = [
     {
       key: "name",
       header: "Name",
-      className: "w-full max-w-0",
-      cell: (r) => (
-        <span className="flex items-center gap-2">
-          <span className="truncate font-medium" title={rowName(r)}>
-            {rowName(r)}
+      className: "w-full max-w-0 min-w-44",
+      cell: (r) => {
+        const original = r.file?.copied_from && originals.get(r.file.copied_from);
+        return (
+          <span className="grid min-w-0 justify-items-start gap-0.5">
+            <span className="max-w-full truncate font-medium" title={rowName(r)}>
+              {rowName(r)}
+            </span>
+            {original && (
+              <span className="max-w-full truncate text-xs text-muted-foreground">
+                Google copy of {original}
+              </span>
+            )}
+            {rowFlagged(r) && <ParticipantBadge />}
           </span>
-          {rowFlagged(r) && <ParticipantBadge />}
-        </span>
-      ),
+        );
+      },
     },
     {
       key: "type",
       header: "Type",
-      className: HIDE_NARROW,
+      className: `${HIDE_NARROW} whitespace-nowrap`,
       cell: (r) => {
         if (r.doc) return "Document";
         const g = googleEditor(r.file);
@@ -182,20 +219,20 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
           ? g.label
           : r.file.drive_file_id
             ? "Google Drive file"
-            : `${isPdf(r.file) ? "PDF" : r.file.content_type || "File"}, ${size(r.file.size_bytes)}`;
+            : `${kindOf(r.file)} · ${size(r.file.size_bytes)}`;
         return r.file.source === "link" ? `${kind}, added through Claude` : kind;
       },
     },
     {
       key: "by",
       header: "Last changed by",
-      className: HIDE_NARROWER,
+      className: `${HIDE_NARROWER} whitespace-nowrap`,
       cell: (r) => personName(r.doc ? r.doc.updated_by : r.file.uploaded_by),
     },
     {
       key: "at",
       header: "Updated",
-      className: HIDE_NARROW,
+      className: `${HIDE_NARROW} whitespace-nowrap`,
       cell: (r) => <RelativeTime value={rowDate(r)} />,
     },
     {
@@ -229,59 +266,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
               <Pencil aria-hidden />
             </Button>
           )}
-          {canEdit && r.file && convertible(r.file) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={editInGoogle.isPending}
-              onClick={() => copyToGoogle(r.file)}
-            >
-              <Pencil aria-hidden /> Edit in Google
-              <span className="sr-only"> ({rowName(r)})</span>
-            </Button>
-          )}
-          {r.file && (
-            <Button variant="ghost" size="sm" asChild>
-              <a
-                href={downloadUrl(labId, r.file.id)}
-                download
-                aria-label={`Download ${rowName(r)}`}
-              >
-                <Download aria-hidden />
-              </a>
-            </Button>
-          )}
-          {canEdit && r.file && (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label={`Move ${rowName(r)}`}
-                onClick={() => startMove(r)}
-              >
-                <FolderInput aria-hidden />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label={`Delete ${rowName(r)}`}
-                onClick={() => setDeleting(r)}
-              >
-                <Trash2 aria-hidden />
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" aria-label={`More for ${rowName(r)}`}>
-                    <MoreHorizontal aria-hidden />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => toggleFlag(r)}>{flagLabel(r)}</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
-          )}
-          {canEdit && r.doc && (
+          {(r.file || canEdit) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" aria-label={`Actions for ${rowName(r)}`}>
@@ -289,9 +274,40 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => startMove(r)}>Move to folder</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => toggleFlag(r)}>{flagLabel(r)}</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setDeleting(r)}>Delete</DropdownMenuItem>
+                {r.file && (
+                  <DropdownMenuItem asChild>
+                    <a href={downloadUrl(labId, r.file.id)} download>
+                      Download
+                    </a>
+                  </DropdownMenuItem>
+                )}
+                {canEdit && r.file && convertible(r.file) && (
+                  <DropdownMenuItem
+                    disabled={editInGoogle.isPending}
+                    onSelect={() => copyToGoogle(r.file)}
+                  >
+                    Edit in Google
+                  </DropdownMenuItem>
+                )}
+                {canEdit && (
+                  <>
+                    <DropdownMenuItem onSelect={() => startMove(r)}>
+                      Move to folder
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => toggleFlag(r)}>
+                      {flagLabel(r)}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setDeleteError(undefined);
+                        setDeleting(r);
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -302,12 +318,12 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
 
   const noun = deleting?.doc ? "document" : "file";
   return (
-    <div className="flex flex-col items-start gap-4 lg:flex-row">
-      <div className="grid w-full min-w-0 flex-1 gap-4">
+    <div>
+      <div className="grid w-full min-w-0 gap-4">
         {canEdit && (
           <div className="flex flex-wrap justify-end gap-2">
             <Button variant="outline" onClick={() => setEmbedding(true)}>
-              <Link2 className="size-4" /> Embed a document
+              <Link2 className="size-4" /> Embed a Google or Office doc
             </Button>
             <Button variant="outline" onClick={() => setUploading(true)}>
               <Upload aria-hidden /> Upload file
@@ -339,7 +355,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
             if (r.doc) open(r.doc.id);
             else if (googleEditor(r.file) || previewable(r.file)) preview(r.file);
             else if (r.file.external_url) window.open(r.file.external_url, "_blank", "noopener");
-            else window.location.assign(downloadUrl(labId, r.file.id));
+            else startDownload(downloadUrl(labId, r.file.id));
           }}
           empty={
             <EmptyState
@@ -388,14 +404,25 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
             onClose={() => setPreviewing(null)}
           />
         )}
-        <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+        <Dialog
+          open={!!deleting}
+          onOpenChange={(o) => {
+            if (!o) {
+              setDeleting(null);
+              setDeleteError(undefined);
+            }
+          }}
+        >
           <DialogContent>
             <DialogTitle className="text-base font-semibold">
               Delete {deleting && rowName(deleting)}?
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
               The {noun} will be removed from this project.
+              {deleting?.file?.drive_file_id &&
+                " It stays in your Google Drive; nothing is deleted there."}
             </DialogDescription>
+            <FormError message={deleteError} />
             <div className="flex justify-end gap-2">
               <DialogClose asChild>
                 <Button variant="outline">Cancel</Button>
@@ -446,7 +473,7 @@ function EmbedDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle className="text-base font-semibold">Embed a document</DialogTitle>
+        <DialogTitle className="text-base font-semibold">Embed a Google or Office doc</DialogTitle>
         <DialogDescription className="text-sm text-muted-foreground">
           Paste a share link from Google Docs, Sheets or Slides, or from OneDrive or SharePoint.
           People viewing it still need access to the file.

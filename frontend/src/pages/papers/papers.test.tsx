@@ -138,3 +138,22 @@ describe("paper detail", () => {
     expect(screen.queryByRole("button", { name: /Replace PDF/ })).not.toBeInTheDocument();
   });
 });
+
+describe("paper delete", () => {
+  it("confirms in a dialog, then leaves without fetching the deleted paper again", async () => {
+    const confirm = vi.spyOn(window, "confirm");
+    const calls = mockFetch({
+      ...handlers(["view_lab", "contribute_lab", "manage_lab"]),
+      "DELETE /api/labs/lab1/papers/p1/": { status: 204 },
+    });
+    renderRoute("/labs/lab1/papers/p1");
+    await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    expect(confirm).not.toHaveBeenCalled();
+    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+    const before = calls.length;
+    await userEvent.click(await screen.findByRole("button", { name: "Delete paper" }));
+    expect(await screen.findByRole("link", { name: row.title })).toBeInTheDocument();
+    const after = calls.slice(before).map((c) => c.path);
+    expect(after.filter((p) => p.includes("/papers/p1/"))).toEqual(["/api/labs/lab1/papers/p1/"]);
+  });
+});

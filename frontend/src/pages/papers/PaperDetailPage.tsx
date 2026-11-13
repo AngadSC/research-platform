@@ -1,11 +1,20 @@
 import { Copy, Download, Eye, Pencil, Sparkles, Trash2, Upload } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { Setup } from "@/components/assistant/AssistantDrawer";
 import { FormError } from "@/components/shared/FormError";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RichComposer } from "@/components/composer/RichComposer";
 import { useAssistantConfig } from "@/hooks/assistant";
@@ -203,7 +212,20 @@ export function PaperDetailPage() {
   const { email } = useAuth();
   const { data: lab } = useLab(labId);
   const { data: paper, isLoading, isError } = usePaper(labId, paperId);
-  const { addNote, remove, uploadPdf } = usePaperMutations(labId);
+  const { addNote, uploadPdf } = usePaperMutations(labId);
+  const qc = useQueryClient();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string>();
+  // Not the shared hook: it refetches the paper just deleted (two 404s) before we can leave.
+  const remove = useMutation({
+    mutationFn: (id: string) => api(`/api/labs/${labId}/papers/${id}/`, { method: "DELETE" }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["labs", labId, "papers"], refetchType: "none" });
+      toast.success("Paper deleted");
+      void navigate(`/labs/${labId}/papers`);
+    },
+    onError: (e) => setDeleteError(formErrors(e, []).form ?? "Could not delete the paper."),
+  });
   const [text, setText] = useState("");
   const [error, setError] = useState<string>();
   const [editing, setEditing] = useState(false);
@@ -231,6 +253,7 @@ export function PaperDetailPage() {
       await addNote.mutateAsync({ paperId, body: text });
       setText("");
       setError(undefined);
+      toast.success("Note added");
     } catch (err) {
       const { fields, form } = formErrors(err, ["body"]);
       setError(fields.body ?? form);
@@ -255,11 +278,8 @@ export function PaperDetailPage() {
               <Button
                 variant="outline"
                 onClick={() => {
-                  if (window.confirm(`Delete "${paper.title}" and its notes?`))
-                    remove.mutate(paper.id, {
-                      onSuccess: () => void navigate(`/labs/${labId}/papers`),
-                      onError: () => toast.error("Could not delete the paper."),
-                    });
+                  setDeleteError(undefined);
+                  setConfirmDelete(true);
                 }}
               >
                 Delete
@@ -403,6 +423,27 @@ export function PaperDetailPage() {
       {editing && (
         <PaperDialog labId={labId} paper={paper} open onClose={() => setEditing(false)} />
       )}
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent>
+          <DialogTitle className="text-base font-semibold">Delete {paper.title}?</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            The paper and its notes will be removed.
+          </DialogDescription>
+          <FormError message={deleteError} />
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              disabled={remove.isPending}
+              onClick={() => remove.mutate(paper.id)}
+            >
+              Delete paper
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <UploadDialog
         open={uploading}
         onOpenChange={setUploading}
