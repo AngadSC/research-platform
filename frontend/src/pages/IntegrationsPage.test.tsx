@@ -66,6 +66,32 @@ describe("Integrations page", () => {
     expect(calls.some((c) => c.method === "POST")).toBe(true);
   });
 
+  it("puts the Claude block above the services, with steps and no operator wording", async () => {
+    mockFetch(base(MEMBER, [provider({ configured: false })]));
+    renderRoute(PAGE);
+    const ai = await screen.findByRole("heading", { name: "Claude and other AI apps" });
+    const services = screen.getByRole("heading", { name: "Services" });
+    expect(ai.compareDocumentPosition(services) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText(/Click Connect to Claude/)).toBeVisible();
+    expect(screen.getByText(/turn on labbenchos from the tools menu/)).toBeVisible();
+    expect(screen.getByText(/need a Claude plan that supports them/)).toBeVisible();
+    expect(screen.queryByText(/whoever runs this site/i)).toBeNull();
+  });
+
+  it("lists AI apps that can read the lab among everyone's connections", async () => {
+    const grant = {
+      id: "g1",
+      kind: "oauth",
+      client_name: "Claude",
+      user,
+      labs: [],
+      access: "read",
+    };
+    mockFetch({ ...base(ADMIN, []), "GET /api/labs/lab1/ai-grants/": { body: [grant] } });
+    renderRoute(PAGE);
+    expect(await screen.findByText(/Ada: Claude \(read only\)/)).toBeVisible();
+  });
+
   it("shows the Claude connector with connected apps and a link to Settings", async () => {
     const app = { id: "g1", kind: "oauth", client_name: "Claude", labs: [], access: "read" };
     mockFetch({ ...base(MEMBER, []), "GET /api/ai/grants/": { body: [app] } });
@@ -89,7 +115,7 @@ describe("Integrations page", () => {
   it("says when a service is not set up", async () => {
     mockFetch(base(MEMBER, [provider({ configured: false })]));
     renderRoute(PAGE);
-    expect(await screen.findByText("Not set up on this server")).toBeInTheDocument();
+    expect(await screen.findByText("Not available yet")).toBeInTheDocument();
     // The button stays visible but cannot be used until the site has the app details.
     expect(screen.getByRole("button", { name: /Connect/ })).toBeDisabled();
   });
@@ -191,6 +217,17 @@ describe("ExternalLinkItem", () => {
     expect(screen.getByText("Up to date")).toBeInTheDocument();
   });
 
+  it("explains an unavailable file and what to do", () => {
+    render(
+      <ul>
+        <ExternalLinkItem link={link({ unavailable_since: "2026-02-01T00:00:00Z" })} />
+      </ul>,
+    );
+    expect(
+      screen.getByText(/moved or deleted, or you lost access. Relink it or remove it/),
+    ).toBeVisible();
+  });
+
   it.each([
     [
       { unavailable_since: "2026-02-01T00:00:00Z", changed_since_linked: true },
@@ -222,10 +259,8 @@ describe("Integrations page, generic providers", () => {
     expect(screen.getByRole("button", { name: "Connect Dropbox" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Connect Zotero" })).toBeVisible();
     // Unconfigured OAuth: the button is there but disabled, with a note saying why.
-    expect(screen.getByText("Not set up on this server")).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Connect Box (not set up on this server)" }),
-    ).toBeDisabled();
+    expect(screen.getByText("Not available yet")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Connect Box (not available yet)" })).toBeDisabled();
     // Link-only and public need no connection.
     expect(screen.getByText(/No connection needed. Paste a link/)).toBeVisible();
     expect(screen.getByText(/No connection needed. Links to public records/)).toBeVisible();
@@ -367,30 +402,7 @@ describe("Integrations page, one Google sign-in (D262)", () => {
     );
     renderRoute(PAGE);
     expect(
-      await screen.findByRole("button", { name: "Connect Google (not set up on this server)" }),
+      await screen.findByRole("button", { name: "Connect Google (not available yet)" }),
     ).toBeDisabled();
-  });
-});
-
-describe("Integrations page, services the site has not set up", () => {
-  it("explains the dimmed buttons, once, in plain words", async () => {
-    mockFetch(
-      base(MEMBER, [
-        { ...OAUTH, name: "box", label: "Box", configured: false },
-        { ...OAUTH, name: "zoom", label: "Zoom", configured: false },
-      ]),
-    );
-    renderRoute(PAGE);
-    expect(
-      await screen.findByText(/whoever runs this site has not added that service's app details/i),
-    ).toBeVisible();
-    expect(screen.getAllByText(/one-time setup for the whole site/i)).toHaveLength(1);
-  });
-
-  it("says nothing when every service is set up", async () => {
-    mockFetch(base(MEMBER, [OAUTH, KEYED]));
-    renderRoute(PAGE);
-    await screen.findByRole("button", { name: "Connect Dropbox" });
-    expect(screen.queryByText(/one-time setup for the whole site/i)).toBeNull();
   });
 });

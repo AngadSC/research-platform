@@ -162,7 +162,7 @@ describe("project templates", () => {
     renderRoute("/labs/lab1/projects?new=project");
     await userEvent.type(await screen.findByLabelText("Name"), "Thesis");
     await userEvent.click(screen.getByRole("combobox", { name: "Start from" }));
-    await userEvent.click(await screen.findByRole("option", { name: "Honours thesis" }));
+    await userEvent.click(await screen.findByRole("option", { name: /Honours thesis/ }));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(calls.find((c) => c.method === "POST" && c.path.endsWith("/projects/"))?.body).toEqual(

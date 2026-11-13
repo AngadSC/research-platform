@@ -82,7 +82,7 @@ const base = (providers: unknown[], links: unknown[] = []) => ({
   [LINKS]: { body: links },
 });
 const FILES = "/labs/lab1/projects/p1/files";
-const LINK_BUTTON = { name: /Link from/ };
+const LINK_BUTTON = { name: /Link an outside file/ };
 // One menu for every provider: open it, choose Drive.
 const linkFromDrive = async () => {
   await userEvent.click(await screen.findByRole("button", LINK_BUTTON));

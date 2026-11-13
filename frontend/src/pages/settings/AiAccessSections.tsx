@@ -59,10 +59,30 @@ function copy(text: string) {
   );
 }
 
-/** "Connect to Claude", "Copy address" and the connection address (also shown on Integrations). */
+/** The three steps to connect Claude (also on Help). */
+export function ClaudeSteps() {
+  return (
+    <div className="text-sm">
+      <ol className="list-decimal pl-5 text-muted-foreground">
+        <li>Click Connect to Claude. claude.ai opens with labbenchos filled in.</li>
+        <li>
+          Click Add, then sign in to labbenchos, choose which labs Claude may see and click Allow.
+        </li>
+        <li>In a Claude chat, turn on labbenchos from the tools menu.</li>
+      </ol>
+      <p className="mt-1 text-muted-foreground">
+        Custom connectors need a Claude plan that supports them.
+      </p>
+    </div>
+  );
+}
+
+/** "Connect to Claude", its steps, "Copy address" and the connection address (also shown on
+ * Integrations). */
 export function ConnectClaude() {
   return (
     <>
+      <ClaudeSteps />
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" asChild>
           <a
@@ -299,40 +319,44 @@ function LabAccess({ labId, labName }: { labId: string; labName: string }) {
   );
 }
 
-/** Settings: "Connected AI apps", "Access tokens" and, for pi/lab_admin, each lab's AI access. */
-export function AiAccessSections() {
+/** Settings: "Connected AI apps", first on the AI tab so connecting Claude is not below the keys. */
+export function ConnectedAiApps() {
   const all = useAiGrants().data ?? [];
   const grants = all.filter((g) => !g.revoked_at);
   const ended = all.filter((g) => g.revoked_at && g.revoked_reason);
+  return (
+    <Section
+      title="Connected AI apps"
+      description="Claude, ChatGPT and other AI apps you have connected. They see only what you can see, in the labs you chose."
+    >
+      <p className="text-sm">
+        Read only is the default. Read and write also lets the app create tasks, post task updates
+        and draft decisions.
+      </p>
+      <ConnectClaude />
+      <div className="text-sm">
+        <p className="font-medium">Using ChatGPT?</p>
+        <ol className="list-decimal pl-5 text-muted-foreground">
+          <li>In ChatGPT, open Settings and find Apps or Connectors.</li>
+          <li>Turn on Developer mode, under Advanced settings. Not every plan has it.</li>
+          <li>Choose Create, name it labbenchos and paste the connection address.</li>
+          <li>Choose OAuth to sign in, then pick your labs on the page that opens.</li>
+        </ol>
+      </div>
+      <EndedNotice grants={ended} />
+      <GrantList grants={grants.filter((g) => g.kind === "oauth")} empty="No AI apps connected." />
+    </Section>
+  );
+}
+
+/** Settings: "Access tokens" and, for pi/lab_admin, each lab's AI access. */
+export function AiAccessSections() {
+  const grants = (useAiGrants().data ?? []).filter((g) => !g.revoked_at);
   const managed = (useLabs().data ?? []).filter((l) =>
     l.my_permissions.includes("manage_lab_integrations"),
   );
   return (
     <>
-      <Section
-        title="Connected AI apps"
-        description="Claude, ChatGPT and other AI apps you have connected. They see only what you can see, in the labs you chose."
-      >
-        <p className="text-sm">
-          Read only is the default. Read and write also lets the app create tasks, post task updates
-          and draft decisions.
-        </p>
-        <ConnectClaude />
-        <div className="text-sm">
-          <p className="font-medium">Using ChatGPT?</p>
-          <ol className="list-decimal pl-5 text-muted-foreground">
-            <li>In ChatGPT, open Settings and find Apps or Connectors.</li>
-            <li>Turn on Developer mode, under Advanced settings. Not every plan has it.</li>
-            <li>Choose Create, name it labbenchos and paste the connection address.</li>
-            <li>Choose OAuth to sign in, then pick your labs on the page that opens.</li>
-          </ol>
-        </div>
-        <EndedNotice grants={ended} />
-        <GrantList
-          grants={grants.filter((g) => g.kind === "oauth")}
-          empty="No AI apps connected."
-        />
-      </Section>
       <Section
         title="Access tokens"
         description="For AI tools that take a token instead of signing in, such as Claude Code. Treat a token like a password."

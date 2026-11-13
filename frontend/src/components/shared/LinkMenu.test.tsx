@@ -37,7 +37,7 @@ const setup = (providers: unknown[], extra: Record<string, object> = {}) =>
     ...extra,
   });
 const openMenu = async () =>
-  userEvent.click(await screen.findByRole("button", { name: /Link from/ }));
+  userEvent.click(await screen.findByRole("button", { name: /Link an outside file/ }));
 const result = {
   id: "f1",
   title: "Raw data",
@@ -64,7 +64,7 @@ describe("Link from menu", () => {
     setup([PUBLIC]);
     renderRoute(FILES);
     await screen.findByText("No documents or files yet");
-    expect(screen.queryByRole("button", { name: /Link from/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Link an outside file/ })).toBeNull();
   });
 
   it("searches after a pause and cancels the stale request", async () => {

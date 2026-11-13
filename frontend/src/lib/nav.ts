@@ -29,8 +29,13 @@ export const PROJECT_SECTIONS = [
   { to: "overview", label: "Overview", icon: LayoutDashboard },
   { to: "tasks", label: "Tasks", icon: CheckSquare },
   { to: "documents", label: "Documents and files", icon: FileText },
-  { to: "workflow", label: "Workflow", icon: Workflow },
-  { to: "external", label: "External", icon: Presentation },
+  {
+    to: "workflow",
+    label: "Workflow",
+    icon: Workflow,
+    hint: "Funding, ethics, participants, data, analysis, manuscript and review",
+  },
+  { to: "external", label: "Posters and talks", icon: Presentation },
 ] as const;
 
 export interface NavItem {

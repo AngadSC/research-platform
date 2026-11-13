@@ -5,12 +5,12 @@ import { Section } from "@/pages/admin/common";
 const CHOICES: { value: AiPolicy; label: string; help: string }[] = [
   {
     value: "full",
-    label: "MCP and in-app assistant",
+    label: "Connected apps (like Claude) and the in-app assistant",
     help: "Members may connect their own AI app and use the assistant built into this app.",
   },
   {
     value: "mcp",
-    label: "MCP only",
+    label: "Connected apps only",
     help: "Members may connect their own AI app. The in-app assistant is off.",
   },
   {

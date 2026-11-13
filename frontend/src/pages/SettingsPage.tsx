@@ -12,7 +12,7 @@ import { useTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { Section } from "@/pages/admin/common";
 import { SecuritySections } from "@/pages/SecurityPage";
-import { AiAccessSections } from "@/pages/settings/AiAccessSections";
+import { AiAccessSections, ConnectedAiApps } from "@/pages/settings/AiAccessSections";
 import { AiKeysSection } from "@/pages/settings/AiKeysSection";
 import { LabKeyNotice } from "@/pages/settings/LabAiKeySection";
 import { CustomThemes } from "@/pages/settings/CustomThemes";
@@ -205,6 +205,7 @@ export function SettingsPage() {
               content: (
                 <div className="grid gap-8">
                   <LabKeyNotice />
+                  <ConnectedAiApps />
                   <AiKeysSection />
                   <AiAccessSections />
                 </div>

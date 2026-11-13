@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAccounts, useConnect, useDisconnect, useProviders } from "@/hooks/integrations";
-import { useAiGrants } from "@/hooks/ai";
+import { useAiGrants, useLabAiGrants } from "@/hooks/ai";
 import { useLab } from "@/hooks/workspace";
 import type { ConnectedAccount, IntegrationProvider } from "@/lib/api-types";
 import { personName } from "@/lib/api-types";
@@ -134,21 +134,15 @@ export function IntegrationsPage() {
     <div className="grid gap-8">
       <PageHeader
         title="Integrations"
-        description="Connect outside services to link their files to your projects. We only read details such as titles and modified times."
+        description="Connect AI apps like Claude, and outside services whose files you link to your projects. For linked files we only read details such as titles and modified times."
       />
       <p className="text-sm text-muted-foreground">Each person connects their own accounts here.</p>
       <FormError message={failure ?? connectError(initialError)} />
+      <AiAppsSection />
       <section aria-labelledby="services" className="grid gap-3">
         <h2 id="services" className="text-base font-semibold">
           Services
         </h2>
-        {providers.data?.some((p) => p.auth_type === "oauth2" && !p.configured) && (
-          <p className="text-sm text-muted-foreground">
-            A dimmed Connect button means whoever runs this site has not added that service&apos;s
-            app details yet. It is a one-time setup for the whole site. Once it is done, everyone
-            here can connect their own account with one click.
-          </p>
-        )}
         {providers.isLoading ? (
           <div aria-busy="true" aria-label="Loading" className="grid gap-2">
             <Skeleton className="h-16 w-full" />
@@ -205,7 +199,6 @@ export function IntegrationsPage() {
           />
         )}
       </section>
-      <AiAppsSection />
       {canSeeAll && <WebhooksSection labId={labId} />}
       {canSeeAll && (
         <section aria-labelledby="everyone" className="grid gap-3">
@@ -224,6 +217,7 @@ export function IntegrationsPage() {
               />
             }
           />
+          <LabAiApps labId={labId} />
         </section>
       )}
       <ConnectDialog labId={labId} provider={keyed} onClose={() => setKeyed(null)} />
@@ -269,6 +263,32 @@ function AiAppsSection() {
         <ConnectClaude />
       </div>
     </section>
+  );
+}
+
+/** Members' AI apps and tokens that can read this lab (the same list as Settings > AI). */
+function LabAiApps({ labId }: { labId: string }) {
+  const aiApps = useLabAiGrants(labId).data ?? [];
+  if (aiApps.length === 0) return null;
+  return (
+    <>
+      <h3 className="text-sm font-medium text-muted-foreground">
+        Claude and other AI apps that can read this lab
+      </h3>
+      <ul className="grid gap-2 text-sm">
+        {aiApps.map((g) => (
+          <li key={g.id} className="rounded-lg border bg-background px-4 py-2">
+            {g.user.display_name || g.user.email}:{" "}
+            {g.kind === "oauth" ? g.client_name : `token "${g.name}"`} (
+            {g.access === "write" ? "read and write" : "read only"}). Remove access in{" "}
+            <Link to="/settings#ai" className="underline">
+              Settings
+            </Link>
+            .
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 
@@ -366,14 +386,14 @@ function ProviderCard({
   );
 }
 
-/** The button is always there, so people can see it exists; until whoever runs the site adds the
- * app details (see .env.example) it cannot be used, and the note says why. */
+/** The button is always there, so people can see it exists; until the site has this service's app
+ * details (see .env.example) it cannot be used. */
 function NotSetUp({ label }: { label: string }) {
   return (
     <>
-      <span className="text-xs text-muted-foreground">Not set up on this server</span>
-      <span title="Whoever runs this site needs to add this service's app details once. After that, anyone can connect.">
-        <Button disabled aria-label={`Connect ${label} (not set up on this server)`}>
+      <span className="text-xs text-muted-foreground">Not available yet</span>
+      <span title="This service is not switched on for this site yet. Ask your lab admin to check back later.">
+        <Button disabled aria-label={`Connect ${label} (not available yet)`}>
           Connect
         </Button>
       </span>

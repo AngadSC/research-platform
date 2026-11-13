@@ -56,6 +56,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, canRetention, o
   const [status, setStatus] = useState<ProjectStatus>(project?.status ?? "planning");
   const [template, setTemplate] = useState<string>(BLANK);
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
+  const [moreOpen, setMoreOpen] = useState(!!(project?.retain_until || project?.retention_note));
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -80,9 +81,15 @@ export function ProjectFormDialog({ open, onOpenChange, project, canRetention, o
       toast.success("Saved");
       onOpenChange(false);
     } catch (err) {
-      setErrors(
-        formErrors(err, ["name", "description", "start_date", "retain_until", "retention_note"]),
-      );
+      const e = formErrors(err, [
+        "name",
+        "description",
+        "start_date",
+        "retain_until",
+        "retention_note",
+      ]);
+      if (e.fields.retain_until || e.fields.retention_note) setMoreOpen(true);
+      setErrors(e);
     }
   }
 
@@ -139,9 +146,11 @@ export function ProjectFormDialog({ open, onOpenChange, project, canRetention, o
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={BLANK}>Blank project</SelectItem>
+                    <SelectItem value={BLANK} hint="Start empty and add what you need.">
+                      Blank project
+                    </SelectItem>
                     {TEMPLATES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
+                      <SelectItem key={t.value} value={t.value} hint={t.help}>
                         {t.label}
                       </SelectItem>
                     ))}
@@ -169,7 +178,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, canRetention, o
               </Select>
             )}
           </FormField>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3">
             <FormField label="Start date" error={errors.fields.start_date}>
               {(p) => (
                 <Input
@@ -180,7 +189,25 @@ export function ProjectFormDialog({ open, onOpenChange, project, canRetention, o
                 />
               )}
             </FormField>
-            {canRetention && (
+          </div>
+          {canRetention && (
+            <FormField label="Retention note" error={errors.fields.retention_note}>
+              {(p) => (
+                <Textarea {...p} name="retention_note" defaultValue={project?.retention_note} />
+              )}
+            </FormField>
+          )}
+          {canRetention && (
+            <details
+              className="grid gap-3 rounded-md border px-3 py-2"
+              open={moreOpen}
+              onToggle={(e) => setMoreOpen(e.currentTarget.open)}
+            >
+              <summary className="cursor-pointer text-sm font-medium">More options</summary>
+              <p className="text-xs text-muted-foreground">
+                Retention is how long the lab must keep this project&apos;s records, for example
+                under a funder or ethics rule.
+              </p>
               <FormField label="Keep until" error={errors.fields.retain_until}>
                 {(p) => (
                   <Input
@@ -191,14 +218,12 @@ export function ProjectFormDialog({ open, onOpenChange, project, canRetention, o
                   />
                 )}
               </FormField>
-            )}
-          </div>
-          {canRetention && (
-            <FormField label="Retention note" error={errors.fields.retention_note}>
-              {(p) => (
-                <Textarea {...p} name="retention_note" defaultValue={project?.retention_note} />
-              )}
-            </FormField>
+              <FormField label="Retention note" error={errors.fields.retention_note}>
+                {(p) => (
+                  <Textarea {...p} name="retention_note" defaultValue={project?.retention_note} />
+                )}
+              </FormField>
+            </details>
           )}
           <FormError message={errors.form} />
           <div className="flex justify-end gap-2">

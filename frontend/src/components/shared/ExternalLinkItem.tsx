@@ -105,6 +105,11 @@ export function ExternalLinkItem({
           <span className="text-xs text-muted-foreground">
             {sharingNote(link.provider, link.provider_label)}
           </span>
+          {link.unavailable_since && (
+            <span className="text-xs text-muted-foreground">
+              The file was moved or deleted, or you lost access. Relink it or remove it.
+            </span>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-2">
