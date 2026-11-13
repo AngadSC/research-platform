@@ -174,7 +174,7 @@ def match(qs, fields, q):
 def _snippet(obj, spec, q) -> str:
     """Text around the first match in the type's own text fields, else its start."""
     if spec.type == "chat":  # the title is the message; the snippet says who wrote it
-        return obj.author.display_name
+        return obj.author.display_name or obj.author.email
     for field in spec.text:
         text = re.sub(r"\s+", " ", str(getattr(obj, field) or "")).strip()
         if not text:
