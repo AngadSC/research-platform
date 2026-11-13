@@ -205,7 +205,13 @@ describe("project sidebar dropdown", () => {
     const nav = within(await screen.findByRole("navigation", { name: "Main" }));
     const toggle = await nav.findByRole("button", { name: "Sleep sections" });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    for (const name of ["Overview", "Tasks", "Documents and files", "Workflow", "External"])
+    for (const name of [
+      "Overview",
+      "Tasks",
+      "Documents and files",
+      "Workflow",
+      "Posters and talks",
+    ])
       expect(nav.getByRole("link", { name })).toBeInTheDocument();
     for (const name of ["Files", "Lineage", "Chat"])
       expect(nav.queryByRole("link", { name })).toBeNull();

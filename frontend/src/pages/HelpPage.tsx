@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { useGettingStarted, useSetGettingStartedDismissed } from "@/hooks/dashboard";
 import { useCurrentLabId } from "@/hooks/crumbs";
+import { ClaudeSteps } from "@/pages/settings/AiAccessSections";
 import { FEEDBACK_URL, MOD_KEY, OPEN_TUTORIAL_EVENT } from "@/lib/constants";
 
 const QUESTIONS = [
@@ -113,6 +114,26 @@ export function HelpPage() {
           </dl>
         </section>
 
+        <section aria-labelledby="help-connect-claude" className="grid gap-3">
+          <h2 id="help-connect-claude" className="text-base font-semibold">
+            Connect Claude
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Connect labbenchos to Claude so it can read your lab&apos;s documents, tasks and files.
+            It only sees what you can see.
+          </p>
+          <ClaudeSteps />
+          <p className="text-sm">
+            <Link
+              to={labId ? `/labs/${labId}/settings/integrations` : "/settings#ai"}
+              className="underline"
+            >
+              Go to Integrations
+            </Link>
+            .
+          </p>
+        </section>
+
         <section aria-labelledby="help-claude-chrome" className="grid gap-3">
           <h2 id="help-claude-chrome" className="text-base font-semibold">
             Use Claude next to labbenchos
@@ -137,12 +158,8 @@ export function HelpPage() {
             <li>Open the side panel.</li>
           </ol>
           <p className="text-sm text-muted-foreground">
-            To let Claude see your lab&apos;s documents, tasks and files, connect labbenchos to
-            Claude in{" "}
-            <Link to="/settings#ai" className="underline">
-              Settings, under AI
-            </Link>
-            .
+            To let Claude see your lab&apos;s documents, tasks and files, first follow the steps in
+            Connect Claude, above.
           </p>
           <p className="text-sm text-muted-foreground">
             Claude only sees what you can see. It never sees files marked &quot;Identifies
@@ -158,13 +175,7 @@ export function HelpPage() {
           <ul className="grid list-disc gap-1 pl-5 text-sm text-muted-foreground">
             <li>MATLAB R2020b or later. Your university usually provides a licence.</li>
             <li>The Claude Desktop app, with a paid Claude plan.</li>
-            <li>
-              The labbenchos connector. Add it in{" "}
-              <Link to="/settings#ai" className="underline">
-                Settings, under AI
-              </Link>
-              .
-            </li>
+            <li>The labbenchos connector. See Connect Claude, above.</li>
             <li>
               MathWorks&apos; free MATLAB MCP Core Server. Follow its{" "}
               <a
@@ -204,7 +215,7 @@ export function HelpPage() {
           <p className="text-sm text-muted-foreground">
             Found a problem or have an idea? Tell us on GitHub. You need a free GitHub account, and
             what you write there is public, so do not include names, participant details or anything
-            private.
+            private. No GitHub account? Tell your lab admin and they can pass it on.
           </p>
           <div>
             <Button variant="outline" asChild>

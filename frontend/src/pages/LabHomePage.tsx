@@ -14,6 +14,16 @@ import type { Project } from "@/lib/api-types";
 import { useLab } from "@/hooks/workspace";
 import { formErrors } from "@/lib/forms";
 
+/** Active projects first (newest activity on top), archived ones last. */
+export function activeFirst(list: Project[]): Project[] {
+  const when = (p: Project) => p.last_activity_at ?? p.updated_at;
+  return [...list].sort(
+    (a, b) =>
+      Number(a.status === "archived") - Number(b.status === "archived") ||
+      when(b).localeCompare(when(a)),
+  );
+}
+
 export function LabHomePage() {
   const { labId = "" } = useParams();
   const navigate = useNavigate();
@@ -31,8 +41,8 @@ export function LabHomePage() {
     { key: "status", header: "Status", cell: (p) => <StatusBadge status={p.status} /> },
     {
       key: "updated",
-      header: "Updated",
-      cell: (p) => <RelativeTime value={p.updated_at} />,
+      header: "Last edited",
+      cell: (p) => <RelativeTime value={p.last_activity_at ?? p.updated_at} />,
     },
   ];
 
@@ -60,7 +70,7 @@ export function LabHomePage() {
       />
       <DataTable
         columns={cols}
-        rows={projects.data ?? []}
+        rows={activeFirst(projects.data ?? [])}
         getRowKey={(p) => p.id}
         loading={projects.isLoading}
         onRowClick={(p) => void navigate(`/labs/${labId}/projects/${p.id}`)}

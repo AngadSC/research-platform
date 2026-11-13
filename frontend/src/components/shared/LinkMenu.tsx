@@ -65,7 +65,7 @@ function useLinker(labId: string, projectId: string, target?: LinkTargetRef) {
   };
 }
 
-/** "Link from...": every usable provider that can link to this kind of record. With no
+/** "Link an outside file or record...": every usable provider that can link to this kind of record. With no
  * `target` the link hangs on the project (the Files tab). Hidden when no provider offers the
  * kind at all. */
 export function LinkMenu({
@@ -119,7 +119,7 @@ export function LinkMenu({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" disabled={busy}>
-            <Link2 aria-hidden /> Link from&hellip; <ChevronDown aria-hidden />
+            <Link2 aria-hidden /> Link an outside file or record&hellip; <ChevronDown aria-hidden />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">

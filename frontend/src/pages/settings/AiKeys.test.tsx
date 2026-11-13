@@ -175,9 +175,11 @@ describe("admin: the lab's AI policy", () => {
     const section = await screen.findByRole("region", { name: "AI assistants in Ada Lab" });
     expect(within(section).getByText(/Allowed by default/)).toBeInTheDocument();
     expect(within(section).getByText(/may need to choose Off/)).toBeInTheDocument();
-    const full = await within(section).findByRole("radio", { name: /MCP and in-app assistant/ });
+    const full = await within(section).findByRole("radio", {
+      name: /Connected apps \(like Claude\) and the in-app assistant/,
+    });
     await waitFor(() => expect(full).toBeChecked());
-    expect(within(section).getByRole("radio", { name: /MCP only/ })).not.toBeChecked();
+    expect(within(section).getByRole("radio", { name: /Connected apps only/ })).not.toBeChecked();
     await userEvent.click(within(section).getByRole("radio", { name: /^Off/ }));
     await waitFor(() =>
       expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ ai_policy: "off" }),
