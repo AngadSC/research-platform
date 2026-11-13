@@ -158,7 +158,7 @@ describe("read state", () => {
       [`GET ${L}/chat/unread/`]: { body: [{ project: "p1", count: 3 }] },
     });
     renderRoute("/labs/lab1/projects/p1/tasks");
-    expect(await screen.findByRole("button", { name: /Chat.*3 unread messages/ })).toBeVisible();
+    expect(await screen.findByRole("button", { name: /^Chat, 3 unread$/ })).toBeVisible();
     const nav = within(await screen.findByRole("navigation", { name: "Main" }));
     expect(await nav.findByRole("link", { name: /Sleep.*3 unread messages/ })).toBeInTheDocument();
   });

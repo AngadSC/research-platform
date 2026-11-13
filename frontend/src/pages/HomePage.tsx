@@ -84,13 +84,15 @@ export function LabListPage() {
 }
 
 export function NotFoundPage() {
+  const labId = useCurrentLabId();
+  const lab = useLabs().data?.find((l) => l.id === labId);
   return (
     <EmptyState
       title="Page not found"
       description="This address doesn't match a page. Check the link, or go back to your lab."
       action={
         <Button asChild variant="outline">
-          <Link to="/">Go home</Link>
+          <Link to={lab ? `/labs/${lab.id}` : "/"}>{lab ? `Back to ${lab.name}` : "Go home"}</Link>
         </Button>
       }
     />

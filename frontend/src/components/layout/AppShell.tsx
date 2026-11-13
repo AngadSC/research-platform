@@ -59,10 +59,23 @@ function PinButton({ crumbs }: { crumbs: Crumb[] }) {
   );
 }
 
+/** "Tasks � Pilot Attention Study � labbenchos", from the breadcrumb trail. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function pageTitle(crumbs: Crumb[]) {
+  const loaded = crumbs.filter((c) => !c.pending);
+  return loaded.length === crumbs.length && crumbs.length > 0
+    ? `${pinLabel(crumbs)} � ${APP_NAME}`
+    : APP_NAME;
+}
+
 export function AppShell() {
   const navigate = useNavigate();
   const crumbs = useCrumbs();
   useTrackRecent(crumbs);
+  const title = pageTitle(crumbs);
+  useEffect(() => {
+    document.title = title;
+  }, [title]);
   const labId = useCurrentLabId();
   const { data: labs } = useLabs();
   const { data: projects } = useProjects(labId);
@@ -125,6 +138,16 @@ export function AppShell() {
 
   return (
     <TooltipProvider>
+      <a
+        href="#main"
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById("main")?.focus();
+        }}
+        className="sr-only z-[100] rounded-md bg-background px-3 py-2 text-sm font-medium shadow focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        Skip to main content
+      </a>
       <NamePrompt />
       <div className="flex h-screen bg-background text-foreground md:pr-[var(--assistant-w,0px)] print:block print:h-auto print:pr-0">
         <Sidebar open={navOpen} desktopHidden={sidebarHidden} onClose={() => setNavOpen(false)} />
@@ -184,7 +207,11 @@ export function AppShell() {
               {labId && <NotificationBell labId={labId} />}
             </div>
           </header>
-          <main className="@container min-h-0 flex-1 overflow-y-auto print:overflow-visible">
+          <main
+            id="main"
+            tabIndex={-1}
+            className="@container outline-none min-h-0 flex-1 overflow-y-auto print:overflow-visible"
+          >
             <div className="px-4 py-4 md:px-8 print:px-0">
               <div className="mb-4 print:hidden">
                 <Breadcrumbs items={crumbs} />

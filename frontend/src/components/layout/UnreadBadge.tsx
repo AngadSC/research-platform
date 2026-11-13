@@ -13,17 +13,22 @@ export function UnreadBadge({
   count,
   className,
   noun = "notification",
+  decorative = false,
 }: {
   count: number;
   className?: string;
   noun?: string;
+  /** The parent already says the count in its own label. */
+  decorative?: boolean;
 }) {
   if (count <= 0) return null;
+  const label = `${count} unread ${noun}${count === 1 ? "" : "s"}`;
   return (
     <span
-      role="img"
+      {...(decorative
+        ? { "aria-hidden": true }
+        : { role: "img", "aria-label": label, title: label })}
       data-testid="unread-count"
-      aria-label={`${count} unread ${noun}${count === 1 ? "" : "s"}`}
       className={cn(
         "grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] leading-none font-bold text-danger-foreground",
         className,

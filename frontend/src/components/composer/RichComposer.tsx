@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useId,
   useLayoutEffect,
   useRef,
@@ -138,6 +139,21 @@ export function RichComposer({
       ? (people ?? []).filter((p) => p.name.toLowerCase().includes(q)).slice(0, MAX_SUGGESTIONS)
       : [];
   const listOpen = matches.length > 0;
+  const atStart = at?.start;
+
+  // Escape closes only the list. A dialog or drawer around the box listens on the document in the
+  // capture phase, so this has to run earlier still (window capture) to keep the unsent text.
+  useEffect(() => {
+    if (!listOpen) return;
+    const onEsc = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== "Escape" || e.target !== ref.current) return;
+      e.stopPropagation();
+      e.preventDefault();
+      setDismissed(atStart);
+    };
+    window.addEventListener("keydown", onEsc, true);
+    return () => window.removeEventListener("keydown", onEsc, true);
+  }, [listOpen, atStart]);
   const current = Math.min(active, matches.length - 1);
   const optionId = (i: number) => `${uid}-person-${i}`;
 
@@ -219,11 +235,6 @@ export function RichComposer({
       if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
         pick(matches[current]!);
-        return;
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setDismissed(at?.start);
         return;
       }
     }

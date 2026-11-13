@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
+import { makeLab, mockFetch, renderRoute, SESSION, signedIn, signedOut } from "@/test/utils";
 
 const L = "/api/labs/lab1";
 const P = "/labs/lab1/projects/p1";
@@ -57,6 +57,47 @@ describe("app shell", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ display_name: "Jaya Gogia" });
+  });
+
+  it("has a skip link first in the tab order and a title for each page", async () => {
+    mockFetch(world({}));
+    renderRoute("/labs/lab1/members");
+    await screen.findByRole("button", { name: "Pin this page" });
+    await userEvent.tab();
+    const skip = screen.getByRole("link", { name: "Skip to main content" });
+    expect(skip).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    expect(screen.getByRole("main")).toHaveFocus();
+    await waitFor(() => expect(document.title).toBe("Members · labbenchos"));
+  });
+
+  it("a server error on the session check is not a logout", async () => {
+    mockFetch({ [SESSION]: { status: 502, body: null } });
+    const router = renderRoute("/labs/lab1/members");
+    expect(await screen.findByText("labbenchos is briefly unavailable")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again now" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/labs/lab1/members");
+  });
+
+  it("still sends a signed-out visitor to sign in", async () => {
+    mockFetch({ [SESSION]: signedOut });
+    const router = renderRoute("/labs/lab1/members");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+  });
+
+  it("sends the guessable lab addresses to the right pages, and 404 offers the lab", async () => {
+    mockFetch(world({}));
+    const router = renderRoute("/labs/lab1/integrations");
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/labs/lab1/settings/integrations"),
+    );
+    await router.navigate("/labs/lab1/settings");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/labs/lab1/admin"));
+    await router.navigate("/nowhere");
+    expect(await screen.findByRole("link", { name: /^Back to / })).toHaveAttribute(
+      "href",
+      "/labs/lab1",
+    );
   });
 
   it("does not ask someone who has a name", async () => {

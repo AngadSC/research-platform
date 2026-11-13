@@ -2,9 +2,28 @@ import * as React from "react";
 import * as M from "@radix-ui/react-dropdown-menu";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { rememberMenuOpener } from "./focus-return";
 
 export const DropdownMenu = M.Root;
-export const DropdownMenuTrigger = M.Trigger;
+export function DropdownMenuTrigger({
+  onPointerDown,
+  onKeyDown,
+  ...props
+}: React.ComponentProps<typeof M.Trigger>) {
+  return (
+    <M.Trigger
+      {...props}
+      onPointerDown={(e) => {
+        rememberMenuOpener(e.currentTarget);
+        onPointerDown?.(e);
+      }}
+      onKeyDown={(e) => {
+        rememberMenuOpener(e.currentTarget);
+        onKeyDown?.(e);
+      }}
+    />
+  );
+}
 export const DropdownMenuRadioGroup = M.RadioGroup;
 export const DropdownMenuLabel = (p: React.ComponentProps<typeof M.Label>) => (
   <M.Label {...p} className={cn("px-2 py-1.5 text-xs text-muted-foreground", p.className)} />

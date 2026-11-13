@@ -2,6 +2,7 @@ import * as React from "react";
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useFocusReturn } from "./focus-return";
 
 export const Sheet = SheetPrimitive.Root;
 export const SheetTrigger = SheetPrimitive.Trigger;
@@ -11,8 +12,11 @@ export const SheetDescription = SheetPrimitive.Description;
 export function SheetContent({
   className,
   children,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content>) {
+  const returnFocus = useFocusReturn(onOpenAutoFocus, onCloseAutoFocus);
   return (
     <SheetPrimitive.Portal>
       <SheetPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40" />
@@ -21,6 +25,7 @@ export function SheetContent({
           "fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-md flex-col gap-4 border-l bg-background p-6 shadow-sm",
           className,
         )}
+        {...returnFocus}
         {...props}
       >
         {children}
