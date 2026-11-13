@@ -41,7 +41,11 @@ afterEach(() => unregister());
 
 describe("CommandPalette", () => {
   it("shows an item once, as the search hit, and groups jumps under Go to", async () => {
-    serve([hit("project", "p1", "Gut study"), hit("file", "f1", "Tester doc.docx")]);
+    serve([
+      hit("project", "p1", "Gut study"),
+      hit("file", "f1", "Tester doc.docx"),
+      hit("chat", "c1", "gut samples are ready"),
+    ]);
     unregister = registerCommands([
       { id: "project:p1", label: "Go to project Gut study", group: "Projects", onSelect: () => {} },
       { id: "project:p2", label: "Go to project Gut flora", group: "Projects", onSelect: () => {} },
@@ -54,6 +58,7 @@ describe("CommandPalette", () => {
     await userEvent.type(screen.getByRole("combobox"), "gut");
     await screen.findByText("Tester doc.docx");
     expect(screen.getByText("Files")).toBeInTheDocument();
+    expect(screen.getByText("Chat")).toBeInTheDocument();
     expect(screen.getAllByText("Projects")).toHaveLength(1); // the search group only
     expect(screen.queryByText("Go to project Gut study")).not.toBeInTheDocument();
     const goTo = screen.getByText("Go to").closest("[cmdk-group]") as HTMLElement;
