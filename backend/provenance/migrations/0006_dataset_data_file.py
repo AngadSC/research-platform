@@ -3,6 +3,8 @@
 import django.db.models.deletion
 from django.db import migrations, models
 
+from core.lab_db import LabForeignKey
+
 
 class Migration(migrations.Migration):
 
@@ -23,4 +25,5 @@ class Migration(migrations.Migration):
                 to="documents.attachment",
             ),
         ),
+        LabForeignKey("provenance_datasetrecord", "data_file_id", "documents_attachment", "PROTECT"),
     ]

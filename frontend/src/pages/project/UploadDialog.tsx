@@ -24,7 +24,7 @@ function ParticipantChoice({
     [
       true,
       "This file identifies participants",
-      "Names, contact details, ID numbers, faces or voices. Keep it here only if your ethics approval allows it. Claude and other AI tools will never see this file.",
+      "Names, contact details, ID numbers, faces or voices. Claude and other AI tools will never see this file.",
     ],
     [false, "This file has no participant identifiers", "De-identified or aggregate data."],
   ];
