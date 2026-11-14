@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { DocLinkCard } from "@/components/shared/DocLinkCard";
+import { parseGoogleLink } from "@/lib/googleLinks";
 import { cn } from "@/lib/utils";
 
 /** Safe "simple markdown" for messages, thread posts and notes (D142, D260): **bold**, *italic* or
@@ -171,6 +173,10 @@ export function MessageText({
           ))}
         </blockquote>,
       );
+    } else if (!st.ownOnly && parseGoogleLink(line)) {
+      // A Google link on a line of its own becomes a card (not in the assistant's answers).
+      blocks.push(<DocLinkCard key={at} link={parseGoogleLink(line)!} />);
+      i++;
     } else {
       blocks.push(
         line.trim() ? (

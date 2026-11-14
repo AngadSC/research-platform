@@ -9,6 +9,7 @@ import { useLab } from "@/hooks/workspace";
 import { taskStatusLabel, type MyTask } from "@/lib/api-types";
 import { shortDate } from "@/lib/dashboard";
 import { formErrors } from "@/lib/forms";
+import { localDateISO } from "@/lib/format";
 
 /** Your open tasks across the lab, soonest due first. On My work, and on Home for members. */
 export function MyTasksList({ labId }: { labId: string }) {
@@ -39,6 +40,11 @@ export function MyTasksList({ labId }: { labId: string }) {
           <span className="flex flex-wrap items-center gap-2">
             {shortDate(t.due_date)}
             <DueChip due={t.due_date} status={t.status} />
+            {t.snoozed_until && t.snoozed_until > localDateISO() && (
+              <span className="text-xs text-muted-foreground">
+                Snoozed until {shortDate(t.snoozed_until)}
+              </span>
+            )}
           </span>
         ),
     },
@@ -53,11 +59,11 @@ export function MyTasksList({ labId }: { labId: string }) {
       empty={
         <EmptyState
           icon={ListChecks}
-          title="Nothing assigned to you"
+          title="You are all caught up"
           description={
             viewer
               ? "Viewers can't be given tasks. Ask a PI or lab admin if you need to take part."
-              : "Tasks assigned to you in any project will show up here."
+              : "Nothing is assigned to you right now. Tasks given to you in any project will show up here."
           }
         />
       }

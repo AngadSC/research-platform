@@ -23,7 +23,7 @@ BACKOFF_SECONDS = 30  # 30s, 1m, 2m, 4m, 8m, capped at an hour
 RESERVED_TLDS = (".test", ".example", ".invalid", ".localhost")
 
 
-def send_email(template: str, to, context: dict | None = None) -> None:
+def send_email(template: str, to, context: dict | None = None, *, eta=None) -> None:
     """Queue `template` for each address in `to`, after the surrounding transaction commits.
     One task per recipient, so a retry never re-sends to someone already served."""
     recipients = [to] if isinstance(to, str) else list(to)
@@ -32,7 +32,10 @@ def send_email(template: str, to, context: dict | None = None) -> None:
 
     def enqueue():
         for address in recipients:
-            send_email_task.delay(template, address, context)
+            if eta is None:
+                send_email_task.delay(template, address, context)
+            else:
+                send_email_task.apply_async(args=(template, address, context), eta=eta)
 
     transaction.on_commit(enqueue, robust=True)
 

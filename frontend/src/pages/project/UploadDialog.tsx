@@ -59,6 +59,8 @@ interface Props {
   multiple?: boolean;
   /** Show "Identifies participants", starting ticked when true (a flagged folder). */
   participant?: boolean;
+  /** Files already chosen (dropped onto the page). */
+  initialFiles?: File[];
 }
 
 /** Mounted fresh on every open, so the notice tick is never remembered. */
@@ -67,13 +69,15 @@ function UploadForm({
   onDone,
   multiple,
   participant,
+  initialFiles,
 }: {
   send: Props["send"];
   onDone: () => void;
   multiple?: boolean;
   participant?: boolean;
+  initialFiles?: File[];
 }) {
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<File[]>(() => initialFiles ?? []);
   const [ack, setAck] = useState(false);
   // With the choice shown, null means "not chosen yet"; a flagged folder starts on "identifies".
   const [choice, setChoice] = useState<boolean | null>(participant ? true : null);
@@ -223,7 +227,14 @@ function UploadForm({
   );
 }
 
-export function UploadDialog({ open, onOpenChange, send, multiple, participant }: Props) {
+export function UploadDialog({
+  open,
+  onOpenChange,
+  send,
+  multiple,
+  participant,
+  initialFiles,
+}: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -232,6 +243,7 @@ export function UploadDialog({ open, onOpenChange, send, multiple, participant }
             send={send}
             multiple={multiple}
             participant={participant}
+            initialFiles={initialFiles}
             onDone={() => onOpenChange(false)}
           />
         )}

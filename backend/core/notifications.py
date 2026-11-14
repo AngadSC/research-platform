@@ -12,6 +12,7 @@ from django.utils import timezone
 from core.email import send_email
 from core.models import Notification, NotificationKind, User
 from core.permissions import Perm, can, forget
+from core.quiet import quiet_release
 
 # D71: only notices someone must act on, or that matter for compliance, are emailed.
 EMAIL_KINDS = frozenset(
@@ -57,6 +58,7 @@ def notify(
             email_template,
             recipient.email,
             email_context or {"title": title[:200], "body": body},
+            eta=quiet_release(recipient, timezone.now()),  # held until quiet hours end
         )
     return created
 

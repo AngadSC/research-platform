@@ -162,7 +162,7 @@ describe("tasks", () => {
   it("shows an empty state", async () => {
     mockFetch(base(["edit_content"]));
     renderRoute(TASKS);
-    expect(await screen.findByText("No tasks yet")).toBeInTheDocument();
+    expect(await screen.findByText("A clean slate")).toBeInTheDocument();
   });
 });
 

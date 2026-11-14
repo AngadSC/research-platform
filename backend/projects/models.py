@@ -125,6 +125,8 @@ class Task(LabScopedModel):
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
     )
     due_date = models.DateField(null=True, blank=True)
+    # "Snooze until Monday": the task stays, but leaves Today and the daily digest until this day.
+    snoozed_until = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=16, choices=TaskStatus.choices, default=TaskStatus.TODO)
     position = models.IntegerField(default=0)  # board order within a status column
     created_by = models.ForeignKey(

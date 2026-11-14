@@ -74,3 +74,16 @@ def test_update_ignores_template(world):
     url = f"/api/labs/{lab.pk}/projects/{pid}/"
     assert client.patch(url, {"template": "survey_study"}, format="json").status_code == 200
     assert not Task.objects.for_lab(lab).exists()
+
+
+def test_new_templates_make_folders_and_tasks(world):
+    from documents.models import Folder
+
+    lab, client = world
+    for name in ("thesis_chapter", "ra_onboarding", "conference_poster"):
+        assert create(lab, client, template=name, name=name).status_code == 201
+        project = Project.objects.for_lab(lab).get(name=name)
+        plan = TEMPLATES[name]
+        assert Task.objects.for_lab(lab).filter(project=project).count() == len(plan["tasks"])
+        folders = Folder.objects.for_lab(lab).filter(project=project)
+        assert sorted(f.name for f in folders) == sorted(plan["folders"])

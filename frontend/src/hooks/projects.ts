@@ -127,6 +127,16 @@ export function useMyTasks(labId: string) {
   });
 }
 
+/** Change one task from anywhere (Today, quick actions) without knowing its project's list. */
+export function usePatchTask(labId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string; patch: Partial<TaskInput> }) =>
+      api<Task>(`${base(labId)}/tasks/${v.id}/`, { method: "PATCH", ...body(v.patch) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["labs", labId] }),
+  });
+}
+
 export function useTasks(labId: string, projectId: string) {
   const qc = useQueryClient();
   const { list, create, update, key } = useSub<Task, TaskInput>(labId, projectId, "tasks", "tasks");

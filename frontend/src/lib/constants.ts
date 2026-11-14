@@ -9,3 +9,5 @@ export const OPEN_SEARCH_EVENT = "open-search";
 export const OPEN_TUTORIAL_EVENT = "open-tutorial";
 /** Where the Help page's feedback link goes. Swap it for a form or mailto: if you get one. */
 export const FEEDBACK_URL = "https://github.com/AngadSC/research-platform/issues/new";
+
+export const OPEN_QUICK_CAPTURE_EVENT = "open-quick-capture";

@@ -12,6 +12,7 @@ interface Lists {
   recents?: Recent[];
   sidebar_main?: string[];
   sidebar_admin?: string[];
+  delight?: "on" | "off";
 }
 type Me = User & { preferences?: Lists & { time_zone?: string } };
 const ME = ["me"];
@@ -77,6 +78,17 @@ export function useSidebarOrder() {
   };
 }
 const LEGACY_ORDER_KEY = "sidebar-order";
+
+/** The small animations (a task checking off, a confetti-free "all caught up"). On unless the
+ * person turned them off in Settings or asked their device for less motion. */
+export function useDelight(): boolean {
+  const pref = (useMe().data as Me | undefined)?.preferences?.delight;
+  const reduced =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return pref !== "off" && !reduced;
+}
 
 export function useRecents(): Recent[] {
   const saved = (useMe().data as Me | undefined)?.preferences?.recents ?? [];

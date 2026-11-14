@@ -43,6 +43,7 @@ import { formErrors } from "@/lib/forms";
 import { PROJECT_SECTIONS } from "@/lib/nav";
 import { projectColorStyle } from "@/lib/projectColors";
 import ChatTab from "@/pages/project/ChatTab";
+import { ProjectDropZone } from "@/pages/project/ProjectDropZone";
 import { ProjectFormDialog } from "@/pages/project/ProjectFormDialog";
 
 /** Props every project tab component receives. */
@@ -203,7 +204,14 @@ export function ProjectPage() {
         tabs={PROJECT_SECTIONS.map(({ to, label }) => [to, label])}
         className="mb-6 md:hidden"
       />
-      <Outlet context={{ labId, projectId, project } satisfies ProjectTabProps} />
+      <ProjectDropZone
+        labId={labId}
+        projectId={projectId}
+        enabled={!!canEditContent}
+        name={project.name}
+      >
+        <Outlet context={{ labId, projectId, project } satisfies ProjectTabProps} />
+      </ProjectDropZone>
       <DetailPanel open={chatOpen} onOpenChange={setChatOpen} title="Project chat">
         <ChatTab labId={labId} projectId={projectId} project={project} />
       </DetailPanel>
