@@ -160,6 +160,10 @@ class NotificationKind(models.TextChoices):
     TRAINING_DIGEST = "training_digest"
     # D260: someone @mentioned you in a chat message or task update
     MENTION = "mention"
+    # Walkthrough fixes: added to a project or role changed, project archived, document owner
+    PROJECT_ROLE = "project_role"
+    PROJECT_ARCHIVED = "project_archived"
+    DOCUMENT_OWNER = "document_owner"
 
 
 class Notification(LabScopedModel):

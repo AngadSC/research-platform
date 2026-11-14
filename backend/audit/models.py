@@ -35,6 +35,7 @@ class AuditAction(models.TextChoices):
     DOCUMENT_VIEWED = "document.viewed"
     DOCUMENT_RESTORED = "document.restored"
     DOCUMENT_DELETED = "document.deleted"
+    DOCUMENT_OWNER_CHANGED = "document.owner_changed"
     ATTACHMENT_UPLOADED = "attachment.uploaded"
     ATTACHMENT_DOWNLOADED = "attachment.downloaded"
     ATTACHMENT_DELETED = "attachment.deleted"

@@ -374,7 +374,8 @@ function Members({
         const hint = effectiveRoleHint(personName(m.user), labRoles.get(m.user.id), m.role);
         return (
           <div className="grid gap-1">
-            {canManage ? (
+            {/* The server says per row: a lead cannot change a PI or the last lead. */}
+            {canManage && m.can_change ? (
               <RoleSelect
                 label={`Role for ${m.user.email}`}
                 value={m.role}
@@ -410,19 +411,21 @@ function Members({
                     Handover
                   </Link>
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Remove ${m.user.email}`}
-                  onClick={() =>
-                    remove.mutate(m.id, {
-                      onSuccess: () => toast.success("Member removed"),
-                      onError: fail,
-                    })
-                  }
-                >
-                  Remove
-                </Button>
+                {m.can_change && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Remove ${m.user.email}`}
+                    onClick={() =>
+                      remove.mutate(m.id, {
+                        onSuccess: () => toast.success("Member removed"),
+                        onError: fail,
+                      })
+                    }
+                  >
+                    Remove
+                  </Button>
+                )}
               </div>
             ),
           },

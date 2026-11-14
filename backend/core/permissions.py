@@ -217,6 +217,24 @@ def can_reverse_usage(user, usage) -> bool:
     return usage.used_by_id == user.pk or can(user, Perm.EDIT_PROJECT, usage)
 
 
+def member_change_refusal(user, membership, new_role=None) -> str | None:
+    """Why `user`, who holds manage_project_members, may not remove `membership` (`new_role`
+    None) or change its role to `new_role`; None when they may. PIs and lab admins may change
+    anyone. A project lead may not change a PI's or lab admin's place on the project, nor remove
+    or demote the project's last lead (themselves included)."""
+    if lab_role(user, membership.lab_id) in _IMPLICIT_LEADS:
+        return None
+    if lab_role(membership.user, membership.lab_id) in _IMPLICIT_LEADS:
+        return "Only a PI or lab admin can change a PI's or lab admin's place on a project."
+    if membership.role == ProjectRole.LEAD and new_role != ProjectRole.LEAD:
+        others = ProjectMembership.unscoped.filter(
+            project_id=membership.project_id, role=ProjectRole.LEAD
+        ).exclude(pk=membership.pk)
+        if not others.exists():
+            return "A project needs a lead. Make someone else a lead first."
+    return None
+
+
 def can_edit_ethics(user, approval) -> bool:
     """D52: editing or deleting an approval needs edit_ethics plus visibility of every linked
     project, unless the user is a pi or lab_admin."""

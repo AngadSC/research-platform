@@ -60,6 +60,10 @@ class DocumentSaveSerializer(serializers.Serializer):
     retention_note = serializers.CharField(allow_blank=True, required=False)
 
 
+class DocumentOwnerSerializer(serializers.Serializer):
+    owner = serializers.UUIDField()
+
+
 class ItemMoveSerializer(serializers.Serializer):
     """`folder: null` moves the item to the project's top level."""
 

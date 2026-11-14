@@ -312,7 +312,7 @@ class TaskDetailView(ProjectScopedMixin, generics.GenericAPIView):
     @extend_schema(request=TaskInputSerializer, responses=TaskSerializer)
     def patch(self, request, lab_id, task_id):
         data = self.body(TaskInputSerializer, partial=True)
-        services.update_task(task=self.get_object(), data=data)
+        services.update_task(task=self.get_object(), by=request.user, data=data)
         return self.out(self.get_queryset().get(pk=task_id))
 
     @extend_schema(responses={204: None})

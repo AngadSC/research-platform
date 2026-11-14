@@ -1,6 +1,7 @@
 """Project business logic (ARCHITECTURE section 0). Views validate and call these; write
 actions record their audit event in the same transaction."""
 
+import uuid
 from collections import Counter
 
 from django.db import IntegrityError, transaction
@@ -12,9 +13,9 @@ from audit.models import AuditAction
 from audit.services import record
 from core.models import NotificationKind, User
 from core.notifications import notify, notify_mentions
-from core.permissions import Perm, can, forget, users_with
+from core.permissions import Perm, can, forget, member_change_refusal, project_role, users_with
 from core.retention import audit_retention, guard_retention, retention_changes
-from labs.models import LabChatMessage, LabChatReadState, LabMembership
+from labs.models import LabChatMessage, LabChatReadState, LabMembership, LabRole
 from projects import templates
 from projects.models import (
     ChatMessage,
@@ -79,7 +80,7 @@ def update_project(*, project, user, data, request=None) -> Project:
     # Archiving needs only edit_project, so a project's lead can do it; deleting stays with
     # PIs and lab admins (D28).
     archived = project.status == ProjectStatus.ARCHIVED and old_status != ProjectStatus.ARCHIVED
-    record(
+    event = record(
         AuditAction.PROJECT_ARCHIVED if archived else AuditAction.PROJECT_UPDATED,
         actor=user,
         lab=project.lab,
@@ -88,7 +89,57 @@ def update_project(*, project, user, data, request=None) -> Project:
         metadata=metadata,
     )
     audit_retention(user, project.lab, project, changes, request)
+    if archived:
+        _notify_archived(project, user, event)
     return project
+
+
+def _notify_archived(project, by, event) -> None:
+    """The lab's PIs and the project's leads hear that it was archived, never the archiver."""
+    pis = LabMembership.objects.for_lab(project.lab).filter(role=LabRole.PI).values("user")
+    leads = ProjectMembership.objects.for_lab(project.lab).filter(
+        project=project, role=ProjectRole.LEAD
+    )
+    people = (
+        users_with(Perm.EDIT_PROJECT, project)
+        .filter(Q(pk__in=pis) | Q(pk__in=leads.values("user")))
+        .exclude(pk=by.pk)
+    )
+    who = by.display_name or by.email
+    for person in people:
+        notify(
+            lab=project.lab,
+            recipient=person,
+            kind=NotificationKind.PROJECT_ARCHIVED,
+            title=f"{who} archived {project.name}"[:200],
+            target=project,
+            dedupe_key=f"project_archived:{event.pk}",
+        )
+
+
+def _notify_role(membership, by, event, added) -> None:
+    """Tell someone they were added to a project, or that their role on it changed, unless they
+    did it themselves. The role named is what they can really do there (D19)."""
+    person = membership.user
+    if person.pk == by.pk or not person.is_active:
+        return
+    forget(person)
+    role = project_role(person, membership.project)
+    if role is None:
+        return
+    who, name, label = by.display_name or by.email, membership.project.name, ProjectRole(role).label
+    notify(
+        lab=membership.lab,
+        recipient=person,
+        kind=NotificationKind.PROJECT_ROLE,
+        title=(
+            f"{who} added you to {name} as {label}"
+            if added
+            else f"{who} changed your role on {name} to {label}"
+        )[:200],
+        target=membership.project,
+        dedupe_key=f"project_role:{event.pk}",
+    )
 
 
 @transaction.atomic
@@ -118,7 +169,7 @@ def add_member(*, project, by, user_id, role, request=None) -> ProjectMembership
             )
     except IntegrityError as exc:  # unique (project, user) under a race (D33)
         raise ValidationError({"user": "This person is already on the project."}) from exc
-    record(
+    event = record(
         AuditAction.PROJECT_MEMBERSHIP_ADDED,
         actor=by,
         lab=lab,
@@ -126,7 +177,13 @@ def add_member(*, project, by, user_id, role, request=None) -> ProjectMembership
         request=request,
         metadata={"user_id": str(user_id), "role": role},
     )
+    _notify_role(membership, by, event, added=True)
     return membership
+
+
+def _refuse_member_change(membership, by, role=None) -> None:
+    if reason := member_change_refusal(by, membership, role):
+        raise PermissionDenied(reason)
 
 
 @transaction.atomic
@@ -134,10 +191,11 @@ def change_member_role(*, membership, by, role, request=None) -> ProjectMembersh
     old = membership.role
     if role == old:
         return membership
+    _refuse_member_change(membership, by, role)
     membership.role = role
     membership.save(update_fields=["role", "updated_at"])
     forget(membership.user)
-    record(
+    event = record(
         AuditAction.PROJECT_MEMBERSHIP_ROLE_CHANGED,
         actor=by,
         lab=membership.lab,
@@ -148,11 +206,13 @@ def change_member_role(*, membership, by, role, request=None) -> ProjectMembersh
     unassign_lost_access(
         membership.user, lab=membership.lab, by=by, request=request, reason="project_role_changed"
     )
+    _notify_role(membership, by, event, added=False)
     return membership
 
 
 @transaction.atomic
 def remove_member(*, membership, by, request=None) -> None:
+    _refuse_member_change(membership, by)
     record(
         AuditAction.PROJECT_MEMBERSHIP_REMOVED,
         actor=by,
@@ -271,12 +331,31 @@ def create_task(*, project, by, data) -> Task:
     task = Task(lab=project.lab, project=project, created_by=by, assignee=assignee, **data)
     _place(task, status, position)
     task.save()
+    _notify_assigned(task, by)
     return task
 
 
+def _notify_assigned(task, by) -> None:
+    """In-app only, and never for assigning yourself. Templates and imports leave tasks
+    unassigned, so they tell nobody. ponytail: one notice per task, so "Reassign all" on the
+    handover page sends one per task; group them per person if that gets noisy."""
+    if task.assignee is None or task.assignee_id == by.pk:
+        return
+    notify(
+        lab=task.lab,
+        recipient=task.assignee,
+        kind=NotificationKind.TASK_ASSIGNED,
+        title=f"{by.display_name or by.email} assigned you: {task.title}"[:200],
+        body=task.project.name,
+        target=task,
+        dedupe_key=f"task_assigned:{task.pk}:{uuid.uuid4()}",
+    )
+
+
 @transaction.atomic
-def update_task(*, task, data) -> Task:
+def update_task(*, task, by, data) -> Task:
     data = dict(data)
+    old_assignee = task.assignee_id
     if "assignee" in data:
         task.assignee = _resolve_assignee(task.project, data.pop("assignee"))
     status, position = data.pop("status", None), data.pop("position", None)
@@ -285,6 +364,8 @@ def update_task(*, task, data) -> Task:
     if status is not None or position is not None:
         _place(task, status or task.status, position)  # reorder within, or move across, columns
     task.save()
+    if task.assignee_id != old_assignee:
+        _notify_assigned(task, by)
     return task
 
 

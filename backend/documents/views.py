@@ -24,6 +24,7 @@ from documents.serializers import (
     ConflictSerializer,
     DocumentCreateSerializer,
     DocumentListSerializer,
+    DocumentOwnerSerializer,
     DocumentSaveSerializer,
     DocumentSerializer,
     FolderCreateSerializer,
@@ -206,6 +207,29 @@ class DocumentMoveView(DocumentMixin, generics.GenericAPIView):
         ser.is_valid(raise_exception=True)
         services.move_to_folder(
             self.get_object(), self.resolve_folder(ser.validated_data["folder"])
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DocumentOwnerView(DocumentMixin, generics.GenericAPIView):
+    """Give a document a new owner from the handover page. Same rule as the handover's other
+    reassignments (D251): manage_project_members on its project, so its leads, PIs and lab
+    admins. Lab-wide documents are not in any handover, so they are a 404 here."""
+
+    serializer_class = DocumentOwnerSerializer
+    lookup_url_kwarg = "document_id"
+    allow_lab_wide = False
+    perms = {"POST": Perm.MANAGE_PROJECT_MEMBERS}
+
+    @extend_schema(request=DocumentOwnerSerializer, responses={204: None})
+    def post(self, request, lab_id, document_id):
+        ser = self.get_serializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        services.change_owner(
+            self.get_object(),
+            user=request.user,
+            owner_id=ser.validated_data["owner"],
+            request=request,
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
 

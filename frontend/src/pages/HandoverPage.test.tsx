@@ -132,6 +132,30 @@ describe("handover actions", () => {
     const link = await screen.findByRole("link", { name: /^Handover for grace@uni.edu/ });
     expect(link).toHaveAttribute("href", "/labs/lab1/projects/p1/handover?user=u2");
   });
+
+  it("offers Remove and role changes only where the server allows them", async () => {
+    const row = (id: string, user: typeof ada, can_change: boolean) => ({
+      id,
+      project: "p1",
+      user,
+      role: "lead",
+      created_at: at,
+      can_change,
+    });
+    mockFetch({
+      ...overview(["view_project", "manage_project_members"]),
+      "GET /api/labs/lab1/projects/p1/members/": {
+        body: [row("pm1", ada, false), row("pm2", grace, true)],
+      },
+    });
+    renderRoute("/labs/lab1/projects/p1/overview");
+    expect(await screen.findByRole("button", { name: "Remove grace@uni.edu" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove ada@uni.edu" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Role for ada@uni.edu" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Role for grace@uni.edu" })).toBeInTheDocument();
+  });
 });
 
 describe("reassign from the list", () => {
@@ -246,5 +270,24 @@ describe("reassign from the list", () => {
     const post = calls.find((c) => c.method === "POST");
     expect(post?.path).toBe("/api/labs/lab1/projects/p1/members/");
     expect(post?.body).toEqual({ user: "u3", role: "lead" });
+  });
+
+  it("gives a document they created a new owner, and says what Reassign does", async () => {
+    const doc = { ...item("Survey", "document"), reason: "They created it." };
+    const { calls } = setup(
+      ["view_lab", "manage_members"],
+      { "POST /api/labs/lab1/documents/Survey/owner/": { status: 204 } },
+      ["A"],
+      [doc],
+    );
+    renderRoute("/labs/lab1/members/m2/handover");
+    expect(await screen.findByText(/they get a notification/)).toBeInTheDocument();
+    await pick(/Reassign Survey to/, "Alex");
+    const callout = screen.getByRole("region", { name: /No other owner/ });
+    await userEvent.click(within(callout).getByRole("button", { name: "Reassign" }));
+    await screen.findByRole("heading", { name: /Open tasks/ });
+    const post = calls.find((c) => c.method === "POST");
+    expect(post?.path).toBe("/api/labs/lab1/documents/Survey/owner/");
+    expect(post?.body).toEqual({ owner: "u3" });
   });
 });

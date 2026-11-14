@@ -204,6 +204,8 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "documents:attachment-download"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "documents:attachment-edit-in-google"): "401 404 2 2 2 2 403 404 403",  # B3
     ("POST",   "documents:document-move"): "401 404 2 2 2 2 403 404 403",
+    # Handover: a new owner for a document needs manage_project_members on its project (D251)
+    ("POST",   "documents:document-owner"): "401 404 2 2 2 403 403 404 403",
     ("POST",   "documents:attachment-move"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:folder-list"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "documents:folder-list"): "401 404 2 2 2 2 403 404 403",
@@ -1343,6 +1345,7 @@ PAYLOADS = {
         "acknowledged_notice": "true",
     },
     ("POST", "documents:document-move"): lambda user, w: {"folder": None},
+    ("POST", "documents:document-owner"): lambda user, w: {"owner": str(w.user_ids["contrib"])},
     ("POST", "documents:attachment-move"): lambda user, w: {"folder": None},
     ("POST", "documents:attachment-edit-in-google"): lambda user, w: _as_docx(w),
     ("POST", "documents:folder-list"): lambda user, w: {"name": "New folder"},
@@ -1712,6 +1715,29 @@ def test_cross_lab_id_swap_is_404(world, method, name):
         assert response.status_code == 404, (kwargs, response.status_code, response.content)
         body = response.content.decode()
         assert not any(secret in body for secret in world.b_names)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("persona", ["lead", "pi", "admin"])
+def test_only_pis_and_admins_change_a_pi_or_the_last_lead_on_a_project(world, persona):
+    """A project lead manages ordinary members, but not a PI's or lab admin's place on the
+    project, nor the last lead (themselves included). PIs and lab admins may change anyone."""
+    lab_id, p1 = world.a["lab_id"], world.a["project_id"]
+    pi_m = ProjectMembership.objects.create(
+        lab_id=lab_id, project_id=p1, user_id=world.user_ids["pi"], role=ProjectRole.CONTRIBUTOR
+    )
+    lead_m = ProjectMembership.objects.for_lab(lab_id).get(
+        project_id=p1, user_id=world.user_ids["lead"]
+    )
+    client = client_for(persona, world)
+    url = lambda m: reverse(  # noqa: E731
+        "projects:projectmember-detail", kwargs={"lab_id": lab_id, "projectmembership_id": m.pk}
+    )
+    allowed = persona != "lead"
+    demote = client.patch(url(pi_m), {"role": "viewer"}, format="json")
+    assert demote.status_code == (200 if allowed else 403)
+    for m in (pi_m, lead_m):
+        assert client.delete(url(m)).status_code == (204 if allowed else 403)
 
 
 @pytest.mark.django_db
