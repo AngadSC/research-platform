@@ -394,6 +394,41 @@ describe("Ethics", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("fills the new-approval form from a number written in the project description", async () => {
+    mockFetch(
+      base(CONTRIB, LAB, {
+        [`GET ${P}/`]: { body: project(CONTRIB, { description: "Ethics: REB Pro00151738" }) },
+        "GET /api/labs/lab1/ethics-approvals/?project=p1": { body: [] },
+        "GET /api/labs/lab1/ethics-approvals/": { body: [] },
+        "GET /api/labs/lab1/institution-resources/?category=ethics": { body: [] },
+      }),
+    );
+    renderRoute(`${W}/ethics`);
+    await userEvent.click(await screen.findByRole("button", { name: "Use this number" }));
+    expect(await screen.findByLabelText("Approval number")).toHaveValue("Pro00151738");
+    expect(screen.getByLabelText("Ethics board")).toHaveValue("REB");
+    expect(screen.getByLabelText("Title")).toHaveValue("Gut study");
+  });
+
+  it("takes a typed approval number and links the lab's approval that has it", async () => {
+    const calls = mockFetch(
+      base(CONTRIB, LAB, {
+        "GET /api/labs/lab1/ethics-approvals/?project=p1": { body: [] },
+        "GET /api/labs/lab1/ethics-approvals/": {
+          body: [{ ...approval, id: "ap7", approval_number: "IRB-7", projects: [] }],
+        },
+        "GET /api/labs/lab1/institution-resources/?category=ethics": { body: [] },
+        "PATCH /api/labs/lab1/ethics-approvals/ap7/": { body: approval },
+      }),
+    );
+    renderRoute(`${W}/ethics`);
+    await userEvent.type(await screen.findByLabelText("I have an approval number"), "irb-7");
+    await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Link" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "PATCH")).toBe(true));
+    expect(calls.find((c) => c.method === "PATCH")!.body).toMatchObject({ projects: ["p1"] });
+  });
+
   it("links a new approval to the project", async () => {
     const calls = mockFetch(
       base(CONTRIB, LAB, {

@@ -89,6 +89,24 @@ describe("tasks", () => {
     expect(calls.some((c) => c.method === "POST")).toBe(false);
   });
 
+  it("starts a task from a document already linked to it", async () => {
+    const calls = mockFetch({
+      ...base(["edit_content"], [task("t1", "Seed")]),
+      "GET /api/labs/lab1/projects/p1/documents/": {
+        body: [{ id: "d1", title: "Manuscript", embed_url: "" }],
+      },
+      "POST /api/labs/lab1/projects/p1/tasks/": { status: 201, body: task("t2", "Manuscript") },
+      "POST /api/labs/lab1/tasks/t2/documents/": { body: task("t2", "Manuscript") },
+    });
+    renderRoute(`${TASKS}?new=task&document=d1&title=Manuscript`);
+    expect(await screen.findByLabelText("Title")).toHaveValue("Manuscript");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.path.endsWith("/tasks/t2/documents/"))).toBe(true),
+    );
+    expect(calls.find((c) => c.path.endsWith("/tasks/t2/documents/"))!.body).toEqual({ id: "d1" });
+  });
+
   it("moves a task with the menu, and rolls back on error", async () => {
     let fail = false;
     let status = "todo"; // what the "server" holds

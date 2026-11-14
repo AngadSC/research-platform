@@ -1,5 +1,5 @@
 import { ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { ApprovalBadge, ExpiryText } from "@/components/ethics/ApprovalBadge";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -15,6 +15,7 @@ import { fail, LocalErrors, NativeSelect, RecordDialog, str } from "@/pages/proj
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import type { EthicsApproval } from "@/lib/api-types";
+import { findApprovalNumbers, type FoundApproval } from "@/lib/approvalNumber";
 
 const FIELDS = ["approval_number", "board", "title", "approval_date", "expiry_date", "projects"];
 
@@ -32,7 +33,68 @@ export default function EthicsTab({ labId, projectId, project }: ProjectTabProps
   const save = useSaveApproval(labId);
   const [adding, setAdding] = useState(false);
   const [linking, setLinking] = useState(false);
-  const rows = approvals.data ?? [];
+  const [prefill, setPrefill] = useState<FoundApproval | null>(null);
+  const [preLink, setPreLink] = useState("");
+  const [typed, setTyped] = useState("");
+  const rows = useMemo(() => approvals.data ?? [], [approvals.data]);
+  const labApprovals = useApprovals(labId, canCreate);
+  // Numbers already written in the project's name or description, not yet linked here.
+  const mentioned = useMemo(
+    () =>
+      findApprovalNumbers(`${project.name}\n${project.description ?? ""}`).filter(
+        (f) => !rows.some((r) => r.approval_number.toLowerCase() === f.number.toLowerCase()),
+      ),
+    [project.name, project.description, rows],
+  );
+
+  /** A number the person has: if the lab already has that approval, offer to link it; else open
+   * the new-approval form with the number filled in. */
+  function chooseNumber(found: FoundApproval) {
+    const same = (labApprovals.data ?? []).find(
+      (a) => a.approval_number.toLowerCase() === found.number.toLowerCase(),
+    );
+    if (same) setPreLink(same.id);
+    else setPrefill(found);
+  }
+  function submitNumber(e: FormEvent) {
+    e.preventDefault();
+    const number = typed.trim();
+    if (!number) return;
+    const known = findApprovalNumbers(number)[0];
+    chooseNumber(known ?? { number, board: "" });
+    setTyped("");
+  }
+  const shortcut = canCreate ? (
+    <div className="grid gap-2 rounded-lg border bg-muted/30 p-3">
+      {mentioned.map((f) => (
+        <p key={f.number} className="flex flex-wrap items-center gap-2 text-sm">
+          <span>
+            This project mentions <strong>{[f.board, f.number].filter(Boolean).join(" ")}</strong>.
+          </span>
+          <Button size="sm" onClick={() => chooseNumber(f)}>
+            Use this number
+          </Button>
+        </p>
+      ))}
+      <form onSubmit={submitNumber} className="flex flex-wrap items-center gap-2">
+        <label htmlFor="approval-number-quick" className="text-sm">
+          I have an approval number
+        </label>
+        <Input
+          id="approval-number-quick"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          maxLength={100}
+          autoComplete="off"
+          placeholder="e.g. Pro00151738"
+          className="h-8 w-48"
+        />
+        <Button type="submit" size="sm" variant="outline" disabled={!typed.trim()}>
+          Continue
+        </Button>
+      </form>
+    </div>
+  ) : null;
 
   const add = canCreate ? (
     <span className="flex gap-2">
@@ -45,6 +107,7 @@ export default function EthicsTab({ labId, projectId, project }: ProjectTabProps
   return (
     <div className="grid gap-6">
       <section aria-label="Ethics approvals" className="grid gap-3">
+        {shortcut}
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
             Approvals linked to this project.
@@ -97,19 +160,26 @@ export default function EthicsTab({ labId, projectId, project }: ProjectTabProps
         category="ethics"
         title="Ethics resources at your institution"
       />
-      {linking && (
+      {(linking || preLink) && (
         <LinkExisting
           labId={labId}
           projectId={projectId}
           linked={rows}
-          onClose={() => setLinking(false)}
+          initial={preLink}
+          onClose={() => {
+            setLinking(false);
+            setPreLink("");
+          }}
         />
       )}
-      {adding && (
+      {(adding || prefill) && (
         <RecordDialog
           title="New ethics approval"
           fields={FIELDS}
-          onClose={() => setAdding(false)}
+          onClose={() => {
+            setAdding(false);
+            setPrefill(null);
+          }}
           onSubmit={async (f) => {
             const local: Record<string, string> = {};
             for (const [k, msg] of [
@@ -135,13 +205,37 @@ export default function EthicsTab({ labId, projectId, project }: ProjectTabProps
           {(e) => (
             <>
               <FormField label="Approval number" required error={e.approval_number}>
-                {(p) => <Input maxLength={100} {...p} name="approval_number" autoComplete="off" />}
+                {(p) => (
+                  <Input
+                    maxLength={100}
+                    {...p}
+                    name="approval_number"
+                    autoComplete="off"
+                    defaultValue={prefill?.number}
+                  />
+                )}
               </FormField>
               <FormField label="Ethics board" required error={e.board}>
-                {(p) => <Input maxLength={200} {...p} name="board" autoComplete="off" />}
+                {(p) => (
+                  <Input
+                    maxLength={200}
+                    {...p}
+                    name="board"
+                    autoComplete="off"
+                    defaultValue={prefill?.board}
+                  />
+                )}
               </FormField>
               <FormField label="Title" required error={e.title}>
-                {(p) => <Input maxLength={300} {...p} name="title" autoComplete="off" />}
+                {(p) => (
+                  <Input
+                    maxLength={300}
+                    {...p}
+                    name="title"
+                    autoComplete="off"
+                    defaultValue={prefill ? project.name : undefined}
+                  />
+                )}
               </FormField>
               <div className="grid grid-cols-2 gap-3">
                 <FormField label="Approval date" required error={e.approval_date}>
@@ -174,15 +268,17 @@ function LinkExisting({
   labId,
   projectId,
   linked,
+  initial = "",
   onClose,
 }: {
   labId: string;
   projectId: string;
   linked: EthicsApproval[];
+  initial?: string;
   onClose: () => void;
 }) {
   const all = useApprovals(labId);
-  const [pick, setPick] = useState("");
+  const [pick, setPick] = useState(initial);
   const save = useSaveApproval(labId, pick);
   const options = (all.data ?? []).filter((a) => !linked.some((l) => l.id === a.id));
   const chosen = options.find((a) => a.id === pick);

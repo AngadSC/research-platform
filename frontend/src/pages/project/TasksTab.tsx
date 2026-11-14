@@ -1,13 +1,10 @@
 import { LayoutList, ListChecks, MoreHorizontal, Plus, SquareKanban } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { DueChip } from "@/components/dashboard/DueChip";
 import { DataTable, HIDE_NARROW, type Column } from "@/components/shared/DataTable";
-import { DetailPanel } from "@/components/shared/DetailPanel";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { FormError } from "@/components/shared/FormError";
-import { FormField } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,7 +12,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -23,7 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { useProviders } from "@/hooks/integrations";
 import { useProjectMembers, useTaskView, useTasks } from "@/hooks/projects";
 import {
@@ -33,11 +28,11 @@ import {
   type Task,
   type TaskStatus,
 } from "@/lib/api-types";
-import { formErrors, type FormErrors } from "@/lib/forms";
 import { plural } from "@/lib/format";
 import { TASK_TONES } from "@/lib/taskColors";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { ImportTasksDialog } from "@/pages/project/ImportTasksDialog";
+import { NewTaskPanel } from "@/pages/project/NewTaskPanel";
 import { TaskDrawer } from "@/pages/project/TaskDrawer";
 
 const day = (iso: string | null) =>
@@ -65,108 +60,6 @@ function MoveMenu({ task, tasks, move }: { task: Task; tasks: Task[]; move: Move
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-function NewTaskPanel({
-  members,
-  onClose,
-  onSave,
-}: {
-  members: { id: string; name: string }[];
-  onClose: () => void;
-  onSave: (v: {
-    title: string;
-    description: string;
-    assignee: string | null;
-    due_date: string | null;
-    status: TaskStatus;
-  }) => Promise<unknown>;
-}) {
-  const [status, setStatus] = useState<TaskStatus>("todo");
-  const [assignee, setAssignee] = useState(NONE);
-  const [errors, setErrors] = useState<FormErrors>({ fields: {} });
-
-  async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget);
-    const title = String(f.get("title") ?? "").trim();
-    if (!title) return setErrors({ fields: { title: "Enter a title" } });
-    setErrors({ fields: {} });
-    try {
-      await onSave({
-        title,
-        description: String(f.get("description") ?? ""),
-        assignee: assignee === NONE ? null : assignee,
-        due_date: String(f.get("due_date") ?? "") || null,
-        status,
-      });
-      toast.success("Saved");
-      onClose();
-    } catch (err) {
-      setErrors(formErrors(err, ["title", "description", "assignee", "due_date", "status"]));
-    }
-  }
-
-  return (
-    <DetailPanel
-      open
-      onOpenChange={(o) => !o && onClose()}
-      title="New task"
-      description="Add what needs doing. Assignee and due date are optional."
-    >
-      <form onSubmit={submit} noValidate className="grid gap-4 py-4">
-        <FormField label="Title" error={errors.fields.title}>
-          {(p) => <Input {...p} name="title" autoComplete="off" maxLength={300} />}
-        </FormField>
-        <FormField label="Description" error={errors.fields.description}>
-          {(p) => <Textarea {...p} name="description" />}
-        </FormField>
-        <FormField label="Assignee" error={errors.fields.assignee}>
-          {(p) => (
-            <Select value={assignee} onValueChange={setAssignee}>
-              <SelectTrigger {...p}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>Unassigned</SelectItem>
-                {members.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </FormField>
-        <FormField label="Status">
-          {(p) => (
-            <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
-              <SelectTrigger {...p}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TASK_STATUSES.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </FormField>
-        <FormField label="Due date" error={errors.fields.due_date}>
-          {(p) => <Input {...p} type="date" name="due_date" />}
-        </FormField>
-        <FormError message={errors.form} />
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit">Save</Button>
-        </div>
-      </form>
-    </DetailPanel>
   );
 }
 
@@ -283,7 +176,7 @@ function Board({
 
 // Props: { labId, projectId, project } (ProjectTabProps).
 export default function TasksTab({ labId, projectId, project }: ProjectTabProps) {
-  const { list, create, update, remove, move } = useTasks(labId, projectId);
+  const { list, update, remove, move } = useTasks(labId, projectId);
   const members = useProjectMembers(labId, projectId).list.data ?? [];
   const [params, setParams] = useSearchParams();
   const [fStatus, setFStatus] = useState("all");
@@ -380,7 +273,11 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
       action={newTask}
     />
   );
-  const closePanel = () => setParam("new", null);
+  const closePanel = () =>
+    setParams((p) => {
+      for (const k of ["new", "document", "title"]) p.delete(k);
+      return p;
+    });
   const editing = openId ? all.find((t) => t.id === openId) : undefined;
   const assignable = members
     .filter((m) => m.role !== "viewer")
@@ -484,9 +381,11 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
       )}
       {creating && canEdit && (
         <NewTaskPanel
-          members={assignable}
+          labId={labId}
+          projectId={projectId}
           onClose={closePanel}
-          onSave={(v) => create.mutateAsync(v)}
+          document={params.get("document") ?? undefined}
+          title={params.get("title") ?? undefined}
         />
       )}
       {editing && !creating && (

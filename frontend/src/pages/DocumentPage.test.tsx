@@ -386,3 +386,46 @@ describe("leaving a blank new document", () => {
     expect((await run({ ...blank, version: 2 })).some((c) => c.method === "DELETE")).toBe(false);
   });
 });
+
+describe("document tasks and focus", () => {
+  it("lists the tasks linked to the document and offers a task from it", async () => {
+    mockFetch(
+      handlers(EDIT, {
+        "GET /api/labs/lab1/projects/p1/tasks/": {
+          body: [
+            {
+              id: "t1",
+              title: "Write-up 3 things",
+              status: "todo",
+              due_date: "2026-12-01",
+              documents: [{ id: "d1", title: "Protocol" }],
+              attachments: [],
+            },
+            { id: "t2", title: "Other", status: "todo", due_date: null, documents: [] },
+          ],
+        },
+      }),
+    );
+    renderRoute(DOC);
+    expect(await screen.findByRole("link", { name: /Write-up 3 things/ })).toHaveAttribute(
+      "href",
+      "/labs/lab1/projects/p1/tasks?task=t1",
+    );
+    expect(screen.queryByRole("link", { name: /Other/ })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Add a task from this document" }));
+    expect(await screen.findByRole("heading", { name: "New task" })).toBeInTheDocument();
+  });
+
+  it("focus mode fills the window and exits again", async () => {
+    mockFetch(handlers(EDIT));
+    renderRoute(DOC);
+    const focus = await screen.findByRole("button", { name: "Focus" });
+    await userEvent.click(focus);
+    expect(await screen.findByRole("button", { name: "Exit focus" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await userEvent.keyboard("{Escape}");
+    expect(await screen.findByRole("button", { name: "Focus" })).toBeInTheDocument();
+  });
+});
