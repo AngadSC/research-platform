@@ -1,7 +1,7 @@
 import { Eye, FileText, Link2, MoreHorizontal, Pencil, Plus, Upload } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { RelativeTime } from "@/components/shared/RelativeTime";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { FilePreview } from "@/components/documents/FilePreview";
 import { FolderBrowser, MoveDialog, type Movable } from "@/components/documents/Folders";
@@ -98,6 +98,9 @@ const rowId = (r: Row) => (r.doc ? r.doc.id : r.file.id);
 const rowName = (r: Row) => (r.doc ? r.doc.title : r.file.original_filename);
 const rowDate = (r: Row) => (r.doc ? r.doc.updated_at : r.file.created_at);
 const rowFolder = (r: Row) => (r.doc ? r.doc.folder : r.file.folder) ?? null;
+/** A file the statistics page can read: a CSV, TSV, TXT or XLSX that lives here, not in Drive. */
+const analysable = (a: Attachment) =>
+  !a.drive_file_id && !a.external_url && /\.(csv|tsv|txt|xlsx)$/i.test(a.original_filename);
 const rowFlagged = (r: Row) => (r.doc ?? r.file).contains_participant_data;
 
 /** Documents and uploaded files together, in one folder tree. Every server check is unchanged. */
@@ -282,6 +285,11 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
                     <a href={downloadUrl(labId, r.file.id)} download>
                       Download
                     </a>
+                  </DropdownMenuItem>
+                )}
+                {r.file && analysable(r.file) && (
+                  <DropdownMenuItem asChild>
+                    <Link to={`${base}/analyse?file=${r.file.id}`}>Analyse</Link>
                   </DropdownMenuItem>
                 )}
                 {canEdit && r.file && convertible(r.file) && (
