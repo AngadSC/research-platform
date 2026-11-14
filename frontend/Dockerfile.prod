@@ -5,6 +5,10 @@ FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
+# The statistics engine's Python runtime, served from /pyodide/ (checks every file's sha256).
+# Before COPY . . so the download is cached until the lockfile or the script changes.
+COPY scripts/fetch-pyodide.mjs scripts/
+RUN npm run pyodide:fetch
 COPY . .
 RUN npm run build
 
