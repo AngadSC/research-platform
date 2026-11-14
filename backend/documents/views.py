@@ -417,7 +417,17 @@ class AttachmentDownloadView(AttachmentMixin, generics.GenericAPIView):
         if not can_view_ethics_files(request.user, self.ethics_approval):
             raise PermissionDenied
 
-    @extend_schema(responses={(200, "application/octet-stream"): bytes})
+    @extend_schema(
+        responses={(200, "application/octet-stream"): bytes},
+        parameters=[
+            OpenApiParameter(
+                "stream",
+                bool,
+                description="1: send the bytes from this server, never a storage redirect "
+                "(for reading a file in the page).",
+            )
+        ],
+    )
     def get(self, request, lab_id, attachment_id):
         """ARCHITECTURE section 8: scoped lookup, permission, audit, then stream."""
         if self.ethics_approval is not None:
@@ -507,8 +517,11 @@ def download_response(request, attachment):
         return HttpResponseRedirect(attachment.external_url)
     inline = attachment.content_type == "application/pdf"  # shown by PDF.js
     # D123: only forced downloads are presigned. Anything shown inline streams through
-    # Django, which is the only place `nosniff` and `CSP: sandbox` can be set.
-    if settings.LAB_FILES_BUCKET and not settings.LAB_FILES_STREAM_DOWNLOADS and not inline:
+    # Django, which is the only place `nosniff` and `CSP: sandbox` can be set. `?stream=1` is
+    # for the app's own fetch() (the statistics page): a bucket redirect fails there (CSP
+    # connect-src, bucket CORS), so those bytes stream too, still as a forced download.
+    stream = inline or request.GET.get("stream") == "1"
+    if settings.LAB_FILES_BUCKET and not settings.LAB_FILES_STREAM_DOWNLOADS and not stream:
         return _presigned_redirect(attachment)
     try:
         handle = storages["lab_files"].open(attachment.storage_key, "rb")

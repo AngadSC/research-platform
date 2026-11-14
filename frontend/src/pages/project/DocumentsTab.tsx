@@ -98,9 +98,13 @@ const rowId = (r: Row) => (r.doc ? r.doc.id : r.file.id);
 const rowName = (r: Row) => (r.doc ? r.doc.title : r.file.original_filename);
 const rowDate = (r: Row) => (r.doc ? r.doc.updated_at : r.file.created_at);
 const rowFolder = (r: Row) => (r.doc ? r.doc.folder : r.file.folder) ?? null;
-/** A file the statistics page can read: a CSV, TSV, TXT or XLSX that lives here, not in Drive. */
+/** A file the statistics page can read: a CSV, TSV, TXT or XLSX that lives here, not in Drive,
+ * and not a PI-only grant file (D244). */
 const analysable = (a: Attachment) =>
-  !a.drive_file_id && !a.external_url && /\.(csv|tsv|txt|xlsx)$/i.test(a.original_filename);
+  !a.pi_only &&
+  !a.drive_file_id &&
+  !a.external_url &&
+  /\.(csv|tsv|txt|xlsx)$/i.test(a.original_filename);
 const rowFlagged = (r: Row) => (r.doc ?? r.file).contains_participant_data;
 
 /** Documents and uploaded files together, in one folder tree. Every server check is unchanged. */

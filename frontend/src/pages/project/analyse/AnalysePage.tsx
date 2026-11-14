@@ -48,7 +48,8 @@ interface Source {
 interface Option {
   key: string;
   label: string;
-  disabled: boolean;
+  /** Why it can't be picked. */
+  off?: "drive" | "grant";
 }
 
 function useEngine(): { engine?: StatsEngine; failed?: string } {
@@ -214,10 +215,9 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
   const datasets = useRecords<Dataset>(labId, projectId, "datasets");
   // A file in a marked folder counts as marked (as the server's is_flagged does), so results
   // drawn from it are saved marked too and stay away from AI tools.
+  const folders = useFolders(labId, projectId);
   const markedFolders = new Set(
-    (useFolders(labId, projectId).data ?? [])
-      .filter((f) => f.contains_participant_data)
-      .map((f) => f.id),
+    (folders.data ?? []).filter((f) => f.contains_participant_data).map((f) => f.id),
   );
   const canSave = project.my_permissions.includes("edit_content") && project.status !== "archived";
 
@@ -238,6 +238,9 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
 
   const fileList = files.data ?? [];
   const byId = new Map(fileList.map((f) => [f.id, f]));
+  // D244: grant letters are PI-only; results saved from one would be visible to the whole lab.
+  const why = (f: Attachment): Option["off"] =>
+    f.pi_only ? "grant" : isGoogle(f) ? "drive" : undefined;
   const options: Option[] = [
     ...fileList
       .filter(
@@ -248,7 +251,7 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
       .map((f) => ({
         key: `file:${f.id}`,
         label: f.original_filename,
-        disabled: isGoogle(f),
+        off: why(f),
       })),
     ...(datasets.data ?? [])
       .filter((d) => d.data_file)
@@ -257,11 +260,14 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
         return {
           key: `dataset:${d.id}`,
           label: `${d.name} (dataset)`,
-          disabled: !att || isGoogle(att) || !TABULAR.test(att.original_filename),
+          off: !att
+            ? "drive"
+            : (why(att) ?? (TABULAR.test(att.original_filename) ? undefined : "drive")),
         };
       }),
   ];
-  const googleLinked = options.some((o) => o.disabled);
+  const googleLinked = options.some((o) => o.off === "drive");
+  const grantFiles = options.some((o) => o.off === "grant");
 
   async function start(src: Source) {
     if (!engine) return;
@@ -290,17 +296,22 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
     setLoading(true);
     setLoadError(undefined);
     setShape(undefined);
+    // A file in a folder is marked if the folder is; without the folder list, ask when saving.
+    const marked =
+      att.contains_participant_data ||
+      !!ds?.contains_participant_data ||
+      (!!att.folder && markedFolders.has(att.folder));
     try {
-      const res = await fetch(downloadUrl(labId, att.id), { credentials: "same-origin" });
+      // stream=1: the bytes come from this site, never a storage redirect fetch() can't follow
+      const res = await fetch(`${downloadUrl(labId, att.id)}?stream=1`, {
+        credentials: "same-origin",
+      });
       if (!res.ok) throw new Error("Could not download that file.");
       await start({
         name: att.original_filename,
         bytes: await res.arrayBuffer(),
         datasetId: ds?.id,
-        flagged:
-          att.contains_participant_data ||
-          (!!att.folder && markedFolders.has(att.folder)) ||
-          !!ds?.contains_participant_data,
+        flagged: marked ? true : att.folder && !folders.data ? null : false,
       });
     } catch (e) {
       setLoadError(errorText(e));
@@ -326,19 +337,23 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
     }
   }
 
-  // The links from a dataset row or a file row: pick once the lists have arrived.
+  // The links from a dataset row or a file row: pick once the lists (folders too, for the
+  // participant mark) have arrived.
   const deepLinked = useRef(false);
+  const foldersSettled = !!folders.data || folders.isError;
   useEffect(() => {
-    if (deepLinked.current || !engine || !files.data || !datasets.data) return;
+    if (deepLinked.current || !engine || !files.data || !datasets.data || !foldersSettled) return;
     const key = params.get("dataset")
       ? `dataset:${params.get("dataset")}`
       : params.get("file")
         ? `file:${params.get("file")}`
         : "";
     deepLinked.current = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
-    if (key && options.some((o) => o.key === key && !o.disabled)) void choose(key);
-  }, [engine, files.data, datasets.data]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (key && options.some((o) => o.key === key && !o.off)) void choose(key);
+    // once, when everything has arrived: choose() and options are rebuilt on every render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engine, files.data, datasets.data, foldersSettled]);
 
   // ---- test
   const [testId, setTestId] = useState("");
@@ -413,9 +428,13 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
               >
                 <option value="">Choose a file or dataset</option>
                 {options.map((o) => (
-                  <option key={o.key} value={o.key} disabled={o.disabled}>
+                  <option key={o.key} value={o.key} disabled={!!o.off}>
                     {o.label}
-                    {o.disabled ? " (in Google Drive)" : ""}
+                    {o.off === "drive"
+                      ? " (in Google Drive)"
+                      : o.off === "grant"
+                        ? " (grant file)"
+                        : ""}
                   </option>
                 ))}
               </select>
@@ -423,6 +442,11 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
                 <p className="text-xs text-muted-foreground">
                   Files in Google Drive cannot be read here. Download it from Google Drive, then
                   choose From this computer.
+                </p>
+              )}
+              {grantFiles && (
+                <p className="text-xs text-muted-foreground">
+                  Grant files can&apos;t be analysed here.
                 </p>
               )}
             </div>

@@ -23,8 +23,9 @@ export interface SaveArgs {
 
 export interface SaveOutcome {
   xlsx: Attachment;
-  analysis: Analysis;
-  result: ResearchResult;
+  /** Not made for data that identifies participants (see saveRun). */
+  analysis?: Analysis;
+  result?: ResearchResult;
   /** The Google Sheet copy, when it was made. */
   copy?: Attachment;
   /** Why the copy was not made. The project save still went through. */
@@ -75,6 +76,11 @@ export async function saveRun(a: SaveArgs, d: SaveDeps): Promise<SaveOutcome> {
     pngs.push(await up(blob, `${stem}-chart-${i + 1}.png`, "image/png"));
   }
 
+  // An analysis must point at its code, and the server refuses marked code there because AI tools
+  // may run an analysis's code. Analysis and result records can't carry the mark, so for marked
+  // data none is made: the marked files are the whole save.
+  if (a.participant) return withCopy({ xlsx }, a, d);
+
   let analysis: Analysis;
   try {
     analysis = await d.createAnalysis({
@@ -100,10 +106,13 @@ export async function saveRun(a: SaveArgs, d: SaveDeps): Promise<SaveOutcome> {
     return fail("create the result", e);
   }
 
-  const out: SaveOutcome = { xlsx, analysis, result };
+  return withCopy({ xlsx, analysis, result }, a, d);
+}
+
+async function withCopy(out: SaveOutcome, a: SaveArgs, d: SaveDeps): Promise<SaveOutcome> {
   if (a.toDrive) {
     try {
-      out.copy = await d.editInGoogle(xlsx.id);
+      out.copy = await d.editInGoogle(out.xlsx.id);
     } catch (e) {
       out.driveError = errorText(e);
     }

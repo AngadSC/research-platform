@@ -48,9 +48,13 @@
 	# Unknown paths fall back to index.html so client-side routes survive a reload.
 	# Built assets have hashed names, so they never change: cache them for good, and answer a
 	# missing one with 404 instead of index.html (a stale page then fails loudly, not blank).
+	# handle blocks are exclusive, so the page's CSP below never reaches these files. A worker
+	# script (the statistics engine) runs under the CSP of its own response, so it gets one here:
+	# same-origin scripts and WebAssembly only, no network beyond this site.
 	handle /assets/* {
 		root * /srv
 		header Cache-Control "public, max-age=31536000, immutable"
+		header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
 		file_server
 	}
 
@@ -59,6 +63,7 @@
 	handle /pyodide/* {
 		root * /srv
 		header Cache-Control "public, max-age=31536000, immutable"
+		header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
 		file_server
 	}
 

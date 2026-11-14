@@ -59,9 +59,11 @@ def run(name, test, sheet=None, **params):
     for chart in result["charts"]:
         values = chart.get("points") or [v for g in chart.get("groups", []) for v in g["values"]] or chart.get("bars", [])
         ok(len(values) <= 5000, f"{test}: chart {chart['title']} has {len(values)} values")
+    ok(result["code"].isascii(), f"{test}: saved script is not pure ASCII")
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        exec(compile(result["code"], "saved_script.py", "exec"), {"__name__": "__main__"})
+        # as bytes, the way python reads the saved file, so a coding comment would take effect
+        exec(compile(result["code"].encode("utf-8"), "saved_script.py", "exec"), {"__name__": "__main__"})
     ok(result["summary"] in buf.getvalue(), f"{test}: saved script printed a different summary:\n{buf.getvalue()[:400]}")
     return result
 
@@ -343,6 +345,27 @@ out = openpyxl.load_workbook(io.BytesIO(xlsx))
 ok(out.sheetnames[0] == "Summary" and len(out.sheetnames) == 4, out.sheetnames)
 ok(out["Descriptives"]["A3"].value == "=1+1" and out["Descriptives"]["A3"].data_type == "s", "formula text stays text")
 ok(load("book.xlsx", "Nope").get("error") == 'The workbook has no sheet called "Nope".', "bad sheet")
+
+# A file or column name can't inject code into the saved script. Before ascii(), a "coding:gbk" comment
+# in the first lines switched the source encoding, and a GBK lead byte ate the backslash repr() puts
+# before the quote, closing the string. LEAD is a CJK letter whose last UTF-8 byte is such a lead byte.
+LEAD = next(
+    chr(cp) for cp in range(0x4E00, 0x9FFF)
+    if len(chr(cp).encode()[:2].decode("gbk", "replace")) == 1 and len((chr(cp).encode()[2:] + b"\\").decode("gbk", "replace")) == 1
+)
+EVIL = "coding:gbk " + LEAD + "'+str(print(\"INJ\" + \"ECTED\"))#\""
+for name, col in [(EVIL + ".csv", "score"), ("evilcol.csv", EVIL)]:
+    write(name, csv_of({col: G1 + G2}))
+    r = run(name, "describe", columns=[col])
+    ok(r.get("code", "").startswith("# -*- coding: utf-8 -*-\n"), f"saved script for {col!r} starts with the utf-8 line")
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        exec(compile(r["code"].encode("utf-8"), "saved_script.py", "exec"), {"__name__": "__main__"})
+    ok("INJECTED" not in buf.getvalue(), f"saved script ran code from a name: {buf.getvalue()[:300]}")
+
+# A backslash in a column name is not allowed in a sheet name (run() fails if the workbook can't be made)
+write("slash.csv", csv_of({"a\\b": ["x", "y", "x"]}))
+run("slash.csv", "frequencies", columns=["a\\b"])
 
 # Bad inputs: plain-English errors
 write("three.csv", csv_of({"v": [1, 2, 3, 4, 5, 6], "g": ["a", "a", "b", "b", "c", "c"], "empty": [None] * 6, "word": ["x"] * 6}))

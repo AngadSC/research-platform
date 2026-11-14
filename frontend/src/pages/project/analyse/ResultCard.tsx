@@ -193,12 +193,18 @@ export function ResultCard({
         <div role="status" className="grid gap-1 rounded-md border bg-muted p-3 text-sm">
           <p>
             Saved to the project.{" "}
-            <Link
-              className="text-primary hover:underline"
-              to={recordPath(base, "analyses", saved.analysis.id)}
-            >
-              Open the analysis
-            </Link>
+            {saved.analysis ? (
+              <Link
+                className="text-primary hover:underline"
+                to={recordPath(base, "analyses", saved.analysis.id)}
+              >
+                Open the analysis
+              </Link>
+            ) : (
+              <Link className="text-primary hover:underline" to={`${base}/documents`}>
+                Open the files
+              </Link>
+            )}
           </p>
           {sheet && (
             <p>

@@ -88,6 +88,25 @@ def test_pdf_streams_through_django_with_the_safety_headers(setup, s3):
     s3.assert_not_called()
 
 
+def test_stream_1_sends_the_bytes_from_the_app_as_a_forced_download(setup, s3):
+    """The statistics page fetch()es CSV and XLSX files; a bucket redirect fails there (CSP
+    connect-src, bucket CORS), so `?stream=1` streams them like a PDF, but still as attachment."""
+    lab, _, project, client = setup
+    csv = b"score,arm\n1,a\n"
+    att_id = upload(client, lab, project, data=csv, name="data.csv", ctype="text/csv").json()["id"]
+    store = documents_views.storages["lab_files"]
+    store.open = storages["lab_files"].open
+    target = url("attachment-download", lab, attachment_id=att_id)
+    assert client.get(target).status_code == 302  # an ordinary download is still presigned
+    s3.reset_mock()
+    resp = client.get(target + "?stream=1")
+    assert resp.status_code == 200 and b"".join(resp.streaming_content) == csv
+    assert resp["Content-Disposition"] == 'attachment; filename="data.csv"'
+    assert resp["X-Content-Type-Options"] == "nosniff"
+    assert resp["Content-Security-Policy"] == "sandbox"
+    s3.assert_not_called()
+
+
 @pytest.mark.parametrize("ctype", ["text/html", "image/svg+xml", "application/xhtml+xml"])
 def test_presigned_downloads_are_always_attachments(setup, s3, ctype):
     lab, _, project, client = setup

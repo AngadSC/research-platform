@@ -149,6 +149,7 @@ class AttachmentSerializer(serializers.ModelSerializer):
             "copied_from",
             "contains_participant_data",
             "source",
+            "pi_only",  # D244: a grant letter; listed only to people who may open it
         ]
         read_only_fields = fields
 

@@ -4027,6 +4027,7 @@ export interface components {
             readonly copied_from: string | null;
             readonly contains_participant_data: boolean;
             readonly source: components["schemas"]["SourceEnum"];
+            readonly pi_only: boolean;
         };
         AttachmentRef: {
             /** Format: uuid */
@@ -7931,7 +7932,10 @@ export interface operations {
     };
     labs_attachments_download_retrieve: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 1: send the bytes from this server, never a storage redirect (for reading a file in the page). */
+                stream?: boolean;
+            };
             header?: never;
             path: {
                 attachment_id: string;

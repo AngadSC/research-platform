@@ -183,6 +183,17 @@ def test_a_pi_can_upload_a_letter_that_is_private_from_the_start(w):
     assert list(actions.values_list("action", flat=True)) == ["funding.updated"]
 
 
+def test_the_file_list_says_which_files_are_pi_only(w):
+    """The statistics page keeps grant letters out of its picker, so the list says which they are.
+    Only people who may open them get them in the list at all."""
+    letter, plain = _letter(w, pi_only=True), _letter(w, "notes.pdf")
+    member = w.member(ProjectRole.CONTRIBUTOR)
+    files = reverse("documents:attachment-list", kwargs=pk(w))
+    rows = {r["id"]: r["pi_only"] for r in w.client(w.pi).get(files).json()}
+    assert rows == {str(letter.pk): True, str(plain.pk): False}
+    assert [r["id"] for r in w.client(member).get(files).json()] == [str(plain.pk)]
+
+
 def test_a_letter_on_a_task_is_not_named_in_the_export(w):
     from projects.models import Task
 

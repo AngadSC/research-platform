@@ -1044,6 +1044,12 @@ paths:
           type: string
           format: uuid
         required: true
+      - in: query
+        name: stream
+        schema:
+          type: boolean
+        description: '1: send the bytes from this server, never a storage redirect
+          (for reading a file in the page).'
       tags:
       - labs
       security:
@@ -9909,6 +9915,9 @@ components:
           allOf:
           - $ref: '#/components/schemas/SourceEnum'
           readOnly: true
+        pi_only:
+          type: boolean
+          readOnly: true
       required:
       - contains_participant_data
       - content_type
@@ -9921,6 +9930,7 @@ components:
       - id
       - notice_acknowledged_at
       - original_filename
+      - pi_only
       - project
       - sha256
       - size_bytes

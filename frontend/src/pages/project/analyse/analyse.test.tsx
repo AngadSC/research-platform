@@ -90,22 +90,32 @@ function setup(
     query = "",
     perms,
     extra = {},
+    slowFolders = false,
   }: {
     files?: unknown[];
     datasets?: unknown[];
     query?: string;
     perms?: string[];
     extra?: Record<string, never>;
+    /** The folder list arrives after everything else. */
+    slowFolders?: boolean;
   } = {},
 ) {
   const calls = mockFetch({
     [SESSION]: signedIn,
     [`GET ${P}/attachments/`]: { body: files },
     [`GET ${P}/datasets/`]: { body: datasets },
-    "GET /api/labs/lab1/attachments/a1/download/": { body: "x" },
-    "GET /api/labs/lab1/attachments/a2/download/": { body: "x" },
+    [`GET ${P}/folders/`]: { body: [] },
+    "GET /api/labs/lab1/attachments/a1/download/?stream=1": { body: "x" },
+    "GET /api/labs/lab1/attachments/a2/download/?stream=1": { body: "x" },
     ...extra,
   });
+  const quick = globalThis.fetch;
+  if (slowFolders)
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith("/folders/")) await new Promise((r) => setTimeout(r, 100));
+      return quick(input, init);
+    });
   render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
@@ -288,10 +298,9 @@ describe("Analyse page", () => {
       title: "Score by arm",
       code_attachment: "id-score-by-arm.py",
       datasets: ["d1"],
+      description:
+        "t(4) = 2.31, p = .026\n\nInput file: data.csv\n\nRun in the browser with labbenchos statistics.",
     });
-    expect(analysis.description).toContain("t(4) = 2.31, p = .026");
-    expect(analysis.description).toContain("data.csv");
-    expect(analysis.description).toContain("Run in the browser with labbenchos statistics.");
     expect(typeof analysis.ran_at).toBe("string");
     expect(calls.find((c) => c.path === `${P}/results/` && c.method === "POST")!.body).toEqual({
       title: "Score by arm",
@@ -301,30 +310,81 @@ describe("Analyse page", () => {
     });
   });
 
-  it("marks the saved files when the data file identifies participants, after the ethics tick", async () => {
+  it("saves marked files only, with no analysis or result, when the data identifies participants", async () => {
     vi.mocked(upload).mockImplementation(async (_p, form) => {
       const f = (form as FormData).get("file") as File;
       expect((form as FormData).get("contains_participant_data")).toBe("true");
       return { id: `id-${f.name}` } as never;
     });
-    setup(fakeEngine(), {
+    const calls = setup(fakeEngine(), {
       files: [att("a1", "data.csv", { contains_participant_data: true })],
-      extra: {
-        [`POST ${P}/analyses/`]: { status: 201, body: { id: "an1" } },
-        [`POST ${P}/results/`]: { status: 201, body: { id: "r1" } },
-      } as never,
     });
     const u = userEvent.setup();
     await loadAndRun(u);
     await u.click(await screen.findByRole("button", { name: "Save to project" }));
     const dialog = await screen.findByRole("dialog");
-    await u.click(within(dialog).getByRole("checkbox", { name: /Google Sheet copy/ })); // off
+    expect(
+      within(dialog).getByText(/so none is made for data that identifies/),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("checkbox", { name: /Google Sheet copy/ })).not.toBeChecked();
     const save = within(dialog).getByRole("button", { name: "Save" });
     expect(save).toBeDisabled();
     await u.click(within(dialog).getByRole("checkbox", { name: /my ethics approval allows/ }));
     await u.click(save);
-    expect(await screen.findByText(/Saved to the project\./)).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Open the files" })).toHaveAttribute(
+      "href",
+      "/labs/lab1/projects/p1/documents",
+    );
     expect(upload).toHaveBeenCalledTimes(3);
+    // analysis and result records can't carry the mark and AI tools read them
+    expect(calls.filter((c) => c.method === "POST")).toEqual([]);
+  });
+
+  it("counts a file in a marked folder as marked, waiting for the folder list", async () => {
+    const calls = setup(fakeEngine(), {
+      files: [att("a1", "data.csv", { folder: "f1" })],
+      query: "?file=a1",
+      slowFolders: true,
+      extra: {
+        [`GET ${P}/folders/`]: { body: [{ id: "f1", contains_participant_data: true }] },
+      } as never,
+    });
+    const u = userEvent.setup();
+    await screen.findByText(/6 rows, 3 columns/);
+    expect(calls.some((c) => c.path.endsWith("/folders/"))).toBe(true);
+    await u.selectOptions(screen.getByLabelText("Test"), "t_independent");
+    await u.selectOptions(screen.getByLabelText("Outcome (numbers)"), "score");
+    await u.selectOptions(screen.getByLabelText("Groups"), "arm");
+    await u.click(screen.getByRole("button", { name: "Run" }));
+    await u.click(await screen.findByRole("button", { name: "Save to project" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/The data file identifies participants/)).toBeInTheDocument();
+  });
+
+  it("asks the participant question when the folder list could not be read", async () => {
+    setup(fakeEngine(), {
+      files: [att("a1", "data.csv", { folder: "f1" })],
+      extra: { [`GET ${P}/folders/`]: { status: 500, body: {} } } as never,
+    });
+    const u = userEvent.setup();
+    await loadAndRun(u);
+    await u.click(await screen.findByRole("button", { name: "Save to project" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("radio", { name: /identifies participants/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps grant files out of the picker and out of links", async () => {
+    const engine = fakeEngine();
+    setup(engine, {
+      files: [att("a1", "data.csv"), att("a2", "budget.xlsx", { pi_only: true })],
+      query: "?file=a2",
+    });
+    expect(await screen.findByRole("option", { name: /budget\.xlsx/ })).toBeDisabled();
+    expect(screen.getByText("Grant files can't be analysed here.")).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(engine.load).not.toHaveBeenCalled();
   });
 
   it("asks the participant question for a file from this computer", async () => {

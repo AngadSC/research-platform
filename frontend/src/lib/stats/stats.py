@@ -1366,7 +1366,8 @@ def _clean(obj):
 
 
 def _comment(text):
-    return "".join(c if c.isprintable() else " " for c in str(text))
+    """Text from the file for a one-line comment: ascii() escapes line breaks and every non-ASCII letter."""
+    return ascii(str(text))[1:-1]
 
 
 def make_code(test, params, title):
@@ -1393,16 +1394,21 @@ def make_code(test, params, title):
     pip = ["pandas"] + ([] if test in SCIPY_FREE else ["scipy"]) + (["statsmodels"] if test in NEEDS_STATSMODELS else [])
     if sheet is not None:
         pip.append("openpyxl")
-    args = "".join(f", {k}={v!r}" for k, v in params.items())
-    read = f"read_data({name!r}" + (f", sheet={sheet!r}" if sheet is not None else "") + ")"
+    # File, sheet and column names come from a shared file, so they go in through ascii() and the script stays
+    # pure ASCII: a name can't change how Python decodes the script (a "coding:" comment once let one escape).
+    args = "".join(f", {k}={v!a}" for k, v in params.items())
+    read = f"read_data({name!a}" + (f", sheet={sheet!a}" if sheet is not None else "") + ")"
     header = "\n".join([
+        "# -*- coding: utf-8 -*-",
         f"# {_comment(title)}",
         f"# Reproduces a result made in labbenchos from {_comment(name)}.",
         f"# Needs Python 3.10 or newer: pip install {' '.join(pip)}",
         "# Put this script in the same folder as the data file, then run it with python.",
     ])
     main = f'if __name__ == "__main__":\n    df = {read}\n    print_result({test}(df{args}))\n'
-    return "\n\n\n".join([header + "\n\n" + "\n".join(imports), *body, main])
+    code = "\n\n\n".join([header + "\n\n" + "\n".join(imports), *body, main])
+    # The copied functions have a few non-ASCII letters, all in plain strings and comments: escape them too.
+    return code.encode("ascii", "backslashreplace").decode("ascii")
 
 
 def make_xlsx(result):
@@ -1437,7 +1443,7 @@ def make_xlsx(result):
     ws.column_dimensions["B"].width = 100
     used = {"summary"}
     for t in result["tables"]:
-        title = re.sub(r"[\[\]:*?/\']", " ", t["title"]).strip()[:31] or "Table"
+        title = re.sub(r"[\[\]:*?/\\\']", " ", t["title"]).strip()[:31] or "Table"
         base, i = title, 2
         while title.lower() in used:
             title = f"{base[:27]} ({i})"

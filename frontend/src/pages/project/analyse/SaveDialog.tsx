@@ -44,7 +44,7 @@ function SaveForm({
   const [title, setTitle] = useState(result.title);
   const [choice, setChoice] = useState<boolean | null>(flagged);
   const [ethics, setEthics] = useState(false);
-  const [toDrive, setToDrive] = useState(true);
+  const [toDrive, setToDrive] = useState(!flagged);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const marked = choice === true;
@@ -91,8 +91,9 @@ function SaveForm({
     <>
       <DialogTitle className="text-base font-semibold">Save to project</DialogTitle>
       <DialogDescription className="text-sm text-muted-foreground">
-        Adds the results workbook, the Python code and the charts as project files, and records an
-        analysis and a result.
+        {marked
+          ? "Adds the results workbook, the Python code and the charts as project files. AI tools can read analysis and result records, so none is made for data that identifies participants."
+          : "Adds the results workbook, the Python code and the charts as project files, and records an analysis and a result."}
       </DialogDescription>
       <div className="grid gap-1.5">
         <Label htmlFor="save-title">Title</Label>
