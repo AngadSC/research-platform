@@ -1,5 +1,6 @@
 import { Landmark } from "lucide-react";
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -43,7 +44,11 @@ export default function FundingTab(props: ProjectTabProps) {
 
 function FundingPanel({ labId, projectId }: ProjectTabProps) {
   const { list, create, update, remove } = useFunding(labId, projectId);
-  const [editing, setEditing] = useState<Funding | "new" | null>(null);
+  const [params] = useSearchParams();
+  // `?new=1` comes from "Add funding" on the Overview: open the form straight away
+  const [editing, setEditing] = useState<Funding | "new" | null>(
+    params.get("new") === "1" ? "new" : null,
+  );
 
   const cols: Column<Funding>[] = [
     {

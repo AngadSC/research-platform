@@ -19,7 +19,7 @@ from documents.models import Attachment, Document
 from documents.services import Conflict
 from ethics.models import ApprovalStatus, EthicsApproval
 from labs.models import LabMembership, LabRole
-from projects.models import Project, ProjectDeadline, Task
+from projects.models import Project, ProjectDeadline, ProjectMembership, Task
 from provenance.models import (
     WORKFLOW_STAGES,
     Analysis,
@@ -365,6 +365,17 @@ def workflow_progress(project, user) -> dict:
 def mark_workflow_stage(*, project, user, stage, done, request=None):
     if stage == "funding":
         require(user, Perm.ACCESS_FUNDING, project)
+    if stage == "review" and done:
+        waiting = list(
+            ReviewItem.objects.for_lab(project.lab_id)
+            .filter(project=project)
+            .exclude(status=ReviewStatus.APPROVED)
+            .values_list("title", flat=True)
+        )
+        if waiting:
+            raise ValidationError(
+                {"detail": "Review items still waiting: " + ", ".join(waiting) + "."}
+            )
     locked = Project.objects.for_lab(project.lab_id).select_for_update().get(pk=project.pk)
     marked = [s for s in locked.workflow_marked_done if s != stage] + ([stage] if done else [])
     locked.workflow_marked_done = marked
@@ -441,6 +452,14 @@ def export_project(*, project, user, context, request=None) -> dict:
         "attachments": files.filter(project=project, **live).select_related("uploaded_by"),
         **{PLURAL[kind]: queryset(kind, project, user) for kind in SPECS},
         "recruitment_plan": recruitment_plan(project),
+        "members": ProjectMembership.objects.for_lab(project.lab_id)
+        .filter(project=project)
+        .select_related("user")
+        .order_by("created_at", "id"),
+        # same visibility as the Ethics tab (D56)
+        "ethics_approvals": EthicsApproval.objects.visible_to(user, project.lab_id)
+        .filter(projects=project, deleted_at__isnull=True)
+        .order_by("approval_date", "id"),
     }
     record(
         AuditAction.PROJECT_EXPORTED,

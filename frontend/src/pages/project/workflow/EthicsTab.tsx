@@ -1,6 +1,6 @@
 import { ShieldCheck } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { ApprovalBadge, ExpiryText } from "@/components/ethics/ApprovalBadge";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormField } from "@/components/shared/FormField";
@@ -31,7 +31,9 @@ export default function EthicsTab({ labId, projectId, project }: ProjectTabProps
   const approvals = useProjectApprovals(labId, projectId, canView);
   const save = useSaveApproval(labId);
   const [adding, setAdding] = useState(false);
-  const [linking, setLinking] = useState(false);
+  const [params] = useSearchParams();
+  // `?link=1` comes from "Link an approval" on the Overview
+  const [linking, setLinking] = useState(params.get("link") === "1" && canCreate);
   const rows = approvals.data ?? [];
 
   const add = canCreate ? (

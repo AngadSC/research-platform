@@ -73,6 +73,27 @@ TEMPLATES = {
         "reviews": ["Check the work follows the dataset's terms of use"],
         "not_needed": ["participants"],  # nobody new is recruited
     },
+    "experiment": {
+        "tasks": [
+            ("Write your research question and hypothesis", 7),
+            ("Design the experiment and the materials", 21),
+            ("Submit your ethics application", 35),
+            ("Run a small pilot and fix problems", 60),
+            ("Recruit participants", 75),
+            ("Run the sessions", 120),
+            ("Clean the data and remove anything that identifies people", 135),
+            ("Run the analysis", 155),
+            ("Write up the findings", 185),
+        ],
+        "deadlines": [
+            ("Ethics application submitted", 35, HIGH),
+            ("Pilot finished", 60, MEDIUM),
+            ("Last session run", 120, HIGH),
+            ("First draft of the paper", 185, MEDIUM),
+        ],
+        "reviews": ["Check the data contains nothing that identifies people"],
+        "not_needed": [],
+    },
 }
 
 
@@ -89,7 +110,7 @@ def apply(name, project, user) -> None:
         Task.objects.create(
             project=project, title=title, due_date=due(days), position=position, created_by=user
         )
-    for title, days, priority in plan["deadlines"]:
+    for title, days, priority in sorted(plan["deadlines"], key=lambda d: d[1]):
         ProjectDeadline.objects.create(
             project=project, title=title, due_date=due(days), priority=priority
         )

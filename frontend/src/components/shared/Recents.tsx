@@ -21,10 +21,10 @@ export function Recents() {
         Recent
       </h2>
       <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {recents.map((r) => {
+        {recents.map((r, i) => {
           const Icon = ICONS[r.kind];
           return (
-            <li key={r.url}>
+            <li key={r.url} className={i >= 4 ? "hidden sm:block" : undefined}>
               <Link
                 to={r.url}
                 className="flex items-center gap-3 rounded-md border p-3 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"

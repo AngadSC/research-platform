@@ -33,7 +33,7 @@ from labs.models import (
     VideoProvider,
     hash_token,
 )
-from projects.models import ProjectDeadline, Task, TaskStatus
+from projects.models import ProjectDeadline, ProjectStatus, Task, TaskStatus
 from provenance.models import FundingRecord, FundingStatus
 
 MAX_RANGE = timedelta(days=92)  # a month grid is 42 days; this leaves room for a quarter view
@@ -265,6 +265,9 @@ def build_calendar(user, lab, start, end, *, mine=False) -> list[dict]:
     if mine:
         deadlines = deadlines.filter(project__memberships__user=user)
         tasks = tasks.filter(assignee=user)
+        # an archived project is no longer anyone's work
+        deadlines = deadlines.exclude(project__status=ProjectStatus.ARCHIVED)
+        tasks = tasks.exclude(project__status=ProjectStatus.ARCHIVED)
     items = [
         _meeting_item(m)
         for m in Meeting.objects.visible_to(user, lab)

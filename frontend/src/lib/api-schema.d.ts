@@ -4828,6 +4828,22 @@ export interface components {
             recruitment_entries: components["schemas"]["RecruitmentEntry"][];
             external_outputs: components["schemas"]["ExternalOutput"][];
             recruitment_plan: components["schemas"]["RecruitmentPlan"];
+            members: components["schemas"]["ExportMember"][];
+            ethics_approvals: components["schemas"]["ExportEthics"][];
+        };
+        ExportEthics: {
+            approval_number: string;
+            board: string;
+            /** Format: date */
+            approval_date: string;
+            /** Format: date */
+            expiry_date: string;
+            status: string;
+        };
+        /** @description Name and role only: the export is shared outside the lab, so no email. */
+        ExportMember: {
+            readonly name: string;
+            role: string;
         };
         ExternalLink: {
             /** Format: uuid */
@@ -6692,12 +6708,13 @@ export interface components {
          */
         TaskStatusEnum: "todo" | "in_progress" | "done";
         /**
-         * @description * `honours_thesis` - honours_thesis
+         * @description * `experiment` - experiment
+         *     * `honours_thesis` - honours_thesis
          *     * `secondary_data_analysis` - secondary_data_analysis
          *     * `survey_study` - survey_study
          * @enum {string}
          */
-        TemplateEnum: "honours_thesis" | "secondary_data_analysis" | "survey_study";
+        TemplateEnum: "experiment" | "honours_thesis" | "secondary_data_analysis" | "survey_study";
         /**
          * @description One row of the chat: kind `user`, `assistant`, `tool`, `code` (a step Claude ran in the
          *     code sandbox, VISION C1) or `usage` (tokens spent on turns that produced no text). Only the
