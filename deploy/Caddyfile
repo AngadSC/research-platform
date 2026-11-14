@@ -49,12 +49,14 @@
 	# Built assets have hashed names, so they never change: cache them for good, and answer a
 	# missing one with 404 instead of index.html (a stale page then fails loudly, not blank).
 	# handle blocks are exclusive, so the page's CSP below never reaches these files. A worker
-	# script (the statistics engine) runs under the CSP of its own response, so it gets one here:
-	# same-origin scripts and WebAssembly only, no network beyond this site.
+	# script runs under the CSP of its own response, so the statistics engine's worker (Vite names
+	# it worker-<hash>.js after src/lib/stats/worker.ts) gets one here: same-origin scripts and
+	# WebAssembly only, no network beyond this site. Only that file: the PDF.js worker keeps
+	# running as before.
 	handle /assets/* {
 		root * /srv
 		header Cache-Control "public, max-age=31536000, immutable"
-		header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+		header /assets/worker-* Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
 		file_server
 	}
 
