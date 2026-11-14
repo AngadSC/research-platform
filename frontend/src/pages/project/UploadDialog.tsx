@@ -13,7 +13,7 @@ const FLAGGED_NOTICE =
   "Keep identifying participant data here only if your ethics approval allows it. Claude and other AI tools will never see this file.";
 
 /** One choice, two answers: shown when the caller can take the "identifies participants" mark. */
-function ParticipantChoice({
+export function ParticipantChoice({
   value,
   onChange,
 }: {
