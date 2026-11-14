@@ -95,7 +95,7 @@ describe("files", () => {
     await u.upload(screen.getByLabelText("Choose file"), pdf());
     const btn = screen.getByRole("button", { name: "Upload" });
     expect(btn).toBeDisabled();
-    await u.click(screen.getByRole("checkbox", { name: /no participant identifiers/i }));
+    await u.click(screen.getByRole("radio", { name: /no participant identifiers/i }));
     expect(btn).toBeEnabled();
     await u.click(btn);
     await waitFor(() => expect(FakeXHR.sent).toHaveLength(1));
@@ -110,10 +110,9 @@ describe("files", () => {
     await openDialog(u);
     expect(screen.getByText(/Claude and other AI tools will never see this./)).toBeInTheDocument();
     await u.upload(screen.getByLabelText("Choose file"), pdf());
-    await u.click(screen.getByRole("checkbox", { name: "Identifies participants" }));
+    await u.click(screen.getByRole("radio", { name: /This file identifies participants/ }));
     expect(screen.queryByText(/Do not upload participant identifiers/)).not.toBeInTheDocument();
     expect(screen.getByText(/only if your ethics approval allows it/)).toBeInTheDocument();
-    await u.click(screen.getByRole("checkbox", { name: /ethics approval allows/i }));
     await u.click(screen.getByRole("button", { name: "Upload" }));
     await waitFor(() => expect(FakeXHR.sent).toHaveLength(1));
     expect(FakeXHR.sent[0]!.get("contains_participant_data")).toBe("true");
@@ -124,12 +123,12 @@ describe("files", () => {
     renderRoute(FILES);
     const u = userEvent.setup();
     await openDialog(u);
-    await u.click(screen.getByRole("checkbox", { name: /no participant identifiers/i }));
+    await u.click(screen.getByRole("radio", { name: /no participant identifiers/i }));
     await u.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     await openDialog(u);
     expect(screen.getByText(/Do not upload participant identifiers/)).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: /no participant identifiers/i })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: /no participant identifiers/i })).not.toBeChecked();
   });
 
   it("rejects oversize files client-side", async () => {
@@ -141,7 +140,7 @@ describe("files", () => {
     Object.defineProperty(big, "size", { value: 51 * 1024 * 1024 });
     await u.upload(screen.getByLabelText("Choose file"), big);
     expect(await screen.findByText(/The limit is 50 MB/)).toBeInTheDocument();
-    await u.click(screen.getByRole("checkbox", { name: /no participant identifiers/i }));
+    await u.click(screen.getByRole("radio", { name: /no participant identifiers/i }));
     expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled();
   });
 

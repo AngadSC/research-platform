@@ -36,3 +36,18 @@ describe("UploadDialog help", () => {
     expect(screen.queryByText("Tick the confirmation to upload.")).toBeNull();
   });
 });
+
+describe("UploadDialog participant choice", () => {
+  it("enables Upload once one of the two choices is picked and sends it", async () => {
+    const send = vi.fn<(f: File, p: (n: number) => void, flag: boolean) => Promise<unknown>>();
+    send.mockResolvedValue({});
+    const u = userEvent.setup();
+    render(<UploadDialog open onOpenChange={() => {}} send={send} participant={false} />);
+    await u.upload(screen.getByLabelText("Choose file"), file("a"));
+    expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled();
+    await u.click(screen.getByRole("radio", { name: /identifies participants/ }));
+    await u.click(screen.getByRole("button", { name: "Upload" }));
+    await waitFor(() => expect(send).toHaveBeenCalled());
+    expect(send.mock.calls[0]![2]).toBe(true);
+  });
+});

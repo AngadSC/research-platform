@@ -7,7 +7,7 @@ import { StaleDocumentBanner } from "@/components/documents/StaleDocumentBanner"
 import { RevisionsPanel } from "@/components/documents/RevisionsPanel";
 import { LinkedFiles } from "@/components/shared/LinkedFiles";
 import {
-  PARTICIPANT_HINT,
+  MARKED_TOAST,
   ParticipantBadge,
   markLabel,
   useConfirmUnmark,
@@ -159,11 +159,7 @@ function DocumentEditor({
       { kind: "documents", id: doc.id, value: !flagged },
       {
         onSuccess: () => {
-          toast.success(
-            flagged
-              ? "Identifying mark removed"
-              : `Marked as identifying participants. ${PARTICIPANT_HINT}`,
-          );
+          toast.success(flagged ? "Identifying mark removed" : MARKED_TOAST);
           setFlagged(!flagged);
         },
         onError: (e) => toast.error(formErrors(e, []).form ?? "Something went wrong."),

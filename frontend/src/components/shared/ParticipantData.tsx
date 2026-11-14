@@ -13,6 +13,10 @@ import {
 export const PARTICIPANT_HINT =
   "Names, contact details, ID numbers, faces or voices. Claude and other AI tools will never see this. Leave it off for de-identified data.";
 
+/** Toast after marking: short, not the checkbox hint. */
+export const MARKED_TOAST =
+  "Marked as identifying participants. Claude and other AI tools can't open it now.";
+
 /** Menu item text: marking is one click, removing the mark asks first (`useConfirmUnmark`). */
 export const markLabel = (flagged: boolean) =>
   flagged ? "Remove identifying mark" : "Mark as identifying";

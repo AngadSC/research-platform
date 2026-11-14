@@ -62,7 +62,7 @@ SPECS = {
         A.DATASET_UPDATED,
         A.DATASET_DELETED,
         owner="created_by",
-        fks={"previous_version": (DatasetRecord, False)},
+        fks={"previous_version": (DatasetRecord, False), "data_file": (Attachment, True)},
         users=("controlled_by",),
     ),
     "analysis": Spec(
@@ -194,6 +194,9 @@ def _resolve(spec, project, data, *, actor, creating):
     if code is not None and is_flagged(code):  # VISION C1: Claude may run an analysis's code
         msg = "This file identifies participants, so it can't be attached as code."
         raise ValidationError({"code_attachment": msg})
+    file = data.get("data_file")
+    if file is not None and is_flagged(file):  # a marked file makes the dataset marked too
+        data["contains_participant_data"] = True
     for field in spec.users:
         if creating and data.get(field) is None:
             data[field] = actor  # D50: the person recording it, unless a lead says otherwise

@@ -390,6 +390,10 @@ function fields(kind: Kind, r: AnyRecord, labId: string, base: string): [string,
         ["How to get access", d.access_notes || "None"],
         ["Checksum", d.checksum || "None"],
         [
+          "Project file",
+          <Files key="df" labId={labId} base={base} items={d.data_file ? [d.data_file] : []} />,
+        ],
+        [
           "Identifies participants",
           d.contains_participant_data ? <ParticipantBadge key="pd" /> : "No",
         ],

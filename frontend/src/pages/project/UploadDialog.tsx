@@ -2,7 +2,6 @@ import { Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { FormError } from "@/components/shared/FormError";
-import { ParticipantCheckbox } from "@/components/shared/ParticipantData";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { formErrors } from "@/lib/forms";
@@ -12,6 +11,44 @@ export const NOTICE =
   "Do not upload participant identifiers. Upload only anonymized or aggregate data.";
 const FLAGGED_NOTICE =
   "Keep identifying participant data here only if your ethics approval allows it. Claude and other AI tools will never see this file.";
+
+/** One choice, two answers: shown when the caller can take the "identifies participants" mark. */
+function ParticipantChoice({
+  value,
+  onChange,
+}: {
+  value: boolean | null;
+  onChange: (flagged: boolean) => void;
+}) {
+  const opts: [boolean, string, string][] = [
+    [
+      true,
+      "This file identifies participants",
+      "Names, contact details, ID numbers, faces or voices. Keep it here only if your ethics approval allows it. Claude and other AI tools will never see this file.",
+    ],
+    [false, "This file has no participant identifiers", "De-identified or aggregate data."],
+  ];
+  return (
+    <fieldset className="grid gap-2">
+      <legend className="mb-1 text-sm font-medium">Participant data</legend>
+      {opts.map(([v, label, hint]) => (
+        <label key={label} className="flex items-start gap-2 text-sm">
+          <input
+            type="radio"
+            name="participant-choice"
+            checked={value === v}
+            onChange={() => onChange(v)}
+            className="mt-0.5"
+          />
+          <span>
+            <span className="font-medium">{label}</span>
+            <span className="block text-xs text-muted-foreground">{hint}</span>
+          </span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
 
 interface Props {
   open: boolean;
@@ -38,7 +75,11 @@ function UploadForm({
 }) {
   const [files, setFiles] = useState<File[]>([]);
   const [ack, setAck] = useState(false);
-  const [flagged, setFlagged] = useState(participant ?? false);
+  // With the choice shown, null means "not chosen yet"; a flagged folder starts on "identifies".
+  const [choice, setChoice] = useState<boolean | null>(participant ? true : null);
+  const hasChoice = participant !== undefined;
+  const flagged = choice === true;
+  const ready = hasChoice ? choice !== null : ack;
   const [error, setError] = useState<string>();
   const [progress, setProgress] = useState<number | null>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -59,7 +100,7 @@ function UploadForm({
   }
 
   async function submit() {
-    if (!files.length || !ack) return;
+    if (!files.length || !ready) return;
     setError(undefined);
     setProgress(0);
     let done = 0;
@@ -114,6 +155,7 @@ function UploadForm({
           type="file"
           multiple={multiple}
           aria-label="Choose file"
+          aria-hidden
           className="sr-only"
           tabIndex={-1} // "Browse files" is the one keyboard control for this
           onChange={(e) => pick(e.target.files)}
@@ -123,27 +165,32 @@ function UploadForm({
         </Button>
         <p className="text-xs text-muted-foreground">Up to 50 MB{multiple && " each"}.</p>
       </div>
-      {participant !== undefined && <ParticipantCheckbox checked={flagged} onChange={setFlagged} />}
-      <label className="flex items-start gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={ack}
-          onChange={(e) => setAck(e.target.checked)}
-          className="mt-0.5"
-        />
-        {flagged
-          ? "I confirm my ethics approval allows keeping this identifying participant data here"
-          : "I confirm this file contains no participant identifiers"}
-      </label>
+      {hasChoice ? (
+        <ParticipantChoice value={choice} onChange={setChoice} />
+      ) : (
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={ack}
+            onChange={(e) => setAck(e.target.checked)}
+            className="mt-0.5"
+          />
+          I confirm this file contains no participant identifiers
+        </label>
+      )}
       <FormError message={error} />
       {progress !== null && (
         <progress aria-label="Upload progress" value={progress} max={1} className="w-full" />
       )}
-      {progress === null && (!files.length || !ack) && (
+      {progress === null && (!files.length || !ready) && (
         <p id="upload-hint" className="text-xs text-muted-foreground">
           {files.length
-            ? "Tick the confirmation to upload."
-            : "Choose a file, then tick the confirmation to upload."}
+            ? hasChoice
+              ? "Say whether the file identifies participants to upload."
+              : "Tick the confirmation to upload."
+            : hasChoice
+              ? "Choose a file and say whether it identifies participants."
+              : "Choose a file, then tick the confirmation to upload."}
         </p>
       )}
       <div className="flex justify-end gap-2">
@@ -153,7 +200,7 @@ function UploadForm({
         <Button
           aria-describedby="upload-hint"
           onClick={() => void submit()}
-          disabled={!files.length || !ack || progress !== null}
+          disabled={!files.length || !ready || progress !== null}
         >
           Upload
         </Button>
