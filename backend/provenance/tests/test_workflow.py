@@ -480,3 +480,54 @@ def test_a_dataset_can_point_at_a_project_file(w):
     assert got.status_code == 201
     assert got.json()["data_file"]["id"] == str(ok.pk)
     assert got.json()["contains_participant_data"] is True  # the mark follows the file
+
+
+def test_a_deleted_file_is_not_shown_and_a_pi_only_file_stays_linked(w):
+    lead = w.member(ProjectRole.LEAD)
+    letter, gone = _letter(w, pi_only=True), _letter(w, "gone.pdf")
+    kept = post(w, "dataset-list", {"name": "A", "version_label": "1", "data_file": str(letter.pk)})
+    item = url(w, "dataset-detail", datasetrecord_id=kept.json()["id"])
+    # a lead cannot see the PI-only file, so saving "no file" must not unlink it
+    assert w.client(lead).patch(item, {"data_file": None}, format="json").status_code == 200
+    assert w.client().get(item).json()["data_file"]["id"] == str(letter.pk)
+    other = post(w, "dataset-list", {"name": "B", "version_label": "1", "data_file": str(gone.pk)})
+    gone.deleted_at = "2030-01-01T00:00:00Z"
+    gone.save()
+    assert (
+        w.client()
+        .get(url(w, "dataset-detail", datasetrecord_id=other.json()["id"]))
+        .json()["data_file"]
+        is None
+    )
+
+
+def test_handing_a_dataset_to_someone_tells_them(w):
+    from core.models import Notification, NotificationKind
+    from core.notifications import notification_url
+
+    heir = w.member(ProjectRole.CONTRIBUTOR)
+    made = post(w, "dataset-list", {"name": "Scores", "version_label": "1"}).json()
+    item = url(w, "dataset-detail", datasetrecord_id=made["id"])
+    assert w.client().patch(item, {"controlled_by": str(w.pi.pk)}, format="json").status_code == 200
+    assert not Notification.objects.for_lab(w.lab).exists()  # yourself: no notice
+    assert w.client().patch(item, {"controlled_by": str(heir.pk)}, format="json").status_code == 200
+    (note,) = Notification.objects.for_lab(w.lab).filter(kind=NotificationKind.DATASET_CONTROLLER)
+    assert note.recipient == heir
+    assert notification_url(note, heir).endswith(
+        f"/projects/{w.project.pk}/workflow/data/datasets/{made['id']}"
+    )
+
+
+def test_an_archived_project_takes_no_uploads_or_new_talks(w):
+    w.project.status = "archived"
+    w.project.save()
+    upload = SimpleUploadedFile("a.pdf", b"%PDF-1.4 x", content_type="application/pdf")
+    files = reverse("documents:attachment-list", kwargs=pk(w))
+    res = w.client().post(
+        files, {"file": upload, "acknowledged_notice": "true"}, format="multipart"
+    )
+    assert res.status_code == 400 and "archived" in res.json()["detail"]
+    folders = reverse("documents:folder-list", kwargs=pk(w))
+    assert w.client().post(folders, {"name": "F"}, format="json").status_code == 400
+    talk = post(w, "external-list", {"title": "Poster", "kind": "poster"})
+    assert talk.status_code == 400 and "archived" in talk.json()["detail"]

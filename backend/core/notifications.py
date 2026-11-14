@@ -95,6 +95,7 @@ _PROJECT_TARGETS = {
     "projects.project": "projects.Project",
     "projects.task": "projects.Task",
     "documents.document": "documents.Document",
+    "provenance.datasetrecord": "provenance.DatasetRecord",
 }
 _ABOUT_PROJECT_ITEMS = (
     NotificationKind.TASK_POST,
@@ -103,6 +104,7 @@ _ABOUT_PROJECT_ITEMS = (
     NotificationKind.PROJECT_ROLE,
     NotificationKind.PROJECT_ARCHIVED,
     NotificationKind.DOCUMENT_OWNER,
+    NotificationKind.DATASET_CONTROLLER,
 )
 
 
@@ -223,4 +225,12 @@ def notification_url(n, user) -> str:
         ).first()
         if doc is not None and can(user, Perm.VIEW_PROJECT, doc):
             return f"{lab}/projects/{doc.project_id}/documents/{doc.pk}"
+    if target == "provenance.datasetrecord" and n.target_id:
+        ds = (
+            apps.get_model("provenance", "DatasetRecord")
+            .objects.for_lab(n.lab_id)
+            .filter(pk=n.target_id)
+        ).first()
+        if ds is not None and can(user, Perm.VIEW_PROJECT, ds):
+            return f"{lab}/projects/{ds.project_id}/workflow/data/datasets/{ds.pk}"
     return lab

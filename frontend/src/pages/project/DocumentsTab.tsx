@@ -114,6 +114,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
   } = useAttachments(labId, projectId, LIVE_POLL_MS);
   useNewItemToasts(`${projectId}/files`, files.data, "file", (f) => f.original_filename);
   const canEdit = project.my_permissions.includes("edit_content");
+  const archived = project.status === "archived"; // no new documents, files or folders
   const folder = useCurrentFolder();
   const { data: folders = [] } = useFolders(labId, projectId);
   const folderFlagged = folders.find((f) => f.id === folder)?.contains_participant_data ?? false;
@@ -325,7 +326,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
     <div>
       {dialog}
       <div className="grid w-full min-w-0 gap-4">
-        {canEdit && (
+        {canEdit && !archived && (
           <div className="flex flex-wrap justify-end gap-2">
             <Button variant="outline" onClick={() => setEmbedding(true)}>
               <Link2 className="size-4" /> Embed a Google or Office doc
@@ -350,7 +351,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
             </Button>
           </div>
         )}
-        <FolderBrowser labId={labId} projectId={projectId} canEdit={canEdit} />
+        <FolderBrowser labId={labId} projectId={projectId} canEdit={canEdit} archived={archived} />
         <DataTable
           loading={docs.isLoading || files.isLoading}
           rows={rows}

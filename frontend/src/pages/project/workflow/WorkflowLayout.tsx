@@ -169,7 +169,7 @@ export function WorkflowLayout(props: ProjectTabProps) {
         <DialogContent>
           <DialogTitle className="text-base font-semibold">Mark as done?</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Nothing is recorded for {nameOf(open ?? "")}. Mark it done or not needed anyway?
+            Mark {nameOf(open ?? "")} done or not needed? You can undo this later.
           </DialogDescription>
           <div className="flex justify-end gap-2">
             <DialogClose asChild>

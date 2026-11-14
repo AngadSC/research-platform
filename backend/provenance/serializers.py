@@ -145,6 +145,12 @@ class DatasetSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.data_file and instance.data_file.deleted_at:
+            data["data_file"] = None  # a deleted file must not block saving the dataset
+        return data
+
 
 class AnalysisSerializer(serializers.ModelSerializer):
     ran_by = UserSerializer(read_only=True)

@@ -131,7 +131,10 @@ export default function ExternalTab({ labId, projectId, project }: ProjectTabPro
       : []),
   ];
 
-  const add = canEdit ? <Button onClick={() => setEditing("new")}>Add item</Button> : undefined;
+  const add =
+    canEdit && project.status !== "archived" ? (
+      <Button onClick={() => setEditing("new")}>Add item</Button>
+    ) : undefined;
   return (
     <section aria-label="External" className="grid gap-3">
       <ConferenceSuggestions labId={labId} projectId={projectId} />

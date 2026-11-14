@@ -77,7 +77,10 @@ export default function ParticipantsTab({ labId, projectId, project }: ProjectTa
         ]
       : []),
   ];
-  const add = canEdit ? <Button onClick={() => setDialog("entry")}>Add entry</Button> : undefined;
+  const add =
+    canEdit && project.status !== "archived" ? (
+      <Button onClick={() => setDialog("entry")}>Add entry</Button>
+    ) : undefined;
 
   return (
     <div className="grid gap-6">

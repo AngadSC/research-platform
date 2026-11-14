@@ -232,6 +232,28 @@ def _keep_letter_private(obj):
         Attachment.objects.for_lab(obj.lab_id).filter(pk=obj.attachment_id).update(pi_only=True)
 
 
+def _mark_linked_file(obj, user, request):
+    """A marked dataset marks its linked file too, so no AI tool can read it that way."""
+    if obj.contains_participant_data and obj.data_file_id and not is_flagged(obj.data_file):
+        set_flag(obj.data_file, True, user=user, request=request)
+
+
+def _notify_controller(dataset, by, old_id) -> None:
+    """In-app only, and never for handing a dataset to yourself."""
+    new = dataset.controlled_by
+    if new is None or new.pk == old_id or new.pk == by.pk:
+        return
+    notify(
+        lab=dataset.lab,
+        recipient=new,
+        kind=NotificationKind.DATASET_CONTROLLER,
+        title=f"{by.display_name or by.email} gave you the dataset {dataset.name}"[:200],
+        body=dataset.project.name,
+        target=dataset,
+        dedupe_key=f"dataset_controller:{dataset.pk}:{uuid.uuid4()}",
+    )
+
+
 @transaction.atomic
 def create(kind, *, project, user, data, request=None):
     spec = SPECS[kind]
@@ -252,6 +274,8 @@ def create(kind, *, project, user, data, request=None):
     _keep_letter_private(obj)
     for field, items in m2m.items():
         getattr(obj, field).set(items)
+    if kind == "dataset":
+        _mark_linked_file(obj, user, request)
     record(spec.created, actor=user, lab=project.lab, target=obj, request=request)
     return obj
 
@@ -264,8 +288,18 @@ def update(kind, obj, *, user, data, request=None):
     flag = values.pop("contains_participant_data", None)  # its own audit event (VISION A3)
     if values.get("previous_version") == obj:
         raise ValidationError({"previous_version": "A dataset cannot be its own previous version."})
+    if kind == "dataset" and "data_file" in values and values["data_file"] is None:
+        current = obj.data_file_id
+        if (
+            current
+            and not Attachment.objects.visible_to(user, obj.lab_id).filter(pk=current).exists()
+        ):
+            del values["data_file"]  # a PI-only file this person cannot see stays linked
+    old_controller = obj.controlled_by_id if kind == "dataset" else None
     for key, value in values.items():
         setattr(obj, key, value)
+    if kind == "dataset" and obj.data_file_id and is_flagged(obj.data_file):
+        flag = True  # a dataset's mark cannot come off while its file is marked
     if kind == "analysis":
         _check_analysis(obj)
     _check_dates(obj)
@@ -275,6 +309,9 @@ def update(kind, obj, *, user, data, request=None):
         getattr(obj, field).set(items)
     if flag is not None:
         set_flag(obj, flag, user=user, request=request)
+    if kind == "dataset":
+        _mark_linked_file(obj, user, request)
+        _notify_controller(obj, user, old_controller)
     if not (values or m2m) and flag is not None:
         return obj
     record(

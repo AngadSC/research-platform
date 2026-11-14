@@ -164,6 +164,7 @@ class NotificationKind(models.TextChoices):
     PROJECT_ROLE = "project_role"
     PROJECT_ARCHIVED = "project_archived"
     DOCUMENT_OWNER = "document_owner"
+    DATASET_CONTROLLER = "dataset_controller"  # a dataset handed to you
 
 
 class Notification(LabScopedModel):

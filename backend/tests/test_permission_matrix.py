@@ -205,7 +205,8 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "documents:attachment-edit-in-google"): "401 404 2 2 2 2 403 404 403",  # B3
     ("POST",   "documents:document-move"): "401 404 2 2 2 2 403 404 403",
     # Handover: a new owner for a document needs manage_project_members on its project (D251)
-    ("POST",   "documents:document-owner"): "401 404 2 2 2 403 403 404 403",
+    # document-owner: the matrix document is the PI's, so a lead is refused (403)
+    ("POST",   "documents:document-owner"): "401 404 2 2 403 403 403 404 403",
     ("POST",   "documents:attachment-move"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:folder-list"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "documents:folder-list"): "401 404 2 2 2 2 403 404 403",
@@ -1719,9 +1720,9 @@ def test_cross_lab_id_swap_is_404(world, method, name):
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("persona", ["lead", "pi", "admin"])
-def test_only_pis_and_admins_change_a_pi_or_the_last_lead_on_a_project(world, persona):
+def test_only_pis_and_admins_change_a_pi_on_project(world, persona):
     """A project lead manages ordinary members, but not a PI's or lab admin's place on the
-    project, nor the last lead (themselves included). PIs and lab admins may change anyone."""
+    project. PIs and lab admins may change anyone. (The last-lead rule: test_people_notices.)"""
     lab_id, p1 = world.a["lab_id"], world.a["project_id"]
     pi_m = ProjectMembership.objects.create(
         lab_id=lab_id, project_id=p1, user_id=world.user_ids["pi"], role=ProjectRole.CONTRIBUTOR
@@ -1736,8 +1737,9 @@ def test_only_pis_and_admins_change_a_pi_or_the_last_lead_on_a_project(world, pe
     allowed = persona != "lead"
     demote = client.patch(url(pi_m), {"role": "viewer"}, format="json")
     assert demote.status_code == (200 if allowed else 403)
-    for m in (pi_m, lead_m):
-        assert client.delete(url(m)).status_code == (204 if allowed else 403)
+    assert client.delete(url(pi_m)).status_code == (204 if allowed else 403)
+    # the PI leads every project too, so the lead is not the last lead and may step down (D19)
+    assert client.delete(url(lead_m)).status_code == 204
 
 
 @pytest.mark.django_db
