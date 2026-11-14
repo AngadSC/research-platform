@@ -26,7 +26,8 @@ export default function EthicsTab({ labId, projectId, project }: ProjectTabProps
   const canView = !!lab?.my_permissions.includes("view_ethics");
   const canCreate =
     !!lab?.my_permissions.includes("edit_ethics") &&
-    project.my_permissions.includes("edit_content");
+    project.my_permissions.includes("edit_content") &&
+    project.status !== "archived";
   const oversight = !!lab?.my_permissions.includes("manage_lab");
   const approvals = useProjectApprovals(labId, projectId, canView);
   const save = useSaveApproval(labId);

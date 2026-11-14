@@ -14170,6 +14170,7 @@ components:
       - project_role
       - project_archived
       - document_owner
+      - dataset_controller
       type: string
       description: |-
         * `ethics_expiry` - Ethics Expiry
@@ -14186,6 +14187,7 @@ components:
         * `project_role` - Project Role
         * `project_archived` - Project Archived
         * `document_owner` - Document Owner
+        * `dataset_controller` - Dataset Controller
     NullEnum:
       enum:
       - null

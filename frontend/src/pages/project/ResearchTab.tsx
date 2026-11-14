@@ -63,7 +63,10 @@ export function SectionLists({
             {...props}
             kind={kind}
             navigate={navigate}
-            canEdit={props.project.my_permissions.includes("edit_content")}
+            canEdit={
+              props.project.my_permissions.includes("edit_content") &&
+              props.project.status !== "archived"
+            }
             base={projectBase(props)}
           />
         </section>

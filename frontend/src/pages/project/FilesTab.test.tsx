@@ -113,6 +113,8 @@ describe("files", () => {
     await u.click(screen.getByRole("radio", { name: /This file identifies participants/ }));
     expect(screen.queryByText(/Do not upload participant identifiers/)).not.toBeInTheDocument();
     expect(screen.getByText(/only if your ethics approval allows it/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled();
+    await u.click(screen.getByRole("checkbox", { name: /my ethics approval allows/ }));
     await u.click(screen.getByRole("button", { name: "Upload" }));
     await waitFor(() => expect(FakeXHR.sent).toHaveLength(1));
     expect(FakeXHR.sent[0]!.get("contains_participant_data")).toBe("true");

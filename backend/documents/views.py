@@ -36,7 +36,7 @@ from documents.serializers import (
     RevisionSerializer,
 )
 from ethics.models import EthicsApproval
-from projects.services import ARCHIVED_MESSAGE
+from projects.services import ARCHIVED_MESSAGE, refuse_if_archived
 
 
 class ProjectPermMixin(LabScopedViewMixin):
@@ -328,6 +328,7 @@ class AttachmentListCreateView(AttachmentMixin, generics.GenericAPIView):
 
     @extend_schema(request=AttachmentUploadSerializer, responses={201: AttachmentSerializer})
     def post(self, request, lab_id, project_id):
+        refuse_if_archived(self.project)
         ser = AttachmentUploadSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         pi_only = ser.validated_data["pi_only"]
@@ -451,6 +452,7 @@ class FolderListCreateView(FolderMixin, generics.GenericAPIView):
 
     @extend_schema(request=FolderCreateSerializer, responses={201: FolderSerializer})
     def post(self, request, lab_id, project_id):
+        refuse_if_archived(self.project)
         ser = FolderCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         folder = services.create_folder(

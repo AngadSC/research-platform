@@ -79,7 +79,8 @@ function UploadForm({
   const [choice, setChoice] = useState<boolean | null>(participant ? true : null);
   const hasChoice = participant !== undefined;
   const flagged = choice === true;
-  const ready = hasChoice ? choice !== null : ack;
+  const [ethics, setEthics] = useState(false);
+  const ready = hasChoice ? choice !== null && (!flagged || ethics) : ack;
   const [error, setError] = useState<string>();
   const [progress, setProgress] = useState<number | null>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -166,7 +167,20 @@ function UploadForm({
         <p className="text-xs text-muted-foreground">Up to 50 MB{multiple && " each"}.</p>
       </div>
       {hasChoice ? (
-        <ParticipantChoice value={choice} onChange={setChoice} />
+        <>
+          <ParticipantChoice value={choice} onChange={setChoice} />
+          {flagged && (
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={ethics}
+                onChange={(e) => setEthics(e.target.checked)}
+                className="mt-0.5"
+              />
+              I confirm my ethics approval allows keeping this identifying participant data here
+            </label>
+          )}
+        </>
       ) : (
         <label className="flex items-start gap-2 text-sm">
           <input
@@ -185,7 +199,7 @@ function UploadForm({
       {progress === null && (!files.length || !ready) && (
         <p id="upload-hint" className="text-xs text-muted-foreground">
           {files.length
-            ? hasChoice
+            ? hasChoice && choice === null
               ? "Say whether the file identifies participants to upload."
               : "Tick the confirmation to upload."
             : hasChoice

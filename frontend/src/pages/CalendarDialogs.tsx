@@ -310,9 +310,7 @@ export function MeetingDialog({
         {meeting && (
           <Dialog open={confirming} onOpenChange={setConfirming}>
             <DialogContent>
-              <DialogTitle className="text-base font-semibold">
-                Delete {meeting.title}?
-              </DialogTitle>
+              <DialogTitle className="text-base font-semibold">Delete {meeting.title}?</DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground">
                 The meeting will be removed from the lab calendar.
               </DialogDescription>

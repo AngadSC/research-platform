@@ -46,6 +46,8 @@ describe("UploadDialog participant choice", () => {
     await u.upload(screen.getByLabelText("Choose file"), file("a"));
     expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled();
     await u.click(screen.getByRole("radio", { name: /identifies participants/ }));
+    expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled(); // ethics tick first
+    await u.click(screen.getByRole("checkbox", { name: /my ethics approval allows/ }));
     await u.click(screen.getByRole("button", { name: "Upload" }));
     await waitFor(() => expect(send).toHaveBeenCalled());
     expect(send.mock.calls[0]![2]).toBe(true);

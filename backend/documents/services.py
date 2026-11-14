@@ -13,17 +13,18 @@ from django.db import transaction
 from django.http import Http404
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
 
 from audit.models import AuditAction
 from audit.services import record
 from core.models import NotificationKind, User
 from core.notifications import notify
-from core.permissions import Perm, can
+from core.permissions import Perm, can, lab_role
 from core.retention import audit_retention, guard_retention, retention_changes
 from core.serializers import UserSerializer
 from documents import embed
 from documents.models import Attachment, Document, DocumentRevision, Folder
+from labs.models import LabRole
 
 MAX_CONTENT_BYTES = 1024 * 1024
 AUTOSAVE_WINDOW = timedelta(minutes=15)
@@ -211,6 +212,11 @@ def change_owner(doc, *, user, owner_id, request=None) -> Document:
     old = doc.created_by_id
     if owner.pk == old:
         return doc
+    leads = (LabRole.PI, LabRole.LAB_ADMIN)
+    if lab_role(doc.created_by, doc.lab_id) in leads and lab_role(user, doc.lab_id) not in leads:
+        raise PermissionDenied(
+            "Only a PI or lab admin can change who owns a PI's or lab admin's document."
+        )
     doc.created_by = owner
     doc.save(update_fields=["created_by"])
     event = record(

@@ -182,6 +182,10 @@ def add_member(*, project, by, user_id, role, request=None) -> ProjectMembership
 
 
 def _refuse_member_change(membership, by, role=None) -> None:
+    # Lock the project so two leads demoting each other at once are counted one after the other.
+    Project.objects.for_lab(membership.lab_id).select_for_update().filter(
+        pk=membership.project_id
+    ).first()
     if reason := member_change_refusal(by, membership, role):
         raise PermissionDenied(reason)
 

@@ -4,6 +4,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 
 from core.permissions import Perm
+from projects.services import refuse_if_archived
 from projects.views import ProjectScopedMixin
 from provenance import services
 from provenance.serializers import (
@@ -201,6 +202,10 @@ class RecruitmentDetailView(KindDetail):
 @_list_schema("external")
 class ExternalListCreateView(KindListCreate):
     kind = "external"
+
+    def post(self, request, lab_id, project_id):
+        refuse_if_archived(self.project)
+        return super().post(request, lab_id, project_id)
 
 
 @_detail_schema("external")

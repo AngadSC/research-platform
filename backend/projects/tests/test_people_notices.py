@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 
 from core.models import Notification, NotificationKind
 from core.notifications import notification_url
-from labs.models import LabRole
+from labs.models import LabMembership, LabRole
 from projects import services
 from projects.models import Project, ProjectMembership, ProjectRole, ProjectStatus, Task
 
@@ -93,7 +93,7 @@ def test_lead_cannot_remove_or_demote_a_pi_or_the_last_lead(w):
     members = api(lee).get(f"/api/labs/{lab.pk}/projects/{w['project'].pk}/members/").json()
     assert {m["user"]["id"]: m["can_change"] for m in members} == {
         str(w["pi"].pk): False,
-        str(lee.pk): False,  # the only lead
+        str(lee.pk): True,  # the PI leads every project too, so Lee is not the last lead
     }
     for res in (
         api(lee).delete(f"{url}{w['pi_m'].pk}/"),
@@ -101,14 +101,20 @@ def test_lead_cannot_remove_or_demote_a_pi_or_the_last_lead(w):
     ):
         assert res.status_code == 403
         assert "PI" in res.json()["detail"]
+    # with no PI or lab admin, Lee is the last lead, and a lab viewer's lead row does not count
+    LabMembership.objects.for_lab(lab).filter(user=w["pi"]).update(role=LabRole.MEMBER)
+    sam = w["sam"]
+    LabMembership.objects.for_lab(lab).filter(user=sam).update(role=LabRole.VIEWER)
+    services.add_member(project=w["project"], by=w["pi"], user_id=sam.pk, role="lead")
     res = api(lee).delete(f"{url}{lee_m.pk}/")
     assert res.status_code == 403 and "needs a lead" in res.json()["detail"]
-    assert ProjectMembership.objects.for_lab(lab).filter(project=w["project"]).count() == 2
-    # with a second lead, Lee may step down; the PI may always change anyone
-    services.add_member(project=w["project"], by=w["pi"], user_id=w["sam"].pk, role="lead")
+    assert ProjectMembership.objects.for_lab(lab).filter(project=w["project"]).count() == 3
+    # with a real second lead, Lee may step down; the PI may always change anyone
+    LabMembership.objects.for_lab(lab).filter(user=sam).update(role=LabRole.MEMBER)
     assert (
         api(lee).patch(f"{url}{lee_m.pk}/", {"role": "contributor"}, format="json").status_code
         == 200
     )
-    sam_m = ProjectMembership.objects.for_lab(lab).get(user=w["sam"])
+    sam_m = ProjectMembership.objects.for_lab(lab).get(user=sam)
+    LabMembership.objects.for_lab(lab).filter(user=w["pi"]).update(role=LabRole.PI)
     assert api(w["pi"]).delete(f"{url}{sam_m.pk}/").status_code == 204

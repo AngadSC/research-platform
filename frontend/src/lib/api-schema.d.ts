@@ -5665,9 +5665,10 @@ export interface components {
          *     * `project_role` - Project Role
          *     * `project_archived` - Project Archived
          *     * `document_owner` - Document Owner
+         *     * `dataset_controller` - Dataset Controller
          * @enum {string}
          */
-        NotificationKindEnum: "ethics_expiry" | "retention_due" | "invite_accepted" | "task_assigned" | "task_unassigned" | "project_exported" | "integration_issue" | "task_post" | "training_expiry" | "training_digest" | "mention" | "project_role" | "project_archived" | "document_owner";
+        NotificationKindEnum: "ethics_expiry" | "retention_due" | "invite_accepted" | "task_assigned" | "task_unassigned" | "project_exported" | "integration_issue" | "task_post" | "training_expiry" | "training_digest" | "mention" | "project_role" | "project_archived" | "document_owner" | "dataset_controller";
         /** @enum {unknown} */
         NullEnum: null;
         OnboardingItem: {

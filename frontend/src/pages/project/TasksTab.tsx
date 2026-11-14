@@ -359,11 +359,13 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
       : []),
   ];
 
-  const newTask = canEdit ? (
-    <Button onClick={() => setParam("new", "task")}>
-      <Plus aria-hidden /> New task
-    </Button>
-  ) : undefined;
+  const archived = project.status === "archived"; // no new tasks
+  const newTask =
+    canEdit && !archived ? (
+      <Button onClick={() => setParam("new", "task")}>
+        <Plus aria-hidden /> New task
+      </Button>
+    ) : undefined;
   // Your own connected task apps (D240); nothing shows unless one is connected.
   const taskApps = (useProviders(labId).data ?? []).filter(
     (p) => p.task_import && p.account?.status === "active",
@@ -373,9 +375,11 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
       icon={ListChecks}
       title="No tasks yet"
       description={
-        canEdit
-          ? "Add a task to track what needs doing in this project."
-          : "Only editors can add tasks. Ask the project lead."
+        archived
+          ? "This project is archived. Set it back to Active to add tasks."
+          : canEdit
+            ? "Add a task to track what needs doing in this project."
+            : "Only editors can add tasks. Ask the project lead."
       }
       action={newTask}
     />
@@ -408,7 +412,7 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
           </Button>
         </div>
         <div className="flex flex-wrap gap-2">
-          {canEdit && taskApps.length > 0 && (
+          {canEdit && !archived && taskApps.length > 0 && (
             <Button variant="outline" onClick={() => setImporting(true)}>
               Import tasks
             </Button>
@@ -482,7 +486,7 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
           onClose={() => setImporting(false)}
         />
       )}
-      {creating && canEdit && (
+      {creating && canEdit && !archived && (
         <NewTaskPanel
           members={assignable}
           onClose={closePanel}

@@ -57,3 +57,17 @@ def test_new_owner_must_be_able_to_edit_the_project_and_contributors_cannot_reas
     assert res.status_code == 400 and "owner" in res.json()
     assert post(w, "heir", w["heir"]).status_code == 403  # a contributor
     assert not AuditEvent.objects.filter(action=AuditAction.DOCUMENT_OWNER_CHANGED).exists()
+
+
+def test_a_lead_cannot_take_over_a_pis_document(w):
+    ProjectMembership.objects.for_lab(w["lab"]).filter(user=w["heir"]).update(role="lead")
+    mine = services.create_document(
+        project=w["doc"].project, user=w["pi"], title="Pat's plan", content=[]
+    )
+    client = APIClient()
+    client.force_login(w["heir"])
+    url = f"/api/labs/{w['lab'].pk}/documents/{mine.pk}/owner/"
+    res = client.post(url, {"owner": str(w["leaver"].pk)}, format="json")
+    assert res.status_code == 403 and "PI" in res.json()["detail"]
+    mine.refresh_from_db()
+    assert mine.created_by == w["pi"]

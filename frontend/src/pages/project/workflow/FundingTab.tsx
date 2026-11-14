@@ -42,7 +42,7 @@ export default function FundingTab(props: ProjectTabProps) {
   return <FundingPanel {...props} />;
 }
 
-function FundingPanel({ labId, projectId }: ProjectTabProps) {
+function FundingPanel({ labId, projectId, project }: ProjectTabProps) {
   const { list, create, update, remove } = useFunding(labId, projectId);
   const [params] = useSearchParams();
   // `?new=1` comes from "Add funding" on the Overview: open the form straight away
@@ -110,7 +110,10 @@ function FundingPanel({ labId, projectId }: ProjectTabProps) {
     },
   ];
 
-  const add = <Button onClick={() => setEditing("new")}>Add funding</Button>;
+  const add =
+    project.status === "archived" ? undefined : (
+      <Button onClick={() => setEditing("new")}>Add funding</Button>
+    );
   return (
     <div className="grid gap-6">
       <section aria-label="Funding" className="grid gap-3">

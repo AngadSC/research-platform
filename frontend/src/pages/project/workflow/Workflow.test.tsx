@@ -127,7 +127,7 @@ describe("Workflow progress", () => {
     );
     renderRoute(`${W}/funding`);
     await userEvent.click(await screen.findByRole("button", { name: "Done or not needed" }));
-    expect(await screen.findByText(/Nothing is recorded for Funding/)).toBeInTheDocument();
+    expect(await screen.findByText(/Mark Funding done or not needed/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Mark done" }));
     await waitFor(() =>
       expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({

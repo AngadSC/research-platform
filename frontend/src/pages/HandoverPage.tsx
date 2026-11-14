@@ -292,8 +292,8 @@ export function HandoverPage() {
       />
       {canAct && (
         <p className="text-sm text-muted-foreground print:hidden">
-          Reassign gives an item to the person you pick, and they get a notification (datasets
-          don&apos;t send one). You can reassign it again at any time.
+          Reassign gives an item to the person you pick, and they get a notification. You can
+          reassign it again at any time.
         </p>
       )}
       {data.no_other_owner.length > 0 && (
