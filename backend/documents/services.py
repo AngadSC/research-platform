@@ -417,7 +417,9 @@ def upload_attachment(
 def edit_in_google(attachment, *, user, request=None) -> Attachment:
     """VISION B3: copy a Word, Excel or PowerPoint upload into the person's own Google Drive as a
     Google Doc, Sheet or Slides file, and attach that copy next to the original, pointing back at
-    it. The caller has checked edit rights on the project. Participant data stays here."""
+    it. The caller has checked edit rights on the project. A file marked as identifying
+    participants may go too (the owner's call: such data usually came from Drive), and its copy
+    keeps the mark, so AI tools still never read it; the audit event says it was marked."""
     from assistant.privacy import is_flagged
     from integrations.http import IntegrationError
     from integrations.models import AccountStatus, ConnectedAccount
@@ -433,10 +435,7 @@ def edit_in_google(attachment, *, user, request=None) -> Attachment:
         raise ValidationError(
             {"file": "Only Word, Excel and PowerPoint files can be edited in Google."}
         )
-    if is_flagged(attachment):
-        raise ValidationError(
-            {"file": "Files marked as identifying participants stay in labbenchos."}
-        )
+    flagged = is_flagged(attachment)
     limit = google_drive.CONVERT_MAX_BYTES
     too_big = f"This file is too large to copy to Google ({limit // 1048576} MB maximum)."
     if attachment.size_bytes > limit:
@@ -467,7 +466,7 @@ def edit_in_google(attachment, *, user, request=None) -> Attachment:
         lab=attachment.lab,
         target=attachment,
         request=request,
-        metadata={"via": "google_copy", "drive_file_id": file_id},
+        metadata={"via": "google_copy", "drive_file_id": file_id, "participant_data": flagged},
     )
     return _link_drive_file(
         user=user,
@@ -476,7 +475,7 @@ def edit_in_google(attachment, *, user, request=None) -> Attachment:
         folder=attachment.folder,
         request=request,
         pi_only=attachment.pi_only,
-        flag=False,
+        flag=flagged,
         copied_from=attachment,
     )
 
