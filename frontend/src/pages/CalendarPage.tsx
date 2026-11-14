@@ -249,6 +249,7 @@ function EventDialog({
   remove: Calendar["remove"];
 }) {
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
+  const [confirming, setConfirming] = useState(false);
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -279,7 +280,10 @@ function EventDialog({
         <DialogTitle className="text-base font-semibold">
           {event ? event.title : "Add an event"}
         </DialogTitle>
-        <DialogDescription className="sr-only">Lab calendar event</DialogDescription>
+        <DialogDescription className="text-sm text-muted-foreground">
+          A lab date, like a deadline or holiday. For a meeting with people and a time, use Add
+          meeting.
+        </DialogDescription>
         <form onSubmit={submit} noValidate className="grid gap-3">
           <fieldset disabled={!canEdit} className="grid gap-3">
             <FormField label="Title" error={f.title}>
@@ -322,15 +326,7 @@ function EventDialog({
                 variant="outline"
                 className="mr-auto"
                 disabled={remove.isPending}
-                onClick={() =>
-                  remove.mutate(event.id, {
-                    onSuccess: () => {
-                      toast.success("Event deleted");
-                      onClose();
-                    },
-                    onError: () => toast.error("Could not delete the event."),
-                  })
-                }
+                onClick={() => setConfirming(true)}
               >
                 Delete
               </Button>
@@ -343,6 +339,37 @@ function EventDialog({
             {canEdit && <Button type="submit">Save</Button>}
           </div>
         </form>
+        {event && (
+          <Dialog open={confirming} onOpenChange={setConfirming}>
+            <DialogContent>
+              <DialogTitle className="text-base font-semibold">Delete {event.title}?</DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                The event will be removed from the lab calendar.
+              </DialogDescription>
+              <div className="flex justify-end gap-2">
+                <DialogClose asChild>
+                  <Button variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button
+                  variant="destructive"
+                  disabled={remove.isPending}
+                  onClick={() =>
+                    remove.mutate(event.id, {
+                      onSuccess: () => {
+                        toast.success("Event deleted");
+                        setConfirming(false);
+                        onClose();
+                      },
+                      onError: () => toast.error("Could not delete the event."),
+                    })
+                  }
+                >
+                  Delete event
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </DialogContent>
     </Dialog>
   );

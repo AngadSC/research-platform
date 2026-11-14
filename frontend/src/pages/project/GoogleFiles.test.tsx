@@ -108,6 +108,7 @@ class FakeXHR {
 }
 
 beforeEach(() => {
+  window.innerWidth = 1920;
   FakeXHR.sent = [];
   document.cookie = "csrftoken=t";
   vi.stubGlobal("XMLHttpRequest", FakeXHR);

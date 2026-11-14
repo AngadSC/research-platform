@@ -17,6 +17,7 @@ import { FormError } from "@/components/shared/FormError";
 import {
   announcePanel,
   DockHandle,
+  dockCap,
   PANEL_OPENED,
   type PanelName,
 } from "@/components/shared/DockHandle";
@@ -685,7 +686,7 @@ const MAX_W = 640;
 const STRIP_W = 40;
 type Dock = { mode: "open" | "strip" | "closed"; width: number };
 const clampWidth = (w: number) =>
-  Math.round(Math.min(Math.max(w, MIN_W), Math.max(MIN_W, Math.min(MAX_W, window.innerWidth / 2))));
+  Math.round(Math.min(Math.max(w, MIN_W), Math.min(MAX_W, window.innerWidth / 2, dockCap(MIN_W))));
 
 function readDock(): Dock {
   try {
@@ -721,6 +722,12 @@ export function AssistantDrawer({ labId }: { labId: string }) {
   const wide = useWide();
   const [open, setOpen] = useState(false); // the phone sheet
   const [dock, setDock] = useState(readDock);
+  useEffect(() => {
+    const fit = () =>
+      setDock((d) => (clampWidth(d.width) === d.width ? d : { ...d, width: clampWidth(d.width) }));
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
   const [mounted, setMounted] = useState(dock.mode !== "closed"); // keeps the chat once started
   const [prefill, setPrefill] = useState({ text: "", n: 0 });
   const params = Object.assign({}, ...useMatches().map((m) => m.params)) as Record<
@@ -860,7 +867,7 @@ export function AssistantDrawer({ labId }: { labId: string }) {
                 label="Resize the assistant"
                 width={dock.width}
                 min={MIN_W}
-                max={MAX_W}
+                max={Math.min(MAX_W, dockCap(MIN_W))}
                 onWidth={(w) => setDock((d) => ({ ...d, width: clampWidth(w) }))}
               />
             )}

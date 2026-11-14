@@ -1,9 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { announcePanel } from "@/components/shared/DockHandle";
 import { GoogleEditorPanel } from "@/components/shared/GoogleEditorPanel";
 
+beforeEach(() => {
+  window.innerWidth = 1920;
+});
 afterEach(() => localStorage.clear());
 
 const panel = (onClose = vi.fn()) =>
@@ -26,6 +29,13 @@ describe("Google editor panel", () => {
     handle.focus();
     await userEvent.keyboard("{ArrowLeft}");
     expect(handle).toHaveAttribute("aria-valuenow", "584");
+  });
+
+  it("never leaves the page less than 640px beside the sidebar", () => {
+    window.innerWidth = 1280;
+    panel();
+    const handle = screen.getByRole("separator", { name: "Resize panel" });
+    expect(handle).toHaveAttribute("aria-valuemax", "384");
   });
 
   it("closes when the assistant opens", () => {

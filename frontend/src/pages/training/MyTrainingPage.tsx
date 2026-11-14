@@ -75,6 +75,7 @@ export function MyTrainingPage() {
         description="Trainings the lab requires of you, and your own records. Only you and the PI or lab admins can see them."
       />
       <div className="grid gap-8">
+        {manager && <TrainingSection labId={labId} />}
         <Section title="Required trainings" description="Where you stand today.">
           {mine.isLoading ? (
             <Skeleton className="h-24 w-full" />
@@ -235,7 +236,6 @@ export function MyTrainingPage() {
             </ul>
           )}
         </Section>
-        {manager && <TrainingSection labId={labId} />}
       </div>
     </>
   );

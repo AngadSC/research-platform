@@ -175,7 +175,10 @@ export function MeetingDialog({
         <DialogTitle className="text-base font-semibold">
           {meeting ? meeting.title : "Add a meeting"}
         </DialogTitle>
-        <DialogDescription className="sr-only">Calendar meeting</DialogDescription>
+        <DialogDescription className="text-sm text-muted-foreground">
+          A meeting with people and a time. For a lab date, like a deadline or holiday, use Add
+          event.
+        </DialogDescription>
         {call && (
           <p className="text-sm text-muted-foreground">
             {CALL_NAME[call]} call on{" "}

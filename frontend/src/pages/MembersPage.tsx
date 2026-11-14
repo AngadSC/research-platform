@@ -312,6 +312,17 @@ export function MembersPage() {
     <>
       <PageHeader title="Members" description={lab ? `People in ${lab.name}.` : undefined} />
       {canManage && <InviteForm labId={labId} />}
+      <details className="mb-6 rounded-md border px-3 py-2 text-sm">
+        <summary className="cursor-pointer font-medium">What each role can do</summary>
+        <dl className="mt-2 grid gap-1.5">
+          {ROLES.map((r) => (
+            <div key={r.value}>
+              <dt className="inline font-medium">{r.label}: </dt>
+              <dd className="inline text-muted-foreground">{r.help}</dd>
+            </div>
+          ))}
+        </dl>
+      </details>
       <section className="mb-8 grid gap-3">
         <h2 className="text-base font-semibold">People</h2>
         <DataTable
