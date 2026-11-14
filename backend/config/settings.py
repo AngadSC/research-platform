@@ -240,10 +240,6 @@ CELERY_BEAT_SCHEDULE = {
         "task": "training.jobs.send_weekly_digest",
         "schedule": crontab(hour=7, minute=0, day_of_week=1),
     },
-    "task-digests": {  # each person's own morning, so it runs every hour
-        "task": "projects.digest.send_task_digests",
-        "schedule": crontab(minute=5),
-    },
     "assistant-prune-clients": {  # D200
         "task": "assistant.jobs.prune_unused_clients",
         "schedule": crontab(hour=3, minute=0),

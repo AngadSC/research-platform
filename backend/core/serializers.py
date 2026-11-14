@@ -53,8 +53,6 @@ PREFERENCE_CHOICES = {
     "theme": ("light", "dark", "system"),
     "task_view": ("board", "list"),
     # Notifications they control, and small touches. Hours are 0-23 in the person's own zone.
-    "digest": ("on", "off"),  # a morning email of what is due, instead of a stream of pings
-    "digest_hour": tuple(str(h) for h in range(24)),
     "quiet": ("on", "off"),  # no email in these hours; it waits until they end
     "quiet_start": tuple(str(h) for h in range(24)),
     "quiet_end": tuple(str(h) for h in range(24)),

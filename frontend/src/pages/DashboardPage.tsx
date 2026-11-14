@@ -11,6 +11,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 import { ContributionGraph } from "@/components/dashboard/ContributionGraph";
 import { GettingStarted } from "@/components/dashboard/GettingStarted";
+import { MorningDigest } from "@/components/dashboard/MorningDigest";
 import { Today } from "@/components/dashboard/Today";
 import { FormError } from "@/components/shared/FormError";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -373,6 +374,7 @@ export function DashboardPage() {
         title="Home"
         description={lab && `${lab.name} · You are ${roleLabel(lab.my_role ?? "")}`}
       />
+      {lab && <MorningDigest labId={labId} />}
       {lab && !allowed && <Today labId={labId} />}
       <GettingStarted labId={labId} />
       <Recents />

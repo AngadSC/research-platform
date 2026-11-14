@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { localDateISO } from "@/lib/format";
@@ -82,5 +82,30 @@ describe("Today", () => {
     expect(calls.find((c) => c.path.endsWith("/tasks/b/"))!.body).toMatchObject({
       snoozed_until: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
     });
+  });
+
+  it("opens the morning digest in the app, with what is due and what is coming", async () => {
+    mockFetch(
+      handlers([
+        t("a", "Late thing", addDays(today, -2)),
+        t("b", "Due thing", today),
+        t("c", "Next week thing", addDays(today, 4)),
+        t("d", "Snoozed thing", today, addDays(today, 3)),
+      ]),
+    );
+    renderRoute("/labs/lab1/dashboard");
+    const card = await screen.findByRole("button", { name: /Morning digest/ });
+    await waitFor(() => expect(card).toHaveTextContent("1 due today · 1 overdue"));
+    await userEvent.click(card);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("region", { name: "Overdue" })).toHaveTextContent("Late thing");
+    expect(within(dialog).getByRole("region", { name: "Due today" })).toHaveTextContent(
+      "Due thing",
+    );
+    expect(within(dialog).getByRole("region", { name: "Coming up this week" })).toHaveTextContent(
+      "Next week thing",
+    );
+    expect(dialog).not.toHaveTextContent("Snoozed thing");
+    expect(dialog).toHaveTextContent("1 snoozed task resting");
   });
 });

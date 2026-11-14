@@ -6,8 +6,6 @@ import type { User } from "@/lib/api-types";
 import { Section } from "@/pages/admin/common";
 
 type Prefs = {
-  digest?: "on" | "off";
-  digest_hour?: string;
   quiet?: "on" | "off";
   quiet_start?: string;
   quiet_end?: string;
@@ -16,7 +14,6 @@ type Prefs = {
 
 const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12}:00 ${h < 12 ? "am" : "pm"}`;
 const HOURS = Array.from({ length: 24 }, (_, h) => ({ value: String(h), label: hourLabel(h) }));
-const MORNING = HOURS.slice(5, 12);
 
 function useSavePrefs() {
   const qc = useQueryClient();
@@ -88,32 +85,14 @@ function HourSelect({
   );
 }
 
-/** What reaches you, and when (D299): a morning digest instead of a stream, quiet hours for
- * email, and the small animations. Hours are in the time zone this browser is in. */
+/** What reaches you, and when (D299): quiet hours for email, and the small animations. The
+ * morning digest is a card on Home, not an email. Hours are in the time zone this browser is in. */
 export function NotificationSettings() {
   const prefs = ((useMe().data as { preferences?: Prefs } | undefined)?.preferences ?? {}) as Prefs;
   const save = useSavePrefs();
-  const digestOn = prefs.digest === "on";
   const quietOn = prefs.quiet === "on";
   return (
     <>
-      <Section
-        title="Your morning digest"
-        description="One email each morning with what is due today and what is overdue, instead of a message for every change. Nothing is sent on a day with nothing due."
-      >
-        <Toggle
-          label="Email me a daily digest"
-          checked={digestOn}
-          onChange={(on) => save.mutate({ digest: on ? "on" : "off" })}
-        />
-        <HourSelect
-          label="Send it at"
-          value={prefs.digest_hour ?? "8"}
-          options={MORNING}
-          disabled={!digestOn}
-          onChange={(digest_hour) => save.mutate({ digest_hour })}
-        />
-      </Section>
       <Section
         title="Quiet hours"
         description="Email waits until quiet hours end. Notices still appear in the app straight away, so nothing is lost."

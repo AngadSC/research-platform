@@ -9,7 +9,6 @@ from core.notifications import notify
 from core.permissions import Perm, can, forget, users_with
 from labs.models import Lab
 from projects import services
-from projects.digest import send_task_digests  # noqa: F401  (registers the hourly digest task)
 
 
 def _item(kind, obj, label, project):

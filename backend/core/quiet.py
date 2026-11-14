@@ -1,11 +1,10 @@
-"""Quiet hours and the morning digest times, from a person's own preferences. Hours are 0-23 in
+"""Quiet hours, from a person's own preferences. Hours are 0-23 in
 the time zone the app saved for them (D291); a bad or missing value falls back to UTC."""
 
 import datetime
 from zoneinfo import ZoneInfo
 
 DEFAULT_QUIET = (22, 7)
-DEFAULT_DIGEST_HOUR = 8
 
 
 def _hour(value, default: int) -> int:
@@ -51,15 +50,3 @@ def quiet_release(user, now: datetime.datetime) -> datetime.datetime | None:
     if release <= local:
         release += datetime.timedelta(days=1)
     return release
-
-
-def digest_hour(user) -> int:
-    """The hour to send the digest: the chosen hour, or when quiet hours end if it falls inside."""
-    prefs = user.preferences or {}
-    hour = _hour(prefs.get("digest_hour"), DEFAULT_DIGEST_HOUR)
-    window = quiet_window(user)
-    if window is None:
-        return hour
-    start, end = window
-    inside = start <= hour < end if start < end else hour >= start or hour < end
-    return end if inside else hour
