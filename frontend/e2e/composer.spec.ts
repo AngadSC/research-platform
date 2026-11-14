@@ -18,7 +18,7 @@ test("chat composer: format, emoji, @mention, and the mentioned person is told",
   await page.getByRole("button", { name: "Bold", exact: true }).click();
   await expect(box).toHaveValue(`**bold test ${stamp}**`);
 
-  await box.press("Control+End");
+  await box.press(process.platform === "darwin" ? "Meta+ArrowDown" : "Control+End"); // to the end
   await page.getByRole("button", { name: "Emoji", exact: true }).click();
   await page.getByLabel("Search emoji").fill("rocket");
   await page.getByRole("button", { name: /rocket/ }).click();
