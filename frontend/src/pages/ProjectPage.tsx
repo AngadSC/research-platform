@@ -9,7 +9,7 @@ import {
   useParams,
   useSearchParams,
 } from "react-router";
-import { MessagesSquare } from "lucide-react";
+import { MessagesSquare, MoreHorizontal, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { DetailPanel } from "@/components/shared/DetailPanel";
 import { FormError } from "@/components/shared/FormError";
@@ -23,6 +23,13 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UnreadBadge } from "@/components/layout/UnreadBadge";
 import { useUnreadChats } from "@/hooks/chat";
@@ -121,56 +128,75 @@ export function ProjectPage() {
 
   return (
     <>
-      <div
-        aria-hidden
-        style={projectColorStyle(project.color)}
-        className="mb-3 h-1 w-16 rounded-full bg-(--project)"
-      />
-      <PageHeader
-        title={project.name}
-        description={undefined}
-        actions={
-          <>
-            <StatusBadge status={project.status} />
-            <Button
-              variant="outline"
-              aria-label={unread > 0 ? `Chat, ${unread} unread` : undefined}
-              onClick={() => setChatOpen(true)}
-            >
-              <MessagesSquare aria-hidden /> Chat
-              <UnreadBadge count={unread} noun="message" decorative />
-            </Button>
-            {can("export") && (
+      <div style={projectColorStyle(project.color)} className="border-l-4 border-(--project) pl-4">
+        <PageHeader
+          title={project.name}
+          description={undefined}
+          actions={
+            <>
+              <StatusBadge status={project.status} />
               <Button
-                variant="outline"
-                disabled={exportProject.isPending}
-                onClick={() =>
-                  exportProject.mutate(undefined, {
-                    onSuccess: (d) => {
-                      const base = project.name.replace(/[^\w-]+/g, "-").replace(/^-+|-+$/g, "");
-                      saveJson(d, `${base || "project"}-export.json`);
-                      toast.success("Project exported");
-                    },
-                    onError: (e) => toast.error(formErrors(e, []).form ?? "Export failed."),
-                  })
-                }
+                variant="ghost"
+                aria-label={unread > 0 ? `Chat, ${unread} unread` : undefined}
+                onClick={() => setChatOpen(true)}
               >
-                Export project
+                <MessagesSquare aria-hidden /> Chat
+                <UnreadBadge count={unread} noun="message" decorative />
               </Button>
-            )}
-            {can("edit_project") && (
-              <Button variant="outline" onClick={() => setEditing(true)}>
-                Edit
-              </Button>
-            )}
-            {can("delete_project") && (
-              <Button variant="outline" onClick={() => setDeleting(true)}>
-                Delete
-              </Button>
-            )}
-          </>
-        }
-      />
+              {can("edit_project") && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Edit"
+                  title="Edit project"
+                  onClick={() => setEditing(true)}
+                >
+                  <Pencil aria-hidden />
+                </Button>
+              )}
+              {(can("export") || can("delete_project")) && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" aria-label="More project actions">
+                      <MoreHorizontal aria-hidden />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {can("export") && (
+                      <DropdownMenuItem
+                        disabled={exportProject.isPending}
+                        onSelect={() =>
+                          exportProject.mutate(undefined, {
+                            onSuccess: (d) => {
+                              const base = project.name
+                                .replace(/[^\w-]+/g, "-")
+                                .replace(/^-+|-+$/g, "");
+                              saveJson(d, `${base || "project"}-export.json`);
+                              toast.success("Project exported");
+                            },
+                            onError: (e) => toast.error(formErrors(e, []).form ?? "Export failed."),
+                          })
+                        }
+                      >
+                        Export project
+                      </DropdownMenuItem>
+                    )}
+                    {can("export") && can("delete_project") && <DropdownMenuSeparator />}
+                    {can("delete_project") && (
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onSelect={() => setDeleting(true)}
+                      >
+                        Delete
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </>
+          }
+        />
+      </div>
       {/* The sidebar dropdown holds these from md up; below that the sidebar is a drawer. */}
       <TabNav
         label="Project sections"

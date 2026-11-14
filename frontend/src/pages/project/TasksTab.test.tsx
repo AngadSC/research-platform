@@ -68,14 +68,15 @@ describe("projects", () => {
     renderRoute("/labs/lab1/projects/p1");
     expect(await screen.findByRole("heading", { name: "Gut study" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More project actions" })).not.toBeInTheDocument();
   });
 
   it("shows edit and delete with permission", async () => {
     mockFetch(base(["view_project", "edit_project", "delete_project"]));
     renderRoute("/labs/lab1/projects/p1");
     expect(await screen.findByRole("button", { name: "Edit" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await userEvent.click(screen.getByRole("button", { name: "More project actions" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
     expect(await screen.findByText(/soft delete/)).toBeInTheDocument();
   });
 });
@@ -87,6 +88,24 @@ describe("tasks", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Save" }));
     expect(await screen.findByText("Enter a title")).toBeInTheDocument();
     expect(calls.some((c) => c.method === "POST")).toBe(false);
+  });
+
+  it("starts a task from a document already linked to it", async () => {
+    const calls = mockFetch({
+      ...base(["edit_content"], [task("t1", "Seed")]),
+      "GET /api/labs/lab1/projects/p1/documents/": {
+        body: [{ id: "d1", title: "Manuscript", embed_url: "" }],
+      },
+      "POST /api/labs/lab1/projects/p1/tasks/": { status: 201, body: task("t2", "Manuscript") },
+      "POST /api/labs/lab1/tasks/t2/documents/": { body: task("t2", "Manuscript") },
+    });
+    renderRoute(`${TASKS}?new=task&document=d1&title=Manuscript`);
+    expect(await screen.findByLabelText("Title")).toHaveValue("Manuscript");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.path.endsWith("/tasks/t2/documents/"))).toBe(true),
+    );
+    expect(calls.find((c) => c.path.endsWith("/tasks/t2/documents/"))!.body).toEqual({ id: "d1" });
   });
 
   it("moves a task with the menu, and rolls back on error", async () => {

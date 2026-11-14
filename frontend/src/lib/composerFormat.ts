@@ -116,19 +116,83 @@ export function mentionAt(value: string, caret: number): { start: number; query:
   return m ? { start: caret - m[2]!.length - 1, query: m[2]! } : null;
 }
 
-/**
- * The stored form of a mention: `@[Name](user:<id>)`. Square brackets in a name
- * would break it; round ones are fine. */
-export const mentionToken = (name: string, id: string) =>
-  `@[${name.replace(/[[\]\n]/g, "").trim() || "Someone"}](user:${id})`;
+/** A name as written in a mention. Square brackets would break the stored form; round ones,
+ * as in "Lee Lead (FAKE)", are kept. */
+export const mentionName = (name: string) => name.replace(/[[\]\n]/g, "").trim() || "Someone";
 
-/** Swaps the "@query" being typed for a finished mention and a space. */
+/** The stored form of a mention: `@[Name](user:<id>)`. It is what is saved and what notifies the
+ * person; the text box shows only `@Name` (D295). */
+export const mentionToken = (name: string, id: string) => `@[${mentionName(name)}](user:${id})`;
+
+const STORED_MENTION = /@\[([^\]\n]{1,100})\]\(user:([0-9a-fA-F-]{36})\)/g;
+
+/** Stored text as the box shows it: every `@[Name](user:<id>)` becomes just `@Name`. */
+export const toDisplay = (stored: string) =>
+  stored.replace(STORED_MENTION, (_m, name) => `@${name}`);
+
+/** Who an `@Name` in the box means, by the name shown. A name that two different people share
+ * maps to `null`: it is left as plain text rather than notifying the wrong person. */
+export type NameIndex = Map<string, string | null>;
+
+/** The people who can be mentioned plus anyone already mentioned in `stored`. */
+export function nameIndex(people: { id: string; name: string }[], stored: string): NameIndex {
+  const index: NameIndex = new Map();
+  const add = (name: string, id: string) => {
+    const key = mentionName(name);
+    const seen = index.get(key);
+    index.set(key, seen === undefined || seen === id ? id : null);
+  };
+  for (const p of people) add(p.name, p.id);
+  for (const m of stored.matchAll(STORED_MENTION)) add(m[1]!, m[2]!);
+  return index;
+}
+
+/** Inline code and fenced blocks: a name written there is just text. An unclosed fence counts
+ * as code to the end, since it is still being written. */
+const CODE_SPANS = /(```[\s\S]*?(?:```|$)|`[^`\n]*`)/;
+
+function convertMentions(text: string, index: NameIndex, startsWord: boolean): string {
+  if (!text.includes("@")) return text;
+  const names = [...index.keys()].sort((a, b) => b.length - a.length); // "Ada Lovelace" before "Ada"
+  let out = "";
+  let i = 0;
+  while (i < text.length) {
+    const wordStart = i === 0 ? startsWord : /[\s([{"'>]/.test(text[i - 1]!);
+    if (text[i] === "@" && wordStart) {
+      const name = names.find(
+        (n) => text.startsWith(n, i + 1) && !/[\p{L}\p{N}_]/u.test(text[i + 1 + n.length] ?? ""),
+      );
+      const id = name === undefined ? null : index.get(name);
+      if (name !== undefined && id) {
+        out += mentionToken(name, id);
+        i += 1 + name.length;
+        continue;
+      }
+    }
+    out += text[i];
+    i += 1;
+  }
+  return out;
+}
+
+/** The box's text back into the stored form: each `@Name` that is still written out in full, at
+ * the start of a word, not running into more letters and not inside code, becomes its mention.
+ * Anything else (a half-deleted name, an email address) stays as typed, so a mention exists only
+ * while its name is there. */
+export function toStored(text: string, index: NameIndex): string {
+  if (index.size === 0 || !text.includes("@")) return text;
+  return text
+    .split(CODE_SPANS)
+    .map((part, i) => (i % 2 === 1 ? part : convertMentions(part, index, i === 0)))
+    .join("");
+}
+
+/** Swaps the "@query" being typed for the person's name and a space. */
 export function applyMention(
   value: string,
   at: { start: number; query: string },
   name: string,
-  id: string,
 ): Edit {
   const end = at.start + 1 + at.query.length;
-  return insertText(value, at.start, end, `${mentionToken(name, id)} `);
+  return insertText(value, at.start, end, `@${mentionName(name)} `);
 }

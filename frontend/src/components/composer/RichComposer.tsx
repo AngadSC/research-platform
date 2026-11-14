@@ -2,6 +2,7 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
@@ -30,7 +31,10 @@ import {
   insertLink,
   insertText,
   mentionAt,
+  nameIndex,
   prefixLines,
+  toDisplay,
+  toStored,
   wrap,
   type Edit,
 } from "@/lib/composerFormat";
@@ -77,7 +81,11 @@ const mod = (e: KeyboardEvent) => (e.ctrlKey || e.metaKey) && !e.altKey;
 
 /** A message box with a formatting toolbar, emoji, @mentions and send on Enter (D260). It is a
  * plain textarea holding simple markdown, so what is stored is what `MessageText` renders. Put it
- * inside a `<form>`: Enter, and the Send button, submit that form. */
+ * inside a `<form>`: Enter, and the Send button, submit that form.
+ *
+ * `value` and `onChange` carry the stored text, where a mention is `@[Name](user:<id>)`. The box
+ * itself shows only `@Name` and converts both ways (D295), so the code never shows up while
+ * writing or editing. Everything inside works on the shown text, and its caret positions. */
 export function RichComposer({
   value,
   onChange,
@@ -108,6 +116,12 @@ export function RichComposer({
   className?: string;
   footer?: ReactNode;
 }) {
+  // What the person typed, kept so the caret and wording stay as they wrote them. It is used only
+  // while it still means `value`; if the parent changes `value` (a reset, an edit opened), the box
+  // shows that value instead.
+  const [typed, setTyped] = useState<string>();
+  const names = useMemo(() => nameIndex(people ?? [], value), [people, value]);
+  const text = typed !== undefined && toStored(typed, names) === value ? typed : toDisplay(value);
   const ref = useRef<HTMLTextAreaElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const pending = useRef<Edit>(undefined);
@@ -130,9 +144,9 @@ export function RichComposer({
     el.focus();
     el.setSelectionRange(p.start, p.end);
     setCaret(p.end);
-  }, [value]);
+  }, [text]);
 
-  const at = people ? mentionAt(value, caret) : null;
+  const at = people ? mentionAt(text, caret) : null;
   const q = at?.query.toLowerCase() ?? "";
   const matches =
     at && at.start !== dismissed
@@ -157,28 +171,33 @@ export function RichComposer({
   const current = Math.min(active, matches.length - 1);
   const optionId = (i: number) => `${uid}-person-${i}`;
 
+  /** Takes the shown text, passes on its stored form. False when that would be too long to save
+   * (a mention is longer stored than shown), in which case nothing changes. */
+  function change(next: string): boolean {
+    const stored = toStored(next, names);
+    if (maxLength !== undefined && stored.length > maxLength) return false;
+    setTyped(next);
+    onChange(stored);
+    return true;
+  }
   function apply(edit: Edit) {
-    pending.current = edit;
-    onChange(edit.value);
+    pending.current = change(edit.value) ? edit : undefined;
   }
   const sel = () =>
-    [
-      ref.current?.selectionStart ?? value.length,
-      ref.current?.selectionEnd ?? value.length,
-    ] as const;
+    [ref.current?.selectionStart ?? text.length, ref.current?.selectionEnd ?? text.length] as const;
   const format = (fn: (s: number, e: number) => Edit) => {
     const [s, e] = sel();
     apply(fn(s, e));
   };
   const actions: Actions = {
-    bold: () => format((s, e) => wrap(value, s, e, "**", "**", "bold")),
-    italic: () => format((s, e) => wrap(value, s, e, "_", "_", "italic")),
-    strike: () => format((s, e) => wrap(value, s, e, "~~", "~~", "strike")),
-    code: () => format((s, e) => wrap(value, s, e, "`", "`", "code")),
-    codeBlock: () => format((s, e) => codeBlock(value, s, e)),
-    numbered: () => format((s, e) => prefixLines(value, s, e, "number")),
-    bullets: () => format((s, e) => prefixLines(value, s, e, "bullet")),
-    quote: () => format((s, e) => prefixLines(value, s, e, "quote")),
+    bold: () => format((s, e) => wrap(text, s, e, "**", "**", "bold")),
+    italic: () => format((s, e) => wrap(text, s, e, "_", "_", "italic")),
+    strike: () => format((s, e) => wrap(text, s, e, "~~", "~~", "strike")),
+    code: () => format((s, e) => wrap(text, s, e, "`", "`", "code")),
+    codeBlock: () => format((s, e) => codeBlock(text, s, e)),
+    numbered: () => format((s, e) => prefixLines(text, s, e, "number")),
+    bullets: () => format((s, e) => prefixLines(text, s, e, "bullet")),
+    quote: () => format((s, e) => prefixLines(text, s, e, "quote")),
     link: () => {
       const [start, end] = sel();
       setLink({ start, end });
@@ -196,22 +215,22 @@ export function RichComposer({
     }
     const { start, end } = link;
     setLink(undefined);
-    apply(insertLink(value, start, end, clean));
+    apply(insertLink(text, start, end, clean));
   }
 
-  function insertAtCaret(text: string) {
+  function insertAtCaret(inserted: string) {
     const [s, e] = sel();
-    apply(insertText(value, s, e, text));
+    apply(insertText(text, s, e, inserted));
   }
 
   function pick(person: Person) {
-    if (at) apply(applyMention(value, at, person.name, person.id));
+    if (at) apply(applyMention(text, at, person.name));
   }
 
   function startMention() {
     const [s, e] = sel();
-    const before = value.slice(0, s);
-    apply(insertText(value, s, e, before && !/\s$/.test(before) ? " @" : "@"));
+    const before = text.slice(0, s);
+    apply(insertText(text, s, e, before && !/\s$/.test(before) ? " @" : "@"));
   }
 
   function toggleToolbar() {
@@ -254,7 +273,7 @@ export function RichComposer({
       const send = enterToSend ? !e.shiftKey && !mod(e) : mod(e);
       if (send) {
         e.preventDefault();
-        if (value.trim()) e.currentTarget.form?.requestSubmit();
+        if (text.trim()) e.currentTarget.form?.requestSubmit();
       } else if (enterToSend && mod(e)) {
         e.preventDefault(); // Ctrl+Enter is a line break too, as in most chats
         insertAtCaret("\n");
@@ -362,12 +381,12 @@ export function RichComposer({
           aria-autocomplete={people ? "list" : undefined}
           aria-controls={listOpen ? `${uid}-people` : undefined}
           aria-activedescendant={listOpen ? optionId(current) : undefined}
-          value={value}
+          value={text}
           maxLength={maxLength}
           rows={rows}
           placeholder={placeholder}
           onChange={(e) => {
-            onChange(e.target.value);
+            if (!change(e.target.value)) return;
             setCaret(e.target.selectionStart);
             setActive(0);
             if (people && !mentionAt(e.target.value, e.target.selectionStart))
@@ -449,7 +468,7 @@ export function RichComposer({
               type="submit"
               size="sm"
               className="ml-auto"
-              disabled={!value.trim() || submitting}
+              disabled={!text.trim() || submitting}
             >
               <Send aria-hidden /> {submitLabel}
             </Button>

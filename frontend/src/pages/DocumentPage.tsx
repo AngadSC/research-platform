@@ -1,6 +1,6 @@
-import { MoreHorizontal } from "lucide-react";
+import { ListPlus, Maximize2, Minimize2, MoreHorizontal } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useBlocker, useNavigate, useParams } from "react-router";
+import { Link, useBlocker, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { ConflictDialog } from "@/components/documents/ConflictDialog";
 import { StaleDocumentBanner } from "@/components/documents/StaleDocumentBanner";
@@ -40,12 +40,13 @@ import {
   useSaveDocument,
 } from "@/hooks/documents";
 import { useMentionPeople } from "@/hooks/mentions";
-import { useProject } from "@/hooks/projects";
+import { useProject, useTasks } from "@/hooks/projects";
 import { useLab } from "@/hooks/workspace";
 import { ApiError } from "@/lib/api";
 import type { DocumentConflict, DocumentFull } from "@/lib/api-types";
 import { useAuth } from "@/hooks/auth";
 import { blocksToText } from "@/lib/blocks";
+import { NewTaskPanel } from "@/pages/project/NewTaskPanel";
 import { formErrors } from "@/lib/forms";
 import { cn } from "@/lib/utils";
 
@@ -55,6 +56,56 @@ const RichEditor = lazy(() => import("@/components/documents/RichEditor"));
 const AUTOSAVE_MS = 3000;
 /** The editor and the embed frame fill what the shell and the project header leave. */
 const FILL_HEIGHT = "min-h-[calc(100dvh-16rem)]";
+
+/** The tasks that point at this document, and the "add a task from this document" button. The
+ * task starts out linked to the document, so its deadline and the manuscript meet. */
+function DocumentTasks({
+  labId,
+  projectId,
+  doc,
+  canEdit,
+}: {
+  labId: string;
+  projectId: string;
+  doc: DocumentFull;
+  canEdit: boolean;
+}) {
+  const tasks = (useTasks(labId, projectId).list.data ?? []).filter((t) =>
+    t.documents.some((d) => d.id === doc.id),
+  );
+  const [adding, setAdding] = useState(false);
+  if (!canEdit && tasks.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      {canEdit && (
+        <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
+          <ListPlus aria-hidden /> Add a task from this document
+        </Button>
+      )}
+      {tasks.map((t) => (
+        <Link
+          key={t.id}
+          to={`/labs/${labId}/projects/${projectId}/tasks?task=${t.id}`}
+          className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs hover:bg-muted"
+        >
+          <span className="font-medium">{t.title}</span>
+          <span className="text-muted-foreground">
+            {t.status === "done" ? "Done" : t.due_date ? `due ${t.due_date}` : "no due date"}
+          </span>
+        </Link>
+      ))}
+      {adding && (
+        <NewTaskPanel
+          labId={labId}
+          projectId={projectId}
+          document={doc.id}
+          title={doc.title}
+          onClose={() => setAdding(false)}
+        />
+      )}
+    </div>
+  );
+}
 
 type Panel = "history" | "retention" | "links" | "delete";
 type SaveState = "idle" | "saving" | "saved" | "failed";
@@ -145,6 +196,27 @@ function DocumentEditor({
   onReload: () => Promise<void>;
 }) {
   const navigate = useNavigate();
+  // Focus mode lives in the address, so a reload or a shared link keeps it.
+  const [params, setParams] = useSearchParams();
+  const focus = params.get("focus") === "1";
+  const setFocus = (on: boolean) =>
+    setParams(
+      (p) => {
+        if (on) p.set("focus", "1");
+        else p.delete("focus");
+        return p;
+      },
+      { replace: true },
+    );
+  useEffect(() => {
+    if (!focus) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !document.querySelector('[role="dialog"]')) setFocus(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setFocus only touches the address
+  }, [focus]);
   const save = useSaveDocument(labId, doc.id);
   const people = useMentionPeople(labId, projectId || undefined);
   const { mutateAsync } = save;
@@ -382,7 +454,13 @@ function DocumentEditor({
   };
 
   return (
-    <div className={cn("flex flex-col gap-2", FILL_HEIGHT)}>
+    <div
+      className={cn(
+        "flex flex-col gap-2",
+        // Focus mode: the document takes the whole window, over the sidebar and project header.
+        focus ? "fixed inset-0 z-40 overflow-auto bg-background p-3" : FILL_HEIGHT,
+      )}
+    >
       {dialog}
       <div className="flex items-start gap-2">
         <Input
@@ -415,6 +493,16 @@ function DocumentEditor({
             </>
           )}
         </span>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-1 shrink-0"
+          aria-pressed={focus}
+          onClick={() => setFocus(!focus)}
+        >
+          {focus ? <Minimize2 aria-hidden /> : <Maximize2 aria-hidden />}
+          {focus ? "Exit focus" : "Focus"}
+        </Button>
         {doc.embed_url && doc.embed_open_url && (
           <Button variant="outline" size="sm" asChild className="mt-1 shrink-0">
             <a href={doc.embed_open_url} target="_blank" rel="noopener noreferrer">
@@ -465,6 +553,9 @@ function DocumentEditor({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      {projectId && (
+        <DocumentTasks labId={labId} projectId={projectId} doc={doc} canEdit={canEdit} />
+      )}
       <StaleDocumentBanner
         labId={labId}
         projectId={projectId}
@@ -481,10 +572,12 @@ function DocumentEditor({
           // links open in a new, unsandboxed tab.
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
           referrerPolicy="no-referrer"
-          className={cn("w-full flex-1 rounded-lg border", FILL_HEIGHT)}
+          className={cn("w-full flex-1 rounded-md border-0", focus ? "min-h-0" : FILL_HEIGHT)}
         />
       ) : (
-        <Suspense fallback={<Skeleton className={cn("w-full flex-1", FILL_HEIGHT)} />}>
+        <Suspense
+          fallback={<Skeleton className={cn("w-full flex-1", focus ? "min-h-0" : FILL_HEIGHT)} />}
+        >
           <RichEditor
             initialContent={initial}
             editable={canEdit}
@@ -492,7 +585,9 @@ function DocumentEditor({
             people={people}
             className={cn(
               "flex-1 rounded-none border-0 bg-transparent py-0",
-              "[&_.bn-editor]:min-h-[calc(100dvh-16rem)]", // the whole area takes the click
+              focus
+                ? "[&_.bn-editor]:min-h-[calc(100dvh-5rem)]"
+                : "[&_.bn-editor]:min-h-[calc(100dvh-16rem)]", // the whole area takes the click
             )}
             onChange={(b) => {
               content.current = b;

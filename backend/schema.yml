@@ -17440,10 +17440,13 @@ components:
           type: boolean
         marked:
           type: boolean
+        recorded:
+          type: boolean
       required:
       - done
       - key
       - marked
+      - recorded
     ZoteroImport:
       type: object
       properties:

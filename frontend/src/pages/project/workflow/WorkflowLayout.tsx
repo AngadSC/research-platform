@@ -1,5 +1,5 @@
 import { useIsMutating } from "@tanstack/react-query";
-import { Check, FlaskConical, GitBranch } from "lucide-react";
+import { Check, FlaskConical, GitBranch, Minus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, NavLink, Outlet, useLocation, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -65,25 +65,39 @@ export function WorkflowLayout(props: ProjectTabProps) {
             {shownSections(project).map(([key, name]) => {
               const stage = stages.find((s) => s.key === key);
               const isNext = key === next;
+              // Three different things: finished, skipped on purpose, and the one to do now.
+              const notNeeded = !!stage?.marked && !stage.recorded;
+              const finished = !!stage?.done && !notNeeded;
               return (
                 <li
                   key={key}
                   className={cn(
                     "relative min-w-20 flex-1 after:absolute after:top-3.5 after:left-1/2 after:h-0.5 after:w-full after:bg-border last:after:hidden",
-                    stage?.done && "after:bg-primary",
+                    finished && "after:bg-primary",
                   )}
                 >
                   <NavLink
                     to={key}
                     aria-label={
-                      stage?.done ? `${name} (done)` : isNext ? `${name} (do this next)` : undefined
+                      notNeeded
+                        ? `${name} (not needed)`
+                        : finished
+                          ? `${name} (done)`
+                          : isNext
+                            ? `${name} (do this next)`
+                            : undefined
                     }
                     className={({ isActive }) =>
                       cn(
                         "relative z-10 flex flex-col items-center gap-1 rounded-md px-1 py-0.5 text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                        isNext ? "font-bold" : "font-medium",
                         isActive
-                          ? "font-semibold text-primary"
-                          : "font-medium text-muted-foreground hover:text-foreground",
+                          ? "text-primary underline decoration-2 underline-offset-4"
+                          : notNeeded
+                            ? "text-muted-foreground/70 hover:text-foreground"
+                            : isNext
+                              ? "text-foreground"
+                              : "text-muted-foreground hover:text-foreground",
                       )
                     }
                   >
@@ -91,14 +105,17 @@ export function WorkflowLayout(props: ProjectTabProps) {
                       aria-hidden
                       className={cn(
                         "grid size-6 place-items-center rounded-full border-2 [&_svg]:size-3.5",
-                        stage?.done
+                        finished
                           ? "border-primary bg-primary text-primary-foreground"
-                          : isNext
-                            ? "border-primary bg-background ring-2 ring-primary/30"
-                            : "border-border bg-background",
+                          : notNeeded
+                            ? "border-dashed border-muted-foreground/40 bg-muted text-muted-foreground"
+                            : isNext
+                              ? "border-primary bg-background ring-4 ring-primary/30"
+                              : "border-border bg-background",
                       )}
                     >
-                      {stage?.done && <Check strokeWidth={3} />}
+                      {finished && <Check strokeWidth={3} />}
+                      {notNeeded && <Minus strokeWidth={3} />}
                     </span>
                     {name}
                   </NavLink>

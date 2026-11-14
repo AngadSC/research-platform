@@ -18,7 +18,7 @@ test("chat composer: format, emoji, @mention, and the mentioned person is told",
   await page.getByRole("button", { name: "Bold", exact: true }).click();
   await expect(box).toHaveValue(`**bold test ${stamp}**`);
 
-  await box.press("Control+End");
+  await box.press(process.platform === "darwin" ? "Meta+ArrowDown" : "Control+End"); // to the end
   await page.getByRole("button", { name: "Emoji", exact: true }).click();
   await page.getByLabel("Search emoji").fill("rocket");
   await page.getByRole("button", { name: /rocket/ }).click();
@@ -28,7 +28,8 @@ test("chat composer: format, emoji, @mention, and the mentioned person is told",
   const options = page.getByRole("option");
   await expect(options.first()).toBeVisible();
   await options.first().click();
-  await expect(box).toHaveValue(/@\[[^\]]+\]\(user:[0-9a-f-]{36}\) $/);
+  await expect(box).toHaveValue(/@\S[^(]* $/); // the name, never the stored code
+  await expect(box).not.toHaveValue(/user:/);
   await page.screenshot({ path: "test-results/composer-desktop.png" });
   await box.press("Enter");
   await expect(box).toHaveValue("");
