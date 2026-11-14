@@ -1,5 +1,5 @@
 import { Landmark } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -24,8 +24,10 @@ import {
   RecordDialog,
   str,
 } from "@/pages/project/workflow/parts";
+import { FormReader } from "@/components/shared/FormReader";
 import { FromDriveButton } from "@/components/shared/FromDriveButton";
 import { attachFromDrive } from "@/lib/drive";
+import { fillBlank, readForm } from "@/lib/formReader";
 
 /** Workflow > Funding (D133, D226): PIs only, so everyone who reaches this page can edit it. */
 export default function FundingTab(props: ProjectTabProps) {
@@ -178,6 +180,7 @@ function FundingDialog({
   const files = list.data ?? [];
   const [uploading, setUploading] = useState(false);
   const [picked, setPicked] = useState<string>();
+  const attachBox = useRef<HTMLDivElement>(null);
   return (
     <RecordDialog
       title={funding ? "Edit funding" : "Add funding"}
@@ -204,6 +207,7 @@ function FundingDialog({
     >
       {(e) => (
         <>
+          <FormReader labId={labId} kind="funding" />
           <FormField label="Funder" required error={e.funder}>
             {(p) => (
               <Input
@@ -309,7 +313,7 @@ function FundingDialog({
               </NativeSelect>
             )}
           </FormField>
-          <div>
+          <div ref={attachBox}>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setUploading(true)}>
                 Upload a letter only PIs can open
@@ -331,9 +335,20 @@ function FundingDialog({
             open={uploading}
             onOpenChange={setUploading}
             send={(file, onProgress) =>
-              uploadFile
-                .mutateAsync({ file, onProgress, piOnly: true })
-                .then((a) => setPicked(a.id))
+              uploadFile.mutateAsync({ file, onProgress, piOnly: true }).then(async (a) => {
+                setPicked(a.id);
+                // Attaching the letter also fills in what can be read from it (blank fields only).
+                try {
+                  const form = attachBox.current?.closest("form");
+                  const filled = form
+                    ? fillBlank(form, await readForm(labId, "funding", file))
+                    : [];
+                  if (filled.length)
+                    toast.success(`Filled in from the letter: ${filled.join(", ")}. Check them.`);
+                } catch {
+                  /* a letter that cannot be read is still attached */
+                }
+              })
             }
           />
         </>

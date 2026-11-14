@@ -57,7 +57,9 @@ def test_other_people_and_optional_sso_still_use_passwords(sso, make_user, verif
     assert password_login("ada@gmail.com")[1].status_code == 200  # require_sso is off
 
 
-def test_google_login_is_refused_for_a_user_with_a_secondary_sso_address(require, google):  # noqa: F811
+def test_google_login_is_refused_for_a_user_with_a_secondary_sso_address(
+    require, google
+):  # noqa: F811
     client = Client(HTTP_HOST="localhost")
     google_login(client, email="ada@gmail.com", verified=True)
     assert session_user(client) is None

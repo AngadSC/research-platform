@@ -10,6 +10,8 @@ import { addRecent, isLocalUrl, MAX_PINS, togglePin, type Pin, type Recent } fro
 interface Lists {
   pins?: Pin[];
   recents?: Recent[];
+  sidebar_main?: string[];
+  sidebar_admin?: string[];
 }
 type Me = User & { preferences?: Lists & { time_zone?: string } };
 const ME = ["me"];
@@ -39,6 +41,42 @@ export function usePins() {
   };
   return { pins: saved.filter((p) => isLocalUrl(p.url)), toggle };
 }
+
+/** The order this person arranged the sidebar in, saved to their account so it follows them.
+ * Anything they arranged in this browser before it was saved to the account is carried over once. */
+export function useSidebarOrder() {
+  const me = useMe().data as Me | undefined;
+  const save = useSaveLists();
+  const loaded = !!me;
+  const mainSaved = me?.preferences?.sidebar_main;
+  const adminSaved = me?.preferences?.sidebar_admin;
+  useEffect(() => {
+    if (!loaded || mainSaved || adminSaved) return;
+    try {
+      const raw = JSON.parse(localStorage.getItem(LEGACY_ORDER_KEY) ?? "null") as {
+        main?: unknown;
+        admin?: unknown;
+      } | null;
+      localStorage.removeItem(LEGACY_ORDER_KEY);
+      const ok = (v: unknown): v is string[] =>
+        Array.isArray(v) && v.length <= 40 && v.every((x) => typeof x === "string");
+      const patch: Lists = {};
+      if (ok(raw?.main)) patch.sidebar_main = raw.main;
+      if (ok(raw?.admin)) patch.sidebar_admin = raw.admin;
+      if (Object.keys(patch).length) save(patch);
+    } catch {
+      /* nothing to carry over */
+    }
+  }, [loaded, mainSaved, adminSaved, save]);
+  return {
+    main: mainSaved ?? [],
+    admin: adminSaved ?? [],
+    setMain: (sidebar_main: string[]) => save({ sidebar_main }),
+    setAdmin: (sidebar_admin: string[]) => save({ sidebar_admin }),
+    reset: () => save({ sidebar_main: [], sidebar_admin: [] }),
+  };
+}
+const LEGACY_ORDER_KEY = "sidebar-order";
 
 export function useRecents(): Recent[] {
   const saved = (useMe().data as Me | undefined)?.preferences?.recents ?? [];

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { ChevronRight, ChevronsUpDown, Plus } from "lucide-react";
 import { NavLink, useNavigate } from "react-router";
 import {
@@ -22,6 +22,7 @@ import { UnreadBadge, useUnreadCount } from "@/components/layout/UnreadBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LAB_CHAT, useUnreadChats } from "@/hooks/chat";
 import { useCurrentLabId, useCurrentProjectId } from "@/hooks/crumbs";
+import { useSidebarOrder } from "@/hooks/preferences";
 import { useProjects } from "@/hooks/projects";
 import { useLabs } from "@/hooks/workspace";
 import type { Lab, Project } from "@/lib/api-types";
@@ -29,35 +30,6 @@ import { navItems, PROJECT_SECTIONS, type NavItem } from "@/lib/nav";
 import { APP_NAME } from "@/lib/constants";
 import { projectColorStyle } from "@/lib/projectColors";
 import { cn } from "@/lib/utils";
-
-const ORDER_KEY = "sidebar-order";
-type Orders = { main?: string[]; admin?: string[] };
-
-/** How this person arranged the sidebar, kept in this browser. Never needed to render. */
-function useSidebarOrder() {
-  const [orders, setOrders] = useState<Orders>(() => {
-    try {
-      const raw = JSON.parse(localStorage.getItem(ORDER_KEY) ?? "{}") as Orders;
-      const ok = (v: unknown) => Array.isArray(v) && v.every((x) => typeof x === "string");
-      return {
-        main: ok(raw.main) ? raw.main : undefined,
-        admin: ok(raw.admin) ? raw.admin : undefined,
-      };
-    } catch {
-      return {};
-    }
-  });
-  const save = useCallback((next: Orders) => {
-    setOrders(next);
-    try {
-      if (next.main || next.admin) localStorage.setItem(ORDER_KEY, JSON.stringify(next));
-      else localStorage.removeItem(ORDER_KEY);
-    } catch {
-      /* private mode: the order lasts until the page closes */
-    }
-  }, []);
-  return { orders, save };
-}
 
 /** The lab part of a link, so one saved order fits every lab. */
 const keyOf = (to: string) => to.replace(/^\/labs\/[^/]+\//, "");
@@ -219,24 +191,24 @@ export function Sidebar({
   const items = navItems(labId, current?.my_permissions, current?.inventory_enabled).filter(
     ({ to }) => to !== "/settings" && to !== "/help" && !to.endsWith("/notifications"), // each has its own menu
   );
-  const { orders, save } = useSidebarOrder();
+  const order = useSidebarOrder();
   const mainItems = applyOrder(
     items.filter((item) => !item.admin),
     (i) => keyOf(i.to),
-    orders.main ?? [],
+    order.main,
   );
   const adminItems = applyOrder(
     items.filter((item) => item.admin),
     (i) => keyOf(i.to),
-    orders.admin ?? [],
+    order.admin,
   );
   const mainReorder = useHoldToReorder(
     mainItems.map((i) => keyOf(i.to)),
-    (main) => save({ ...orders, main }),
+    order.setMain,
   );
   const adminReorder = useHoldToReorder(
     adminItems.map((i) => keyOf(i.to)),
-    (admin) => save({ ...orders, admin }),
+    order.setAdmin,
   );
   const link = ({ to, label, icon: Icon, end }: NavItem) => (
     <NavLink key={to} to={to} end={end} className={linkClass} onClick={onClose}>
@@ -333,10 +305,10 @@ export function Sidebar({
               )}
             </ReorderRow>
           ))}
-          {orders.main && (
+          {(order.main.length > 0 || order.admin.length > 0) && (
             <button
               type="button"
-              onClick={() => save({ ...orders, main: undefined })}
+              onClick={order.reset}
               className="mt-1 self-start rounded px-3 text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               Reset order

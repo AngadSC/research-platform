@@ -3153,6 +3153,74 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/form-reader/ethics/:
+    post:
+      operationId: labs_form_reader_ethics_create
+      description: |-
+        Suggests the fields of an ethics or funding record from a form's text. Stateless: the file
+        is read and dropped, nothing is saved, and no outside service sees it. The person checks the
+        suggestions on the form before saving. Same permission as creating that record.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FormReadInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FormReadInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormRead'
+          description: ''
+  /api/labs/{lab_id}/form-reader/funding/:
+    post:
+      operationId: labs_form_reader_funding_create
+      description: |-
+        Suggests the fields of an ethics or funding record from a form's text. Stateless: the file
+        is read and dropped, nothing is saved, and no outside service sees it. The person checks the
+        suggestions on the form before saving. Same permission as creating that record.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FormReadInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FormReadInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormRead'
+          description: ''
   /api/labs/{lab_id}/funding/{fundingrecord_id}/:
     get:
       operationId: labs_funding_retrieve
@@ -12293,6 +12361,23 @@ components:
           nullable: true
       required:
       - name
+    FormRead:
+      type: object
+      properties:
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+      - fields
+    FormReadInput:
+      type: object
+      properties:
+        file:
+          type: string
+          format: uri
+      required:
+      - file
     Funding:
       type: object
       properties:

@@ -60,6 +60,10 @@ PREFERENCE_LINKS = {
     "pins": (20, {"url", "label"}),
     "recents": (12, {"url", "label", "kind", "at"}),
 }
+# The order a person arranged their sidebar in: the links' paths inside a lab, not full URLs.
+PREFERENCE_ORDERS = ("sidebar_main", "sidebar_admin")
+MAX_ORDER_ITEMS = 40
+ORDER_ITEM = re.compile(r"[a-z0-9][a-z0-9/_-]{0,59}")
 RECENT_KINDS = ("project", "document", "record", "approval")
 # A person's own colour themes (D224). lib/customTheme.ts applies the same contrast rule.
 MAX_CUSTOM_THEMES = 10
@@ -154,6 +158,13 @@ class MeSerializer(UserSerializer):
                     isinstance(val, list)
                     and len(val) <= cap
                     and all(_valid_link(item, keys) for item in val)
+                )
+            elif key in PREFERENCE_ORDERS:
+                ok = (
+                    isinstance(val, list)
+                    and len(val) <= MAX_ORDER_ITEMS
+                    and len(set(map(str, val))) == len(val)
+                    and all(isinstance(v, str) and ORDER_ITEM.fullmatch(v) for v in val)
                 )
             elif key == "custom_themes":
                 ok = (

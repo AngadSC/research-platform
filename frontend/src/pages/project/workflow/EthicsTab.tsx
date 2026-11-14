@@ -2,6 +2,7 @@ import { ShieldCheck } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { ApprovalBadge, ExpiryText } from "@/components/ethics/ApprovalBadge";
+import { FormReader } from "@/components/shared/FormReader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormField } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
@@ -204,6 +205,7 @@ export default function EthicsTab({ labId, projectId, project }: ProjectTabProps
         >
           {(e) => (
             <>
+              <FormReader labId={labId} kind="ethics" />
               <FormField label="Approval number" required error={e.approval_number}>
                 {(p) => (
                   <Input
