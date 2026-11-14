@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useFolders } from "@/hooks/documents";
 import { downloadUrl, useAttachments } from "@/hooks/projects";
 import { useRecords } from "@/hooks/research";
 import type { Attachment, Dataset } from "@/lib/api-types";
@@ -211,6 +212,13 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
   const [params] = useSearchParams();
   const files = useAttachments(labId, projectId).list;
   const datasets = useRecords<Dataset>(labId, projectId, "datasets");
+  // A file in a marked folder counts as marked (as the server's is_flagged does), so results
+  // drawn from it are saved marked too and stay away from AI tools.
+  const markedFolders = new Set(
+    (useFolders(labId, projectId).data ?? [])
+      .filter((f) => f.contains_participant_data)
+      .map((f) => f.id),
+  );
   const canSave = project.my_permissions.includes("edit_content") && project.status !== "archived";
 
   const [state, setState] = useState<EngineState>({ state: "idle" });
@@ -261,7 +269,8 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
     setLoadError(undefined);
     setShape(undefined);
     try {
-      const s = await engine.load({ name: src.name, bytes: src.bytes });
+      // load() moves the bytes into the worker; keep our own copy for a later sheet change
+      const s = await engine.load({ name: src.name, bytes: src.bytes.slice(0) });
       setSource(src);
       setShape(s);
     } catch (e) {
@@ -288,7 +297,10 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
         name: att.original_filename,
         bytes: await res.arrayBuffer(),
         datasetId: ds?.id,
-        flagged: att.contains_participant_data || !!ds?.contains_participant_data,
+        flagged:
+          att.contains_participant_data ||
+          (!!att.folder && markedFolders.has(att.folder)) ||
+          !!ds?.contains_participant_data,
       });
     } catch (e) {
       setLoadError(errorText(e));
@@ -306,7 +318,7 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
     if (!engine || !source) return;
     setLoading(true);
     try {
-      setShape(await engine.load({ name: source.name, bytes: source.bytes, sheet }));
+      setShape(await engine.load({ name: source.name, bytes: source.bytes.slice(0), sheet }));
     } catch (e) {
       setLoadError(errorText(e));
     } finally {
