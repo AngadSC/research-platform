@@ -310,6 +310,8 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "ethics:approval-detail"): "401 404 2 2 2 2 2 2 2",
     ("PATCH",  "ethics:approval-detail"): "401 404 2 2 2 2 2 403 403",
     ("DELETE", "ethics:approval-detail"): "401 404 2 2 2 2 2 403 403",
+    ("POST",   "documents:read-ethics-form"): "401 404 2 2 2 2 2 2 403",
+    ("POST",   "documents:read-funding-form"): "401 404 2 403 403 403 403 403 403",
     ("POST",   "ethics:approval-attachments"): "401 404 2 2 2 2 2 403 403",
     # Search needs only view_lab, so all lab members get 200 (results: core/tests/test_search.py).
     ("GET",    "core:search"): "401 404 2 2 2 2 2 2 2",
@@ -1434,6 +1436,14 @@ PAYLOADS = {
         "expiry_date": "2031-01-01",
     },
     ("PATCH", "ethics:approval-detail"): lambda user, w: {"title": "Edited approval"},
+    ("POST", "documents:read-ethics-form"): lambda user, w: {
+        "file": SimpleUploadedFile(
+            "form.txt", b"Approval Number: X-1\n", content_type="text/plain"
+        ),
+    },
+    ("POST", "documents:read-funding-form"): lambda user, w: {
+        "file": SimpleUploadedFile("form.txt", b"Funder: Council\n", content_type="text/plain"),
+    },
     ("POST", "ethics:approval-attachments"): lambda user, w: {
         "file": SimpleUploadedFile("up.pdf", b"%PDF-1.4 upload", content_type="application/pdf"),
         "acknowledged_notice": "true",

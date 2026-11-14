@@ -446,6 +446,58 @@ describe("Ethics", () => {
     expect(calls.find((c) => c.method === "PATCH")!.body).toMatchObject({ projects: ["p1"] });
   });
 
+  it("fills the new-approval form from a form that is attached, and only blank fields", async () => {
+    const calls = mockFetch(
+      base(CONTRIB, LAB, {
+        "GET /api/labs/lab1/ethics-approvals/?project=p1": { body: [] },
+        "GET /api/labs/lab1/ethics-approvals/": { body: [] },
+        "GET /api/labs/lab1/institution-resources/?category=ethics": { body: [] },
+        "POST /api/labs/lab1/form-reader/ethics/": {
+          body: {
+            fields: {
+              approval_number: "Pro00151738",
+              board: "Research Ethics Board",
+              expiry_date: "2027-03-04",
+            },
+          },
+        },
+      }),
+    );
+    renderRoute(`${W}/ethics`);
+    await userEvent.click(await screen.findByRole("button", { name: "New approval" }));
+    await userEvent.type(await screen.findByLabelText("Ethics board"), "My own board");
+    await userEvent.upload(
+      screen.getByLabelText("Form to read"),
+      new File(["x"], "approval.pdf", { type: "application/pdf" }),
+    );
+    expect(await screen.findByText(/Filled in: approval number, expiry date/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Approval number")).toHaveValue("Pro00151738");
+    expect(screen.getByLabelText("Ethics board")).toHaveValue("My own board");
+    expect(screen.getByLabelText("Expiry date")).toHaveValue("2027-03-04");
+    expect(calls.some((c) => c.path.endsWith("/form-reader/ethics/"))).toBe(true);
+  });
+
+  it("says so when a form cannot be read", async () => {
+    mockFetch(
+      base(CONTRIB, LAB, {
+        "GET /api/labs/lab1/ethics-approvals/?project=p1": { body: [] },
+        "GET /api/labs/lab1/ethics-approvals/": { body: [] },
+        "GET /api/labs/lab1/institution-resources/?category=ethics": { body: [] },
+        "POST /api/labs/lab1/form-reader/ethics/": {
+          status: 400,
+          body: { file: ["No text could be extracted. The PDF may be scanned images."] },
+        },
+      }),
+    );
+    renderRoute(`${W}/ethics`);
+    await userEvent.click(await screen.findByRole("button", { name: "New approval" }));
+    await userEvent.upload(
+      await screen.findByLabelText("Form to read"),
+      new File(["x"], "scan.pdf", { type: "application/pdf" }),
+    );
+    expect(await screen.findByText(/scanned images/)).toBeInTheDocument();
+  });
+
   it("links a new approval to the project", async () => {
     const calls = mockFetch(
       base(CONTRIB, LAB, {

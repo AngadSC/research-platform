@@ -1248,6 +1248,48 @@ export interface paths {
         patch: operations["labs_folders_partial_update"];
         trace?: never;
     };
+    "/api/labs/{lab_id}/form-reader/ethics/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Suggests the fields of an ethics or funding record from a form's text. Stateless: the file
+         *     is read and dropped, nothing is saved, and no outside service sees it. The person checks the
+         *     suggestions on the form before saving. Same permission as creating that record.
+         */
+        post: operations["labs_form_reader_ethics_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/form-reader/funding/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Suggests the fields of an ethics or funding record from a form's text. Stateless: the file
+         *     is read and dropped, nothing is saved, and no outside service sees it. The person checks the
+         *     suggestions on the form before saving. Same permission as creating that record.
+         */
+        post: operations["labs_form_reader_funding_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/funding/{fundingrecord_id}/": {
         parameters: {
             query?: never;
@@ -4970,6 +5012,15 @@ export interface components {
             name: string;
             /** Format: uuid */
             parent?: string | null;
+        };
+        FormRead: {
+            fields: {
+                [key: string]: string;
+            };
+        };
+        FormReadInput: {
+            /** Format: uri */
+            file: string;
         };
         Funding: {
             /** Format: uuid */
@@ -9403,6 +9454,58 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Folder"];
+                };
+            };
+        };
+    };
+    labs_form_reader_ethics_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["FormReadInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["FormReadInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormRead"];
+                };
+            };
+        };
+    };
+    labs_form_reader_funding_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["FormReadInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["FormReadInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormRead"];
                 };
             };
         };

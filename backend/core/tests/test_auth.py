@@ -209,3 +209,23 @@ def test_migration_blanks_only_names_made_from_the_email(make_user):
     real.refresh_from_db()
     assert fragment.display_name == ""
     assert real.display_name == "Ada Lovelace"
+
+
+@pytest.mark.django_db
+def test_sidebar_order_is_saved_and_checked(make_user):
+    user = make_user()
+    c = APIClient()
+    c.force_authenticate(user)
+    ok = {"sidebar_main": ["chat", "dashboard", "settings/integrations"], "sidebar_admin": []}
+    resp = c.patch("/api/me/", {"preferences": ok}, format="json")
+    assert resp.status_code == 200
+    assert resp.json()["preferences"] == ok
+    for bad in (
+        {"sidebar_main": "chat"},
+        {"sidebar_main": ["chat", "chat"]},
+        {"sidebar_main": ["https://example.test"]},
+        {"sidebar_main": ["../x"]},
+        {"sidebar_main": [str(i) for i in range(41)]},
+        {"sidebar_admin": [1]},
+    ):
+        assert c.patch("/api/me/", {"preferences": bad}, format="json").status_code == 400

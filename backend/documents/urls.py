@@ -1,10 +1,20 @@
 from django.urls import path
 
-from documents import views
+from documents import form_views, views
 
 app_name = "documents"
 L = "labs/<uuid:lab_id>/"
 urlpatterns = [
+    path(
+        L + "form-reader/ethics/",
+        form_views.EthicsFormReaderView.as_view(),
+        name="read-ethics-form",
+    ),
+    path(
+        L + "form-reader/funding/",
+        form_views.FundingFormReaderView.as_view(),
+        name="read-funding-form",
+    ),
     path(
         L + "projects/<uuid:project_id>/documents/",
         views.DocumentListCreateView.as_view(),
