@@ -28,7 +28,8 @@ test("chat composer: format, emoji, @mention, and the mentioned person is told",
   const options = page.getByRole("option");
   await expect(options.first()).toBeVisible();
   await options.first().click();
-  await expect(box).toHaveValue(/@\[[^\]]+\]\(user:[0-9a-f-]{36}\) $/);
+  await expect(box).toHaveValue(/@\S[^(]* $/); // the name, never the stored code
+  await expect(box).not.toHaveValue(/user:/);
   await page.screenshot({ path: "test-results/composer-desktop.png" });
   await box.press("Enter");
   await expect(box).toHaveValue("");
