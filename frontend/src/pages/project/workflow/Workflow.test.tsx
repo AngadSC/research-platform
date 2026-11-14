@@ -77,9 +77,7 @@ describe("Workflow progress", () => {
       }),
     );
     renderRoute(`${W}/participants`);
-    expect(
-      await screen.findByText("Next for the project's editors: Participants."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Next step: Participants.")).toBeInTheDocument();
     expect(screen.getByText("Only editors can add entries. Ask the project lead.")).toBeVisible();
     expect(screen.queryByText(/Add a dated entry/)).toBeNull();
   });
@@ -129,6 +127,8 @@ describe("Workflow progress", () => {
     );
     renderRoute(`${W}/funding`);
     await userEvent.click(await screen.findByRole("button", { name: "Done or not needed" }));
+    expect(await screen.findByText(/Nothing is recorded for Funding/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Mark done" }));
     await waitFor(() =>
       expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({
         stage: "funding",
@@ -147,9 +147,10 @@ describe("Workflow progress", () => {
       }),
     );
     renderRoute(`${W}/funding`);
-    await screen.findByText("Next for the project's editors: Funding.");
+    await screen.findByText("Next step: Funding.");
     expect(screen.queryByText("Do this next: Funding.")).toBeNull();
     expect(screen.queryByRole("button", { name: "Done or not needed" })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Go to/ })).toBeNull();
   });
 
   it("still opens if progress cannot be loaded", async () => {

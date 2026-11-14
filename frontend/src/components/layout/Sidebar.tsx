@@ -62,6 +62,11 @@ function ProjectItem({
         >
           <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-(--project)" />
           <span className="truncate">{project.name}</span>
+          {project.status === "archived" && (
+            <span className="shrink-0 rounded bg-muted px-1 text-[10px] font-normal text-muted-foreground">
+              Archived
+            </span>
+          )}
           <UnreadBadge count={unread} noun="message" className="ml-auto shrink-0" />
         </NavLink>
         <button
@@ -287,6 +292,11 @@ export function Sidebar({
             {adminItems.map(link)}
           </nav>
         )}
+        {/* a fade at the bottom tells you the list scrolls */}
+        <div
+          aria-hidden
+          className="pointer-events-none sticky bottom-0 -mt-4 h-6 shrink-0 bg-gradient-to-t from-sidebar to-transparent"
+        />
       </div>
       <SidebarFooter onNavigate={onClose} role={current?.my_role} />
     </aside>

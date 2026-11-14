@@ -147,7 +147,8 @@ export function ProjectPage() {
                 onClick={() =>
                   exportProject.mutate(undefined, {
                     onSuccess: (d) => {
-                      saveJson(d, `${project.name.replace(/[^\w-]+/g, "-")}-export.json`);
+                      const base = project.name.replace(/[^\w-]+/g, "-").replace(/^-+|-+$/g, "");
+                      saveJson(d, `${base || "project"}-export.json`);
                       toast.success("Project exported");
                     },
                     onError: (e) => toast.error(formErrors(e, []).form ?? "Export failed."),

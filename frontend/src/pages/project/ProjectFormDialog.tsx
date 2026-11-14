@@ -35,6 +35,11 @@ const TEMPLATES: { value: NonNullable<ProjectInput["template"]>; label: string; 
     help: "A plan from writing the survey to reporting results, over about six months.",
   },
   {
+    value: "experiment",
+    label: "Experiment or pilot study",
+    help: "A plan from design and pilot to running sessions and writing up, over about six months.",
+  },
+  {
     value: "secondary_data_analysis",
     label: "Secondary data analysis",
     help: "A plan for working with existing data. The Participants step is marked as not needed.",
@@ -190,13 +195,6 @@ export function ProjectFormDialog({ open, onOpenChange, project, canRetention, o
               )}
             </FormField>
           </div>
-          {canRetention && (
-            <FormField label="Retention note" error={errors.fields.retention_note}>
-              {(p) => (
-                <Textarea {...p} name="retention_note" defaultValue={project?.retention_note} />
-              )}
-            </FormField>
-          )}
           {canRetention && (
             <details
               className="grid gap-3 rounded-md border px-3 py-2"

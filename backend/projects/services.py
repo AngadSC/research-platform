@@ -262,6 +262,15 @@ def _place(task, status, position) -> None:
     task.status = status
 
 
+ARCHIVED_MESSAGE = "This project is archived. Set it back to Active to make changes."
+
+
+def refuse_if_archived(project) -> None:
+    """New work cannot start in an archived project."""
+    if project is not None and project.status == ProjectStatus.ARCHIVED:
+        raise ValidationError({"detail": ARCHIVED_MESSAGE})
+
+
 @transaction.atomic
 def create_task(*, project, by, data) -> Task:
     data = dict(data)

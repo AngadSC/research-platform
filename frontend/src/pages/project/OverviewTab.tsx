@@ -455,14 +455,31 @@ function Members({
   );
 }
 
-function ProjectApprovals({ labId, projectId }: { labId: string; projectId: string }) {
+function ProjectApprovals({
+  labId,
+  projectId,
+  canLink,
+}: {
+  labId: string;
+  projectId: string;
+  canLink: boolean;
+}) {
   const { data: lab } = useLab(labId);
   const { data } = useApprovals(labId, lab?.my_permissions.includes("view_ethics"));
   const mine = (data ?? []).filter((a) => a.projects.some((p) => p.id === projectId));
   if (!lab?.my_permissions.includes("view_ethics")) return null;
   return (
     <section className="grid gap-3">
-      <h2 className="text-base font-semibold">Ethics approvals</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold">Ethics approvals</h2>
+        {canLink && lab.my_permissions.includes("edit_ethics") && (
+          <Button variant="outline" size="sm" asChild>
+            <Link to={`/labs/${labId}/projects/${projectId}/workflow/ethics?link=1`}>
+              Link an approval
+            </Link>
+          </Button>
+        )}
+      </div>
       {mine.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           No ethics approvals are linked to this project.
@@ -497,7 +514,9 @@ function FundingSummary({ labId, projectId }: { labId: string; projectId: string
           Funding
         </h2>
         <Button variant="outline" size="sm" asChild>
-          <Link to={`/labs/${labId}/projects/${projectId}/workflow/funding`}>
+          <Link
+            to={`/labs/${labId}/projects/${projectId}/workflow/funding${rows.length ? "" : "?new=1"}`}
+          >
             {rows.length ? "Open funding" : "Add funding"}
           </Link>
         </Button>
@@ -590,6 +609,11 @@ export default function OverviewTab({ labId, projectId, project }: ProjectTabPro
   const assistantReady = useAssistantReady(labId);
   return (
     <div className="grid gap-8">
+      {project.status === "archived" && (
+        <p role="status" className="rounded-lg bg-muted p-3 text-sm font-medium">
+          Archived. Set it back to Active to make changes.
+        </p>
+      )}
       {assistantReady && (
         <Button
           variant="secondary"
@@ -629,8 +653,16 @@ export default function OverviewTab({ labId, projectId, project }: ProjectTabPro
         )}
       </section>
       {can("access_funding") && <FundingSummary labId={labId} projectId={projectId} />}
-      <ProjectApprovals labId={labId} projectId={projectId} />
-      <Deadlines labId={labId} projectId={projectId} canEdit={can("edit_project")} />
+      <ProjectApprovals
+        labId={labId}
+        projectId={projectId}
+        canLink={can("edit_content") && project.status !== "archived"}
+      />
+      <Deadlines
+        labId={labId}
+        projectId={projectId}
+        canEdit={can("edit_project") && project.status !== "archived"}
+      />
       <Members labId={labId} projectId={projectId} canManage={can("manage_project_members")} />
       {can("edit_project") && project.status !== "archived" && (
         <ArchiveProject

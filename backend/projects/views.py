@@ -18,6 +18,7 @@ from projects.models import (
     Project,
     ProjectDeadline,
     ProjectMembership,
+    ProjectStatus,
     Task,
     TaskPost,
     TaskStatus,
@@ -229,6 +230,7 @@ class DeadlineListCreateView(ProjectScopedMixin, generics.GenericAPIView):
 
     @extend_schema(request=DeadlineInputSerializer, responses={201: DeadlineSerializer})
     def post(self, request, lab_id, project_id):
+        services.refuse_if_archived(self.project)
         deadline = services.create_deadline(
             project=self.project, data=self.body(DeadlineInputSerializer)
         )
@@ -284,6 +286,7 @@ class TaskListCreateView(ProjectScopedMixin, generics.GenericAPIView):
 
     @extend_schema(request=TaskInputSerializer, responses={201: TaskSerializer})
     def post(self, request, lab_id, project_id):
+        services.refuse_if_archived(self.project)
         task = services.create_task(
             project=self.project, by=request.user, data=self.body(TaskInputSerializer)
         )
@@ -418,6 +421,7 @@ class MyTaskListView(LabScopedViewMixin, generics.GenericAPIView):
             Task.objects.visible_to(request.user, request.lab)
             .filter(assignee=request.user)
             .exclude(status=TaskStatus.DONE)
+            .exclude(project__status=ProjectStatus.ARCHIVED)
             .select_related("project")
             .order_by(F("due_date").asc(nulls_last=True), "created_at", "id")
         )

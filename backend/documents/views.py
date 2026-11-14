@@ -35,6 +35,7 @@ from documents.serializers import (
     RevisionSerializer,
 )
 from ethics.models import EthicsApproval
+from projects.services import ARCHIVED_MESSAGE
 
 
 class ProjectPermMixin(LabScopedViewMixin):
@@ -109,6 +110,8 @@ class DocumentListCreateView(DocumentMixin, generics.GenericAPIView):
 
     @extend_schema(request=DocumentCreateSerializer, responses={201: DocumentSerializer})
     def post(self, request, lab_id, project_id):
+        if self.project.status == "archived":
+            raise ValidationError({"detail": ARCHIVED_MESSAGE})
         ser = DocumentCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         data = dict(ser.validated_data)

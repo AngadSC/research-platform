@@ -1,8 +1,15 @@
 import { useIsMutating } from "@tanstack/react-query";
 import { Check, FlaskConical, GitBranch } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, NavLink, Outlet, useLocation, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLab } from "@/hooks/workspace";
 import { useWorkflowProgress } from "@/hooks/workflow";
@@ -25,7 +32,9 @@ export function WorkflowLayout(props: ProjectTabProps) {
   const { labId, projectId, project } = props;
   const { progress, mark } = useWorkflowProgress(labId, projectId);
   const { pathname } = useLocation();
-  const canEdit = project.my_permissions.includes("edit_content");
+  const archived = project.status === "archived";
+  const canEdit = project.my_permissions.includes("edit_content") && !archived;
+  const [asking, setAsking] = useState(false);
   const inventoryOn = useLab(labId).data?.inventory_enabled;
 
   // Saving a record on any stage can finish it, so check again when a save ends.
@@ -46,6 +55,11 @@ export function WorkflowLayout(props: ProjectTabProps) {
   return (
     <div className="grid gap-6">
       <div className="grid gap-3">
+        {archived && (
+          <p role="status" className="rounded-lg bg-muted p-3 text-sm font-medium">
+            Archived. Set it back to Active to make changes.
+          </p>
+        )}
         <nav aria-label="Workflow sections" className="overflow-x-auto py-1">
           <ol className="flex min-w-max">
             {shownSections(project).map(([key, name]) => {
@@ -98,7 +112,7 @@ export function WorkflowLayout(props: ProjectTabProps) {
             {next ? (
               <>
                 <span className="font-semibold">
-                  {canEdit ? "Do this next" : "Next for the project's editors"}: {nameOf(next)}.
+                  {canEdit ? "Do this next" : "Next step"}: {nameOf(next)}.
                 </span>{" "}
                 {NEXT_STEP[next]}
               </>
@@ -112,7 +126,7 @@ export function WorkflowLayout(props: ProjectTabProps) {
             )}
           </p>
           <div className="flex flex-wrap gap-2">
-            {next && next !== open && (
+            {canEdit && next && next !== open && (
               <Button size="sm" asChild>
                 <Link to={next}>Go to {nameOf(next)}</Link>
               </Button>
@@ -123,7 +137,9 @@ export function WorkflowLayout(props: ProjectTabProps) {
                 variant="outline"
                 disabled={mark.isPending}
                 onClick={() =>
-                  mark.mutate({ stage: openStage.key, done: !openStage.marked }, { onError: fail })
+                  openStage.marked
+                    ? mark.mutate({ stage: openStage.key, done: false }, { onError: fail })
+                    : setAsking(true)
                 }
               >
                 {openStage.marked ? "Mark as not done" : "Done or not needed"}
@@ -144,6 +160,36 @@ export function WorkflowLayout(props: ProjectTabProps) {
           </div>
         </div>
       </div>
+      {canEdit && openStage && !openStage.done && (
+        <p className="-mt-3 text-xs text-muted-foreground">
+          Done means this step is finished, or you do not need it for this project.
+        </p>
+      )}
+      <Dialog open={asking} onOpenChange={setAsking}>
+        <DialogContent>
+          <DialogTitle className="text-base font-semibold">Mark as done?</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            Nothing is recorded for {nameOf(open ?? "")}. Mark it done or not needed anyway?
+          </DialogDescription>
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              disabled={mark.isPending}
+              onClick={() =>
+                openStage &&
+                mark.mutate(
+                  { stage: openStage.key, done: true },
+                  { onError: fail, onSettled: () => setAsking(false) },
+                )
+              }
+            >
+              Mark done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Outlet context={props} />
     </div>
   );

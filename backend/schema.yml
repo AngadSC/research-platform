@@ -11945,6 +11945,14 @@ components:
             $ref: '#/components/schemas/ExternalOutput'
         recruitment_plan:
           $ref: '#/components/schemas/RecruitmentPlan'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExportMember'
+        ethics_approvals:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExportEthics'
       required:
       - analyses
       - attachments
@@ -11952,16 +11960,52 @@ components:
       - deadlines
       - decisions
       - documents
+      - ethics_approvals
       - exported_at
       - external_outputs
       - funding
       - manuscripts
+      - members
       - project
       - recruitment_entries
       - recruitment_plan
       - results
       - review_items
       - tasks
+    ExportEthics:
+      type: object
+      properties:
+        approval_number:
+          type: string
+        board:
+          type: string
+        approval_date:
+          type: string
+          format: date
+        expiry_date:
+          type: string
+          format: date
+        status:
+          type: string
+      required:
+      - approval_date
+      - approval_number
+      - board
+      - expiry_date
+      - status
+    ExportMember:
+      type: object
+      description: 'Name and role only: the export is shared outside the lab, so no
+        email.'
+      properties:
+        name:
+          type: string
+          readOnly: true
+        role:
+          type: string
+      required:
+      - name
+      - role
     ExternalLink:
       type: object
       properties:
@@ -16697,11 +16741,13 @@ components:
         * `done` - Done
     TemplateEnum:
       enum:
+      - experiment
       - honours_thesis
       - secondary_data_analysis
       - survey_study
       type: string
       description: |-
+        * `experiment` - experiment
         * `honours_thesis` - honours_thesis
         * `secondary_data_analysis` - secondary_data_analysis
         * `survey_study` - survey_study
