@@ -357,7 +357,10 @@ def workflow_progress(project, user) -> dict:
     shown = [
         s for s in WORKFLOW_STAGES if s != "funding" or can(user, Perm.ACCESS_FUNDING, project)
     ]  # D226: the funding stage says whether a project is funded, so it is PIs only as well
-    stages = [{"key": s, "done": found[s] or s in marked, "marked": s in marked} for s in shown]
+    stages = [
+        {"key": s, "done": found[s] or s in marked, "marked": s in marked, "recorded": found[s]}
+        for s in shown
+    ]
     return {"stages": stages, "next": next((s["key"] for s in stages if not s["done"]), None)}
 
 

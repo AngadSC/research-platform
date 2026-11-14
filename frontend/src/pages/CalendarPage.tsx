@@ -77,8 +77,12 @@ function Entry({
       </span>
     </>
   );
-  const className =
-    "flex w-full items-start gap-1.5 rounded px-1 py-0.5 text-left text-xs hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
+  const className = cn(
+    "flex w-full items-start gap-1.5 rounded px-1 py-0.5 text-left text-xs hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+    // The project's colour as a tint and a bar, so each project is recognisable at a glance.
+    item.project_color &&
+      "border-l-[3px] border-(--project) bg-[color-mix(in_srgb,var(--project)_14%,transparent)]",
+  );
   return (
     <li style={item.project_color ? projectColorStyle(item.project_color) : undefined}>
       {href ? (
@@ -173,7 +177,11 @@ function Agenda({
               const cls =
                 "flex w-full items-baseline gap-3 px-3 py-2 text-left text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
               return (
-                <li key={`${item.kind}:${item.id}`}>
+                <li
+                  key={`${item.kind}:${item.id}`}
+                  style={item.project_color ? projectColorStyle(item.project_color) : undefined}
+                  className={cn(item.project_color && "border-l-4 border-(--project)")}
+                >
                   {href ? (
                     <Link to={href} className={cls}>
                       {row}

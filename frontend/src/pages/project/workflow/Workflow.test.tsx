@@ -63,11 +63,27 @@ const progress = (next: string | null, done: string[] = [], marked: string[] = [
     key,
     done: done.includes(key),
     marked: marked.includes(key),
+    recorded: done.includes(key) && !marked.includes(key),
   })),
   next,
 });
 
 describe("Workflow progress", () => {
+  it("tells a finished stage from one marked not needed", async () => {
+    mockFetch(
+      base(PI, ["view_lab"], {
+        [`GET ${P}/workflow-progress/`]: {
+          body: progress("participants", ["funding", "ethics"], ["funding"]),
+        },
+        [`GET ${P}/recruitment-entries/`]: { body: [] },
+      }),
+    );
+    renderRoute(`${W}/participants`);
+    expect(await screen.findByRole("link", { name: "Ethics (done)" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Funding (not needed)" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Participants (do this next)" })).toBeInTheDocument();
+  });
+
   it("tells a viewer what they cannot do instead of asking them to do it", async () => {
     mockFetch(
       base(["view_project"], ["view_lab"], {

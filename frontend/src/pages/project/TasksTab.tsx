@@ -29,6 +29,7 @@ import {
   type TaskStatus,
 } from "@/lib/api-types";
 import { plural } from "@/lib/format";
+import { projectColorStyle } from "@/lib/projectColors";
 import { TASK_TONES } from "@/lib/taskColors";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { ImportTasksDialog } from "@/pages/project/ImportTasksDialog";
@@ -81,7 +82,9 @@ function Board({
   canEdit,
   move,
   onOpen,
+  color,
 }: {
+  color: string;
   tasks: Task[];
   canEdit: boolean;
   move: MoveFn;
@@ -142,6 +145,9 @@ function Board({
                   backgroundColor: TASK_TONES[t.status].card,
                   color: TASK_TONES[t.status].text,
                   borderLeft: `6px solid ${TASK_TONES[t.status].strong}`,
+                  ...projectColorStyle(color),
+                  // The project's colour along the top, so a card says which project it is.
+                  boxShadow: "inset 0 3px 0 var(--project)",
                 }}
                 className="flex items-start justify-between gap-2 rounded-md border border-black/10 p-3"
               >
@@ -369,7 +375,13 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
       ) : all.length === 0 ? (
         empty
       ) : (
-        <Board tasks={all} canEdit={canEdit} move={doMove} onOpen={(t) => setParam("task", t.id)} />
+        <Board
+          color={project.color}
+          tasks={all}
+          canEdit={canEdit}
+          move={doMove}
+          onOpen={(t) => setParam("task", t.id)}
+        />
       )}
       {importing && (
         <ImportTasksDialog

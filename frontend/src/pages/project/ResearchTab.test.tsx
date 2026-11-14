@@ -197,7 +197,8 @@ describe("Research tab", () => {
     );
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     renderRoute("/labs/lab1/projects/p1/workflow/analysis");
-    await userEvent.click(await screen.findByRole("button", { name: "Export project" }));
+    await userEvent.click(await screen.findByRole("button", { name: "More project actions" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Export project" }));
     await waitFor(() => expect(click).toHaveBeenCalled());
     expect(calls.some((c) => c.method === "POST" && c.path === `${P}/export/`)).toBe(true);
     click.mockRestore();

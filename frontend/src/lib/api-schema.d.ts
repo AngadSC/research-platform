@@ -6912,6 +6912,7 @@ export interface components {
             key: string;
             done: boolean;
             marked: boolean;
+            recorded: boolean;
         };
         ZoteroImport: {
             ids: string[];

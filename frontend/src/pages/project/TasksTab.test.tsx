@@ -68,14 +68,15 @@ describe("projects", () => {
     renderRoute("/labs/lab1/projects/p1");
     expect(await screen.findByRole("heading", { name: "Gut study" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More project actions" })).not.toBeInTheDocument();
   });
 
   it("shows edit and delete with permission", async () => {
     mockFetch(base(["view_project", "edit_project", "delete_project"]));
     renderRoute("/labs/lab1/projects/p1");
     expect(await screen.findByRole("button", { name: "Edit" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await userEvent.click(screen.getByRole("button", { name: "More project actions" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
     expect(await screen.findByText(/soft delete/)).toBeInTheDocument();
   });
 });

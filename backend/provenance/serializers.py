@@ -577,6 +577,7 @@ class WorkflowStageSerializer(serializers.Serializer):
     key = serializers.CharField()
     done = serializers.BooleanField()
     marked = serializers.BooleanField()  # someone said it is done or not needed
+    recorded = serializers.BooleanField()  # the stage's own records say it is done
 
 
 class WorkflowProgressSerializer(serializers.Serializer):

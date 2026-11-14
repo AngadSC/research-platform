@@ -576,7 +576,7 @@ function DocumentEditor({
           // links open in a new, unsandboxed tab.
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
           referrerPolicy="no-referrer"
-          className={cn("w-full flex-1 rounded-lg border", focus ? "min-h-0" : FILL_HEIGHT)}
+          className={cn("w-full flex-1 rounded-md border-0", focus ? "min-h-0" : FILL_HEIGHT)}
         />
       ) : (
         <Suspense

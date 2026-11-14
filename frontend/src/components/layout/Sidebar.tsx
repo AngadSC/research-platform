@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { ChevronRight, ChevronsUpDown, Plus } from "lucide-react";
 import { NavLink, useNavigate } from "react-router";
 import {
@@ -9,7 +9,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { applyOrder, ReorderRow, useHoldToReorder } from "@/components/layout/holdToReorder";
 import {
+  groupLabel,
   hoverTint,
   iconButton,
   linkClass,
@@ -27,6 +29,38 @@ import { navItems, PROJECT_SECTIONS, type NavItem } from "@/lib/nav";
 import { APP_NAME } from "@/lib/constants";
 import { projectColorStyle } from "@/lib/projectColors";
 import { cn } from "@/lib/utils";
+
+const ORDER_KEY = "sidebar-order";
+type Orders = { main?: string[]; admin?: string[] };
+
+/** How this person arranged the sidebar, kept in this browser. Never needed to render. */
+function useSidebarOrder() {
+  const [orders, setOrders] = useState<Orders>(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(ORDER_KEY) ?? "{}") as Orders;
+      const ok = (v: unknown) => Array.isArray(v) && v.every((x) => typeof x === "string");
+      return {
+        main: ok(raw.main) ? raw.main : undefined,
+        admin: ok(raw.admin) ? raw.admin : undefined,
+      };
+    } catch {
+      return {};
+    }
+  });
+  const save = useCallback((next: Orders) => {
+    setOrders(next);
+    try {
+      if (next.main || next.admin) localStorage.setItem(ORDER_KEY, JSON.stringify(next));
+      else localStorage.removeItem(ORDER_KEY);
+    } catch {
+      /* private mode: the order lasts until the page closes */
+    }
+  }, []);
+  return { orders, save };
+}
+
+/** The lab part of a link, so one saved order fits every lab. */
+const keyOf = (to: string) => to.replace(/^\/labs\/[^/]+\//, "");
 
 /** A project row that opens into its sections. The project you are in opens by itself. */
 function ProjectItem({
@@ -185,7 +219,25 @@ export function Sidebar({
   const items = navItems(labId, current?.my_permissions, current?.inventory_enabled).filter(
     ({ to }) => to !== "/settings" && to !== "/help" && !to.endsWith("/notifications"), // each has its own menu
   );
-  const adminItems = items.filter((item) => item.admin);
+  const { orders, save } = useSidebarOrder();
+  const mainItems = applyOrder(
+    items.filter((item) => !item.admin),
+    (i) => keyOf(i.to),
+    orders.main ?? [],
+  );
+  const adminItems = applyOrder(
+    items.filter((item) => item.admin),
+    (i) => keyOf(i.to),
+    orders.admin ?? [],
+  );
+  const mainReorder = useHoldToReorder(
+    mainItems.map((i) => keyOf(i.to)),
+    (main) => save({ ...orders, main }),
+  );
+  const adminReorder = useHoldToReorder(
+    adminItems.map((i) => keyOf(i.to)),
+    (admin) => save({ ...orders, admin }),
+  );
   const link = ({ to, label, icon: Icon, end }: NavItem) => (
     <NavLink key={to} to={to} end={end} className={linkClass} onClick={onClose}>
       <Icon aria-hidden />
@@ -234,11 +286,11 @@ export function Sidebar({
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
         <PinnedNav onNavigate={onClose} />
         <nav aria-label="Main" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
-          {items
-            .filter((item) => !item.admin)
-            .map((item) =>
-              item.to.endsWith("/projects") ? (
-                <div key={item.to} className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+          <span className={groupLabel}>Lab</span>
+          {mainItems.map((item) => (
+            <ReorderRow key={item.to} id={keyOf(item.to)} reorder={mainReorder}>
+              {item.to.endsWith("/projects") ? (
+                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
                   <div className="flex items-center gap-0.5">
                     <NavLink
                       to={item.to}
@@ -278,13 +330,30 @@ export function Sidebar({
                 </div>
               ) : (
                 link(item)
-              ),
-            )}
+              )}
+            </ReorderRow>
+          ))}
+          {orders.main && (
+            <button
+              type="button"
+              onClick={() => save({ ...orders, main: undefined })}
+              className="mt-1 self-start rounded px-3 text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              Reset order
+            </button>
+          )}
         </nav>
         {adminItems.length > 0 && (
-          <nav aria-label="Admin" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
-            <span className="px-2 pb-1 text-xs text-muted-foreground">Admin</span>
-            {adminItems.map(link)}
+          <nav
+            aria-label="Admin"
+            className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5 border-t pt-4"
+          >
+            <span className={groupLabel}>Admin</span>
+            {adminItems.map((item) => (
+              <ReorderRow key={item.to} id={keyOf(item.to)} reorder={adminReorder}>
+                {link(item)}
+              </ReorderRow>
+            ))}
           </nav>
         )}
       </div>
