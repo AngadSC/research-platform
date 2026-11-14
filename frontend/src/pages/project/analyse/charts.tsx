@@ -69,7 +69,7 @@ function Frame({
       aria-label={title}
       className="viz h-auto w-full max-w-xl"
       fontFamily="sans-serif"
-      fontSize={11}
+      fontSize={13}
     >
       <title>{title}</title>
       <desc>{desc}</desc>

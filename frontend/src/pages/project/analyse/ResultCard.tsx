@@ -98,7 +98,7 @@ export function ResultCard({
       {result.tables.map((t) => (
         <div key={t.title} className="grid gap-1 overflow-x-auto">
           <Table>
-            <caption className="pb-1 text-left text-sm font-medium">{t.title}</caption>
+            <caption className="caption-top pb-1 text-left text-sm font-medium">{t.title}</caption>
             <TableHeader>
               <TableRow>
                 {t.columns.map((c) => (
@@ -124,8 +124,7 @@ export function ResultCard({
 
       {result.charts.map((c, i) => (
         <figure key={`${c.kind}-${i}`} className="grid gap-1">
-          <Chart chart={c} />
-          <figcaption className="flex items-center gap-2 text-xs text-muted-foreground">
+          <figcaption className="flex items-center gap-2 text-sm font-medium">
             {c.title}
             <Button
               variant="ghost"
@@ -143,6 +142,7 @@ export function ResultCard({
               PNG
             </Button>
           </figcaption>
+          <Chart chart={c} />
         </figure>
       ))}
 

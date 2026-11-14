@@ -436,7 +436,7 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
               type="file"
               accept=".csv,.tsv,.txt,.xlsx"
               onChange={(e) => void chooseLocal(e.target.files?.[0])}
-              className="text-sm"
+              className="text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-foreground hover:file:bg-accent"
             />
             <p className="text-xs text-muted-foreground">
               This file is read on your computer and is never uploaded.
