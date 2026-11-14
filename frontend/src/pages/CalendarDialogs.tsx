@@ -133,6 +133,7 @@ export function MeetingDialog({
   const members = useMembers(labId).data ?? [];
   const me = useMe().data;
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
+  const [confirming, setConfirming] = useState(false);
   const [video, setVideo] = useState<Video>(meeting?.join_url ? "link" : "");
   const call = meeting?.video_provider as "" | "google_meet" | "zoom" | undefined;
   const callOwner = call ? members.find((m) => m.user.id === meeting?.call_owner)?.user : undefined;
@@ -287,15 +288,7 @@ export function MeetingDialog({
                 variant="outline"
                 className="mr-auto"
                 disabled={remove.isPending}
-                onClick={() =>
-                  remove.mutate(meeting.id, {
-                    onSuccess: () => {
-                      toast.success("Meeting deleted");
-                      onClose();
-                    },
-                    onError: () => toast.error("Could not delete the meeting."),
-                  })
-                }
+                onClick={() => setConfirming(true)}
               >
                 Delete
               </Button>
@@ -314,6 +307,39 @@ export function MeetingDialog({
             )}
           </div>
         </form>
+        {meeting && (
+          <Dialog open={confirming} onOpenChange={setConfirming}>
+            <DialogContent>
+              <DialogTitle className="text-base font-semibold">
+                Delete {meeting.title}?
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                The meeting will be removed from the lab calendar.
+              </DialogDescription>
+              <div className="flex justify-end gap-2">
+                <DialogClose asChild>
+                  <Button variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button
+                  variant="destructive"
+                  disabled={remove.isPending}
+                  onClick={() =>
+                    remove.mutate(meeting.id, {
+                      onSuccess: () => {
+                        toast.success("Meeting deleted");
+                        setConfirming(false);
+                        onClose();
+                      },
+                      onError: () => toast.error("Could not delete the meeting."),
+                    })
+                  }
+                >
+                  Delete meeting
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </DialogContent>
     </Dialog>
   );
