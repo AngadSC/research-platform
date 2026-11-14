@@ -1615,7 +1615,7 @@ def update_task(ctx, lab_id, task_id, title=None, status=None, due_date=None, as
         data["assignee"] = None if none else _id(assignee_id, "assignee_id")
     ser = TaskInputSerializer(data=data, partial=True)  # the REST PATCH's own checks
     ser.is_valid(raise_exception=True)
-    t = project_services.update_task(task=t, data=ser.validated_data)
+    t = project_services.update_task(task=t, by=ctx.user, data=ser.validated_data)
     _audit_write(ctx, lab, "update_task", t)
     return {"updated": _task_row(t), "url": _url(f"/labs/{lab.pk}/projects/{t.project_id}/tasks")}
 

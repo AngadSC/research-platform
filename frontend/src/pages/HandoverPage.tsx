@@ -14,7 +14,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { addProjectLead, reassignDataset, reassignTask, useHandover } from "@/hooks/handover";
+import {
+  addProjectLead,
+  reassignDataset,
+  reassignDocument,
+  reassignTask,
+  useHandover,
+} from "@/hooks/handover";
 import { useProject } from "@/hooks/projects";
 import { useLab, useMembers } from "@/hooks/workspace";
 import type { HandoverItem } from "@/lib/api-types";
@@ -39,7 +45,7 @@ type Person = { id: string; name: string };
 type Errors = Record<string, string>;
 
 const message = (e: unknown) => {
-  const f = formErrors(e, ["assignee", "controlled_by", "user", "role"]);
+  const f = formErrors(e, ["assignee", "controlled_by", "owner", "user", "role"]);
   return Object.values(f.fields)[0] ?? f.form ?? "Something went wrong. Please try again.";
 };
 
@@ -216,12 +222,21 @@ export function HandoverPage() {
       return next;
     });
 
+  // Only documents they created have an owner to hand on; ones they last edited do not.
+  const ownedDocs = new Set(
+    data.no_other_owner.filter((i) => i.kind === "document").map((i) => i.id),
+  );
+  const canChange = (i: HandoverItem) =>
+    ["task", "dataset", "project"].includes(i.kind) ||
+    (i.kind === "document" && ownedDocs.has(i.id));
   const change = (i: HandoverItem, userId: string) =>
     i.kind === "dataset"
       ? reassignDataset(labId, i.id, userId)
       : i.kind === "task"
         ? reassignTask(labId, i.id, userId)
-        : addProjectLead(labId, i.project?.id ?? i.id, userId);
+        : i.kind === "document"
+          ? reassignDocument(labId, i.id, userId)
+          : addProjectLead(labId, i.project?.id ?? i.id, userId);
   /** Runs one change; returns true when it worked. Failures stay on the row. */
   const attempt = async (i: HandoverItem, userId: string) => {
     try {
@@ -235,7 +250,7 @@ export function HandoverPage() {
   };
   const rowAction = (i: HandoverItem) => {
     const lead = i.kind === "project";
-    if (!canAct || !["task", "dataset", "project"].includes(i.kind)) return null;
+    if (!canAct || !canChange(i)) return null;
     return (
       <PickAndGo
         label={lead ? `Add a lead for ${i.title}` : `Reassign ${i.title} to`}
@@ -252,11 +267,11 @@ export function HandoverPage() {
       />
     );
   };
-  const bulk = async (items: HandoverItem[], userId: string) => {
+  const bulk = async (items: HandoverItem[], userId: string, kind: string) => {
     let ok = 0;
     for (const i of items) if (await attempt(i, userId)) ok += 1;
     const failed = items.length - ok;
-    const noun = `${ok} task${ok === 1 ? "" : "s"}`;
+    const noun = `${ok} ${kind}${ok === 1 ? "" : "s"}`;
     if (failed) toast.error(`${ok} reassigned, ${failed} failed`);
     else toast.success(`Reassigned ${noun} to ${nameOf(userId)}`);
     await refresh();
@@ -275,6 +290,12 @@ export function HandoverPage() {
           </Button>
         }
       />
+      {canAct && (
+        <p className="text-sm text-muted-foreground print:hidden">
+          Reassign gives an item to the person you pick, and they get a notification (datasets
+          don&apos;t send one). You can reassign it again at any time.
+        </p>
+      )}
       {data.no_other_owner.length > 0 && (
         <section
           aria-labelledby="no-other-owner"
@@ -296,19 +317,20 @@ export function HandoverPage() {
       )}
       {data.sections.map((s) => {
         const isTasks = s.key === "open_tasks" || s.key === "unassigned_tasks";
+        const movable = isTasks ? s.items : s.key === "documents" ? s.items.filter(canChange) : [];
         return (
           <section key={s.key} aria-labelledby={`h-${s.key}`} className="grid gap-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 id={`h-${s.key}`} className="text-base font-semibold">
                 {s.label} ({s.items.length})
               </h2>
-              {canAct && isTasks && s.items.length > 0 && (
+              {canAct && movable.length > 0 && (
                 <PickAndGo
                   label={`Reassign all ${s.label.toLowerCase()} to`}
                   button="Reassign all to…"
                   progress="Reassigning…"
                   people={people}
-                  run={(userId) => bulk(s.items, userId)}
+                  run={(userId) => bulk(movable, userId, isTasks ? "task" : "document")}
                 />
               )}
             </div>

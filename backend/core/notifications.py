@@ -81,22 +81,29 @@ def _still_allowed(user, lab, n) -> bool:
                 or any(can(user, Perm.EDIT_PROJECT, p) for p in approval.projects.all())
             )
         )
-    if n.kind == NotificationKind.TASK_POST:  # D142: the reader must still see the project
-        task = (
-            apps.get_model("projects", "Task").objects.for_lab(lab).filter(pk=n.target_id).first()
-        )
-        return task is not None and can(user, Perm.VIEW_PROJECT, task)
-    if n.kind == NotificationKind.MENTION:  # D260: a mention in a project or task needs the project
-        model = {"projects.project": "Project", "projects.task": "Task"}.get(n.target_type.lower())
+    if n.kind in _ABOUT_PROJECT_ITEMS:  # D142, D260: the reader must still see the project
+        model = _PROJECT_TARGETS.get(n.target_type.lower())
         if model is not None:
-            target = (
-                apps.get_model("projects", model)
-                .objects.for_lab(lab)
-                .filter(pk=n.target_id)
-                .first()
-            )
+            target = apps.get_model(model).objects.for_lab(lab).filter(pk=n.target_id).first()
             return target is not None and can(user, Perm.VIEW_PROJECT, target)
+        if n.kind == NotificationKind.TASK_POST:
+            return False
     return can(user, Perm.VIEW_LAB, lab)
+
+
+_PROJECT_TARGETS = {
+    "projects.project": "projects.Project",
+    "projects.task": "projects.Task",
+    "documents.document": "documents.Document",
+}
+_ABOUT_PROJECT_ITEMS = (
+    NotificationKind.TASK_POST,
+    NotificationKind.MENTION,
+    NotificationKind.TASK_ASSIGNED,
+    NotificationKind.PROJECT_ROLE,
+    NotificationKind.PROJECT_ARCHIVED,
+    NotificationKind.DOCUMENT_OWNER,
+)
 
 
 def visible_notifications(user, lab, qs, limit=100) -> list:
@@ -208,4 +215,12 @@ def notification_url(n, user) -> str:
         ).first()
         if task is not None and can(user, Perm.VIEW_PROJECT, task):
             return f"{lab}/projects/{task.project_id}/tasks?task={task.pk}"
+    if target == "documents.document" and n.target_id:
+        doc = (
+            apps.get_model("documents", "Document")
+            .objects.for_lab(n.lab_id)
+            .filter(pk=n.target_id, deleted_at__isnull=True, project__isnull=False)
+        ).first()
+        if doc is not None and can(user, Perm.VIEW_PROJECT, doc):
+            return f"{lab}/projects/{doc.project_id}/documents/{doc.pk}"
     return lab

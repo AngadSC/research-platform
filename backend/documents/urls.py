@@ -22,6 +22,11 @@ urlpatterns = [
         name="document-move",
     ),
     path(
+        L + "documents/<uuid:document_id>/owner/",
+        views.DocumentOwnerView.as_view(),
+        name="document-owner",
+    ),
+    path(
         L + "projects/<uuid:project_id>/folders/",
         views.FolderListCreateView.as_view(),
         name="folder-list",

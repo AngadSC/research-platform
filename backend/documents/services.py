@@ -17,6 +17,9 @@ from rest_framework.exceptions import APIException, ValidationError
 
 from audit.models import AuditAction
 from audit.services import record
+from core.models import NotificationKind, User
+from core.notifications import notify
+from core.permissions import Perm, can
 from core.retention import audit_retention, guard_retention, retention_changes
 from core.serializers import UserSerializer
 from documents import embed
@@ -194,6 +197,40 @@ def delete_document(doc, *, user, request=None) -> None:
     doc.deleted_at = timezone.now()
     doc.save(update_fields=["deleted_at", "updated_at"])
     record(AuditAction.DOCUMENT_DELETED, actor=user, lab=doc.lab, target=doc, request=request)
+
+
+@transaction.atomic
+def change_owner(doc, *, user, owner_id, request=None) -> Document:
+    """Hand a document to a new owner (the handover's "Needs a new owner"). The owner is
+    `created_by`; who wrote each version stays on the revisions, and the audit event keeps both
+    people. The new owner must be able to edit the project. Tells them in-app."""
+    owner = User.objects.filter(pk=owner_id, is_active=True).first()
+    if owner is None or not can(owner, Perm.EDIT_CONTENT, doc):
+        raise ValidationError({"owner": "The new owner must be able to edit this project."})
+    doc = _lock(doc)
+    old = doc.created_by_id
+    if owner.pk == old:
+        return doc
+    doc.created_by = owner
+    doc.save(update_fields=["created_by"])
+    event = record(
+        AuditAction.DOCUMENT_OWNER_CHANGED,
+        actor=user,
+        lab=doc.lab,
+        target=doc,
+        request=request,
+        metadata={"user_id": str(owner.pk), "old_owner_id": str(old)},
+    )
+    if owner.pk != user.pk:
+        notify(
+            lab=doc.lab,
+            recipient=owner,
+            kind=NotificationKind.DOCUMENT_OWNER,
+            title=f"{user.display_name or user.email} made you the owner of {doc.title}"[:200],
+            target=doc,
+            dedupe_key=f"document_owner:{event.pk}",
+        )
+    return doc
 
 
 # ---------------------------------------------------------------- attachments

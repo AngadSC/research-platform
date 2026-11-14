@@ -23,6 +23,10 @@ export const reassignTask = (labId: string, taskId: string, userId: string) =>
 export const reassignDataset = (labId: string, datasetId: string, userId: string) =>
   send("PATCH", `${lab(labId)}/datasets/${datasetId}/`, { controlled_by: userId });
 
+/** Give a document they created to a new owner, who must be able to edit the project. */
+export const reassignDocument = (labId: string, documentId: string, userId: string) =>
+  send("POST", `${lab(labId)}/documents/${documentId}/owner/`, { owner: userId });
+
 /** Make someone a project lead: change their role if they are already a member, else add them. */
 export async function addProjectLead(labId: string, projectId: string, userId: string) {
   const path = `${lab(labId)}/projects/${projectId}/members/`;

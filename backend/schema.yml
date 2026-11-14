@@ -1159,6 +1159,7 @@ paths:
           - document.viewed
           - document.restored
           - document.deleted
+          - document.owner_changed
           - attachment.uploaded
           - attachment.downloaded
           - attachment.deleted
@@ -1302,6 +1303,7 @@ paths:
           * `document.viewed` - Document Viewed
           * `document.restored` - Document Restored
           * `document.deleted` - Document Deleted
+          * `document.owner_changed` - Document Owner Changed
           * `attachment.uploaded` - Attachment Uploaded
           * `attachment.downloaded` - Attachment Downloaded
           * `attachment.deleted` - Attachment Deleted
@@ -2560,6 +2562,45 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/ItemMove'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/documents/{document_id}/owner/:
+    post:
+      operationId: labs_documents_owner_create
+      description: |-
+        Give a document a new owner from the handover page. Same rule as the handover's other
+        reassignments (D251): manage_project_members on its project, so its leads, PIs and lab
+        admins. Lab-wide documents are not in any handover, so they are a 404 here.
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentOwner'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DocumentOwner'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DocumentOwner'
         required: true
       security:
       - sessionAuth: []
@@ -9285,6 +9326,7 @@ components:
       - document.viewed
       - document.restored
       - document.deleted
+      - document.owner_changed
       - attachment.uploaded
       - attachment.downloaded
       - attachment.deleted
@@ -9427,6 +9469,7 @@ components:
         * `document.viewed` - Document Viewed
         * `document.restored` - Document Restored
         * `document.deleted` - Document Deleted
+        * `document.owner_changed` - Document Owner Changed
         * `attachment.uploaded` - Attachment Uploaded
         * `attachment.downloaded` - Attachment Downloaded
         * `attachment.deleted` - Attachment Deleted
@@ -11674,6 +11717,14 @@ components:
       - updated_at
       - updated_by
       - version
+    DocumentOwner:
+      type: object
+      properties:
+        owner:
+          type: string
+          format: uuid
+      required:
+      - owner
     DocumentRef:
       type: object
       properties:
@@ -14063,6 +14114,9 @@ components:
       - training_expiry
       - training_digest
       - mention
+      - project_role
+      - project_archived
+      - document_owner
       type: string
       description: |-
         * `ethics_expiry` - Ethics Expiry
@@ -14076,6 +14130,9 @@ components:
         * `training_expiry` - Training Expiry
         * `training_digest` - Training Digest
         * `mention` - Mention
+        * `project_role` - Project Role
+        * `project_archived` - Project Archived
+        * `document_owner` - Document Owner
     NullEnum:
       enum:
       - null
@@ -15528,7 +15585,14 @@ components:
           type: string
           format: date-time
           readOnly: true
+        can_change:
+          type: boolean
+          description: |-
+            Whether the reader may change this person's role or remove them, so the page hides
+            what the server would refuse (core.permissions.member_change_refusal).
+          readOnly: true
       required:
+      - can_change
       - created_at
       - id
       - project
