@@ -5,6 +5,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
+from documents.models import Folder
 from projects.models import DeadlinePriority, ProjectDeadline, Task
 from provenance.models import ReviewItem
 
@@ -73,6 +74,63 @@ TEMPLATES = {
         "reviews": ["Check the work follows the dataset's terms of use"],
         "not_needed": ["participants"],  # nobody new is recruited
     },
+    "thesis_chapter": {
+        "tasks": [
+            ("Outline the chapter and agree it with your supervisor", 5),
+            ("Collect and read the sources you need", 14),
+            ("Write the rough first draft", 35),
+            ("Add figures, tables and references", 45),
+            ("Send the draft to your supervisor", 50),
+            ("Revise using the feedback", 70),
+            ("Proofread and format the chapter", 80),
+        ],
+        "deadlines": [
+            ("Draft to supervisor", 50, HIGH),
+            ("Revised chapter due", 80, HIGH),
+        ],
+        "reviews": ["Supervisor signs off on the chapter"],
+        "not_needed": ["participants"],
+        "folders": ["Drafts", "Sources", "Figures and tables", "Feedback"],
+    },
+    "ra_onboarding": {
+        "tasks": [
+            ("Meet your supervisor and agree what you will work on", 3),
+            ("Finish the training your lab requires", 7),
+            ("Get access to the lab's shared files and tools", 7),
+            ("Read the lab's guidelines and the project's protocol", 10),
+            ("Shadow someone doing the work once", 14),
+            ("Do a small task on your own and ask for feedback", 21),
+            ("Set up a regular check-in with your supervisor", 21),
+            ("Write down your goals for the term", 28),
+        ],
+        "deadlines": [
+            ("Required training finished", 7, HIGH),
+            ("First check-in with your supervisor", 14, MEDIUM),
+            ("Goals for the term agreed", 28, MEDIUM),
+        ],
+        "reviews": [],
+        "not_needed": ["ethics", "participants", "analysis", "manuscript"],
+        "folders": ["Training", "Lab guidelines", "Notes"],
+    },
+    "conference_poster": {
+        "tasks": [
+            ("Check the poster size and rules for the conference", 3),
+            ("Decide your one main message", 7),
+            ("Draft the text and pick the figures", 14),
+            ("Make the first version of the poster", 21),
+            ("Get feedback from your supervisor and lab", 28),
+            ("Revise the poster", 35),
+            ("Send the poster to be printed", 40),
+            ("Practise your two-minute talk", 45),
+        ],
+        "deadlines": [
+            ("Poster sent to print", 40, HIGH),
+            ("Conference", 50, HIGH),
+        ],
+        "reviews": [],
+        "not_needed": ["ethics", "participants"],
+        "folders": ["Poster files", "Figures", "Abstract and notes"],
+    },
 }
 
 
@@ -95,6 +153,8 @@ def apply(name, project, user) -> None:
         )
     for title in plan["reviews"]:
         ReviewItem.objects.create(project=project, title=title, created_by=user)
+    for name in plan.get("folders", []):
+        Folder.objects.create(project=project, name=name, created_by=user)
     if plan["not_needed"]:
         project.workflow_marked_done = plan["not_needed"]
         project.save(update_fields=["workflow_marked_done", "updated_at"])

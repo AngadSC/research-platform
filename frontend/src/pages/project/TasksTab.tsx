@@ -1,5 +1,5 @@
 import { LayoutList, ListChecks, MoreHorizontal, Plus, SquareKanban } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { DueChip } from "@/components/dashboard/DueChip";
@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useProviders } from "@/hooks/integrations";
+import { useDelight } from "@/hooks/preferences";
 import { useProjectMembers, useTaskView, useTasks } from "@/hooks/projects";
 import {
   TASK_STATUSES,
@@ -30,6 +31,7 @@ import {
 } from "@/lib/api-types";
 import { plural } from "@/lib/format";
 import { projectColorStyle } from "@/lib/projectColors";
+import { cn } from "@/lib/utils";
 import { TASK_TONES } from "@/lib/taskColors";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { ImportTasksDialog } from "@/pages/project/ImportTasksDialog";
@@ -91,6 +93,22 @@ function Board({
   onOpen: (t: Task) => void;
 }) {
   const [dragId, setDragId] = useState<string | null>(null);
+  // A small pop on a card that has just been finished, when animations are on.
+  const delight = useDelight();
+  const seen = useRef(new Map<string, string>());
+  const [popped, setPopped] = useState<string[]>([]);
+  useEffect(() => {
+    const finished = tasks
+      .filter(
+        (t) => t.status === "done" && seen.current.has(t.id) && seen.current.get(t.id) !== "done",
+      )
+      .map((t) => t.id);
+    seen.current = new Map(tasks.map((t) => [t.id, t.status]));
+    if (!finished.length || !delight) return;
+    setPopped(finished);
+    const id = setTimeout(() => setPopped([]), 700);
+    return () => clearTimeout(id);
+  }, [tasks, delight]);
   const dropAt = (status: TaskStatus, before?: Task) => {
     const dragged = tasks.find((t) => t.id === dragId);
     setDragId(null);
@@ -149,7 +167,10 @@ function Board({
                   // The project's colour along the top, so a card says which project it is.
                   boxShadow: "inset 0 3px 0 var(--project)",
                 }}
-                className="flex items-start justify-between gap-2 rounded-md border border-black/10 p-3"
+                className={cn(
+                  "flex items-start justify-between gap-2 rounded-md border border-black/10 p-3",
+                  popped.includes(t.id) && "delight-pop",
+                )}
               >
                 <div className="min-w-0">
                   <button
@@ -270,10 +291,10 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
   const empty = (
     <EmptyState
       icon={ListChecks}
-      title="No tasks yet"
+      title="A clean slate"
       description={
         canEdit
-          ? "Add a task to track what needs doing in this project."
+          ? "Nothing to do here yet. Add the first task, or press Ctrl/Cmd + G to jot one down from anywhere."
           : "Only editors can add tasks. Ask the project lead."
       }
       action={newTask}

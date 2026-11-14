@@ -1,4 +1,5 @@
 import { useRef, useState, type FocusEvent } from "react";
+import { Clock } from "lucide-react";
 import { toast } from "sonner";
 import { DetailPanel } from "@/components/shared/DetailPanel";
 import { FormError } from "@/components/shared/FormError";
@@ -22,7 +23,10 @@ import {
   type TaskInput,
   type TaskStatus,
 } from "@/lib/api-types";
+import { shortDate } from "@/lib/dashboard";
 import { formErrors, type FormErrors } from "@/lib/forms";
+import { localDateISO } from "@/lib/format";
+import { nextMonday } from "@/lib/snooze";
 import { TaskFiles } from "@/pages/project/TaskFiles";
 import { TaskThread } from "@/pages/project/TaskThread";
 
@@ -143,6 +147,37 @@ export function TaskDrawer({
                   />
                 )}
               </FormField>
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                {task.snoozed_until && task.snoozed_until > localDateISO() ? (
+                  <>
+                    <span className="text-muted-foreground">
+                      Snoozed until {shortDate(task.snoozed_until)}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void patch({ snoozed_until: null }, "Snooze removed")}
+                    >
+                      Wake it now
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      void patch(
+                        { snoozed_until: nextMonday(localDateISO()) },
+                        "Snoozed until Monday",
+                      )
+                    }
+                  >
+                    <Clock aria-hidden /> Snooze until Monday
+                  </Button>
+                )}
+              </div>
               <FormError message={errors.form} />
             </form>
             <div className="grid grid-cols-2 gap-3">

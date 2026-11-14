@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Menu, PanelLeft, Pin, PinOff, Search } from "lucide-react";
+import { Menu, PanelLeft, Pin, PinOff, Plus, Search } from "lucide-react";
 import { Outlet, useLocation, useNavigate } from "react-router";
 import { Breadcrumbs, type Crumb } from "@/components/shared/Breadcrumbs";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,11 +13,13 @@ import { useLabs } from "@/hooks/workspace";
 import { useRegisterCommands, type Command } from "@/lib/commands";
 import { CommandPalette } from "./CommandPalette";
 import { navItems } from "@/lib/nav";
-import { APP_NAME, MOD_KEY, OPEN_SEARCH_EVENT } from "@/lib/constants";
+import { APP_NAME, MOD_KEY, OPEN_QUICK_CAPTURE_EVENT, OPEN_SEARCH_EVENT } from "@/lib/constants";
 import { useMe } from "@/hooks/workspace";
 import { useAccountTheme } from "@/lib/theme";
 import { AssistantDrawer } from "@/components/assistant/AssistantDrawer";
 import { NamePrompt } from "./NamePrompt";
+import { QuickCapture } from "./QuickCapture";
+import { greeting } from "@/lib/greeting";
 import { NotificationBell } from "./NotificationBell";
 import { Sidebar } from "./Sidebar";
 import { Tutorial } from "./Tutorial";
@@ -90,7 +92,9 @@ export function AppShell() {
       // storage is blocked: the choice lasts until the page reloads
     }
   };
-  useAccountTheme((useMe().data as { preferences?: unknown } | undefined)?.preferences);
+  const me = useMe().data as { preferences?: unknown; display_name?: string } | undefined;
+  useAccountTheme(me?.preferences);
+  const name = me?.display_name ?? "";
   useSyncTimeZone();
 
   // Below md the sidebar is a drawer: Escape closes it.
@@ -190,6 +194,11 @@ export function AppShell() {
               <PanelLeft aria-hidden />
             </Button>
             <span className="text-sm font-semibold md:hidden">{APP_NAME}</span>
+            {name && (
+              <span className="hidden truncate text-sm font-medium text-muted-foreground md:inline">
+                {greeting(new Date(), name)}
+              </span>
+            )}
             <div className="ml-auto flex items-center gap-2">
               <PinButton crumbs={crumbs} />
               <Button
@@ -204,6 +213,18 @@ export function AppShell() {
                   {MOD_KEY} K
                 </kbd>
               </Button>
+              {labId && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  aria-label="Add a task"
+                  title={`Add a task (${MOD_KEY} G)`}
+                  onClick={() => window.dispatchEvent(new Event(OPEN_QUICK_CAPTURE_EVENT))}
+                >
+                  <Plus aria-hidden />
+                  <span className="hidden sm:inline">Task</span>
+                </Button>
+              )}
               {labId && <AssistantDrawer labId={labId} />}
               {labId && <NotificationBell labId={labId} />}
             </div>
@@ -222,6 +243,7 @@ export function AppShell() {
           </main>
         </div>
       </div>
+      <QuickCapture />
       <CommandPalette labId={labId} onGo={(url) => void navigate(url)} />
       <Tutorial />
       <Toaster position="top-center" />

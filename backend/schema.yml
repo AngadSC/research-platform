@@ -14048,10 +14048,18 @@ components:
         project_name:
           type: string
           readOnly: true
+        project_color:
+          type: string
+          readOnly: true
         title:
           type: string
           readOnly: true
         due_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        snoozed_until:
           type: string
           format: date
           readOnly: true
@@ -14064,7 +14072,9 @@ components:
       - due_date
       - id
       - project
+      - project_color
       - project_name
+      - snoozed_until
       - status
       - title
     NameEnum:
@@ -15326,6 +15336,10 @@ components:
           format: uuid
           nullable: true
         due_date:
+          type: string
+          format: date
+          nullable: true
+        snoozed_until:
           type: string
           format: date
           nullable: true
@@ -16607,6 +16621,11 @@ components:
           format: date
           readOnly: true
           nullable: true
+        snoozed_until:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
         status:
           allOf:
           - $ref: '#/components/schemas/TaskStatusEnum'
@@ -16651,6 +16670,7 @@ components:
       - position
       - post_count
       - project
+      - snoozed_until
       - status
       - title
       - updated_at
@@ -16700,6 +16720,10 @@ components:
           format: uuid
           nullable: true
         due_date:
+          type: string
+          format: date
+          nullable: true
+        snoozed_until:
           type: string
           format: date
           nullable: true
@@ -16782,14 +16806,20 @@ components:
         * `done` - Done
     TemplateEnum:
       enum:
+      - conference_poster
       - honours_thesis
+      - ra_onboarding
       - secondary_data_analysis
       - survey_study
+      - thesis_chapter
       type: string
       description: |-
+        * `conference_poster` - conference_poster
         * `honours_thesis` - honours_thesis
+        * `ra_onboarding` - ra_onboarding
         * `secondary_data_analysis` - secondary_data_analysis
         * `survey_study` - survey_study
+        * `thesis_chapter` - thesis_chapter
     TimelineItem:
       type: object
       description: |-

@@ -5622,9 +5622,12 @@ export interface components {
             /** Format: uuid */
             readonly project: string;
             readonly project_name: string;
+            readonly project_color: string;
             readonly title: string;
             /** Format: date */
             readonly due_date: string | null;
+            /** Format: date */
+            readonly snoozed_until: string | null;
             readonly status: components["schemas"]["TaskStatusEnum"];
         };
         /**
@@ -6129,6 +6132,8 @@ export interface components {
             assignee?: string | null;
             /** Format: date */
             due_date?: string | null;
+            /** Format: date */
+            snoozed_until?: string | null;
             status?: components["schemas"]["TaskStatusEnum"];
             position?: number;
         };
@@ -6643,6 +6648,8 @@ export interface components {
             readonly assignee: components["schemas"]["User"];
             /** Format: date */
             readonly due_date: string | null;
+            /** Format: date */
+            readonly snoozed_until: string | null;
             readonly status: components["schemas"]["TaskStatusEnum"];
             readonly position: number;
             readonly created_by: components["schemas"]["User"];
@@ -6675,6 +6682,8 @@ export interface components {
             assignee?: string | null;
             /** Format: date */
             due_date?: string | null;
+            /** Format: date */
+            snoozed_until?: string | null;
             status?: components["schemas"]["TaskStatusEnum"];
             position?: number;
         };
@@ -6709,12 +6718,15 @@ export interface components {
          */
         TaskStatusEnum: "todo" | "in_progress" | "done";
         /**
-         * @description * `honours_thesis` - honours_thesis
+         * @description * `conference_poster` - conference_poster
+         *     * `honours_thesis` - honours_thesis
+         *     * `ra_onboarding` - ra_onboarding
          *     * `secondary_data_analysis` - secondary_data_analysis
          *     * `survey_study` - survey_study
+         *     * `thesis_chapter` - thesis_chapter
          * @enum {string}
          */
-        TemplateEnum: "honours_thesis" | "secondary_data_analysis" | "survey_study";
+        TemplateEnum: "conference_poster" | "honours_thesis" | "ra_onboarding" | "secondary_data_analysis" | "survey_study" | "thesis_chapter";
         /**
          * @description One row of the chat: kind `user`, `assistant`, `tool`, `code` (a step Claude ran in the
          *     code sandbox, VISION C1) or `usage` (tokens spent on turns that produced no text). Only the

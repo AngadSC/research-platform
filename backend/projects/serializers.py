@@ -151,6 +151,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "description",
             "assignee",
             "due_date",
+            "snoozed_until",
             "status",
             "position",
             "created_by",
@@ -165,10 +166,20 @@ class TaskSerializer(serializers.ModelSerializer):
 
 class MyTaskSerializer(serializers.ModelSerializer):
     project_name = serializers.CharField(source="project.name", read_only=True)
+    project_color = serializers.CharField(source="project.color", read_only=True)
 
     class Meta:
         model = Task
-        fields = ["id", "project", "project_name", "title", "due_date", "status"]
+        fields = [
+            "id",
+            "project",
+            "project_name",
+            "project_color",
+            "title",
+            "due_date",
+            "snoozed_until",
+            "status",
+        ]
         read_only_fields = fields
 
 
@@ -179,6 +190,7 @@ class TaskInputSerializer(serializers.Serializer):
     description = serializers.CharField(allow_blank=True, required=False)
     assignee = serializers.UUIDField(allow_null=True, required=False)
     due_date = serializers.DateField(allow_null=True, required=False)
+    snoozed_until = serializers.DateField(allow_null=True, required=False)
     status = serializers.ChoiceField(choices=TaskStatus.choices, required=False)
     position = serializers.IntegerField(min_value=0, required=False)
 

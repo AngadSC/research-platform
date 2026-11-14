@@ -20,11 +20,12 @@ const collection = (labId: string, projectId: string) =>
   projectId ? `${base(labId)}/projects/${projectId}/documents/` : `${base(labId)}/lab-documents/`;
 
 /** `pollMs` re-fetches on that interval while the tab is visible (the stale-document banner). */
-export function useDocuments(labId: string, projectId: string, pollMs?: number) {
+export function useDocuments(labId: string, projectId: string, pollMs?: number, enabled = true) {
   return useQuery({
     queryKey: listKey(labId, projectId),
     queryFn: () => api<DocumentRow[]>(collection(labId, projectId)),
     refetchInterval: pollMs,
+    enabled,
   });
 }
 

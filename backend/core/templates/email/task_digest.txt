@@ -1,0 +1,10 @@
+{% autoescape off %}{{ headline }}
+{{ summary }}
+
+{% for i in items %}- {{ i.title }} ({{ i.project }}, {{ i.due }})
+  {{ i.url }}
+{% endfor %}{% if more %}...and {{ more }} more.
+{% endif %}
+Open {{ product_name }}: {{ home_url }}
+You get this because you turned on the morning digest. Change it, or turn it off, in Settings.
+{% endautoescape %}

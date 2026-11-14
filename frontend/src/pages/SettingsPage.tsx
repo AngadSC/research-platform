@@ -16,6 +16,7 @@ import { AiAccessSections, ConnectedAiApps } from "@/pages/settings/AiAccessSect
 import { AiKeysSection } from "@/pages/settings/AiKeysSection";
 import { LabKeyNotice } from "@/pages/settings/LabAiKeySection";
 import { CustomThemes } from "@/pages/settings/CustomThemes";
+import { NotificationSettings } from "@/pages/settings/NotificationSettings";
 import { ProfileSection } from "@/pages/settings/ProfileSection";
 
 type TaskView = "board" | "list";
@@ -174,19 +175,22 @@ export function SettingsPage() {
               id: "notifications",
               label: "Notifications",
               content: (
-                <Section
-                  title="Notifications"
-                  description="Every notice appears in the app. These are also emailed."
-                >
-                  <ul className="list-disc pl-5 text-sm" aria-label="Emailed notifications">
-                    {EMAILED.map((k) => (
-                      <li key={k}>{k}</li>
-                    ))}
-                  </ul>
-                  <p className="text-sm text-muted-foreground">
-                    In the app only: {IN_APP_ONLY.join(", ")}.
-                  </p>
-                </Section>
+                <div className="grid gap-6">
+                  <NotificationSettings />
+                  <Section
+                    title="Notifications"
+                    description="Every notice appears in the app. These are also emailed."
+                  >
+                    <ul className="list-disc pl-5 text-sm" aria-label="Emailed notifications">
+                      {EMAILED.map((k) => (
+                        <li key={k}>{k}</li>
+                      ))}
+                    </ul>
+                    <p className="text-sm text-muted-foreground">
+                      In the app only: {IN_APP_ONLY.join(", ")}.
+                    </p>
+                  </Section>
+                </div>
               ),
             },
             {

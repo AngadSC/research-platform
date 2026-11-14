@@ -39,6 +39,21 @@ const TEMPLATES: { value: NonNullable<ProjectInput["template"]>; label: string; 
     label: "Secondary data analysis",
     help: "A plan for working with existing data. The Participants step is marked as not needed.",
   },
+  {
+    value: "thesis_chapter",
+    label: "Thesis chapter",
+    help: "A plan for one chapter from outline to final draft, with a Drafts folder and more.",
+  },
+  {
+    value: "ra_onboarding",
+    label: "RA onboarding",
+    help: "Your first month in a lab: training, access, meeting people and agreeing goals.",
+  },
+  {
+    value: "conference_poster",
+    label: "Poster for a conference",
+    help: "From the poster rules to printing and practising your talk, with a folder for the files.",
+  },
 ];
 
 interface Props {
