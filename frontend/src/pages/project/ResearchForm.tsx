@@ -37,6 +37,8 @@ interface Field {
   source?: Source;
   /** Leave out files that identify participants (Claude may run attached code). */
   unflagged?: boolean;
+  /** List likely code files first, with "Show all files" for the rest. */
+  codeFirst?: boolean;
 }
 
 const F = (name: string, label: string, type: Type, extra: Partial<Field> = {}): Field => ({
@@ -59,6 +61,10 @@ const FIELDS: Record<Kind, Field[]> = {
     F("controlled_by", "Who controls access", "select", { source: "members" }),
     F("access_notes", "How to get access", "textarea"),
     F("checksum", "Checksum", "text", { hint: "Optional, to show the data has not changed." }),
+    F("data_file", "Project file", "select", {
+      source: "attachments",
+      hint: "Optional. Pick an uploaded or linked file. If it identifies participants, so does this dataset.",
+    }),
   ],
   analyses: [
     F("title", "Title", "text", { required: true }),
@@ -70,6 +76,7 @@ const FIELDS: Record<Kind, Field[]> = {
     F("code_attachment", "Or attach the code", "select", {
       source: "attachments",
       unflagged: true,
+      codeFirst: true,
     }),
     F("datasets", "Datasets used", "multi", { source: "datasets" }),
   ],
@@ -133,7 +140,7 @@ export function validate(kind: Kind, v: Values): Record<string, string> {
   return e;
 }
 
-const NULLABLE = new Set(["previous_version", "controlled_by", "code_attachment"]);
+const NULLABLE = new Set(["previous_version", "controlled_by", "code_attachment", "data_file"]);
 const initial = (kind: Kind, rec?: AnyRecord): Values =>
   Object.fromEntries(
     FIELDS[kind].map((f) => {
@@ -169,6 +176,8 @@ function useOptions(labId: string, projectId: string, source: Source, unflagged 
     },
   });
 }
+
+const CODE_FILE = /\.(py|r|m|ipynb|jl|do|sas|sps|sql|sh|txt|rmd|qmd)$/i;
 
 const selectCls =
   "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
@@ -572,19 +581,46 @@ function Select({
   onChange: (v: string) => void;
 }) {
   const opts = useOptions(labId, projectId, f.source ?? "datasets", f.unflagged);
-  const choices =
+  const [showAll, setShowAll] = useState(false);
+  const all =
     f.type === "status"
       ? MANUSCRIPT_STATUSES.map(([id, label]) => ({ id, label }))
       : (opts.data ?? []).filter((o) => o.id !== self);
+  // The chosen file stays listed even when it is not a code file.
+  const likely = all.filter((o) => CODE_FILE.test(o.label) || o.id === value);
+  const hidden = f.codeFirst && !showAll ? all.length - likely.length : 0;
+  const choices = f.codeFirst
+    ? showAll
+      ? [...likely, ...all.filter((o) => !likely.includes(o))]
+      : likely
+    : all;
   return (
-    <select id={id} className={selectCls} value={value} onChange={(e) => onChange(e.target.value)}>
-      {f.type !== "status" && <option value="">{f.required ? "Choose one" : "None"}</option>}
-      {choices.map((o) => (
-        <option key={o.id} value={o.id}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+    <>
+      <select
+        id={id}
+        className={selectCls}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {f.type !== "status" && <option value="">{f.required ? "Choose one" : "None"}</option>}
+        {choices.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      {hidden > 0 && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="justify-self-start px-0"
+          onClick={() => setShowAll(true)}
+        >
+          Show all files
+        </Button>
+      )}
+    </>
   );
 }
 

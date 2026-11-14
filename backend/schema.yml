@@ -11147,6 +11147,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/DatasetRef'
           readOnly: true
+        data_file:
+          allOf:
+          - $ref: '#/components/schemas/AttachmentRef'
+          readOnly: true
         analyses:
           type: array
           items:
@@ -11175,6 +11179,7 @@ components:
       - controlled_by
       - created_at
       - created_by
+      - data_file
       - id
       - location_text
       - location_url
@@ -11211,6 +11216,10 @@ components:
           type: string
           maxLength: 140
         previous_version:
+          type: string
+          format: uuid
+          nullable: true
+        data_file:
           type: string
           format: uuid
           nullable: true
@@ -14700,6 +14709,10 @@ components:
           type: string
           maxLength: 140
         previous_version:
+          type: string
+          format: uuid
+          nullable: true
+        data_file:
           type: string
           format: uuid
           nullable: true

@@ -12,7 +12,7 @@ import { FormField } from "@/components/shared/FormField";
 import { GoogleEditorPanel } from "@/components/shared/GoogleEditorPanel";
 import { LinkedFiles } from "@/components/shared/LinkedFiles";
 import {
-  PARTICIPANT_HINT,
+  MARKED_TOAST,
   ParticipantBadge,
   markLabel,
   useConfirmUnmark,
@@ -124,12 +124,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
     flag.mutate(
       { kind: r.doc ? "documents" : "attachments", id: rowId(r), value },
       {
-        onSuccess: () =>
-          toast.success(
-            value
-              ? `Marked as identifying participants. ${PARTICIPANT_HINT}`
-              : "Identifying mark removed",
-          ),
+        onSuccess: () => toast.success(value ? MARKED_TOAST : "Identifying mark removed"),
         onError: (e) => toast.error(formErrors(e, []).form ?? "Something went wrong."),
       },
     );

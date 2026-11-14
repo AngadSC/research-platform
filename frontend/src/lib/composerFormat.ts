@@ -116,9 +116,11 @@ export function mentionAt(value: string, caret: number): { start: number; query:
   return m ? { start: caret - m[2]!.length - 1, query: m[2]! } : null;
 }
 
-/** The stored form of a mention: `@[Name](user:<id>)`. Brackets in a name would break it. */
+/**
+ * The stored form of a mention: `@[Name](user:<id>)`. Square brackets in a name
+ * would break it; round ones are fine. */
 export const mentionToken = (name: string, id: string) =>
-  `@[${name.replace(/[[\]()\n]/g, "").trim() || "Someone"}](user:${id})`;
+  `@[${name.replace(/[[\]\n]/g, "").trim() || "Someone"}](user:${id})`;
 
 /** Swaps the "@query" being typed for a finished mention and a space. */
 export function applyMention(

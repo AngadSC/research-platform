@@ -4533,6 +4533,7 @@ export interface components {
             readonly version_label: string;
             readonly checksum: string;
             readonly previous_version: components["schemas"]["DatasetRef"];
+            readonly data_file: components["schemas"]["AttachmentRef"];
             readonly analyses: components["schemas"]["AnalysisRef"][];
             readonly contains_participant_data: boolean;
             readonly created_by: components["schemas"]["User"];
@@ -4552,6 +4553,8 @@ export interface components {
             checksum?: string;
             /** Format: uuid */
             previous_version?: string | null;
+            /** Format: uuid */
+            data_file?: string | null;
             contains_participant_data?: boolean;
         };
         DatasetRef: {
@@ -5850,6 +5853,8 @@ export interface components {
             checksum?: string;
             /** Format: uuid */
             previous_version?: string | null;
+            /** Format: uuid */
+            data_file?: string | null;
             contains_participant_data?: boolean;
         };
         PatchedDeadlineInput: {

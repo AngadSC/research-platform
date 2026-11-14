@@ -120,6 +120,7 @@ class DatasetSerializer(serializers.ModelSerializer):
     controlled_by = UserSerializer(read_only=True)
     created_by = UserSerializer(read_only=True)
     previous_version = DatasetRefSerializer(read_only=True)
+    data_file = AttachmentRefSerializer(read_only=True)
     analyses = AnalysisRefSerializer(many=True, read_only=True)
 
     class Meta:
@@ -135,6 +136,7 @@ class DatasetSerializer(serializers.ModelSerializer):
             "version_label",
             "checksum",
             "previous_version",
+            "data_file",
             "analyses",
             "contains_participant_data",
             "created_by",
@@ -369,7 +371,7 @@ PLURAL = {
     "external": "external_outputs",
 }
 SELECT = {
-    "dataset": ("controlled_by", "created_by", "previous_version"),
+    "dataset": ("controlled_by", "created_by", "previous_version", "data_file"),
     "analysis": ("ran_by", "code_attachment"),
     "result": ("created_by", "analysis"),
     "decision": ("decided_by",),
@@ -453,6 +455,7 @@ class DatasetInputSerializer(serializers.Serializer):
         max_length=140, allow_blank=True, required=False, validators=[validate_checksum]
     )
     previous_version = serializers.UUIDField(allow_null=True, required=False)
+    data_file = serializers.UUIDField(allow_null=True, required=False)
     contains_participant_data = serializers.BooleanField(required=False)  # VISION A3
 
 

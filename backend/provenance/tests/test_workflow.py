@@ -462,3 +462,21 @@ def test_a_non_pi_cannot_attach_a_pi_only_file_as_code(w):
     resp = post(w, "analysis-list", body, lead)
     assert resp.status_code == 400
     assert "code_attachment" in resp.json()
+
+
+def test_a_dataset_can_point_at_a_project_file(w):
+    lead = w.member(ProjectRole.LEAD)
+    letter = _letter(w, pi_only=True)
+    bad = post(
+        w, "dataset-list", {"name": "D", "version_label": "v1", "data_file": str(letter.pk)}, lead
+    )
+    assert bad.status_code == 400 and "data_file" in bad.json()  # PI-only: unknown to a lead
+    ok = _letter(w)
+    ok.contains_participant_data = True
+    ok.save()
+    got = post(
+        w, "dataset-list", {"name": "D", "version_label": "v1", "data_file": str(ok.pk)}, lead
+    )
+    assert got.status_code == 201
+    assert got.json()["data_file"]["id"] == str(ok.pk)
+    assert got.json()["contains_participant_data"] is True  # the mark follows the file
