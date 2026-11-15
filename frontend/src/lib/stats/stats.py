@@ -1797,6 +1797,28 @@ def engine_load(path, name, sheet=None):
     return _safe(load)
 
 
+def engine_table_xlsx(context_json, table_json):
+    """One table as its own workbook (a Summary sheet naming the result, then the table)."""
+    import json
+
+    def build():
+        context, table = json.loads(context_json), json.loads(table_json)
+        cols, rows = table.get("columns"), table.get("rows")
+        if not isinstance(cols, list) or not isinstance(rows, list):
+            raise UserError("That table could not be exported.")
+        result = {
+            "title": str(context.get("title", "Statistics result")),
+            "summary": str(context.get("summary", "")),
+            "warnings": [],
+            "n": context.get("n", ""),
+            "file": str(context.get("file", "")),
+            "tables": [{"title": str(table.get("title", "Table")), "columns": cols, "rows": rows}],
+        }
+        return json.dumps({"ok": True}), make_xlsx(result)
+
+    return _safe(build)
+
+
 def engine_rows(offset, limit):
     """A slice of the loaded table for the data grid: cell values as text or numbers, None for blank."""
     import json
@@ -1938,7 +1960,9 @@ def make_xlsx(result):
     wb = Workbook()
     ws = wb.active
     ws.title = "Summary"
-    file_name = _loaded["name"] + (f" (sheet {_loaded['sheet']})" if _loaded.get("sheet") else "")
+    file_name = result.get("file") or (
+        _loaded["name"] + (f" (sheet {_loaded['sheet']})" if _loaded.get("sheet") else "")
+    )
     for label, value in [
         ("Title", result["title"]),
         ("Summary", result["summary"]),

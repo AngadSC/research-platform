@@ -139,8 +139,35 @@ def create_converted(account, *, name, extension, data) -> str:
     """Drive v3 `files.create` (multipart): upload `data` as a new file in the person's own
     Drive, converted to the Google type for `extension`. Returns the new file's id."""
     source, target = CONVERTIBLE[extension]
+    return _upload(account, name=name, source=source, target=target, data=data)
+
+
+# Results from the statistics page: tables become Google Sheets (an Excel or CSV file converted),
+# charts stay pictures. extension -> (the upload's type, the Google type or None to keep as is)
+EXPORTABLE = {
+    ".xlsx": CONVERTIBLE[".xlsx"],
+    ".csv": ("text/csv", "application/vnd.google-apps.spreadsheet"),
+    ".png": ("image/png", None),
+    ".svg": ("image/svg+xml", None),
+}
+
+
+def create_export(account, *, name, extension, data) -> str:
+    """A result file made in the person's own Drive (drive.file covers files the app creates)."""
+    source, target = EXPORTABLE[extension]
+    return _upload(account, name=name, source=source, target=target, data=data)
+
+
+def view_url(mime_type, external_id) -> str:
+    """Where to open a file made by `create_export`: its editor for a Sheet, else Drive's viewer."""
+    return editor_url(mime_type, external_id) or (
+        f"https://drive.google.com/file/d/{quote(external_id, safe='')}/view"
+    )
+
+
+def _upload(account, *, name, source, target, data) -> str:
     boundary = secrets.token_hex(16)
-    meta = json.dumps({"name": name, "mimeType": target})
+    meta = json.dumps({"name": name, **({"mimeType": target} if target else {})})
     body = (
         (
             f"--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n{meta}\r\n"

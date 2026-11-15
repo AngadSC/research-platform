@@ -6541,6 +6541,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/Document'
           description: ''
+  /api/labs/{lab_id}/projects/{project_id}/drive-export/:
+    post:
+      operationId: labs_projects_drive_export_create
+      description: Statistics results go straight to the person's own Google Drive
+        (not kept in the project).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DriveExportInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriveExportResult'
+          description: ''
   /api/labs/{lab_id}/projects/{project_id}/export/:
     post:
       operationId: labs_projects_export_create
@@ -13782,6 +13817,33 @@ components:
       - base_version
       - content
       - title
+    DriveExportInput:
+      type: object
+      properties:
+        file:
+          type: string
+          format: uri
+        name:
+          type: string
+          maxLength: 100
+        participant_data:
+          type: boolean
+      required:
+      - file
+    DriveExportResult:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        url:
+          type: string
+          format: uri
+      required:
+      - id
+      - name
+      - url
     EnrolmentStatusEnum:
       enum:
       - screened

@@ -206,6 +206,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("DELETE", "documents:attachment-detail"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:attachment-download"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "documents:attachment-edit-in-google"): "401 404 2 2 2 2 403 404 403",  # B3
+    ("POST",   "documents:project-drive-export"): "401 404 2 2 2 403 403 404 403",  # stats to Drive
     ("POST",   "documents:document-move"): "401 404 2 2 2 2 403 404 403",
     # Handover: a new owner for a document needs manage_project_members on its project (D251)
     # document-owner: the matrix document is the PI's, so a lead is refused (403)
@@ -936,6 +937,7 @@ def _matrix_fake_provider(monkeypatch, settings):
     )
     # Edit in Google (VISION B3): the copy and its metadata, without Google.
     monkeypatch.setattr(google_drive, "create_converted", lambda account, **kw: "gcopy1")
+    monkeypatch.setattr(google_drive, "create_export", lambda account, **kw: "gexport1")
     monkeypatch.setattr(
         google_drive,
         "fetch_item",
@@ -1446,6 +1448,9 @@ PAYLOADS = {
     ("POST", "documents:document-move"): lambda user, w: {"folder": None},
     ("POST", "documents:document-owner"): lambda user, w: {"owner": str(w.user_ids["contrib"])},
     ("POST", "documents:attachment-move"): lambda user, w: {"folder": None},
+    ("POST", "documents:project-drive-export"): lambda user, w: {
+        "file": SimpleUploadedFile("results.xlsx", b"PK\x03\x04x"),
+    },
     ("POST", "documents:attachment-edit-in-google"): lambda user, w: _as_docx(w),
     ("POST", "documents:folder-list"): lambda user, w: {"name": "New folder"},
     ("PATCH", "documents:folder-detail"): lambda user, w: {"name": "Renamed folder"},

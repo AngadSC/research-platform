@@ -2656,6 +2656,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/projects/{project_id}/drive-export/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Statistics results go straight to the person's own Google Drive (not kept in the project). */
+        post: operations["labs_projects_drive_export_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/projects/{project_id}/export/": {
         parameters: {
             query?: never;
@@ -5562,6 +5579,18 @@ export interface components {
             /** Format: date */
             retain_until?: string | null;
             retention_note?: string;
+        };
+        DriveExportInput: {
+            /** Format: uri */
+            file: string;
+            name?: string;
+            participant_data?: boolean;
+        };
+        DriveExportResult: {
+            id: string;
+            name: string;
+            /** Format: uri */
+            url: string;
         };
         /**
          * @description * `screened` - Screened
@@ -13104,6 +13133,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Document"];
+                };
+            };
+        };
+    };
+    labs_projects_drive_export_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["DriveExportInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriveExportResult"];
                 };
             };
         };

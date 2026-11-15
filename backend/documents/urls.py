@@ -67,6 +67,11 @@ urlpatterns = [
         name="attachment-list",
     ),
     path(
+        L + "projects/<uuid:project_id>/drive-export/",
+        views.ProjectDriveExportView.as_view(),
+        name="project-drive-export",
+    ),
+    path(
         L + "attachments/<uuid:attachment_id>/",
         views.AttachmentDetailView.as_view(),
         name="attachment-detail",

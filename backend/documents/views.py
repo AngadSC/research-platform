@@ -2,8 +2,8 @@ from django.conf import settings
 from django.core.files.storage import storages
 from django.http import FileResponse, Http404, HttpResponseRedirect
 from django.utils.http import content_disposition_header
-from drf_spectacular.utils import OpenApiParameter, extend_schema
-from rest_framework import generics, status
+from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
+from rest_framework import generics, serializers, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.generics import get_object_or_404
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -395,6 +395,50 @@ class AttachmentEditInGoogleView(AttachmentMixin, generics.GenericAPIView):
     def post(self, request, lab_id, attachment_id):
         copy = services.edit_in_google(self.get_object(), user=request.user, request=request)
         return Response(self.get_serializer(copy).data, status=status.HTTP_201_CREATED)
+
+
+class DriveExportInputSerializer(serializers.Serializer):
+    file = serializers.FileField()
+    name = serializers.CharField(
+        max_length=services.EXPORT_NAME_MAX, required=False, allow_blank=True
+    )
+    participant_data = serializers.BooleanField(required=False)
+
+
+class ProjectDriveExportView(ProjectPermMixin, generics.GenericAPIView):
+    """Statistics results go straight to the person's own Google Drive (not kept in the project)."""
+
+    serializer_class = DriveExportInputSerializer
+    parser_classes = [MultiPartParser, FormParser]
+    perms = {"POST": Perm.EXPORT}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "uploads"
+
+    @extend_schema(
+        request={"multipart/form-data": DriveExportInputSerializer},
+        responses={
+            201: inline_serializer(
+                "DriveExportResult",
+                {
+                    "id": serializers.CharField(),
+                    "name": serializers.CharField(),
+                    "url": serializers.URLField(),
+                },
+            )
+        },
+    )
+    def post(self, request, lab_id, project_id):
+        ser = self.get_serializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        out = services.export_to_drive(
+            self.project,
+            ser.validated_data["file"],
+            user=request.user,
+            name=ser.validated_data.get("name", ""),
+            participant_data=ser.validated_data.get("participant_data", False),
+            request=request,
+        )
+        return Response(out, status=status.HTTP_201_CREATED)
 
 
 class AttachmentDownloadView(AttachmentMixin, generics.GenericAPIView):

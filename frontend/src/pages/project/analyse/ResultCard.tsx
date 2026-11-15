@@ -10,10 +10,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useDriveExport } from "@/hooks/driveExport";
+import { formErrors } from "@/lib/forms";
+import { fileSafe, saveBlob, svgFile, tableCsv, tableTsv, XLSX_TYPE } from "@/lib/exportFiles";
 import { recordPath } from "@/lib/workflow";
 import { googleEditor } from "@/lib/googleFiles";
-import type { StatsResult } from "@/lib/stats/contract";
+import type { StatsResult, StatsTable } from "@/lib/stats/contract";
 import { Chart } from "@/pages/project/analyse/charts";
+import { useGetEngine } from "@/pages/project/analyse/engine";
+import { ExportMenu } from "@/pages/project/analyse/ExportMenu";
 import { svgToPng } from "@/pages/project/analyse/png";
 import { SaveDialog } from "@/pages/project/analyse/SaveDialog";
 import type { SaveOutcome } from "@/pages/project/analyse/save";
@@ -28,14 +33,7 @@ export interface Run {
   saved?: SaveOutcome;
 }
 
-function download(blob: Blob, name: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+const download = saveBlob;
 
 async function copy(text: string, what: string) {
   try {
@@ -54,12 +52,18 @@ export function ResultCard({
   projectId,
   canSave,
   onSaved,
+  onRemove,
+  canExport = false,
 }: {
   run: Run;
   labId: string;
   projectId: string;
   canSave: boolean;
   onSaved: (o: SaveOutcome) => void;
+  /** Drop this result from the list (it is not saved anywhere). */
+  onRemove?: () => void;
+  /** May send results to Google Drive (the project's export right). */
+  canExport?: boolean;
 }) {
   const { result, saved } = run;
   const root = useRef<HTMLElement>(null);
@@ -67,6 +71,116 @@ export function ResultCard({
   const svgs = () => Array.from(root.current?.querySelectorAll<SVGSVGElement>("svg.viz") ?? []);
   const base = `/labs/${labId}/projects/${projectId}`;
   const sheet = saved?.copy && googleEditor(saved.copy);
+  const getEngine = useGetEngine();
+  const drive = useDriveExport(labId, projectId);
+  // Unknown (a file from this computer) counts as marked, for the audit record only.
+  const participantData = run.flagged !== false;
+
+  async function toDrive(blob: Blob, filename: string, name: string, what: string) {
+    try {
+      const out = await drive.mutateAsync({
+        file: new File([blob], filename, { type: blob.type }),
+        name,
+        participantData,
+      });
+      toast.success(`${what} sent to your Google Drive`, {
+        action: { label: "Open", onClick: () => window.open(out.url, "_blank", "noopener") },
+      });
+    } catch (e) {
+      toast.error(formErrors(e, ["file"]).fields.file ?? "Could not send that to Google Drive.");
+    }
+  }
+
+  async function tableWorkbook(t: StatsTable) {
+    const bytes = await getEngine().tableXlsx(t, {
+      title: result.title,
+      summary: result.summary,
+      n: result.n,
+      file: run.inputName,
+    });
+    return new Blob([bytes as BlobPart], { type: XLSX_TYPE });
+  }
+  const failed = (what: string) => () => toast.error(`Could not make ${what}. Try again.`);
+
+  function tableItems(t: StatsTable) {
+    const stem = `${fileStem(result)}-${fileSafe(t.title)}`;
+    return {
+      here: [
+        { label: "Copy to paste", run: () => copy(tableTsv(t), "Table") },
+        {
+          label: "Download CSV",
+          run: () => download(new Blob([tableCsv(t)], { type: "text/csv" }), `${stem}.csv`),
+        },
+        {
+          label: "Download Excel (.xlsx)",
+          run: () =>
+            tableWorkbook(t).then((b) => download(b, `${stem}.xlsx`), failed("the workbook")),
+        },
+      ],
+      google: canExport
+        ? [
+            {
+              label: "Send to Google Sheets",
+              run: () =>
+                tableWorkbook(t).then(
+                  (b) => toDrive(b, `${stem}.xlsx`, `${result.title}: ${t.title}`, "Table"),
+                  failed("the workbook"),
+                ),
+            },
+          ]
+        : [],
+    };
+  }
+
+  function chartItems(i: number, title: string) {
+    const stem = `${fileStem(result)}-chart-${i + 1}`;
+    const png = async () => {
+      const svg = svgs()[i];
+      if (!svg) throw new Error("no chart");
+      return svgToPng(svg);
+    };
+    return {
+      here: [
+        {
+          label: "Download PNG",
+          run: () =>
+            png().then(
+              (b) => download(b, `${stem}.png`),
+              () => toast.error("The chart could not be turned into a picture."),
+            ),
+        },
+        {
+          label: "Download SVG (editable)",
+          run: () => {
+            const svg = svgs()[i];
+            if (svg) download(svgFile(svg), `${stem}.svg`);
+          },
+        },
+        {
+          label: "Copy picture",
+          run: () =>
+            png()
+              .then((b) => navigator.clipboard.write([new ClipboardItem({ "image/png": b })]))
+              .then(
+                () => toast.success("Picture copied"),
+                () => toast.error("This browser could not copy the picture. Download it instead."),
+              ),
+        },
+      ],
+      google: canExport
+        ? [
+            {
+              label: "Send picture to Google Drive",
+              run: () =>
+                png().then(
+                  (b) => toDrive(b, `${stem}.png`, `${result.title}: ${title}`, "Chart"),
+                  () => toast.error("The chart could not be turned into a picture."),
+                ),
+            },
+          ]
+        : [],
+    };
+  }
 
   return (
     <article ref={root} aria-label={result.title} className="grid gap-4 rounded-lg border p-4">
@@ -77,7 +191,14 @@ export function ResultCard({
             {run.inputName} · {result.n} rows used
           </p>
         </div>
-        {canSave && !saved && <Button onClick={() => setSaving(true)}>Save to project</Button>}
+        <div className="flex gap-2">
+          {onRemove && !saved && (
+            <Button variant="ghost" onClick={onRemove} aria-label={`Remove ${result.title}`}>
+              Remove
+            </Button>
+          )}
+          {canSave && !saved && <Button onClick={() => setSaving(true)}>Save to project</Button>}
+        </div>
       </header>
 
       <div className="flex items-start gap-2">
@@ -118,7 +239,10 @@ export function ResultCard({
               ))}
             </TableBody>
           </Table>
-          {t.note && <p className="text-xs text-muted-foreground">{t.note}</p>}
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs text-muted-foreground">{t.note}</p>
+            <ExportMenu label={`Export table ${t.title}`} {...tableItems(t)} />
+          </div>
         </div>
       ))}
 
@@ -126,21 +250,7 @@ export function ResultCard({
         <figure key={`${c.kind}-${i}`} className="grid gap-1">
           <figcaption className="flex items-center gap-2 text-sm font-medium">
             {c.title}
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label={`Download chart ${i + 1} as PNG`}
-              onClick={() => {
-                const svg = svgs()[i];
-                if (!svg) return;
-                svgToPng(svg).then(
-                  (b) => download(b, `${fileStem(result)}-chart-${i + 1}.png`),
-                  () => toast.error("The chart could not be turned into a picture."),
-                );
-              }}
-            >
-              PNG
-            </Button>
+            <ExportMenu label={`Export chart ${c.title}`} {...chartItems(i, c.title)} />
           </figcaption>
           <Chart chart={c} />
         </figure>
@@ -187,6 +297,22 @@ export function ResultCard({
         >
           Download results (.xlsx)
         </Button>
+        {canExport && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              void toDrive(
+                new Blob([result.xlsx as BlobPart], { type: XLSX_TYPE }),
+                `${fileStem(result)}.xlsx`,
+                result.title,
+                "Results workbook",
+              )
+            }
+          >
+            Send results to Google Sheets
+          </Button>
+        )}
       </div>
 
       {saved && (

@@ -507,6 +507,20 @@ close(cell(r, "Loadings", "PC1", row=0), 1.0, "PCA loading", tol=1e-6)
 r = run("pc.csv", "pca", columns=["a", "b", "c"])
 close(sum(row[1] for row in table(r, "Components")["rows"]), 3.0, "eigenvalues sum to the number of columns")
 
+# one table as its own workbook
+import openpyxl as _xl
+
+wb_bytes = engine_table_xlsx(  # noqa: F821
+    json.dumps({"title": "Score by arm", "summary": "S", "n": 6, "file": "my data.csv"}),
+    json.dumps({"title": "Group means", "columns": ["Group", "Mean"], "rows": [["A", 1.5], ["=1+1", None]]}),
+)
+ok(wb_bytes[1][:2] == b"PK", "table workbook is a zip")
+wb = _xl.load_workbook(io.BytesIO(wb_bytes[1]))
+ok(wb.sheetnames == ["Summary", "Group means"], f"table workbook sheets: {wb.sheetnames}")
+ok(wb["Group means"]["B3"].value == 1.5 and wb["Group means"]["A4"].data_type == "s", "table workbook cells")
+ok(any(c.value == "my data.csv" for row in wb["Summary"].iter_rows() for c in row), "table workbook names the file")
+ok("error" in json.loads(engine_table_xlsx("{}", "{}")[0]), "table workbook refuses a bad table")  # noqa: F821
+
 # the data grid's rows
 write("grid.csv", "a,b\n1,x\n2,\n3,z\n")
 load("grid.csv")

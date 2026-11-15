@@ -88,6 +88,9 @@ export function createStatsEngine(
         [file.bytes],
       );
     },
+    tableXlsx(table, context) {
+      return send<Uint8Array>({ type: "table_xlsx", table, context });
+    },
     rows(offset, limit) {
       return send<DataRows>({ type: "rows", offset, limit });
     },

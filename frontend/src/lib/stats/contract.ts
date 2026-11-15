@@ -463,6 +463,11 @@ export interface StatsEngine {
   load(file: StatsFile): Promise<DataShape>;
   /** Rows `offset` up to `offset + limit` (at most 500) of the loaded file, in column order. */
   rows(offset: number, limit: number): Promise<DataRows>;
+  /** One result table as an Excel workbook (a Summary sheet, then the table). */
+  tableXlsx(
+    table: StatsTable,
+    context: { title: string; summary: string; n: number; file: string },
+  ): Promise<Uint8Array>;
   /** Run a test on the loaded file. */
   run(req: StatsRequest): Promise<StatsResult>;
 }

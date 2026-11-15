@@ -8,7 +8,16 @@ const KIND_LABEL = { numeric: "123", categorical: "abc", text: "Aa" } as const;
 const KIND_NAME = { numeric: "numbers", categorical: "category", text: "text" } as const;
 
 /** The loaded file as a spreadsheet: the real rows, column types on the headers, a page at a time. */
-export function DataGrid({ engine, shape }: { engine: StatsEngine; shape: DataShape }) {
+export function DataGrid({
+  engine,
+  shape,
+  tall = false,
+}: {
+  engine: StatsEngine;
+  shape: DataShape;
+  /** Fill the pane (focus mode) instead of stopping at a fixed height. */
+  tall?: boolean;
+}) {
   const [rows, setRows] = useState<DataRows["rows"]>([]);
   const [total, setTotal] = useState(shape.rows);
   const [error, setError] = useState(false);
@@ -47,7 +56,12 @@ export function DataGrid({ engine, shape }: { engine: StatsEngine; shape: DataSh
 
   return (
     <div className="grid gap-2">
-      <div className="max-h-80 overflow-auto rounded-xl border bg-card">
+      <div
+        className={cn(
+          "overflow-auto rounded-xl border bg-card",
+          tall ? "max-h-[calc(100vh-17rem)]" : "max-h-80",
+        )}
+      >
         <table className="w-full border-separate border-spacing-0 text-sm" aria-label="Data">
           <thead>
             <tr>
