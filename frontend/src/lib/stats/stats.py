@@ -1405,7 +1405,11 @@ def make_code(test, params, title):
         f"# Needs Python 3.10 or newer: pip install {' '.join(pip)}",
         "# Put this script in the same folder as the data file, then run it with python.",
     ])
-    main = f'if __name__ == "__main__":\n    df = {read}\n    print_result({test}(df{args}))\n'
+    # Windows consoles and pipes default to cp1252, which can't print letters like the minus sign in headers.
+    main = (
+        f'if __name__ == "__main__":\n    import sys\n    sys.stdout.reconfigure(encoding="utf-8")\n'
+        f"    df = {read}\n    print_result({test}(df{args}))\n"
+    )
     code = "\n\n\n".join([header + "\n\n" + "\n".join(imports), *body, main])
     # The copied functions have a few non-ASCII letters, all in plain strings and comments: escape them too.
     return code.encode("ascii", "backslashreplace").decode("ascii")
