@@ -6,14 +6,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import { useFolders } from "@/hooks/documents";
 import { downloadUrl, useAttachments } from "@/hooks/projects";
 import { useRecords } from "@/hooks/research";
@@ -29,6 +22,7 @@ import {
 } from "@/lib/stats/contract";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { useGetEngine } from "@/pages/project/analyse/engine";
+import { DataGrid } from "@/pages/project/analyse/DataGrid";
 import { ResultCard, type Run } from "@/pages/project/analyse/ResultCard";
 import { errorText } from "@/pages/project/analyse/save";
 
@@ -109,6 +103,14 @@ function ParamField({
         ))}
         {!cols.length && <p className="text-sm text-muted-foreground">No suitable columns.</p>}
       </div>
+    );
+  } else if (spec.kind === "text") {
+    input = (
+      <Input
+        id={id}
+        value={typeof value === "string" ? value : ""}
+        onChange={(e) => onChange(e.target.value || undefined)}
+      />
     );
   } else if (spec.kind === "number") {
     input = (
@@ -195,7 +197,13 @@ function validate(test: TestSpec, v: ParamValues): Record<string, string> {
     const x = v[p.key];
     const empty = x === undefined || x === "" || (Array.isArray(x) && !x.length);
     if (empty) {
-      if (!p.optional) errs[p.key] = p.kind === "number" ? "Enter a number." : "Choose a column.";
+      if (!p.optional)
+        errs[p.key] =
+          p.kind === "number"
+            ? "Enter a number."
+            : p.kind === "text"
+              ? "Type a value."
+              : "Choose a column.";
     } else if (Array.isArray(x) && x.length < (p.min ?? 1)) {
       errs[p.key] = `Choose at least ${p.min}.`;
     }
@@ -366,6 +374,43 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
   const busy = state.state === "running" || state.state === "loading";
   const errors = test ? validate(test, values) : {};
 
+  // Live mode: the result follows the options, like a spreadsheet. "Keep" pins it to the list.
+  const [live, setLive] = useState(false);
+  const [preview, setPreview] = useState<Run>();
+  const [previewError, setPreviewError] = useState<string>();
+  const previewTicket = useRef(0);
+  const valuesKey = JSON.stringify(values);
+  const hasErrors = test ? Object.keys(validate(test, values)).length > 0 : true;
+  useEffect(() => {
+    if (!live || !engine || !test || !source || hasErrors) return;
+    const ticket = ++previewTicket.current;
+    const timer = setTimeout(() => {
+      const clean = Object.fromEntries(Object.entries(values).filter(([, v]) => v !== undefined));
+      engine
+        .run({ test: test.id, params: clean })
+        .then((result) => {
+          if (ticket !== previewTicket.current) return;
+          setPreviewError(undefined);
+          setPreview({
+            id: 0,
+            result,
+            inputName: source.name,
+            datasetId: source.datasetId,
+            flagged: source.flagged,
+          });
+        })
+        .catch((e) => ticket === previewTicket.current && setPreviewError(errorText(e)));
+    }, 400);
+    return () => clearTimeout(timer);
+    // `values` is covered by valuesKey; the rest are the inputs of the run
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, engine, test, source, hasErrors, valuesKey]);
+  function keepPreview() {
+    if (!preview) return;
+    setRuns((r) => [{ ...preview, id: nextId.current++ }, ...r]);
+    setPreview(undefined);
+  }
+
   async function run() {
     if (!engine || !test || !source) return;
     setTried(true);
@@ -389,13 +434,13 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
     }
   }
 
-  const groups = (["Describe", "Compare groups", "Relationships"] as const).map((g) => ({
+  const groups = [...new Set(TESTS.map((t) => t.group))].map((g) => ({
     g,
     tests: TESTS.filter((t) => t.group === g),
   }));
 
   return (
-    <div className="grid gap-8">
+    <div className="grid gap-6">
       <PageHeader
         title="Statistics"
         description="Runs on your computer. Your data is not sent anywhere unless you save it."
@@ -406,7 +451,24 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
         </p>
       )}
 
-      <Section title="1. Choose your data">
+      {(state.state === "loading" || state.state === "running") && (
+        <div role="status" className="grid gap-2">
+          <Skeleton className="h-2 w-64" />
+          <p className="text-sm text-muted-foreground">{state.message}</p>
+        </div>
+      )}
+      {state.state === "error" && (
+        <p role="alert" className="text-sm font-medium text-destructive">
+          {state.message}
+        </p>
+      )}
+      {(runError || previewError) && (
+        <p role="alert" className="text-sm font-medium text-destructive">
+          {runError ?? previewError}
+        </p>
+      )}
+
+      <Section title={shape ? "Data" : "1. Choose your data"}>
         {options.length === 0 && files.isFetched && datasets.isFetched && (
           <EmptyState
             icon={BarChart3}
@@ -414,7 +476,7 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
             description="Choose a file from this computer below, or upload a CSV or Excel file to the project."
           />
         )}
-        <div className="grid max-w-xl gap-3">
+        <div className="grid max-w-3xl gap-3 sm:grid-cols-2">
           {options.length > 0 && (
             <div className="grid gap-1.5">
               <label htmlFor="data-pick" className="text-sm font-medium">
@@ -473,144 +535,153 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
             {loadError}
           </p>
         )}
-        {shape && (
-          <div className="grid gap-3">
-            {shape.sheets.length > 1 && (
-              <div className="grid max-w-xs gap-1.5">
-                <label htmlFor="sheet-pick" className="text-sm font-medium">
-                  Sheet
-                </label>
-                <select
-                  id="sheet-pick"
-                  className={SELECT}
-                  value={shape.sheet ?? ""}
-                  onChange={(e) => void chooseSheet(e.target.value)}
-                >
-                  {shape.sheets.map((s) => (
-                    <option key={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <p className="text-sm">
-              <span className="font-medium">{shape.fileName}</span>: {shape.rows} rows,{" "}
-              {shape.columns.length} columns
-            </p>
-            <div className="overflow-x-auto">
-              <Table>
-                <caption className="sr-only">Columns in the file</caption>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead scope="col">Column</TableHead>
-                    <TableHead scope="col">Type</TableHead>
-                    <TableHead scope="col">Missing</TableHead>
-                    <TableHead scope="col">Examples</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {shape.columns.map((c) => (
-                    <TableRow key={c.name}>
-                      <TableCell>{c.name}</TableCell>
-                      <TableCell>{c.kind === "categorical" ? "category" : c.kind}</TableCell>
-                      <TableCell>{c.missing}</TableCell>
-                      <TableCell>{c.sample.map((s) => s ?? "(empty)").join(", ")}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        )}
       </Section>
 
-      {shape && (
-        <Section title="2. Choose a test">
-          <div className="grid max-w-xl gap-4">
-            <div className="grid gap-1.5">
-              <label htmlFor="test-pick" className="text-sm font-medium">
-                Test
-              </label>
-              <select
-                id="test-pick"
-                className={SELECT}
-                value={testId}
-                onChange={(e) => {
-                  setTestId(e.target.value);
-                  const t = TESTS.find((x) => x.id === e.target.value);
-                  setValues(t ? defaults(t) : {});
-                  setTried(false);
-                }}
-              >
-                <option value="">Choose a test</option>
-                {groups.map(({ g, tests }) => (
-                  <optgroup key={g} label={g}>
+      {shape && engine && (
+        <div className="grid items-start gap-6 xl:grid-cols-[22rem_minmax(0,1fr)]">
+          <aside aria-label="Analysis" className="grid gap-4 xl:sticky xl:top-4">
+            <div className="grid gap-3">
+              {groups.map(({ g, tests }) => (
+                <div key={g} role="group" aria-label={g} className="grid gap-1.5">
+                  <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                    {g}
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
                     {tests.map((t) => (
-                      <option key={t.id} value={t.id}>
+                      <button
+                        key={t.id}
+                        type="button"
+                        aria-pressed={testId === t.id}
+                        title={t.help}
+                        onClick={() => {
+                          setTestId(t.id);
+                          setValues(defaults(t));
+                          setTried(false);
+                          setPreview(undefined);
+                          setPreviewError(undefined);
+                        }}
+                        className={cn(
+                          "glass-field rounded-lg px-2.5 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                          testId === t.id && "border-primary bg-primary/10 font-medium",
+                        )}
+                      >
                         {t.label}
-                      </option>
+                      </button>
                     ))}
-                  </optgroup>
-                ))}
-              </select>
-              {test && <p className="text-xs text-muted-foreground">{test.help}</p>}
+                  </div>
+                </div>
+              ))}
             </div>
-            {test?.params.map((p) => (
-              <ParamField
-                key={`${test.id}-${p.key}`}
-                spec={p}
-                shape={shape}
-                value={values[p.key]}
-                error={tried ? errors[p.key] : undefined}
-                onChange={(v) => setValues((cur) => ({ ...cur, [p.key]: v }))}
-              />
-            ))}
-            {test && (
-              <div className="flex items-center gap-3">
-                <Button onClick={() => void run()} disabled={busy}>
-                  Run
-                </Button>
-              </div>
+
+            {test ? (
+              <section aria-label="Options" className="grid gap-4 rounded-xl border bg-card p-4">
+                <div>
+                  <h3 className="font-semibold">{test.label}</h3>
+                  <p className="text-xs text-muted-foreground">{test.help}</p>
+                </div>
+                {test.params.map((p) => (
+                  <ParamField
+                    key={`${test.id}-${p.key}`}
+                    spec={p}
+                    shape={shape}
+                    value={values[p.key]}
+                    error={tried ? errors[p.key] : undefined}
+                    onChange={(v) => setValues((cur) => ({ ...cur, [p.key]: v }))}
+                  />
+                ))}
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={live}
+                    onChange={(e) => {
+                      setLive(e.target.checked);
+                      if (!e.target.checked) setPreview(undefined);
+                    }}
+                  />
+                  Update results as I change options
+                </label>
+                <div className="flex items-center gap-3">
+                  <Button onClick={() => void run()} disabled={busy}>
+                    Run
+                  </Button>
+                </div>
+              </section>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Choose an analysis to see its options.
+              </p>
+            )}
+          </aside>
+
+          <div className="grid min-w-0 gap-6">
+            <section aria-label="Your data" className="grid gap-2">
+              <p className="text-sm">
+                <span className="font-medium">{shape.fileName}</span>: {shape.rows} rows,{" "}
+                {shape.columns.length} columns
+              </p>
+              {shape.sheets.length > 1 && (
+                <div className="grid max-w-xs gap-1.5">
+                  <label htmlFor="sheet-pick" className="text-sm font-medium">
+                    Sheet
+                  </label>
+                  <select
+                    id="sheet-pick"
+                    className={SELECT}
+                    value={shape.sheet ?? ""}
+                    onChange={(e) => void chooseSheet(e.target.value)}
+                  >
+                    {shape.sheets.map((s) => (
+                      <option key={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <DataGrid engine={engine} shape={shape} />
+            </section>
+
+            {(preview || runs.length > 0) && (
+              <Section title="Results">
+                {preview && (
+                  <div className="grid gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        Live result. It changes when you change the options.
+                      </p>
+                      <Button size="sm" variant="outline" onClick={keepPreview}>
+                        Keep this result
+                      </Button>
+                    </div>
+                    <ResultCard
+                      run={preview}
+                      labId={labId}
+                      projectId={projectId}
+                      canSave={false}
+                      onSaved={() => {}}
+                    />
+                  </div>
+                )}
+                {runs.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Earlier runs from this visit stay here so you can compare. They are gone when
+                    you leave the page unless you save them.
+                  </p>
+                )}
+                {runs.map((r) => (
+                  <ResultCard
+                    key={r.id}
+                    run={r}
+                    labId={labId}
+                    projectId={projectId}
+                    canSave={canSave}
+                    onSaved={(saved) =>
+                      setRuns((all) => all.map((x) => (x.id === r.id ? { ...x, saved } : x)))
+                    }
+                  />
+                ))}
+              </Section>
             )}
           </div>
-        </Section>
-      )}
-
-      {(state.state === "loading" || state.state === "running") && (
-        <div role="status" className="grid gap-2">
-          <Skeleton className="h-2 w-64" />
-          <p className="text-sm text-muted-foreground">{state.message}</p>
         </div>
-      )}
-      {state.state === "error" && (
-        <p role="alert" className="text-sm font-medium text-destructive">
-          {state.message}
-        </p>
-      )}
-      {runError && (
-        <p role="alert" className="text-sm font-medium text-destructive">
-          {runError}
-        </p>
-      )}
-
-      {runs.length > 0 && (
-        <Section title="Results">
-          <p className="text-xs text-muted-foreground">
-            Earlier runs from this visit stay here so you can compare. They are gone when you leave
-            the page unless you save them.
-          </p>
-          {runs.map((r) => (
-            <ResultCard
-              key={r.id}
-              run={r}
-              labId={labId}
-              projectId={projectId}
-              canSave={canSave}
-              onSaved={(saved) =>
-                setRuns((all) => all.map((x) => (x.id === r.id ? { ...x, saved } : x)))
-              }
-            />
-          ))}
-        </Section>
       )}
       {!shape && (
         <p className="text-sm text-muted-foreground">

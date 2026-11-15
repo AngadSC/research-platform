@@ -61,6 +61,14 @@ function fakeEngine(over: Partial<StatsEngine> = {}) {
     },
     load: vi.fn(async () => shape),
     run: vi.fn(async () => result),
+    rows: vi.fn(async () => ({
+      offset: 0,
+      total: 2,
+      rows: [
+        [1, "A", "x"],
+        [2, "B", null],
+      ],
+    })),
     ...over,
   } as never;
   return Object.assign(e, { emit: (s: EngineState) => listener(s) });
@@ -140,7 +148,7 @@ function setup(
 async function loadAndRun(u: ReturnType<typeof userEvent.setup>) {
   await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
   await screen.findByText(/6 rows, 3 columns/);
-  await u.selectOptions(screen.getByLabelText("Test"), "t_independent");
+  await u.click(screen.getByRole("button", { name: "Independent t-test" }));
   await u.selectOptions(screen.getByLabelText("Outcome (numbers)"), "score");
   await u.selectOptions(screen.getByLabelText("Groups"), "arm");
   await u.click(screen.getByRole("button", { name: "Run" }));
@@ -159,8 +167,8 @@ describe("Analyse page", () => {
     expect(engine.warmUp).toHaveBeenCalled();
     await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
     expect(await screen.findByText(/6 rows, 3 columns/)).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "note" })).toBeInTheDocument();
-    await u.selectOptions(screen.getByLabelText("Test"), "t_independent");
+    expect(screen.getByRole("columnheader", { name: /note/ })).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Independent t-test" }));
     const outcome = screen.getByLabelText("Outcome (numbers)");
     expect(
       within(outcome)
@@ -272,7 +280,7 @@ describe("Analyse page", () => {
     });
     const u = userEvent.setup();
     await screen.findByText(/6 rows, 3 columns/);
-    await u.selectOptions(screen.getByLabelText("Test"), "t_independent");
+    await u.click(screen.getByRole("button", { name: "Independent t-test" }));
     await u.selectOptions(screen.getByLabelText("Outcome (numbers)"), "score");
     await u.selectOptions(screen.getByLabelText("Groups"), "arm");
     await u.click(screen.getByRole("button", { name: "Run" }));
@@ -352,7 +360,7 @@ describe("Analyse page", () => {
     const u = userEvent.setup();
     await screen.findByText(/6 rows, 3 columns/);
     expect(calls.some((c) => c.path.endsWith("/folders/"))).toBe(true);
-    await u.selectOptions(screen.getByLabelText("Test"), "t_independent");
+    await u.click(screen.getByRole("button", { name: "Independent t-test" }));
     await u.selectOptions(screen.getByLabelText("Outcome (numbers)"), "score");
     await u.selectOptions(screen.getByLabelText("Groups"), "arm");
     await u.click(screen.getByRole("button", { name: "Run" }));
@@ -395,7 +403,7 @@ describe("Analyse page", () => {
       new File(["a,b"], "mine.csv"),
     );
     await screen.findByText(/6 rows/);
-    await u.selectOptions(screen.getByLabelText("Test"), "describe");
+    await u.click(screen.getByRole("button", { name: "Summary statistics" }));
     await u.click(screen.getByRole("checkbox", { name: "score" }));
     await u.click(screen.getByRole("button", { name: "Run" }));
     await u.click(await screen.findByRole("button", { name: "Save to project" }));
@@ -427,5 +435,35 @@ describe("Analyse page", () => {
     await loadAndRun(userEvent.setup());
     await screen.findByText("t(4) = 2.31, p = .026");
     expect(screen.queryByRole("button", { name: "Save to project" })).toBeNull();
+  });
+});
+
+describe("Studio layout", () => {
+  it("shows the real rows in a grid with column types", async () => {
+    setup(fakeEngine());
+    const u = userEvent.setup();
+    await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
+    const grid = await screen.findByRole("table", { name: "Data" });
+    expect(await within(grid).findByRole("cell", { name: "x" })).toBeInTheDocument();
+    expect(within(grid).getByRole("columnheader", { name: /score/ })).toHaveTextContent("numbers");
+  });
+
+  it("updates the result as options change when asked, and keeps it on request", async () => {
+    const engine = fakeEngine();
+    setup(engine);
+    const u = userEvent.setup();
+    await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
+    await screen.findByText(/6 rows, 3 columns/);
+    await u.click(screen.getByRole("button", { name: "Independent t-test" }));
+    await u.click(screen.getByLabelText("Update results as I change options"));
+    await u.selectOptions(screen.getByLabelText("Outcome (numbers)"), "score");
+    await u.selectOptions(screen.getByLabelText("Groups"), "arm");
+    expect(
+      await screen.findByText("Live result. It changes when you change the options."),
+    ).toBeInTheDocument();
+    expect(engine.run).toHaveBeenCalledTimes(1);
+    await u.click(screen.getByRole("button", { name: "Keep this result" }));
+    expect(screen.queryByText(/Live result/)).toBeNull();
+    expect(screen.getByText("t(4) = 2.31, p = .026")).toBeInTheDocument();
   });
 });

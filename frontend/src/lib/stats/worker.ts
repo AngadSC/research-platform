@@ -11,7 +11,8 @@ import source from "@/lib/stats/stats.py?raw";
 export type Job =
   | { id: number; type: "warmup" }
   | { id: number; type: "load"; name: string; bytes: ArrayBuffer; sheet?: string }
-  | { id: number; type: "run"; test: string; params: Record<string, unknown> };
+  | { id: number; type: "run"; test: string; params: Record<string, unknown> }
+  | { id: number; type: "rows"; offset: number; limit: number };
 
 export type Reply =
   | { type: "state"; state: EngineState }
@@ -110,6 +111,9 @@ async function handle(job: Job) {
       const { value, bytes } = callPython(py, "engine_run", job.test, JSON.stringify(job.params));
       const xlsx = new Uint8Array(bytes ?? []);
       post({ type: "done", id: job.id, value: { ...value, xlsx } }, [xlsx.buffer]);
+    } else if (job.type === "rows") {
+      const { value } = callPython(py, "engine_rows", job.offset, job.limit);
+      post({ type: "done", id: job.id, value });
     } else {
       post({ type: "done", id: job.id, value: null });
     }

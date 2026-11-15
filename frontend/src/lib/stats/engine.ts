@@ -1,4 +1,5 @@
 import type {
+  DataRows,
   DataShape,
   EngineState,
   StatsEngine,
@@ -86,6 +87,9 @@ export function createStatsEngine(
         { type: "load", name: file.name, bytes: file.bytes, sheet: file.sheet },
         [file.bytes],
       );
+    },
+    rows(offset, limit) {
+      return send<DataRows>({ type: "rows", offset, limit });
     },
     run(req: StatsRequest) {
       return send<StatsResult>({ type: "run", test: req.test, params: req.params });
