@@ -402,6 +402,7 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
     setTestId(id);
     const t = TESTS.find((x) => x.id === id);
     const v = t ? defaults(t) : {};
+    if (t) engine?.prepare(t.id); // fetch the test's packages while the columns are being picked
     // "Split by" is easy to miss: when one column is an obvious grouping, fill it in
     if (t?.id === "normality" && shape) {
       const cats = shape.columns.filter(

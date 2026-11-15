@@ -56,6 +56,7 @@ function fakeEngine(over: Partial<StatsEngine> = {}) {
   let listener: (s: EngineState) => void = () => {};
   const e: StatsEngine & { load: ReturnType<typeof vi.fn>; run: ReturnType<typeof vi.fn> } = {
     warmUp: vi.fn(),
+    prepare: vi.fn(),
     subscribe: (l: (s: EngineState) => void) => {
       listener = l;
       return () => {};
@@ -488,13 +489,15 @@ describe("Analyse page", () => {
   });
 
   it("guides the test choice and preselects the only small category for normality", async () => {
-    setup(fakeEngine());
+    const engine = fakeEngine();
+    setup(engine);
     const u = userEvent.setup();
     await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
     await screen.findByText(/6 rows, 3 columns/);
     await u.click(screen.getByText("Which test should I use?"));
     await u.click(screen.getByRole("button", { name: "Are two groups different?" }));
     expect(screen.getByLabelText("Test")).toHaveValue("t_independent");
+    expect(engine.prepare).toHaveBeenCalledWith("t_independent");
     await u.click(screen.getByRole("button", { name: "Are my numbers roughly normal?" }));
     expect(screen.getByLabelText("Test")).toHaveValue("normality");
     expect(screen.getByLabelText(/Split by/)).toHaveValue("arm");
