@@ -41,14 +41,14 @@ def csv_of(columns):
     return ",".join(keys) + "\n" + "\n".join(",".join("" if v is None else str(v) for v in r) for r in rows) + "\n"
 
 
-def load(name, sheet=None):
-    out, _ = engine_load(name, name, sheet)  # noqa: F821
+def load(name, sheet=None, options=None):
+    out, _ = engine_load(name, name, sheet, json.dumps(options) if options is not None else None)  # noqa: F821
     return json.loads(out)
 
 
-def run(name, test, sheet=None, **params):
+def run(name, test, sheet=None, options=None, **params):
     """Load and run, check the xlsx and the saved script, and return the result."""
-    shape_ = load(name, sheet)
+    shape_ = load(name, sheet, options)
     assert "error" not in shape_, shape_
     out, xlsx = engine_run(test, json.dumps(params))  # noqa: F821
     result = json.loads(out)
@@ -66,6 +66,22 @@ def run(name, test, sheet=None, **params):
         exec(compile(result["code"].encode("utf-8"), "saved_script.py", "exec"), {"__name__": "__main__"})
     ok(result["summary"] in buf.getvalue(), f"{test}: saved script printed a different summary:\n{buf.getvalue()[:400]}")
     return result
+
+
+def same_numbers(result):
+    """Run the saved script's own read_data and test call on the same file: every number must match."""
+    code = result["code"]
+    ns = {"__name__": "saved_script"}
+    exec(compile(code.encode("utf-8"), "saved_script.py", "exec"), ns)
+    read, call = code.rsplit("    df = ", 1)[1].split("\n", 2)[:2]
+    ns["df"] = eval(read, ns)
+    again = _clean(eval(call.strip()[len("print_result("):-1], ns))  # noqa: F821
+    for key in ("summary", "tables", "warnings", "n"):
+        ok(again[key] == result[key], f"{result['test']}: the saved script gives a different {key}:\n{again[key]}\n{result[key]}")
+
+
+def issue(shape_, id_):
+    return next((i for i in shape_.get("issues", []) if i["id"] == id_), None)
 
 
 def error(name, test, contains, **params):
@@ -389,6 +405,187 @@ write("notes.docx", "hello")
 ok("CSV, TSV, TXT or XLSX" in load("notes.docx").get("error", ""), "unknown type")
 write("header.csv", "a,b\n")
 ok(load("header.csv").get("error") == "The file has no rows of data.", "header only")
+
+# Messy files: problems found on load, explained, with LoadOptions that fix them -----------------
+
+# Clean files show no issues
+for name in ("sleep.csv", "plants.csv", "cars.csv", "teeth.csv", "party.csv", "euro.csv"):
+    ok(load(name)["issues"] == [], f"{name} is clean but has issues: {load(name)['issues']}")
+ok(load("book.xlsx", "Data")["issues"] == [], load("book.xlsx", "Data")["issues"])
+
+# Missing-value codes far from the other values, and text in a number column (from the UX "awkward" file)
+A = ["N/A", 11, 10, 999, 7, 18, "-", 4, 18, 8, 13, "NA", 3, 10, 16, 8, 15, "-", 4, 9, 1, 1, 11, 10]
+write("codes.csv", csv_of({"a": A, "g": ["x", "y"] * 12, "b": [0.42, "<0.01", 0.25, 0.76, 0.3, 0.5, 0.6, 0.7] * 3}))
+s = load("codes.csv")
+i = issue(s, "missing:a:999")
+ok(i and i["action"] == "Treat 999 as missing" and "far from its other values (1 to 18)" in i["message"], s["issues"])
+ok(issue(s, "text:a") and '2 values are not ("-")' in issue(s, "text:a")["message"], s["issues"])
+ok(issue(s, "text:b") and '3 values are not ("<0.01")' in issue(s, "text:b")["message"], s["issues"])
+r = run("codes.csv", "describe", columns=["a"])
+close(cell(r, "Summary", "Mean"), (177 + 999) / 20, "mean with 999 in it")
+r = run("codes.csv", "describe", options=i["fix"], columns=["a"])
+close(cell(r, "Summary", "Mean"), 177 / 19, "mean with 999 as missing")
+ok("missing={'a': [999]}" in r["code"], "script treats 999 as missing")
+same_numbers(r)
+s = load("codes.csv", options=i["fix"])
+ok(issue(s, "missing:a:999")["applied"] and issue(s, "missing:a:999")["fix"] == {"header": 0, "skip": 0}, s["issues"])
+# Real values near 999, and 99 inside a plausible age range, are left alone; -9 in a 1-7 scale and -99 in 0-100 are not
+write("near.csv", csv_of({
+    "rt": [850, 999, 1012, 930, 1100, 1200, 905, 977],
+    "top": [900, 950, 960, 990, 998, 999, 930, 940],
+    "age": [18, 25, 33, 41, 52, 65, 99, 70],
+    "likert": [1, 3, 7, 5, -9, 2, 4, 6],
+    "pct": [0, 50, 100, 75, -99, 20, 30, 40],
+}))
+s = load("near.csv")
+ok({i["id"] for i in s["issues"]} == {"missing:likert:-9", "missing:pct:-99"}, s["issues"])
+
+# Decimal commas with ";" (from the UX "european" file), including 1.234,5 grouping
+EU = zip(["3,7", "3,5", "2,5", "2,9", "4,5", "6", "6,2", "6,6"], ["9.771,50", "1.406,50", "512,25", "7.700,50"] * 2)
+write("eu.csv", "id;arm;wert;gehalt\n" + "".join(f"{k};{'AB'[k % 2]};{v};{g}\n" for k, (v, g) in enumerate(EU)))
+s = load("eu.csv")
+i = issue(s, "decimal")
+ok(i and i["action"] == "Read 3,5 as 3.5" and i["fix"] == {"header": 0, "skip": 0, "decimal": ",", "thousands": "."}, s["issues"])
+ok("numeric" not in [c["kind"] for c in s["columns"]][2:], s["columns"])
+r = run("eu.csv", "t_independent", options=i["fix"], outcome="gehalt", group="arm")
+close(cell(r, "Descriptives", "Mean", 0), (9771.5 + 512.25) / 2, "1.234,5 grouping")
+same_numbers(r)
+s = load("eu.csv", options=i["fix"])
+ok([c["kind"] for c in s["columns"]][2:] == ["numeric", "numeric"] and issue(s, "decimal")["applied"], s)
+# Not offered when a column already uses a decimal point, or in a comma-separated file
+write("mixed.csv", "a;b\n1,5;0.25\n2,5;0.5\n3;0.75\n")
+ok(issue(load("mixed.csv"), "decimal") and "fix" not in issue(load("mixed.csv"), "decimal"), load("mixed.csv")["issues"])
+write("quoted.csv", 'a,b\n"1,5",x\n"2,5",y\n"3,5",x\n')
+ok(issue(load("quoted.csv"), "decimal") and "fix" not in issue(load("quoted.csv"), "decimal"), load("quoted.csv")["issues"])
+
+# Qualtrics: the question-text and ImportId rows are left out automatically, with an undo
+Q = ['StartDate,Q1,Score,Group', 'Start Date,"How much do you agree?\nPick one",Total score,Condition',
+     '"{""ImportId"":""startDate""}","{""ImportId"":""QID1""}","{""ImportId"":""QID3""}","{""ImportId"":""QID4""}"']
+Q += [f"2026-01-{d:02d} 10:00:00,{'Agree' if d % 3 else 'Disagree'},{10 + d},{'Control' if d % 2 else 'Treatment'}" for d in range(1, 21)]
+write("qualtrics.csv", "\n".join(Q) + "\n")
+s = load("qualtrics.csv")
+i = issue(s, "skip")
+ok(s["rows"] == 20 and i["applied"] and "Qualtrics" in i["message"] and i["fix"] == {"header": 0, "skip": 0}, s)
+ok(issue(s, "dates") and '"StartDate" looks like dates' in issue(s, "dates")["message"], s["issues"])
+ok([c["kind"] for c in s["columns"]][2] == "numeric", s["columns"])
+r = run("qualtrics.csv", "chi_square", rows="Q1", cols="Group")
+ok(cell(r, "Counts", "Total", 2) == 20 and "skip=2" in r["code"], table(r, "Counts"))
+same_numbers(r)
+s = load("qualtrics.csv", options=i["fix"])
+ok(s["rows"] == 22 and issue(s, "skip")["action"] == "Leave out those 2 rows" and not issue(s, "skip").get("applied"), s["issues"])
+
+# REDCap and other repeated measures: warned on load and in between-groups results
+write("redcap.csv", csv_of({
+    "record_id": [f"P{p:03d}" for p in range(1, 9) for _ in range(3)],
+    "redcap_event_name": ["baseline_arm_1", "week4_arm_1", "week8_arm_1"] * 8,
+    "arm": [a for a in "ABABABAB" for _ in range(3)],
+    "score": [12, 15, 19, 8, 9, 14, 22, 21, 25, 10, 13, 12, 17, 18, 24, 9, 11, 10, 20, 23, 26, 7, 12, 11],
+}))
+s = load("redcap.csv")
+ok(issue(s, "repeats") and '"record_id" repeats (24 rows, 8 different values)' in issue(s, "repeats")["message"], s["issues"])
+for test, params in (("t_independent", {"outcome": "score", "group": "arm"}),
+                     ("kruskal", {"outcome": "score", "group": "redcap_event_name"}),
+                     ("chi_square", {"rows": "arm", "cols": "redcap_event_name"})):
+    r = run("redcap.csv", test, **params)
+    ok(any("each row is a different person" in w for w in r["warnings"]), f"{test}: {r['warnings']}")
+write("events.csv", csv_of({"redcap_event_name": ["a", "b"] * 5, "v": list(range(10)), "g": ["x"] * 5 + ["y"] * 5}))
+ok('"redcap_event_name"' in (issue(load("events.csv"), "repeats") or {}).get("message", ""), load("events.csv")["issues"])
+r = run("sleep.csv", "t_independent", outcome="extra", group="drug")
+ok(not any("different person" in w for w in r["warnings"]), r["warnings"])
+
+# UTF-16, with a byte order mark and without (from the UX "utf16" file)
+TEXT = "id\tname\tscore\n" + "".join(f"{k}\t{n}\t{k % 7}\n" for k, n in enumerate(["José", "Muñoz", "Müller", "Zoë"] * 4))
+for name, data in (("u16.txt", TEXT.encode("utf-16")), ("u16le.txt", TEXT.encode("utf-16-le")), ("u16be.txt", TEXT.encode("utf-16-be"))):
+    with open(name, "wb") as f:
+        f.write(data)
+    s = load(name)
+    ok(s.get("rows") == 16 and s["columns"][1]["sample"][:2] == ["José", "Muñoz"] and s["issues"] == [], f"{name}: {s}")
+r = run("u16.txt", "describe", columns=["score"])
+same_numbers(r)
+
+# A title above the headers: offered in a workbook and a padded CSV, applied when the CSV can't be read otherwise
+wb = openpyxl.Workbook()
+wb.active.append(["My lab study - raw export (fake)"])
+wb.active.append([])
+wb.active.append(["Participant", "pre", "post"])
+for k, (a, b) in enumerate(zip(G1, G2)):
+    wb.active.append([f"P{k:03d}", a, b])
+wb.save("title.xlsx")
+s = load("title.xlsx")
+i = issue(s, "header")
+ok(i and i["action"] == "Use row 3 as the headers" and i["fix"] == {"header": 2} and len(s["issues"]) == 1, s["issues"])
+r = run("title.xlsx", "t_paired", options=i["fix"], before="pre", after="post")
+close(cell(r, "Paired", "t"), 4.0621, "paired t after the header fix")
+ok("header=2" in r["code"], "script uses the header row")
+same_numbers(r)
+ok(issue(load("title.xlsx", options=i["fix"]), "header")["fix"] == {"header": 0}, "undo the header")
+write("title_padded.csv", "Fake export,,\n\nid,pre,post\n" + "".join(f"{k},{a},{b}\n" for k, (a, b) in enumerate(zip(G1, G2))))
+ok(issue(load("title_padded.csv"), "header")["fix"] == {"header": 2}, load("title_padded.csv")["issues"])
+write("title.csv", "Fake export\nmade 2026-01-01\nid,pre,post\n" + "".join(f"{k},{a},{b}\n" for k, (a, b) in enumerate(zip(G1, G2))))
+s = load("title.csv")
+ok(s.get("rows") == 10 and issue(s, "header")["applied"] and "fix" not in issue(s, "header"), s)
+r = run("title.csv", "t_paired", before="pre", after="post")
+ok("header=2" in r["code"], "script uses the header row")
+same_numbers(r)
+
+# Units after every number (from the UX "awkward" file); a mix of units is left alone
+write("units.csv", csv_of({"rt": [f"{v} ms" for v in (180, 201, 116, 112, 163)], "w": ["5 kg", "6kg", "7 lb", "5 kg", "8 kg"]}))
+s = load("units.csv")
+i = issue(s, "units:rt")
+ok(i and i["action"] == 'Remove "ms" and read as numbers' and not issue(s, "units:w"), s["issues"])
+r = run("units.csv", "describe", options=i["fix"], columns=["rt"])
+close(cell(r, "Summary", "Mean"), 154.4, "mean without the unit")
+same_numbers(r)
+ok(issue(load("units.csv", options=i["fix"]), "units:rt")["applied"], "units applied")
+
+# Duplicate names, one row
+write("dups.csv", "x,x, y,y \n1,2,3,4\n5,6,7,8\n9,10,11,12\n")
+s = load("dups.csv")
+ok([c["name"] for c in s["columns"]] == ["x", "x.1", "y", "y.1"] and '"x", "y"' in issue(s, "duplicates")["message"], s)
+write("one.csv", "a,b\n1,2\n")
+ok(issue(load("one.csv"), "rows")["message"] == "The file has only 1 row of data, too few for most tests.", load("one.csv")["issues"])
+
+# Load options are a strict whitelist
+for bad in ({"sep": ";"}, {"decimal": ";"}, {"header": -1}, {"header": 101}, {"header": True}, {"skip": "2"},
+            {"thousands": "."}, {"missing": {"a": [float("inf")]}}, {"missing": {"a": []}}, {"missing": {"a": list(range(11))}},
+            {"missing": {"a": ["x" * 21]}}, {"missing": {"a": [True]}}, {"missing": ["a"]}, {"units": {"a": "m2"}},
+            {"units": {"a": "m s"}}, {"units": {"a": "x" * 11}}, {"units": {"": "ms"}}, ["header"]):
+    ok(load("sleep.csv", options=bad).get("error") == "Those file options are not valid.", f"accepted {bad}")
+ok(load("sleep.csv", options={"missing": {"extra": [-9.5, "n.a."]}, "units": {"extra": "°C"}, "decimal": "."}).get("rows") == 20, "valid options")
+
+# Column names and codes in the options can't inject code into the saved script either
+for col in (EVIL, "a'+print('INJ' + 'ECTED')+'"):
+    write("evilopts.csv", csv_of({col: [1, 2, 3, 4, 5, 6, 999, 8], "u": [f"{v} ms" for v in range(8)]}))
+    r = run("evilopts.csv", "describe", options={"missing": {col: [999, "'+x+'"]}, "units": {"u": "'\\"}}, columns=[col])
+    ok(r.get("code", "").startswith("# -*- coding: utf-8 -*-\n") and r["code"].isascii(), "options in the script stay ASCII")
+    if "code" not in r:
+        continue
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        exec(compile(r["code"].encode("utf-8"), "saved_script.py", "exec"), {"__name__": "__main__"})
+    ok("INJECTED" not in buf.getvalue(), f"saved script ran code from the options: {buf.getvalue()[:300]}")
+    same_numbers(r)
+
+# Normality: what to do next, for one column, two groups and three or more
+r = run("teeth.csv", "normality", column="len")
+ok("a one-sample t-test, fits" in r["summary"], r["summary"])
+r = run("sleep.csv", "normality", column="extra", group="drug")
+ok("Both groups look roughly normal, so an independent t-test fits." in r["summary"], r["summary"])
+r = run("plants.csv", "normality", column="weight", group="group")
+ok("All groups look roughly normal, so a one-way ANOVA fits." in r["summary"], r["summary"])
+write("skewed.csv", csv_of({"v": [1, 1, 1, 1, 2, 1, 1, 30, 1, 2, 5, 6, 7, 5, 6, 8, 7, 6], "g": ["a"] * 9 + ["b"] * 9}))
+r = run("skewed.csv", "normality", column="v", group="g")
+ok("1 of 2 groups does not look" in r["summary"] and "Mann-Whitney U test may suit better" in r["summary"], r["summary"])
+r = run("big.csv", "normality", column="v")
+ok(sum("only approximate" in w for w in r["warnings"]) == 1, r["warnings"])
+
+# Grammar, and an ID used as a predictor
+r = run("messy.csv", "describe", columns=["score"])
+ok('1 of the values in "score" is not a number; it was treated as missing.' in r["warnings"], r["warnings"])
+r = run("sleep.csv", "linear_regression", outcome="extra", predictors=["id"])
+ok(any('"id" has a different value on every row, like an ID' in w for w in r["warnings"]), r["warnings"])
+r = run("cars.csv", "linear_regression", outcome="dist", predictors=["speed"])
+ok(not any("like an ID" in w for w in r["warnings"]), r["warnings"])
 
 covered = {"describe", "frequencies", "normality", "t_one_sample", "t_independent", "t_paired", "mann_whitney",
            "wilcoxon", "anova_oneway", "anova_twoway", "kruskal", "chi_square", "correlation",

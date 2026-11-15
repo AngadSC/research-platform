@@ -228,6 +228,37 @@ export interface ColumnInfo {
   sample: (string | number | null)[];
 }
 
+/**
+ * How to read a messy file. Each `DataIssue.fix` is a complete set of these, so the screens pass
+ * one back to `load` as it is. The engine checks every value against a strict list.
+ */
+export interface LoadOptions {
+  /** The row with the column names (0 is the first); rows above it are left out. Worked out when left out. */
+  header?: number;
+  /** Rows right under the column names to leave out (Qualtrics' question text and import codes). Worked out when left out. */
+  skip?: number;
+  /** "," reads 3,5 as 3.5 (text files only). */
+  decimal?: "." | ",";
+  /** "." reads 1.234,5 as 1234.5, with a decimal comma. */
+  thousands?: ".";
+  /** Values to treat as missing, by column, such as 999. */
+  missing?: Record<string, (number | string)[]>;
+  /** A unit to remove from every value, by column, such as "ms" in "12 ms". */
+  units?: Record<string, string>;
+}
+
+/** Something in the file that could give wrong numbers, in plain words, with a fix where there is one. */
+export interface DataIssue {
+  id: string;
+  message: string;
+  /** The button text for `fix`, e.g. "Treat 999 as missing"; "Undo" for an applied fix. */
+  action?: string;
+  /** Load the file again with these options to apply the fix (or, when applied, to undo it). */
+  fix?: LoadOptions;
+  /** The fix is in effect, chosen or applied automatically. */
+  applied?: boolean;
+}
+
 /** What `load` found in the file. */
 export interface DataShape {
   fileName: string;
@@ -235,6 +266,8 @@ export interface DataShape {
   sheet: string | null;
   rows: number;
   columns: ColumnInfo[];
+  /** Problems found on reading, most important first; empty for a clean file. */
+  issues: DataIssue[];
 }
 
 /** Param values by `ParamSpec.key`: a column name, a list of names, a number or a choice. */
@@ -305,8 +338,10 @@ export interface StatsEngine {
   /** Start loading Python and pandas in the background; safe to call more than once. */
   warmUp(): void;
   subscribe(listener: (s: EngineState) => void): () => void;
-  /** Read a file into the engine, replacing the last one. */
-  load(file: StatsFile): Promise<DataShape>;
+  /** Read a file into the engine, replacing the last one (which stays loaded if this fails). */
+  load(file: StatsFile, options?: LoadOptions): Promise<DataShape>;
+  /** Start fetching the packages a test needs in the background, so its first run is quicker. */
+  prepare(test: TestId): void;
   /** Run a test on the loaded file. */
   run(req: StatsRequest): Promise<StatsResult>;
 }
