@@ -73,16 +73,17 @@ def read_data(path, sheet=None, header=0, skip=0, decimal=".", thousands=None, m
             name, i = f"{base}.{i}", i + 1
         names.append(name)
     df.columns = names
+    # Units first, so a missing code like 999 matches once "999 ms" is a number.
+    for col, unit in (units or {}).items():
+        if col in df.columns:
+            text = df[col].map(lambda v: v if pd.isna(v) else str(v).strip().removesuffix(unit).strip())
+            df[col] = pd.to_numeric(text, errors="coerce")
     for col, codes in (missing or {}).items():
         if col in df.columns:
             s = df[col]
             hit = pd.to_numeric(s, errors="coerce").isin([c for c in codes if not isinstance(c, str)])
             hit |= s.astype(str).str.strip().isin([c for c in codes if isinstance(c, str)])
             df[col] = s.mask(hit)
-    for col, unit in (units or {}).items():
-        if col in df.columns:
-            text = df[col].map(lambda v: v if pd.isna(v) else str(v).strip().removesuffix(unit).strip())
-            df[col] = pd.to_numeric(text, errors="coerce")
     df = df.dropna(how="all")
     df = df.loc[:, [not (c.startswith("Unnamed:") and df[c].isna().all()) for c in df.columns]]
     if df.empty:
@@ -1494,6 +1495,7 @@ def _is_qualtrics(raw, header):
 
 MISSING_CODES = [-99999, -9999, -999, -99, -9, 77, 88, 99, 777, 888, 999, 7777, 8888, 9999, 99999]
 DECIMAL_COMMA = r"[+-]?(?:\d{1,3}(?:\.\d{3})+|\d+),\d+"
+US_THOUSANDS = r"[+-]?\d{1,3}(?:,\d{3})+"
 GROUPED = r"[+-]?\d{1,3}(?:\.\d{3})+,\d+"
 WHOLE = r"[+-]?\d+"
 UNIT = r"[+-]?\d+(?:\.\d+)?\s*([^\s\d.,+-][^\s\d]{0,9})"
@@ -1520,6 +1522,8 @@ def _plural(n, one, many):
 
 def _issues(df, raw, sep, opts, auto_header, text_file):
     """Problems in a freshly read file, each with the LoadOptions that fix (or undo) it."""
+    import json
+
     issues = []
     base = {k: v for k, v in opts.items() if v not in (None, ".", {}) or k in ("header", "skip")}
 
@@ -1529,6 +1533,11 @@ def _issues(df, raw, sep, opts, auto_header, text_file):
 
     def add(id_, message, action=None, fix_=None, applied=False):
         issue = {"id": id_, "message": message}
+        if fix_ is not None:
+            try:  # never offer a fix that _load_options would refuse (very long names, odd units)
+                _load_options(json.dumps(fix_))
+            except UserError:
+                fix_, applied = None, False
         if fix_ is not None:
             issue.update(fix=fix_, action=action or "Undo")
         if applied:
@@ -1585,7 +1594,8 @@ def _issues(df, raw, sep, opts, auto_header, text_file):
         if bool(pd.api.types.is_bool_dtype(s)) or pd.api.types.is_numeric_dtype(s):
             continue
         is_comma = present.str.fullmatch(DECIMAL_COMMA)
-        if is_comma.any() and (is_comma | present.str.fullmatch(WHOLE)).mean() >= 0.8:
+        # "1,234" or "12,500" alone are more likely US thousands than decimals: don't call those a decimal comma.
+        if is_comma.any() and not present[is_comma].str.fullmatch(US_THOUSANDS).all() and (is_comma | present.str.fullmatch(WHOLE)).mean() >= 0.8:
             comma.append(c)
             grouped = grouped or present.str.fullmatch(GROUPED).any()
             continue

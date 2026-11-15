@@ -537,6 +537,21 @@ r = run("units.csv", "describe", options=i["fix"], columns=["rt"])
 close(cell(r, "Summary", "Mean"), 154.4, "mean without the unit")
 same_numbers(r)
 ok(issue(load("units.csv", options=i["fix"]), "units:rt")["applied"], "units applied")
+# A missing code in a column that also has a unit (review: 999 stayed in after "Remove ms")
+write("unit999.csv", csv_of({"rt": [f"{v} ms" for v in (300, 320, 350, 410, 450, 999)]}))
+both = {"units": {"rt": "ms"}, "missing": {"rt": [999]}}
+r = run("unit999.csv", "describe", options=both, columns=["rt"])
+close(cell(r, "Summary", "Mean"), 366.0, "999 ms treated as missing")
+same_numbers(r)
+s = load("unit999.csv", options=both)
+ok([i["id"] for i in s["issues"]].count("missing:rt:999") == 1, s["issues"])
+
+# US thousands ("1,234") in a tab file are not called a decimal comma
+write("us.tsv", "income\tage\n1,234\t30\n12,500\t31\n3,456\t32\n980\t33\n2,100\t34\n")
+ok(not issue(load("us.tsv"), "decimal"), load("us.tsv")["issues"])
+# A fix _load_options would refuse is never offered (a 301-letter column name with a unit)
+write("longunit.csv", csv_of({"n" * 301: [f"{v} ms" for v in (1, 2, 3)]}))
+ok(all("fix" not in i for i in load("longunit.csv")["issues"]), load("longunit.csv")["issues"])
 
 # Duplicate names, one row
 write("dups.csv", "x,x, y,y \n1,2,3,4\n5,6,7,8\n9,10,11,12\n")
