@@ -262,7 +262,8 @@ export function ResearchForm({
           role="note"
           className="rounded-md border border-primary/40 bg-primary/10 p-3 text-sm font-medium"
         >
-          Store a pointer only. Do not upload participant data.
+          A dataset holds a link to your data, not the data itself. If the data identifies
+          participants, tick &ldquo;Identifies participants&rdquo; below so AI tools never see it.
         </p>
       )}
       {kind === "analyses" && (

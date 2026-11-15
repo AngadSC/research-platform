@@ -1,7 +1,16 @@
-import { Eye, FileText, Link2, MoreHorizontal, Pencil, Plus, Upload } from "lucide-react";
+import {
+  BarChart3,
+  Eye,
+  FileText,
+  Link2,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Upload,
+} from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router";
 import { RelativeTime } from "@/components/shared/RelativeTime";
-import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { FilePreview } from "@/components/documents/FilePreview";
 import { FolderBrowser, MoveDialog, type Movable } from "@/components/documents/Folders";
@@ -10,6 +19,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
 import { GoogleEditorPanel } from "@/components/shared/GoogleEditorPanel";
+import { StatsLink } from "@/components/shared/StatsLink";
 import { LinkedFiles } from "@/components/shared/LinkedFiles";
 import {
   MARKED_TOAST,
@@ -293,7 +303,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
                 )}
                 {r.file && analysable(r.file) && (
                   <DropdownMenuItem asChild>
-                    <Link to={`${base}/analyse?file=${r.file.id}`}>Analyse</Link>
+                    <StatsLink to={`${base}/analyse?file=${r.file.id}`}>Analyse</StatsLink>
                   </DropdownMenuItem>
                 )}
                 {canEdit && r.file && convertible(r.file) && (
@@ -340,6 +350,11 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
       <div className="grid w-full min-w-0 gap-4">
         {canEdit && !archived && (
           <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="outline" asChild>
+              <StatsLink to={`${base}/analyse`}>
+                <BarChart3 aria-hidden /> Statistics
+              </StatsLink>
+            </Button>
             <Button variant="outline" onClick={() => setEmbedding(true)}>
               <Link2 className="size-4" /> Embed a Google or Office doc
             </Button>

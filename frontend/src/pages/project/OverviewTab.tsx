@@ -1,4 +1,4 @@
-import { CalendarClock, Sparkles } from "lucide-react";
+import { BarChart3, CalendarClock, Sparkles } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/shared/DataTable";
@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Link } from "react-router";
+import { StatsLink } from "@/components/shared/StatsLink";
 import { ApprovalBadge, ExpiryText } from "@/components/ethics/ApprovalBadge";
 import { useAssistantReady } from "@/hooks/assistant";
 import { openAssistant } from "@/lib/assistant";
@@ -617,19 +618,25 @@ export default function OverviewTab({ labId, projectId, project }: ProjectTabPro
           Archived. Set it back to Active to make changes.
         </p>
       )}
-      {assistantReady && (
-        <Button
-          variant="secondary"
-          className="justify-self-start"
-          onClick={() =>
-            openAssistant(
-              `Use project_overview for project_id ${projectId} in lab ${labId}, and list_tasks for this project. In under 150 words, tell me: where the project stands, what is overdue or due in the next two weeks, and the single most useful next step. Do not change anything.`,
-            )
-          }
-        >
-          <Sparkles aria-hidden /> Catch me up
+      <div className="flex flex-wrap gap-2">
+        <Button asChild variant="outline">
+          <StatsLink to={`/labs/${labId}/projects/${projectId}/analyse`}>
+            <BarChart3 aria-hidden /> Run statistics
+          </StatsLink>
         </Button>
-      )}
+        {assistantReady && (
+          <Button
+            variant="secondary"
+            onClick={() =>
+              openAssistant(
+                `Use project_overview for project_id ${projectId} in lab ${labId}, and list_tasks for this project. In under 150 words, tell me: where the project stands, what is overdue or due in the next two weeks, and the single most useful next step. Do not change anything.`,
+              )
+            }
+          >
+            <Sparkles aria-hidden /> Catch me up
+          </Button>
+        )}
+      </div>
       <section className="grid gap-3">
         <h2 className="text-base font-semibold">About</h2>
         <p className="text-sm whitespace-pre-wrap">

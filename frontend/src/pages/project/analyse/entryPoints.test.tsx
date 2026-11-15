@@ -84,4 +84,41 @@ describe("ways into the statistics page", () => {
     expect(router.state.location.pathname).toBe("/labs/lab1/projects/p1/analyse");
     expect(router.state.location.search).toBe("?file=a1");
   });
+  it("has Run statistics on the project overview", async () => {
+    mockFetch(base());
+    const router = renderRoute("/labs/lab1/projects/p1");
+    await userEvent.click(await screen.findByRole("link", { name: /Run statistics/ }));
+    expect(router.state.location.pathname).toBe("/labs/lab1/projects/p1/analyse");
+  });
+
+  it("has Statistics in the documents toolbar", async () => {
+    mockFetch(base());
+    const router = renderRoute("/labs/lab1/projects/p1/documents");
+    await userEvent.click(await screen.findByRole("link", { name: /Statistics/ }));
+    expect(router.state.location.pathname).toBe("/labs/lab1/projects/p1/analyse");
+  });
+
+  it("has Analyse on the dataset page when it has a file, with the dataset chosen", async () => {
+    mockFetch({
+      ...base([csv], [dataset]),
+      "GET /api/labs/lab1/datasets/d1/": { body: { ...dataset, analyses: [] } },
+    });
+    const router = renderRoute("/labs/lab1/projects/p1/workflow/data/datasets/d1");
+    await userEvent.click(await screen.findByRole("link", { name: "Analyse" }));
+    expect(router.state.location.search).toBe("?dataset=d1");
+  });
+
+  it("links a result to its analysis", async () => {
+    mockFetch({
+      ...base(),
+      [`GET ${P}/results/`]: {
+        body: [{ id: "r1", title: "Group means", analysis: { id: "an1", title: "Gut run" } }],
+      },
+    });
+    const router = renderRoute("/labs/lab1/projects/p1/workflow/analysis");
+    await userEvent.click(await screen.findByRole("link", { name: "Gut run" }));
+    expect(router.state.location.pathname).toBe(
+      "/labs/lab1/projects/p1/workflow/analysis/analyses/an1",
+    );
+  });
 });

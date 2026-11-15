@@ -12,6 +12,7 @@ import { ParticipantBadge } from "@/components/shared/ParticipantData";
 import type { LinkTarget } from "@/components/shared/LinkMenu";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ReferenceList } from "@/components/shared/References";
+import { StatsLink } from "@/components/shared/StatsLink";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -117,10 +118,7 @@ const COLUMNS: { [K in Kind]: Column<AnyRecord>[] } = {
       cell: (r) => ((r as Analysis).ran_by ? personName((r as Analysis).ran_by) : ""),
     },
   ],
-  results: [
-    { key: "t", header: "Title", cell: (r) => (r as ResearchResult).title },
-    { key: "a", header: "Analysis", cell: (r) => (r as ResearchResult).analysis?.title },
-  ],
+  results: [{ key: "t", header: "Title", cell: (r) => (r as ResearchResult).title }],
   decisions: [
     { key: "t", header: "Title", cell: (r) => (r as Decision).title },
     { key: "d", header: "Date", cell: (r) => shortDate((r as Decision).decided_on) },
@@ -170,18 +168,39 @@ function datasetColumns(all: Dataset[], base: string): Column<AnyRecord>[] {
       cell: (r) =>
         (r as Dataset).data_file ? (
           <Button asChild variant="ghost" size="sm">
-            <Link
+            <StatsLink
               to={`${base}/analyse?dataset=${r.id}`}
               onClick={(e) => e.stopPropagation()}
               aria-label={`Analyse ${(r as Dataset).name}`}
             >
               Analyse
-            </Link>
+            </StatsLink>
           </Button>
         ) : null,
     },
   ];
 }
+
+/** The Analysis cell links to the saved analysis (the code and inputs behind the result). */
+const resultColumns = (base: string): Column<AnyRecord>[] => [
+  ...COLUMNS.results,
+  {
+    key: "a",
+    header: "Analysis",
+    cell: (r) => {
+      const a = (r as ResearchResult).analysis;
+      return a ? (
+        <Link
+          to={recordPath(base, "analyses", a.id)}
+          onClick={(e) => e.stopPropagation()}
+          className="text-primary hover:underline"
+        >
+          {a.title}
+        </Link>
+      ) : null;
+    },
+  },
+];
 
 function List({
   labId,
@@ -232,16 +251,22 @@ function List({
         <div className="flex flex-wrap justify-end gap-2">
           {kind === "analyses" && (
             <Button asChild variant="outline">
-              <Link to={`${base}/analyse`}>
+              <StatsLink to={`${base}/analyse`}>
                 <BarChart3 aria-hidden /> Run statistics
-              </Link>
+              </StatsLink>
             </Button>
           )}
           {(list.data?.length ?? 0) > 0 && add}
         </div>
       )}
       <DataTable
-        columns={kind === "datasets" ? datasetColumns(rows as Dataset[], base) : COLUMNS[kind]}
+        columns={
+          kind === "datasets"
+            ? datasetColumns(rows as Dataset[], base)
+            : kind === "results"
+              ? resultColumns(base)
+              : COLUMNS[kind]
+        }
         rows={rows}
         getRowKey={(r) => r.id}
         loading={list.isLoading}
@@ -575,6 +600,11 @@ function Detail({
                 View in lineage
               </Link>
             </Button>
+            {kind === "datasets" && (r as Dataset).data_file && (
+              <Button variant="outline" asChild>
+                <StatsLink to={`${base}/analyse?dataset=${id}`}>Analyse</StatsLink>
+              </Button>
+            )}
             {kind === "datasets" && canEdit && (
               <Button variant="outline" asChild>
                 <Link to={`${recordPath(base, "datasets", "new")}?from=${id}`}>New version</Link>
