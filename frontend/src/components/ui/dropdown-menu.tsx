@@ -42,7 +42,7 @@ export function DropdownMenuContent({
       <M.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 min-w-48 rounded-md border bg-popover p-1 text-popover-foreground shadow-sm",
+          "glass glass--strong glass-in z-50 min-w-48 rounded-lg p-1.5 text-popover-foreground",
           className,
         )}
         {...props}
@@ -55,7 +55,7 @@ export function DropdownMenuItem({ className, ...props }: React.ComponentProps<t
   return (
     <M.Item
       className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none select-none data-[disabled]:opacity-50 data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground",
+        "relative flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none select-none max-md:py-2.5 data-[disabled]:opacity-50 data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground",
         className,
       )}
       {...props}

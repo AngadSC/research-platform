@@ -6,11 +6,15 @@ export function Toaster(props: ToasterProps) {
     <Sonner
       style={
         {
-          "--normal-bg": "var(--popover)",
+          "--normal-bg": "var(--glass-bg-strong)",
           "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "var(--border)",
+          "--normal-border": "var(--glass-border)",
+          "--border-radius": "var(--radius-lg)",
         } as CSSProperties
       }
+      toastOptions={{
+        classNames: { toast: "glass--strong backdrop-blur-xl !shadow-[var(--shadow-glass-2)]" },
+      }}
       {...props}
     />
   );

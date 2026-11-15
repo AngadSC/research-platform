@@ -128,22 +128,20 @@ function Board({
             onDragOver={canEdit ? (e) => e.preventDefault() : undefined}
             onDrop={canEdit ? () => dropAt(s.value) : undefined}
             data-status={s.value}
-            style={{
-              backgroundColor: TASK_TONES[s.value].column,
-              color: TASK_TONES[s.value].text,
-              borderColor: TASK_TONES[s.value].strong,
-            }}
-            className="flex min-h-40 flex-col gap-2 rounded-lg border-2 p-3"
+            className="glass flex min-h-40 flex-col gap-2 rounded-2xl p-3"
           >
-            <h2
-              className="flex items-center justify-between rounded-md px-2 py-1 text-sm font-semibold"
-              style={{
-                backgroundColor: TASK_TONES[s.value].strong,
-                color: TASK_TONES[s.value].onStrong,
-              }}
-            >
-              <span>{s.label}</span>{" "}
-              <span aria-label={plural(col.length, "task")}>{col.length}</span>
+            <h2 className="flex items-center justify-between rounded-md px-2 py-1 text-sm font-semibold">
+              <span className="flex items-center gap-2">
+                <span
+                  aria-hidden
+                  className="size-2.5 rounded-full"
+                  style={{ backgroundColor: TASK_TONES[s.value].strong }}
+                />
+                {s.label}
+              </span>{" "}
+              <span aria-label={plural(col.length, "task")} className="text-muted-foreground">
+                {col.length}
+              </span>
             </h2>
             {col.map((t) => (
               <article
@@ -160,15 +158,12 @@ function Board({
                 }
                 data-status={t.status}
                 style={{
-                  backgroundColor: TASK_TONES[t.status].card,
-                  color: TASK_TONES[t.status].text,
-                  borderLeft: `6px solid ${TASK_TONES[t.status].strong}`,
                   ...projectColorStyle(color),
-                  // The project's colour along the top, so a card says which project it is.
-                  boxShadow: "inset 0 3px 0 var(--project)",
+                  // The project's colour down the edge, so a card says which project it is.
+                  borderLeft: "4px solid var(--project)",
                 }}
                 className={cn(
-                  "flex items-start justify-between gap-2 rounded-md border border-black/10 p-3",
+                  "glass glass--solid flex cursor-grab items-start justify-between gap-2 rounded-xl p-3 transition-[box-shadow,transform] duration-[var(--dur)] ease-[var(--ease-glass)] hover:shadow-[var(--shadow-glass-2)] active:scale-[0.99] active:shadow-[var(--shadow-glass-3)]",
                   popped.includes(t.id) && "delight-pop",
                 )}
               >
@@ -180,7 +175,7 @@ function Board({
                   >
                     {t.title}
                   </button>
-                  <p className="text-xs" style={{ color: TASK_TONES[t.status].muted }}>
+                  <p className="text-xs text-muted-foreground">
                     {[
                       t.assignee && personName(t.assignee),
                       day(t.due_date),

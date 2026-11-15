@@ -92,6 +92,302 @@
   --project-brown: #d6a77a;
 }
 
+/* ---------------------------------------------------------------------------------------------
+   Liquid glass. Glass is for chrome and things that float (sidebar, top bar, menus, dialogs,
+   toasts, buttons, chips); work surfaces (tables, the participant grid, documents, long forms)
+   stay near-opaque. The surfaces mix the card colour, so a custom theme still works. Every value
+   lives here, in one place. The "Reduced glass" setting and the OS's reduced-transparency
+   preference both swap in the solid surfaces below. */
+:root {
+  --glass-bg: color-mix(in srgb, var(--card) 62%, transparent);
+  --glass-bg-strong: color-mix(in srgb, var(--card) 82%, transparent);
+  --glass-bg-solid: color-mix(in srgb, var(--card) 94%, transparent);
+  --glass-bg-input: color-mix(in srgb, var(--foreground) 4%, var(--card) 70%);
+  --glass-border: rgb(255 255 255 / 0.65);
+  --glass-edge-shadow: rgb(24 24 27 / 0.06);
+  --glass-highlight: rgb(255 255 255 / 0.9);
+  --blur-sm: 8px;
+  --blur-md: 16px;
+  --blur-lg: 28px;
+  --glass-saturate: 1.4;
+  --radius-pill: 999px;
+  --radius-dialog: 24px;
+  --ease-glass: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --dur-slow: 320ms;
+  --shadow-glass-1: 0 1px 2px var(--glass-edge-shadow), 0 4px 12px rgb(24 24 27 / 0.05);
+  --shadow-glass-2: 0 2px 4px var(--glass-edge-shadow), 0 12px 28px rgb(24 24 27 / 0.1);
+  --shadow-glass-3: 0 4px 8px var(--glass-edge-shadow), 0 24px 56px rgb(24 24 27 / 0.18);
+  --primary-glow: rgb(79 70 229 / 0.35);
+  --primary-lift: #6d5ae8; /* a touch more violet than --primary, for the button gradient */
+  --mesh:
+    radial-gradient(60rem 40rem at 8% -10%, rgb(99 102 241 / 0.16), transparent 60%),
+    radial-gradient(50rem 36rem at 95% 0%, rgb(167 139 250 / 0.14), transparent 60%),
+    radial-gradient(46rem 34rem at 60% 105%, rgb(45 212 191 / 0.1), transparent 60%);
+}
+.dark {
+  --glass-bg: color-mix(in srgb, var(--card) 55%, transparent);
+  --glass-bg-strong: color-mix(in srgb, var(--card) 78%, transparent);
+  --glass-bg-solid: color-mix(in srgb, var(--card) 92%, transparent);
+  --glass-bg-input: color-mix(in srgb, var(--foreground) 6%, var(--card) 60%);
+  --glass-border: rgb(255 255 255 / 0.1);
+  --glass-edge-shadow: rgb(0 0 0 / 0.5);
+  --glass-highlight: rgb(255 255 255 / 0.14);
+  --glass-saturate: 1.2;
+  --shadow-glass-1: 0 1px 2px rgb(0 0 0 / 0.5), 0 4px 12px rgb(0 0 0 / 0.35);
+  --shadow-glass-2: 0 2px 4px rgb(0 0 0 / 0.5), 0 12px 28px rgb(0 0 0 / 0.45);
+  --shadow-glass-3:
+    0 4px 8px rgb(0 0 0 / 0.5), 0 24px 56px rgb(0 0 0 / 0.6), 0 0 48px rgb(99 102 241 / 0.12);
+  --primary-glow: rgb(129 140 248 / 0.3);
+  --primary-lift: #a5b4fc;
+  --mesh:
+    radial-gradient(60rem 40rem at 8% -10%, rgb(79 70 229 / 0.28), transparent 60%),
+    radial-gradient(50rem 36rem at 95% 0%, rgb(124 58 237 / 0.22), transparent 60%),
+    radial-gradient(46rem 34rem at 60% 105%, rgb(15 118 110 / 0.18), transparent 60%);
+}
+
+/* The soft backdrop the glass floats over. Fixed, so content scrolls over it. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--mesh);
+}
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* In the components layer, so a utility class (rounded-xl, bg-…) always wins over these. */
+@layer components {
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--blur-md)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--blur-md)) saturate(var(--glass-saturate));
+    border: 1px solid var(--glass-border);
+    border-radius: 1rem;
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      var(--shadow-glass-1);
+  }
+  .glass--strong {
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(var(--blur-lg)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--blur-lg)) saturate(var(--glass-saturate));
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      var(--shadow-glass-2);
+  }
+  .glass--solid {
+    background: var(--glass-bg-solid);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  /* Floating layers sit higher. */
+  .glass--float {
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      var(--shadow-glass-3);
+  }
+  /* An inset field: slightly sunk, with a soft glow when focused. */
+  .glass-field {
+    background: var(--glass-bg-input);
+    border: 1px solid color-mix(in srgb, var(--input) 80%, transparent);
+    box-shadow: inset 0 1px 2px var(--glass-edge-shadow);
+    transition:
+      box-shadow var(--dur) var(--ease-glass),
+      border-color var(--dur) var(--ease-glass);
+  }
+  .glass-field:focus-visible {
+    border-color: var(--ring);
+    box-shadow:
+      inset 0 1px 2px var(--glass-edge-shadow),
+      0 0 0 3px color-mix(in srgb, var(--ring) 28%, transparent);
+  }
+  .btn-primary-glass {
+    background-image: linear-gradient(135deg, var(--primary), var(--primary-lift));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.35),
+      0 1px 2px var(--glass-edge-shadow),
+      0 6px 16px var(--primary-glow);
+    transition:
+      transform var(--dur-fast) var(--ease-glass),
+      box-shadow var(--dur) var(--ease-glass),
+      filter var(--dur) var(--ease-glass);
+  }
+  .btn-primary-glass:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+  }
+  .btn-primary-glass:active {
+    transform: scale(0.98);
+  }
+  .dark .btn-primary-glass {
+    color: var(--primary-foreground);
+  }
+  .btn-glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--blur-sm)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(var(--glass-saturate));
+    border: 1px solid var(--glass-border);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      var(--shadow-glass-1);
+    transition:
+      background-color var(--dur) var(--ease-glass),
+      box-shadow var(--dur) var(--ease-glass),
+      transform var(--dur-fast) var(--ease-glass);
+  }
+  .btn-glass:hover {
+    background: var(--glass-bg-strong);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      var(--shadow-glass-2);
+  }
+  .btn-glass:active {
+    transform: scale(0.98);
+  }
+  .glass-ghost {
+    transition:
+      background-color var(--dur) var(--ease-glass),
+      transform var(--dur-fast) var(--ease-glass);
+  }
+  .glass-ghost:hover {
+    background: var(--glass-bg);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
+  }
+  .glass-ghost:active {
+    transform: scale(0.97);
+  }
+  /* A segmented control: a glass track with a raised pill under the active tab. */
+  .glass-track {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-pill);
+    box-shadow: inset 0 1px 2px var(--glass-edge-shadow);
+    padding: 3px;
+  }
+  .glass-pill-active {
+    background: var(--glass-bg-strong);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      var(--shadow-glass-1);
+  }
+  @keyframes glass-in {
+    from {
+      opacity: 0;
+      transform: scale(0.97) translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes glass-slide-in {
+    from {
+      opacity: 0;
+      transform: translateX(16px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .glass-in {
+    animation: glass-in var(--dur) var(--ease-glass);
+  }
+  .glass-slide-in {
+    animation: glass-slide-in var(--dur-slow) var(--ease-glass);
+  }
+  /* Thin, translucent scrollbars that show on hover. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--foreground) 22%, transparent) transparent;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 28%, transparent);
+  }
+
+  /* Graceful fallbacks: no backdrop-filter, the person's "reduced glass", the OS's
+   reduced-transparency, and forced colours all get solid surfaces. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass,
+    .glass--strong,
+    .btn-glass {
+      background: var(--glass-bg-solid);
+    }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .glass,
+    .glass--strong,
+    .btn-glass,
+    .glass-track {
+      background: var(--glass-bg-solid);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+    body::after {
+      display: none;
+    }
+  }
+  html[data-glass="reduced"] .glass,
+  html[data-glass="reduced"] .glass--strong,
+  html[data-glass="reduced"] .btn-glass,
+  html[data-glass="reduced"] .glass-track {
+    background: var(--glass-bg-solid);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  html[data-glass="reduced"] body::before,
+  html[data-glass="reduced"] body::after {
+    display: none;
+  }
+  @media (forced-colors: active) {
+    .glass,
+    .glass--strong,
+    .glass--solid,
+    .btn-glass,
+    .glass-track,
+    .glass-field {
+      background: Canvas;
+      border-color: CanvasText;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      box-shadow: none;
+    }
+    body::before,
+    body::after {
+      display: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .glass-in,
+    .glass-slide-in {
+      animation: none;
+    }
+    .btn-primary-glass,
+    .btn-glass,
+    .glass-ghost,
+    .glass-field {
+      transition: none;
+    }
+    .btn-primary-glass:hover,
+    .btn-primary-glass:active,
+    .btn-glass:active,
+    .glass-ghost:active {
+      transform: none;
+    }
+  }
+}
+
 @theme inline {
   --font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --color-background: var(--background);
@@ -123,8 +419,8 @@
   --color-info-foreground: var(--info-foreground);
   --color-info-text: var(--info-text);
   /* One radius scale: controls rounded-md, panels rounded-lg. */
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

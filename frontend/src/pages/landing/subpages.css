@@ -2,7 +2,7 @@
    landing.css, which it builds on. Class names start with lbp- so they never clash. */
 
 .lb {
-  --lbp-green: #02851e;
+  --lbp-accent: #4f46e5;
   --lbp-blue: #2563eb;
   --lbp-violet: #7c3aed;
   --lbp-pink: #db2777;
@@ -13,9 +13,9 @@
 
 /* Tone helpers: --c is the strong colour, --s the soft background, --t readable text. */
 .lb .lbp-tone-green {
-  --c: #02851e;
-  --s: #e9f6ec;
-  --t: #036b19;
+  --c: #4f46e5;
+  --s: #eef2ff;
+  --t: #4338ca;
 }
 .lb .lbp-tone-blue {
   --c: #2563eb;
@@ -50,10 +50,10 @@
 
 /* Page themes: two hero colours plus a soft band colour. */
 .lb .lbp-theme-labs {
-  --h1: #02851e;
+  --h1: #4f46e5;
   --h2: #0d9488;
   --band: #ecf8ef;
-  --acc: #02851e;
+  --acc: #4f46e5;
 }
 .lb .lbp-theme-students {
   --h1: #7c3aed;
@@ -81,9 +81,9 @@
 }
 .lb .lbp-theme-pricing {
   --h1: #0e1116;
-  --h2: #02851e;
+  --h2: #4f46e5;
   --band: #f2f4f6;
-  --acc: #02851e;
+  --acc: #4f46e5;
 }
 
 .lbp-sr {
@@ -389,7 +389,7 @@
 }
 .lbp-band-labs {
   background: linear-gradient(180deg, #ecf8ef, #e6f6f4);
-  --acc: #02851e;
+  --acc: #4f46e5;
 }
 .lbp-band-institutions {
   background: linear-gradient(180deg, #eaf0fe, #eeedfd);
@@ -402,14 +402,14 @@
 .lbp-band-dark {
   background: #0e1116;
   color: #fff;
-  --acc: #4ade80;
+  --acc: #a5b4fc;
 }
 .lbp-band-dark .lb-lead,
 .lbp-band-dark .lbp-body {
   color: #c5cad3;
 }
 .lbp-band-dark .lbp-eyebrow {
-  color: #4ade80;
+  color: #a5b4fc;
 }
 
 /* Two-column layout */
@@ -499,7 +499,7 @@
 }
 .lbp-yes {
   background: #dcf5e2;
-  color: #02851e;
+  color: #4f46e5;
 }
 .lbp-no {
   background: #f1f2f4;
@@ -519,7 +519,7 @@
 }
 .lbp-band-dark .lbp-yes {
   background: rgba(74, 222, 128, 0.18);
-  color: #4ade80;
+  color: #a5b4fc;
 }
 
 /* Interactive demo frame */
@@ -756,8 +756,8 @@
   cursor: pointer;
 }
 .lbp-chip-btn[aria-pressed="true"] {
-  background: #4ade80;
-  border-color: #4ade80;
+  background: #a5b4fc;
+  border-color: #a5b4fc;
   color: #0e1116;
   font-weight: 600;
 }
@@ -786,7 +786,7 @@
   line-height: 1.6;
 }
 .lbp-ai-a svg {
-  color: #4ade80;
+  color: #a5b4fc;
   margin-top: 3px;
 }
 .lbp-type {
@@ -810,7 +810,7 @@
   padding: 28px;
 }
 .lbp-do {
-  background: #e9f6ec;
+  background: #eef2ff;
 }
 .lbp-dont {
   background: #fdeaea;
@@ -823,7 +823,7 @@
   font-size: 20px;
 }
 .lbp-do h3 {
-  color: #036b19;
+  color: #4338ca;
 }
 .lbp-dont h3 {
   color: #b91c1c;
@@ -1072,7 +1072,7 @@
   padding: 12px 14px;
   border-radius: 12px;
   background: #dcf5e2;
-  color: #036b19;
+  color: #4338ca;
   font-weight: 600;
 }
 .lbp-dash {
@@ -1102,7 +1102,7 @@
 .lbp-dash-n {
   font-size: 30px;
   font-weight: 800;
-  color: #02851e;
+  color: #4f46e5;
 }
 .lbp-dash-card[data-alert="true"] .lbp-dash-n {
   color: #dc2626;
@@ -1128,7 +1128,7 @@
   animation: lbp-fade 0.3s ease both;
 }
 .lbp-handover strong {
-  color: #02851e;
+  color: #4f46e5;
 }
 
 /* Lineage strip on the labs page */
@@ -1446,7 +1446,7 @@
   color: #e5e7eb;
 }
 .lbp-side-ai svg {
-  color: #4ade80;
+  color: #a5b4fc;
 }
 
 /* Lineage demo */
@@ -1584,7 +1584,7 @@
   display: inline-flex;
   gap: 6px;
   align-items: center;
-  color: #036b19;
+  color: #4338ca;
   font-weight: 600;
   font-size: 14px;
 }
@@ -1598,7 +1598,7 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  --acc: #02851e;
+  --acc: #4f46e5;
 }
 .lbp-finder-answer {
   margin-top: 14px;
@@ -1613,7 +1613,7 @@
 .lbp-plan[data-picked="true"] {
   transform: translateY(-8px);
   box-shadow:
-    0 0 0 3px #4ade80,
+    0 0 0 3px #a5b4fc,
     0 30px 60px -30px rgba(2, 133, 30, 0.6);
 }
 .lbp-match {
@@ -1627,7 +1627,7 @@
   padding: clamp(28px, 5vw, 56px);
   border-radius: 28px;
   background: linear-gradient(125deg, #ecf8ef, #e6f6f4);
-  --acc: #02851e;
+  --acc: #4f46e5;
 }
 .lbp-contact > div:first-child {
   flex: 1 1 460px;

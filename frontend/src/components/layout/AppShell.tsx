@@ -1,3 +1,4 @@
+import { MobileTabBar } from "@/components/layout/MobileTabBar";
 import { useEffect, useMemo, useState } from "react";
 import { Menu, PanelLeft, Pin, PinOff, Plus, Search } from "lucide-react";
 import { Outlet, useLocation, useNavigate } from "react-router";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { useUnreadChats } from "@/hooks/chat";
 import { useCrumbs, useCurrentLabId } from "@/hooks/crumbs";
-import { usePins, useSyncTimeZone, useTrackRecent } from "@/hooks/preferences";
+import { useGlass, usePins, useSyncTimeZone, useTrackRecent } from "@/hooks/preferences";
 import { useProjects } from "@/hooks/projects";
 import { useLabs } from "@/hooks/workspace";
 import { useRegisterCommands, type Command } from "@/lib/commands";
@@ -96,6 +97,7 @@ export function AppShell() {
   useAccountTheme(me?.preferences);
   const name = me?.display_name ?? "";
   useSyncTimeZone();
+  useGlass(); // applies the saved look (glass or reduced glass)
 
   // Below md the sidebar is a drawer: Escape closes it.
   useEffect(() => {
@@ -154,7 +156,7 @@ export function AppShell() {
         Skip to main content
       </a>
       <NamePrompt />
-      <div className="flex h-screen bg-background text-foreground md:pr-[calc(var(--assistant-w,0px)+var(--google-w,0px))] print:block print:h-auto print:pr-0">
+      <div className="flex h-screen text-foreground md:pr-[calc(var(--assistant-w,0px)+var(--google-w,0px))] print:block print:h-auto print:pr-0">
         <Sidebar open={navOpen} desktopHidden={sidebarHidden} onClose={() => setNavOpen(false)} />
         {navOpen && (
           <div
@@ -163,8 +165,8 @@ export function AppShell() {
             onClick={() => setNavOpen(false)}
           />
         )}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex items-center gap-2 px-4 py-3 print:hidden md:px-8">
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          <header className="glass glass--strong absolute inset-x-3 top-3 z-30 flex items-center gap-2 rounded-2xl px-3 py-2 print:hidden md:inset-x-5">
             <Button
               variant="ghost"
               size="icon"
@@ -232,7 +234,7 @@ export function AppShell() {
           <main
             id="main"
             tabIndex={-1}
-            className="@container outline-none min-h-0 flex-1 overflow-y-auto print:overflow-visible"
+            className="@container outline-none min-h-0 flex-1 overflow-y-auto pt-[4.75rem] pb-20 md:pb-0 print:overflow-visible print:pt-0"
           >
             <div className="px-4 py-4 md:px-8 print:px-0">
               <div className="mb-4 print:hidden">
@@ -243,6 +245,7 @@ export function AppShell() {
           </main>
         </div>
       </div>
+      <MobileTabBar labId={labId} onMore={() => setNavOpen(true)} />
       <QuickCapture />
       <CommandPalette labId={labId} onGo={(url) => void navigate(url)} />
       <Tutorial />

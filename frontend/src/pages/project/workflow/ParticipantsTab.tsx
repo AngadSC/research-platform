@@ -12,6 +12,7 @@ import { useRecruitmentEntries, useRecruitmentPlan } from "@/hooks/workflow";
 import type { RecruitmentEntry } from "@/lib/api-types";
 import { label, PARTICIPANT_WARNING, RECRUITMENT_STATUSES, totals } from "@/lib/workflow";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
+import ParticipantRegistry from "@/pages/project/participants/ParticipantRegistry";
 import {
   day,
   fail,
@@ -38,7 +39,7 @@ export function ParticipantWarning() {
 }
 
 /** Workflow > Participants: recruitment counts only. No names, no ids, no contact details. */
-export default function ParticipantsTab({ labId, projectId, project }: ProjectTabProps) {
+function RecruitmentCounts({ labId, projectId, project }: ProjectTabProps) {
   const { list, create, remove } = useRecruitmentEntries(labId, projectId);
   const { plan, save } = useRecruitmentPlan(labId, projectId);
   const [dialog, setDialog] = useState<"entry" | "plan" | null>(null);
@@ -259,6 +260,19 @@ function Tile({ label: l, value }: { label: string; value: string }) {
     <div className="rounded-lg border px-3 py-2">
       <dt className="text-xs text-muted-foreground">{l}</dt>
       <dd className="text-xl font-semibold">{value}</dd>
+    </div>
+  );
+}
+
+/** Workflow > Participants: the registry (who has what) above the recruitment counts. */
+export default function ParticipantsTab(props: ProjectTabProps) {
+  return (
+    <div className="grid gap-8">
+      <ParticipantRegistry {...props} />
+      <section aria-label="Recruitment counts" className="grid gap-3">
+        <h2 className="text-base font-semibold">Recruitment counts</h2>
+        <RecruitmentCounts {...props} />
+      </section>
     </div>
   );
 }

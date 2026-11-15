@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import "./auth-background.css";
 
 /** Signed-out layout for sign in, create account and the other account pages: a slowly
- * moving light green and white background with the form in a card in the middle. */
+ * moving soft indigo background with the form in a card in the middle. */
 export function AuthLayout() {
   return (
     <div className="auth-bg relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-12 text-foreground">
@@ -18,7 +18,7 @@ export function AuthLayout() {
         <Link to="/" aria-label="labbenchos home" className="justify-self-center">
           <img src={logo} alt="labbenchos" className="h-10 w-auto" />
         </Link>
-        <main className="rounded-2xl border border-white/70 bg-card/90 p-8 shadow-xl shadow-green-900/10 backdrop-blur-md">
+        <main className="glass glass--strong glass--float rounded-3xl p-8">
           <Outlet />
         </main>
         <Link

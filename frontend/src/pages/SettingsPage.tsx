@@ -1,3 +1,4 @@
+import { useGlass } from "@/hooks/preferences";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { toast } from "sonner";
@@ -83,6 +84,7 @@ export function SettingsPage() {
   const me = useMe().data as
     (User & { preferences?: { task_view?: TaskView; custom_themes?: CustomTheme[] } }) | undefined;
   const setPref = useSetPreference();
+  const [glass, setGlass] = useGlass();
   const labId = useCurrentLabId();
   const lab = useLabs().data?.find((l) => l.id === labId);
   const taskView = me?.preferences?.task_view ?? "board";
@@ -153,6 +155,20 @@ export function SettingsPage() {
                           value: `custom:${t.id}` as Theme,
                           label: t.name,
                         })),
+                      ]}
+                    />
+                  </Section>
+                  <Section
+                    title="Surfaces"
+                    description="Glass is translucent and softly blurred. Reduced glass uses solid surfaces, which is easier on older devices and for some eyes."
+                  >
+                    <Choice<"on" | "reduced">
+                      label="Look"
+                      value={glass}
+                      onChange={setGlass}
+                      options={[
+                        { value: "on", label: "Glass" },
+                        { value: "reduced", label: "Reduced glass" },
                       ]}
                     />
                   </Section>

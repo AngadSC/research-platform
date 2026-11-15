@@ -228,3 +228,14 @@ export type PaperInput = Schemas["PaperInput"];
 export type PaperNote = Schemas["PaperNote"];
 export type PaperCitations = Schemas["PaperCitation"];
 export type PaperDoiLookup = Schemas["PaperDoiLookup"];
+
+// Participant registry (coded IDs only)
+export type RegistryParticipant = Schemas["Participant"];
+export type RegistryColumn = Schemas["Component"];
+export type RegistryColumnInput = Schemas["ComponentInput"];
+export type RegistryCell = Schemas["Cell"];
+export type RegistryCellInput = Schemas["PatchedCellInput"];
+export type RegistryFile = Schemas["File"];
+export type RegistryReason = Schemas["Reason"];
+export type RegistryEvent = Schemas["Event"];
+export type CellStatus = Schemas["CellStatusEnum"];

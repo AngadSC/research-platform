@@ -35,6 +35,7 @@ urlpatterns = [
     # --- provenance (Phase 4) ---
     path("api/", include("provenance.urls")),
     # --- end provenance (Phase 4) ---
+    path("api/", include("participants.urls")),
     # --- ethics (Phase 5) ---
     path("api/", include("ethics.urls")),
     # --- end ethics (Phase 5) ---

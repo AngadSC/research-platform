@@ -1242,6 +1242,28 @@ paths:
           - recruitment_entry.updated
           - recruitment_entry.deleted
           - recruitment_plan.updated
+          - participant.created
+          - participant.updated
+          - participant.archived
+          - participant.restored
+          - participant_component.created
+          - participant_component.updated
+          - participant_component.deleted
+          - participant_cell.changed
+          - participant_file.added
+          - participant_file.changed
+          - participant_file.removed
+          - participant_reason.changed
+          - participant.identifier_blocked
+          - participant.imported
+          - participant.import_undone
+          - participant.files_matched
+          - participant.links_checked
+          - participant.tasks_created
+          - participant_rule.saved
+          - participant_rule.archived
+          - participant_set.locked
+          - participant_flow.exported
           - ai_access.granted
           - ai_access.revoked
           - ai_tool.write
@@ -1385,6 +1407,28 @@ paths:
           * `recruitment_entry.updated` - Recruitment Entry Updated
           * `recruitment_entry.deleted` - Recruitment Entry Deleted
           * `recruitment_plan.updated` - Recruitment Plan Updated
+          * `participant.created` - Participant Created
+          * `participant.updated` - Participant Updated
+          * `participant.archived` - Participant Archived
+          * `participant.restored` - Participant Restored
+          * `participant_component.created` - Participant Component Created
+          * `participant_component.updated` - Participant Component Updated
+          * `participant_component.deleted` - Participant Component Deleted
+          * `participant_cell.changed` - Participant Cell Changed
+          * `participant_file.added` - Participant File Added
+          * `participant_file.changed` - Participant File Changed
+          * `participant_file.removed` - Participant File Removed
+          * `participant_reason.changed` - Participant Reason Changed
+          * `participant.identifier_blocked` - Participant Identifier Blocked
+          * `participant.imported` - Participant Imported
+          * `participant.import_undone` - Participant Import Undone
+          * `participant.files_matched` - Participant Files Matched
+          * `participant.links_checked` - Participant Links Checked
+          * `participant.tasks_created` - Participant Tasks Created
+          * `participant_rule.saved` - Participant Rule Saved
+          * `participant_rule.archived` - Participant Rule Archived
+          * `participant_set.locked` - Participant Set Locked
+          * `participant_flow.exported` - Participant Flow Exported
           * `ai_access.granted` - Ai Access Granted
           * `ai_access.revoked` - Ai Access Revoked
           * `ai_tool.write` - Ai Tool Write
@@ -5266,6 +5310,132 @@ paths:
               schema:
                 $ref: '#/components/schemas/ImportResult'
           description: ''
+  /api/labs/{lab_id}/participant-overview/:
+    get:
+      operationId: labs_participant_overview_retrieve
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantOverview'
+          description: ''
+  /api/labs/{lab_id}/participant-reasons/:
+    get:
+      operationId: labs_participant_reasons_list
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Reason'
+          description: ''
+    post:
+      operationId: labs_participant_reasons_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReasonInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReasonInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reason'
+          description: ''
+  /api/labs/{lab_id}/participant-reasons/{reason_id}/:
+    patch:
+      operationId: labs_participant_reasons_partial_update
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: reason_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedReasonInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedReasonInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedReasonInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reason'
+          description: ''
   /api/labs/{lab_id}/project-members/{projectmembership_id}/:
     patch:
       operationId: labs_project_members_partial_update
@@ -5583,6 +5753,197 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Analysis'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/analysis-sets/:
+    get:
+      operationId: labs_projects_analysis_sets_list
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Set'
+          description: ''
+    post:
+      operationId: labs_projects_analysis_sets_create
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SetInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SetInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Set'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/analysis-sets/{set_id}/:
+    get:
+      operationId: labs_projects_analysis_sets_retrieve
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: set_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantSetDetail'
+          description: ''
+    patch:
+      operationId: labs_projects_analysis_sets_partial_update
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: set_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSetPatch'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSetPatch'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSetPatch'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Set'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/analysis-sets/{set_id}/new-version/:
+    post:
+      operationId: labs_projects_analysis_sets_new_version_create
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: set_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Set'
           description: ''
   /api/labs/{lab_id}/projects/{project_id}/attachments/:
     get:
@@ -6945,6 +7306,1280 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/projects/{project_id}/participant-cells/:
+    get:
+      operationId: labs_projects_participant_cells_list
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Cell'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participant-cells/{cell_id}/files/:
+    post:
+      operationId: labs_projects_participant_cells_files_create
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: cell_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FileInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FileInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FileInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/File'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participant-components/:
+    get:
+      operationId: labs_projects_participant_components_list
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Component'
+          description: ''
+    post:
+      operationId: labs_projects_participant_components_create
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComponentInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ComponentInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ComponentInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Component'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participant-components/{component_id}/:
+    patch:
+      operationId: labs_projects_participant_components_partial_update
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: component_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedComponentInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedComponentInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedComponentInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Component'
+          description: ''
+    delete:
+      operationId: labs_projects_participant_components_destroy
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: component_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantColumnDeleted'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participant-file-matches/:
+    post:
+      operationId: labs_projects_participant_file_matches_create
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParticipantMatchInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ParticipantMatchInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ParticipantMatchInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantFileMatches'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participant-file-matches/attach/:
+    post:
+      operationId: labs_projects_participant_file_matches_attach_create
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParticipantAttachInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ParticipantAttachInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ParticipantAttachInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantAttachResult'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participant-files/{file_id}/:
+    patch:
+      operationId: labs_projects_participant_files_partial_update
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: file_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFileInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedFileInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedFileInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/File'
+          description: ''
+    delete:
+      operationId: labs_projects_participant_files_destroy
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: file_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/projects/{project_id}/participant-flow/:
+    get:
+      operationId: labs_projects_participant_flow_retrieve
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: set
+        schema:
+          type: string
+          format: uuid
+        description: A locked set
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantFlow'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participant-flow/export/:
+    post:
+      operationId: labs_projects_participant_flow_export_create
+      description: |-
+        Logs that the summary was exported. The file itself is built in the browser from the
+        counts above, so no row-level data ever leaves the server.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParticipantFlowExport'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ParticipantFlowExport'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ParticipantFlowExport'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/projects/{project_id}/participant-imports/:
+    get:
+      operationId: labs_projects_participant_imports_list
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ParticipantImportRun'
+          description: ''
+    post:
+      operationId: labs_projects_participant_imports_create
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParticipantImportInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ParticipantImportInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ParticipantImportInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantImportResult'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participant-imports/{run_id}/undo/:
+    post:
+      operationId: labs_projects_participant_imports_undo_create
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: run_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantImportRun'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participant-imports/preview/:
+    post:
+      operationId: labs_projects_participant_imports_preview_create
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParticipantImportPreviewInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ParticipantImportPreviewInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ParticipantImportPreviewInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantImportPreview'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participant-link-health/:
+    get:
+      operationId: labs_projects_participant_link_health_retrieve
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantLinkHealth'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participant-link-health/refresh/:
+    post:
+      operationId: labs_projects_participant_link_health_refresh_create
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantLinkRefresh'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participant-rules/:
+    get:
+      operationId: labs_projects_participant_rules_list
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Rule'
+          description: ''
+    post:
+      operationId: labs_projects_participant_rules_create
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuleInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RuleInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RuleInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participant-rules/{rule_id}/:
+    patch:
+      operationId: labs_projects_participant_rules_partial_update
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: rule_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedRuleInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedRuleInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedRuleInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
+          description: ''
+    delete:
+      operationId: labs_projects_participant_rules_destroy
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: rule_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/projects/{project_id}/participant-rules/{rule_id}/evaluate/:
+    get:
+      operationId: labs_projects_participant_rules_evaluate_retrieve
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: rule_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantRuleResult'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participant-rules/preview/:
+    post:
+      operationId: labs_projects_participant_rules_preview_create
+      description: The live result while a rule is being written. Saves nothing.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuleSpec'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RuleSpec'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RuleSpec'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantRulePreview'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participant-tasks/:
+    post:
+      operationId: labs_projects_participant_tasks_create
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskGapsInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TaskGapsInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TaskGapsInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantTasksCreated'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participants/:
+    get:
+      operationId: labs_projects_participants_list
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: query
+        name: archived
+        schema:
+          type: boolean
+        description: Only archived
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Participant'
+          description: ''
+    post:
+      operationId: labs_projects_participants_create
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParticipantBulk'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ParticipantBulk'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ParticipantBulk'
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Participant'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participants/{participant_id}/:
+    get:
+      operationId: labs_projects_participants_retrieve
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: participant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Participant'
+          description: ''
+    patch:
+      operationId: labs_projects_participants_partial_update
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: participant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedParticipantInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedParticipantInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedParticipantInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Participant'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participants/{participant_id}/archive/:
+    post:
+      operationId: labs_projects_participants_archive_create
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: participant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Participant'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participants/{participant_id}/cells/{component_id}/:
+    patch:
+      operationId: labs_projects_participants_cells_partial_update
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: component_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: participant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCellInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCellInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCellInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cell'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participants/{participant_id}/events/:
+    get:
+      operationId: labs_projects_participants_events_list
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: participant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/participants/{participant_id}/restore/:
+    post:
+      operationId: labs_projects_participants_restore_create
+      description: |-
+        A project's registry: every route is nested under the project, so an invisible project
+        is a 404 before anything else is looked at.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: participant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Participant'
+          description: ''
   /api/labs/{lab_id}/projects/{project_id}/protocols/:
     get:
       operationId: labs_projects_protocols_list
@@ -9436,6 +11071,28 @@ components:
       - recruitment_entry.updated
       - recruitment_entry.deleted
       - recruitment_plan.updated
+      - participant.created
+      - participant.updated
+      - participant.archived
+      - participant.restored
+      - participant_component.created
+      - participant_component.updated
+      - participant_component.deleted
+      - participant_cell.changed
+      - participant_file.added
+      - participant_file.changed
+      - participant_file.removed
+      - participant_reason.changed
+      - participant.identifier_blocked
+      - participant.imported
+      - participant.import_undone
+      - participant.files_matched
+      - participant.links_checked
+      - participant.tasks_created
+      - participant_rule.saved
+      - participant_rule.archived
+      - participant_set.locked
+      - participant_flow.exported
       - ai_access.granted
       - ai_access.revoked
       - ai_tool.write
@@ -9578,6 +11235,28 @@ components:
         * `recruitment_entry.updated` - Recruitment Entry Updated
         * `recruitment_entry.deleted` - Recruitment Entry Deleted
         * `recruitment_plan.updated` - Recruitment Plan Updated
+        * `participant.created` - Participant Created
+        * `participant.updated` - Participant Updated
+        * `participant.archived` - Participant Archived
+        * `participant.restored` - Participant Restored
+        * `participant_component.created` - Participant Component Created
+        * `participant_component.updated` - Participant Component Updated
+        * `participant_component.deleted` - Participant Component Deleted
+        * `participant_cell.changed` - Participant Cell Changed
+        * `participant_file.added` - Participant File Added
+        * `participant_file.changed` - Participant File Changed
+        * `participant_file.removed` - Participant File Removed
+        * `participant_reason.changed` - Participant Reason Changed
+        * `participant.identifier_blocked` - Participant Identifier Blocked
+        * `participant.imported` - Participant Imported
+        * `participant.import_undone` - Participant Import Undone
+        * `participant.files_matched` - Participant Files Matched
+        * `participant.links_checked` - Participant Links Checked
+        * `participant.tasks_created` - Participant Tasks Created
+        * `participant_rule.saved` - Participant Rule Saved
+        * `participant_rule.archived` - Participant Rule Archived
+        * `participant_set.locked` - Participant Set Locked
+        * `participant_flow.exported` - Participant Flow Exported
         * `ai_access.granted` - Ai Access Granted
         * `ai_access.revoked` - Ai Access Revoked
         * `ai_tool.write` - Ai Tool Write
@@ -9800,6 +11479,26 @@ components:
       - lab_key
       - privacy_notice
       - providers
+    AttachItem:
+      type: object
+      properties:
+        participant:
+          type: string
+          format: uuid
+        component:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+          maxLength: 1000
+        title:
+          type: string
+          maxLength: 300
+      required:
+      - component
+      - participant
+      - url
     Attachment:
       type: object
       properties:
@@ -9864,7 +11563,7 @@ components:
           readOnly: true
         source:
           allOf:
-          - $ref: '#/components/schemas/SourceEnum'
+          - $ref: '#/components/schemas/AttachmentSourceEnum'
           readOnly: true
       required:
       - contains_participant_data
@@ -9904,6 +11603,14 @@ components:
       - id
       - original_filename
       - size_bytes
+    AttachmentSourceEnum:
+      enum:
+      - web
+      - link
+      type: string
+      description: |-
+        * `web` - Web
+        * `link` - Link
     AttachmentUpload:
       type: object
       description: A file, or (D257) a Google Drive file id from the Picker. Exactly
@@ -10199,6 +11906,146 @@ components:
         * `funding` - Funding
         * `data_management` - Data Management
         * `other` - Other
+    Cell:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        participant:
+          type: string
+          format: uuid
+          readOnly: true
+        component:
+          type: string
+          format: uuid
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/CellStatusEnum'
+          readOnly: true
+        reason:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        owner:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        decision:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        due_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        collected_on:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        note:
+          type: string
+          readOnly: true
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/File'
+          readOnly: true
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/CellTask'
+          readOnly: true
+        suggested_status:
+          type: string
+          nullable: true
+          description: 'A link in a cell nobody has started: suggest In progress.
+            Never applied by itself.'
+          readOnly: true
+        verified_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        changed_since_verified:
+          type: boolean
+          description: A linked document was edited after the cell was confirmed complete.
+            Never reverts it.
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - changed_since_verified
+      - collected_on
+      - component
+      - decision
+      - due_date
+      - files
+      - id
+      - note
+      - owner
+      - participant
+      - reason
+      - status
+      - suggested_status
+      - tasks
+      - updated_at
+      - verified_at
+    CellStatusEnum:
+      enum:
+      - not_started
+      - in_progress
+      - needs_review
+      - complete
+      - missing
+      - not_applicable
+      - excluded
+      type: string
+      description: |-
+        * `not_started` - Not Started
+        * `in_progress` - In Progress
+        * `needs_review` - Needs Review
+        * `complete` - Complete
+        * `missing` - Missing
+        * `not_applicable` - Not Applicable
+        * `excluded` - Excluded
+    CellTask:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        status:
+          type: string
+          readOnly: true
+        assignee:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        due_date:
+          type: string
+          format: date
+          readOnly: true
+      required:
+      - assignee
+      - due_date
+      - id
+      - status
+      - title
     ChatMessage:
       type: object
       properties:
@@ -10314,6 +12161,93 @@ components:
         * `expiring` - Expiring
         * `expired` - Expired
         * `missing` - Missing
+    Component:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        key:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        category:
+          allOf:
+          - $ref: '#/components/schemas/ParticipantCategoryEnum'
+          readOnly: true
+        required:
+          type: boolean
+          readOnly: true
+        applies_to_groups:
+          type: array
+          items:
+            type: string
+          readOnly: true
+        order:
+          type: integer
+          readOnly: true
+        expected_per_participant:
+          type: integer
+          readOnly: true
+        template_origin:
+          type: string
+          readOnly: true
+        sensitive:
+          type: boolean
+          readOnly: true
+        archived_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - applies_to_groups
+      - archived_at
+      - category
+      - expected_per_participant
+      - id
+      - key
+      - name
+      - order
+      - required
+      - sensitive
+      - template_origin
+    ComponentInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        key:
+          type: string
+          maxLength: 60
+          pattern: ^[-a-zA-Z0-9_]+$
+        category:
+          $ref: '#/components/schemas/ParticipantCategoryEnum'
+        required:
+          type: boolean
+        applies_to_groups:
+          type: array
+          items:
+            type: string
+            maxLength: 100
+          maxItems: 50
+        order:
+          type: integer
+          maximum: 10000
+          minimum: 0
+        expected_per_participant:
+          type: integer
+          maximum: 50
+          minimum: 1
+        sensitive:
+          type: boolean
+      required:
+      - name
     Conflict:
       type: object
       properties:
@@ -11778,6 +13712,22 @@ components:
       - base_version
       - content
       - title
+    EnrolmentStatusEnum:
+      enum:
+      - screened
+      - enrolled
+      - active
+      - completed
+      - withdrawn
+      - ineligible
+      type: string
+      description: |-
+        * `screened` - Screened
+        * `enrolled` - Enrolled
+        * `active` - Active
+        * `completed` - Completed
+        * `withdrawn` - Withdrawn
+        * `ineligible` - Ineligible
     EthicsApproval:
       type: object
       description: |-
@@ -11885,6 +13835,44 @@ components:
       - board
       - expiry_date
       - title
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        component:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        actor:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        action:
+          type: string
+          readOnly: true
+        from_value:
+          type: string
+          readOnly: true
+        to_value:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - action
+      - actor
+      - component
+      - created_at
+      - from_value
+      - id
+      - to_value
     EventsEnum:
       enum:
       - project.created
@@ -12311,6 +14299,82 @@ components:
       - date
       - title
       - type
+    File:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        provider:
+          allOf:
+          - $ref: '#/components/schemas/ParticipantFileProviderEnum'
+          readOnly: true
+        url:
+          type: string
+          format: uri
+          readOnly: true
+        external_id:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        mime_type:
+          type: string
+          readOnly: true
+        last_modified_remote:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        last_checked_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        link_state:
+          allOf:
+          - $ref: '#/components/schemas/ParticipantLinkStateEnum'
+          readOnly: true
+        role:
+          allOf:
+          - $ref: '#/components/schemas/ParticipantFileRoleEnum'
+          readOnly: true
+        version_label:
+          type: string
+          readOnly: true
+      required:
+      - external_id
+      - id
+      - last_checked_at
+      - last_modified_remote
+      - link_state
+      - mime_type
+      - provider
+      - role
+      - title
+      - url
+      - version_label
+    FileInput:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+          maxLength: 1000
+        title:
+          type: string
+          maxLength: 300
+        role:
+          $ref: '#/components/schemas/ParticipantFileRoleEnum'
+        version_label:
+          type: string
+          maxLength: 100
+        link_state:
+          $ref: '#/components/schemas/ParticipantLinkStateEnum'
+      required:
+      - url
     Folder:
       type: object
       properties:
@@ -13829,6 +15893,22 @@ components:
         * `in_review` - In Review
         * `accepted` - Accepted
         * `published` - Published
+    MatchFile:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 300
+        url:
+          type: string
+          format: uri
+          maxLength: 1000
+        title:
+          type: string
+          maxLength: 300
+      required:
+      - name
+      - url
     Me:
       type: object
       description: '`/api/me/` only: the user''s own preferences never appear in nested
@@ -14014,6 +16094,16 @@ components:
           $ref: '#/components/schemas/Page'
       required:
       - text
+    ModeEnum:
+      enum:
+      - cell
+      - participant
+      - component
+      type: string
+      description: |-
+        * `cell` - cell
+        * `participant` - participant
+        * `component` - component
     ModelInfo:
       type: object
       properties:
@@ -14543,6 +16633,561 @@ components:
       - edited_at
       - id
       - paper
+    Participant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+        group:
+          type: string
+          readOnly: true
+        cohort:
+          type: string
+          readOnly: true
+        enrolment_status:
+          allOf:
+          - $ref: '#/components/schemas/EnrolmentStatusEnum'
+          readOnly: true
+        enrolled_on:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        completed_on:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        notes:
+          type: string
+          readOnly: true
+        archived_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - archived_at
+      - code
+      - cohort
+      - completed_on
+      - created_at
+      - enrolled_on
+      - enrolment_status
+      - group
+      - id
+      - notes
+      - updated_at
+    ParticipantAttachInput:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttachItem'
+      required:
+      - items
+    ParticipantAttachResult:
+      type: object
+      properties:
+        attached:
+          type: integer
+        skipped:
+          type: integer
+      required:
+      - attached
+      - skipped
+    ParticipantBulk:
+      type: object
+      description: 'Many coded participants at once: pasted codes, or full rows.'
+      properties:
+        codes:
+          type: array
+          items:
+            type: string
+            maxLength: 40
+          maxItems: 500
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantInput'
+        group:
+          type: string
+          maxLength: 100
+        cohort:
+          type: string
+          maxLength: 100
+    ParticipantCategoryEnum:
+      enum:
+      - session
+      - transcript
+      - translation
+      - scoring
+      - questionnaire
+      - consent
+      - other
+      type: string
+      description: |-
+        * `session` - Session
+        * `transcript` - Transcript
+        * `translation` - Translation
+        * `scoring` - Scoring
+        * `questionnaire` - Questionnaire
+        * `consent` - Consent
+        * `other` - Other
+    ParticipantColumnDeleted:
+      type: object
+      properties:
+        cells_removed:
+          type: integer
+      required:
+      - cells_removed
+    ParticipantFileMatches:
+      type: object
+      properties:
+        matches:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - matches
+    ParticipantFileProviderEnum:
+      enum:
+      - google_drive
+      - onedrive
+      - dropbox
+      - box
+      - github
+      - other
+      type: string
+      description: |-
+        * `google_drive` - Google Drive
+        * `onedrive` - Onedrive
+        * `dropbox` - Dropbox
+        * `box` - Box
+        * `github` - Github
+        * `other` - Other
+    ParticipantFileRoleEnum:
+      enum:
+      - raw
+      - transcript
+      - translation
+      - scoring
+      - other
+      type: string
+      description: |-
+        * `raw` - Raw
+        * `transcript` - Transcript
+        * `translation` - Translation
+        * `scoring` - Scoring
+        * `other` - Other
+    ParticipantFlow:
+      type: object
+      properties:
+        screened:
+          type: object
+          additionalProperties: {}
+      required:
+      - screened
+    ParticipantFlowExport:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/ParticipantFlowExportKindEnum'
+      required:
+      - kind
+    ParticipantFlowExportKindEnum:
+      enum:
+      - table
+      - svg
+      - png
+      type: string
+      description: |-
+        * `table` - table
+        * `svg` - svg
+        * `png` - png
+    ParticipantImportInput:
+      type: object
+      properties:
+        csv:
+          type: string
+          maxLength: 1100000
+        mapping:
+          $ref: '#/components/schemas/ParticipantImportMapping'
+        dry_run:
+          type: boolean
+          default: true
+        source:
+          allOf:
+          - $ref: '#/components/schemas/ParticipantImportInputSourceEnum'
+          default: csv
+      required:
+      - csv
+      - mapping
+    ParticipantImportInputSourceEnum:
+      enum:
+      - csv
+      - sheet
+      type: string
+      description: |-
+        * `csv` - csv
+        * `sheet` - sheet
+    ParticipantImportMapping:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 200
+        group:
+          type: string
+          maxLength: 200
+        cohort:
+          type: string
+          maxLength: 200
+        enrolment_status:
+          type: string
+          maxLength: 200
+        components:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: string
+              maxLength: 200
+          maxItems: 80
+      required:
+      - code
+    ParticipantImportPreview:
+      type: object
+      properties:
+        headers:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+        total:
+          type: integer
+        blocked_headers:
+          type: array
+          items:
+            type: string
+        link_columns:
+          type: array
+          items:
+            type: string
+      required:
+      - blocked_headers
+      - headers
+      - link_columns
+      - rows
+      - total
+    ParticipantImportPreviewInput:
+      type: object
+      properties:
+        csv:
+          type: string
+          maxLength: 1100000
+      required:
+      - csv
+    ParticipantImportResult:
+      type: object
+      properties:
+        created:
+          type: integer
+        updated:
+          type: integer
+        skipped:
+          type: integer
+        links:
+          type: integer
+        components_created:
+          type: integer
+        attention:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        attention_total:
+          type: integer
+        dry_run:
+          type: boolean
+        run:
+          type: string
+          format: uuid
+      required:
+      - attention
+      - attention_total
+      - components_created
+      - created
+      - dry_run
+      - links
+      - skipped
+      - updated
+    ParticipantImportRun:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        source:
+          type: string
+          readOnly: true
+        summary:
+          readOnly: true
+        undone_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        can_undo:
+          type: boolean
+          readOnly: true
+      required:
+      - can_undo
+      - created_at
+      - id
+      - source
+      - summary
+      - undone_at
+    ParticipantInput:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 40
+        group:
+          type: string
+          maxLength: 100
+        cohort:
+          type: string
+          maxLength: 100
+        enrolment_status:
+          $ref: '#/components/schemas/EnrolmentStatusEnum'
+        enrolled_on:
+          type: string
+          format: date
+          nullable: true
+        completed_on:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          maxLength: 2000
+      required:
+      - code
+    ParticipantLinkHealth:
+      type: object
+      properties:
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+        problems:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        changed:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - changed
+      - counts
+      - problems
+    ParticipantLinkRefresh:
+      type: object
+      properties:
+        checked:
+          type: integer
+        problems:
+          type: integer
+      required:
+      - checked
+      - problems
+    ParticipantLinkStateEnum:
+      enum:
+      - ok
+      - moved
+      - no_access
+      - not_found
+      - unchecked
+      type: string
+      description: |-
+        * `ok` - Ok
+        * `moved` - Moved
+        * `no_access` - No Access
+        * `not_found` - Not Found
+        * `unchecked` - Unchecked
+    ParticipantMatchInput:
+      type: object
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/MatchFile'
+        pattern:
+          type: string
+          default: P-{number}_{component}
+          maxLength: 100
+      required:
+      - files
+    ParticipantOverview:
+      type: object
+      properties:
+        projects:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        by_component:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        missing_by_reason:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        translation_pending:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        waiting_on_me:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        recent:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - by_component
+      - missing_by_reason
+      - projects
+      - recent
+      - translation_pending
+      - waiting_on_me
+    ParticipantReasonKindEnum:
+      enum:
+      - missing
+      - excluded
+      - not_applicable
+      type: string
+      description: |-
+        * `missing` - Missing
+        * `excluded` - Excluded
+        * `not_applicable` - Not Applicable
+    ParticipantRulePreview:
+      type: object
+      properties:
+        eligible:
+          type: array
+          items:
+            type: string
+        one_away:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        not_eligible:
+          type: integer
+        not_eligible_why:
+          type: object
+          additionalProperties:
+            type: integer
+      required:
+      - eligible
+      - not_eligible
+      - not_eligible_why
+      - one_away
+    ParticipantRuleResult:
+      type: object
+      properties:
+        eligible:
+          type: array
+          items:
+            type: string
+        one_away:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        not_eligible:
+          type: integer
+        not_eligible_why:
+          type: object
+          additionalProperties:
+            type: integer
+      required:
+      - eligible
+      - not_eligible
+      - not_eligible_why
+      - one_away
+    ParticipantSetDetail:
+      type: object
+      properties:
+        set:
+          $ref: '#/components/schemas/Set'
+        codes:
+          type: array
+          items:
+            type: string
+        changes:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - changes
+      - codes
+      - set
+    ParticipantTasksCreated:
+      type: object
+      properties:
+        created:
+          type: integer
+        skipped:
+          type: integer
+        tasks:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - created
+      - skipped
+      - tasks
     PatCreate:
       type: object
       properties:
@@ -14666,6 +17311,66 @@ components:
         ran_at:
           type: string
           format: date-time
+    PatchedCellInput:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/CellStatusEnum'
+        reason:
+          type: string
+          format: uuid
+          nullable: true
+        owner:
+          type: string
+          format: uuid
+          nullable: true
+        decision:
+          type: string
+          format: uuid
+          nullable: true
+        due_date:
+          type: string
+          format: date
+          nullable: true
+        collected_on:
+          type: string
+          format: date
+          nullable: true
+        note:
+          type: string
+          maxLength: 1000
+        verified:
+          type: boolean
+    PatchedComponentInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        key:
+          type: string
+          maxLength: 60
+          pattern: ^[-a-zA-Z0-9_]+$
+        category:
+          $ref: '#/components/schemas/ParticipantCategoryEnum'
+        required:
+          type: boolean
+        applies_to_groups:
+          type: array
+          items:
+            type: string
+            maxLength: 100
+          maxItems: 50
+        order:
+          type: integer
+          maximum: 10000
+          minimum: 0
+        expected_per_participant:
+          type: integer
+          maximum: 50
+          minimum: 1
+        sensitive:
+          type: boolean
     PatchedDatasetInput:
       type: object
       properties:
@@ -14856,6 +17561,23 @@ components:
           type: string
           format: uuid
           nullable: true
+    PatchedFileInput:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+          maxLength: 1000
+        title:
+          type: string
+          maxLength: 300
+        role:
+          $ref: '#/components/schemas/ParticipantFileRoleEnum'
+        version_label:
+          type: string
+          maxLength: 100
+        link_state:
+          $ref: '#/components/schemas/ParticipantLinkStateEnum'
     PatchedFolderUpdate:
       type: object
       description: Rename, tick or clear "Contains participant data", or both.
@@ -15192,6 +17914,31 @@ components:
       properties:
         contains_participant_data:
           type: boolean
+    PatchedParticipantInput:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 40
+        group:
+          type: string
+          maxLength: 100
+        cohort:
+          type: string
+          maxLength: 100
+        enrolment_status:
+          $ref: '#/components/schemas/EnrolmentStatusEnum'
+        enrolled_on:
+          type: string
+          format: date
+          nullable: true
+        completed_on:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          maxLength: 2000
     PatchedPolicy:
       type: object
       properties:
@@ -15237,6 +17984,16 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ReagentInput'
+    PatchedReasonInput:
+      type: object
+      properties:
+        label:
+          type: string
+          maxLength: 100
+        kind:
+          $ref: '#/components/schemas/ParticipantReasonKindEnum'
+        active:
+          type: boolean
     PatchedRecruitmentEntryInput:
       type: object
       properties:
@@ -15321,6 +18078,24 @@ components:
       properties:
         role:
           $ref: '#/components/schemas/LabRoleEnum'
+    PatchedRuleInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 1000
+        spec:
+          $ref: '#/components/schemas/RuleSpec'
+    PatchedSetPatch:
+      type: object
+      properties:
+        analysis:
+          type: string
+          format: uuid
+          nullable: true
     PatchedTaskInput:
       type: object
       description: '`status` + `position` also reorder: the task lands at that index
@@ -15936,6 +18711,41 @@ components:
       required:
       - amount
       - item
+    Reason:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        label:
+          type: string
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/ParticipantReasonKindEnum'
+          readOnly: true
+        active:
+          type: boolean
+          readOnly: true
+      required:
+      - active
+      - id
+      - kind
+      - label
+    ReasonInput:
+      type: object
+      properties:
+        label:
+          type: string
+          maxLength: 100
+        kind:
+          $ref: '#/components/schemas/ParticipantReasonKindEnum'
+        active:
+          type: boolean
+      required:
+      - kind
+      - label
     RecruitmentEntry:
       type: object
       properties:
@@ -16396,6 +19206,75 @@ components:
       - restored_from_version
       - title
       - version
+    Rule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        version:
+          type: integer
+          readOnly: true
+        spec:
+          allOf:
+          - $ref: '#/components/schemas/RuleSpec'
+          readOnly: true
+        archived_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - archived_at
+      - description
+      - id
+      - name
+      - spec
+      - updated_at
+      - version
+    RuleInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 1000
+        spec:
+          $ref: '#/components/schemas/RuleSpec'
+      required:
+      - name
+    RuleSpec:
+      type: object
+      properties:
+        requires:
+          type: array
+          items:
+            type: string
+            pattern: ^[-a-zA-Z0-9_]+$
+          maxItems: 60
+        groups:
+          type: array
+          items:
+            type: string
+            maxLength: 100
+          maxItems: 50
+        exclude_enrolment:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnrolmentStatusEnum'
     SearchHit:
       type: object
       properties:
@@ -16441,14 +19320,62 @@ components:
             $ref: '#/components/schemas/SearchHit'
       required:
       - results
-    SourceEnum:
-      enum:
-      - web
-      - link
-      type: string
-      description: |-
-        * `web` - Web
-        * `link` - Link
+    Set:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        rule:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        rule_version:
+          type: integer
+          readOnly: true
+        size:
+          type: integer
+          readOnly: true
+        locked_at:
+          type: string
+          format: date-time
+          readOnly: true
+        analysis:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        supersedes:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+      required:
+      - analysis
+      - id
+      - locked_at
+      - name
+      - rule
+      - rule_version
+      - size
+      - supersedes
+    SetInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        rule:
+          type: string
+          format: uuid
+      required:
+      - name
+      - rule
     StageEnum:
       enum:
       - funding
@@ -16691,6 +19618,18 @@ components:
       - id
       - original_filename
       - size_bytes
+    TaskCell:
+      type: object
+      properties:
+        participant:
+          type: string
+          format: uuid
+        component:
+          type: string
+          format: uuid
+      required:
+      - component
+      - participant
     TaskDocument:
       type: object
       properties:
@@ -16705,6 +19644,27 @@ components:
       - id
       - title
       - version
+    TaskGapsInput:
+      type: object
+      properties:
+        cells:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskCell'
+        mode:
+          allOf:
+          - $ref: '#/components/schemas/ModeEnum'
+          default: cell
+        assignee:
+          type: string
+          format: uuid
+          nullable: true
+        due_date:
+          type: string
+          format: date
+          nullable: true
+      required:
+      - cells
     TaskInput:
       type: object
       description: '`status` + `position` also reorder: the task lands at that index

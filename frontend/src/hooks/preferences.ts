@@ -13,6 +13,7 @@ interface Lists {
   sidebar_main?: string[];
   sidebar_admin?: string[];
   delight?: "on" | "off";
+  glass?: "on" | "reduced";
 }
 type Me = User & { preferences?: Lists & { time_zone?: string } };
 const ME = ["me"];
@@ -136,4 +137,42 @@ export function useSyncTimeZone() {
       () => {},
     );
   }, [qc, loaded, saved]);
+}
+
+const GLASS_KEY = "glass";
+export type GlassMode = "on" | "reduced";
+
+/** `<html data-glass="reduced">` swaps every glass surface for a solid one (see index.css). */
+export function applyGlass(mode: GlassMode) {
+  document.documentElement.dataset.glass = mode;
+}
+
+function storedGlass(): GlassMode {
+  try {
+    return localStorage.getItem(GLASS_KEY) === "reduced" ? "reduced" : "on";
+  } catch {
+    return "on";
+  }
+}
+
+/** The look: glass (the default) or reduced glass. Saved to the account, and kept on this device
+ * so the first paint is right. */
+export function useGlass(): [GlassMode, (mode: GlassMode) => void] {
+  const save = useSaveLists();
+  const pref = (useMe().data as Me | undefined)?.preferences?.glass;
+  const mode: GlassMode = pref ?? storedGlass();
+  useEffect(() => applyGlass(mode), [mode]);
+  const set = useCallback(
+    (next: GlassMode) => {
+      try {
+        localStorage.setItem(GLASS_KEY, next);
+      } catch {
+        /* still applied for this visit */
+      }
+      applyGlass(next);
+      save({ glass: next });
+    },
+    [save],
+  );
+  return [mode, set];
 }

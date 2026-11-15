@@ -297,15 +297,14 @@ describe("default task view", () => {
     expect(await screen.findByRole("table")).toBeInTheDocument();
   });
 
-  it("colours board columns and cards by status", async () => {
+  it("shows board columns as neutral glass with a small status dot", async () => {
     mockFetch(base(["view_project"], [], { task_view: "board" }));
     renderRoute("/labs/lab1/projects/p1/tasks");
     const col = await screen.findByRole("region", { name: "To do" });
     expect(col).toHaveAttribute("data-status", "todo");
-    expect(col).toHaveStyle({ backgroundColor: "#fef08a" });
-    expect(screen.getByRole("region", { name: "Done" })).toHaveStyle({
-      backgroundColor: "#bbf7d0",
-    });
+    expect(col).toHaveClass("glass"); // no saturated column fill
+    expect(col.style.backgroundColor).toBe("");
+    expect(col.querySelector("h2 span[aria-hidden]")).toHaveStyle({ backgroundColor: "#facc15" });
     expect(col.querySelector("article")).toHaveAttribute("data-status", "todo");
   });
 });

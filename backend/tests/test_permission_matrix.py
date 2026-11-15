@@ -55,6 +55,9 @@ from labs.models import (  # admin area (Run 4)
     ProtocolReagent,
 )
 from papers import services as paper_services  # paper library
+from participants import imports as participant_imports  # participant registry
+from participants import rules as participant_rules  # participant registry
+from participants import services as participant_services  # participant registry
 from projects.models import (  # projects/tasks (Phase 3)
     ChatMessage,
     Project,
@@ -210,6 +213,50 @@ MATRIX: dict[tuple[str, str], str] = {
     ("PATCH",  "documents:folder-detail"): "401 404 2 2 2 2 403 404 403",
     ("DELETE", "documents:folder-detail"): "401 404 2 2 2 2 403 404 403",
     # --- end documents/attachments (Phase 3) ---
+    # --- participant registry ---
+    ("GET",    "participants:participant-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "participants:participant-list"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "participants:participant-detail"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "participants:participant-detail"): "401 404 2 2 2 2 403 404 403",
+    ("POST",   "participants:participant-archive"): "401 404 2 2 2 2 403 404 403",
+    ("POST",   "participants:participant-restore"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "participants:participant-events"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "participants:cell-set"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "participants:component-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "participants:component-list"): "401 404 2 2 2 403 403 404 403",
+    ("PATCH",  "participants:component-detail"): "401 404 2 2 2 403 403 404 403",
+    ("DELETE", "participants:component-detail"): "401 404 2 2 2 403 403 404 403",
+    ("GET",    "participants:cell-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "participants:cell-files"): "401 404 2 2 2 2 403 404 403",
+    ("PATCH",  "participants:file-detail"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "participants:file-detail"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "participants:reason-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "participants:reason-list"): "401 404 2 2 403 403 403 403 403",
+    ("PATCH",  "participants:reason-detail"): "401 404 2 2 403 403 403 403 403",
+    ("POST",   "participants:import-preview"): "401 404 2 2 2 403 403 404 403",
+    ("GET",    "participants:import-list"): "401 404 2 2 2 403 403 404 403",
+    ("POST",   "participants:import-list"): "401 404 2 2 2 403 403 404 403",
+    ("POST",   "participants:import-undo"): "401 404 2 2 2 403 403 404 403",
+    ("POST",   "participants:files-match"): "401 404 2 2 2 403 403 404 403",
+    ("POST",   "participants:files-attach"): "401 404 2 2 2 403 403 404 403",
+    ("GET",    "participants:link-health"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "participants:link-refresh"): "401 404 2 2 2 2 403 404 403",
+    ("POST",   "participants:gap-tasks"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "participants:lab-overview"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "participants:rule-preview"): "401 404 2 2 2 2 2 404 2",
+    ("GET",    "participants:rule-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "participants:rule-list"): "401 404 2 2 2 403 403 404 403",
+    ("PATCH",  "participants:rule-detail"): "401 404 2 2 2 403 403 404 403",
+    ("DELETE", "participants:rule-detail"): "401 404 2 2 2 403 403 404 403",
+    ("GET",    "participants:rule-evaluate"): "401 404 2 2 2 2 2 404 2",
+    ("GET",    "participants:set-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "participants:set-list"): "401 404 2 2 2 403 403 404 403",
+    ("GET",    "participants:set-detail"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "participants:set-detail"): "401 404 2 2 2 403 403 404 403",
+    ("POST",   "participants:set-new-version"): "401 404 2 2 2 403 403 404 403",
+    ("GET",    "participants:flow"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "participants:flow-export"): "401 404 2 2 2 403 403 404 403",
+    # --- end participant registry ---
     # --- provenance (Phase 4) ---
     # Same shape as documents: reads need view_project (everyone on P1, the capped lab viewer
     # included); create, edit and delete need edit_content (lead, contrib, implicit leads
@@ -984,6 +1031,51 @@ def _matrix_fake_key_check(monkeypatch):
 # --- end in-app assistant (Run 5) ---
 
 
+# --- participant registry ---
+def _participant_fixtures(lab, project, user, tag):
+    """One coded participant, one column, one cell with one link, and one lab reason."""
+    participant_services.seed_reasons(lab)
+    (participant,) = participant_services.create_participants(
+        project, user=user, rows=[{"code": f"P-{abs(hash(tag)) % 900 + 100}"}]
+    )
+    column = participant_services.create_component(
+        project, user=user, data={"name": f"Transcript {tag}"}
+    )
+    cell = participant_services.set_cell(
+        participant, column, user=user, data={"status": "complete"}
+    )
+    link = participant_services.add_file(
+        cell, user=user, data={"url": "https://example.test/doc", "title": f"Doc {tag}"}
+    )
+    reason = participant_services.save_reason(
+        lab, user=user, data={"label": f"Reason {tag}", "kind": "missing"}
+    )
+    rule = participant_rules.save_rule(
+        project, user, data={"name": f"Rule {tag}", "spec": {"requires": [column.key]}}
+    )
+    locked = participant_rules.lock_set(project, user, rule=rule, name=f"Set {tag}")
+    run = participant_imports.run_import(
+        project,
+        user,
+        text="Code,Group\nP-8001,Spanish\n",
+        mapping={"code": "Code", "group": "Group"},
+        dry_run=False,
+    )
+    return {
+        "run_id": run["run"],
+        "participant_id": participant.pk,
+        "component_id": column.pk,
+        "cell_id": cell.pk,
+        "file_id": link.pk,
+        "reason_id": reason.pk,
+        "rule_id": rule.pk,
+        "set_id": locked.pk,
+    }
+
+
+# --- end participant registry ---
+
+
 def build_world():
     """Two labs, each with a project, a membership and a pending invite. Add each new
     lab-data model here, once for A and once for B."""
@@ -1026,6 +1118,7 @@ def build_world():
     post_a = TaskPost.objects.create(lab=lab_a, task=task_a, author=users["pi"], body="Post lab-a")
     # --- end documents/attachments (Phase 3) ---
     prov_a = _prov_fixtures(lab_a, p1, users["pi"], doc_a, attachment_a, "lab-a")  # Phase 4
+    part_a = _participant_fixtures(lab_a, p1, users["pi"], "lab-a")  # participant registry
     eth_a, eth_att_a, note_a = _ethics_fixtures(lab_a, p1, users["pi"], "lab-a")  # Phase 5
     int_accounts_a, link_a = _integration_fixtures(
         lab_a, p1, {n: users[n] for n in ("pi", "admin", "lead", "contrib")}, "lab-a"
@@ -1079,6 +1172,7 @@ def build_world():
     )
     # --- end documents/attachments (Phase 3) ---
     prov_b = _prov_fixtures(lab_b, p1_b, secret_pi, doc_b, attachment_b, "LAB-B-SECRET")  # Ph. 4
+    part_b = _participant_fixtures(lab_b, p1_b, secret_pi, "LAB-B-SECRET")  # participant registry
     eth_b, eth_att_b, note_b = _ethics_fixtures(lab_b, p1_b, secret_pi, "LAB-B-SECRET")  # Phase 5
     int_accounts_b, link_b = _integration_fixtures(
         lab_b, p1_b, {"outsider": secret_pi}, "LAB-B-SECRET"
@@ -1118,6 +1212,7 @@ def build_world():
             "attachment_id": attachment_a.pk,
             "folder_id": _folder_fixture(p1, users["pi"], "lab-a").pk,
             **prov_a,  # provenance (Phase 4)
+            **part_a,  # participant registry
             "ethicsapproval_id": eth_a.pk,  # ethics and notifications (Phase 5)
             "notification_id": note_a.pk,
             "ethics_attachment_id": eth_att_a.pk,  # not a URL kwarg: ethics download test
@@ -1155,6 +1250,7 @@ def build_world():
             "attachment_id": attachment_b.pk,
             "folder_id": _folder_fixture(p1_b, secret_pi, "LAB-B-SECRET").pk,
             **prov_b,  # provenance (Phase 4)
+            **part_b,  # participant registry
             "ethicsapproval_id": eth_b.pk,  # ethics and notifications (Phase 5)
             "notification_id": note_b.pk,
             "ethics_attachment_id": eth_att_b.pk,
@@ -1406,6 +1502,52 @@ PAYLOADS = {
     },
     ("PATCH", "provenance:recruitment-detail"): lambda user, w: {"count": 5},
     ("PATCH", "provenance:recruitment-plan"): lambda user, w: {"target_enrolment": 40},
+    ("POST", "participants:participant-list"): lambda user, w: {"codes": ["P-9001"]},
+    ("PATCH", "participants:participant-detail"): lambda user, w: {"cohort": "Fall"},
+    ("POST", "participants:participant-archive"): lambda user, w: {},
+    ("POST", "participants:participant-restore"): lambda user, w: {},
+    ("PATCH", "participants:cell-set"): lambda user, w: {"status": "in_progress"},
+    ("POST", "participants:component-list"): lambda user, w: {"name": "Scoring sheet"},
+    ("PATCH", "participants:component-detail"): lambda user, w: {"required": False},
+    ("POST", "participants:cell-files"): lambda user, w: {"url": "https://example.test/new"},
+    ("PATCH", "participants:file-detail"): lambda user, w: {"title": "Renamed"},
+    ("POST", "participants:reason-list"): lambda user, w: {
+        "label": "New reason",
+        "kind": "missing",
+    },
+    ("PATCH", "participants:reason-detail"): lambda user, w: {"active": False},
+    ("POST", "participants:import-preview"): lambda user, w: {"csv": "Code,Group\nP-1,A\n"},
+    ("POST", "participants:import-list"): lambda user, w: {
+        "csv": "Code,Group\nP-9002,Spanish\n",
+        "mapping": {"code": "Code", "group": "Group"},
+        "dry_run": True,
+    },
+    ("POST", "participants:import-undo"): lambda user, w: {},
+    ("POST", "participants:files-match"): lambda user, w: {
+        "files": [],
+        "pattern": "P-{number}_{component}",
+    },
+    ("POST", "participants:files-attach"): lambda user, w: {"items": []},
+    ("POST", "participants:link-refresh"): lambda user, w: {},
+    ("POST", "participants:rule-preview"): lambda user, w: {"requires": []},
+    ("POST", "participants:rule-list"): lambda user, w: {
+        "name": "New rule",
+        "spec": {"requires": []},
+    },
+    ("PATCH", "participants:rule-detail"): lambda user, w: {"description": "Updated"},
+    ("POST", "participants:set-list"): lambda user, w: {
+        "name": "Second lock",
+        "rule": str(w.a["rule_id"]),
+    },
+    ("PATCH", "participants:set-detail"): lambda user, w: {"analysis": None},
+    ("POST", "participants:set-new-version"): lambda user, w: {},
+    ("POST", "participants:flow-export"): lambda user, w: {"kind": "svg"},
+    ("POST", "participants:gap-tasks"): lambda user, w: {
+        "cells": [
+            {"participant": str(w.a["participant_id"]), "component": str(w.a["component_id"])}
+        ],
+        "mode": "cell",
+    },
     ("POST", "provenance:result-set"): lambda user, w: {
         "analysis": str(w.a["analysis_id"]),
         "items": [{"title": "Figure 1"}, {"title": "Figure 2"}],

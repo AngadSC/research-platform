@@ -8,7 +8,7 @@ export const TooltipTrigger = T.Trigger;
 
 export function TooltipContent({
   className,
-  sideOffset = 4,
+  sideOffset = 8,
   ...props
 }: React.ComponentProps<typeof T.Content>) {
   return (
@@ -16,7 +16,7 @@ export function TooltipContent({
       <T.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 rounded-md bg-foreground px-2.5 py-1 text-xs text-background",
+          "glass glass--strong glass-in z-50 rounded-lg px-2.5 py-1.5 text-xs text-foreground",
           className,
         )}
         {...props}

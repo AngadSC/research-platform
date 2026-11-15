@@ -299,7 +299,7 @@ export function RichComposer({
 
   return (
     <div className={cn("grid gap-1", className)}>
-      <div className="relative rounded-md border border-input bg-card focus-within:ring-2 focus-within:ring-ring">
+      <div className="glass-field relative rounded-xl focus-within:border-ring focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--ring)_28%,transparent)]">
         {showToolbar && (
           <div
             ref={toolbarRef}
