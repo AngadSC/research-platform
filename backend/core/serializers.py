@@ -56,6 +56,7 @@ PREFERENCE_CHOICES = {
     "quiet": ("on", "off"),  # no email in these hours; it waits until they end
     "quiet_start": tuple(str(h) for h in range(24)),
     "quiet_end": tuple(str(h) for h in range(24)),
+    "glass": ("on", "reduced"),  # the translucent look; reduced uses solid surfaces
     "delight": ("on", "off"),  # the little animations; off also for anyone who asks for less motion
     # D291: the browser's own zone, sent by the app on its own (never typed in).
     "time_zone": frozenset(zoneinfo.available_timezones()),

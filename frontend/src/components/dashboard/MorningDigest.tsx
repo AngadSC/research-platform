@@ -78,7 +78,7 @@ export function MorningDigest({ labId }: { labId: string }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mb-6 flex w-full items-center gap-3 rounded-lg border bg-card p-4 text-left hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:w-auto sm:min-w-80"
+        className="mb-6 flex w-full items-center gap-3 glass rounded-2xl p-4 text-left hover:bg-[var(--glass-bg-strong)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:w-auto sm:min-w-80"
       >
         <span className="grid size-10 shrink-0 place-items-center rounded-full bg-warning/20 text-warning-text">
           <Sun className="size-5" aria-hidden />

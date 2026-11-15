@@ -35,6 +35,10 @@ const base = (perms: string[], labPerms = ["view_lab"], extra: Record<string, un
   [`GET ${P}/`]: { body: project(perms) },
   [`GET ${P}/documents/`]: { body: [] },
   "GET /api/labs/lab1/members/": { body: [{ id: "m1", user, role: "pi" }] },
+  [`GET ${P}/participants/`]: { body: [] }, // the registry above the recruitment counts
+  [`GET ${P}/participant-components/`]: { body: [] },
+  [`GET ${P}/participant-cells/`]: { body: [] },
+  "GET /api/labs/lab1/participant-reasons/": { body: [] },
   ...extra,
 });
 const funding = {

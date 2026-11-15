@@ -12,6 +12,7 @@ import { Link, useParams } from "react-router";
 import { ContributionGraph } from "@/components/dashboard/ContributionGraph";
 import { GettingStarted } from "@/components/dashboard/GettingStarted";
 import { MorningDigest } from "@/components/dashboard/MorningDigest";
+import { ParticipantCards } from "@/components/dashboard/ParticipantCards";
 import { Today } from "@/components/dashboard/Today";
 import { FormError } from "@/components/shared/FormError";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -376,6 +377,7 @@ export function DashboardPage() {
       />
       {lab && <MorningDigest labId={labId} />}
       {lab && !allowed && <Today labId={labId} />}
+      {lab && <ParticipantCards labId={labId} />}
       <GettingStarted labId={labId} />
       <Recents />
     </>

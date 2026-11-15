@@ -2192,6 +2192,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/participant-overview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        get: operations["labs_participant_overview_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/participant-reasons/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        get: operations["labs_participant_reasons_list"];
+        put?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        post: operations["labs_participant_reasons_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/participant-reasons/{reason_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        patch: operations["labs_participant_reasons_partial_update"];
+        trace?: never;
+    };
     "/api/labs/{lab_id}/project-members/{projectmembership_id}/": {
         parameters: {
             query?: never;
@@ -2309,6 +2373,74 @@ export interface paths {
          *     project and prefetches every nested link, so no list or detail makes per-row queries.
          */
         post: operations["labs_projects_analyses_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/analysis-sets/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        get: operations["labs_projects_analysis_sets_list"];
+        put?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        post: operations["labs_projects_analysis_sets_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/analysis-sets/{set_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        get: operations["labs_projects_analysis_sets_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        patch: operations["labs_projects_analysis_sets_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/analysis-sets/{set_id}/new-version/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        post: operations["labs_projects_analysis_sets_new_version_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2849,6 +2981,535 @@ export interface paths {
          *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
          */
         post: operations["labs_projects_messages_read_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-cells/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        get: operations["labs_projects_participant_cells_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-cells/{cell_id}/files/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        post: operations["labs_projects_participant_cells_files_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-components/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        get: operations["labs_projects_participant_components_list"];
+        put?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        post: operations["labs_projects_participant_components_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-components/{component_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        delete: operations["labs_projects_participant_components_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        patch: operations["labs_projects_participant_components_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-file-matches/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        post: operations["labs_projects_participant_file_matches_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-file-matches/attach/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        post: operations["labs_projects_participant_file_matches_attach_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-files/{file_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        delete: operations["labs_projects_participant_files_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        patch: operations["labs_projects_participant_files_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-flow/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        get: operations["labs_projects_participant_flow_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-flow/export/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Logs that the summary was exported. The file itself is built in the browser from the
+         *     counts above, so no row-level data ever leaves the server.
+         */
+        post: operations["labs_projects_participant_flow_export_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-imports/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        get: operations["labs_projects_participant_imports_list"];
+        put?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        post: operations["labs_projects_participant_imports_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-imports/{run_id}/undo/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        post: operations["labs_projects_participant_imports_undo_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-imports/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        post: operations["labs_projects_participant_imports_preview_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-link-health/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        get: operations["labs_projects_participant_link_health_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-link-health/refresh/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        post: operations["labs_projects_participant_link_health_refresh_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-rules/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        get: operations["labs_projects_participant_rules_list"];
+        put?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        post: operations["labs_projects_participant_rules_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-rules/{rule_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        delete: operations["labs_projects_participant_rules_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        patch: operations["labs_projects_participant_rules_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-rules/{rule_id}/evaluate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        get: operations["labs_projects_participant_rules_evaluate_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-rules/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The live result while a rule is being written. Saves nothing. */
+        post: operations["labs_projects_participant_rules_preview_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participant-tasks/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        post: operations["labs_projects_participant_tasks_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participants/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        get: operations["labs_projects_participants_list"];
+        put?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        post: operations["labs_projects_participants_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participants/{participant_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        get: operations["labs_projects_participants_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        patch: operations["labs_projects_participants_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participants/{participant_id}/archive/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        post: operations["labs_projects_participants_archive_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participants/{participant_id}/cells/{component_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        patch: operations["labs_projects_participants_cells_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participants/{participant_id}/events/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        get: operations["labs_projects_participants_events_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/participants/{participant_id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A project's registry: every route is nested under the project, so an invisible project
+         *     is a 404 before anything else is looked at.
+         */
+        post: operations["labs_projects_participants_restore_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3887,6 +4548,28 @@ export interface components {
          *     * `recruitment_entry.updated` - Recruitment Entry Updated
          *     * `recruitment_entry.deleted` - Recruitment Entry Deleted
          *     * `recruitment_plan.updated` - Recruitment Plan Updated
+         *     * `participant.created` - Participant Created
+         *     * `participant.updated` - Participant Updated
+         *     * `participant.archived` - Participant Archived
+         *     * `participant.restored` - Participant Restored
+         *     * `participant_component.created` - Participant Component Created
+         *     * `participant_component.updated` - Participant Component Updated
+         *     * `participant_component.deleted` - Participant Component Deleted
+         *     * `participant_cell.changed` - Participant Cell Changed
+         *     * `participant_file.added` - Participant File Added
+         *     * `participant_file.changed` - Participant File Changed
+         *     * `participant_file.removed` - Participant File Removed
+         *     * `participant_reason.changed` - Participant Reason Changed
+         *     * `participant.identifier_blocked` - Participant Identifier Blocked
+         *     * `participant.imported` - Participant Imported
+         *     * `participant.import_undone` - Participant Import Undone
+         *     * `participant.files_matched` - Participant Files Matched
+         *     * `participant.links_checked` - Participant Links Checked
+         *     * `participant.tasks_created` - Participant Tasks Created
+         *     * `participant_rule.saved` - Participant Rule Saved
+         *     * `participant_rule.archived` - Participant Rule Archived
+         *     * `participant_set.locked` - Participant Set Locked
+         *     * `participant_flow.exported` - Participant Flow Exported
          *     * `ai_access.granted` - Ai Access Granted
          *     * `ai_access.revoked` - Ai Access Revoked
          *     * `ai_tool.write` - Ai Tool Write
@@ -3921,7 +4604,7 @@ export interface components {
          *     * `file_link.created` - File Link Created
          * @enum {string}
          */
-        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
+        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "participant.created" | "participant.updated" | "participant.archived" | "participant.restored" | "participant_component.created" | "participant_component.updated" | "participant_component.deleted" | "participant_cell.changed" | "participant_file.added" | "participant_file.changed" | "participant_file.removed" | "participant_reason.changed" | "participant.identifier_blocked" | "participant.imported" | "participant.import_undone" | "participant.files_matched" | "participant.links_checked" | "participant.tasks_created" | "participant_rule.saved" | "participant_rule.archived" | "participant_set.locked" | "participant_flow.exported" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
         /**
          * @description * `read` - Read
          *     * `write` - Write
@@ -4002,6 +4685,15 @@ export interface components {
             /** @description The lab's AI key, when the lab has one and allows the assistant. */
             lab_key: components["schemas"]["LabKeyAvailability"] | null;
         };
+        AttachItem: {
+            /** Format: uuid */
+            participant: string;
+            /** Format: uuid */
+            component: string;
+            /** Format: uri */
+            url: string;
+            title?: string;
+        };
         Attachment: {
             /** Format: uuid */
             readonly id: string;
@@ -4026,7 +4718,7 @@ export interface components {
             /** Format: uuid */
             readonly copied_from: string | null;
             readonly contains_participant_data: boolean;
-            readonly source: components["schemas"]["SourceEnum"];
+            readonly source: components["schemas"]["AttachmentSourceEnum"];
             readonly pi_only: boolean;
         };
         AttachmentRef: {
@@ -4036,6 +4728,12 @@ export interface components {
             readonly content_type: string;
             readonly size_bytes: number;
         };
+        /**
+         * @description * `web` - Web
+         *     * `link` - Link
+         * @enum {string}
+         */
+        AttachmentSourceEnum: "web" | "link";
         /** @description A file, or (D257) a Google Drive file id from the Picker. Exactly one. */
         AttachmentUpload: {
             /** Format: uuid */
@@ -4179,6 +4877,57 @@ export interface components {
          * @enum {string}
          */
         CategoryD5bEnum: "ethics" | "funding" | "data_management" | "other";
+        Cell: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly participant: string;
+            /** Format: uuid */
+            readonly component: string;
+            readonly status: components["schemas"]["CellStatusEnum"];
+            /** Format: uuid */
+            readonly reason: string | null;
+            /** Format: uuid */
+            readonly owner: string | null;
+            /** Format: uuid */
+            readonly decision: string | null;
+            /** Format: date */
+            readonly due_date: string | null;
+            /** Format: date */
+            readonly collected_on: string | null;
+            readonly note: string;
+            readonly files: components["schemas"]["File"][];
+            readonly tasks: components["schemas"]["CellTask"][];
+            /** @description A link in a cell nobody has started: suggest In progress. Never applied by itself. */
+            readonly suggested_status: string | null;
+            /** Format: date-time */
+            readonly verified_at: string | null;
+            /** @description A linked document was edited after the cell was confirmed complete. Never reverts it. */
+            readonly changed_since_verified: boolean;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /**
+         * @description * `not_started` - Not Started
+         *     * `in_progress` - In Progress
+         *     * `needs_review` - Needs Review
+         *     * `complete` - Complete
+         *     * `missing` - Missing
+         *     * `not_applicable` - Not Applicable
+         *     * `excluded` - Excluded
+         * @enum {string}
+         */
+        CellStatusEnum: "not_started" | "in_progress" | "needs_review" | "complete" | "missing" | "not_applicable" | "excluded";
+        CellTask: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly title: string;
+            readonly status: string;
+            /** Format: uuid */
+            readonly assignee: string | null;
+            /** Format: date */
+            readonly due_date: string;
+        };
         ChatMessage: {
             /** Format: uuid */
             readonly id: string;
@@ -4235,6 +4984,31 @@ export interface components {
          * @enum {string}
          */
         ComplianceStatusEnum: "done" | "expiring" | "expired" | "missing";
+        Component: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly key: string;
+            readonly category: components["schemas"]["ParticipantCategoryEnum"];
+            readonly required: boolean;
+            readonly applies_to_groups: string[];
+            readonly order: number;
+            readonly expected_per_participant: number;
+            readonly template_origin: string;
+            readonly sensitive: boolean;
+            /** Format: date-time */
+            readonly archived_at: string | null;
+        };
+        ComponentInput: {
+            name: string;
+            key?: string;
+            category?: components["schemas"]["ParticipantCategoryEnum"];
+            required?: boolean;
+            applies_to_groups?: string[];
+            order?: number;
+            expected_per_participant?: number;
+            sensitive?: boolean;
+        };
         Conflict: {
             detail: string;
             code: string;
@@ -4790,6 +5564,16 @@ export interface components {
             retention_note?: string;
         };
         /**
+         * @description * `screened` - Screened
+         *     * `enrolled` - Enrolled
+         *     * `active` - Active
+         *     * `completed` - Completed
+         *     * `withdrawn` - Withdrawn
+         *     * `ineligible` - Ineligible
+         * @enum {string}
+         */
+        EnrolmentStatusEnum: "screened" | "enrolled" | "active" | "completed" | "withdrawn" | "ineligible";
+        /**
          * @description D48: `projects` lists only the projects the requester can see, and `attachments` is empty
          *     unless the requester may open the files.
          */
@@ -4825,6 +5609,19 @@ export interface components {
             expiry_date: string;
             status?: components["schemas"]["ApprovalStatusEnum"];
             restricted?: boolean;
+        };
+        Event: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly component: string | null;
+            /** Format: uuid */
+            readonly actor: string | null;
+            readonly action: string;
+            readonly from_value: string;
+            readonly to_value: string;
+            /** Format: date-time */
+            readonly created_at: string;
         };
         /**
          * @description * `project.created` - project.created
@@ -4994,6 +5791,31 @@ export interface components {
             url?: string;
             /** Format: uuid */
             attachment?: string | null;
+        };
+        File: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly provider: components["schemas"]["ParticipantFileProviderEnum"];
+            /** Format: uri */
+            readonly url: string;
+            readonly external_id: string;
+            readonly title: string;
+            readonly mime_type: string;
+            /** Format: date-time */
+            readonly last_modified_remote: string | null;
+            /** Format: date-time */
+            readonly last_checked_at: string | null;
+            readonly link_state: components["schemas"]["ParticipantLinkStateEnum"];
+            readonly role: components["schemas"]["ParticipantFileRoleEnum"];
+            readonly version_label: string;
+        };
+        FileInput: {
+            /** Format: uri */
+            url: string;
+            title?: string;
+            role?: components["schemas"]["ParticipantFileRoleEnum"];
+            version_label?: string;
+            link_state?: components["schemas"]["ParticipantLinkStateEnum"];
         };
         Folder: {
             /** Format: uuid */
@@ -5581,6 +6403,12 @@ export interface components {
          * @enum {string}
          */
         ManuscriptStatusEnum: "drafting" | "submitted" | "in_review" | "accepted" | "published";
+        MatchFile: {
+            name: string;
+            /** Format: uri */
+            url: string;
+            title?: string;
+        };
         /** @description `/api/me/` only: the user's own preferences never appear in nested user objects. */
         Me: {
             /** Format: uuid */
@@ -5648,6 +6476,13 @@ export interface components {
             text: string;
             page?: components["schemas"]["Page"];
         };
+        /**
+         * @description * `cell` - cell
+         *     * `participant` - participant
+         *     * `component` - component
+         * @enum {string}
+         */
+        ModeEnum: "cell" | "participant" | "component";
         ModelInfo: {
             id: string;
             label: string;
@@ -5859,6 +6694,249 @@ export interface components {
             /** Format: date-time */
             readonly edited_at: string | null;
         };
+        Participant: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly code: string;
+            readonly group: string;
+            readonly cohort: string;
+            readonly enrolment_status: components["schemas"]["EnrolmentStatusEnum"];
+            /** Format: date */
+            readonly enrolled_on: string | null;
+            /** Format: date */
+            readonly completed_on: string | null;
+            readonly notes: string;
+            /** Format: date-time */
+            readonly archived_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        ParticipantAttachInput: {
+            items: components["schemas"]["AttachItem"][];
+        };
+        ParticipantAttachResult: {
+            attached: number;
+            skipped: number;
+        };
+        /** @description Many coded participants at once: pasted codes, or full rows. */
+        ParticipantBulk: {
+            codes?: string[];
+            participants?: components["schemas"]["ParticipantInput"][];
+            group?: string;
+            cohort?: string;
+        };
+        /**
+         * @description * `session` - Session
+         *     * `transcript` - Transcript
+         *     * `translation` - Translation
+         *     * `scoring` - Scoring
+         *     * `questionnaire` - Questionnaire
+         *     * `consent` - Consent
+         *     * `other` - Other
+         * @enum {string}
+         */
+        ParticipantCategoryEnum: "session" | "transcript" | "translation" | "scoring" | "questionnaire" | "consent" | "other";
+        ParticipantColumnDeleted: {
+            cells_removed: number;
+        };
+        ParticipantFileMatches: {
+            matches: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * @description * `google_drive` - Google Drive
+         *     * `onedrive` - Onedrive
+         *     * `dropbox` - Dropbox
+         *     * `box` - Box
+         *     * `github` - Github
+         *     * `other` - Other
+         * @enum {string}
+         */
+        ParticipantFileProviderEnum: "google_drive" | "onedrive" | "dropbox" | "box" | "github" | "other";
+        /**
+         * @description * `raw` - Raw
+         *     * `transcript` - Transcript
+         *     * `translation` - Translation
+         *     * `scoring` - Scoring
+         *     * `other` - Other
+         * @enum {string}
+         */
+        ParticipantFileRoleEnum: "raw" | "transcript" | "translation" | "scoring" | "other";
+        ParticipantFlow: {
+            screened: {
+                [key: string]: unknown;
+            };
+        };
+        ParticipantFlowExport: {
+            kind: components["schemas"]["ParticipantFlowExportKindEnum"];
+        };
+        /**
+         * @description * `table` - table
+         *     * `svg` - svg
+         *     * `png` - png
+         * @enum {string}
+         */
+        ParticipantFlowExportKindEnum: "table" | "svg" | "png";
+        ParticipantImportInput: {
+            csv: string;
+            mapping: components["schemas"]["ParticipantImportMapping"];
+            /** @default true */
+            dry_run: boolean;
+            /** @default csv */
+            source: components["schemas"]["ParticipantImportInputSourceEnum"];
+        };
+        /**
+         * @description * `csv` - csv
+         *     * `sheet` - sheet
+         * @enum {string}
+         */
+        ParticipantImportInputSourceEnum: "csv" | "sheet";
+        ParticipantImportMapping: {
+            code: string;
+            group?: string;
+            cohort?: string;
+            enrolment_status?: string;
+            components?: {
+                [key: string]: string;
+            }[];
+        };
+        ParticipantImportPreview: {
+            headers: string[];
+            rows: string[][];
+            total: number;
+            blocked_headers: string[];
+            link_columns: string[];
+        };
+        ParticipantImportPreviewInput: {
+            csv: string;
+        };
+        ParticipantImportResult: {
+            created: number;
+            updated: number;
+            skipped: number;
+            links: number;
+            components_created: number;
+            attention: {
+                [key: string]: unknown;
+            }[];
+            attention_total: number;
+            dry_run: boolean;
+            /** Format: uuid */
+            run?: string;
+        };
+        ParticipantImportRun: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly source: string;
+            readonly summary: unknown;
+            /** Format: date-time */
+            readonly undone_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly can_undo: boolean;
+        };
+        ParticipantInput: {
+            code: string;
+            group?: string;
+            cohort?: string;
+            enrolment_status?: components["schemas"]["EnrolmentStatusEnum"];
+            /** Format: date */
+            enrolled_on?: string | null;
+            /** Format: date */
+            completed_on?: string | null;
+            notes?: string;
+        };
+        ParticipantLinkHealth: {
+            counts: {
+                [key: string]: number;
+            };
+            problems: {
+                [key: string]: unknown;
+            }[];
+            changed: {
+                [key: string]: unknown;
+            }[];
+        };
+        ParticipantLinkRefresh: {
+            checked: number;
+            problems: number;
+        };
+        /**
+         * @description * `ok` - Ok
+         *     * `moved` - Moved
+         *     * `no_access` - No Access
+         *     * `not_found` - Not Found
+         *     * `unchecked` - Unchecked
+         * @enum {string}
+         */
+        ParticipantLinkStateEnum: "ok" | "moved" | "no_access" | "not_found" | "unchecked";
+        ParticipantMatchInput: {
+            files: components["schemas"]["MatchFile"][];
+            /** @default P-{number}_{component} */
+            pattern: string;
+        };
+        ParticipantOverview: {
+            projects: {
+                [key: string]: unknown;
+            }[];
+            by_component: {
+                [key: string]: unknown;
+            }[];
+            missing_by_reason: {
+                [key: string]: unknown;
+            }[];
+            translation_pending: {
+                [key: string]: unknown;
+            }[];
+            waiting_on_me: {
+                [key: string]: unknown;
+            }[];
+            recent: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * @description * `missing` - Missing
+         *     * `excluded` - Excluded
+         *     * `not_applicable` - Not Applicable
+         * @enum {string}
+         */
+        ParticipantReasonKindEnum: "missing" | "excluded" | "not_applicable";
+        ParticipantRulePreview: {
+            eligible: string[];
+            one_away: {
+                [key: string]: unknown;
+            }[];
+            not_eligible: number;
+            not_eligible_why: {
+                [key: string]: number;
+            };
+        };
+        ParticipantRuleResult: {
+            eligible: string[];
+            one_away: {
+                [key: string]: unknown;
+            }[];
+            not_eligible: number;
+            not_eligible_why: {
+                [key: string]: number;
+            };
+        };
+        ParticipantSetDetail: {
+            set: components["schemas"]["Set"];
+            codes: string[];
+            changes: {
+                [key: string]: unknown;
+            }[];
+        };
+        ParticipantTasksCreated: {
+            created: number;
+            skipped: number;
+            tasks: string[];
+        };
         PatCreate: {
             name: string;
             labs: string[];
@@ -5897,6 +6975,31 @@ export interface components {
             ran_by?: string;
             /** Format: date-time */
             ran_at?: string;
+        };
+        PatchedCellInput: {
+            status?: components["schemas"]["CellStatusEnum"];
+            /** Format: uuid */
+            reason?: string | null;
+            /** Format: uuid */
+            owner?: string | null;
+            /** Format: uuid */
+            decision?: string | null;
+            /** Format: date */
+            due_date?: string | null;
+            /** Format: date */
+            collected_on?: string | null;
+            note?: string;
+            verified?: boolean;
+        };
+        PatchedComponentInput: {
+            name?: string;
+            key?: string;
+            category?: components["schemas"]["ParticipantCategoryEnum"];
+            required?: boolean;
+            applies_to_groups?: string[];
+            order?: number;
+            expected_per_participant?: number;
+            sensitive?: boolean;
         };
         PatchedDatasetInput: {
             name?: string;
@@ -5971,6 +7074,14 @@ export interface components {
             url?: string;
             /** Format: uuid */
             attachment?: string | null;
+        };
+        PatchedFileInput: {
+            /** Format: uri */
+            url?: string;
+            title?: string;
+            role?: components["schemas"]["ParticipantFileRoleEnum"];
+            version_label?: string;
+            link_state?: components["schemas"]["ParticipantLinkStateEnum"];
         };
         /** @description Rename, tick or clear "Contains participant data", or both. */
         PatchedFolderUpdate: {
@@ -6117,6 +7228,17 @@ export interface components {
         PatchedParticipantFlag: {
             contains_participant_data?: boolean;
         };
+        PatchedParticipantInput: {
+            code?: string;
+            group?: string;
+            cohort?: string;
+            enrolment_status?: components["schemas"]["EnrolmentStatusEnum"];
+            /** Format: date */
+            enrolled_on?: string | null;
+            /** Format: date */
+            completed_on?: string | null;
+            notes?: string;
+        };
         PatchedPolicy: {
             ai_policy?: components["schemas"]["AiPolicyEnum"];
         };
@@ -6138,6 +7260,11 @@ export interface components {
             name?: string;
             notes?: string;
             reagents?: components["schemas"]["ReagentInput"][];
+        };
+        PatchedReasonInput: {
+            label?: string;
+            kind?: components["schemas"]["ParticipantReasonKindEnum"];
+            active?: boolean;
         };
         PatchedRecruitmentEntryInput: {
             /** Format: date */
@@ -6175,6 +7302,15 @@ export interface components {
         };
         PatchedRole: {
             role?: components["schemas"]["LabRoleEnum"];
+        };
+        PatchedRuleInput: {
+            name?: string;
+            description?: string;
+            spec?: components["schemas"]["RuleSpec"];
+        };
+        PatchedSetPatch: {
+            /** Format: uuid */
+            analysis?: string | null;
         };
         /** @description `status` + `position` also reorder: the task lands at that index of that column. */
         PatchedTaskInput: {
@@ -6435,6 +7571,18 @@ export interface components {
             /** @default  */
             unit: string;
         };
+        Reason: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly label: string;
+            readonly kind: components["schemas"]["ParticipantReasonKindEnum"];
+            readonly active: boolean;
+        };
+        ReasonInput: {
+            label: string;
+            kind: components["schemas"]["ParticipantReasonKindEnum"];
+            active?: boolean;
+        };
         RecruitmentEntry: {
             /** Format: uuid */
             readonly id: string;
@@ -6596,6 +7744,28 @@ export interface components {
             readonly created_at: string;
             readonly restored_from_version: number;
         };
+        Rule: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly description: string;
+            readonly version: number;
+            readonly spec: components["schemas"]["RuleSpec"];
+            /** Format: date-time */
+            readonly archived_at: string | null;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        RuleInput: {
+            name: string;
+            description?: string;
+            spec?: components["schemas"]["RuleSpec"];
+        };
+        RuleSpec: {
+            requires?: string[];
+            groups?: string[];
+            exclude_enrolment?: components["schemas"]["EnrolmentStatusEnum"][];
+        };
         SearchHit: {
             type: string;
             /** Format: uuid */
@@ -6613,12 +7783,26 @@ export interface components {
         SearchResults: {
             results: components["schemas"]["SearchHit"][];
         };
-        /**
-         * @description * `web` - Web
-         *     * `link` - Link
-         * @enum {string}
-         */
-        SourceEnum: "web" | "link";
+        Set: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            /** Format: uuid */
+            readonly rule: string | null;
+            readonly rule_version: number;
+            readonly size: number;
+            /** Format: date-time */
+            readonly locked_at: string;
+            /** Format: uuid */
+            readonly analysis: string | null;
+            /** Format: uuid */
+            readonly supersedes: string | null;
+        };
+        SetInput: {
+            name: string;
+            /** Format: uuid */
+            rule: string;
+        };
         /**
          * @description * `funding` - funding
          *     * `ethics` - ethics
@@ -6725,11 +7909,26 @@ export interface components {
             content_type: string;
             size_bytes: number;
         };
+        TaskCell: {
+            /** Format: uuid */
+            participant: string;
+            /** Format: uuid */
+            component: string;
+        };
         TaskDocument: {
             /** Format: uuid */
             id: string;
             title: string;
             version: number;
+        };
+        TaskGapsInput: {
+            cells: components["schemas"]["TaskCell"][];
+            /** @default cell */
+            mode: components["schemas"]["ModeEnum"];
+            /** Format: uuid */
+            assignee?: string | null;
+            /** Format: date */
+            due_date?: string | null;
         };
         /** @description `status` + `position` also reorder: the task lands at that index of that column. */
         TaskInput: {
@@ -8117,6 +9316,28 @@ export interface operations {
                  *     * `recruitment_entry.updated` - Recruitment Entry Updated
                  *     * `recruitment_entry.deleted` - Recruitment Entry Deleted
                  *     * `recruitment_plan.updated` - Recruitment Plan Updated
+                 *     * `participant.created` - Participant Created
+                 *     * `participant.updated` - Participant Updated
+                 *     * `participant.archived` - Participant Archived
+                 *     * `participant.restored` - Participant Restored
+                 *     * `participant_component.created` - Participant Component Created
+                 *     * `participant_component.updated` - Participant Component Updated
+                 *     * `participant_component.deleted` - Participant Component Deleted
+                 *     * `participant_cell.changed` - Participant Cell Changed
+                 *     * `participant_file.added` - Participant File Added
+                 *     * `participant_file.changed` - Participant File Changed
+                 *     * `participant_file.removed` - Participant File Removed
+                 *     * `participant_reason.changed` - Participant Reason Changed
+                 *     * `participant.identifier_blocked` - Participant Identifier Blocked
+                 *     * `participant.imported` - Participant Imported
+                 *     * `participant.import_undone` - Participant Import Undone
+                 *     * `participant.files_matched` - Participant Files Matched
+                 *     * `participant.links_checked` - Participant Links Checked
+                 *     * `participant.tasks_created` - Participant Tasks Created
+                 *     * `participant_rule.saved` - Participant Rule Saved
+                 *     * `participant_rule.archived` - Participant Rule Archived
+                 *     * `participant_set.locked` - Participant Set Locked
+                 *     * `participant_flow.exported` - Participant Flow Exported
                  *     * `ai_access.granted` - Ai Access Granted
                  *     * `ai_access.revoked` - Ai Access Revoked
                  *     * `ai_tool.write` - Ai Tool Write
@@ -8150,7 +9371,7 @@ export interface operations {
                  *     * `dataset.participant_flag_changed` - Dataset Participant Flag Changed
                  *     * `file_link.created` - File Link Created
                  */
-                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
+                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "participant.created" | "participant.updated" | "participant.archived" | "participant.restored" | "participant_component.created" | "participant_component.updated" | "participant_component.deleted" | "participant_cell.changed" | "participant_file.added" | "participant_file.changed" | "participant_file.removed" | "participant_reason.changed" | "participant.identifier_blocked" | "participant.imported" | "participant.import_undone" | "participant.files_matched" | "participant.links_checked" | "participant.tasks_created" | "participant_rule.saved" | "participant_rule.archived" | "participant_set.locked" | "participant_flow.exported" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
                 actor?: string;
                 /** @description Leave out views, downloads and other reads. */
                 changes_only?: boolean;
@@ -11080,6 +12301,103 @@ export interface operations {
             };
         };
     };
+    labs_participant_overview_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantOverview"];
+                };
+            };
+        };
+    };
+    labs_participant_reasons_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reason"][];
+                };
+            };
+        };
+    };
+    labs_participant_reasons_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ReasonInput"];
+                "multipart/form-data": components["schemas"]["ReasonInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reason"];
+                };
+            };
+        };
+    };
+    labs_participant_reasons_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                reason_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedReasonInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedReasonInput"];
+                "multipart/form-data": components["schemas"]["PatchedReasonInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reason"];
+                };
+            };
+        };
+    };
     labs_project_members_destroy: {
         parameters: {
             query?: never;
@@ -11294,6 +12612,131 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Analysis"];
+                };
+            };
+        };
+    };
+    labs_projects_analysis_sets_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Set"][];
+                };
+            };
+        };
+    };
+    labs_projects_analysis_sets_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["SetInput"];
+                "multipart/form-data": components["schemas"]["SetInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Set"];
+                };
+            };
+        };
+    };
+    labs_projects_analysis_sets_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantSetDetail"];
+                };
+            };
+        };
+    };
+    labs_projects_analysis_sets_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedSetPatch"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedSetPatch"];
+                "multipart/form-data": components["schemas"]["PatchedSetPatch"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Set"];
+                };
+            };
+        };
+    };
+    labs_projects_analysis_sets_new_version_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Set"];
                 };
             };
         };
@@ -12188,6 +13631,847 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    labs_projects_participant_cells_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cell"][];
+                };
+            };
+        };
+    };
+    labs_projects_participant_cells_files_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cell_id: string;
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FileInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["FileInput"];
+                "multipart/form-data": components["schemas"]["FileInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["File"];
+                };
+            };
+        };
+    };
+    labs_projects_participant_components_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Component"][];
+                };
+            };
+        };
+    };
+    labs_projects_participant_components_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComponentInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ComponentInput"];
+                "multipart/form-data": components["schemas"]["ComponentInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Component"];
+                };
+            };
+        };
+    };
+    labs_projects_participant_components_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                component_id: string;
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantColumnDeleted"];
+                };
+            };
+        };
+    };
+    labs_projects_participant_components_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                component_id: string;
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedComponentInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedComponentInput"];
+                "multipart/form-data": components["schemas"]["PatchedComponentInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Component"];
+                };
+            };
+        };
+    };
+    labs_projects_participant_file_matches_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParticipantMatchInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ParticipantMatchInput"];
+                "multipart/form-data": components["schemas"]["ParticipantMatchInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantFileMatches"];
+                };
+            };
+        };
+    };
+    labs_projects_participant_file_matches_attach_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParticipantAttachInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ParticipantAttachInput"];
+                "multipart/form-data": components["schemas"]["ParticipantAttachInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantAttachResult"];
+                };
+            };
+        };
+    };
+    labs_projects_participant_files_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_id: string;
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_projects_participant_files_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_id: string;
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedFileInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedFileInput"];
+                "multipart/form-data": components["schemas"]["PatchedFileInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["File"];
+                };
+            };
+        };
+    };
+    labs_projects_participant_flow_retrieve: {
+        parameters: {
+            query?: {
+                /** @description A locked set */
+                set?: string;
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantFlow"];
+                };
+            };
+        };
+    };
+    labs_projects_participant_flow_export_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParticipantFlowExport"];
+                "application/x-www-form-urlencoded": components["schemas"]["ParticipantFlowExport"];
+                "multipart/form-data": components["schemas"]["ParticipantFlowExport"];
+            };
+        };
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_projects_participant_imports_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantImportRun"][];
+                };
+            };
+        };
+    };
+    labs_projects_participant_imports_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParticipantImportInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ParticipantImportInput"];
+                "multipart/form-data": components["schemas"]["ParticipantImportInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantImportResult"];
+                };
+            };
+        };
+    };
+    labs_projects_participant_imports_undo_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantImportRun"];
+                };
+            };
+        };
+    };
+    labs_projects_participant_imports_preview_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParticipantImportPreviewInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ParticipantImportPreviewInput"];
+                "multipart/form-data": components["schemas"]["ParticipantImportPreviewInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantImportPreview"];
+                };
+            };
+        };
+    };
+    labs_projects_participant_link_health_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantLinkHealth"];
+                };
+            };
+        };
+    };
+    labs_projects_participant_link_health_refresh_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantLinkRefresh"];
+                };
+            };
+        };
+    };
+    labs_projects_participant_rules_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rule"][];
+                };
+            };
+        };
+    };
+    labs_projects_participant_rules_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["RuleInput"];
+                "multipart/form-data": components["schemas"]["RuleInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rule"];
+                };
+            };
+        };
+    };
+    labs_projects_participant_rules_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_projects_participant_rules_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedRuleInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedRuleInput"];
+                "multipart/form-data": components["schemas"]["PatchedRuleInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rule"];
+                };
+            };
+        };
+    };
+    labs_projects_participant_rules_evaluate_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantRuleResult"];
+                };
+            };
+        };
+    };
+    labs_projects_participant_rules_preview_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RuleSpec"];
+                "application/x-www-form-urlencoded": components["schemas"]["RuleSpec"];
+                "multipart/form-data": components["schemas"]["RuleSpec"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantRulePreview"];
+                };
+            };
+        };
+    };
+    labs_projects_participant_tasks_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskGapsInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["TaskGapsInput"];
+                "multipart/form-data": components["schemas"]["TaskGapsInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParticipantTasksCreated"];
+                };
+            };
+        };
+    };
+    labs_projects_participants_list: {
+        parameters: {
+            query?: {
+                /** @description Only archived */
+                archived?: boolean;
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Participant"][];
+                };
+            };
+        };
+    };
+    labs_projects_participants_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ParticipantBulk"];
+                "application/x-www-form-urlencoded": components["schemas"]["ParticipantBulk"];
+                "multipart/form-data": components["schemas"]["ParticipantBulk"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Participant"][];
+                };
+            };
+        };
+    };
+    labs_projects_participants_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                participant_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Participant"];
+                };
+            };
+        };
+    };
+    labs_projects_participants_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                participant_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedParticipantInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedParticipantInput"];
+                "multipart/form-data": components["schemas"]["PatchedParticipantInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Participant"];
+                };
+            };
+        };
+    };
+    labs_projects_participants_archive_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                participant_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Participant"];
+                };
+            };
+        };
+    };
+    labs_projects_participants_cells_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                component_id: string;
+                lab_id: string;
+                participant_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCellInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedCellInput"];
+                "multipart/form-data": components["schemas"]["PatchedCellInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cell"];
+                };
+            };
+        };
+    };
+    labs_projects_participants_events_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                participant_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Event"][];
+                };
+            };
+        };
+    };
+    labs_projects_participants_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                participant_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Participant"];
+                };
             };
         };
     };

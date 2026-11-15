@@ -25,7 +25,7 @@ export function NativeSelect({
   return (
     <select
       className={cn(
-        "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-[invalid=true]:border-destructive",
+        "glass-field flex h-9 w-full rounded-md px-3 py-1 text-sm focus-visible:outline-none aria-[invalid=true]:border-destructive max-md:h-10",
         className,
       )}
       {...props}

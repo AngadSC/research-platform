@@ -17,13 +17,13 @@
 }
 
 .lb {
-  --lb-accent: #02851e;
-  --lb-accent-text: #036b19;
-  --lb-accent-soft: #e9f6ec;
+  --lb-accent: #4f46e5;
+  --lb-accent-text: #4338ca;
+  --lb-accent-soft: #eef2ff;
   --lb-ink: #0e1116;
   --lb-body: #4a5260;
   --lb-line: #e6e8ec;
-  --lb-mint: #4ade80;
+  --lb-mint: #a5b4fc;
   font-family: Inter, system-ui, sans-serif;
   color: var(--lb-ink);
   background: #ffffff;
@@ -34,7 +34,7 @@
   color: var(--lb-accent-text);
 }
 .lb a:hover {
-  color: #024a11;
+  color: #3730a3;
 }
 .lb a:focus-visible,
 .lb button:focus-visible {
@@ -867,5 +867,60 @@
   .lb-mock-side {
     border-left: none;
     border-top: 1px solid #eef0f3;
+  }
+}
+
+/* Liquid glass, to match the app: one indigo accent, a soft backdrop and translucent chrome. */
+.lb {
+  background:
+    radial-gradient(60rem 40rem at 8% -10%, rgb(99 102 241 / 0.16), transparent 60%),
+    radial-gradient(50rem 36rem at 95% 0%, rgb(167 139 250 / 0.14), transparent 60%),
+    radial-gradient(46rem 34rem at 60% 105%, rgb(45 212 191 / 0.1), transparent 60%), #ffffff;
+  background-attachment: fixed;
+}
+.lb-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgb(255 255 255 / 0.72);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border-bottom: 1px solid rgb(255 255 255 / 0.65);
+  box-shadow: 0 1px 0 rgb(24 24 27 / 0.06);
+}
+.lb-card,
+.lb-plan {
+  background: rgb(255 255 255 / 0.72);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid rgb(255 255 255 / 0.65);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    0 8px 28px rgb(24 24 27 / 0.08);
+  border-radius: 24px;
+}
+.lb-card-green {
+  background: linear-gradient(135deg, rgb(238 242 255 / 0.85), rgb(255 255 255 / 0.7));
+}
+.lb-plan-featured {
+  background: linear-gradient(135deg, #4f46e5, #6d5ae8);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.35),
+    0 14px 40px rgb(79 70 229 / 0.35);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .lb-header,
+  .lb-card,
+  .lb-plan {
+    background: #ffffff;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .lb-header,
+  .lb-card,
+  .lb-plan {
+    background: #ffffff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }

@@ -4,10 +4,10 @@ import { cn } from "@/lib/utils";
 
 const tabClass = (active: boolean) =>
   cn(
-    "-mb-px flex items-center gap-1.5 rounded-t-md border-b-[3px] px-3.5 py-2.5 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+    "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm transition-[background-color,box-shadow,color] duration-[var(--dur)] ease-[var(--ease-glass)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none max-md:py-2.5",
     active
-      ? "border-primary bg-primary/10 font-semibold text-primary"
-      : "border-transparent font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
+      ? "glass-pill-active font-semibold text-primary"
+      : "font-medium text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
   );
 
 /** Link tabs with a strong underline on the active one; NavLink supplies aria-current="page". */
@@ -21,7 +21,10 @@ export function TabNav({
   className?: string;
 }) {
   return (
-    <nav aria-label={label} className={cn("flex flex-wrap gap-x-1 border-b", className)}>
+    <nav
+      aria-label={label}
+      className={cn("glass-track flex w-fit max-w-full flex-wrap gap-x-1", className)}
+    >
       {tabs.map(([to, text, badge]) => (
         <NavLink key={to} to={to} className={({ isActive }) => tabClass(isActive)}>
           {text}
@@ -44,7 +47,7 @@ export function HashTabs({
   const active = tabs.find((t) => `#${t.id}` === hash) ?? tabs[0];
   return (
     <>
-      <nav aria-label={label} className="mb-6 flex flex-wrap gap-x-1 border-b">
+      <nav aria-label={label} className="glass-track mb-6 flex w-fit max-w-full flex-wrap gap-x-1">
         {tabs.map((t) => (
           <Link
             key={t.id}

@@ -1,3 +1,4 @@
+import { ParticipantCards } from "@/components/dashboard/ParticipantCards";
 import { CalendarClock, GraduationCap } from "lucide-react";
 import { Link, useParams } from "react-router";
 import { StatusPill } from "@/components/training/ComplianceMatrix";
@@ -115,6 +116,7 @@ export function MyWorkPage() {
     <>
       <PageHeader title="My work" description="Your tasks, deadlines and trainings in this lab." />
       <div className="grid gap-8">
+        <ParticipantCards labId={labId} compact />
         <Section title="Tasks" description="Open tasks assigned to you, soonest due first.">
           <MyTasksList labId={labId} />
         </Section>

@@ -1,7 +1,7 @@
 /* Moving light green and white background behind the sign-in card (AuthLayout). */
 
 .auth-bg {
-  background: linear-gradient(120deg, #ffffff 0%, #ecfbef 35%, #ffffff 60%, #dcf7e2 100%);
+  background: linear-gradient(120deg, #ffffff 0%, #eef2ff 35%, #ffffff 60%, #e0e7ff 100%);
   background-size: 300% 300%;
   animation: auth-bg-shift 18s ease-in-out infinite;
 }
@@ -25,7 +25,7 @@
   height: 520px;
   top: -140px;
   left: -120px;
-  background: #bbf7c9;
+  background: #c7d2fe;
   animation: auth-drift-1 22s ease-in-out infinite;
 }
 
@@ -34,7 +34,7 @@
   height: 460px;
   bottom: -160px;
   right: -100px;
-  background: #a7f3c0;
+  background: #ddd6fe;
   animation: auth-drift-2 26s ease-in-out infinite;
 }
 
@@ -53,7 +53,7 @@
   height: 300px;
   top: 55%;
   left: 8%;
-  background: #d1fadb;
+  background: #e9d5ff;
   animation: auth-drift-2 30s ease-in-out infinite reverse;
 }
 

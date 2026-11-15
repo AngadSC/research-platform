@@ -228,10 +228,10 @@ export function Sidebar({
     <aside
       id="app-sidebar"
       className={cn(
-        "w-64 shrink-0 flex-col gap-4 overflow-hidden bg-sidebar p-4 print:hidden",
+        "glass glass--strong w-64 shrink-0 flex-col gap-4 overflow-hidden rounded-[20px] p-4 md:m-3 md:mr-0 print:hidden",
         // Below md the sidebar is a drawer that only exists while open.
         open
-          ? "fixed inset-y-0 left-0 z-50 flex md:static md:z-auto"
+          ? "fixed inset-y-3 left-3 z-50 flex md:static md:z-auto"
           : desktopHidden
             ? "hidden"
             : "hidden md:flex",

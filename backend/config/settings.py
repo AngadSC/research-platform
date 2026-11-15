@@ -75,6 +75,7 @@ INSTALLED_APPS = [
     "documents",
     "provenance",
     "ethics",
+    "participants",
     "training",
     "papers",
     "audit",
@@ -388,6 +389,15 @@ SPECTACULAR_SETTINGS = {
         "TrainingCategoryEnum": "training.models.TrainingCategory",  # Run 5
         "TrainingAppliesToEnum": "training.models.AppliesTo",
         "ComplianceStatusEnum": "training.models.ComplianceStatus",
+        # participant registry: keep the integrations `ProviderEnum` and `RoleEnum` names stable
+        "ProviderEnum": "assistant.models.Provider",
+        "EnrolmentStatusEnum": "participants.models.EnrolmentStatus",
+        "CellStatusEnum": "participants.models.CellStatus",
+        "ParticipantCategoryEnum": "participants.models.Category",
+        "ParticipantFileProviderEnum": "participants.models.Provider",
+        "ParticipantLinkStateEnum": "participants.models.LinkState",
+        "ParticipantFileRoleEnum": "participants.models.FileRole",
+        "ParticipantReasonKindEnum": "participants.models.ReasonKind",
     },
 }
 

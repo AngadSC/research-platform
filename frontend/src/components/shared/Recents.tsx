@@ -49,7 +49,7 @@ export function Recents() {
             >
               <Link
                 to={r.url}
-                className="flex items-start gap-3 rounded-lg border p-3 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="glass flex items-start gap-3 rounded-2xl p-3 text-sm transition-[box-shadow,transform] duration-[var(--dur)] ease-[var(--ease-glass)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-glass-2)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <span
                   aria-hidden

@@ -213,7 +213,14 @@ describe("app shell", () => {
       .getAllByRole("link")
       .map((a) => a.textContent)
       .filter((t) => t !== "Sleep");
-    expect(labels.slice(0, 5)).toEqual(["Home", "Projects", "My work", "Members", "Inventory"]);
+    expect(labels.slice(0, 6)).toEqual([
+      "Home",
+      "Projects",
+      "My work",
+      "Participants",
+      "Members",
+      "Inventory",
+    ]);
     expect(labels).toContain("Training");
     expect(labels).toContain("Integrations"); // every member connects their own accounts
     expect(main.queryByRole("link", { name: "Notifications" })).toBeNull();

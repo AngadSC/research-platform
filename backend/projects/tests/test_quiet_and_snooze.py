@@ -65,8 +65,14 @@ def test_an_emailed_notice_is_held_in_quiet_hours_but_still_shows_in_the_app(
     student.preferences = {"quiet": "on", "quiet_start": "0", "quiet_end": "23"}  # always quiet
     student.save()
     held = []
-    from core import email
+    from core import email, notifications, quiet
 
+    # Pin the moment to midday so the test does not depend on the hour it runs at.
+    monkeypatch.setattr(
+        notifications,
+        "quiet_release",
+        lambda user, now: quiet.quiet_release(user, now.replace(hour=12)),
+    )
     monkeypatch.setattr(
         email.send_email_task, "apply_async", lambda **kw: held.append(kw["eta"]), raising=False
     )

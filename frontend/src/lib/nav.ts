@@ -29,6 +29,7 @@ export const PROJECT_SECTIONS = [
   { to: "overview", label: "Overview", icon: LayoutDashboard },
   { to: "tasks", label: "Tasks", icon: CheckSquare },
   { to: "documents", label: "Documents and files", icon: FileText },
+  { to: "participants", label: "Participants", icon: Users },
   {
     to: "workflow",
     label: "Workflow",
@@ -68,6 +69,7 @@ export function navItems(
     page("dashboard", "Home", Home),
     page("projects", "Projects", FolderKanban),
     page("my-work", "My work", ListChecks),
+    page("participants", "Participants", Users),
     page("members", "Members", Users),
     ...(inventoryEnabled ? [page("inventory", "Inventory", Boxes)] : []), // D227: wet labs only
     page("training", "Training", GraduationCap),

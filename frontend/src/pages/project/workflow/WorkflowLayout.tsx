@@ -60,7 +60,7 @@ export function WorkflowLayout(props: ProjectTabProps) {
             Archived. Set it back to Active to make changes.
           </p>
         )}
-        <nav aria-label="Workflow sections" className="overflow-x-auto py-1">
+        <nav aria-label="Workflow sections" className="glass overflow-x-auto rounded-2xl px-3 py-3">
           <ol className="flex min-w-max">
             {shownSections(project).map(([key, name]) => {
               const stage = stages.find((s) => s.key === key);
@@ -72,8 +72,9 @@ export function WorkflowLayout(props: ProjectTabProps) {
                 <li
                   key={key}
                   className={cn(
-                    "relative min-w-20 flex-1 after:absolute after:top-3.5 after:left-1/2 after:h-0.5 after:w-full after:bg-border last:after:hidden",
-                    finished && "after:bg-primary",
+                    "relative min-w-20 flex-1 after:absolute after:top-3.5 after:left-1/2 after:h-0.5 after:w-full after:rounded-full after:bg-border/70 after:transition-colors after:duration-[var(--dur-slow)] last:after:hidden",
+                    finished &&
+                      "after:bg-gradient-to-r after:from-primary after:to-[var(--primary-lift)]",
                   )}
                 >
                   <NavLink
@@ -106,11 +107,11 @@ export function WorkflowLayout(props: ProjectTabProps) {
                       className={cn(
                         "grid size-6 place-items-center rounded-full border-2 [&_svg]:size-3.5",
                         finished
-                          ? "border-primary bg-primary text-primary-foreground"
+                          ? "btn-primary-glass border-primary bg-primary text-primary-foreground"
                           : notNeeded
                             ? "border-dashed border-muted-foreground/40 bg-muted text-muted-foreground"
                             : isNext
-                              ? "border-primary bg-background ring-4 ring-primary/30"
+                              ? "border-primary bg-background shadow-[0_0_14px_var(--primary-glow)] ring-4 ring-primary/30"
                               : "border-border bg-background",
                       )}
                     >

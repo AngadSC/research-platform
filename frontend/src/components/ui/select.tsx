@@ -14,7 +14,7 @@ export function SelectTrigger({
   return (
     <S.Trigger
       className={cn(
-        "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50 aria-[invalid=true]:border-destructive data-[placeholder]:text-muted-foreground",
+        "glass-field flex h-9 w-full items-center justify-between gap-2 rounded-md px-3 text-sm focus-visible:outline-none max-md:h-10 disabled:opacity-50 aria-[invalid=true]:border-destructive data-[placeholder]:text-muted-foreground",
         className,
       )}
       {...props}
@@ -38,7 +38,7 @@ export function SelectContent({
         position="popper"
         sideOffset={4}
         className={cn(
-          "z-50 min-w-[var(--radix-select-trigger-width)] rounded-md border bg-popover p-1 text-popover-foreground shadow-sm",
+          "glass glass--strong glass-in z-50 min-w-[var(--radix-select-trigger-width)] rounded-lg p-1.5 text-popover-foreground",
           className,
         )}
         {...props}

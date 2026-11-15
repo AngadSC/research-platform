@@ -129,7 +129,10 @@ export function ProjectPage() {
 
   return (
     <>
-      <div style={projectColorStyle(project.color)} className="border-l-4 border-(--project) pl-4">
+      <div
+        style={projectColorStyle(project.color)}
+        className="glass relative overflow-hidden rounded-2xl border-l-4 border-l-(--project) p-4 pl-5 before:pointer-events-none before:absolute before:inset-0 before:bg-[linear-gradient(90deg,color-mix(in_srgb,var(--project)_14%,transparent),transparent_45%)] [&>*]:relative"
+      >
         <PageHeader
           title={project.name}
           description={undefined}

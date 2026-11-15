@@ -35,6 +35,9 @@ import EthicsTab from "@/pages/project/workflow/EthicsTab";
 import FundingTab from "@/pages/project/workflow/FundingTab";
 import ProtocolsTab from "@/pages/project/workflow/ProtocolsTab";
 import ParticipantsTab from "@/pages/project/workflow/ParticipantsTab";
+import { ParticipantsOverviewPage } from "@/pages/ParticipantsOverviewPage";
+import ParticipantPage from "@/pages/project/participants/ParticipantPage";
+import ParticipantRegistry from "@/pages/project/participants/ParticipantRegistry";
 import ReviewTab from "@/pages/project/workflow/ReviewTab";
 import {
   AnalysisTab,
@@ -135,6 +138,11 @@ export const routes: RouteObject[] = [
               { path: "dashboard", element: <DashboardPage />, handle: { crumb: "Home" } },
               { path: "my-work", element: <MyWorkPage />, handle: { crumb: "My work" } },
               {
+                path: "participants",
+                element: <ParticipantsOverviewPage />,
+                handle: { crumb: "Participants" },
+              },
+              {
                 path: "documents",
                 handle: { crumb: "Lab documents" },
                 children: [
@@ -184,6 +192,18 @@ export const routes: RouteObject[] = [
                         path: "tasks",
                         element: <ProjectTab as={TasksTab} />,
                         handle: { crumb: "Tasks" },
+                      },
+                      {
+                        path: "participants",
+                        handle: { crumb: "Participants" },
+                        children: [
+                          { index: true, element: <ProjectTab as={ParticipantRegistry} /> },
+                          {
+                            path: ":participantId",
+                            element: <ProjectTab as={ParticipantPage} />,
+                            handle: { crumb: "Participant" },
+                          },
+                        ],
                       },
                       // Chat is a side panel over any section; old links open it.
                       {
