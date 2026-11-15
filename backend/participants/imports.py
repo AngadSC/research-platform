@@ -169,7 +169,7 @@ def _status_and_links(text: str):
 @transaction.atomic
 def _apply(project, user, headers, body, cols, comps, request):
     idx = {h: i for i, h in enumerate(headers)}
-    get = lambda row, h: (row[idx[h]].strip() if h and idx[h] < len(row) else "")  # noqa: E731
+    get = lambda row, h: row[idx[h]].strip() if h and idx[h] < len(row) else ""  # noqa: E731
     created, updated, skipped, links = [], [], 0, 0
     attention = []
     undo = {"participants": [], "cells": [], "files": [], "components": [], "before": {}}
