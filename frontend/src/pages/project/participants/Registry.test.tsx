@@ -147,7 +147,7 @@ describe("participant matrix", () => {
     await userEvent.clear(screen.getByLabelText("Search by code"));
     await userEvent.click(
       within(screen.getByRole("list", { name: "Summary" })).getByRole("button", {
-        name: /Missing/,
+        name: /missing/i,
       }),
     );
     expect(within(grid).queryByRole("link", { name: "P-001" })).toBeNull();
@@ -266,7 +266,8 @@ describe("import wizard", () => {
       }),
     });
     renderRoute("/labs/lab1/projects/p1/participants");
-    await userEvent.click(await screen.findByRole("button", { name: "Import" }));
+    await userEvent.click(await screen.findByRole("button", { name: "More actions" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Import" }));
     await userEvent.type(screen.getByLabelText("Sheet contents"), "Code,Language\nP-001,Punjabi");
     await userEvent.click(screen.getByRole("button", { name: /Next: match columns/ }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Child name");
@@ -281,5 +282,69 @@ describe("import wizard", () => {
     ).toHaveLength(0);
     await userEvent.click(screen.getByRole("button", { name: "Confirm import" }));
     expect(await screen.findByText("Imported.")).toBeInTheDocument();
+  });
+});
+
+describe("calm default and customize", () => {
+  it("keeps the extra filters tucked away until asked", async () => {
+    world();
+    renderRoute("/labs/lab1/projects/p1/participants");
+    await screen.findByRole("grid");
+    expect(screen.queryByLabelText("Cell status")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /Filters/ }));
+    expect(screen.getByLabelText("Cell status")).toBeInTheDocument();
+  });
+
+  it("hides a column from the grid when customized, and remembers it", async () => {
+    world();
+    localStorage.clear();
+    renderRoute("/labs/lab1/projects/p1/participants");
+    const grid = await screen.findByRole("grid");
+    expect(within(grid).getAllByRole("columnheader").length).toBeGreaterThan(2);
+    await userEvent.click(screen.getByRole("button", { name: "More actions" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Customize view" }));
+    const first = within(screen.getByRole("dialog")).getAllByRole("checkbox")[0]!;
+    const before = within(grid).getAllByRole("columnheader", { hidden: true }).length;
+    await userEvent.click(first);
+    expect(within(grid).getAllByRole("columnheader", { hidden: true }).length).toBe(before - 1);
+    expect(localStorage.getItem("view:participants:p1")).toContain("hidden");
+  });
+
+  it("expands a participant row in place", async () => {
+    world();
+    renderRoute("/labs/lab1/projects/p1/participants");
+    await screen.findByRole("grid");
+    await userEvent.click(screen.getAllByRole("button", { name: /Show details for/ })[0]!);
+    expect(screen.getByRole("link", { name: "Open full page" })).toBeInTheDocument();
+  });
+});
+
+describe("templates and suggestions", () => {
+  it("offers to mark a cell with a file as in progress, and dismisses on request", async () => {
+    const calls = world(["view_project", "edit_content", "edit_project"], {
+      [`GET ${P}/participant-cells/`]: {
+        body: [cell("a", "t", "not_started", { suggested_status: "in_progress" })],
+      },
+      [`PATCH ${P}/participants/a/cells/t/`]: { body: cell("a", "t", "in_progress") },
+    });
+    renderRoute("/labs/lab1/projects/p1/participants");
+    const list = await screen.findByRole("list", { name: "Suggestions" });
+    await userEvent.click(within(list).getByRole("button", { name: "Mark in progress" }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ status: "in_progress" }),
+    );
+  });
+
+  it("lists what a template will add and skips columns already there", async () => {
+    world(["view_project", "edit_content", "edit_project"], {
+      [`GET ${P}/participant-components/`]: { body: [column("c", "Consent form")] },
+    });
+    renderRoute("/labs/lab1/projects/p1/participants");
+    await userEvent.click(await screen.findByRole("button", { name: "More actions" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Start from a template" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByText(/Adds: Recording, Transcript, Translation\./),
+    ).toBeInTheDocument();
   });
 });

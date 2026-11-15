@@ -1,11 +1,28 @@
-import { Plus, Search, Users, X } from "lucide-react";
-import { useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import {
+  ChevronRight,
+  MoreHorizontal,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Users,
+  X,
+} from "lucide-react";
+import { Fragment, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DEFAULT_VIEW, useViewPrefs, type RegistryView } from "@/hooks/viewPrefs";
+import { CustomizePanel } from "@/pages/project/participants/CustomizePanel";
 import { useLinkHealth, useReasons, useRegistry } from "@/hooks/participants";
 import { usePatchTask } from "@/hooks/projects";
 import { useMe, useMembers } from "@/hooks/workspace";
@@ -37,11 +54,13 @@ import {
   LinkHealthDialog,
   MatchFilesDialog,
 } from "@/pages/project/participants/ImportDialogs";
+import { ParticipantDetail } from "@/pages/project/participants/ParticipantDetail";
+import { TemplatePicker } from "@/pages/project/participants/TemplatePicker";
+import { Suggestions, type Suggestion } from "@/pages/project/participants/Suggestions";
 import { StatusChip } from "@/pages/project/participants/StatusChip";
 import { NativeSelect } from "@/pages/project/workflow/parts";
 
 const keyOf = (p: string, c: string) => `${p}:${c}`;
-const DENSITY_KEY = "registry-density";
 
 interface Target {
   p: RegistryParticipant;
@@ -50,14 +69,6 @@ interface Target {
 
 const applies = (c: RegistryColumn, p: RegistryParticipant) =>
   c.applies_to_groups.length === 0 || c.applies_to_groups.includes(p.group);
-
-function readDensity(): "comfortable" | "compact" {
-  try {
-    return localStorage.getItem(DENSITY_KEY) === "compact" ? "compact" : "comfortable";
-  } catch {
-    return "comfortable";
-  }
-}
 
 /** Who has what: participants down the side, data columns across, one status chip per cell. */
 export default function ParticipantRegistry({ labId, projectId, project }: ProjectTabProps) {
@@ -69,7 +80,21 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
     () => registry.participants.data ?? [],
     [registry.participants.data],
   );
-  const columns = useMemo(() => registry.columns.data ?? [], [registry.columns.data]);
+  const allColumns = useMemo(() => registry.columns.data ?? [], [registry.columns.data]);
+  const {
+    view,
+    update: updateView,
+    reset: resetView,
+  } = useViewPrefs<RegistryView>("participants", projectId, DEFAULT_VIEW);
+  const columns = useMemo(
+    () => allColumns.filter((c) => !view.hidden.includes(c.id)),
+    [allColumns, view.hidden],
+  );
+  const dismissedPrefs = useViewPrefs<{ ids: string[] }>("participants-dismissed", projectId, {
+    ids: [],
+  });
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const cells = useMemo(() => registry.cells.data ?? [], [registry.cells.data]);
 
   const [q, setQ] = useState("");
@@ -90,12 +115,21 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
   const [bulkOwner, setBulkOwner] = useState("");
   const [bulkDue, setBulkDue] = useState("");
   const [gapsOnly, setGapsOnly] = useState(false);
-  const [density, setDensity] = useState(readDensity);
+  const density = view.density;
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [anchor, setAnchor] = useState<{ r: number; c: number }>();
   const [open, setOpen] = useState<{ p: string; c: string; initial?: CellStatus }>();
   const [dialog, setDialog] = useState<
-    "add" | "columns" | "import" | "history" | "match" | "health" | "rules" | null
+    | "add"
+    | "columns"
+    | "import"
+    | "history"
+    | "match"
+    | "health"
+    | "rules"
+    | "customize"
+    | "template"
+    | null
   >(null);
   const problemCount = useLinkHealth(labId, projectId).health.data?.counts;
   const [bulk, setBulk] = useState<{ status: CellStatus; reason: string }>({
@@ -142,7 +176,7 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
 
   const summary = useMemo(() => {
     const all = participants.flatMap((p) =>
-      columns.filter((c) => applies(c, p)).map((c) => cellMap.get(keyOf(p.id, c.id))),
+      allColumns.filter((c) => applies(c, p)).map((c) => cellMap.get(keyOf(p.id, c.id))),
     );
     const count = (s: CellStatus) => all.filter((c) => statusOf(c) === s).length;
     return {
@@ -151,7 +185,7 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
       review: count("needs_review"),
       overdue: all.filter((c) => isOverdue(c, today)).length,
     };
-  }, [participants, columns, cellMap, today]);
+  }, [participants, allColumns, cellMap, today]);
 
   const cellCounts = useMemo(() => {
     const out: Record<string, number> = {};
@@ -291,14 +325,6 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
   const bulkKind = REASON_KIND[bulk.status];
   const bulkReasons = reasons.filter((r) => r.active && r.kind === bulkKind);
 
-  const chooseDensity = (d: "comfortable" | "compact") => {
-    setDensity(d);
-    try {
-      localStorage.setItem(DENSITY_KEY, d);
-    } catch {
-      /* the choice just isn't remembered */
-    }
-  };
   const clear = () => {
     setQ("");
     setGroup("");
@@ -307,6 +333,54 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
     setGapsOnly(false);
     setOwnerFilter("");
   };
+
+  const activeFilters =
+    [group, status, ownerFilter].filter(Boolean).length + Number(gapsOnly) + Number(overdueOnly);
+  const showFilters = filtersOpen || view.filters || activeFilters > 0;
+  const problems = problemCount ? problemCount.problems + problemCount.changed_since_verified : 0;
+
+  const allTargets = participants.flatMap((p) =>
+    allColumns.filter((c) => applies(c, p)).map((c) => ({ p, c })),
+  );
+  const startable = allTargets.filter((t) => cellOf(t.p, t.c)?.suggested_status === "in_progress");
+  const changed = allTargets.filter((t) => cellOf(t.p, t.c)?.changed_since_verified);
+  const unowned = allTargets.filter((t) => {
+    const cell = cellOf(t.p, t.c);
+    return !cell?.owner && ["missing", "not_started", "in_progress"].includes(statusOf(cell));
+  });
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const suggestions: Suggestion[] = [
+    ...(canEdit && startable.length
+      ? [
+          {
+            id: `start:${startable.length}`,
+            text: `${plural(startable.length, "cell has", "cells have")} a file but ${startable.length === 1 ? "is" : "are"} marked not started.`,
+            action: "Mark in progress",
+            run: () => void setStatusFor(startable, "in_progress"),
+          },
+        ]
+      : []),
+    ...(canEdit && changed.length
+      ? [
+          {
+            id: `changed:${changed.length}`,
+            text: `${plural(changed.length, "document was", "documents were")} edited after you confirmed ${changed.length === 1 ? "it" : "them"}.`,
+            action: "Mark needs review",
+            run: () => void setStatusFor(changed, "needs_review"),
+          },
+        ]
+      : []),
+    ...(unowned.length > 5
+      ? [
+          {
+            id: `owner:${unowned.length}`,
+            text: `${unowned.length} open cells have no owner.`,
+            action: "Show them",
+            run: () => setOwnerFilter("none"),
+          },
+        ]
+      : []),
+  ].filter((x) => !dismissedPrefs.view.ids.includes(x.id));
 
   if (registry.participants.isLoading || registry.columns.isLoading) {
     return <Skeleton aria-label="Loading" className="h-64 w-full" />;
@@ -347,33 +421,52 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
                     Import from a sheet
                   </Button>
                 )}
+                {canColumns && allColumns.length === 0 && (
+                  <Button variant="outline" onClick={() => setDialog("template")}>
+                    Start from a template
+                  </Button>
+                )}
               </div>
             ) : undefined
           }
         />
       ) : (
         <>
-          <ul className="grid grid-cols-2 gap-2 sm:grid-cols-5" aria-label="Summary">
-            {strip.map(([label, value, onClick, on]) => (
-              <li key={label}>
-                <button
-                  type="button"
-                  onClick={onClick}
-                  aria-pressed={on}
-                  className={cn(
-                    "w-full rounded-lg border bg-card px-3 py-2 text-left hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                    on && "border-primary",
-                  )}
-                >
-                  <span className="block text-xl font-semibold">{value}</span>
-                  <span className="text-xs text-muted-foreground">{label}</span>
-                </button>
-              </li>
-            ))}
+          <ul
+            className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm"
+            aria-label="Summary"
+          >
+            {strip
+              .filter(
+                ([label, value, , on]) =>
+                  on || ["Participants", "Complete"].includes(label) || value !== 0,
+              )
+              .map(([label, value, onClick, on]) => (
+                <li key={label}>
+                  <button
+                    type="button"
+                    onClick={onClick}
+                    aria-pressed={on}
+                    className={cn(
+                      "rounded-md px-1 py-0.5 text-muted-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                      on && "bg-muted text-foreground",
+                      ["Missing", "Overdue"].includes(label) && value !== 0 && "text-danger-text",
+                    )}
+                  >
+                    <span className="text-base font-semibold text-foreground">{value}</span>{" "}
+                    {label.toLowerCase()}
+                  </button>
+                </li>
+              ))}
           </ul>
 
+          <Suggestions
+            items={suggestions}
+            onDismiss={(id) => dismissedPrefs.update({ ids: [...dismissedPrefs.view.ids, id] })}
+          />
+
           <div
-            className="flex flex-wrap items-end gap-2"
+            className="flex flex-wrap items-center gap-2"
             role="search"
             aria-label="Filter participants"
           >
@@ -390,110 +483,153 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
                 onChange={(e) => setQ(e.target.value)}
               />
             </div>
-            <NativeSelect
-              aria-label="Group"
-              className="w-40"
-              value={group}
-              onChange={(e) => setGroup(e.target.value)}
+            <Button
+              variant="ghost"
+              aria-expanded={showFilters}
+              onClick={() => {
+                setFiltersOpen(!showFilters);
+                if (view.filters) updateView({ filters: false });
+              }}
             >
-              <option value="">All groups</option>
-              {groups.map((g) => (
-                <option key={g}>{g}</option>
-              ))}
-            </NativeSelect>
-            <NativeSelect
-              aria-label="Cell status"
-              className="w-44"
-              value={status}
-              onChange={(e) => setStatus(e.target.value as CellStatus | "")}
-            >
-              <option value="">Any status</option>
-              {STATUSES.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </NativeSelect>
-            <NativeSelect
-              aria-label="Owner"
-              className="w-40"
-              value={ownerFilter}
-              onChange={(e) => setOwnerFilter(e.target.value as typeof ownerFilter)}
-            >
-              <option value="">Any owner</option>
-              <option value="me">Waiting on me</option>
-              <option value="others">Waiting on others</option>
-              <option value="none">Unassigned</option>
-            </NativeSelect>
-            <label className="flex items-center gap-1.5 text-sm">
-              <input
-                type="checkbox"
-                checked={gapsOnly}
-                onChange={(e) => setGapsOnly(e.target.checked)}
-              />
-              Only with gaps
-            </label>
-            <label className="flex items-center gap-1.5 text-sm">
-              <input
-                type="checkbox"
-                checked={overdueOnly}
-                onChange={(e) => setOverdueOnly(e.target.checked)}
-              />
-              Overdue
-            </label>
-            <div className="ml-auto flex gap-2">
-              <NativeSelect
-                aria-label="Row spacing"
-                className="w-36"
-                value={density}
-                onChange={(e) => chooseDensity(e.target.value as "comfortable" | "compact")}
-              >
-                <option value="comfortable">Comfortable</option>
-                <option value="compact">Compact</option>
-              </NativeSelect>
-              {canColumns && (
-                <Button variant="outline" onClick={() => setDialog("columns")}>
-                  Columns
-                </Button>
+              <SlidersHorizontal aria-hidden /> Filters
+              {activeFilters > 0 && (
+                <span className="ml-1 rounded-full bg-primary px-1.5 text-xs text-primary-foreground">
+                  {activeFilters}
+                </span>
               )}
-              {canColumns && (
-                <Button variant="outline" onClick={() => setDialog("import")}>
-                  Import
-                </Button>
-              )}
-              {canColumns && (
-                <Button variant="outline" onClick={() => setDialog("match")}>
-                  Match files
-                </Button>
-              )}
-              {canColumns && (
-                <Button variant="ghost" onClick={() => setDialog("history")}>
-                  Import history
-                </Button>
-              )}
-              <Button variant="outline" onClick={() => setDialog("rules")}>
-                Rules and flow
-              </Button>
-              <Button variant="outline" onClick={() => setDialog("health")}>
-                Link health
-                {!!problemCount &&
-                  problemCount.problems + problemCount.changed_since_verified > 0 && (
-                    <span className="ml-1 rounded-full bg-danger px-1.5 text-xs text-danger-foreground">
-                      {problemCount.problems + problemCount.changed_since_verified}
-                    </span>
-                  )}
-              </Button>
+            </Button>
+            <div className="ml-auto flex items-center gap-2">
               {add}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="More actions"
+                    className="relative"
+                  >
+                    <MoreHorizontal aria-hidden />
+                    {!!problems && (
+                      <span className="absolute top-1 right-1 size-2 rounded-full bg-danger" />
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {canColumns && (
+                    <DropdownMenuItem onSelect={() => setDialog("columns")}>
+                      Columns
+                    </DropdownMenuItem>
+                  )}
+                  {canColumns && (
+                    <DropdownMenuItem onSelect={() => setDialog("template")}>
+                      Start from a template
+                    </DropdownMenuItem>
+                  )}
+                  {canColumns && (
+                    <DropdownMenuItem onSelect={() => setDialog("import")}>Import</DropdownMenuItem>
+                  )}
+                  {canColumns && (
+                    <DropdownMenuItem onSelect={() => setDialog("match")}>
+                      Match files
+                    </DropdownMenuItem>
+                  )}
+                  {canColumns && (
+                    <DropdownMenuItem onSelect={() => setDialog("history")}>
+                      Import history
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onSelect={() => setDialog("rules")}>
+                    Rules and flow
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setDialog("health")}>
+                    Link health{problems ? ` (${problems})` : ""}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => setDialog("customize")}>
+                    Customize view
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
-          {columns.length === 0 ? (
+          {showFilters && (
+            <div
+              className="flex flex-wrap items-center gap-2"
+              aria-label="More filters"
+              role="group"
+            >
+              <NativeSelect
+                aria-label="Group"
+                className="w-40"
+                value={group}
+                onChange={(e) => setGroup(e.target.value)}
+              >
+                <option value="">All groups</option>
+                {groups.map((g) => (
+                  <option key={g}>{g}</option>
+                ))}
+              </NativeSelect>
+              <NativeSelect
+                aria-label="Cell status"
+                className="w-44"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as CellStatus | "")}
+              >
+                <option value="">Any status</option>
+                {STATUSES.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </NativeSelect>
+              <NativeSelect
+                aria-label="Owner"
+                className="w-40"
+                value={ownerFilter}
+                onChange={(e) => setOwnerFilter(e.target.value as typeof ownerFilter)}
+              >
+                <option value="">Any owner</option>
+                <option value="me">Waiting on me</option>
+                <option value="others">Waiting on others</option>
+                <option value="none">Unassigned</option>
+              </NativeSelect>
+              <label className="flex items-center gap-1.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={gapsOnly}
+                  onChange={(e) => setGapsOnly(e.target.checked)}
+                />
+                Only with gaps
+              </label>
+              <label className="flex items-center gap-1.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={overdueOnly}
+                  onChange={(e) => setOverdueOnly(e.target.checked)}
+                />
+                Overdue
+              </label>
+              {activeFilters > 0 && (
+                <Button variant="ghost" size="sm" onClick={clear}>
+                  Clear
+                </Button>
+              )}
+            </div>
+          )}
+
+          {allColumns.length === 0 ? (
             <EmptyState
               title="No data columns yet"
               description="Add the pieces of data each participant should have, like a transcript or a questionnaire."
               action={
                 canColumns ? (
-                  <Button onClick={() => setDialog("columns")}>Add columns</Button>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button onClick={() => setDialog("template")}>Start from a template</Button>
+                    <Button variant="outline" onClick={() => setDialog("columns")}>
+                      Add columns
+                    </Button>
+                  </div>
                 ) : undefined
               }
             />
@@ -572,114 +708,162 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
                             )}
                           </th>
                         ))}
-                        <th
-                          scope="col"
-                          className="sticky top-0 z-20 border-b bg-background px-3 py-2 text-left font-medium"
-                        >
-                          Done
-                        </th>
+                        {view.totals && (
+                          <th
+                            scope="col"
+                            className="sticky top-0 z-20 border-b bg-background px-3 py-2 text-left font-medium"
+                          >
+                            Done
+                          </th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
                       {rows.map((p, r) => (
-                        <tr key={p.id}>
-                          <th
-                            scope="row"
-                            className="sticky left-0 z-10 border-b border-r bg-background px-3 py-1 text-left font-medium"
-                          >
-                            <Link
-                              className="underline-offset-2 hover:underline"
-                              to={`/labs/${labId}/projects/${projectId}/participants/${p.id}`}
+                        <Fragment key={p.id}>
+                          <tr>
+                            <th
+                              scope="row"
+                              className="sticky left-0 z-10 border-b border-r bg-background px-3 py-1 text-left font-medium"
                             >
-                              {p.code}
-                            </Link>
-                            {p.group && (
-                              <span className="block text-xs font-normal text-muted-foreground">
-                                {p.group}
-                              </span>
-                            )}
-                          </th>
-                          {columns.map((c, ci) => {
-                            if (!applies(c, p))
+                              <button
+                                type="button"
+                                aria-expanded={expanded.has(p.id)}
+                                aria-label={`${expanded.has(p.id) ? "Hide" : "Show"} details for ${p.code}`}
+                                className="mr-1 inline-flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted"
+                                onClick={() =>
+                                  setExpanded((prev) => {
+                                    const next = new Set(prev);
+                                    if (!next.delete(p.id)) next.add(p.id);
+                                    return next;
+                                  })
+                                }
+                              >
+                                <ChevronRight
+                                  aria-hidden
+                                  className={cn(
+                                    "size-4 transition-transform",
+                                    expanded.has(p.id) && "rotate-90",
+                                  )}
+                                />
+                              </button>
+                              <Link
+                                className="underline-offset-2 hover:underline"
+                                to={`/labs/${labId}/projects/${projectId}/participants/${p.id}`}
+                              >
+                                {p.code}
+                              </Link>
+                              {p.group && (
+                                <span className="block text-xs font-normal text-muted-foreground">
+                                  {p.group}
+                                </span>
+                              )}
+                            </th>
+                            {columns.map((c, ci) => {
+                              if (!applies(c, p))
+                                return (
+                                  <td
+                                    key={c.id}
+                                    className="border-b px-3 text-muted-foreground"
+                                    title={`${c.name} does not apply to ${p.group || "this group"}`}
+                                  >
+                                    <span aria-hidden>–</span>
+                                    <span className="sr-only">Does not apply to this group</span>
+                                  </td>
+                                );
+                              const cell = cellOf(p, c);
+                              const s = statusOf(cell);
+                              const reason = reasons.find((x) => x.id === cell?.reason)?.label;
+                              const isSel = selected.has(keyOf(p.id, c.id));
                               return (
                                 <td
                                   key={c.id}
-                                  className="border-b px-3 text-muted-foreground"
-                                  title={`${c.name} does not apply to ${p.group || "this group"}`}
+                                  role="gridcell"
+                                  aria-selected={isSel}
+                                  className="border-b p-0"
                                 >
-                                  <span aria-hidden>–</span>
-                                  <span className="sr-only">Does not apply to this group</span>
+                                  <button
+                                    type="button"
+                                    data-cell={`${r}-${ci}`}
+                                    aria-label={`${p.code}, ${c.name}, ${STATUS[s].label}${
+                                      reason ? `, reason: ${reason}` : ""
+                                    }`}
+                                    tabIndex={r === 0 && ci === 0 ? 0 : -1}
+                                    onClick={(e) => pick(e, r, ci)}
+                                    onKeyDown={(e) => onKey(e, r, ci)}
+                                    className={cn(
+                                      "flex w-full items-center px-3 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset",
+                                      density === "compact" ? "py-0.5" : "py-2",
+                                      isSel && "bg-primary/10",
+                                    )}
+                                  >
+                                    <StatusChip status={s} files={cell?.files.length} />
+                                    {isOverdue(cell, today) && (
+                                      <span className="ml-1 text-xs text-danger-text">Overdue</span>
+                                    )}
+                                  </button>
                                 </td>
                               );
-                            const cell = cellOf(p, c);
-                            const s = statusOf(cell);
-                            const reason = reasons.find((x) => x.id === cell?.reason)?.label;
-                            const isSel = selected.has(keyOf(p.id, c.id));
-                            return (
-                              <td
-                                key={c.id}
-                                role="gridcell"
-                                aria-selected={isSel}
-                                className="border-b p-0"
-                              >
-                                <button
-                                  type="button"
-                                  data-cell={`${r}-${ci}`}
-                                  aria-label={`${p.code}, ${c.name}, ${STATUS[s].label}${
-                                    reason ? `, reason: ${reason}` : ""
-                                  }`}
-                                  tabIndex={r === 0 && ci === 0 ? 0 : -1}
-                                  onClick={(e) => pick(e, r, ci)}
-                                  onKeyDown={(e) => onKey(e, r, ci)}
-                                  className={cn(
-                                    "flex w-full items-center px-3 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset",
-                                    density === "compact" ? "py-0.5" : "py-2",
-                                    isSel && "bg-primary/10",
-                                  )}
-                                >
-                                  <StatusChip status={s} files={cell?.files.length} />
-                                  {isOverdue(cell, today) && (
-                                    <span className="ml-1 text-xs text-danger-text">Overdue</span>
-                                  )}
-                                </button>
+                            })}
+                            {view.totals && (
+                              <td className="border-b px-3 text-muted-foreground">
+                                {
+                                  completeness(
+                                    allColumns
+                                      .filter((c) => applies(c, p))
+                                      .map((c) => cellOf(p, c)),
+                                  ).percent
+                                }
+                                %
                               </td>
-                            );
-                          })}
-                          <td className="border-b px-3 text-muted-foreground">
-                            {
-                              completeness(
-                                columns.filter((c) => applies(c, p)).map((c) => cellOf(p, c)),
-                              ).percent
-                            }
-                            %
-                          </td>
-                        </tr>
+                            )}
+                          </tr>
+                          {expanded.has(p.id) && (
+                            <tr>
+                              <td
+                                colSpan={columns.length + 2}
+                                className="border-b bg-muted/40 px-3 py-2 text-sm"
+                              >
+                                <ParticipantDetail
+                                  participant={p}
+                                  columns={columns}
+                                  cellOf={(c) => cellOf(p, c)}
+                                  href={`/labs/${labId}/projects/${projectId}/participants/${p.id}`}
+                                />
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
                       ))}
                     </tbody>
-                    <tfoot>
-                      <tr>
-                        <th
-                          scope="row"
-                          className="sticky bottom-0 left-0 z-20 border-t border-r bg-background px-3 py-2 text-left font-medium"
-                        >
-                          Complete
-                        </th>
-                        {columns.map((c) => (
-                          <td
-                            key={c.id}
-                            className="sticky bottom-0 z-10 border-t bg-background px-3 py-2 text-muted-foreground"
+                    {view.totals && (
+                      <tfoot>
+                        <tr>
+                          <th
+                            scope="row"
+                            className="sticky bottom-0 left-0 z-20 border-t border-r bg-background px-3 py-2 text-left font-medium"
                           >
-                            {
-                              completeness(
-                                participants.filter((p) => applies(c, p)).map((p) => cellOf(p, c)),
-                              ).percent
-                            }
-                            %
-                          </td>
-                        ))}
-                        <td className="sticky bottom-0 z-10 border-t bg-background" />
-                      </tr>
-                    </tfoot>
+                            Complete
+                          </th>
+                          {columns.map((c) => (
+                            <td
+                              key={c.id}
+                              className="sticky bottom-0 z-10 border-t bg-background px-3 py-2 text-muted-foreground"
+                            >
+                              {
+                                completeness(
+                                  participants
+                                    .filter((p) => applies(c, p))
+                                    .map((p) => cellOf(p, c)),
+                                ).percent
+                              }
+                              %
+                            </td>
+                          ))}
+                          <td className="sticky bottom-0 z-10 border-t bg-background" />
+                        </tr>
+                      </tfoot>
+                    )}
                   </table>
                 </div>
                 {rows.length === 0 && (
@@ -694,11 +878,13 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
                     }
                   />
                 )}
-                <p className="mt-2 hidden text-xs text-muted-foreground md:block">
-                  Arrow keys move, Enter opens a cell, keys 1 to 7 set a status (
-                  {STATUSES.map((s) => `${s.key} ${s.label}`).join(", ")}). Shift-click selects a
-                  range.
-                </p>
+                {view.help && (
+                  <p className="mt-2 hidden text-xs text-muted-foreground md:block">
+                    Arrow keys move, Enter opens a cell, keys 1 to 7 set a status (
+                    {STATUSES.map((s) => `${s.key} ${s.label}`).join(", ")}). Shift-click selects a
+                    range.
+                  </p>
+                )}
               </div>
               {openRow && openCol && (
                 <CellPanel
@@ -862,6 +1048,18 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
           projectId={projectId}
           canEdit={canColumns}
           canExport={project.my_permissions.includes("export")}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog === "template" && (
+        <TemplatePicker registry={registry} existing={allColumns} onClose={() => setDialog(null)} />
+      )}
+      {dialog === "customize" && (
+        <CustomizePanel
+          columns={allColumns}
+          view={view}
+          onChange={updateView}
+          onReset={resetView}
           onClose={() => setDialog(null)}
         />
       )}
