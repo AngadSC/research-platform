@@ -16,7 +16,7 @@ import type { StatsResult } from "@/lib/stats/contract";
 import { Chart } from "@/pages/project/analyse/charts";
 import { svgToPng } from "@/pages/project/analyse/png";
 import { SaveDialog } from "@/pages/project/analyse/SaveDialog";
-import type { SaveOutcome } from "@/pages/project/analyse/save";
+import { cleanName, type SaveOutcome } from "@/pages/project/analyse/save";
 
 export interface Run {
   id: number;
@@ -46,7 +46,7 @@ async function copy(text: string, what: string) {
   }
 }
 
-const fileStem = (r: StatsResult) => r.test.replace(/_/g, "-");
+const fileStem = (r: StatsResult) => cleanName(r.title);
 
 export function ResultCard({
   run,
@@ -102,7 +102,7 @@ export function ResultCard({
             <TableHeader>
               <TableRow>
                 {t.columns.map((c) => (
-                  <TableHead key={c} scope="col">
+                  <TableHead key={c} scope="col" className="break-words whitespace-normal">
                     {c}
                   </TableHead>
                 ))}
@@ -112,7 +112,9 @@ export function ResultCard({
               {t.rows.map((r, i) => (
                 <TableRow key={i}>
                   {r.map((v, j) => (
-                    <TableCell key={j}>{v ?? ""}</TableCell>
+                    <TableCell key={j} className="break-words whitespace-normal">
+                      {v ?? ""}
+                    </TableCell>
                   ))}
                 </TableRow>
               ))}
@@ -134,7 +136,7 @@ export function ResultCard({
                 const svg = svgs()[i];
                 if (!svg) return;
                 svgToPng(svg).then(
-                  (b) => download(b, `${fileStem(result)}-chart-${i + 1}.png`),
+                  (b) => download(b, `${cleanName(c.title)}.png`),
                   () => toast.error("The chart could not be turned into a picture."),
                 );
               }}
@@ -191,21 +193,26 @@ export function ResultCard({
 
       {saved && (
         <div role="status" className="grid gap-1 rounded-md border bg-muted p-3 text-sm">
-          <p>
-            Saved to the project.{" "}
-            {saved.analysis ? (
+          {saved.analysis ? (
+            <p>
+              Saved to the project.{" "}
               <Link
                 className="text-primary hover:underline"
                 to={recordPath(base, "analyses", saved.analysis.id)}
               >
                 Open the analysis
               </Link>
-            ) : (
+            </p>
+          ) : (
+            <p>
+              Saved as files only, marked as identifying participants: {saved.files.join(", ")}. No
+              analysis or result was made, so AI tools cannot see any of it. They are in the
+              project&apos;s files.{" "}
               <Link className="text-primary hover:underline" to={`${base}/documents`}>
                 Open the files
               </Link>
-            )}
-          </p>
+            </p>
+          )}
           {sheet && (
             <p>
               A Google Sheet copy is in your Drive.{" "}

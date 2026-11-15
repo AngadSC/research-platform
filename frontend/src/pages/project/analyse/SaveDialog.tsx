@@ -44,7 +44,7 @@ function SaveForm({
   const [title, setTitle] = useState(result.title);
   const [choice, setChoice] = useState<boolean | null>(flagged);
   const [ethics, setEthics] = useState(false);
-  const [toDrive, setToDrive] = useState(!flagged);
+  const [toDrive, setToDrive] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const marked = choice === true;
@@ -62,6 +62,7 @@ function SaveForm({
           datasetId,
           participant: marked,
           svgs: getSvgs(),
+          chartTitles: result.charts.map((c) => c.title),
           toDrive,
         },
         {

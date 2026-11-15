@@ -205,7 +205,16 @@ describe("Analyse page", () => {
     (await import("@testing-library/react")).act(() =>
       engine.emit({ state: "loading", message: "Getting the statistics tools ready" }),
     );
-    expect(screen.getByText("Getting the statistics tools ready")).toBeInTheDocument();
+    expect(screen.getByText(/Downloading the statistics tools/)).toBeInTheDocument();
+    expect(screen.getByText(/About 14.5 MB.*only once/)).toBeInTheDocument();
+    expect(screen.getByText("0 s")).toBeInTheDocument();
+    (await import("@testing-library/react")).act(() =>
+      engine.emit({
+        state: "loading",
+        message: "Getting more statistics tools ready (first time only)",
+      }),
+    );
+    expect(screen.getByText(/about 14 MB \(scipy\)/)).toBeInTheDocument();
   });
 
   it("disables files that live in Google Drive and says what to do", async () => {
@@ -259,7 +268,7 @@ describe("Analyse page", () => {
       extra: {
         [`POST ${P}/analyses/`]: { status: 201, body: { id: "an1" } },
         [`POST ${P}/results/`]: { status: 201, body: { id: "r1" } },
-        "POST /api/labs/lab1/attachments/id-score-by-arm.xlsx/edit-in-google/": {
+        "POST /api/labs/lab1/attachments/id-Score by arm.xlsx/edit-in-google/": {
           status: 200,
           body: {
             id: "g9",
@@ -279,24 +288,27 @@ describe("Analyse page", () => {
     await u.click(await screen.findByRole("button", { name: "Save to project" }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByLabelText("Title")).toHaveValue("Score by arm");
+    const drive = within(dialog).getByRole("checkbox", { name: /Google Sheet copy/ });
+    expect(drive).not.toBeChecked();
+    await u.click(drive);
     await u.click(within(dialog).getByRole("button", { name: "Save" }));
     expect(await screen.findByRole("link", { name: "Open in Google Sheets" })).toBeInTheDocument();
     expect(order).toEqual([
-      "upload score-by-arm.xlsx no-mark",
-      "upload score-by-arm.py no-mark",
-      "upload score-by-arm-chart-1.png no-mark",
+      "upload Score by arm.xlsx no-mark",
+      "upload Score by arm.py no-mark",
+      "upload Score by arm.png no-mark",
     ]);
     const posts = calls.filter((c) => c.method === "POST").map((c) => c.path);
     expect(posts.slice(-3)).toEqual([
       `${P}/analyses/`,
       `${P}/results/`,
-      "/api/labs/lab1/attachments/id-score-by-arm.xlsx/edit-in-google/",
+      "/api/labs/lab1/attachments/id-Score by arm.xlsx/edit-in-google/",
     ]);
     const analysis = calls.find((c) => c.path === `${P}/analyses/` && c.method === "POST")!
       .body as Record<string, unknown>;
     expect(analysis).toMatchObject({
       title: "Score by arm",
-      code_attachment: "id-score-by-arm.py",
+      code_attachment: "id-Score by arm.py",
       datasets: ["d1"],
       description:
         "t(4) = 2.31, p = .026\n\nInput file: data.csv\n\nRun in the browser with labbenchos statistics.",
@@ -306,7 +318,7 @@ describe("Analyse page", () => {
       title: "Score by arm",
       summary: "t(4) = 2.31, p = .026",
       analysis: "an1",
-      attachments: ["id-score-by-arm.xlsx", "id-score-by-arm-chart-1.png"],
+      attachments: ["id-Score by arm.xlsx", "id-Score by arm.png"],
     });
   });
 
@@ -336,6 +348,9 @@ describe("Analyse page", () => {
       "/labs/lab1/projects/p1/documents",
     );
     expect(upload).toHaveBeenCalledTimes(3);
+    expect(
+      screen.getByText(/Saved as files only, marked as identifying participants:/),
+    ).toHaveTextContent("Score by arm.xlsx, Score by arm.py, Score by arm.png");
     // analysis and result records can't carry the mark and AI tools read them
     expect(calls.filter((c) => c.method === "POST")).toEqual([]);
   });
@@ -417,9 +432,45 @@ describe("Analyse page", () => {
     await u.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Save" }));
     expect(
       await screen.findByText(
-        "Saved so far: score-by-arm.xlsx. Could not upload score-by-arm.py: The server is busy.",
+        "Saved so far: Score by arm.xlsx. Could not upload Score by arm.py: The server is busy.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("leaves out workbooks that Statistics saved, but not other files", async () => {
+    setup(fakeEngine(), {
+      files: [att("a1", "data.csv"), att("a9", "Score by arm.xlsx"), att("a8", "other.xlsx")],
+      extra: {
+        [`GET ${P}/analyses/`]: {
+          body: [
+            { id: "an1", description: "x. Run in the browser with labbenchos statistics." },
+            { id: "an2", description: "by hand" },
+          ],
+        },
+        [`GET ${P}/results/`]: {
+          body: [
+            { id: "r1", analysis: { id: "an1" }, attachments: [{ id: "a9" }] },
+            { id: "r2", analysis: { id: "an2" }, attachments: [{ id: "a8" }] },
+          ],
+        },
+      } as never,
+    });
+    expect(await screen.findByRole("option", { name: "other.xlsx" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "data.csv" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Score by arm.xlsx" })).toBeNull();
+  });
+
+  it("guides the test choice and preselects the only small category for normality", async () => {
+    setup(fakeEngine());
+    const u = userEvent.setup();
+    await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
+    await screen.findByText(/6 rows, 3 columns/);
+    await u.click(screen.getByText("Which test should I use?"));
+    await u.click(screen.getByRole("button", { name: "Are two groups different?" }));
+    expect(screen.getByLabelText("Test")).toHaveValue("t_independent");
+    await u.click(screen.getByRole("button", { name: "Are my numbers roughly normal?" }));
+    expect(screen.getByLabelText("Test")).toHaveValue("normality");
+    expect(screen.getByLabelText(/Split by/)).toHaveValue("arm");
   });
 
   it("hides Save to project without edit rights", async () => {

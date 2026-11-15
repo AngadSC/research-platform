@@ -18,11 +18,15 @@ export interface SaveArgs {
   /** The saved files get the "identifies participants" mark. */
   participant: boolean;
   svgs: SVGSVGElement[];
+  /** One title per svg, used to name the chart files. */
+  chartTitles?: string[];
   toDrive: boolean;
 }
 
 export interface SaveOutcome {
   xlsx: Attachment;
+  /** Names of every file saved. */
+  files: string[];
   /** Not made for data that identifies participants (see saveRun). */
   analysis?: Analysis;
   result?: ResearchResult;
@@ -36,12 +40,19 @@ export interface SaveOutcome {
 export class SaveError extends Error {}
 
 const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-const slug = (s: string) =>
+/** Readable file name: only characters that are illegal in file names are removed. */
+export const cleanName = (s: string) =>
   s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 60) || "statistics";
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^\.+|\.+$/g, "")
+    .slice(0, 100)
+    .trim() || "statistics";
+
+/** Saved analyses carry this line, which is how the data picker tells results from data. */
+export const SAVED_MARK = "Run in the browser with labbenchos statistics.";
 
 export const errorText = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong.");
 
@@ -52,7 +63,15 @@ export async function saveRun(a: SaveArgs, d: SaveDeps): Promise<SaveOutcome> {
     const done = saved.length ? `Saved so far: ${saved.join(", ")}. ` : "Nothing was saved. ";
     throw new SaveError(`${done}Could not ${step}: ${errorText(e)}`);
   };
-  const stem = slug(a.title);
+  const stem = cleanName(a.title);
+  const taken = new Set<string>();
+  const chartName = (i: number) => {
+    const base = cleanName(a.chartTitles?.[i] || `${stem} chart ${i + 1}`);
+    let n = base;
+    for (let k = 2; taken.has(n.toLowerCase()); k++) n = `${base} (${k})`;
+    taken.add(n.toLowerCase());
+    return n;
+  };
   const up = async (blob: BlobPart, name: string, type: string) => {
     try {
       const att = await d.upload(new File([blob], name, { type }), a.participant);
@@ -73,19 +92,19 @@ export async function saveRun(a: SaveArgs, d: SaveDeps): Promise<SaveOutcome> {
     } catch (e) {
       return fail(`make chart ${i + 1}`, e);
     }
-    pngs.push(await up(blob, `${stem}-chart-${i + 1}.png`, "image/png"));
+    pngs.push(await up(blob, `${chartName(i)}.png`, "image/png"));
   }
 
   // An analysis must point at its code, and the server refuses marked code there because AI tools
   // may run an analysis's code. Analysis and result records can't carry the mark, so for marked
   // data none is made: the marked files are the whole save.
-  if (a.participant) return withCopy({ xlsx }, a, d);
+  if (a.participant) return withCopy({ xlsx, files: saved.slice() }, a, d);
 
   let analysis: Analysis;
   try {
     analysis = await d.createAnalysis({
       title: a.title,
-      description: `${a.result.summary}\n\nInput file: ${a.inputName}\n\nRun in the browser with labbenchos statistics.`,
+      description: `${a.result.summary}\n\nInput file: ${a.inputName}\n\n${SAVED_MARK}`,
       code_attachment: code.id,
       datasets: a.datasetId ? [a.datasetId] : [],
       ran_at: new Date().toISOString(),
@@ -106,7 +125,7 @@ export async function saveRun(a: SaveArgs, d: SaveDeps): Promise<SaveOutcome> {
     return fail("create the result", e);
   }
 
-  return withCopy({ xlsx, analysis, result }, a, d);
+  return withCopy({ xlsx, files: saved.slice(0, 2 + pngs.length), analysis, result }, a, d);
 }
 
 async function withCopy(out: SaveOutcome, a: SaveArgs, d: SaveDeps): Promise<SaveOutcome> {

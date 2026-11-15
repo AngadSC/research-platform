@@ -204,11 +204,20 @@ function Box({ c }: { c: Extract<StatsChart, { kind: "box" }> }) {
         return (
           <g key={s.name}>
             <title>{`${s.name}: median ${fmt(s.med)}, middle half ${fmt(s.q1)} to ${fmt(s.q3)}`}</title>
+            {/* whiskers run from the box edges to the ends, never through the box */}
             <line
               x1={cx}
               x2={cx}
-              y1={y(s.lo)}
+              y1={y(s.q3)}
               y2={y(s.hi)}
+              stroke="var(--viz-s1)"
+              strokeWidth={2}
+            />
+            <line
+              x1={cx}
+              x2={cx}
+              y1={y(s.q1)}
+              y2={y(s.lo)}
               stroke="var(--viz-s1)"
               strokeWidth={2}
             />

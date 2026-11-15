@@ -17,7 +17,7 @@ import {
 import { useFolders } from "@/hooks/documents";
 import { downloadUrl, useAttachments } from "@/hooks/projects";
 import { useRecords } from "@/hooks/research";
-import type { Attachment, Dataset } from "@/lib/api-types";
+import type { Analysis, Attachment, Dataset, ResearchResult } from "@/lib/api-types";
 import {
   TESTS,
   type DataShape,
@@ -25,12 +25,15 @@ import {
   type ParamSpec,
   type ParamValues,
   type StatsEngine,
+  type TestId,
   type TestSpec,
 } from "@/lib/stats/contract";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { useGetEngine } from "@/pages/project/analyse/engine";
 import { ResultCard, type Run } from "@/pages/project/analyse/ResultCard";
-import { errorText } from "@/pages/project/analyse/save";
+import { EngineStatus } from "@/pages/project/analyse/EngineStatus";
+import { errorText, SAVED_MARK } from "@/pages/project/analyse/save";
+import { TestGuide } from "@/pages/project/analyse/TestGuide";
 
 const SELECT =
   "h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-2 focus-visible:outline-ring";
@@ -219,6 +222,8 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
   const markedFolders = new Set(
     (folders.data ?? []).filter((f) => f.contains_participant_data).map((f) => f.id),
   );
+  const analyses = useRecords<Analysis>(labId, projectId, "analyses");
+  const results = useRecords<ResearchResult>(labId, projectId, "results");
   const canSave = project.my_permissions.includes("edit_content") && project.status !== "archived";
 
   const [state, setState] = useState<EngineState>({ state: "idle" });
@@ -241,12 +246,22 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
   // D244: grant letters are PI-only; results saved from one would be visible to the whole lab.
   const why = (f: Attachment): Option["off"] =>
     f.pi_only ? "grant" : isGoogle(f) ? "drive" : undefined;
+  // Workbooks that Statistics saved (attached to a result of an analysis it made) are not data.
+  const statsAnalyses = new Set(
+    (analyses.data ?? []).filter((a) => a.description.includes(SAVED_MARK)).map((a) => a.id),
+  );
+  const savedOutputs = new Set(
+    (results.data ?? [])
+      .filter((r) => statsAnalyses.has(r.analysis.id))
+      .flatMap((r) => r.attachments.map((x) => x.id)),
+  );
   const options: Option[] = [
     ...fileList
       .filter(
         (f) =>
-          TABULAR.test(f.original_filename) ||
-          (isGoogle(f) && /sheet|csv|excel/i.test(f.content_type)),
+          !savedOutputs.has(f.id) &&
+          (TABULAR.test(f.original_filename) ||
+            (isGoogle(f) && /sheet|csv|excel/i.test(f.content_type))),
       )
       .map((f) => ({
         key: `file:${f.id}`,
@@ -363,8 +378,29 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
   const [runError, setRunError] = useState<string>();
   const [runs, setRuns] = useState<Run[]>([]);
   const nextId = useRef(1);
+  const newest = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!runs.length) return;
+    const calm = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    newest.current?.scrollIntoView?.({ behavior: calm ? "auto" : "smooth", block: "start" });
+  }, [runs.length]);
   const busy = state.state === "running" || state.state === "loading";
   const errors = test ? validate(test, values) : {};
+
+  function pickTest(id: string) {
+    setTestId(id);
+    const t = TESTS.find((x) => x.id === id);
+    const v = t ? defaults(t) : {};
+    // "Split by" is easy to miss: when one column is an obvious grouping, fill it in
+    if (t?.id === "normality" && shape) {
+      const cats = shape.columns.filter(
+        (c) => c.kind === "categorical" && c.distinct >= 2 && c.distinct <= 10,
+      );
+      if (cats.length === 1) v.group = cats[0]!.name;
+    }
+    setValues(v);
+    setTried(false);
+  }
 
   async function run() {
     if (!engine || !test || !source) return;
@@ -395,7 +431,7 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
   }));
 
   return (
-    <div className="grid gap-8">
+    <div className="grid gap-8 pb-24 md:pb-8">
       <PageHeader
         title="Statistics"
         description="Runs on your computer. Your data is not sent anywhere unless you save it."
@@ -534,12 +570,7 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
                 id="test-pick"
                 className={SELECT}
                 value={testId}
-                onChange={(e) => {
-                  setTestId(e.target.value);
-                  const t = TESTS.find((x) => x.id === e.target.value);
-                  setValues(t ? defaults(t) : {});
-                  setTried(false);
-                }}
+                onChange={(e) => pickTest(e.target.value)}
               >
                 <option value="">Choose a test</option>
                 {groups.map(({ g, tests }) => (
@@ -554,6 +585,7 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
               </select>
               {test && <p className="text-xs text-muted-foreground">{test.help}</p>}
             </div>
+            <TestGuide onPick={(t: TestId) => pickTest(t)} />
             {test?.params.map((p) => (
               <ParamField
                 key={`${test.id}-${p.key}`}
@@ -575,12 +607,7 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
         </Section>
       )}
 
-      {(state.state === "loading" || state.state === "running") && (
-        <div role="status" className="grid gap-2">
-          <Skeleton className="h-2 w-64" />
-          <p className="text-sm text-muted-foreground">{state.message}</p>
-        </div>
-      )}
+      <EngineStatus state={state} testId={testId} />
       {state.state === "error" && (
         <p role="alert" className="text-sm font-medium text-destructive">
           {state.message}
@@ -598,17 +625,18 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
             Earlier runs from this visit stay here so you can compare. They are gone when you leave
             the page unless you save them.
           </p>
-          {runs.map((r) => (
-            <ResultCard
-              key={r.id}
-              run={r}
-              labId={labId}
-              projectId={projectId}
-              canSave={canSave}
-              onSaved={(saved) =>
-                setRuns((all) => all.map((x) => (x.id === r.id ? { ...x, saved } : x)))
-              }
-            />
+          {runs.map((r, i) => (
+            <div key={r.id} ref={i === 0 ? newest : undefined} className="scroll-mt-4">
+              <ResultCard
+                run={r}
+                labId={labId}
+                projectId={projectId}
+                canSave={canSave}
+                onSaved={(saved) =>
+                  setRuns((all) => all.map((x) => (x.id === r.id ? { ...x, saved } : x)))
+                }
+              />
+            </div>
           ))}
         </Section>
       )}
