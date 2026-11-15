@@ -11,7 +11,7 @@ import {
 
 export interface ExportItem {
   label: string;
-  run: () => void | Promise<void>;
+  run: () => unknown;
 }
 
 /** One menu for everything you can do with a table, chart or result: keep it, copy it, send it. */
