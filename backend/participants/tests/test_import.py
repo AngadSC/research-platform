@@ -225,3 +225,32 @@ def test_link_health_counts_and_flags_a_document_changed_after_it_was_verified(w
 def test_refreshing_links_needs_a_connected_google_account(w):
     r = w.client().post(f"{w.base}/participant-link-health/refresh/")
     assert r.status_code == 404
+
+
+def test_a_sheet_with_blank_and_repeated_headers_imports(w):
+    """Real sheets repeat a heading under each character and leave spacer columns blank."""
+    sheet = (
+        "Source\tParticipant ID\tHome Language\t\tOutcome\tOutcome\tRecording\n"
+        f"MCHB\t2A1\tEnglish, Amharic\t\t\t\t{DOC}\n"
+        "ABC\t1H1\tEnglish, Arabic\t\t\t\tno data\n"
+    )
+    pv = w.client().post(f"{w.base}/participant-imports/preview/", {"csv": sheet}, "json").json()
+    assert pv["headers"] == [
+        "Source",
+        "Participant ID",
+        "Home Language",
+        "Column 4",
+        "Outcome",
+        "Outcome (2)",
+        "Recording",
+    ]
+    mapping = {
+        "code": "Participant ID",
+        "group": "Home Language",
+        "components": [{"column": "Recording"}, {"column": "Outcome"}, {"column": "Outcome (2)"}],
+    }
+    out = post(w, sheet, mapping, dry_run=False)
+    assert out.status_code == 200, out.content
+    body = out.json()
+    assert body["created"] == 2 and body["links"] == 1
+    assert Participant.objects.for_lab(w.lab).filter(code="2A1", group="English, Amharic").exists()

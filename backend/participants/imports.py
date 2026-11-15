@@ -73,6 +73,18 @@ def guess_category(header: str) -> str:
     return "other"
 
 
+def unique_headers(raw: list[str]) -> list[str]:
+    """Sheets often have blank headers and repeated ones ("Initiating Event" for each
+    character). Give each column its own name so it can be told apart: "Column 4", "Outcome (2)"."""
+    seen: dict[str, int] = {}
+    out = []
+    for i, h in enumerate(raw, start=1):
+        name = h or f"Column {i}"
+        seen[name] = seen.get(name, 0) + 1
+        out.append(name if seen[name] == 1 else f"{name} ({seen[name]})")
+    return out
+
+
 def read_table(text: str):
     if len(text.encode("utf-8")) > MAX_BYTES:
         raise ValidationError({"csv": "That file is too large to import (1 MB limit)."})
@@ -85,7 +97,7 @@ def read_table(text: str):
     rows = [r for r in reader]
     if not rows:
         raise ValidationError({"csv": "The file is empty."})
-    headers = [h.strip() for h in rows[0]]
+    headers = unique_headers([h.strip() for h in rows[0]])
     if len(headers) > MAX_COLUMNS:
         raise ValidationError({"csv": f"Too many columns (limit {MAX_COLUMNS})."})
     body = rows[1:]

@@ -53,8 +53,18 @@ export function ImportWizard({ labId, projectId, onClose }: Props) {
         cohort: guess(free, /cohort|site/i),
         status: guess(free, /enrol|status/i),
       });
+      // Only the columns that look like data to track: the ones with links, or named like a
+      // recording, transcript, translation, consent or questionnaire. The rest are one click away.
       setPicked(
-        free.filter((h) => ![code, group].includes(h) && !/cohort|site|enrol|status/i.test(h)),
+        free.filter(
+          (h) =>
+            ![code, group].includes(h) &&
+            (p.link_columns.includes(h) ||
+              /record|transcri|translat|consent|questionnaire|narrative|session|audio|scor/i.test(
+                h,
+              )) &&
+            !/cohort|site|enrol|status|total/i.test(h),
+        ),
       );
       setStep("map");
     } catch (e) {
@@ -160,7 +170,30 @@ export function ImportWizard({ labId, projectId, onClose }: Props) {
               {select("Enrolment status", "status")}
             </div>
             <fieldset className="grid gap-1">
-              <legend className="text-sm font-medium">Data columns</legend>
+              <legend className="text-sm font-medium">
+                Data columns{" "}
+                <span className="font-normal text-muted-foreground">
+                  (tick the pieces of data to track; scores and notes can stay unticked)
+                </span>
+              </legend>
+              <div className="flex gap-3 text-xs">
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() =>
+                    setPicked(
+                      free.filter(
+                        (h) => ![map.code, map.group, map.cohort, map.status].includes(h),
+                      ),
+                    )
+                  }
+                >
+                  Select all
+                </button>
+                <button type="button" className="underline" onClick={() => setPicked([])}>
+                  Select none
+                </button>
+              </div>
               {free
                 .filter((h) => ![map.code, map.group, map.cohort, map.status].includes(h))
                 .map((h) => (
