@@ -5,6 +5,12 @@ export type PanelName = "assistant" | "google";
 export const announcePanel = (name: PanelName) =>
   window.dispatchEvent(new CustomEvent(PANEL_OPENED, { detail: name }));
 
+const SIDEBAR_W = 256; // w-64
+const MAIN_MIN = 640; // the page beside a docked panel keeps at least this much
+
+/** The widest a docked panel may be: the window minus the sidebar minus the room the page needs. */
+export const dockCap = (min: number) => Math.max(min, window.innerWidth - SIDEBAR_W - MAIN_MIN);
+
 /** The draggable, keyboard-resizable divider on the left edge of a docked right-hand panel.
  * The caller clamps: onWidth gets the wanted width and decides what to keep. */
 export function DockHandle({

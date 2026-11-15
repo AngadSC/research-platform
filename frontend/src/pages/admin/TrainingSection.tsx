@@ -4,6 +4,13 @@ import { ComplianceMatrix } from "@/components/training/ComplianceMatrix";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useProjects } from "@/hooks/projects";
 import { useCompliance, useTrainingMutations, useTrainingRequirements } from "@/hooks/training";
@@ -21,6 +28,8 @@ export function TrainingSection({ labId }: { labId: string }) {
   const projects = useProjects(labId).data ?? [];
   const { createRequirement, removeRequirement, verify } = useTrainingMutations(labId);
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
+  const [deleting, setDeleting] = useState<{ id: string; name: string } | null>(null);
+  const [deleteError, setDeleteError] = useState<string>();
   const [applies, setApplies] = useState<AppliesTo>("all");
 
   async function add(e: FormEvent<HTMLFormElement>) {
@@ -96,18 +105,58 @@ export function TrainingSection({ labId }: { labId: string }) {
               variant="ghost"
               size="sm"
               aria-label={`Delete ${r.name}`}
-              onClick={() =>
-                removeRequirement.mutate(r.id, {
-                  onError: () =>
-                    toast.error("Could not delete. A training with records can't be deleted."),
-                })
-              }
+              onClick={() => setDeleting({ id: r.id, name: r.name })}
             >
               Delete
             </Button>
           </div>
         ))}
       </div>
+
+      <Dialog
+        open={!!deleting}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDeleting(null);
+            setDeleteError(undefined);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogTitle className="text-base font-semibold">Delete {deleting?.name}?</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            It will no longer be required of anyone. A training that already has records can't be
+            deleted.
+          </DialogDescription>
+          <FormError message={deleteError} />
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              disabled={removeRequirement.isPending}
+              onClick={() =>
+                deleting &&
+                removeRequirement.mutate(deleting.id, {
+                  onSuccess: () => {
+                    toast.success("Training deleted");
+                    setDeleting(null);
+                  },
+                  // Stay open so the person sees why (a training with records is refused).
+                  onError: (e) =>
+                    setDeleteError(
+                      formErrors(e, []).form ??
+                        "Could not delete. A training with records can't be deleted.",
+                    ),
+                })
+              }
+            >
+              Delete training
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <form
         onSubmit={add}

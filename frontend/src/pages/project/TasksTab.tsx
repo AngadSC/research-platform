@@ -274,11 +274,13 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
       : []),
   ];
 
-  const newTask = canEdit ? (
-    <Button onClick={() => setParam("new", "task")}>
-      <Plus aria-hidden /> New task
-    </Button>
-  ) : undefined;
+  const archived = project.status === "archived"; // no new tasks
+  const newTask =
+    canEdit && !archived ? (
+      <Button onClick={() => setParam("new", "task")}>
+        <Plus aria-hidden /> New task
+      </Button>
+    ) : undefined;
   // Your own connected task apps (D240); nothing shows unless one is connected.
   const taskApps = (useProviders(labId).data ?? []).filter(
     (p) => p.task_import && p.account?.status === "active",
@@ -288,9 +290,11 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
       icon={ListChecks}
       title="A clean slate"
       description={
-        canEdit
-          ? "Nothing to do here yet. Add the first task, or press Ctrl/Cmd + G to jot one down from anywhere."
-          : "Only editors can add tasks. Ask the project lead."
+        archived
+          ? "This project is archived. Set it back to Active to add tasks."
+          : canEdit
+            ? "Nothing to do here yet. Add the first task, or press Ctrl/Cmd + G to jot one down from anywhere."
+            : "Only editors can add tasks. Ask the project lead."
       }
       action={newTask}
     />
@@ -327,7 +331,7 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
           </Button>
         </div>
         <div className="flex flex-wrap gap-2">
-          {canEdit && taskApps.length > 0 && (
+          {canEdit && !archived && taskApps.length > 0 && (
             <Button variant="outline" onClick={() => setImporting(true)}>
               Import tasks
             </Button>
@@ -407,7 +411,7 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
           onClose={() => setImporting(false)}
         />
       )}
-      {creating && canEdit && (
+      {creating && canEdit && !archived && (
         <NewTaskPanel
           labId={labId}
           projectId={projectId}

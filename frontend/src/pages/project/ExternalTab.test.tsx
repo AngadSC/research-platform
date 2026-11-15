@@ -109,4 +109,19 @@ describe("External tab", () => {
       attachment: null,
     });
   });
+
+  it("offers no way to add an item when the project is archived", async () => {
+    const perms = ["view_project", "edit_content"];
+    const archived = { ...project(perms), status: "archived" };
+    mockFetch(
+      base(perms, {
+        "GET /api/labs/lab1/projects/": { body: [archived] },
+        [`GET ${P}/`]: { body: archived },
+        [`GET ${P}/external/`]: { body: [] },
+      }),
+    );
+    renderRoute(PATH);
+    expect(await screen.findByText("No posters or talks yet")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add item" })).toBeNull();
+  });
 });

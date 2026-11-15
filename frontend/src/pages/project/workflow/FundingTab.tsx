@@ -1,5 +1,6 @@
 import { Landmark } from "lucide-react";
 import { useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -43,9 +44,13 @@ export default function FundingTab(props: ProjectTabProps) {
   return <FundingPanel {...props} />;
 }
 
-function FundingPanel({ labId, projectId }: ProjectTabProps) {
+function FundingPanel({ labId, projectId, project }: ProjectTabProps) {
   const { list, create, update, remove } = useFunding(labId, projectId);
-  const [editing, setEditing] = useState<Funding | "new" | null>(null);
+  const [params] = useSearchParams();
+  // `?new=1` comes from "Add funding" on the Overview: open the form straight away
+  const [editing, setEditing] = useState<Funding | "new" | null>(
+    params.get("new") === "1" ? "new" : null,
+  );
 
   const cols: Column<Funding>[] = [
     {
@@ -107,7 +112,10 @@ function FundingPanel({ labId, projectId }: ProjectTabProps) {
     },
   ];
 
-  const add = <Button onClick={() => setEditing("new")}>Add funding</Button>;
+  const add =
+    project.status === "archived" ? undefined : (
+      <Button onClick={() => setEditing("new")}>Add funding</Button>
+    );
   return (
     <div className="grid gap-6">
       <section aria-label="Funding" className="grid gap-3">

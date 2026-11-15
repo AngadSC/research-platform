@@ -127,15 +127,25 @@ describe("My training", () => {
 
   it("adds the lab-wide section for a manager only", async () => {
     const manager = makeLab(["view_lab", "manage_lab", "manage_training"]);
-    mockFetch(
+    const calls = mockFetch(
       handlers({
         "GET /api/labs/": { body: [manager] },
         "GET /api/labs/lab1/": { body: manager },
         "GET /api/labs/lab1/training/compliance/": { body: DATA },
+        "DELETE /api/labs/lab1/training/requirements/r1/": { status: 204 },
       }),
     );
     renderRoute("/labs/lab1/training");
-    expect(await screen.findByRole("heading", { name: "Lab training" })).toBeInTheDocument();
+    const lab = await screen.findByRole("heading", { name: "Lab training" });
+    // The manager's own view follows the lab section.
+    const mine = screen.getByRole("heading", { name: "Log a completion" });
+    expect(lab.compareDocumentPosition(mine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Deleting a required training asks first, and names it.
+    await userEvent.click(await screen.findByRole("button", { name: "Delete WHMIS" }));
+    expect(await screen.findByText("Delete WHMIS?")).toBeInTheDocument();
+    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+    await userEvent.click(screen.getByRole("button", { name: "Delete training" }));
+    await vi.waitFor(() => expect(calls.some((c) => c.method === "DELETE")).toBe(true));
   });
 
   it("is in the sidebar for a plain member and logs a completion", async () => {

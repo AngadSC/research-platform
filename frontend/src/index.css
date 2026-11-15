@@ -520,3 +520,21 @@ body::after {
     animation: none;
   }
 }
+
+/* Statistics charts (dataviz reference palette, light and dark steps). */
+.viz {
+  --viz-text: #0b0b0b;
+  --viz-muted: #52514e;
+  --viz-grid: #e4e3df;
+  --viz-s1: #2a78d6;
+  --viz-s2: #eb6834;
+  --viz-s3: #1baf7a;
+}
+.dark .viz {
+  --viz-text: #f0efec;
+  --viz-muted: #c3c2b7;
+  --viz-grid: #3a3a38;
+  --viz-s1: #3987e5;
+  --viz-s2: #d95926;
+  --viz-s3: #199e70;
+}

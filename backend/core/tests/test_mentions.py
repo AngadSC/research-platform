@@ -4,7 +4,7 @@ import pytest
 from rest_framework.test import APIClient
 
 from core.models import Notification, NotificationKind
-from core.notifications import MAX_MENTIONS, visible_notifications
+from core.notifications import MAX_MENTIONS, live_body, visible_notifications
 from labs.models import LabRole
 from projects.models import Project, ProjectMembership, ProjectRole, Task
 
@@ -112,3 +112,12 @@ def test_a_mention_stops_showing_once_the_reader_loses_the_project(w):
     assert len(visible_notifications(w["member"], w["lab"], qs)) == 1
     ProjectMembership.objects.for_lab(w["lab"]).filter(user=w["member"]).delete()
     assert visible_notifications(w["member"], w["lab"], qs) == []
+
+
+def test_a_name_with_brackets_keeps_them_in_the_notification(w):
+    w["member"].display_name = "Lee Lead (FAKE)"
+    w["member"].save()
+    say(w["author"], project_chat(w), f"hi {tag(w['member'])}")
+    [n] = mentions(w, w["member"])
+    assert n.body == "hi @Lee Lead (FAKE)"
+    assert live_body(n) == "hi @Lee Lead (FAKE)"

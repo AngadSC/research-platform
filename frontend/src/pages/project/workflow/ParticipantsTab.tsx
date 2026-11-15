@@ -78,7 +78,10 @@ function RecruitmentCounts({ labId, projectId, project }: ProjectTabProps) {
         ]
       : []),
   ];
-  const add = canEdit ? <Button onClick={() => setDialog("entry")}>Add entry</Button> : undefined;
+  const add =
+    canEdit && project.status !== "archived" ? (
+      <Button onClick={() => setDialog("entry")}>Add entry</Button>
+    ) : undefined;
 
   return (
     <div className="grid gap-6">

@@ -3,6 +3,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import {
   announcePanel,
   DockHandle,
+  dockCap,
   PANEL_OPENED,
   type PanelName,
 } from "@/components/shared/DockHandle";
@@ -11,7 +12,7 @@ import { Button } from "@/components/ui/button";
 const MIN = 320;
 const MAX = 1000;
 const KEY = "google-dock-width";
-const clamp = (w: number) => Math.round(Math.min(MAX, Math.max(MIN, w)));
+const clamp = (w: number) => Math.round(Math.min(MAX, dockCap(MIN), Math.max(MIN, w)));
 const readWidth = () => {
   try {
     return clamp(Number(localStorage.getItem(KEY)) || 560);
@@ -50,6 +51,11 @@ export function GoogleEditorPanel({
     document.documentElement.style.setProperty("--google-w", `${width}px`);
   }, [width]);
   useEffect(() => {
+    const fit = () => setWidth((w) => clamp(w));
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
+  useEffect(() => {
     announcePanel("google");
     const onOther = (e: Event) => {
       if ((e as CustomEvent<PanelName>).detail === "assistant") onClose();
@@ -72,7 +78,7 @@ export function GoogleEditorPanel({
           label="Resize panel"
           width={width}
           min={MIN}
-          max={MAX}
+          max={Math.min(MAX, dockCap(MIN))}
           onWidth={(w) => setWidth(clamp(w))}
         />
       </div>

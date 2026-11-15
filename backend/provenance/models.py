@@ -80,8 +80,12 @@ class DatasetRecord(ProvenanceModel):
     )
     # VISION A3: AI tools never see a flagged item (assistant/privacy.py).
     contains_participant_data = models.BooleanField(default=False)
+    # An uploaded or linked project file that holds (or describes) the data.
+    data_file = models.ForeignKey(
+        "documents.Attachment", on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
 
-    lab_parents = ("project", "previous_version")
+    lab_parents = ("project", "previous_version", "data_file")
 
     class Meta(ProvenanceModel.Meta):
         constraints = [

@@ -18,6 +18,10 @@ READ_ACTIONS = (
 )
 
 
+def word(role) -> str:
+    return ROLE_WORDS.get(role, role)
+
+
 class AuditEventSerializer(serializers.ModelSerializer):
     actor = UserSerializer(read_only=True)  # null for system events
     target_label = serializers.SerializerMethodField()
@@ -43,18 +47,27 @@ class AuditEventSerializer(serializers.ModelSerializer):
         ctx = self.context
         if e.target_type == "documents.Attachment" and e.target_id in ctx.get("hidden_files", ()):
             return "A file only PIs can open"
+        m = e.metadata if isinstance(e.metadata, dict) else {}
+        if (
+            "names" in ctx
+            and e.action == AuditAction.MEMBERSHIP_INVITE_ROLE_CHANGED
+            and "old_role" in m
+            and "new_role" in m
+        ):
+            who = m.get("email") or e.target_repr
+            return f"Invitation for {who}, from {word(m['old_role'])} to {word(m['new_role'])}"
         pid = person_id(e)
         if "names" not in ctx or pid is None:
             return e.target_repr
+        if e.action == AuditAction.DOCUMENT_OWNER_CHANGED:
+            return f"{e.target_repr}, now owned by {ctx['names'].get(str(pid), 'Someone')}"
         if e.target_type not in MEMBERSHIP_TARGETS and e.action != AuditAction.HANDOVER_GENERATED:
             return e.target_repr
-        m = e.metadata
         label = ctx["names"].get(str(pid), "Someone")
         if "old_role" in m and "new_role" in m:
-            label += f" ({ROLE_WORDS.get(m['old_role'], m['old_role'])} to "
-            label += f"{ROLE_WORDS.get(m['new_role'], m['new_role'])})"
+            label += f" ({word(m['old_role'])} to {word(m['new_role'])})"
         elif "role" in m:
-            label += f" ({ROLE_WORDS.get(m['role'], m['role'])})"
+            label += f" ({word(m['role'])})"
         if project := ctx["projects"].get(e.project_id):
             label += f" in {project}"
         return label

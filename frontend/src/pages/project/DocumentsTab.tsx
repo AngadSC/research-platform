@@ -1,7 +1,7 @@
 import { Eye, FileText, Link2, MoreHorizontal, Pencil, Plus, Upload } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { RelativeTime } from "@/components/shared/RelativeTime";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { FilePreview } from "@/components/documents/FilePreview";
 import { FolderBrowser, MoveDialog, type Movable } from "@/components/documents/Folders";
@@ -12,7 +12,7 @@ import { FormField } from "@/components/shared/FormField";
 import { GoogleEditorPanel } from "@/components/shared/GoogleEditorPanel";
 import { LinkedFiles } from "@/components/shared/LinkedFiles";
 import {
-  PARTICIPANT_HINT,
+  MARKED_TOAST,
   ParticipantBadge,
   markLabel,
   useConfirmUnmark,
@@ -98,6 +98,13 @@ const rowId = (r: Row) => (r.doc ? r.doc.id : r.file.id);
 const rowName = (r: Row) => (r.doc ? r.doc.title : r.file.original_filename);
 const rowDate = (r: Row) => (r.doc ? r.doc.updated_at : r.file.created_at);
 const rowFolder = (r: Row) => (r.doc ? r.doc.folder : r.file.folder) ?? null;
+/** A file the statistics page can read: a CSV, TSV, TXT or XLSX that lives here, not in Drive,
+ * and not a PI-only grant file (D244). */
+const analysable = (a: Attachment) =>
+  !a.pi_only &&
+  !a.drive_file_id &&
+  !a.external_url &&
+  /\.(csv|tsv|txt|xlsx)$/i.test(a.original_filename);
 const rowFlagged = (r: Row) => (r.doc ?? r.file).contains_participant_data;
 
 /** Documents and uploaded files together, in one folder tree. Every server check is unchanged. */
@@ -114,6 +121,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
   } = useAttachments(labId, projectId, LIVE_POLL_MS);
   useNewItemToasts(`${projectId}/files`, files.data, "file", (f) => f.original_filename);
   const canEdit = project.my_permissions.includes("edit_content");
+  const archived = project.status === "archived"; // no new documents, files or folders
   const folder = useCurrentFolder();
   const { data: folders = [] } = useFolders(labId, projectId);
   const folderFlagged = folders.find((f) => f.id === folder)?.contains_participant_data ?? false;
@@ -124,12 +132,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
     flag.mutate(
       { kind: r.doc ? "documents" : "attachments", id: rowId(r), value },
       {
-        onSuccess: () =>
-          toast.success(
-            value
-              ? `Marked as identifying participants. ${PARTICIPANT_HINT}`
-              : "Identifying mark removed",
-          ),
+        onSuccess: () => toast.success(value ? MARKED_TOAST : "Identifying mark removed"),
         onError: (e) => toast.error(formErrors(e, []).form ?? "Something went wrong."),
       },
     );
@@ -288,6 +291,11 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
                     </a>
                   </DropdownMenuItem>
                 )}
+                {r.file && analysable(r.file) && (
+                  <DropdownMenuItem asChild>
+                    <Link to={`${base}/analyse?file=${r.file.id}`}>Analyse</Link>
+                  </DropdownMenuItem>
+                )}
                 {canEdit && r.file && convertible(r.file) && (
                   <DropdownMenuItem
                     disabled={editInGoogle.isPending}
@@ -330,7 +338,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
     <div>
       {dialog}
       <div className="grid w-full min-w-0 gap-4">
-        {canEdit && (
+        {canEdit && !archived && (
           <div className="flex flex-wrap justify-end gap-2">
             <Button variant="outline" onClick={() => setEmbedding(true)}>
               <Link2 className="size-4" /> Embed a Google or Office doc
@@ -355,7 +363,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
             </Button>
           </div>
         )}
-        <FolderBrowser labId={labId} projectId={projectId} canEdit={canEdit} />
+        <FolderBrowser labId={labId} projectId={projectId} canEdit={canEdit} archived={archived} />
         <DataTable
           loading={docs.isLoading || files.isLoading}
           rows={rows}

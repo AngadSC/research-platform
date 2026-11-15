@@ -51,10 +51,13 @@ export function FolderBrowser({
   labId,
   projectId,
   canEdit,
+  archived = false,
 }: {
   labId: string;
   projectId: string;
   canEdit: boolean;
+  /** An archived project takes no new folders. */
+  archived?: boolean;
 }) {
   const current = useCurrentFolder();
   const { data: folders = [] } = useFolders(labId, projectId);
@@ -104,7 +107,7 @@ export function FolderBrowser({
       {dialog}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Breadcrumbs items={crumbs} label="Folders" />
-        {canEdit && (
+        {canEdit && !archived && (
           <Button
             variant="outline"
             size="sm"

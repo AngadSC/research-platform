@@ -13,14 +13,18 @@ from django.db import transaction
 from django.http import Http404
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
 
 from audit.models import AuditAction
 from audit.services import record
+from core.models import NotificationKind, User
+from core.notifications import notify
+from core.permissions import Perm, can, lab_role
 from core.retention import audit_retention, guard_retention, retention_changes
 from core.serializers import UserSerializer
 from documents import embed
 from documents.models import Attachment, Document, DocumentRevision, Folder
+from labs.models import LabRole
 
 MAX_CONTENT_BYTES = 1024 * 1024
 AUTOSAVE_WINDOW = timedelta(minutes=15)
@@ -194,6 +198,45 @@ def delete_document(doc, *, user, request=None) -> None:
     doc.deleted_at = timezone.now()
     doc.save(update_fields=["deleted_at", "updated_at"])
     record(AuditAction.DOCUMENT_DELETED, actor=user, lab=doc.lab, target=doc, request=request)
+
+
+@transaction.atomic
+def change_owner(doc, *, user, owner_id, request=None) -> Document:
+    """Hand a document to a new owner (the handover's "Needs a new owner"). The owner is
+    `created_by`; who wrote each version stays on the revisions, and the audit event keeps both
+    people. The new owner must be able to edit the project. Tells them in-app."""
+    owner = User.objects.filter(pk=owner_id, is_active=True).first()
+    if owner is None or not can(owner, Perm.EDIT_CONTENT, doc):
+        raise ValidationError({"owner": "The new owner must be able to edit this project."})
+    doc = _lock(doc)
+    old = doc.created_by_id
+    if owner.pk == old:
+        return doc
+    leads = (LabRole.PI, LabRole.LAB_ADMIN)
+    if lab_role(doc.created_by, doc.lab_id) in leads and lab_role(user, doc.lab_id) not in leads:
+        raise PermissionDenied(
+            "Only a PI or lab admin can change who owns a PI's or lab admin's document."
+        )
+    doc.created_by = owner
+    doc.save(update_fields=["created_by"])
+    event = record(
+        AuditAction.DOCUMENT_OWNER_CHANGED,
+        actor=user,
+        lab=doc.lab,
+        target=doc,
+        request=request,
+        metadata={"user_id": str(owner.pk), "old_owner_id": str(old)},
+    )
+    if owner.pk != user.pk:
+        notify(
+            lab=doc.lab,
+            recipient=owner,
+            kind=NotificationKind.DOCUMENT_OWNER,
+            title=f"{user.display_name or user.email} made you the owner of {doc.title}"[:200],
+            target=doc,
+            dedupe_key=f"document_owner:{event.pk}",
+        )
+    return doc
 
 
 # ---------------------------------------------------------------- attachments
@@ -374,7 +417,9 @@ def upload_attachment(
 def edit_in_google(attachment, *, user, request=None) -> Attachment:
     """VISION B3: copy a Word, Excel or PowerPoint upload into the person's own Google Drive as a
     Google Doc, Sheet or Slides file, and attach that copy next to the original, pointing back at
-    it. The caller has checked edit rights on the project. Participant data stays here."""
+    it. The caller has checked edit rights on the project. A file marked as identifying
+    participants may go too (the owner's call: such data usually came from Drive), and its copy
+    keeps the mark, so AI tools still never read it; the audit event says it was marked."""
     from assistant.privacy import is_flagged
     from integrations.http import IntegrationError
     from integrations.models import AccountStatus, ConnectedAccount
@@ -390,10 +435,7 @@ def edit_in_google(attachment, *, user, request=None) -> Attachment:
         raise ValidationError(
             {"file": "Only Word, Excel and PowerPoint files can be edited in Google."}
         )
-    if is_flagged(attachment):
-        raise ValidationError(
-            {"file": "Files marked as identifying participants stay in labbenchos."}
-        )
+    flagged = is_flagged(attachment)
     limit = google_drive.CONVERT_MAX_BYTES
     too_big = f"This file is too large to copy to Google ({limit // 1048576} MB maximum)."
     if attachment.size_bytes > limit:
@@ -424,7 +466,7 @@ def edit_in_google(attachment, *, user, request=None) -> Attachment:
         lab=attachment.lab,
         target=attachment,
         request=request,
-        metadata={"via": "google_copy", "drive_file_id": file_id},
+        metadata={"via": "google_copy", "drive_file_id": file_id, "participant_data": flagged},
     )
     return _link_drive_file(
         user=user,
@@ -433,7 +475,7 @@ def edit_in_google(attachment, *, user, request=None) -> Attachment:
         folder=attachment.folder,
         request=request,
         pi_only=attachment.pi_only,
-        flag=False,
+        flag=flagged,
         copied_from=attachment,
     )
 

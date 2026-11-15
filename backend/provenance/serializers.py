@@ -120,6 +120,7 @@ class DatasetSerializer(serializers.ModelSerializer):
     controlled_by = UserSerializer(read_only=True)
     created_by = UserSerializer(read_only=True)
     previous_version = DatasetRefSerializer(read_only=True)
+    data_file = AttachmentRefSerializer(read_only=True)
     analyses = AnalysisRefSerializer(many=True, read_only=True)
 
     class Meta:
@@ -135,6 +136,7 @@ class DatasetSerializer(serializers.ModelSerializer):
             "version_label",
             "checksum",
             "previous_version",
+            "data_file",
             "analyses",
             "contains_participant_data",
             "created_by",
@@ -142,6 +144,12 @@ class DatasetSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = fields
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.data_file and instance.data_file.deleted_at:
+            data["data_file"] = None  # a deleted file must not block saving the dataset
+        return data
 
 
 class AnalysisSerializer(serializers.ModelSerializer):
@@ -369,7 +377,7 @@ PLURAL = {
     "external": "external_outputs",
 }
 SELECT = {
-    "dataset": ("controlled_by", "created_by", "previous_version"),
+    "dataset": ("controlled_by", "created_by", "previous_version", "data_file"),
     "analysis": ("ran_by", "code_attachment"),
     "result": ("created_by", "analysis"),
     "decision": ("decided_by",),
@@ -453,6 +461,7 @@ class DatasetInputSerializer(serializers.Serializer):
         max_length=140, allow_blank=True, required=False, validators=[validate_checksum]
     )
     previous_version = serializers.UUIDField(allow_null=True, required=False)
+    data_file = serializers.UUIDField(allow_null=True, required=False)
     contains_participant_data = serializers.BooleanField(required=False)  # VISION A3
 
 
@@ -626,6 +635,24 @@ class LineageSerializer(serializers.Serializer):
     edges = LineageEdgeSerializer(many=True)
 
 
+class ExportMemberSerializer(serializers.Serializer):
+    """Name and role only: the export is shared outside the lab, so no email."""
+
+    name = serializers.SerializerMethodField()
+    role = serializers.CharField()
+
+    def get_name(self, obj) -> str:
+        return obj.user.display_name or "Unnamed member"
+
+
+class ExportEthicsSerializer(serializers.Serializer):
+    approval_number = serializers.CharField()
+    board = serializers.CharField()
+    approval_date = serializers.DateField()
+    expiry_date = serializers.DateField()
+    status = serializers.CharField()
+
+
 class ExportSerializer(serializers.Serializer):
     exported_at = serializers.DateTimeField()
     project = ProjectSerializer()
@@ -643,3 +670,5 @@ class ExportSerializer(serializers.Serializer):
     recruitment_entries = RecruitmentEntrySerializer(many=True)
     external_outputs = ExternalOutputSerializer(many=True)
     recruitment_plan = RecruitmentPlanSerializer()
+    members = ExportMemberSerializer(many=True)
+    ethics_approvals = ExportEthicsSerializer(many=True)

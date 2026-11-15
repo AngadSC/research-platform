@@ -116,8 +116,9 @@ export function mentionAt(value: string, caret: number): { start: number; query:
   return m ? { start: caret - m[2]!.length - 1, query: m[2]! } : null;
 }
 
-/** A name as written in a mention. Brackets in it would break the stored form. */
-export const mentionName = (name: string) => name.replace(/[[\]()\n]/g, "").trim() || "Someone";
+/** A name as written in a mention. Square brackets would break the stored form; round ones,
+ * as in "Lee Lead (FAKE)", are kept. */
+export const mentionName = (name: string) => name.replace(/[[\]\n]/g, "").trim() || "Someone";
 
 /** The stored form of a mention: `@[Name](user:<id>)`. It is what is saved and what notifies the
  * person; the text box shows only `@Name` (D295). */

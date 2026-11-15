@@ -63,10 +63,12 @@ export function ExternalLinkItem({
   link,
   icon,
   actions,
+  canEdit = true,
 }: {
   link: ExternalLink;
   icon?: string;
   actions?: ReactNode;
+  canEdit?: boolean;
 }) {
   const state = linkState(link);
   const href = safeHttpUrl(link.url); // null: blank or not http(s), so never rendered as a link
@@ -107,7 +109,9 @@ export function ExternalLinkItem({
           </span>
           {link.unavailable_since && (
             <span className="text-xs text-muted-foreground">
-              The file was moved or deleted, or you lost access. Relink it or remove it.
+              {canEdit
+                ? "The file was moved or deleted, or you lost access. Relink it or remove it."
+                : "This file was moved or deleted in Google."}
             </span>
           )}
         </div>

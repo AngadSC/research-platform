@@ -1,9 +1,12 @@
 import pytest
 from django.db import DatabaseError, connection, transaction
 from django.test import RequestFactory, override_settings
+from rest_framework.test import APIClient
 
 from audit.models import AuditAction, AuditEvent, AuditImmutableError
 from audit.services import _client_ip, record
+from labs import services as lab_services
+from labs.models import Invite, LabRole
 
 pytestmark = pytest.mark.django_db
 
@@ -68,3 +71,15 @@ def test_trigger_rejects_raw_sql(event, sql):
         with connection.cursor() as cur:
             cur.execute("SET CONSTRAINTS ALL IMMEDIATE")
             cur.execute(sql)
+
+
+def test_invite_role_change_label_names_both_roles(make_lab, make_user, join):
+    lab, pi = make_lab(), make_user()
+    join(pi, lab, LabRole.PI)
+    invite, _ = Invite.issue(lab=lab, email="sam@example.test", role=LabRole.MEMBER, invited_by=pi)
+    lab_services.change_invite_role(invite=invite, by=pi, role=LabRole.VIEWER)
+    client = APIClient()
+    client.force_login(pi)
+    rows = client.get(f"/api/labs/{lab.pk}/audit-events/").json()["results"]
+    (row,) = [r for r in rows if r["action"] == AuditAction.MEMBERSHIP_INVITE_ROLE_CHANGED]
+    assert row["target_label"] == "Invitation for sam@example.test, from Member to Viewer"

@@ -1,6 +1,6 @@
 import { ShieldCheck } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { ApprovalBadge, ExpiryText } from "@/components/ethics/ApprovalBadge";
 import { FormReader } from "@/components/shared/FormReader";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -28,12 +28,15 @@ export default function EthicsTab({ labId, projectId, project }: ProjectTabProps
   const canView = !!lab?.my_permissions.includes("view_ethics");
   const canCreate =
     !!lab?.my_permissions.includes("edit_ethics") &&
-    project.my_permissions.includes("edit_content");
+    project.my_permissions.includes("edit_content") &&
+    project.status !== "archived";
   const oversight = !!lab?.my_permissions.includes("manage_lab");
   const approvals = useProjectApprovals(labId, projectId, canView);
   const save = useSaveApproval(labId);
   const [adding, setAdding] = useState(false);
-  const [linking, setLinking] = useState(false);
+  const [params] = useSearchParams();
+  // `?link=1` comes from "Link an approval" on the Overview
+  const [linking, setLinking] = useState(params.get("link") === "1" && canCreate);
   const [prefill, setPrefill] = useState<FoundApproval | null>(null);
   const [preLink, setPreLink] = useState("");
   const [typed, setTyped] = useState("");

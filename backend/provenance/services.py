@@ -19,7 +19,7 @@ from documents.models import Attachment, Document
 from documents.services import Conflict
 from ethics.models import ApprovalStatus, EthicsApproval
 from labs.models import LabMembership, LabRole
-from projects.models import Project, ProjectDeadline, Task
+from projects.models import Project, ProjectDeadline, ProjectMembership, Task
 from provenance.models import (
     WORKFLOW_STAGES,
     Analysis,
@@ -62,7 +62,7 @@ SPECS = {
         A.DATASET_UPDATED,
         A.DATASET_DELETED,
         owner="created_by",
-        fks={"previous_version": (DatasetRecord, False)},
+        fks={"previous_version": (DatasetRecord, False), "data_file": (Attachment, True)},
         users=("controlled_by",),
     ),
     "analysis": Spec(
@@ -194,6 +194,9 @@ def _resolve(spec, project, data, *, actor, creating):
     if code is not None and is_flagged(code):  # VISION C1: Claude may run an analysis's code
         msg = "This file identifies participants, so it can't be attached as code."
         raise ValidationError({"code_attachment": msg})
+    file = data.get("data_file")
+    if file is not None and is_flagged(file):  # a marked file makes the dataset marked too
+        data["contains_participant_data"] = True
     for field in spec.users:
         if creating and data.get(field) is None:
             data[field] = actor  # D50: the person recording it, unless a lead says otherwise
@@ -229,6 +232,28 @@ def _keep_letter_private(obj):
         Attachment.objects.for_lab(obj.lab_id).filter(pk=obj.attachment_id).update(pi_only=True)
 
 
+def _mark_linked_file(obj, user, request):
+    """A marked dataset marks its linked file too, so no AI tool can read it that way."""
+    if obj.contains_participant_data and obj.data_file_id and not is_flagged(obj.data_file):
+        set_flag(obj.data_file, True, user=user, request=request)
+
+
+def _notify_controller(dataset, by, old_id) -> None:
+    """In-app only, and never for handing a dataset to yourself."""
+    new = dataset.controlled_by
+    if new is None or new.pk == old_id or new.pk == by.pk:
+        return
+    notify(
+        lab=dataset.lab,
+        recipient=new,
+        kind=NotificationKind.DATASET_CONTROLLER,
+        title=f"{by.display_name or by.email} gave you the dataset {dataset.name}"[:200],
+        body=dataset.project.name,
+        target=dataset,
+        dedupe_key=f"dataset_controller:{dataset.pk}:{uuid.uuid4()}",
+    )
+
+
 @transaction.atomic
 def create(kind, *, project, user, data, request=None):
     spec = SPECS[kind]
@@ -249,6 +274,8 @@ def create(kind, *, project, user, data, request=None):
     _keep_letter_private(obj)
     for field, items in m2m.items():
         getattr(obj, field).set(items)
+    if kind == "dataset":
+        _mark_linked_file(obj, user, request)
     record(spec.created, actor=user, lab=project.lab, target=obj, request=request)
     return obj
 
@@ -261,8 +288,18 @@ def update(kind, obj, *, user, data, request=None):
     flag = values.pop("contains_participant_data", None)  # its own audit event (VISION A3)
     if values.get("previous_version") == obj:
         raise ValidationError({"previous_version": "A dataset cannot be its own previous version."})
+    if kind == "dataset" and "data_file" in values and values["data_file"] is None:
+        current = obj.data_file_id
+        if (
+            current
+            and not Attachment.objects.visible_to(user, obj.lab_id).filter(pk=current).exists()
+        ):
+            del values["data_file"]  # a PI-only file this person cannot see stays linked
+    old_controller = obj.controlled_by_id if kind == "dataset" else None
     for key, value in values.items():
         setattr(obj, key, value)
+    if kind == "dataset" and obj.data_file_id and is_flagged(obj.data_file):
+        flag = True  # a dataset's mark cannot come off while its file is marked
     if kind == "analysis":
         _check_analysis(obj)
     _check_dates(obj)
@@ -272,6 +309,9 @@ def update(kind, obj, *, user, data, request=None):
         getattr(obj, field).set(items)
     if flag is not None:
         set_flag(obj, flag, user=user, request=request)
+    if kind == "dataset":
+        _mark_linked_file(obj, user, request)
+        _notify_controller(obj, user, old_controller)
     if not (values or m2m) and flag is not None:
         return obj
     record(
@@ -368,6 +408,17 @@ def workflow_progress(project, user) -> dict:
 def mark_workflow_stage(*, project, user, stage, done, request=None):
     if stage == "funding":
         require(user, Perm.ACCESS_FUNDING, project)
+    if stage == "review" and done:
+        waiting = list(
+            ReviewItem.objects.for_lab(project.lab_id)
+            .filter(project=project)
+            .exclude(status=ReviewStatus.APPROVED)
+            .values_list("title", flat=True)
+        )
+        if waiting:
+            raise ValidationError(
+                {"detail": "Review items still waiting: " + ", ".join(waiting) + "."}
+            )
     locked = Project.objects.for_lab(project.lab_id).select_for_update().get(pk=project.pk)
     marked = [s for s in locked.workflow_marked_done if s != stage] + ([stage] if done else [])
     locked.workflow_marked_done = marked
@@ -444,6 +495,14 @@ def export_project(*, project, user, context, request=None) -> dict:
         "attachments": files.filter(project=project, **live).select_related("uploaded_by"),
         **{PLURAL[kind]: queryset(kind, project, user) for kind in SPECS},
         "recruitment_plan": recruitment_plan(project),
+        "members": ProjectMembership.objects.for_lab(project.lab_id)
+        .filter(project=project)
+        .select_related("user")
+        .order_by("created_at", "id"),
+        # same visibility as the Ethics tab (D56)
+        "ethics_approvals": EthicsApproval.objects.visible_to(user, project.lab_id)
+        .filter(projects=project, deleted_at__isnull=True)
+        .order_by("approval_date", "id"),
     }
     record(
         AuditAction.PROJECT_EXPORTED,

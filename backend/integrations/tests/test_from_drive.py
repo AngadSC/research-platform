@@ -272,7 +272,11 @@ def test_edit_in_google_copies_into_your_drive_and_links_back(transport, world):
     assert event.actor == users["member"] and event.metadata["drive_file_id"] == COPY_ID
     assert event.metadata["source"] == "google_copy"
     sent_out = AuditEvent.objects.get(action=AuditAction.ATTACHMENT_DOWNLOADED, target_id=att.pk)
-    assert sent_out.metadata == {"via": "google_copy", "drive_file_id": COPY_ID}
+    assert sent_out.metadata == {
+        "via": "google_copy",
+        "drive_file_id": COPY_ID,
+        "participant_data": False,
+    }
 
 
 def test_edit_in_google_of_a_pi_only_file_stays_out_of_the_lab_admins_log(transport, world):
@@ -312,10 +316,13 @@ def test_edit_in_google_needs_your_own_google_connection(transport, world):
 
 
 @pytest.mark.parametrize("where", ["file", "folder"])
-def test_participant_data_never_goes_to_google(transport, world, where):
-    lab, users, project = world
+def test_participant_data_can_go_to_google_and_its_copy_stays_marked(transport, world, where):
+    """The owner's call: marked data usually came from Drive, so it may be copied there; the
+    copy keeps the mark, so AI tools never read it, and the send-out is audited as marked."""
+    from assistant.privacy import is_flagged
     from documents.models import Folder
 
+    lab, users, project = world
     folder = Folder.objects.create(
         lab=lab,
         project=project,
@@ -327,11 +334,17 @@ def test_participant_data_never_goes_to_google(transport, world, where):
     if where == "folder":  # moved in after upload: the folder alone counts
         Attachment.objects.for_lab(lab).filter(pk=att.pk).update(contains_participant_data=False)
     connect_drive(transport, users["member"], lab)
-    before = len(transport.calls)
+    transport.on("POST", google_drive.UPLOAD_URL, response(200, {"id": COPY_ID}))
+    google_doc = "application/vnd.google-apps.document"
+    copy = drive_file(id=COPY_ID, name="Notes", mimeType=google_doc, webViewLink=WEB)
+    transport.on("GET", COPY_URL, response(200, copy))
+
     r = edit_in_google(api(users["member"]), lab, att)
-    assert r.status_code == 400
-    assert err(r, "file") == "Files marked as identifying participants stay in labbenchos."
-    assert len(transport.calls) == before
+    assert r.status_code == 201, r.content
+    copy_row = Attachment.objects.for_lab(lab.pk).get(pk=r.json()["id"])
+    assert copy_row.contains_participant_data is True and is_flagged(copy_row)
+    sent_out = AuditEvent.objects.get(action=AuditAction.ATTACHMENT_DOWNLOADED, target_id=att.pk)
+    assert sent_out.metadata["participant_data"] is True
 
 
 def test_a_viewer_cannot_edit_in_google(transport, world):

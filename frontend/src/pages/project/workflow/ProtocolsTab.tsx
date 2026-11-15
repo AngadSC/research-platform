@@ -27,6 +27,7 @@ export default function ProtocolsTab({ labId, projectId, project }: ProjectTabPr
   const [using, setUsing] = useState<{ protocol: Protocol; reagent: Reagent } | null>(null);
   const [deleting, setDeleting] = useState<Protocol | null>(null);
   const canEdit = project.my_permissions.includes("edit_content");
+  const canAdd = canEdit && project.status !== "archived";
   const fail = (e: unknown) => toast.error(formErrors(e, []).form ?? "Something went wrong.");
 
   const usedCols: Column<InventoryUsage>[] = [
@@ -65,7 +66,7 @@ export default function ProtocolsTab({ labId, projectId, project }: ProjectTabPr
   return (
     <div className="grid gap-8">
       <section aria-label="Protocols" className="grid gap-3">
-        {canEdit && protocols.length > 0 && (
+        {canAdd && protocols.length > 0 && (
           <div className="flex justify-end">
             <Button onClick={() => setEditing("new")}>Add protocol</Button>
           </div>
@@ -80,7 +81,7 @@ export default function ProtocolsTab({ labId, projectId, project }: ProjectTabPr
                 : "Only editors can add protocols. Ask the project lead."
             }
             action={
-              canEdit ? <Button onClick={() => setEditing("new")}>Add protocol</Button> : undefined
+              canAdd ? <Button onClick={() => setEditing("new")}>Add protocol</Button> : undefined
             }
           />
         )}

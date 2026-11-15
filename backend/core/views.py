@@ -18,6 +18,7 @@ from core.auth import login_methods_for_email, sso_for_email
 from core.models import Notification, User
 from core.notifications import visible_notifications
 from core.permissions import Perm, get_lab_or_404, shares_a_lab
+from core.recents import prune_recents
 from core.search import MAX_Q, SPECS, search
 from core.serializers import MeSerializer, NotificationSerializer
 
@@ -66,6 +67,10 @@ class MeView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+    def retrieve(self, request, *args, **kwargs):
+        prune_recents(request.user)
+        return super().retrieve(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
         # Lock the row and re-read it, so two saves at once (the zone sync and the recent-items

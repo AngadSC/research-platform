@@ -50,6 +50,7 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "document.viewed": "Viewed a document",
   "document.restored": "Restored a document",
   "document.deleted": "Deleted a document",
+  "document.owner_changed": "Gave a document a new owner",
   "attachment.uploaded": "Uploaded a file",
   "attachment.downloaded": "Downloaded a file",
   "attachment.deleted": "Deleted a file",

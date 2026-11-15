@@ -110,7 +110,9 @@ def test_cannot_assign_viewer(world):
     world["pm"].role = ProjectRole.VIEWER
     world["pm"].save()
     with pytest.raises(ValidationError):
-        services.update_task(task=world["open"], data={"assignee": world["worker"].pk})
+        services.update_task(
+            task=world["open"], by=world["pi"], data={"assignee": world["worker"].pk}
+        )
 
 
 def test_handover_lists_still_unassigned_only(world):

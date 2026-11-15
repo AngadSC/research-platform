@@ -380,7 +380,9 @@ export function PapersPage() {
             description={
               q
                 ? "Try fewer or different words."
-                : "Add a paper the lab has read, then share notes on it."
+                : canAdd
+                  ? "Add a paper the lab has read, then share notes on it."
+                  : "Papers the lab adds will show here."
             }
           />
         }

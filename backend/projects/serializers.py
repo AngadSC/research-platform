@@ -1,7 +1,7 @@
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from core.permissions import PROJECT_PERMS, Perm, can, project_role
+from core.permissions import PROJECT_PERMS, Perm, can, member_change_refusal, project_role
 from core.serializers import SaneDateTimeField, UserSerializer, no_control_chars
 from projects import templates
 from projects.models import (
@@ -74,11 +74,23 @@ class ProjectCreateSerializer(ProjectInputSerializer):
 
 class ProjectMembershipSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
+    can_change = serializers.SerializerMethodField()
 
     class Meta:
         model = ProjectMembership
-        fields = ["id", "project", "user", "role", "created_at"]
+        fields = ["id", "project", "user", "role", "created_at", "can_change"]
         read_only_fields = fields
+
+    def get_can_change(self, m) -> bool:
+        """Whether the reader may change this person's role or remove them, so the page hides
+        what the server would refuse (core.permissions.member_change_refusal)."""
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        return bool(
+            user is not None
+            and can(user, Perm.MANAGE_PROJECT_MEMBERS, m.project)
+            and member_change_refusal(user, m) is None
+        )
 
 
 class ProjectMembershipCreateSerializer(serializers.Serializer):

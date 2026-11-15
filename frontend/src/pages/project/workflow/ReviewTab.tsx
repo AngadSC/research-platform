@@ -83,9 +83,10 @@ export default function ReviewTab(props: ProjectTabProps) {
         ]
       : []),
   ];
-  const add = canEdit ? (
-    <Button onClick={() => setEditing("new")}>Request a review</Button>
-  ) : undefined;
+  const add =
+    canEdit && project.status !== "archived" ? (
+      <Button onClick={() => setEditing("new")}>Request a review</Button>
+    ) : undefined;
 
   return (
     <div className="grid gap-8">

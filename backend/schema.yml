@@ -1044,6 +1044,12 @@ paths:
           type: string
           format: uuid
         required: true
+      - in: query
+        name: stream
+        schema:
+          type: boolean
+        description: '1: send the bytes from this server, never a storage redirect
+          (for reading a file in the page).'
       tags:
       - labs
       security:
@@ -1159,6 +1165,7 @@ paths:
           - document.viewed
           - document.restored
           - document.deleted
+          - document.owner_changed
           - attachment.uploaded
           - attachment.downloaded
           - attachment.deleted
@@ -1324,6 +1331,7 @@ paths:
           * `document.viewed` - Document Viewed
           * `document.restored` - Document Restored
           * `document.deleted` - Document Deleted
+          * `document.owner_changed` - Document Owner Changed
           * `attachment.uploaded` - Attachment Uploaded
           * `attachment.downloaded` - Attachment Downloaded
           * `attachment.deleted` - Attachment Deleted
@@ -2604,6 +2612,45 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/ItemMove'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/documents/{document_id}/owner/:
+    post:
+      operationId: labs_documents_owner_create
+      description: |-
+        Give a document a new owner from the handover page. Same rule as the handover's other
+        reassignments (D251): manage_project_members on its project, so its leads, PIs and lab
+        admins. Lab-wide documents are not in any handover, so they are a 404 here.
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentOwner'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DocumentOwner'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DocumentOwner'
         required: true
       security:
       - sessionAuth: []
@@ -10988,6 +11035,7 @@ components:
       - document.viewed
       - document.restored
       - document.deleted
+      - document.owner_changed
       - attachment.uploaded
       - attachment.downloaded
       - attachment.deleted
@@ -11152,6 +11200,7 @@ components:
         * `document.viewed` - Document Viewed
         * `document.restored` - Document Restored
         * `document.deleted` - Document Deleted
+        * `document.owner_changed` - Document Owner Changed
         * `attachment.uploaded` - Attachment Uploaded
         * `attachment.downloaded` - Attachment Downloaded
         * `attachment.deleted` - Attachment Deleted
@@ -11565,6 +11614,9 @@ components:
           allOf:
           - $ref: '#/components/schemas/AttachmentSourceEnum'
           readOnly: true
+        pi_only:
+          type: boolean
+          readOnly: true
       required:
       - contains_participant_data
       - content_type
@@ -11577,6 +11629,7 @@ components:
       - id
       - notice_acknowledged_at
       - original_filename
+      - pi_only
       - project
       - sha256
       - size_bytes
@@ -13106,6 +13159,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/DatasetRef'
           readOnly: true
+        data_file:
+          allOf:
+          - $ref: '#/components/schemas/AttachmentRef'
+          readOnly: true
         analyses:
           type: array
           items:
@@ -13134,6 +13191,7 @@ components:
       - controlled_by
       - created_at
       - created_by
+      - data_file
       - id
       - location_text
       - location_url
@@ -13170,6 +13228,10 @@ components:
           type: string
           maxLength: 140
         previous_version:
+          type: string
+          format: uuid
+          nullable: true
+        data_file:
           type: string
           format: uuid
           nullable: true
@@ -13676,6 +13738,14 @@ components:
       - updated_at
       - updated_by
       - version
+    DocumentOwner:
+      type: object
+      properties:
+        owner:
+          type: string
+          format: uuid
+      required:
+      - owner
     DocumentRef:
       type: object
       properties:
@@ -14001,6 +14071,14 @@ components:
             $ref: '#/components/schemas/ExternalOutput'
         recruitment_plan:
           $ref: '#/components/schemas/RecruitmentPlan'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExportMember'
+        ethics_approvals:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExportEthics'
       required:
       - analyses
       - attachments
@@ -14008,16 +14086,52 @@ components:
       - deadlines
       - decisions
       - documents
+      - ethics_approvals
       - exported_at
       - external_outputs
       - funding
       - manuscripts
+      - members
       - project
       - recruitment_entries
       - recruitment_plan
       - results
       - review_items
       - tasks
+    ExportEthics:
+      type: object
+      properties:
+        approval_number:
+          type: string
+        board:
+          type: string
+        approval_date:
+          type: string
+          format: date
+        expiry_date:
+          type: string
+          format: date
+        status:
+          type: string
+      required:
+      - approval_date
+      - approval_number
+      - board
+      - expiry_date
+      - status
+    ExportMember:
+      type: object
+      description: 'Name and role only: the export is shared outside the lab, so no
+        email.'
+      properties:
+        name:
+          type: string
+          readOnly: true
+        role:
+          type: string
+      required:
+      - name
+      - role
     ExternalLink:
       type: object
       properties:
@@ -16248,6 +16362,10 @@ components:
       - training_expiry
       - training_digest
       - mention
+      - project_role
+      - project_archived
+      - document_owner
+      - dataset_controller
       type: string
       description: |-
         * `ethics_expiry` - Ethics Expiry
@@ -16261,6 +16379,10 @@ components:
         * `training_expiry` - Training Expiry
         * `training_digest` - Training Digest
         * `mention` - Mention
+        * `project_role` - Project Role
+        * `project_archived` - Project Archived
+        * `document_owner` - Document Owner
+        * `dataset_controller` - Dataset Controller
     NullEnum:
       enum:
       - null
@@ -17402,6 +17524,10 @@ components:
           type: string
           format: uuid
           nullable: true
+        data_file:
+          type: string
+          format: uuid
+          nullable: true
         contains_participant_data:
           type: boolean
     PatchedDeadlineInput:
@@ -18402,7 +18528,14 @@ components:
           type: string
           format: date-time
           readOnly: true
+        can_change:
+          type: boolean
+          description: |-
+            Whether the reader may change this person's role or remove them, so the page hides
+            what the server would refuse (core.permissions.member_change_refusal).
+          readOnly: true
       required:
+      - can_change
       - created_at
       - id
       - project
@@ -19767,6 +19900,7 @@ components:
     TemplateEnum:
       enum:
       - conference_poster
+      - experiment
       - honours_thesis
       - ra_onboarding
       - secondary_data_analysis
@@ -19775,6 +19909,7 @@ components:
       type: string
       description: |-
         * `conference_poster` - conference_poster
+        * `experiment` - experiment
         * `honours_thesis` - honours_thesis
         * `ra_onboarding` - ra_onboarding
         * `secondary_data_analysis` - secondary_data_analysis

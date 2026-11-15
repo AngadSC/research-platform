@@ -94,6 +94,7 @@ const saved = () =>
 const wideBefore = window.matchMedia;
 
 beforeEach(() => {
+  window.innerWidth = 1920; // wide enough that the page-keeps-640px cap does not bind
   document.cookie = "csrftoken=test";
   localStorage.clear();
   window.matchMedia = ((query: string) => ({

@@ -1,4 +1,4 @@
-import { FlaskConical, Plus } from "lucide-react";
+import { BarChart3, FlaskConical, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
@@ -63,7 +63,10 @@ export function SectionLists({
             {...props}
             kind={kind}
             navigate={navigate}
-            canEdit={props.project.my_permissions.includes("edit_content")}
+            canEdit={
+              props.project.my_permissions.includes("edit_content") &&
+              props.project.status !== "archived"
+            }
             base={projectBase(props)}
           />
         </section>
@@ -136,9 +139,9 @@ const sortVersions = (all: Dataset[]) =>
   );
 
 /** The dataset columns, with a chip on versions that replace or have been replaced. */
-function datasetColumns(all: Dataset[]): Column<AnyRecord>[] {
+function datasetColumns(all: Dataset[], base: string): Column<AnyRecord>[] {
   const replaced = new Set(all.map((d) => d.previous_version?.id));
-  return COLUMNS.datasets.map((c) =>
+  const mapped: Column<AnyRecord>[] = COLUMNS.datasets.map((c) =>
     c.key !== "v"
       ? c
       : {
@@ -158,6 +161,26 @@ function datasetColumns(all: Dataset[]): Column<AnyRecord>[] {
           },
         },
   );
+  return [
+    ...mapped,
+    {
+      key: "analyse",
+      header: "",
+      className: "text-right",
+      cell: (r) =>
+        (r as Dataset).data_file ? (
+          <Button asChild variant="ghost" size="sm">
+            <Link
+              to={`${base}/analyse?dataset=${r.id}`}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={`Analyse ${(r as Dataset).name}`}
+            >
+              Analyse
+            </Link>
+          </Button>
+        ) : null,
+    },
+  ];
 }
 
 function List({
@@ -205,9 +228,20 @@ function List({
   ) : undefined;
   return (
     <div className="grid gap-4">
-      {(list.data?.length ?? 0) > 0 && <div className="flex justify-end">{add}</div>}
+      {((list.data?.length ?? 0) > 0 || kind === "analyses") && (
+        <div className="flex flex-wrap justify-end gap-2">
+          {kind === "analyses" && (
+            <Button asChild variant="outline">
+              <Link to={`${base}/analyse`}>
+                <BarChart3 aria-hidden /> Run statistics
+              </Link>
+            </Button>
+          )}
+          {(list.data?.length ?? 0) > 0 && add}
+        </div>
+      )}
       <DataTable
-        columns={kind === "datasets" ? datasetColumns(rows as Dataset[]) : COLUMNS[kind]}
+        columns={kind === "datasets" ? datasetColumns(rows as Dataset[], base) : COLUMNS[kind]}
         rows={rows}
         getRowKey={(r) => r.id}
         loading={list.isLoading}
@@ -389,6 +423,10 @@ function fields(kind: Kind, r: AnyRecord, labId: string, base: string): [string,
         ["Access controlled by", who(d.controlled_by)],
         ["How to get access", d.access_notes || "None"],
         ["Checksum", d.checksum || "None"],
+        [
+          "Project file",
+          <Files key="df" labId={labId} base={base} items={d.data_file ? [d.data_file] : []} />,
+        ],
         [
           "Identifies participants",
           d.contains_participant_data ? <ParticipantBadge key="pd" /> : "No",

@@ -151,3 +151,53 @@ def test_retention_notice_for_a_flagged_document_says_nothing_about_it(world, ct
     out = run(ctx(world.u.pi, world.lab_a), "my_notifications", lab_id=str(world.lab_a.pk))
     assert "Retention review: an item marked as identifying participants" in out
     assert MARK not in out
+
+
+# ---------------------------------------------------------------- a dataset and its linked file
+
+
+def _file_and_dataset(world, **dataset):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    from provenance import services as provenance_services
+
+    pi = world.u.pi
+    file = document_services.upload_attachment(
+        user=pi,
+        project=world.p1,
+        file=SimpleUploadedFile("scores.txt", b"scores", content_type="text/plain"),
+    )
+    ds = provenance_services.create(
+        "dataset",
+        project=world.p1,
+        user=pi,
+        data={"name": "Scores", "version_label": "v1", "data_file": file.pk, **dataset},
+    )
+    return file, ds
+
+
+def test_marking_a_dataset_marks_its_linked_file(world, ctx):
+    file, ds = _file_and_dataset(world, contains_participant_data=True)
+    file.refresh_from_db()
+    assert file.contains_participant_data
+    c = ctx(world.u.pi, world.lab_a)
+    with pytest.raises(tools.ToolError) as exc:
+        tools.call(c, "read_file", {"lab_id": str(world.lab_a.pk), "file_id": str(file.pk)})
+    assert str(exc.value) == privacy.REFUSAL
+
+
+def test_a_datasets_mark_cannot_come_off_while_its_file_is_marked(world):
+    from provenance import services as provenance_services
+
+    file, ds = _file_and_dataset(world)
+    privacy.set_flag(file, True, user=world.u.pi)  # marking the file marks the dataset
+    ds.refresh_from_db()
+    assert ds.contains_participant_data
+    provenance_services.update(
+        "dataset", ds, user=world.u.pi, data={"contains_participant_data": False}
+    )
+    ds.refresh_from_db()
+    assert ds.contains_participant_data
+    privacy.set_flag(file, False, user=world.u.pi)  # unmarking the file leaves the dataset alone
+    ds.refresh_from_db()
+    assert ds.contains_participant_data

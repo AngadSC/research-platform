@@ -79,7 +79,8 @@ describe("mentions", () => {
     expect(e.start).toBe(e.value.length);
   });
   it("keeps brackets in a name from breaking the token", () => {
-    expect(mentionToken("A [x](y)", "u")).toBe("@[A xy](user:u)");
+    expect(mentionToken("A [x](y)", "u")).toBe("@[A x(y)](user:u)");
+    expect(mentionToken("Lee Lead (FAKE)", "u")).toBe("@[Lee Lead (FAKE)](user:u)");
   });
 });
 
@@ -156,7 +157,7 @@ describe("mentions shown as names (D295)", () => {
 
   it("works with names that hold brackets, and with text that has no @", () => {
     const index = nameIndex([{ id: ID_A, name: "Ada (PI)" }], "");
-    expect(toStored("@Ada PI hi", index)).toBe(`${mentionToken("Ada (PI)", ID_A)} hi`);
+    expect(toStored("@Ada (PI) hi", index)).toBe(`${mentionToken("Ada (PI)", ID_A)} hi`);
     expect(toStored("plain text", index)).toBe("plain text");
     expect(toStored("anything @x", new Map())).toBe("anything @x");
   });

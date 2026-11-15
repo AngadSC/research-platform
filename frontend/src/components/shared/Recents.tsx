@@ -38,11 +38,15 @@ export function Recents() {
         Recent
       </h2>
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {recents.map((r) => {
+        {recents.map((r, i) => {
           const Icon = ICONS[r.kind];
           const project = projects.find((p) => p.id === PROJECT_IN_URL.exec(r.url)?.[1]);
           return (
-            <li key={r.url} style={project ? projectColorStyle(project.color) : undefined}>
+            <li
+              key={r.url}
+              className={i >= 4 ? "hidden sm:block" : undefined}
+              style={project ? projectColorStyle(project.color) : undefined}
+            >
               <Link
                 to={r.url}
                 className="glass flex items-start gap-3 rounded-2xl p-3 text-sm transition-[box-shadow,transform] duration-[var(--dur)] ease-[var(--ease-glass)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-glass-2)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"

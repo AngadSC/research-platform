@@ -48,9 +48,24 @@
 	# Unknown paths fall back to index.html so client-side routes survive a reload.
 	# Built assets have hashed names, so they never change: cache them for good, and answer a
 	# missing one with 404 instead of index.html (a stale page then fails loudly, not blank).
+	# handle blocks are exclusive, so the page's CSP below never reaches these files. A worker
+	# script runs under the CSP of its own response, so the statistics engine's worker (Vite names
+	# it worker-<hash>.js after src/lib/stats/worker.ts) gets one here: same-origin scripts and
+	# WebAssembly only, no network beyond this site. Only that file: the PDF.js worker keeps
+	# running as before.
 	handle /assets/* {
 		root * /srv
 		header Cache-Control "public, max-age=31536000, immutable"
+		header /assets/worker-* Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+		file_server
+	}
+
+	# The statistics engine's Python runtime and packages (frontend/scripts/fetch-pyodide.mjs). The
+	# path names the Pyodide version, so these files never change either.
+	handle /pyodide/* {
+		root * /srv
+		header Cache-Control "public, max-age=31536000, immutable"
+		header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
 		file_server
 	}
 
@@ -67,6 +82,8 @@
 		# documents.embed can produce: Google Docs and Microsoft Office. The Edit here frame for
 		# linked Drive files (D239) is also docs.google.com, so it needs no further entry.
 		# form-action needs accounts.google.com because the sign-in form POST redirects there.
-		header Content-Security-Policy "default-src 'self'; script-src 'self' https://apis.google.com/js/api.js https://apis.google.com/_/scs/ https://www.gstatic.com/_/; frame-src https://content.googleapis.com https://docs.google.com https://drive.google.com https://accounts.google.com https://*.sharepoint.com https://onedrive.live.com https://*.officeapps.live.com; connect-src 'self' https://content.googleapis.com https://apis.google.com https://docs.google.com https://drive.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.googleusercontent.com https://ssl.gstatic.com; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com; frame-ancestors 'none'"
+		# 'wasm-unsafe-eval' lets the statistics engine (Pyodide) compile WebAssembly; it does not
+		# allow eval() of JavaScript.
+		header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://apis.google.com/js/api.js https://apis.google.com/_/scs/ https://www.gstatic.com/_/; frame-src https://content.googleapis.com https://docs.google.com https://drive.google.com https://accounts.google.com https://*.sharepoint.com https://onedrive.live.com https://*.officeapps.live.com; connect-src 'self' https://content.googleapis.com https://apis.google.com https://docs.google.com https://drive.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.googleusercontent.com https://ssl.gstatic.com; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com; frame-ancestors 'none'"
 	}
 }

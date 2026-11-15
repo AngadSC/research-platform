@@ -60,6 +60,10 @@ class DocumentSaveSerializer(serializers.Serializer):
     retention_note = serializers.CharField(allow_blank=True, required=False)
 
 
+class DocumentOwnerSerializer(serializers.Serializer):
+    owner = serializers.UUIDField()
+
+
 class ItemMoveSerializer(serializers.Serializer):
     """`folder: null` moves the item to the project's top level."""
 
@@ -145,6 +149,7 @@ class AttachmentSerializer(serializers.ModelSerializer):
             "copied_from",
             "contains_participant_data",
             "source",
+            "pi_only",  # D244: a grant letter; listed only to people who may open it
         ]
         read_only_fields = fields
 

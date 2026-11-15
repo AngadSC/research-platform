@@ -26,6 +26,7 @@ import { MyWorkPage } from "@/pages/MyWorkPage";
 import { FilesRedirect, ProjectPage, ProjectTab } from "@/pages/ProjectPage";
 import DocumentsTab from "@/pages/project/DocumentsTab";
 import ExternalTab from "@/pages/project/ExternalTab";
+import LazyAnalyse from "@/pages/project/analyse/LazyAnalyse";
 import PdfViewerRoute from "@/pages/project/PdfViewerRoute";
 import OverviewTab from "@/pages/project/OverviewTab";
 import { ResearchDetail, ResearchNew } from "@/pages/project/ResearchTab";
@@ -238,6 +239,11 @@ export const routes: RouteObject[] = [
                             handle: { crumb: "View file" },
                           },
                         ],
+                      },
+                      {
+                        path: "analyse",
+                        element: <ProjectTab as={LazyAnalyse} />,
+                        handle: { crumb: "Statistics" },
                       },
                       { path: "lineage", element: <LineageRedirect /> },
                       // D132: the old Research tab is the Workflow tab; its addresses redirect.

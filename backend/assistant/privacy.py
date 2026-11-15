@@ -58,7 +58,7 @@ def is_flagged(obj) -> bool:
 def set_flag(obj, value: bool, *, user, request=None):
     """Tick or clear the box on a folder, document, file or dataset, with an audit event. The
     caller has checked the person may edit `obj`. Ticking a folder ticks everything inside it,
-    all the way down; clearing it leaves the contents as they are."""
+    all the way down; ticking a file ticks the datasets that link it; clearing leaves them be."""
     old = obj.contains_participant_data
     if old == value:
         return obj
@@ -70,6 +70,12 @@ def set_flag(obj, value: bool, *, user, request=None):
     record(
         _CHANGED[type(obj)], actor=user, lab=obj.lab, target=obj, request=request, metadata=metadata
     )
+    if value and isinstance(obj, Attachment):  # a dataset linking a marked file is marked too
+        linked = DatasetRecord.objects.for_lab(obj.lab_id).filter(
+            data_file=obj, contains_participant_data=False
+        )
+        for dataset in linked:
+            set_flag(dataset, True, user=user, request=request)
     return obj
 
 

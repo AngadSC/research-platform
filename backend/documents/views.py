@@ -24,6 +24,7 @@ from documents.serializers import (
     ConflictSerializer,
     DocumentCreateSerializer,
     DocumentListSerializer,
+    DocumentOwnerSerializer,
     DocumentSaveSerializer,
     DocumentSerializer,
     FolderCreateSerializer,
@@ -35,6 +36,7 @@ from documents.serializers import (
     RevisionSerializer,
 )
 from ethics.models import EthicsApproval
+from projects.services import ARCHIVED_MESSAGE, refuse_if_archived
 
 
 class ProjectPermMixin(LabScopedViewMixin):
@@ -109,6 +111,8 @@ class DocumentListCreateView(DocumentMixin, generics.GenericAPIView):
 
     @extend_schema(request=DocumentCreateSerializer, responses={201: DocumentSerializer})
     def post(self, request, lab_id, project_id):
+        if self.project.status == "archived":
+            raise ValidationError({"detail": ARCHIVED_MESSAGE})
         ser = DocumentCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         data = dict(ser.validated_data)
@@ -210,6 +214,29 @@ class DocumentMoveView(DocumentMixin, generics.GenericAPIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class DocumentOwnerView(DocumentMixin, generics.GenericAPIView):
+    """Give a document a new owner from the handover page. Same rule as the handover's other
+    reassignments (D251): manage_project_members on its project, so its leads, PIs and lab
+    admins. Lab-wide documents are not in any handover, so they are a 404 here."""
+
+    serializer_class = DocumentOwnerSerializer
+    lookup_url_kwarg = "document_id"
+    allow_lab_wide = False
+    perms = {"POST": Perm.MANAGE_PROJECT_MEMBERS}
+
+    @extend_schema(request=DocumentOwnerSerializer, responses={204: None})
+    def post(self, request, lab_id, document_id):
+        ser = self.get_serializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        services.change_owner(
+            self.get_object(),
+            user=request.user,
+            owner_id=ser.validated_data["owner"],
+            request=request,
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class RevisionMixin(DocumentMixin):
     model = DocumentRevision
     lookup_url_kwarg = "version"
@@ -301,6 +328,7 @@ class AttachmentListCreateView(AttachmentMixin, generics.GenericAPIView):
 
     @extend_schema(request=AttachmentUploadSerializer, responses={201: AttachmentSerializer})
     def post(self, request, lab_id, project_id):
+        refuse_if_archived(self.project)
         ser = AttachmentUploadSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         pi_only = ser.validated_data["pi_only"]
@@ -389,7 +417,17 @@ class AttachmentDownloadView(AttachmentMixin, generics.GenericAPIView):
         if not can_view_ethics_files(request.user, self.ethics_approval):
             raise PermissionDenied
 
-    @extend_schema(responses={(200, "application/octet-stream"): bytes})
+    @extend_schema(
+        responses={(200, "application/octet-stream"): bytes},
+        parameters=[
+            OpenApiParameter(
+                "stream",
+                bool,
+                description="1: send the bytes from this server, never a storage redirect "
+                "(for reading a file in the page).",
+            )
+        ],
+    )
     def get(self, request, lab_id, attachment_id):
         """ARCHITECTURE section 8: scoped lookup, permission, audit, then stream."""
         if self.ethics_approval is not None:
@@ -424,6 +462,7 @@ class FolderListCreateView(FolderMixin, generics.GenericAPIView):
 
     @extend_schema(request=FolderCreateSerializer, responses={201: FolderSerializer})
     def post(self, request, lab_id, project_id):
+        refuse_if_archived(self.project)
         ser = FolderCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         folder = services.create_folder(
@@ -478,8 +517,11 @@ def download_response(request, attachment):
         return HttpResponseRedirect(attachment.external_url)
     inline = attachment.content_type == "application/pdf"  # shown by PDF.js
     # D123: only forced downloads are presigned. Anything shown inline streams through
-    # Django, which is the only place `nosniff` and `CSP: sandbox` can be set.
-    if settings.LAB_FILES_BUCKET and not settings.LAB_FILES_STREAM_DOWNLOADS and not inline:
+    # Django, which is the only place `nosniff` and `CSP: sandbox` can be set. `?stream=1` is
+    # for the app's own fetch() (the statistics page): a bucket redirect fails there (CSP
+    # connect-src, bucket CORS), so those bytes stream too, still as a forced download.
+    stream = inline or request.GET.get("stream") == "1"
+    if settings.LAB_FILES_BUCKET and not settings.LAB_FILES_STREAM_DOWNLOADS and not stream:
         return _presigned_redirect(attachment)
     try:
         handle = storages["lab_files"].open(attachment.storage_key, "rb")

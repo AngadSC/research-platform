@@ -52,9 +52,10 @@ export function LinkedFiles({
               <ExternalLinkItem
                 key={l.id}
                 link={l}
+                canEdit={canEdit}
                 actions={
                   <>
-                    {!l.check_blocked && (
+                    {!l.check_blocked && (canEdit || !l.unavailable_since) && (
                       <Button
                         variant="ghost"
                         size="sm"

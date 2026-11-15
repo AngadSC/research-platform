@@ -160,8 +160,9 @@ export function TaskFiles({
       <UploadDialog
         open={uploading}
         onOpenChange={setUploading}
-        send={async (file, onProgress) => {
-          const a = await files.uploadFile.mutateAsync({ file, onProgress });
+        participant={false}
+        send={async (file, onProgress, participant) => {
+          const a = await files.uploadFile.mutateAsync({ file, onProgress, participant });
           await attach.mutateAsync({ kind: "attachments", id: a.id });
         }}
       />
