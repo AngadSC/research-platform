@@ -733,6 +733,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/chat/google/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description D318: the lab chat's link to a Google Chat space. Everyone sees whether it is linked, so
+         *     the composer can say where messages also go; `manage_lab_integrations` links and unlinks.
+         */
+        get: operations["labs_chat_google_retrieve"];
+        /**
+         * @description D318: the lab chat's link to a Google Chat space. Everyone sees whether it is linked, so
+         *     the composer can say where messages also go; `manage_lab_integrations` links and unlinks.
+         */
+        put: operations["labs_chat_google_update"];
+        post?: never;
+        /**
+         * @description D318: the lab chat's link to a Google Chat space. Everyone sees whether it is linked, so
+         *     the composer can say where messages also go; `manage_lab_integrations` links and unlinks.
+         */
+        delete: operations["labs_chat_google_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/chat/google/spaces/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The spaces the caller's own Google Chat connection is in, to pick one (D318). */
+        get: operations["labs_chat_google_spaces_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/chat/messages/": {
         parameters: {
             query?: never;
@@ -744,8 +789,8 @@ export interface paths {
         get: operations["labs_chat_messages_list"];
         put?: never;
         /**
-         * @description The project chat's API (D206, D207) for the whole lab. Same message shape, so the same
-         *     serializers: they only read `id`, `author`, `body` and `created_at`.
+         * @description The project chat's API (D206, D207) for the whole lab. The same message shape plus where a
+         *     message came from (D316), since the lab chat can be linked to Google Chat.
          */
         post: operations["labs_chat_messages_create"];
         delete?: never;
@@ -765,10 +810,27 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * @description The project chat's API (D206, D207) for the whole lab. Same message shape, so the same
-         *     serializers: they only read `id`, `author`, `body` and `created_at`.
+         * @description The project chat's API (D206, D207) for the whole lab. The same message shape plus where a
+         *     message came from (D316), since the lab chat can be linked to Google Chat.
          */
         delete: operations["labs_chat_messages_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/chat/messages/{labchatmessage_id}/reactions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description D321: add or take away your emoji on a lab chat message. */
+        post: operations["labs_chat_messages_reactions_create"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -784,8 +846,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description The project chat's API (D206, D207) for the whole lab. Same message shape, so the same
-         *     serializers: they only read `id`, `author`, `body` and `created_at`.
+         * @description The project chat's API (D206, D207) for the whole lab. The same message shape plus where a
+         *     message came from (D316), since the lab chat can be linked to Google Chat.
          */
         post: operations["labs_chat_messages_read_create"];
         delete?: never;
@@ -1766,6 +1828,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/link-preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description D322: a web page's title and description, for a link pasted in chat. Any member; the
+         *     page is read by the server through the SSRF-safe client, and the answer is plain text.
+         */
+        get: operations["labs_link_preview_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/manuscripts/{manuscriptlink_id}/": {
         parameters: {
             query?: never;
@@ -1876,6 +1958,23 @@ export interface paths {
          *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
          */
         delete: operations["labs_messages_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/messages/{chatmessage_id}/reactions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description D321: add or take away your emoji on a message. Whoever can read the chat can react. */
+        post: operations["labs_messages_reactions_create"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2798,6 +2897,66 @@ export interface paths {
          *     project and prefetches every nested link, so no list or detail makes per-row queries.
          */
         post: operations["labs_projects_funding_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/google-chat/import/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Project-nested: read with the caller's own Google Chat connection, so they see only the
+         *     spaces they are in, and import into a project they can add documents to.
+         */
+        post: operations["labs_projects_google_chat_import_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/google-chat/spaces/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Project-nested: read with the caller's own Google Chat connection, so they see only the
+         *     spaces they are in, and import into a project they can add documents to.
+         */
+        get: operations["labs_projects_google_chat_spaces_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/google-chat/threads/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Project-nested: read with the caller's own Google Chat connection, so they see only the
+         *     spaces they are in, and import into a project they can add documents to.
+         */
+        get: operations["labs_projects_google_chat_threads_list"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4545,6 +4704,8 @@ export interface components {
          *     * `meeting.deleted` - Meeting Deleted
          *     * `calendar_feed.created` - Calendar Feed Created
          *     * `calendar_feed.revoked` - Calendar Feed Revoked
+         *     * `google_chat.linked` - Google Chat Linked
+         *     * `google_chat.unlinked` - Google Chat Unlinked
          *     * `onboarding_item.created` - Onboarding Item Created
          *     * `onboarding_item.updated` - Onboarding Item Updated
          *     * `onboarding_item.deleted` - Onboarding Item Deleted
@@ -4621,7 +4782,7 @@ export interface components {
          *     * `file_link.created` - File Link Created
          * @enum {string}
          */
-        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "participant.created" | "participant.updated" | "participant.archived" | "participant.restored" | "participant_component.created" | "participant_component.updated" | "participant_component.deleted" | "participant_cell.changed" | "participant_file.added" | "participant_file.changed" | "participant_file.removed" | "participant_reason.changed" | "participant.identifier_blocked" | "participant.imported" | "participant.import_undone" | "participant.files_matched" | "participant.links_checked" | "participant.tasks_created" | "participant_rule.saved" | "participant_rule.archived" | "participant_set.locked" | "participant_flow.exported" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
+        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "google_chat.linked" | "google_chat.unlinked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "participant.created" | "participant.updated" | "participant.archived" | "participant.restored" | "participant_component.created" | "participant_component.updated" | "participant_component.deleted" | "participant_cell.changed" | "participant_file.added" | "participant_file.changed" | "participant_file.removed" | "participant_reason.changed" | "participant.identifier_blocked" | "participant.imported" | "participant.import_undone" | "participant.files_matched" | "participant.links_checked" | "participant.tasks_created" | "participant_rule.saved" | "participant_rule.archived" | "participant_set.locked" | "participant_flow.exported" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
         /**
          * @description * `read` - Read
          *     * `write` - Write
@@ -4945,11 +5106,13 @@ export interface components {
             /** Format: date */
             readonly due_date: string;
         };
+        /** @description D321: each emoji, how many, and whether the reader is one of them. */
         ChatMessage: {
             /** Format: uuid */
             readonly id: string;
             readonly author: components["schemas"]["User"];
             readonly body: string;
+            readonly reactions: components["schemas"]["Reaction"][];
             /** Format: date-time */
             readonly created_at: string;
         };
@@ -5935,6 +6098,48 @@ export interface components {
             last_synced_at: string | null;
             last_error: string;
         };
+        /**
+         * @description What every member sees of the link; `last_error` and `last_polled_at` help whoever
+         *     manages it.
+         */
+        GoogleChatBridge: {
+            readonly space: string;
+            readonly space_name: string;
+            readonly linked_by: components["schemas"]["User"];
+            /** Format: date-time */
+            readonly last_polled_at: string | null;
+            readonly last_error: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        GoogleChatImportInput: {
+            space: string;
+            thread: string;
+        };
+        GoogleChatLinkInput: {
+            space: string;
+        };
+        GoogleChatSpace: {
+            name: string;
+            display_name: string;
+        };
+        GoogleChatStatus: {
+            bridge: components["schemas"]["GoogleChatBridge"] | null;
+            /** @description The site has a Google Chat app set up. */
+            configured: boolean;
+            /** @description You have connected Google Chat in this lab. */
+            connected: boolean;
+            can_manage: boolean;
+        };
+        GoogleChatThread: {
+            name: string;
+            /** @description The thread's first words. */
+            first: string;
+            /** @description Messages among the space's recent ones. */
+            count: number;
+            /** Format: date-time */
+            last_at: string;
+        };
         /** @description One of your own Google Calendar events, read live and never stored (D256). */
         GoogleEvent: {
             id: string;
@@ -6237,6 +6442,27 @@ export interface components {
             readonly my_role: string | null;
             readonly my_permissions: string[];
         };
+        /**
+         * @description The project chat's shape plus where it came from. `author` is null for a message from
+         *     someone in Google Chat who has no connected account here; `external_author` names them.
+         */
+        LabChatMessage: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly author: components["schemas"]["User"] | null;
+            readonly external_author: string;
+            readonly source: components["schemas"]["LabChatMessageSourceEnum"];
+            readonly body: string;
+            readonly reactions: components["schemas"]["Reaction"][];
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `app` - App
+         *     * `google_chat` - Google Chat
+         * @enum {string}
+         */
+        LabChatMessageSourceEnum: "app" | "google_chat";
         LabEvent: {
             /** Format: uuid */
             readonly id: string;
@@ -6375,6 +6601,14 @@ export interface components {
          * @enum {string}
          */
         LinkMethodsEnum: "picker" | "search" | "paste_url";
+        /** @description D322: plain text only; the client shows it as text, never as markup. */
+        LinkPreview: {
+            url: string;
+            host: string;
+            title: string;
+            description: string;
+            site_name: string;
+        };
         /**
          * @description * `project` - project
          *     * `document` - document
@@ -7573,9 +7807,10 @@ export interface components {
          *     * `repository` - repository
          *     * `tasks` - tasks
          *     * `meetings` - meetings
+         *     * `chat` - chat
          * @enum {string}
          */
-        ProviderCategoryEnum: "storage" | "code" | "writing" | "data_capture" | "protocols" | "references" | "repository" | "tasks" | "meetings";
+        ProviderCategoryEnum: "storage" | "code" | "writing" | "data_capture" | "protocols" | "references" | "repository" | "tasks" | "meetings" | "chat";
         ProviderConfig: {
             provider: components["schemas"]["ProviderEnum"];
             label: string;
@@ -7589,6 +7824,14 @@ export interface components {
          * @enum {string}
          */
         ProviderEnum: "anthropic" | "openai";
+        Reaction: {
+            emoji: string;
+            count: number;
+            mine: boolean;
+        };
+        ReactionInput: {
+            emoji: string;
+        };
         ReadAllResult: {
             updated: number;
         };
@@ -9325,6 +9568,8 @@ export interface operations {
                  *     * `meeting.deleted` - Meeting Deleted
                  *     * `calendar_feed.created` - Calendar Feed Created
                  *     * `calendar_feed.revoked` - Calendar Feed Revoked
+                 *     * `google_chat.linked` - Google Chat Linked
+                 *     * `google_chat.unlinked` - Google Chat Unlinked
                  *     * `onboarding_item.created` - Onboarding Item Created
                  *     * `onboarding_item.updated` - Onboarding Item Updated
                  *     * `onboarding_item.deleted` - Onboarding Item Deleted
@@ -9400,7 +9645,7 @@ export interface operations {
                  *     * `dataset.participant_flag_changed` - Dataset Participant Flag Changed
                  *     * `file_link.created` - File Link Created
                  */
-                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "participant.created" | "participant.updated" | "participant.archived" | "participant.restored" | "participant_component.created" | "participant_component.updated" | "participant_component.deleted" | "participant_cell.changed" | "participant_file.added" | "participant_file.changed" | "participant_file.removed" | "participant_reason.changed" | "participant.identifier_blocked" | "participant.imported" | "participant.import_undone" | "participant.files_matched" | "participant.links_checked" | "participant.tasks_created" | "participant_rule.saved" | "participant_rule.archived" | "participant_set.locked" | "participant_flow.exported" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
+                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "google_chat.linked" | "google_chat.unlinked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "participant.created" | "participant.updated" | "participant.archived" | "participant.restored" | "participant_component.created" | "participant_component.updated" | "participant_component.deleted" | "participant_cell.changed" | "participant_file.added" | "participant_file.changed" | "participant_file.removed" | "participant_reason.changed" | "participant.identifier_blocked" | "participant.imported" | "participant.import_undone" | "participant.files_matched" | "participant.links_checked" | "participant.tasks_created" | "participant_rule.saved" | "participant_rule.archived" | "participant_set.locked" | "participant_flow.exported" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
                 actor?: string;
                 /** @description Leave out views, downloads and other reads. */
                 changes_only?: boolean;
@@ -9785,6 +10030,95 @@ export interface operations {
             };
         };
     };
+    labs_chat_google_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleChatStatus"];
+                };
+            };
+        };
+    };
+    labs_chat_google_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleChatLinkInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["GoogleChatLinkInput"];
+                "multipart/form-data": components["schemas"]["GoogleChatLinkInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleChatStatus"];
+                };
+            };
+        };
+    };
+    labs_chat_google_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_chat_google_spaces_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleChatSpace"][];
+                };
+            };
+        };
+    };
     labs_chat_messages_list: {
         parameters: {
             query?: {
@@ -9803,7 +10137,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChatMessage"][];
+                    "application/json": components["schemas"]["LabChatMessage"][];
                 };
             };
         };
@@ -9830,7 +10164,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChatMessage"];
+                    "application/json": components["schemas"]["LabChatMessage"];
                 };
             };
         };
@@ -9853,6 +10187,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    labs_chat_messages_reactions_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                labchatmessage_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReactionInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ReactionInput"];
+                "multipart/form-data": components["schemas"]["ReactionInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabChatMessage"];
+                };
             };
         };
     };
@@ -11592,6 +11954,29 @@ export interface operations {
             };
         };
     };
+    labs_link_preview_retrieve: {
+        parameters: {
+            query: {
+                url: string;
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkPreview"];
+                };
+            };
+        };
+    };
     labs_manuscripts_retrieve: {
         parameters: {
             query?: never;
@@ -11773,6 +12158,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    labs_messages_reactions_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chatmessage_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReactionInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ReactionInput"];
+                "multipart/form-data": components["schemas"]["ReactionInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessage"];
+                };
             };
         };
     };
@@ -13381,6 +13794,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Funding"];
+                };
+            };
+        };
+    };
+    labs_projects_google_chat_import_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleChatImportInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["GoogleChatImportInput"];
+                "multipart/form-data": components["schemas"]["GoogleChatImportInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+        };
+    };
+    labs_projects_google_chat_spaces_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleChatSpace"][];
+                };
+            };
+        };
+    };
+    labs_projects_google_chat_threads_list: {
+        parameters: {
+            query: {
+                space: string;
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleChatThread"][];
                 };
             };
         };

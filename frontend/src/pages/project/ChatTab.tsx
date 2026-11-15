@@ -1,9 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { ArrowDown, MessagesSquare, Trash2 } from "lucide-react";
+import { ArrowDown, ListPlus, MessagesSquare, Plus, SmilePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { EmojiPicker } from "@/components/composer/EmojiPicker";
 import { RichComposer } from "@/components/composer/RichComposer";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
+import { LinkCards } from "@/components/shared/LinkCard";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,13 +15,22 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/auth";
 import { useMentionPeople } from "@/hooks/mentions";
 import { CHAT_PAGE_SIZE, fetchOlderMessages, useChat } from "@/hooks/chat";
 import { personName, type ChatMessage } from "@/lib/api-types";
+import { openQuickCapture } from "@/lib/constants";
 import { fullDate } from "@/lib/format";
 import { formErrors } from "@/lib/forms";
+import { parseGoogleLink } from "@/lib/googleLinks";
 import { MessageText } from "@/lib/markdown";
 import { cn } from "@/lib/utils";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
@@ -38,12 +49,46 @@ const dayLabel = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { dateStyle: "full" });
 const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { timeStyle: "short" });
 
+/** Who wrote it, for grouping: a member's id, or the Google Chat sender's name (D316). */
+const authorKey = (m: ChatMessage) => m.author?.id ?? `google:${m.external_author ?? ""}`;
+/** The person to show: a member, or a stand-in for someone in Google Chat with no account here. */
+const shownAuthor = (m: ChatMessage) =>
+  m.author ?? { id: authorKey(m), email: "", display_name: m.external_author || "Google Chat" };
+
 /** A new group starts when the author changes, after a pause, or on a new day. */
 function startsGroup(m: ChatMessage, prev: ChatMessage | undefined) {
-  if (!prev || prev.author.id !== m.author.id) return true;
+  if (!prev || authorKey(prev) !== authorKey(m)) return true;
   const gap = new Date(m.created_at).getTime() - new Date(prev.created_at).getTime();
   return gap > GROUP_GAP_MS || dayLabel(prev.created_at) !== dayLabel(m.created_at);
 }
+
+/** Google links on a line of their own already show as a card inside the message. */
+const standaloneGoogleLinks = (body: string) =>
+  body
+    .split("\n")
+    .map((line) => parseGoogleLink(line)?.url)
+    .filter((u): u is string => !!u);
+
+/** D321: the four quick reactions; the picker has the rest. */
+export const QUICK_REACTIONS: [emoji: string, name: string][] = [
+  ["\u{1F44D}", "thumbs up"],
+  ["\u2764\uFE0F", "heart"],
+  ["\u{1F60A}", "smile"],
+  ["\u2753", "question"],
+];
+const ACTION_BUTTON =
+  "rounded-md p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100 [&_svg]:size-4";
+
+/** A message as a task title: plain text, mentions as names, first line, at most 200 characters. */
+export const taskText = (body: string) =>
+  body
+    .replace(/@\[([^\]\n]+)\]\(user:[0-9a-fA-F-]{36}\)/g, "$1")
+    .replace(/[*_~`#]/g, "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .join(" ")
+    .slice(0, 200);
 
 function MessageRow({
   message,
@@ -51,14 +96,20 @@ function MessageRow({
   first,
   canDelete,
   onDelete,
+  onReact,
 }: {
   message: ChatMessage;
   mine: boolean;
   first: boolean;
   canDelete: boolean;
   onDelete: () => void;
+  onReact: (emoji: string) => void;
 }) {
-  const name = personName(message.author);
+  const author = shownAuthor(message);
+  const name = personName(author);
+  const fromGoogle = message.source === "google_chat";
+  const [picking, setPicking] = useState(false);
+  const reactions = message.reactions ?? [];
   return (
     <div
       className={cn(
@@ -68,15 +119,12 @@ function MessageRow({
       )}
     >
       {!mine &&
-        (first ? (
-          <UserAvatar user={message.author} className="size-8" />
-        ) : (
-          <span className="w-8" />
-        ))}
+        (first ? <UserAvatar user={author} className="size-8" /> : <span className="w-8" />)}
       <div className={cn("flex max-w-[80%] min-w-0 flex-col", mine && "items-end")}>
         {first && (
           <p className="mb-1 flex items-baseline gap-2 px-1 text-xs">
             <span className="font-semibold">{mine ? "You" : name}</span>
+            {fromGoogle && <span className="text-muted-foreground">via Google Chat</span>}
             <time
               dateTime={message.created_at}
               title={fullDate(message.created_at)}
@@ -94,17 +142,88 @@ function MessageRow({
         >
           <MessageText text={message.body} onPrimary={mine} />
         </div>
+        <LinkCards text={message.body} skip={standaloneGoogleLinks(message.body)} />
+        {reactions.length > 0 && (
+          <ul aria-label="Reactions" className="mt-1 flex flex-wrap gap-1">
+            {reactions.map((r) => (
+              <li key={r.emoji}>
+                <button
+                  type="button"
+                  aria-pressed={r.mine}
+                  aria-label={`${r.emoji} ${r.count}${r.mine ? ", including you" : ""}. ${r.mine ? "Remove yours" : "Add yours"}`}
+                  onClick={() => onReact(r.emoji)}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                    r.mine
+                      ? "border-primary/50 bg-primary/10 text-foreground"
+                      : "bg-card hover:bg-accent",
+                  )}
+                >
+                  <span aria-hidden>{r.emoji}</span>
+                  <span aria-hidden className="tabular-nums">
+                    {r.count}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-      {canDelete && (
-        <button
-          type="button"
-          aria-label={`Delete message: ${spoken(message.body)}`}
-          onClick={onDelete}
-          className="rounded-md p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-destructive focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [@media(hover:none)]:opacity-100 [&_svg]:size-4"
-        >
-          <Trash2 aria-hidden />
-        </button>
-      )}
+      <div className="relative flex items-center">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label={`React or make a task: ${spoken(message.body)}`}
+            className={ACTION_BUTTON}
+          >
+            <Plus aria-hidden />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align={mine ? "end" : "start"} className="w-56">
+            <div role="group" aria-label="React" className="flex items-center gap-1 px-1 py-1">
+              {QUICK_REACTIONS.map(([emoji, label]) => (
+                <DropdownMenuItem
+                  key={emoji}
+                  aria-label={`React with ${label}`}
+                  onSelect={() => onReact(emoji)}
+                  className="size-9 justify-center p-0 text-lg"
+                >
+                  {emoji}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuItem
+                aria-label="More reactions"
+                onSelect={() => setPicking(true)}
+                className="size-9 justify-center p-0"
+              >
+                <SmilePlus aria-hidden />
+              </DropdownMenuItem>
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => openQuickCapture(taskText(message.body))}>
+              <ListPlus aria-hidden /> Create task from message
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {picking && (
+          <EmojiPicker
+            className={mine ? "left-auto right-0" : undefined}
+            onClose={() => setPicking(false)}
+            onPick={(emoji) => {
+              setPicking(false);
+              onReact(emoji);
+            }}
+          />
+        )}
+        {canDelete && (
+          <button
+            type="button"
+            aria-label={`Delete message: ${spoken(message.body)}`}
+            onClick={onDelete}
+            className={cn(ACTION_BUTTON, "hover:text-destructive")}
+          >
+            <Trash2 aria-hidden />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -132,6 +251,7 @@ export function ChatPanel({
   label,
   audience,
   inPanel,
+  alsoSentTo,
 }: {
   labId: string;
   projectId?: string;
@@ -140,9 +260,11 @@ export function ChatPanel({
   audience: string;
   /** Inside a side panel: fills it rather than sizing itself to the page. */
   inPanel?: boolean;
+  /** Where messages also go (the lab chat's Google Chat space, D318), said under the composer. */
+  alsoSentTo?: string;
 }) {
   const { email } = useAuth();
-  const { messages, send, remove, markRead } = useChat(labId, projectId);
+  const { messages, send, remove, react, markRead } = useChat(labId, projectId);
   const people = useMentionPeople(labId, projectId);
   const [draft, setDraft] = useState("");
   const [older, setOlder] = useState<ChatMessage[]>([]);
@@ -302,7 +424,7 @@ export function ChatPanel({
               {all.map((m, i) => {
                 const prev = all[i - 1];
                 const newDay = !prev || dayLabel(prev.created_at) !== dayLabel(m.created_at);
-                const mine = m.author.email === email;
+                const mine = !!m.author && m.author.email === email;
                 return (
                   <li key={m.id}>
                     {newDay && (
@@ -316,6 +438,20 @@ export function ChatPanel({
                       first={startsGroup(m, prev)}
                       canDelete={mine || canModerate}
                       onDelete={() => setDeleting(m)}
+                      onReact={(emoji) =>
+                        react.mutate(
+                          { id: m.id, emoji },
+                          {
+                            // Older pages are not refetched by the poll, so update them here.
+                            onSuccess: (updated) =>
+                              setOlder((have) =>
+                                have.map((o) => (o.id === updated.id ? updated : o)),
+                              ),
+                            onError: (e) =>
+                              toast.error(formErrors(e, []).form ?? "Could not add that reaction."),
+                          },
+                        )
+                      }
                     />
                   </li>
                 );
@@ -354,8 +490,8 @@ export function ChatPanel({
           submitting={send.isPending}
           footer={
             <p className="text-xs text-muted-foreground">
-              Do not share participant identifiers in chat. Press Enter to send, Shift+Enter for a
-              new line.
+              {alsoSentTo && <>Messages are also sent to {alsoSentTo}. </>}Do not share participant
+              identifiers in chat. Press Enter to send, Shift+Enter for a new line.
             </p>
           }
         />

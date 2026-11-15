@@ -108,6 +108,8 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "meeting.updated": "Changed a meeting",
   "meeting.deleted": "Deleted a meeting",
   "calendar_feed.created": "Made a calendar link",
+  "google_chat.linked": "Linked the lab chat to Google Chat",
+  "google_chat.unlinked": "Stopped syncing the lab chat with Google Chat",
   "calendar_feed.revoked": "Turned off a calendar link",
   "lab_event.deleted": "Deleted a calendar event",
   "onboarding_item.created": "Added an onboarding item",

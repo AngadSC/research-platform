@@ -34,6 +34,7 @@ class Category(StrEnum):
     REPOSITORY = "repository"  # Zenodo, Figshare, OSF
     TASKS = "tasks"  # Todoist, Trello, monday.com: importing tasks only (D240)
     MEETINGS = "meetings"  # Google Calendar (with Meet), Zoom: they write, see WRITERS (D253)
+    CHAT = "chat"  # Google Chat: the lab chat both ways, a writer (D315)
 
 
 # What a link can hang off. "project" is the project itself (the Files tab).
@@ -42,6 +43,7 @@ class Category(StrEnum):
 WRITERS = {
     "google_calendar": frozenset({"calendar_events", "meet_links"}),
     "zoom": frozenset({"zoom_meetings"}),
+    "google_chat": frozenset({"chat_messages"}),  # D315: lab chat messages, into one space
 }
 
 TARGETS = ("project", "document", "dataset", "analysis", "result", "manuscript", "decision")

@@ -27,6 +27,7 @@ from assistant.models import (  # AI access (Run 5); lab AI key (VISION A5)
 )
 from assistant.services import register_client  # AI access (Run 5)
 from assistant.tests.reauth import sign_in  # AI access (Run 5)
+from core import link_preview  # link previews (D322)
 from core.models import Institution, Notification, NotificationKind, User
 from documents import services as document_services  # documents/attachments (Phase 3)
 from documents.models import Attachment  # file links (VISION S1)
@@ -37,6 +38,7 @@ from integrations.models import ConnectedAccount, ExternalLink, Webhook  # integ
 from integrations.providers import google_drive  # Edit in Google (VISION B3)
 from integrations.providers import zotero as zotero_provider  # Zotero import (D242)
 from integrations.tests.fake import FAKE  # integrations (Run 2)
+from labs import google_chat as lab_google_chat  # Google Chat link (D318)
 from labs.models import (  # admin area (Run 4)
     CalendarFeedToken,
     InstitutionResource,
@@ -168,6 +170,8 @@ MATRIX: dict[tuple[str, str], str] = {
     # Read state (D207) is your own: anyone who can see P1 may mark it read. Unread counts are
     # per lab and filtered to the projects you can see, so nonproj gets a 2 with no P1 rows.
     ("POST", "projects:chatmessage-read"): "401 404 2 2 2 2 2 404 2",
+    # D321: whoever can read a chat can react in it.
+    ("POST", "projects:chatmessage-reactions"): "401 404 2 2 2 2 2 404 2",
     ("GET", "projects:chat-unread"): "401 404 2 2 2 2 2 2 2",
     # --- task thread and links (Run 4, D141/D142) ---
     # Reading the thread needs view_project; posting and linking need edit_content. The fixture
@@ -190,6 +194,10 @@ MATRIX: dict[tuple[str, str], str] = {
     # edit_content, not edit_project, so contrib may delete. Download needs only view_project.
     ("GET",    "documents:document-list"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "documents:document-list"): "401 404 2 2 2 2 403 404 403",
+    # D320: importing a Google Chat thread makes a document, so it needs edit_content.
+    ("GET",    "documents:google-chat-spaces"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "documents:google-chat-threads"): "401 404 2 2 2 2 403 404 403",
+    ("POST",   "documents:google-chat-import"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:lab-document-list"): "401 404 2 2 2 2 2 2 2",
     ("POST",   "documents:lab-document-list"): "401 404 2 2 2 2 2 2 403",
     ("GET",    "documents:document-detail"): "401 404 2 2 2 2 2 404 2",
@@ -457,6 +465,14 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "labs:labchat-list"): "401 404 2 2 2 2 2 2 2",
     ("POST",   "labs:labchat-read"): "401 404 2 2 2 2 2 2 2",
     ("DELETE", "labs:labchat-detail"): "401 404 2 2 403 2 403 403 403",
+    # D318: everyone sees whether the lab chat is linked to Google Chat; manage_lab_integrations
+    # (PI and lab admin) lists spaces, links and unlinks. Google itself is patched out.
+    ("POST",   "labs:labchat-reactions"): "401 404 2 2 2 2 2 2 2",  # D321
+    ("GET",    "labs:link-preview"): "401 404 2 2 2 2 2 2 2",  # D322, the fetch patched out
+    ("GET",    "labs:google-chat"): "401 404 2 2 2 2 2 2 2",
+    ("PUT",    "labs:google-chat"): "401 404 2 2 403 403 403 403 403",
+    ("DELETE", "labs:google-chat"): "401 404 2 2 403 403 403 403 403",
+    ("GET",    "labs:google-chat-spaces"): "401 404 2 2 403 403 403 403 403",
     # The calendar is a read for every member (rows are filtered: test_lab_tools.py); events need
     # contribute_lab, which the lab viewer lacks.
     ("GET",    "labs:calendar"): "401 404 2 2 2 2 2 2 2",
@@ -949,6 +965,21 @@ def _matrix_fake_provider(monkeypatch, settings):
     )
     monkeypatch.setattr(integrations_http, "_resolve", lambda host: ["93.184.216.34"])
     monkeypatch.setattr(webhooks, "_post", lambda hook, message: 200)
+    monkeypatch.setattr(lab_google_chat, "list_spaces", lambda lab, user: [])  # D318
+    monkeypatch.setattr(lab_google_chat, "link_space", lambda **kw: None)
+    monkeypatch.setattr(lab_google_chat, "list_threads", lambda lab, user, space: [])
+    monkeypatch.setattr(
+        lab_google_chat,
+        "import_thread",
+        lambda *, project, user, space, thread: document_services.create_document(
+            project=project, user=user, title="Imported", content=[]
+        ),
+    )
+    monkeypatch.setattr(  # D322: no page is read in the matrix
+        link_preview,
+        "preview",
+        lambda url: {"url": url, "host": "x.test", "title": "", "description": "", "site_name": ""},
+    )
     settings.INTEGRATION_CLIENTS = {
         **settings.INTEGRATION_CLIENTS,
         "fake": {"client_id": "fake-client", "client_secret": "fake-secret"},
@@ -1424,12 +1455,17 @@ PAYLOADS = {
     ("PATCH", "projects:task-detail"): lambda user, w: {"status": "in_progress", "position": 0},
     ("POST", "projects:chatmessage-list"): lambda user, w: {"body": "Hello"},
     ("POST", "projects:chatmessage-read"): lambda user, w: {"last_read_at": "2030-01-01T00:00:00Z"},
+    ("POST", "projects:chatmessage-reactions"): lambda user, w: {"emoji": "\U0001f44d"},
     ("POST", "projects:taskpost-list"): lambda user, w: {"body": "An update"},
     ("PATCH", "projects:taskpost-detail"): lambda user, w: {"body": "Edited update"},
     ("POST", "projects:task-document-add"): lambda user, w: {"id": str(w.a["document_id"])},
     ("POST", "projects:task-attachment-add"): lambda user, w: {"id": str(w.a["attachment_id"])},
     # --- end projects/tasks (Phase 3) ---
     # --- documents/attachments (Phase 3) ---
+    ("POST", "documents:google-chat-import"): lambda user, w: {
+        "space": "spaces/AAAA",
+        "thread": "spaces/AAAA/threads/T1",
+    },
     ("POST", "documents:document-list"): lambda user, w: {
         "title": "New doc",
         "content": [{"type": "paragraph"}],
@@ -1649,6 +1685,8 @@ PAYLOADS = {
     # --- lab chat and calendar (GET payloads are query strings) ---
     ("POST", "labs:labchat-list"): lambda user, w: {"body": "Hello"},
     ("POST", "labs:labchat-read"): lambda user, w: {"last_read_at": "2030-01-01T00:00:00Z"},
+    ("PUT", "labs:google-chat"): lambda user, w: {"space": "spaces/AAAA"},
+    ("POST", "labs:labchat-reactions"): lambda user, w: {"emoji": "\U0001f44d"},
     ("GET", "labs:calendar"): lambda user, w: {"from": "2030-01-01", "to": "2030-01-31"},
     ("POST", "labs:labevent-list"): lambda user, w: {"title": "New", "date": "2030-02-01"},
     ("PATCH", "labs:labevent-detail"): lambda user, w: {"notes": "Edited"},

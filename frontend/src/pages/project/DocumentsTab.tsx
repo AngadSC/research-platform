@@ -48,6 +48,7 @@ import { LIVE_POLL_MS, useNewItemToasts } from "@/hooks/liveRefresh";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { UploadDialog } from "@/pages/project/UploadDialog";
 import { FromDriveButton } from "@/components/shared/FromDriveButton";
+import { GoogleChatImportButton } from "@/pages/project/GoogleChatImport";
 import { attachFromDrive } from "@/lib/drive";
 import { convertible, googleEditor, isImage } from "@/lib/googleFiles";
 
@@ -357,6 +358,11 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
                   folder ? { folder } : {},
                 )
               }
+            />
+            <GoogleChatImportButton
+              labId={labId}
+              projectId={projectId}
+              onImported={(doc) => open(doc.id)}
             />
             <Button disabled={create.isPending} onClick={add}>
               <Plus className="size-4" /> New document

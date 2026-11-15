@@ -1229,6 +1229,8 @@ paths:
           - meeting.deleted
           - calendar_feed.created
           - calendar_feed.revoked
+          - google_chat.linked
+          - google_chat.unlinked
           - onboarding_item.created
           - onboarding_item.updated
           - onboarding_item.deleted
@@ -1395,6 +1397,8 @@ paths:
           * `meeting.deleted` - Meeting Deleted
           * `calendar_feed.created` - Calendar Feed Created
           * `calendar_feed.revoked` - Calendar Feed Revoked
+          * `google_chat.linked` - Google Chat Linked
+          * `google_chat.unlinked` - Google Chat Unlinked
           * `onboarding_item.created` - Onboarding Item Created
           * `onboarding_item.updated` - Onboarding Item Updated
           * `onboarding_item.deleted` - Onboarding Item Deleted
@@ -1976,6 +1980,109 @@ paths:
               schema:
                 $ref: '#/components/schemas/VideoOptions'
           description: ''
+  /api/labs/{lab_id}/chat/google/:
+    get:
+      operationId: labs_chat_google_retrieve
+      description: |-
+        D318: the lab chat's link to a Google Chat space. Everyone sees whether it is linked, so
+        the composer can say where messages also go; `manage_lab_integrations` links and unlinks.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleChatStatus'
+          description: ''
+    put:
+      operationId: labs_chat_google_update
+      description: |-
+        D318: the lab chat's link to a Google Chat space. Everyone sees whether it is linked, so
+        the composer can say where messages also go; `manage_lab_integrations` links and unlinks.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleChatLinkInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GoogleChatLinkInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GoogleChatLinkInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleChatStatus'
+          description: ''
+    delete:
+      operationId: labs_chat_google_destroy
+      description: |-
+        D318: the lab chat's link to a Google Chat space. Everyone sees whether it is linked, so
+        the composer can say where messages also go; `manage_lab_integrations` links and unlinks.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/chat/google/spaces/:
+    get:
+      operationId: labs_chat_google_spaces_list
+      description: The spaces the caller's own Google Chat connection is in, to pick
+        one (D318).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GoogleChatSpace'
+          description: ''
   /api/labs/{lab_id}/chat/messages/:
     get:
       operationId: labs_chat_messages_list
@@ -2004,13 +2111,13 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ChatMessage'
+                  $ref: '#/components/schemas/LabChatMessage'
           description: ''
     post:
       operationId: labs_chat_messages_create
       description: |-
-        The project chat's API (D206, D207) for the whole lab. Same message shape, so the same
-        serializers: they only read `id`, `author`, `body` and `created_at`.
+        The project chat's API (D206, D207) for the whole lab. The same message shape plus where a
+        message came from (D316), since the lab chat can be linked to Google Chat.
       parameters:
       - in: path
         name: lab_id
@@ -2039,14 +2146,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ChatMessage'
+                $ref: '#/components/schemas/LabChatMessage'
           description: ''
   /api/labs/{lab_id}/chat/messages/{labchatmessage_id}/:
     delete:
       operationId: labs_chat_messages_destroy
       description: |-
-        The project chat's API (D206, D207) for the whole lab. Same message shape, so the same
-        serializers: they only read `id`, `author`, `body` and `created_at`.
+        The project chat's API (D206, D207) for the whole lab. The same message shape plus where a
+        message came from (D316), since the lab chat can be linked to Google Chat.
       parameters:
       - in: path
         name: lab_id
@@ -2067,12 +2174,52 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/chat/messages/{labchatmessage_id}/reactions/:
+    post:
+      operationId: labs_chat_messages_reactions_create
+      description: 'D321: add or take away your emoji on a lab chat message.'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: labchatmessage_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReactionInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReactionInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReactionInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabChatMessage'
+          description: ''
   /api/labs/{lab_id}/chat/messages/read/:
     post:
       operationId: labs_chat_messages_read_create
       description: |-
-        The project chat's API (D206, D207) for the whole lab. Same message shape, so the same
-        serializers: they only read `id`, `author`, `body` and `created_at`.
+        The project chat's API (D206, D207) for the whole lab. The same message shape plus where a
+        message came from (D316), since the lab chat can be linked to Google Chat.
       parameters:
       - in: path
         name: lab_id
@@ -4381,6 +4528,35 @@ paths:
               schema:
                 $ref: '#/components/schemas/Document'
           description: ''
+  /api/labs/{lab_id}/link-preview/:
+    get:
+      operationId: labs_link_preview_retrieve
+      description: |-
+        D322: a web page's title and description, for a link pasted in chat. Any member; the
+        page is read by the server through the SSRF-safe client, and the answer is plain text.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: url
+        schema:
+          type: string
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkPreview'
+          description: ''
   /api/labs/{lab_id}/manuscripts/{manuscriptlink_id}/:
     get:
       operationId: labs_manuscripts_retrieve
@@ -4628,6 +4804,47 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/messages/{chatmessage_id}/reactions/:
+    post:
+      operationId: labs_messages_reactions_create
+      description: 'D321: add or take away your emoji on a message. Whoever can read
+        the chat can react.'
+      parameters:
+      - in: path
+        name: chatmessage_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReactionInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReactionInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReactionInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessage'
+          description: ''
   /api/labs/{lab_id}/my-tasks/:
     get:
       operationId: labs_my_tasks_list
@@ -6912,6 +7129,117 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Funding'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/google-chat/import/:
+    post:
+      operationId: labs_projects_google_chat_import_create
+      description: |-
+        Project-nested: read with the caller's own Google Chat connection, so they see only the
+        spaces they are in, and import into a project they can add documents to.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleChatImportInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GoogleChatImportInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GoogleChatImportInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/google-chat/spaces/:
+    get:
+      operationId: labs_projects_google_chat_spaces_list
+      description: |-
+        Project-nested: read with the caller's own Google Chat connection, so they see only the
+        spaces they are in, and import into a project they can add documents to.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GoogleChatSpace'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/google-chat/threads/:
+    get:
+      operationId: labs_projects_google_chat_threads_list
+      description: |-
+        Project-nested: read with the caller's own Google Chat connection, so they see only the
+        spaces they are in, and import into a project they can add documents to.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: space
+        schema:
+          type: string
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GoogleChatThread'
           description: ''
   /api/labs/{lab_id}/projects/{project_id}/handover/:
     get:
@@ -11134,6 +11462,8 @@ components:
       - meeting.deleted
       - calendar_feed.created
       - calendar_feed.revoked
+      - google_chat.linked
+      - google_chat.unlinked
       - onboarding_item.created
       - onboarding_item.updated
       - onboarding_item.deleted
@@ -11299,6 +11629,8 @@ components:
         * `meeting.deleted` - Meeting Deleted
         * `calendar_feed.created` - Calendar Feed Created
         * `calendar_feed.revoked` - Calendar Feed Revoked
+        * `google_chat.linked` - Google Chat Linked
+        * `google_chat.unlinked` - Google Chat Unlinked
         * `onboarding_item.created` - Onboarding Item Created
         * `onboarding_item.updated` - Onboarding Item Updated
         * `onboarding_item.deleted` - Onboarding Item Deleted
@@ -12136,6 +12468,7 @@ components:
       - title
     ChatMessage:
       type: object
+      description: 'D321: each emoji, how many, and whether the reader is one of them.'
       properties:
         id:
           type: string
@@ -12148,6 +12481,11 @@ components:
         body:
           type: string
           readOnly: true
+        reactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reaction'
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -12157,6 +12495,7 @@ components:
       - body
       - created_at
       - id
+      - reactions
     ChatMessageInput:
       type: object
       properties:
@@ -14792,6 +15131,110 @@ components:
       - push_meetings
       - push_tasks
       - show_google_events
+    GoogleChatBridge:
+      type: object
+      description: |-
+        What every member sees of the link; `last_error` and `last_polled_at` help whoever
+        manages it.
+      properties:
+        space:
+          type: string
+          readOnly: true
+        space_name:
+          type: string
+          readOnly: true
+        linked_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        last_polled_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        last_error:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - last_error
+      - last_polled_at
+      - linked_by
+      - space
+      - space_name
+    GoogleChatImportInput:
+      type: object
+      properties:
+        space:
+          type: string
+          maxLength: 120
+        thread:
+          type: string
+          maxLength: 260
+      required:
+      - space
+      - thread
+    GoogleChatLinkInput:
+      type: object
+      properties:
+        space:
+          type: string
+          maxLength: 120
+      required:
+      - space
+    GoogleChatSpace:
+      type: object
+      properties:
+        name:
+          type: string
+        display_name:
+          type: string
+      required:
+      - display_name
+      - name
+    GoogleChatStatus:
+      type: object
+      properties:
+        bridge:
+          allOf:
+          - $ref: '#/components/schemas/GoogleChatBridge'
+          nullable: true
+        configured:
+          type: boolean
+          description: The site has a Google Chat app set up.
+        connected:
+          type: boolean
+          description: You have connected Google Chat in this lab.
+        can_manage:
+          type: boolean
+      required:
+      - bridge
+      - can_manage
+      - configured
+      - connected
+    GoogleChatThread:
+      type: object
+      properties:
+        name:
+          type: string
+        first:
+          type: string
+          description: The thread's first words.
+        count:
+          type: integer
+          description: Messages among the space's recent ones.
+        last_at:
+          type: string
+          format: date-time
+      required:
+      - count
+      - first
+      - last_at
+      - name
     GoogleEvent:
       type: object
       description: One of your own Google Calendar events, read live and never stored
@@ -15598,6 +16041,56 @@ components:
       - my_permissions
       - my_role
       - name
+    LabChatMessage:
+      type: object
+      description: |-
+        The project chat's shape plus where it came from. `author` is null for a message from
+        someone in Google Chat who has no connected account here; `external_author` names them.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        author:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+          nullable: true
+        external_author:
+          type: string
+          readOnly: true
+        source:
+          allOf:
+          - $ref: '#/components/schemas/LabChatMessageSourceEnum'
+          readOnly: true
+        body:
+          type: string
+          readOnly: true
+        reactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reaction'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - author
+      - body
+      - created_at
+      - external_author
+      - id
+      - reactions
+      - source
+    LabChatMessageSourceEnum:
+      enum:
+      - app
+      - google_chat
+      type: string
+      description: |-
+        * `app` - App
+        * `google_chat` - Google Chat
     LabEvent:
       type: object
       properties:
@@ -15928,6 +16421,26 @@ components:
         * `picker` - picker
         * `search` - search
         * `paste_url` - paste_url
+    LinkPreview:
+      type: object
+      description: 'D322: plain text only; the client shows it as text, never as markup.'
+      properties:
+        url:
+          type: string
+        host:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        site_name:
+          type: string
+      required:
+      - description
+      - host
+      - site_name
+      - title
+      - url
     LinkTargetsEnum:
       enum:
       - project
@@ -18842,6 +19355,7 @@ components:
       - repository
       - tasks
       - meetings
+      - chat
       type: string
       description: |-
         * `storage` - storage
@@ -18853,6 +19367,7 @@ components:
         * `repository` - repository
         * `tasks` - tasks
         * `meetings` - meetings
+        * `chat` - chat
     ProviderConfig:
       type: object
       properties:
@@ -18882,6 +19397,27 @@ components:
       description: |-
         * `anthropic` - Anthropic
         * `openai` - Openai
+    Reaction:
+      type: object
+      properties:
+        emoji:
+          type: string
+        count:
+          type: integer
+        mine:
+          type: boolean
+      required:
+      - count
+      - emoji
+      - mine
+    ReactionInput:
+      type: object
+      properties:
+        emoji:
+          type: string
+          maxLength: 32
+      required:
+      - emoji
     ReadAllResult:
       type: object
       properties:

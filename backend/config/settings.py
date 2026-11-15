@@ -253,6 +253,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "labs.jobs.push_google_calendars",
         "schedule": crontab(minute="*/15"),
     },
+    "poll-google-chat": {  # D316: new Google Chat messages into the lab chat
+        "task": "labs.jobs.poll_google_chat",
+        "schedule": float(os.environ.get("GOOGLE_CHAT_POLL_SECONDS", "15")),
+        "options": {"expires": 14},
+    },
 }
 
 # D14: dev email goes to the console. Production sets EMAIL_BACKEND to an anymail backend, e.g.
@@ -353,6 +358,7 @@ REST_FRAMEWORK = {
         "uploads": "60/hour",
         "lab_create": "5/day",
         "chat": "60/minute",
+        "link_preview": "60/minute",  # D322: each one may read an outside page
         "calendar_sync": "20/hour",  # D255: each run is many Google calls
         "picker_token": "30/hour",
         "link_check": "60/hour",

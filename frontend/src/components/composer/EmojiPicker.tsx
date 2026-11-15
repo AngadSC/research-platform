@@ -7,9 +7,12 @@ import { cn } from "@/lib/utils";
 export function EmojiPicker({
   onPick,
   onClose,
+  className,
 }: {
   onPick: (emoji: string) => void;
   onClose: () => void;
+  /** Where it opens, when not above its button's left edge. */
+  className?: string;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
@@ -39,7 +42,10 @@ export function EmojiPicker({
           onClose();
         }
       }}
-      className="absolute bottom-full left-0 z-20 mb-1 grid w-72 max-w-[calc(100vw-2rem)] gap-2 rounded-md border bg-popover p-2 text-popover-foreground shadow-md"
+      className={cn(
+        "absolute bottom-full left-0 z-20 mb-1 grid w-72 max-w-[calc(100vw-2rem)] gap-2 rounded-md border bg-popover p-2 text-popover-foreground shadow-md",
+        className,
+      )}
     >
       <input
         autoFocus

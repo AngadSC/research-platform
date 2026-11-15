@@ -156,6 +156,7 @@ class ChatMessage(LabScopedModel):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="chat_messages")
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
     body = models.TextField()
+    reactions = models.JSONField(default=dict, blank=True)  # {emoji: [user id, ...]}, D321
 
     lab_parents = ("project",)
     permission_domain = "project"

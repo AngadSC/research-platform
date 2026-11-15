@@ -10,6 +10,7 @@ import {
   HardDrive,
   Link2,
   ListChecks,
+  MessagesSquare,
   PenLine,
   Video,
 } from "lucide-react";
@@ -50,6 +51,8 @@ const ICONS: Record<string, typeof Link2> = {
   "google-calendar": CalendarDays,
   google_calendar: CalendarDays,
   zoom: Video,
+  "google-chat": MessagesSquare,
+  google_chat: MessagesSquare,
 };
 
 export function ProviderIcon({ name, className }: { name: string; className?: string }) {

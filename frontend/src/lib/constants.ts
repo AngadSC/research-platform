@@ -11,3 +11,6 @@ export const OPEN_TUTORIAL_EVENT = "open-tutorial";
 export const FEEDBACK_URL = "https://github.com/AngadSC/research-platform/issues/new";
 
 export const OPEN_QUICK_CAPTURE_EVENT = "open-quick-capture";
+/** Open quick capture with `text` already written in it (D321: a task from a chat message). */
+export const openQuickCapture = (text?: string) =>
+  window.dispatchEvent(new CustomEvent(OPEN_QUICK_CAPTURE_EVENT, { detail: { text } }));

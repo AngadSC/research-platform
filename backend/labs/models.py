@@ -139,19 +139,74 @@ class Invite(LabScopedModel):
 # ---------------------------------------------------------------- lab-wide chat and calendar
 
 
+class ChatSource(models.TextChoices):
+    APP = "app"
+    GOOGLE_CHAT = "google_chat"  # came in from the lab's Google Chat space (D316)
+
+
 class LabChatMessage(LabScopedModel):
-    """One message in the lab's group chat: project chat's rules (D206), for every lab member."""
+    """One message in the lab's group chat: project chat's rules (D206), for every lab member.
+
+    D316: with a Google Chat space linked, messages also come in from Google. Their `author` is
+    the lab member whose connected Google Chat account sent it, or null when the sender has none
+    here; then `external_author` says who it was, as far as Google tells us."""
 
     permission_domain = "lab"
 
-    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
     body = models.TextField()
+    source = models.CharField(max_length=16, choices=ChatSource.choices, default=ChatSource.APP)
+    external_author = models.CharField(max_length=200, blank=True)
+    # The Google Chat message (`spaces/<id>/messages/<id>`) this one is, either way; "" if none.
+    external_id = models.CharField(max_length=255, blank=True)
+    reactions = models.JSONField(default=dict, blank=True)  # {emoji: [user id, ...]}, D321
 
     class Meta(LabScopedModel.Meta):
         indexes = [models.Index(fields=["lab", "created_at"], name="labchat_recent_idx")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lab", "external_id"],
+                condition=~models.Q(external_id=""),
+                name="labchat_one_per_external",
+            )
+        ]
 
     def __str__(self):
         return f"{self.author_id}: {self.body[:40]}"
+
+
+class GoogleChatBridge(LabScopedModel):
+    """The lab chat's link to one Google Chat space (D315 to D320). At most one per lab. Every
+    member may see that it exists and the space's name; only `manage_lab_integrations` sets it.
+
+    `account` is the Google Chat connection of whoever set it up: it reads the space, and posts
+    for members who have not connected Google Chat themselves (D317)."""
+
+    permission_domain = "lab"
+
+    account = models.ForeignKey(
+        "integrations.ConnectedAccount", on_delete=models.CASCADE, related_name="+"
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    space = models.CharField(max_length=120)  # `spaces/<id>`
+    space_name = models.CharField(max_length=200, blank=True)
+    # Google's createTime of the newest message read in, exactly as Google wrote it (nanoseconds),
+    # so the next read asks for what is strictly newer.
+    cursor = models.CharField(max_length=40)
+    last_polled_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.CharField(max_length=200, blank=True)
+
+    lab_parents = ("account",)
+
+    class Meta(LabScopedModel.Meta):
+        constraints = [models.UniqueConstraint(fields=["lab"], name="gchatbridge_one_per_lab")]
+
+    def __str__(self):
+        return f"Lab chat to {self.space}"
 
 
 class LabChatReadState(LabScopedModel):

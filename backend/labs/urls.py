@@ -114,6 +114,13 @@ urlpatterns = [
         name="order-detail",
     ),
     path("labs/<uuid:lab_id>/chat/messages/", views.LabChatListView.as_view(), name="labchat-list"),
+    path("labs/<uuid:lab_id>/chat/google/", views.GoogleChatView.as_view(), name="google-chat"),
+    path("labs/<uuid:lab_id>/link-preview/", views.LinkPreviewView.as_view(), name="link-preview"),
+    path(
+        "labs/<uuid:lab_id>/chat/google/spaces/",
+        views.GoogleChatSpacesView.as_view(),
+        name="google-chat-spaces",
+    ),
     path(
         "labs/<uuid:lab_id>/chat/messages/read/",
         views.LabChatReadView.as_view(),
@@ -123,6 +130,11 @@ urlpatterns = [
         "labs/<uuid:lab_id>/chat/messages/<uuid:labchatmessage_id>/",
         views.LabChatDetailView.as_view(),
         name="labchat-detail",
+    ),
+    path(
+        "labs/<uuid:lab_id>/chat/messages/<uuid:labchatmessage_id>/reactions/",
+        views.LabChatReactionView.as_view(),
+        name="labchat-reactions",
     ),
     path("labs/<uuid:lab_id>/calendar/", lab_calendar.CalendarView.as_view(), name="calendar"),
     path(

@@ -13,6 +13,9 @@ const base = (perms: string[], extra: Record<string, unknown> = {}) => ({
   [`GET ${L}/projects/`]: { body: [] },
   [`GET ${L}/chat/unread/`]: { body: [] },
   [`GET ${L}/notifications/`]: { body: [] },
+  [`GET ${L}/chat/google/`]: {
+    body: { bridge: null, configured: false, connected: false, can_manage: false },
+  },
   ...extra,
 });
 const message = {

@@ -36,6 +36,12 @@ from documents.serializers import (
     RevisionSerializer,
 )
 from ethics.models import EthicsApproval
+from labs import google_chat
+from labs.serializers import (
+    GoogleChatImportInputSerializer,
+    GoogleChatSpaceSerializer,
+    GoogleChatThreadSerializer,
+)
 from projects.services import ARCHIVED_MESSAGE, refuse_if_archived
 
 
@@ -602,3 +608,51 @@ def _presigned_redirect(attachment):
     response["Cache-Control"] = "no-store"
     response["Referrer-Policy"] = "no-referrer"
     return response
+
+
+# ---------------------------------------------------------------- Google Chat thread import (D320)
+
+
+class GoogleChatImportMixin(DocumentMixin):
+    """Project-nested: read with the caller's own Google Chat connection, so they see only the
+    spaces they are in, and import into a project they can add documents to."""
+
+    perms = {"GET": Perm.EDIT_CONTENT, "POST": Perm.EDIT_CONTENT}
+    pagination_class = None
+
+
+class GoogleChatProjectSpacesView(GoogleChatImportMixin, generics.GenericAPIView):
+    serializer_class = GoogleChatSpaceSerializer
+
+    @extend_schema(responses=GoogleChatSpaceSerializer(many=True))
+    def get(self, request, lab_id, project_id):
+        spaces = google_chat.list_spaces(request.lab, request.user)
+        return Response(GoogleChatSpaceSerializer(spaces, many=True).data)
+
+
+class GoogleChatThreadsView(GoogleChatImportMixin, generics.GenericAPIView):
+    serializer_class = GoogleChatThreadSerializer
+
+    @extend_schema(
+        parameters=[OpenApiParameter("space", str, required=True)],
+        responses=GoogleChatThreadSerializer(many=True),
+    )
+    def get(self, request, lab_id, project_id):
+        threads = google_chat.list_threads(
+            request.lab, request.user, request.query_params.get("space", "")
+        )
+        return Response(GoogleChatThreadSerializer(threads, many=True).data)
+
+
+class GoogleChatImportView(GoogleChatImportMixin, generics.GenericAPIView):
+    serializer_class = GoogleChatImportInputSerializer
+
+    @extend_schema(request=GoogleChatImportInputSerializer, responses={201: DocumentSerializer})
+    def post(self, request, lab_id, project_id):
+        refuse_if_archived(self.project)
+        ser = GoogleChatImportInputSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        doc = google_chat.import_thread(
+            project=self.project, user=request.user, **ser.validated_data
+        )
+        return Response(DocumentSerializer(doc).data, status=status.HTTP_201_CREATED)
