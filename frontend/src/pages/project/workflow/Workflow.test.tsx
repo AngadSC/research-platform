@@ -273,7 +273,8 @@ describe("Funding", () => {
     );
     renderRoute(`${W}/funding`);
     expect(await screen.findByText("NSERC")).toBeInTheDocument();
-    expect(screen.getByText(/12,500\.50/)).toBeInTheDocument();
+    expect(screen.getAllByText(/12,500\.50/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/1 award\b/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Add funding" }));
     await userEvent.type(await screen.findByLabelText("Funder"), "CIHR");
     await userEvent.type(screen.getByLabelText("Amount"), "900");
@@ -285,6 +286,19 @@ describe("Funding", () => {
       currency: "CAD",
       status: "applied",
     });
+  });
+
+  it("opens an award in place to show its details and Edit", async () => {
+    mockFetch(
+      base(PI, ["view_lab"], {
+        [`GET ${P}/funding/`]: { body: [funding] },
+        [`GET ${P}/attachments/`]: { body: [] },
+      }),
+    );
+    renderRoute(`${W}/funding`);
+    expect(screen.queryByRole("button", { name: /^Edit / })).toBeNull();
+    await userEvent.click(await screen.findByRole("button", { name: /NSERC/ }));
+    expect(screen.getByRole("button", { name: /^Edit NSERC/ })).toBeInTheDocument();
   });
 
   it("tells anyone but a PI that Funding is PI-only, and hides it from the Workflow bar", async () => {
