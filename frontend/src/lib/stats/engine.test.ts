@@ -65,6 +65,30 @@ describe("stats engine", () => {
     await expect(ran).resolves.toEqual({ summary: "ok" });
   });
 
+  it("sends load options with the file", () => {
+    const { engine, workers } = setup();
+    void engine.load(file(), { decimal: ",", missing: { a: [999] } });
+    void engine.load({ ...file(), sheet: "Data" });
+    const [withOptions, plain] = workers[0]!.posted;
+    expect(withOptions!.data).toMatchObject({
+      type: "load",
+      options: { decimal: ",", missing: { a: [999] } },
+    });
+    expect(plain!.data).toMatchObject({ type: "load", sheet: "Data", options: undefined });
+  });
+
+  it("prepares a test's packages through the same queue, ignoring failures", async () => {
+    const { engine, workers } = setup();
+    engine.prepare("anova_twoway");
+    const ran = engine.run({ test: "anova_twoway", params: {} });
+    const [prepare, run] = workers[0]!.posted;
+    expect(prepare!.data).toMatchObject({ type: "prepare", test: "anova_twoway" });
+    expect(run!.data.id).toBeGreaterThan(prepare!.data.id);
+    workers[0]!.reply({ type: "fail", id: prepare!.data.id, message: "offline" });
+    workers[0]!.reply({ type: "done", id: run!.data.id, value: { summary: "ok" } });
+    await expect(ran).resolves.toEqual({ summary: "ok" });
+  });
+
   it("rejects with the worker's plain message", async () => {
     const { engine, workers } = setup();
     const ran = engine.run({ test: "t_independent", params: {} });

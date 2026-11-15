@@ -22,12 +22,14 @@ import {
   TESTS,
   type DataShape,
   type EngineState,
+  type LoadOptions,
   type ParamSpec,
   type ParamValues,
   type StatsEngine,
   type TestSpec,
 } from "@/lib/stats/contract";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
+import { DataIssues } from "@/pages/project/analyse/DataIssues";
 import { useGetEngine } from "@/pages/project/analyse/engine";
 import { ResultCard, type Run } from "@/pages/project/analyse/ResultCard";
 import { errorText } from "@/pages/project/analyse/save";
@@ -43,6 +45,8 @@ interface Source {
   bytes: ArrayBuffer;
   datasetId?: string;
   flagged: boolean | null;
+  /** How the file was read (the fixes chosen for it). */
+  options?: LoadOptions;
 }
 
 interface Option {
@@ -325,11 +329,18 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
     await start({ name: file.name, bytes: await file.arrayBuffer(), flagged: null });
   }
 
-  async function chooseSheet(sheet: string) {
+  // A new sheet starts with no options; a fix from DataIssues reloads the same sheet with its own.
+  async function chooseSheet(sheet: string | undefined, options: LoadOptions = {}) {
     if (!engine || !source) return;
     setLoading(true);
+    setLoadError(undefined);
     try {
-      setShape(await engine.load({ name: source.name, bytes: source.bytes.slice(0), sheet }));
+      const s = await engine.load(
+        { name: source.name, bytes: source.bytes.slice(0), sheet },
+        options,
+      );
+      setSource({ ...source, options });
+      setShape(s);
     } catch (e) {
       setLoadError(errorText(e));
     } finally {
@@ -496,6 +507,11 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
               <span className="font-medium">{shape.fileName}</span>: {shape.rows} rows,{" "}
               {shape.columns.length} columns
             </p>
+            <DataIssues
+              issues={shape.issues}
+              busy={loading}
+              onFix={(fix) => void chooseSheet(shape.sheet ?? undefined, fix)}
+            />
             <div className="overflow-x-auto">
               <Table>
                 <caption className="sr-only">Columns in the file</caption>

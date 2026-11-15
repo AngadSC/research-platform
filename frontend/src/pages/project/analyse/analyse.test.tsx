@@ -31,6 +31,7 @@ const shape: DataShape = {
   sheet: null,
   rows: 6,
   columns: [col("score", "numeric"), col("arm", "categorical"), col("note", "text")],
+  issues: [],
 };
 const result: StatsResult = {
   test: "t_independent",
@@ -240,6 +241,32 @@ describe("Analyse page", () => {
     const engine = fakeEngine();
     setup(engine, { query: "?file=a1" });
     await waitFor(() => expect(engine.load).toHaveBeenCalled());
+  });
+
+  it("shows what is odd about the file and reloads it with a fix", async () => {
+    const fix = { header: 0, skip: 0, missing: { score: [999] } };
+    const engine = fakeEngine();
+    engine.load
+      .mockResolvedValueOnce({
+        ...shape,
+        issues: [
+          { id: "m", message: '"score" has 999 in 1 row.', action: "Treat 999 as missing", fix },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ...shape,
+        issues: [
+          { id: "m", message: '999 in "score" is treated as missing.', fix: {}, applied: true },
+        ],
+      });
+    setup(engine);
+    const u = userEvent.setup();
+    await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
+    await u.click(await screen.findByRole("button", { name: "Treat 999 as missing" }));
+    expect(engine.load.mock.calls[1]![0]).toMatchObject({ name: "data.csv", sheet: undefined });
+    expect(engine.load.mock.calls[1]![1]).toEqual(fix);
+    await u.click(await screen.findByRole("button", { name: "Undo" }));
+    expect(engine.load.mock.calls[2]![1]).toEqual({});
   });
 
   it("saves the files, then the analysis, then the result, then the Google copy", async () => {

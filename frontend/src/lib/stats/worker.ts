@@ -5,13 +5,21 @@
  * (scripts/fetch-pyodide.mjs puts them there). Jobs run one at a time, in the order they arrive.
  */
 import { loadPyodide, version, type PyodideInterface } from "pyodide";
-import type { EngineState } from "@/lib/stats/contract";
+import type { EngineState, LoadOptions } from "@/lib/stats/contract";
 import source from "@/lib/stats/stats.py?raw";
 
 export type Job =
   | { id: number; type: "warmup" }
-  | { id: number; type: "load"; name: string; bytes: ArrayBuffer; sheet?: string }
-  | { id: number; type: "run"; test: string; params: Record<string, unknown> };
+  | {
+      id: number;
+      type: "load";
+      name: string;
+      bytes: ArrayBuffer;
+      sheet?: string;
+      options?: LoadOptions;
+    }
+  | { id: number; type: "run"; test: string; params: Record<string, unknown> }
+  | { id: number; type: "prepare"; test: string };
 
 export type Reply =
   | { type: "state"; state: EngineState }
@@ -99,7 +107,8 @@ async function handle(job: Job) {
       const path = `/tmp/data${ext.replace(/[^.\w]/g, "")}`;
       py.FS.writeFile(path, new Uint8Array(job.bytes));
       try {
-        const { value } = callPython(py, "engine_load", path, job.name, job.sheet ?? null);
+        const options = JSON.stringify(job.options ?? {});
+        const { value } = callPython(py, "engine_load", path, job.name, job.sheet ?? null, options);
         post({ type: "done", id: job.id, value });
       } finally {
         py.FS.unlink(path); // the table is in memory now; don't keep a second copy
@@ -111,6 +120,8 @@ async function handle(job: Job) {
       const xlsx = new Uint8Array(bytes ?? []);
       post({ type: "done", id: job.id, value: { ...value, xlsx } }, [xlsx.buffer]);
     } else {
+      if (job.type === "prepare")
+        await ensurePackages(py, py.globals.get("packages_for")(job.test).toJs());
       post({ type: "done", id: job.id, value: null });
     }
   } catch (e) {

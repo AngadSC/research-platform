@@ -1,10 +1,12 @@
 import type {
   DataShape,
   EngineState,
+  LoadOptions,
   StatsEngine,
   StatsFile,
   StatsRequest,
   StatsResult,
+  TestId,
 } from "@/lib/stats/contract";
 import type { Job, Reply } from "@/lib/stats/worker";
 
@@ -75,7 +77,7 @@ export function createStatsEngine(
         listeners.delete(listener);
       };
     },
-    load(file: StatsFile) {
+    load(file: StatsFile, options?: LoadOptions) {
       if (file.bytes.byteLength > MAX_FILE_BYTES) {
         return Promise.reject(
           new Error("This file is over 100 MB, too big to analyse in the browser."),
@@ -83,9 +85,13 @@ export function createStatsEngine(
       }
       // The bytes move to the worker without a copy, so file.bytes is empty afterwards.
       return send<DataShape>(
-        { type: "load", name: file.name, bytes: file.bytes, sheet: file.sheet },
+        { type: "load", name: file.name, bytes: file.bytes, sheet: file.sheet, options },
         [file.bytes],
       );
+    },
+    prepare(test: TestId) {
+      // Queued like any job, so it never delays a run that was asked for first.
+      send({ type: "prepare", test }).catch(() => {});
     },
     run(req: StatsRequest) {
       return send<StatsResult>({ type: "run", test: req.test, params: req.params });

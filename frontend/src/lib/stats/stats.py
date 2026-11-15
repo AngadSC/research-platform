@@ -25,13 +25,22 @@ class UserError(Exception):
 # Reading files ----------------------------------------------------------------------------------
 
 
-def read_data(path, sheet=None):
-    """Read a CSV, TSV, TXT or XLSX file into a table."""
+def read_data(path, sheet=None, header=0, skip=0, decimal=".", thousands=None, missing=None, units=None):
+    """Read a CSV, TSV, TXT or XLSX file into a table.
+
+    header: the row with the column names (0 is the first); rows above it are left out.
+    skip: how many rows right under the column names to leave out.
+    decimal, thousands: how numbers are written in a text file ("," and "." for 1.234,5).
+    missing: values to treat as missing, by column. units: a unit to remove, by column ("ms" in "12 ms").
+    """
     ext = path.rsplit(".", 1)[-1].lower() if "." in path else ""
     with open(path, "rb") as f:
         data = f.read()
-    if not data.strip():
+    if not data.strip(b"\x00\t\n\r \xef\xbb\xbf\xff\xfe"):
         raise UserError("The file is empty.")
+    rows = None
+    if header or skip:
+        rows = lambda i: i < header or header < i <= header + skip  # noqa: E731
     if ext in ("xlsx", "xlsm"):
         try:
             book = pd.ExcelFile(io.BytesIO(data), engine="openpyxl")
@@ -41,17 +50,14 @@ def read_data(path, sheet=None):
             sheet = book.sheet_names[0]
         elif sheet not in book.sheet_names:
             raise UserError(f'The workbook has no sheet called "{sheet}".')
-        df = book.parse(sheet)
+        df = book.parse(sheet, skiprows=rows)
     elif ext == "xls":
         raise UserError("Old Excel files (.xls) can't be read here. Save it as .xlsx or CSV first.")
     elif ext in ("csv", "tsv", "txt", ""):
-        try:
-            text = data.decode("utf-8-sig")
-        except UnicodeDecodeError:
-            text = data.decode("latin-1")
+        text = _decode(data)
         sep = "\t" if ext == "tsv" else _sniff(text)
         try:
-            df = pd.read_csv(io.StringIO(text), sep=sep)
+            df = pd.read_csv(io.StringIO(text), sep=sep, skiprows=rows, decimal=decimal, thousands=thousands)
         except pd.errors.EmptyDataError:
             raise UserError("The file has no data in it.")
         except pd.errors.ParserError:
@@ -60,12 +66,42 @@ def read_data(path, sheet=None):
             )
     else:
         raise UserError("This kind of file can't be read here. Use CSV, TSV, TXT or XLSX.")
-    df.columns = [str(c).strip() for c in df.columns]
+    names = []
+    for name in (str(c).strip() for c in df.columns):
+        base, i = name, 1
+        while name in names:  # " x" and "x" are the same name once stripped
+            name, i = f"{base}.{i}", i + 1
+        names.append(name)
+    df.columns = names
+    for col, codes in (missing or {}).items():
+        if col in df.columns:
+            s = df[col]
+            hit = pd.to_numeric(s, errors="coerce").isin([c for c in codes if not isinstance(c, str)])
+            hit |= s.astype(str).str.strip().isin([c for c in codes if isinstance(c, str)])
+            df[col] = s.mask(hit)
+    for col, unit in (units or {}).items():
+        if col in df.columns:
+            text = df[col].map(lambda v: v if pd.isna(v) else str(v).strip().removesuffix(unit).strip())
+            df[col] = pd.to_numeric(text, errors="coerce")
     df = df.dropna(how="all")
     df = df.loc[:, [not (c.startswith("Unnamed:") and df[c].isna().all()) for c in df.columns]]
     if df.empty:
         raise UserError("The file has no rows of data.")
     return df.reset_index(drop=True)
+
+
+def _decode(data):
+    """Bytes to text: UTF-16 (with a byte order mark, or many zero bytes), else UTF-8, else Latin-1."""
+    if data[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        return data.decode("utf-16", errors="replace")
+    head = data[:4096]
+    if head.count(0) > len(head) // 4:
+        le = head[1::2].count(0) > head[::2].count(0)
+        return data.decode("utf-16-le" if le else "utf-16-be", errors="replace")
+    try:
+        return data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return data.decode("latin-1")
 
 
 def _sniff(text):
@@ -145,7 +181,9 @@ def _numbers(df, col, warn):
         parsed = pd.to_numeric(present, errors="coerce")
         bad = int(parsed.isna().sum())
         num = parsed.reindex(s.index).astype(float)
-        if bad and parsed.notna().any():
+        if bad == 1 and parsed.notna().any():
+            warn.append(f'1 of the values in "{col}" is not a number; it was treated as missing.')
+        elif bad and parsed.notna().any():
             warn.append(f'{bad} of the values in "{col}" are not numbers; they were treated as missing.')
     num = num.replace([np.inf, -np.inf], np.nan)
     if num.notna().sum() == 0:
@@ -181,11 +219,53 @@ def _levels(labels, col, at_most=MAX_GROUPS):
 def _complete(frame, warn):
     """Keep only rows with a value in every column (listwise deletion)."""
     out = frame.dropna()
-    if len(out) < len(frame):
-        warn.append(
-            f"Left out {len(frame) - len(out)} of {len(frame)} rows because they had missing values."
-        )
+    gone = len(frame) - len(out)
+    if gone:
+        why = "it had a missing value" if gone == 1 else "they had missing values"
+        warn.append(f"Left out {gone} of {len(frame)} rows because {why}.")
     return out
+
+
+ID_NAMES = {
+    "id", "record_id", "participant", "participant_id", "participantid", "subject", "subject_id",
+    "subjectid", "subj", "pid", "ppid", "ppt",
+}
+
+
+def _repeated(df, rows):
+    """A sentence when the rows look like repeated measures of the same people, else None."""
+    for c in df.columns:
+        if c.strip().lower().replace(" ", "_").replace("-", "_") in ID_NAMES:
+            ids = _labels(df, c).loc[rows].dropna()
+            if ids.duplicated().any():
+                return (
+                    f'"{c}" repeats ({len(ids)} rows, {ids.nunique()} different values), so some '
+                    "people have more than one row."
+                )
+            return None
+    for c in ("redcap_event_name", "redcap_repeat_instrument"):
+        if c in df.columns and df.loc[rows, c].notna().any():
+            return f'The file has "{c}", so some people may have more than one row.'
+    return None
+
+
+def _repeat_warn(df, rows, warn):
+    said = _repeated(df, rows)
+    if said:
+        warn.append(f"{said} This test assumes each row is a different person, so its p-value may be too small.")
+
+
+def _id_warn(df, col, rows, warn, role):
+    """Warn when a column used as groups or a predictor has a different value on every row, like an ID."""
+    v = _col(df, col).loc[rows].dropna()
+    if len(v) < 5 or v.nunique() < len(v):
+        return
+    named = col.strip().lower().replace(" ", "_").replace("-", "_") in ID_NAMES
+    if pd.api.types.is_numeric_dtype(v) and not pd.api.types.is_bool_dtype(v):
+        n = v.astype(float)
+        if not named and not ((n == n.round()).all() and n.max() - n.min() == len(n) - 1):
+            return  # distinct measurements, not row numbers
+    warn.append(f'"{col}" has a different value on every row, like an ID, so it may not mean much as {role}.')
 
 
 def _named_list(names):
@@ -206,6 +286,7 @@ def _two_groups(df, outcome, group, warn, test, other):
     for k, v in groups.items():
         if len(v) < 2:
             raise UserError(f'Group "{k}" has {len(v)} value; each group needs at least 2.')
+    _repeat_warn(df, frame.index, warn)
     return frame, groups
 
 
@@ -220,6 +301,7 @@ def _k_groups(df, outcome, group, warn, test):
     small = [k for k, v in groups.items() if len(v) < 2]
     if small:
         raise UserError(f"Each group needs at least 2 values; {_named_list(small)} has fewer.")
+    _repeat_warn(df, frame.index, warn)
     return frame, groups
 
 
@@ -393,6 +475,7 @@ def describe(df, columns, group=None):
         if g.isna().any():
             warn.append(f'Left out {int(g.isna().sum())} of {len(g)} rows with no value in "{group}".')
         data, g = data[g.notna()], g[g.notna()]
+        _id_warn(df, group, g.index, warn, "groups")
         parts = {k: data[g == k] for k in _levels(g, group)}
     rows = []
     for c in columns:
@@ -540,6 +623,7 @@ def normality(df, column, group=None):
         frame["g"] = _labels(df, group)
     frame = _complete(frame, warn)
     if group:
+        _id_warn(df, group, frame.index, warn, "groups")
         groups = {k: frame.loc[frame["g"] == k, "x"].to_numpy(float) for k in _levels(frame["g"], group)}
     else:
         groups = {column: frame["x"].to_numpy(float)}
@@ -555,12 +639,12 @@ def normality(df, column, group=None):
                 failed.append(k)
         else:
             warn.append(f'"{k}" has fewer than 3 different values, too few to test.')
-        if len(v) > 5000:
-            warn.append(
-                "With this many values, even tiny departures from normal count as significant. "
-                "Look at the histogram too."
-            )
         rows.append(([k] if group else []) + [len(v), np.mean(v), np.std(v, ddof=1) if len(v) > 1 else None, skew, kurt, w, p])
+    if any(len(v) > 5000 for v in groups.values()):
+        warn.append(
+            "Above 5,000 values the Shapiro-Wilk p-value is only approximate, and with this many values "
+            "even tiny departures from normal count as significant. Judge by the histogram, skew and kurtosis."
+        )
     head = (["Group"] if group else []) + ["N", "Mean", "SD", "Skew", "Kurtosis", "Shapiro-Wilk W", "p"]
     table = _table("Normality", head, rows, note="Kurtosis is excess kurtosis (0 for a normal distribution).")
     charts = [_hist(f'Distribution of "{column}"', column, groups)]
@@ -569,11 +653,21 @@ def normality(df, column, group=None):
         tested = [r for r in rows if r[-1] is not None]
         if failed:
             summary = (
-                f"{len(failed)} of {len(tested)} groups do not look normally distributed "
+                f"{len(failed)} of {len(tested)} groups {'does' if len(failed) == 1 else 'do'} not look normally distributed "
                 f"(Shapiro-Wilk p < .05): {_named_list(failed)}."
             )
         else:
             summary = f"All {len(tested)} groups look normally distributed (Shapiro-Wilk p ≥ .05)."
+        if len(tested) == len(groups) == 2:
+            summary += (
+                " So the Mann-Whitney U test may suit better than an independent t-test, especially with small groups."
+                if failed else " Both groups look roughly normal, so an independent t-test fits."
+            )
+        elif len(tested) == len(groups) > 2:
+            summary += (
+                " So the Kruskal-Wallis test may suit better than a one-way ANOVA, especially with small groups."
+                if failed else " All groups look roughly normal, so a one-way ANOVA fits."
+            )
     else:
         _n, _m, _sd, skew, kurt, w, p = rows[0]
         if w is None:
@@ -583,6 +677,11 @@ def normality(df, column, group=None):
             summary = (
                 f'"{column}" {looks} normally distributed, Shapiro-Wilk W = {_nz(w)}, {_p(p)} '
                 f"(skew = {_f(skew)}, kurtosis = {_f(kurt)}, n = {len(frame)})."
+            )
+            summary += (
+                " A test that does not assume normal data, such as the Wilcoxon signed-rank test, may suit "
+                "better, especially with a small sample." if p < 0.05
+                else " So a test that assumes normal data, such as a one-sample t-test, fits."
             )
     return _result(f'Normality of "{column}"', summary, [table], charts, warn, len(frame))
 
@@ -773,7 +872,8 @@ def wilcoxon(df, before, after):
     diff = y - x
     nonzero = diff[diff != 0]
     if len(nonzero) < len(diff):
-        warn.append(f"{len(diff) - len(nonzero)} rows had no change and were left out of the test.")
+        same = len(diff) - len(nonzero)
+        warn.append(f"{same} {'row had' if same == 1 else 'rows had'} no change and {'was' if same == 1 else 'were'} left out of the test.")
     if len(nonzero) < 1:
         raise UserError("No row changed between the two measurements, so there is nothing to test.")
     res = stats.wilcoxon(nonzero)
@@ -904,6 +1004,7 @@ def anova_twoway(df, outcome, factor_a, factor_b):
         raise UserError("Each combination of the two factors needs at least 2 rows.")
     if (cells["count"] < 2).any():
         warn.append("Some combinations of the two factors have only one row, so the results are fragile.")
+    _repeat_warn(df, frame.index, warn)
     model = ols("y ~ C(a) * C(b)", data=frame).fit()
     aov = sm.stats.anova_lm(model, typ=2)
     ss_res = aov.loc["Residual", "sum_sq"]
@@ -977,6 +1078,7 @@ def chi_square(df, rows, cols):
         if len(levels) < 2:
             raise UserError(f'"{name}" has only one value here, so there is nothing to compare.')
     n = len(frame)
+    _repeat_warn(df, frame.index, warn)
     chi2, p, dof, expected = stats.chi2_contingency(table.to_numpy(), correction=False)
     v = math.sqrt(chi2 / (n * (min(table.shape) - 1)))
     tests = [["Pearson chi-square", chi2, dof, p]]
@@ -988,7 +1090,7 @@ def chi_square(df, rows, cols):
         low = (expected < 5).mean()
         if low > 0.2 or expected.min() < 1:
             warn.append(
-                f"{(expected < 5).sum()} of {expected.size} cells expect fewer than 5 rows, so the "
+                f"{(expected < 5).sum()} of {expected.size} cells {'expects' if (expected < 5).sum() == 1 else 'expect'} fewer than 5 rows, so the "
                 "chi-square p-value may be off. Combining small categories would help."
             )
     effects = [["Cramér's V", v]] + ([["Odds ratio", odds]] if is_2x2 else [])
@@ -1134,6 +1236,8 @@ def linear_regression(df, outcome, predictors):
     raw, predictors, categorical = _design(df, outcome, predictors, warn)
     raw["__y"] = y
     frame = _complete(raw, warn)
+    for c in predictors:
+        _id_warn(df, c, frame.index, warn, "a predictor")
     notes = []
     X = _dummies(frame, predictors, categorical, notes)
     yv = frame["__y"].to_numpy(float)
@@ -1183,6 +1287,8 @@ def logistic_regression(df, outcome, predictors):
     raw, predictors, categorical = _design(df, outcome, predictors, warn)
     raw["__y"] = labels
     frame = _complete(raw, warn)
+    for c in predictors:
+        _id_warn(df, c, frame.index, warn, "a predictor")
     levels = _levels(frame["__y"], outcome, at_most=10**9)
     if len(levels) != 2:
         found = f" ({_named_list(levels)})" if levels else ""
@@ -1298,11 +1404,246 @@ def _safe(fn):
         return json.dumps({"error": "Something went wrong with this file or these choices. Check the columns and try again."}), None
 
 
-def engine_load(path, name, sheet=None):
-    """Read the file at `path` (named `name` by the person) and describe it as a DataShape."""
+def _load_options(text):
+    """LoadOptions from the screens, checked against a strict list. header/skip None means "work it out"."""
+    import json
+
+    bad = UserError("Those file options are not valid.")
+    raw = json.loads(text) if text else {}
+    if not isinstance(raw, dict) or set(raw) - {"header", "skip", "decimal", "thousands", "missing", "units"}:
+        raise bad
+
+    def small_int(v, top):
+        if v is None:
+            return None
+        if type(v) is not int or not 0 <= v <= top:
+            raise bad
+        return v
+
+    def by_column(v, check):
+        if v is None:
+            return {}
+        if not isinstance(v, dict) or len(v) > 50:
+            raise bad
+        for col, x in v.items():
+            if not 0 < len(col) <= 300 or not check(x):
+                raise bad
+        return v
+
+    def code(c):
+        if isinstance(c, str):
+            return 0 < len(c) <= 20
+        return type(c) in (int, float) and abs(c) < 1e12  # also rules out NaN and infinity
+
+    def unit(u):
+        return isinstance(u, str) and 0 < len(u) <= 10 and u.isprintable() and not any(ch.isdigit() or ch.isspace() for ch in u)
+
+    opts = {
+        "header": small_int(raw.get("header"), 100),
+        "skip": small_int(raw.get("skip"), 10),
+        "decimal": raw.get("decimal", "."),
+        "thousands": raw.get("thousands"),
+        "missing": by_column(raw.get("missing"), lambda x: isinstance(x, list) and 0 < len(x) <= 10 and all(map(code, x))),
+        "units": by_column(raw.get("units"), unit),
+    }
+    if opts["decimal"] not in (".", ",") or opts["thousands"] not in (None, ".") or (opts["thousands"] and opts["decimal"] != ","):
+        raise bad
+    return opts
+
+
+def _raw_rows(path, sheet):
+    """The first rows of the file as text cells, numbered the way read_data's header and skip count them."""
+    import itertools
+
+    ext = path.rsplit(".", 1)[-1].lower() if "." in path else ""
+    if ext in ("xlsx", "xlsm"):
+        frame = pd.read_excel(path, sheet_name=sheet, header=None, nrows=50, engine="openpyxl")
+        return [["" if pd.isna(v) else str(v) for v in row] for row in frame.itertuples(index=False)], None
+    with open(path, "rb") as f:
+        text = _decode(f.read())
+    sep = "\t" if ext == "tsv" else _sniff(text)
+    try:
+        return list(itertools.islice(csv.reader(io.StringIO(text), delimiter=sep), 50)), sep
+    except csv.Error:
+        return [], sep
+
+
+def _is_number(text):
+    try:
+        return math.isfinite(float(text.strip().replace(",", ".")))
+    except ValueError:
+        return False
+
+
+def _header_row(raw):
+    """The row that holds the column names when rows above it look like a title, else None."""
+    widths = [sum(1 for c in row if c.strip()) for row in raw]
+    if not widths:
+        return None
+    need = max(2, -(-max(widths) // 2))
+    for i, w in enumerate(widths[:20]):
+        if w >= need:
+            cells = [c for c in raw[i] if c.strip()]
+            return i if i + 1 < len(raw) and not any(map(_is_number, cells)) else None
+    return None
+
+
+def _is_qualtrics(raw, header):
+    return len(raw) > header + 2 and any(c.lstrip().startswith('{"ImportId"') for c in raw[header + 2])
+
+
+MISSING_CODES = [-99999, -9999, -999, -99, -9, 77, 88, 99, 777, 888, 999, 7777, 8888, 9999, 99999]
+DECIMAL_COMMA = r"[+-]?(?:\d{1,3}(?:\.\d{3})+|\d+),\d+"
+GROUPED = r"[+-]?\d{1,3}(?:\.\d{3})+,\d+"
+WHOLE = r"[+-]?\d+"
+UNIT = r"[+-]?\d+(?:\.\d+)?\s*([^\s\d.,+-][^\s\d]{0,9})"
+DATE = r"\d{4}-\d{1,2}-\d{1,2}(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?|\d{1,2}[./-]\d{1,2}[./-]\d{2,4}(?: \d{1,2}:\d{2}(?::\d{2})?)?"
+
+
+def _far_codes(nums):
+    """Missing-value codes (999, -99 and the like) that sit far outside a column's other values."""
+    codes = [c for c in MISSING_CODES if (nums == c).any()]
+    others = nums[~nums.isin(codes)]
+    if not codes or len(others) < 5:
+        return []
+    lo, hi = others.min(), others.max()
+    spread = max(hi - lo, 1)
+    return [
+        (c, int((nums == c).sum()), lo, hi) for c in codes
+        if (c < 0 <= lo) or c - hi > spread or lo - c > spread
+    ]
+
+
+def _plural(n, one, many):
+    return f"{n} {one if n == 1 else many}"
+
+
+def _issues(df, raw, sep, opts, auto_header, text_file):
+    """Problems in a freshly read file, each with the LoadOptions that fix (or undo) it."""
+    issues = []
+    base = {k: v for k, v in opts.items() if v not in (None, ".", {}) or k in ("header", "skip")}
+
+    def fix(**change):
+        out = {**base, **change}
+        return {k: v for k, v in out.items() if v not in (None, {}) and not (k == "decimal" and v == ".")}
+
+    def add(id_, message, action=None, fix_=None, applied=False):
+        issue = {"id": id_, "message": message}
+        if fix_ is not None:
+            issue.update(fix=fix_, action=action or "Undo")
+        if applied:
+            issue["applied"] = True
+        issues.append(issue)
+
+    header, skip = opts["header"], opts["skip"]
+    if header and auto_header:
+        add("header", f"Row {header + 1} is used as the column names, because the rows above it look like a title.", applied=True)
+    elif header:
+        add("header", f"Row {header + 1} is used as the column names; the rows above it are left out.",
+            fix_={k: v for k, v in fix(header=0, skip=None).items() if k not in ("missing", "units")}, applied=True)
+    else:
+        row = _header_row(raw)
+        if row:
+            add("header", f"Row {row + 1} looks like the column names, and the rows above it like a title.",
+                f"Use row {row + 1} as the headers", {k: v for k, v in fix(header=row, skip=None).items() if k not in ("missing", "units")})
+    qualtrics = _is_qualtrics(raw, header)
+    if skip:
+        what = "This is a Qualtrics export, so the 2 rows under the column names (question text and import codes) were left out." if qualtrics and skip == 2 else f"The {_plural(skip, 'row', 'rows')} under the column names are left out."
+        add("skip", what, fix_=fix(skip=0), applied=True)
+    elif qualtrics:
+        add("skip", "This looks like a Qualtrics export: the 2 rows under the column names hold question text and import codes, not answers.",
+            "Leave out those 2 rows", fix(skip=2))
+    if any(i["id"] == "header" and not i.get("applied") for i in issues):
+        return issues  # the columns change once the headers are right
+
+    floats = any(pd.api.types.is_float_dtype(df[c]) and (df[c].dropna() % 1 != 0).any() for c in df.columns)
+    comma, grouped, dates = [], False, []
+    for c in df.columns:
+        s = df[c]
+        present = _present(s)
+        if not len(present):
+            continue
+        kind = _kind(s, present)
+        if pd.api.types.is_datetime64_any_dtype(s):
+            dates.append(c)
+            continue
+        if kind == "numeric":
+            nums = pd.to_numeric(present, errors="coerce")
+            if not pd.api.types.is_numeric_dtype(s):
+                odd = present[nums.isna()]
+                if len(odd):
+                    examples = _named_list(list(dict.fromkeys(odd.tolist()))[:3])
+                    add(f"text:{c}",
+                        f'"{c}" is mostly numbers, but {_plural(len(odd), "value is not", "values are not")} ({examples}). '
+                        f'{"It is" if len(odd) == 1 else "They are"} treated as missing.')
+            for code, count, lo, hi in _far_codes(nums.dropna()):
+                add(f"missing:{c}:{code:g}",
+                    f'"{c}" has {code:g} in {_plural(count, "row", "rows")}, far from its other values ({lo:g} to {hi:g}). '
+                    "It may be a code for a missing answer.",
+                    f"Treat {code:g} as missing", fix(missing={**opts["missing"], c: [*opts["missing"].get(c, []), code]}))
+            continue
+        if bool(pd.api.types.is_bool_dtype(s)) or pd.api.types.is_numeric_dtype(s):
+            continue
+        is_comma = present.str.fullmatch(DECIMAL_COMMA)
+        if is_comma.any() and (is_comma | present.str.fullmatch(WHOLE)).mean() >= 0.8:
+            comma.append(c)
+            grouped = grouped or present.str.fullmatch(GROUPED).any()
+            continue
+        unit = present.str.extract(f"^{UNIT}$", expand=False)
+        if len(present) >= 3 and unit.notna().all() and unit.nunique() == 1:
+            u = unit.iloc[0]
+            add(f"units:{c}", f'"{c}" has a unit after every number (like "{present.iloc[0]}"), so it is read as text.',
+                f'Remove "{u}" and read as numbers', fix(units={**opts["units"], c: u}))
+            continue
+        if present.str.fullmatch(DATE).mean() >= 0.8:
+            dates.append(c)
+
+    if comma:
+        where = f"{_named_list(comma)} {'uses' if len(comma) == 1 else 'use'} a decimal comma (like \"{_present(df[comma[0]]).iloc[0]}\")"
+        if not text_file:
+            add("decimal", f"{where}, stored as text. Fix it in Excel, or save the sheet as CSV and open that.")
+        elif sep == "," or floats:
+            add("decimal", f"{where}, so {'it is' if len(comma) == 1 else 'they are'} read as text.")
+        else:
+            add("decimal", f"{where}, so {'it is' if len(comma) == 1 else 'they are'} read as text, not numbers.",
+                "Read 3,5 as 3.5", fix(decimal=",", thousands="." if grouped else None))
+    elif opts["decimal"] == ",":
+        also = " and 1.234,5 as 1234.5" if opts["thousands"] else ""
+        add("decimal", f"Numbers with a decimal comma are read as numbers (3,5 as 3.5{also}).",
+            fix_=fix(decimal=None, thousands=None), applied=True)
+    for c, codes in opts["missing"].items():
+        for code in codes:
+            shown = code if isinstance(code, str) else f"{code:g}"
+            rest = {**opts["missing"], c: [x for x in codes if x != code]}
+            add(f"missing:{c}:{shown}", f'{shown} in "{c}" is treated as missing.',
+                fix_=fix(missing={k: v for k, v in rest.items() if v}), applied=True)
+    for c, u in opts["units"].items():
+        add(f"units:{c}", f'"{u}" is removed from "{c}", so it is read as numbers.',
+            fix_=fix(units={k: v for k, v in opts["units"].items() if k != c}), applied=True)
+    if dates:
+        look = "looks like dates" if len(dates) == 1 else "look like dates"
+        add("dates", f"{_named_list(dates)} {look}. Dates are read as text here, so they can't be used as numbers.")
+    said = _repeated(df, df.index)
+    if said:
+        add("repeats", f"{said} Tests that compare groups assume each row is a different person.")
+    if raw and len(raw) > header:
+        names = [c.strip() for c in raw[header] if c.strip()]
+        twice = [n for n in dict.fromkeys(names) if names.count(n) > 1]
+        if twice:
+            add("duplicates", f"More than one column is called {_named_list(twice)}, so the copies have .1, .2 added to their names.")
+    if len(df) < 3:
+        add("rows", f"The file has only {_plural(len(df), 'row', 'rows')} of data, too few for most tests.")
+    return issues
+
+
+def engine_load(path, name, sheet=None, options=None):
+    """Read the file at `path` (named `name` by the person) and describe it as a DataShape.
+
+    `options` is LoadOptions as JSON. The last good file stays loaded if this one fails."""
     import json
 
     def load():
+        opts = _load_options(options)
         sheets, chosen = [], None
         if name.lower().endswith((".xlsx", ".xlsm")):
             import openpyxl
@@ -1312,12 +1653,23 @@ def engine_load(path, name, sheet=None):
             except Exception:
                 raise UserError("This workbook could not be opened. Check it is an Excel .xlsx file.")
             chosen = sheet or (sheets[0] if sheets else None)
-        df = read_data(path, sheet=chosen)
-        _loaded.update(df=df, path=path, name=name, sheet=chosen)
-        shape_ = {"fileName": name, "sheets": sheets, "sheet": chosen, **shape(df)}
+            if chosen not in sheets:
+                raise UserError(f'The workbook has no sheet called "{chosen}".')
+        raw, sep = _raw_rows(path, chosen)
+        auto_header = opts["header"] is None
+        if auto_header:
+            # A title line above the headers in a text file breaks the table (or shifts it), so skip it.
+            row = _header_row(raw) if sep else None
+            opts["header"] = row if row and all(len(raw[i]) < len(raw[row]) for i in range(row)) else 0
+        if opts["skip"] is None:
+            opts["skip"] = 2 if _is_qualtrics(raw, opts["header"]) else 0
+        df = read_data(path, sheet=chosen, **opts)
+        issues = _issues(df, raw, sep, opts, auto_header, sep is not None)
+        _loaded.clear()
+        _loaded.update(df=df, path=path, name=name, sheet=chosen, options=opts)
+        shape_ = {"fileName": name, "sheets": sheets, "sheet": chosen, **shape(df), "issues": issues}
         return json.dumps(_clean(shape_), allow_nan=False), None
 
-    _loaded.clear()
     return _safe(load)
 
 
@@ -1397,7 +1749,12 @@ def make_code(test, params, title):
     # File, sheet and column names come from a shared file, so they go in through ascii() and the script stays
     # pure ASCII: a name can't change how Python decodes the script (a "coding:" comment once let one escape).
     args = "".join(f", {k}={v!a}" for k, v in params.items())
-    read = f"read_data({name!a}" + (f", sheet={sheet!a}" if sheet is not None else "") + ")"
+    read = f"read_data({name!a}" + (f", sheet={sheet!a}" if sheet is not None else "")
+    opts = _loaded["options"]
+    for key, default in (("header", 0), ("skip", 0), ("decimal", "."), ("thousands", None), ("missing", {}), ("units", {})):
+        if opts[key] != default:
+            read += f", {key}={opts[key]!a}"  # values only; the keys are this fixed list
+    read += ")"
     header = "\n".join([
         "# -*- coding: utf-8 -*-",
         f"# {_comment(title)}",
@@ -1407,7 +1764,8 @@ def make_code(test, params, title):
     ])
     # Windows consoles and pipes default to cp1252, which can't print letters like the minus sign in headers.
     main = (
-        f'if __name__ == "__main__":\n    import sys\n    sys.stdout.reconfigure(encoding="utf-8")\n'
+        f'if __name__ == "__main__":\n    import sys\n\n    if hasattr(sys.stdout, "reconfigure"):  # IDLE and notebooks have no reconfigure\n'
+        f'        sys.stdout.reconfigure(encoding="utf-8")\n'
         f"    df = {read}\n    print_result({test}(df{args}))\n"
     )
     code = "\n\n\n".join([header + "\n\n" + "\n".join(imports), *body, main])
