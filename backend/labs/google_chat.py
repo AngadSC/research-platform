@@ -15,6 +15,7 @@ the sender goes either way: no attachments, reactions or edits.
 
 import logging
 import re
+import uuid
 from datetime import UTC, timedelta
 from urllib.parse import quote
 
@@ -286,13 +287,6 @@ def link_space(*, lab, by, space, project=None, request=None) -> GoogleChatBridg
     except (ValueError, TypeError, AttributeError) as exc:
         raise RemoteError({"space": ["Google Chat sent an answer we could not read."]}) from exc
     bridge = _bridges(lab, project).select_for_update().first()
-    others = GoogleChatBridge.objects.for_lab(lab).filter(space=space)
-    if bridge is not None:
-        others = others.exclude(pk=bridge.pk)
-    if others.exists():  # one conversation feeds one chat
-        raise ValidationError(
-            {"space": ["That conversation is already linked to another chat here."]}
-        )
     if bridge is None:
         bridge = GoogleChatBridge(lab=lab, project=project)
     bridge.account = account
@@ -676,17 +670,23 @@ def poll(bridge) -> int:
         cursor = max(cursor, _cursor(created))
         if not name.startswith(bridge.space + "/messages/") or len(name) > 255:
             continue
-        if str(item.get("clientAssignedMessageId", "")).startswith(CLIENT_PREFIX):
-            continue  # one of ours
-        if sender.get("type") != "HUMAN":
+        client_id = str(item.get("clientAssignedMessageId", ""))
+        echoed = None
+        if client_id.startswith(CLIENT_PREFIX):
+            # One of ours. Skip it where it was written; another chat linked to the same
+            # conversation takes it in under its writer's name.
+            echoed = _written_elsewhere(bridge, client_id.removeprefix(CLIENT_PREFIX))
+            if echoed is None:
+                continue
+        elif sender.get("type") != "HUMAN":
             continue  # apps and bots stay in Google
-        body = from_google_text(item)
+        body = echoed.body if echoed else from_google_text(item)
         if not body:
             continue
         user_id = str(sender.get("name", "")).removeprefix("users/")
-        author = authors.get(user_id)
+        author = echoed.author if echoed else authors.get(user_id)
         external_author = external_avatar = ""
-        if author is None:
+        if author is None and not echoed:
             person = people.get(user_id, {})
             external_author = str(
                 person.get("name") or sender.get("displayName") or UNKNOWN_SENDER
@@ -712,6 +712,23 @@ def poll(bridge) -> int:
     )
     _repair_names(bridge, authors, model, where, started)
     return added
+
+
+def _written_elsewhere(bridge, key):
+    """The app message a post to Google came from, if it was written in a different chat than
+    `bridge`'s: that is a message to carry in. None when it was written here, or is unknown."""
+    try:
+        pk = uuid.UUID(key)
+    except ValueError:
+        return None
+    where = {"project": bridge.project} if bridge.project_id else {}
+    if _model(bridge).objects.for_lab(bridge.lab_id).filter(pk=pk, **where).exists():
+        return None
+    for model in (LabChatMessage, ChatMessage):
+        found = model.objects.for_lab(bridge.lab_id).filter(pk=pk).select_related("author").first()
+        if found is not None:
+            return found
+    return None
 
 
 def _repair_names(bridge, authors, model, where, before) -> None:

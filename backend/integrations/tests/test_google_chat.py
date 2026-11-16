@@ -539,14 +539,43 @@ def test_only_project_editors_link_a_project_chat(transport, lab_users):
     assert api(u["viewer"]).put(url, {"space": GROUP}, format="json").status_code == 403
 
 
-def test_one_conversation_feeds_one_chat(transport, linked):
+def test_one_conversation_can_feed_several_chats(transport, linked):
     lab, u, _, _ = linked  # the lab chat is linked to SPACE
     p = _project(lab, u)
     connect_chat(transport, u["member"], lab, "2002", "member@example.test")
     transport.on("GET", f"{API}/{SPACE}", response(200, {"name": SPACE, "displayName": "Lab"}))
     url = reverse("projects:project-google-chat", args=[lab.pk, p.pk])
     resp = api(u["member"]).put(url, {"space": SPACE}, format="json")
-    assert resp.status_code == 400 and "already linked" in str(resp.json())
+    assert resp.status_code == 200, resp.content
+
+
+def test_a_message_written_in_one_linked_chat_reaches_the_other(transport, linked):
+    from projects import services as project_services
+    from projects.models import ChatMessage
+
+    lab, u, _, _ = linked
+    p = _project(lab, u)
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    transport.on("GET", f"{API}/{SPACE}", response(200, {"name": SPACE, "displayName": "Lab"}))
+    url = reverse("projects:project-google-chat", args=[lab.pk, p.pk])
+    assert api(u["member"]).put(url, {"space": SPACE}, format="json").status_code == 200
+
+    # Written in the project chat; posted to Google under the app's own message id.
+    transport.on("POST", MESSAGES, _posted(f"{SPACE}/messages/p1"))
+    written = project_services.post_message(project=p, by=u["member"], body="from the project")
+    transport.on("GET", PEOPLE, response(200, {"responses": []}))
+    echo = _google(
+        "p1", "from the project", clientAssignedMessageId=f"{sync.CLIENT_PREFIX}{written.pk}"
+    )
+    transport.on(
+        "GET", MESSAGES, response(200, {"messages": [echo | {"name": f"{SPACE}/messages/p1"}]})
+    )
+    sync.poll_all()
+
+    # The lab chat takes it in under the writer's name; the project chat does not get a copy.
+    lab_row = LabChatMessage.objects.for_lab(lab).get(external_id=f"{SPACE}/messages/p1")
+    assert lab_row.author == u["member"] and lab_row.body == "from the project"
+    assert ChatMessage.objects.for_lab(lab).filter(project=p).count() == 1
 
 
 def test_importing_a_whole_group_chat(transport, lab_users):

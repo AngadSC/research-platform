@@ -177,7 +177,9 @@ class LabChatMessage(LabScopedModel):
 class GoogleChatBridge(LabScopedModel):
     """A chat's link to one Google Chat conversation (D315 to D320, D325): the lab chat's (one
     per lab, set by `manage_lab_integrations`) or a project chat's (one per project, set by whoever
-    can edit the project). Whoever can read that chat may see that it exists and its name.
+    can edit the project). Several chats may link to the same conversation: what is said in Google
+    reaches each of them, and what is said in one of them reaches the others through Google.
+    Whoever can read that chat may see that it exists and its name.
 
     `account` is the Google Chat connection of whoever set it up: it reads the space, and posts
     for members who have not connected Google Chat themselves (D317)."""
@@ -210,8 +212,6 @@ class GoogleChatBridge(LabScopedModel):
                 fields=["lab"], condition=Q(project__isnull=True), name="gchatbridge_one_per_lab"
             ),
             models.UniqueConstraint(fields=["project"], name="gchatbridge_one_per_project"),
-            # One conversation feeds one chat, so a message never lands in two places.
-            models.UniqueConstraint(fields=["lab", "space"], name="gchatbridge_space_once"),
         ]
 
     def __str__(self):
