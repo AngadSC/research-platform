@@ -57,6 +57,7 @@ PREFERENCE_CHOICES = {
     "quiet_start": tuple(str(h) for h in range(24)),
     "quiet_end": tuple(str(h) for h in range(24)),
     "glass": ("on", "reduced"),  # the translucent look; reduced uses solid surfaces
+    "sidebar_compact": ("on", "off"),  # the sidebar as a narrow column of icons
     "delight": ("on", "off"),  # the little animations; off also for anyone who asks for less motion
     # D291: the browser's own zone, sent by the app on its own (never typed in).
     "time_zone": frozenset(zoneinfo.available_timezones()),
@@ -67,7 +68,12 @@ PREFERENCE_LINKS = {
     "recents": (12, {"url", "label", "kind", "at"}),
 }
 # The order a person arranged their sidebar in: the links' paths inside a lab, not full URLs.
-PREFERENCE_ORDERS = ("sidebar_main", "sidebar_admin")
+PREFERENCE_ORDERS = (
+    "sidebar_main",
+    "sidebar_admin",
+    "sidebar_hidden",  # sidebar links the person chose not to show
+    "topbar_order",  # the top bar's buttons they chose to show, in their order
+)
 MAX_ORDER_ITEMS = 40
 ORDER_ITEM = re.compile(r"[a-z0-9][a-z0-9/_-]{0,59}")
 RECENT_KINDS = ("project", "document", "record", "approval")

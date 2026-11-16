@@ -106,9 +106,12 @@ function Clock() {
 export function SidebarFooter({
   onNavigate,
   role,
+  slim = false,
 }: {
   onNavigate: () => void;
   role?: string | null;
+  /** Icons only: just the picture. */
+  slim?: boolean;
 }) {
   const me = useMe().data;
   const logout = useLogout();
@@ -120,24 +123,27 @@ export function SidebarFooter({
   };
   return (
     <div className="sticky bottom-0 mt-auto grid gap-1 bg-sidebar pt-2">
-      <Clock />
+      {!slim && <Clock />}
       <DropdownMenu>
         <DropdownMenuTrigger
           aria-label="Account menu"
-          className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm ${hoverTint} focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none`}
+          title={slim ? me?.display_name || me?.email : undefined}
+          className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm ${hoverTint} focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${slim ? "justify-center px-0" : ""}`}
         >
           {me ? (
             <UserAvatar user={me} className="size-8" />
           ) : (
             <Skeleton className="size-8 rounded-full" />
           )}
-          <span className="min-w-0 flex-1">
-            <span className="block truncate font-medium">{me?.display_name || me?.email}</span>
-            <span className="block truncate text-xs text-muted-foreground">
-              {role ? roleLabel(role) : me?.email}
+          {!slim && (
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-medium">{me?.display_name || me?.email}</span>
+              <span className="block truncate text-xs text-muted-foreground">
+                {role ? roleLabel(role) : me?.email}
+              </span>
             </span>
-          </span>
-          <ChevronsUpDown className="size-4 shrink-0 opacity-60" aria-hidden />
+          )}
+          {!slim && <ChevronsUpDown className="size-4 shrink-0 opacity-60" aria-hidden />}
         </DropdownMenuTrigger>
         <DropdownMenuContent
           side="top"

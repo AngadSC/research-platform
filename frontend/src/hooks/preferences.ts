@@ -5,6 +5,7 @@ import type { Crumb } from "@/components/shared/Breadcrumbs";
 import { useMe } from "@/hooks/workspace";
 import { api } from "@/lib/api";
 import type { User } from "@/lib/api-types";
+import { TOPBAR_DEFAULT } from "@/lib/layout";
 import { addRecent, isLocalUrl, MAX_PINS, togglePin, type Pin, type Recent } from "@/lib/pins";
 
 interface Lists {
@@ -12,6 +13,9 @@ interface Lists {
   recents?: Recent[];
   sidebar_main?: string[];
   sidebar_admin?: string[];
+  sidebar_hidden?: string[];
+  sidebar_compact?: "on" | "off";
+  topbar_order?: string[];
   delight?: "on" | "off";
   glass?: "on" | "reduced";
 }
@@ -175,4 +179,23 @@ export function useGlass(): [GlassMode, (mode: GlassMode) => void] {
     [save],
   );
   return [mode, set];
+}
+
+/** How this person laid out the top bar and the sidebar, saved to their account. The top bar
+ * lists only what is shown, in order; the sidebar lists what is hidden. */
+export function useLayout() {
+  const prefs = (useMe().data as Me | undefined)?.preferences;
+  const save = useSaveLists();
+  const topbar = prefs?.topbar_order ?? TOPBAR_DEFAULT;
+  const hidden = prefs?.sidebar_hidden ?? [];
+  return {
+    topbar,
+    hidden,
+    compact: prefs?.sidebar_compact === "on",
+    setTopbar: (topbar_order: string[]) => save({ topbar_order }),
+    setHidden: (sidebar_hidden: string[]) => save({ sidebar_hidden }),
+    setCompact: (on: boolean) => save({ sidebar_compact: on ? "on" : "off" }),
+    resetTopbar: () => save({ topbar_order: TOPBAR_DEFAULT }),
+    resetSidebar: () => save({ sidebar_main: [], sidebar_admin: [], sidebar_hidden: [] }),
+  };
 }

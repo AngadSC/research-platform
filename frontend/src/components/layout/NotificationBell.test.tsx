@@ -34,4 +34,32 @@ describe("NotificationBell", () => {
     expect(link).toHaveAttribute("href", "/labs/lab1/chat");
     expect(within(link).getByText("bold gone cc @Ben")).toBeInTheDocument();
   });
+
+  it("lists chats with new messages and counts them on the bell", async () => {
+    mockFetch({
+      "GET /api/labs/lab1/notifications/": { body: [mention] },
+      "GET /api/labs/lab1/chat/unread/": {
+        body: [
+          { project: null, count: 2 },
+          { project: "p1", count: 1 },
+        ],
+      },
+      "GET /api/labs/lab1/projects/": { body: [{ id: "p1", name: "Pilot Study" }] },
+    });
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <NotificationBell labId="lab1" />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Notifications, 4 unread" }));
+    const chats = await screen.findByRole("list", { name: "New chat messages" });
+    const lab = within(chats).getByRole("menuitem", { name: /Lab chat/ });
+    expect(lab).toHaveAttribute("href", "/labs/lab1/chat");
+    expect(lab).toHaveTextContent("2 new messages");
+    const project = within(chats).getByRole("menuitem", { name: /Pilot Study/ });
+    expect(project).toHaveAttribute("href", "/labs/lab1/projects/p1?chat=1");
+    expect(project).toHaveTextContent("1 new message");
+  });
 });

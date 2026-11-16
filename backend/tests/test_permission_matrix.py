@@ -108,6 +108,7 @@ MATRIX: dict[tuple[str, str], str] = {
     #                                    anon outsider pi admin lead contrib pviewer nonproj lviewer
     ("GET",    "core:health"):           "2   2        2  2     2    2       2       2       2",
     ("GET",    "core:me"):               "401 2        2  2     2    2       2       2       2",
+    ("GET",    "core:weather"):          "401 2        2  2     2    2       2       2       2",
     ("PATCH",  "core:me"):               "401 2        2  2     2    2       2       2       2",
     # Profile picture (D258): your own, any signed-in person; GET of someone else's needs a
     # shared lab, so the outsider (no lab in common with Lab A's people) gets 404.

@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { ChevronRight, ChevronsUpDown, Plus, Star } from "lucide-react";
+import {
+  ChevronRight,
+  ChevronsUpDown,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  Star,
+} from "lucide-react";
 import { NavLink, useNavigate } from "react-router";
 import {
   DropdownMenu,
@@ -22,7 +29,7 @@ import { UnreadBadge, useUnreadCount } from "@/components/layout/UnreadBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LAB_CHAT, useUnreadChats } from "@/hooks/chat";
 import { useCurrentLabId, useCurrentProjectId } from "@/hooks/crumbs";
-import { usePins, useSidebarOrder } from "@/hooks/preferences";
+import { useLayout, usePins, useSidebarOrder } from "@/hooks/preferences";
 import { useMyTasks, useProjects } from "@/hooks/projects";
 import { localDateISO } from "@/lib/format";
 import { useLabs } from "@/hooks/workspace";
@@ -191,7 +198,9 @@ function LabSwitcher({
   loading,
   onNavigate,
   unread,
+  slim = false,
 }: {
+  slim?: boolean;
   labs: Lab[];
   current: Lab | undefined;
   loading: boolean;
@@ -203,15 +212,21 @@ function LabSwitcher({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Switch lab"
-        className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold ${hoverTint} focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none`}
+        title={slim ? (current?.name ?? "Switch lab") : undefined}
+        className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold ${hoverTint} focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${slim ? "justify-center px-0" : ""}`}
       >
-        {loading ? (
+        {slim ? (
+          <span className="relative grid size-8 place-items-center rounded-lg bg-primary/15 text-primary">
+            {(current?.name ?? "?").slice(0, 1).toUpperCase()}
+            <UnreadBadge count={unread} className="absolute -top-1 -right-1" />
+          </span>
+        ) : loading ? (
           <Skeleton aria-label="Loading" className="h-4 w-32" />
         ) : (
           <span className="truncate">{current?.name ?? "Select a lab"}</span>
         )}
-        <UnreadBadge count={unread} className="ml-auto" />
-        <ChevronsUpDown className="size-4 shrink-0 opacity-60" aria-hidden />
+        {!slim && <UnreadBadge count={unread} className="ml-auto" />}
+        {!slim && <ChevronsUpDown className="size-4 shrink-0 opacity-60" aria-hidden />}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
         <DropdownMenuLabel>Switch lab</DropdownMenuLabel>
@@ -271,8 +286,14 @@ export function Sidebar({
     (t) => t.due_date && t.due_date < today,
   ).length;
   const done = projects.filter((p) => p.status === "completed" && p.id !== projectId);
+  const layout = useLayout();
+  const slim = layout.compact && !open; // the drawer below md always shows words
   const items = navItems(labId, current?.my_permissions, current?.inventory_enabled).filter(
-    ({ to }) => to !== "/settings" && to !== "/help" && !to.endsWith("/notifications"), // each has its own menu
+    ({ to }) =>
+      to !== "/settings" &&
+      to !== "/help" &&
+      !to.endsWith("/notifications") && // each has its own menu
+      !layout.hidden.includes(keyOf(to)),
   );
   const order = useSidebarOrder();
   const [labFolded, toggleLab] = useFolded("lab");
@@ -295,15 +316,23 @@ export function Sidebar({
     adminItems.map((i) => keyOf(i.to)),
     order.setAdmin,
   );
+  const badgeAt = slim ? "absolute top-0 right-1" : "ml-auto";
   const link = ({ to, label, icon: Icon, end }: NavItem) => (
-    <NavLink key={to} to={to} end={end} className={linkClass} onClick={onClose}>
+    <NavLink
+      key={to}
+      to={to}
+      end={end}
+      title={slim ? label : undefined}
+      className={(st) => cn(linkClass(st), slim && "justify-center px-0")}
+      onClick={onClose}
+    >
       <Icon aria-hidden />
-      {label}
+      {slim ? <span className="sr-only">{label}</span> : label}
       {to.endsWith("/my-work") && (
-        <UnreadBadge count={overdueMine} noun="overdue task" className="ml-auto" />
+        <UnreadBadge count={overdueMine} noun="overdue task" className={badgeAt} />
       )}
       {to.endsWith("/chat") && (
-        <UnreadBadge count={chatUnread[LAB_CHAT] ?? 0} noun="message" className="ml-auto" />
+        <UnreadBadge count={chatUnread[LAB_CHAT] ?? 0} noun="message" className={badgeAt} />
       )}
     </NavLink>
   );
@@ -311,7 +340,8 @@ export function Sidebar({
     <aside
       id="app-sidebar"
       className={cn(
-        "glass glass--strong w-64 shrink-0 flex-col gap-4 overflow-hidden rounded-[20px] p-4 md:m-3 md:mr-0 print:hidden",
+        "glass glass--strong shrink-0 flex-col gap-4 overflow-hidden rounded-[20px] md:m-3 md:mr-0 print:hidden",
+        slim ? "w-[4.5rem] p-2" : "w-64 p-4",
         // Below md the sidebar is a drawer that only exists while open.
         open
           ? "fixed inset-y-3 left-3 z-50 flex md:static md:z-auto"
@@ -321,23 +351,40 @@ export function Sidebar({
       )}
     >
       <div>
-        <div className="flex items-center justify-between px-2 pb-1">
+        <div
+          className={cn("flex items-center pb-1", slim ? "flex-col gap-2" : "justify-between px-2")}
+        >
           <img
-            src="/logo-full.png"
+            src={slim ? "/logo.png" : "/logo-full.png"}
             alt={APP_NAME}
-            className="h-7 w-auto rounded dark:bg-white/90 dark:px-1.5"
+            className={cn("w-auto rounded dark:bg-white/90 dark:px-1.5", slim ? "h-8" : "h-7")}
           />
-          <button
-            type="button"
-            aria-label="Create a lab"
-            onClick={() => {
-              onClose();
-              void navigate("/labs/new");
-            }}
-            className={iconButton}
-          >
-            <Plus aria-hidden />
-          </button>
+          <span className="flex items-center gap-0.5">
+            {!slim && (
+              <button
+                type="button"
+                aria-label="Create a lab"
+                onClick={() => {
+                  onClose();
+                  void navigate("/labs/new");
+                }}
+                className={iconButton}
+              >
+                <Plus aria-hidden />
+              </button>
+            )}
+            {!open && (
+              <button
+                type="button"
+                aria-label={slim ? "Show sidebar labels" : "Show icons only"}
+                title={slim ? "Show labels" : "Icons only"}
+                onClick={() => layout.setCompact(!layout.compact)}
+                className={iconButton}
+              >
+                {slim ? <PanelLeftOpen aria-hidden /> : <PanelLeftClose aria-hidden />}
+              </button>
+            )}
+          </span>
         </div>
         <LabSwitcher
           labs={labs}
@@ -345,10 +392,11 @@ export function Sidebar({
           loading={labsLoading}
           onNavigate={onClose}
           unread={unread}
+          slim={slim}
         />
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-        <PinnedNav onNavigate={onClose} />
+        {!slim && <PinnedNav onNavigate={onClose} />}
         {labId && !current ? (
           <div aria-busy="true" aria-label="Loading navigation" className="grid gap-2 px-3">
             {Array.from({ length: 8 }, (_, i) => (
@@ -358,77 +406,109 @@ export function Sidebar({
         ) : (
           <>
             <nav aria-label="Main" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
-              <span className={groupLabel}>Lab</span>
-              {mainItems.map((item) => (
-                <ReorderRow key={item.to} id={keyOf(item.to)} reorder={mainReorder}>
-                  {item.to.endsWith("/projects") ? (
-                    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
-                      <div className="flex items-center gap-0.5">
-                        <NavLink
-                          to={item.to}
-                          end={item.end}
-                          className={(s) => cn(linkClass(s), "min-w-0 flex-1")}
-                          onClick={onClose}
-                        >
-                          <item.icon aria-hidden />
-                          {item.label}
-                        </NavLink>
-                        {current?.my_permissions.includes("create_project") && (
-                          <button
-                            type="button"
-                            aria-label="New project"
-                            onClick={() => {
-                              onClose();
-                              void navigate(`${item.to}?new=project`);
-                            }}
-                            className={iconButton}
+              {slim ? (
+                <hr aria-hidden className="mx-2 border-border" />
+              ) : (
+                <GroupHeading label="Lab" folded={labFolded} onToggle={toggleLab} />
+              )}
+              {(slim || !labFolded) &&
+                mainItems.map((item) => (
+                  <ReorderRow key={item.to} id={keyOf(item.to)} reorder={mainReorder}>
+                    {item.to.endsWith("/projects") ? (
+                      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+                        <div className="flex items-center gap-0.5">
+                          <NavLink
+                            to={item.to}
+                            end={item.end}
+                            title={slim ? item.label : undefined}
+                            className={(s) =>
+                              cn(linkClass(s), "min-w-0 flex-1", slim && "justify-center px-0")
+                            }
+                            onClick={onClose}
                           >
-                            <Plus aria-hidden />
-                          </button>
+                            <item.icon aria-hidden />
+                            {slim ? <span className="sr-only">{item.label}</span> : item.label}
+                          </NavLink>
+                          {!slim && current?.my_permissions.includes("create_project") && (
+                            <button
+                              type="button"
+                              aria-label="New project"
+                              onClick={() => {
+                                onClose();
+                                void navigate(`${item.to}?new=project`);
+                              }}
+                              className={iconButton}
+                            >
+                              <Plus aria-hidden />
+                            </button>
+                          )}
+                        </div>
+                        {slim ? (
+                          <ul className="grid justify-items-center gap-1">
+                            {projects
+                              .filter((p) => p.status !== "completed" || p.id === projectId)
+                              .map((p) => (
+                                <li key={p.id} style={projectColorStyle(p.color)}>
+                                  <NavLink
+                                    to={`/labs/${labId}/projects/${p.id}`}
+                                    title={p.name}
+                                    aria-label={p.name}
+                                    onClick={onClose}
+                                    className={cn(
+                                      "grid size-8 place-items-center rounded-lg text-xs font-semibold text-(--project) hover:bg-[color-mix(in_srgb,var(--project)_18%,transparent)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                                      p.id === projectId &&
+                                        "bg-[color-mix(in_srgb,var(--project)_22%,transparent)]",
+                                    )}
+                                  >
+                                    {p.name.slice(0, 1).toUpperCase()}
+                                  </NavLink>
+                                </li>
+                              ))}
+                          </ul>
+                        ) : (
+                          <ul className="ml-3 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+                            {projects
+                              .filter((p) => p.status !== "completed" || p.id === projectId)
+                              .map((p) => (
+                                <ProjectItem
+                                  key={p.id}
+                                  labId={labId!}
+                                  project={p}
+                                  isCurrent={p.id === projectId}
+                                  unread={chatUnread[p.id] ?? 0}
+                                  onNavigate={onClose}
+                                />
+                              ))}
+                            {done.length > 0 && (
+                              <li>
+                                <details>
+                                  <summary className="cursor-pointer rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+                                    Completed ({done.length})
+                                  </summary>
+                                  <ul className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+                                    {done.map((p) => (
+                                      <ProjectItem
+                                        key={p.id}
+                                        labId={labId!}
+                                        project={p}
+                                        isCurrent={false}
+                                        unread={chatUnread[p.id] ?? 0}
+                                        onNavigate={onClose}
+                                      />
+                                    ))}
+                                  </ul>
+                                </details>
+                              </li>
+                            )}
+                          </ul>
                         )}
                       </div>
-                      <ul className="ml-3 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
-                        {projects
-                          .filter((p) => p.status !== "completed" || p.id === projectId)
-                          .map((p) => (
-                            <ProjectItem
-                              key={p.id}
-                              labId={labId!}
-                              project={p}
-                              isCurrent={p.id === projectId}
-                              unread={chatUnread[p.id] ?? 0}
-                              onNavigate={onClose}
-                            />
-                          ))}
-                        {done.length > 0 && (
-                          <li>
-                            <details>
-                              <summary className="cursor-pointer rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
-                                Completed ({done.length})
-                              </summary>
-                              <ul className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
-                                {done.map((p) => (
-                                  <ProjectItem
-                                    key={p.id}
-                                    labId={labId!}
-                                    project={p}
-                                    isCurrent={false}
-                                    unread={chatUnread[p.id] ?? 0}
-                                    onNavigate={onClose}
-                                  />
-                                ))}
-                              </ul>
-                            </details>
-                          </li>
-                        )}
-                      </ul>
-                    </div>
-                  ) : (
-                    link(item)
-                  )}
-                </ReorderRow>
-              ))}
-              {(order.main.length > 0 || order.admin.length > 0) && (
+                    ) : (
+                      link(item)
+                    )}
+                  </ReorderRow>
+                ))}
+              {!slim && (order.main.length > 0 || order.admin.length > 0) && (
                 <button
                   type="button"
                   onClick={order.reset}
@@ -441,14 +521,20 @@ export function Sidebar({
             {adminItems.length > 0 && (
               <nav
                 aria-label="Admin"
-                className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5 border-t pt-4"
+                className={cn(
+                  "grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5",
+                  !slim && "border-t pt-4",
+                )}
               >
-                <span className={groupLabel}>Admin</span>
-                {adminItems.map((item) => (
-                  <ReorderRow key={item.to} id={keyOf(item.to)} reorder={adminReorder}>
-                    {link(item)}
-                  </ReorderRow>
-                ))}
+                {slim ? null : (
+                  <GroupHeading label="Admin" folded={adminFolded} onToggle={toggleAdmin} />
+                )}
+                {(slim || !adminFolded) &&
+                  adminItems.map((item) => (
+                    <ReorderRow key={item.to} id={keyOf(item.to)} reorder={adminReorder}>
+                      {link(item)}
+                    </ReorderRow>
+                  ))}
               </nav>
             )}
           </>
@@ -459,7 +545,7 @@ export function Sidebar({
           className="pointer-events-none sticky bottom-0 -mt-4 h-6 shrink-0 bg-gradient-to-t from-sidebar to-transparent"
         />
       </div>
-      <SidebarFooter onNavigate={onClose} role={current?.my_role} />
+      <SidebarFooter onNavigate={onClose} role={current?.my_role} slim={slim} />
     </aside>
   );
 }

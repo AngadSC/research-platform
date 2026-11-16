@@ -4,7 +4,7 @@ import type { ChatMessage, ChatUnread } from "@/lib/api-types";
 
 /** D206: chat polls while the tab is visible. Must match the list views' page_size. */
 const POLL_MS = 4000;
-const UNREAD_POLL_MS = 15000; // badges can lag a little; this runs on every page
+const UNREAD_POLL_MS = 10000; // badges can lag a little; this runs on every page
 export const CHAT_PAGE_SIZE = 100;
 /** The key for the lab chat in `useUnreadChats`; the other keys are project ids. */
 export const LAB_CHAT = "lab";
@@ -21,13 +21,21 @@ const unreadKey = (labId: string | undefined) => ["labs", labId, "chat-unread"];
 
 /** Unread message counts for the lab: by project id, plus `LAB_CHAT`. Chats with none are missing. */
 export function useUnreadChats(labId: string | undefined) {
-  const { data = [] } = useQuery({
+  return useUnreadChatsQuery(labId).counts;
+}
+
+/** The same counts, plus whether the first answer has come (for telling new from already there). */
+export function useUnreadChatsQuery(labId: string | undefined) {
+  const { data = [], isSuccess } = useQuery({
     queryKey: unreadKey(labId),
     queryFn: () => api<ChatUnread[]>(`/api/labs/${labId}/chat/unread/`),
     enabled: !!labId,
     refetchInterval: UNREAD_POLL_MS,
   });
-  return Object.fromEntries(data.map((r) => [r.project ?? LAB_CHAT, r.count]));
+  return {
+    counts: Object.fromEntries(data.map((r) => [r.project ?? LAB_CHAT, r.count])),
+    isSuccess,
+  };
 }
 
 export function useChat(labId: string, projectId?: string) {

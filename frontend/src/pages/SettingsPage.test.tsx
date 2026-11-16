@@ -36,6 +36,28 @@ describe("settings", () => {
     expect(screen.queryByLabelText("Name")).toBeNull();
   });
 
+  it("lays out the top bar and sidebar, saving each change to the account", async () => {
+    const calls = mockFetch(base(["view_lab"]));
+    renderRoute("/settings#layout");
+    const shown = await screen.findByRole("list", { name: "Shown in the top bar" });
+    expect(within(shown).getByText("Search")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Remove Search from the top bar" }));
+    await waitFor(() => {
+      const saved = calls.filter((c) => c.method === "PATCH").at(-1)?.body as {
+        preferences: { topbar_order: string[] };
+      };
+      expect(saved.preferences.topbar_order).not.toContain("search");
+      expect(saved.preferences.topbar_order).toContain("task");
+    });
+    await userEvent.click(screen.getByRole("radio", { name: "Icons only" }));
+    await waitFor(() => {
+      const saved = calls.filter((c) => c.method === "PATCH").at(-1)?.body as {
+        preferences: { sidebar_compact: string };
+      };
+      expect(saved.preferences.sidebar_compact).toBe("on");
+    });
+  });
+
   it("saves a readable custom theme and applies it, and refuses an unreadable one", async () => {
     const calls = mockFetch({
       ...base(["view_lab"]),

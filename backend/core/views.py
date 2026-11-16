@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from core import avatars
+from core import avatars, weather
 from core.auth import login_methods_for_email, sso_for_email
 from core.models import Notification, User
 from core.notifications import visible_notifications
@@ -238,3 +238,38 @@ class SearchView(LabScopedViewMixin, APIView):
         types = {t for t in request.query_params.get("types", "").split(",") if t}
         hits = search(request.user, request.lab, request.query_params.get("q", ""), types)
         return Response({"results": hits})
+
+
+class WeatherView(APIView):
+    """The weather where the signed-in person is, for the top bar. Their browser gives the
+    coordinates, only when they switch it on. Without coordinates it says nothing is available."""
+
+    perms = {"GET": Perm.AUTHENTICATED}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "weather"
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("lat", OpenApiTypes.FLOAT),
+            OpenApiParameter("lon", OpenApiTypes.FLOAT),
+        ],
+        responses=inline_serializer(
+            "Weather",
+            {
+                "available": serializers.BooleanField(),
+                "temperature_c": serializers.IntegerField(required=False),
+                "code": serializers.IntegerField(required=False),
+                "place": serializers.CharField(required=False),
+            },
+        ),
+    )
+    def get(self, request):
+        try:
+            lat = float(request.query_params["lat"])
+            lon = float(request.query_params["lon"])
+        except (KeyError, ValueError):
+            return Response({"available": False})
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            return Response({"available": False})
+        found = weather.current(lat, lon)
+        return Response({"available": True, **found} if found else {"available": False})

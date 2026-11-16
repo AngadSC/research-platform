@@ -72,7 +72,7 @@ export function useNotifications(labId: string | undefined) {
     queryKey: [...nKey(labId ?? "")],
     queryFn: () => api<AppNotification[]>(`${base(labId!)}/notifications/`),
     enabled: !!labId,
-    refetchInterval: 60_000,
+    refetchInterval: 20_000,
     refetchOnWindowFocus: true,
   });
 }

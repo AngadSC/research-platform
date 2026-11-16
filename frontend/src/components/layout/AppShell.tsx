@@ -1,15 +1,17 @@
 import { MobileTabBar } from "@/components/layout/MobileTabBar";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Menu, PanelLeft, Pin, PinOff, Plus, Search } from "lucide-react";
-import { Outlet, useLocation, useNavigate } from "react-router";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { Breadcrumbs, type Crumb } from "@/components/shared/Breadcrumbs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
+import { useIncomingBanners } from "@/hooks/banners";
 import { useUnreadChats } from "@/hooks/chat";
 import { useCrumbs, useCurrentLabId } from "@/hooks/crumbs";
 import {
   useGlass,
+  useLayout,
   usePins,
   useRecents,
   useSyncTimeZone,
@@ -20,6 +22,7 @@ import { useLabs } from "@/hooks/workspace";
 import { useRegisterCommands, type Command } from "@/lib/commands";
 import { CommandPalette } from "./CommandPalette";
 import { navItems } from "@/lib/nav";
+import { shortcutId } from "@/lib/layout";
 import { APP_NAME, MOD_KEY, OPEN_QUICK_CAPTURE_EVENT, OPEN_SEARCH_EVENT } from "@/lib/constants";
 import { useMe } from "@/hooks/workspace";
 import { useAccountTheme } from "@/lib/theme";
@@ -28,6 +31,7 @@ import { NamePrompt } from "./NamePrompt";
 import { GoogleEditorHost } from "@/components/shared/GoogleEditorPanel";
 import { QuickCapture } from "./QuickCapture";
 import { greeting } from "@/lib/greeting";
+import { WeatherChip } from "./WeatherChip";
 import { NotificationBell } from "./NotificationBell";
 import { Sidebar } from "./Sidebar";
 import { Tutorial } from "./Tutorial";
@@ -114,6 +118,73 @@ export function AppShell() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [navOpen]);
+
+  useIncomingBanners(labId);
+  const layout = useLayout();
+  const { pins } = usePins();
+  const labPerms = labs?.find((l) => l.id === labId);
+  const shortcuts = navItems(labId, labPerms?.my_permissions, labPerms?.inventory_enabled).filter(
+    (n) => n.to !== "/settings" && !n.to.endsWith("/notifications"),
+  );
+  const barParts: Record<string, ReactNode> = {
+    greeting: name ? (
+      <span className="hidden truncate text-sm font-medium text-muted-foreground md:inline">
+        {greeting(new Date(), name)}
+      </span>
+    ) : null,
+    pin: <PinButton crumbs={crumbs} />,
+    pins: pins.length > 0 && (
+      <span className="hidden min-w-0 items-center gap-1 lg:flex">
+        {pins.slice(0, 4).map((p) => (
+          <Button key={p.url} variant="ghost" size="sm" asChild className="max-w-36">
+            <NavLink to={p.url} title={p.label}>
+              <span className="truncate">{p.label}</span>
+            </NavLink>
+          </Button>
+        ))}
+      </span>
+    ),
+    search: (
+      <Button
+        variant="secondary"
+        size="sm"
+        aria-label="Search"
+        onClick={() => window.dispatchEvent(new Event(OPEN_SEARCH_EVENT))}
+      >
+        <Search aria-hidden />
+        <span className="hidden sm:inline">Search</span>
+        <kbd className="hidden rounded bg-background px-1.5 text-xs font-medium text-muted-foreground sm:inline">
+          {MOD_KEY} K
+        </kbd>
+      </Button>
+    ),
+    task: labId && (
+      <Button
+        variant="outline"
+        size="sm"
+        aria-label="Add a task"
+        title={`Add a task (${MOD_KEY} G)`}
+        onClick={() => window.dispatchEvent(new Event(OPEN_QUICK_CAPTURE_EVENT))}
+      >
+        <Plus aria-hidden />
+        <span className="hidden sm:inline">Task</span>
+      </Button>
+    ),
+    assistant: labId && <AssistantDrawer labId={labId} />,
+    weather: <WeatherChip />,
+    bell: labId && <NotificationBell labId={labId} />,
+    ...Object.fromEntries(
+      shortcuts.map((n) => [
+        shortcutId(n.to),
+        <Button key={n.to} variant="ghost" size="icon" asChild className="hidden md:inline-flex">
+          <NavLink to={n.to} end={n.end} aria-label={n.label} title={n.label}>
+            <n.icon aria-hidden />
+          </NavLink>
+        </Button>,
+      ]),
+    ),
+  };
+  const barOrder = layout.topbar;
 
   const commands = useMemo<Command[]>(
     () => [
@@ -204,40 +275,18 @@ export function AppShell() {
               <PanelLeft aria-hidden />
             </Button>
             <span className="text-sm font-semibold md:hidden">{APP_NAME}</span>
-            {name && (
-              <span className="hidden truncate text-sm font-medium text-muted-foreground md:inline">
-                {greeting(new Date(), name)}
-              </span>
-            )}
-            <div className="ml-auto flex items-center gap-2">
-              <PinButton crumbs={crumbs} />
-              <Button
-                variant="secondary"
-                size="sm"
-                aria-label="Search"
-                onClick={() => window.dispatchEvent(new Event(OPEN_SEARCH_EVENT))}
-              >
-                <Search aria-hidden />
-                <span className="hidden sm:inline">Search</span>
-                <kbd className="hidden rounded bg-background px-1.5 text-xs font-medium text-muted-foreground sm:inline">
-                  {MOD_KEY} K
-                </kbd>
-              </Button>
-              {labId && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  aria-label="Add a task"
-                  title={`Add a task (${MOD_KEY} G)`}
-                  onClick={() => window.dispatchEvent(new Event(OPEN_QUICK_CAPTURE_EVENT))}
-                >
-                  <Plus aria-hidden />
-                  <span className="hidden sm:inline">Task</span>
-                </Button>
-              )}
-              {labId && <AssistantDrawer labId={labId} />}
-              {labId && <NotificationBell labId={labId} />}
-            </div>
+            {barOrder.map((id, i) => {
+              const part = barParts[id];
+              if (!part) return null;
+              // Everything after the greeting sits to the right.
+              const first = barOrder.findIndex((x) => barParts[x] && x !== "greeting") === i;
+              return (
+                <Fragment key={id}>
+                  {first && <span className="flex-1" />}
+                  {part}
+                </Fragment>
+              );
+            })}
           </header>
           <main
             id="main"

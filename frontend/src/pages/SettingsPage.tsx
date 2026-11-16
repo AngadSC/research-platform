@@ -16,6 +16,7 @@ import { SecuritySections } from "@/pages/SecurityPage";
 import { AiAccessSections, ConnectedAiApps } from "@/pages/settings/AiAccessSections";
 import { AiKeysSection } from "@/pages/settings/AiKeysSection";
 import { LabKeyNotice } from "@/pages/settings/LabAiKeySection";
+import { LayoutSettings } from "@/pages/settings/LayoutSettings";
 import { CustomThemes } from "@/pages/settings/CustomThemes";
 import { NotificationSettings } from "@/pages/settings/NotificationSettings";
 import { ProfileSection } from "@/pages/settings/ProfileSection";
@@ -187,6 +188,7 @@ export function SettingsPage() {
                 </div>
               ),
             },
+            { id: "layout", label: "Layout", content: <LayoutSettings /> },
             {
               id: "notifications",
               label: "Notifications",

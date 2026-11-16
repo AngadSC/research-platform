@@ -229,3 +229,26 @@ def test_sidebar_order_is_saved_and_checked(make_user):
         {"sidebar_admin": [1]},
     ):
         assert c.patch("/api/me/", {"preferences": bad}, format="json").status_code == 400
+
+
+@pytest.mark.django_db
+def test_layout_preferences_are_saved_and_checked(make_user):
+    user = make_user()
+    c = APIClient()
+    c.force_authenticate(user)
+    ok = {
+        "sidebar_hidden": ["inventory", "settings/integrations"],
+        "topbar_order": ["search", "nav-calendar", "bell"],
+        "sidebar_compact": "on",
+    }
+    resp = c.patch("/api/me/", {"preferences": ok}, format="json")
+    assert resp.status_code == 200
+    assert resp.json()["preferences"] == ok
+    for bad in (
+        {"sidebar_compact": "huge"},
+        {"sidebar_hidden": "inventory"},
+        {"topbar_order": ["search", "search"]},
+        {"topbar_order": ["<script>"]},
+        {"topbar_order": [str(i) for i in range(41)]},
+    ):
+        assert c.patch("/api/me/", {"preferences": bad}, format="json").status_code == 400

@@ -11536,6 +11536,34 @@ paths:
                 type: string
                 format: binary
           description: ''
+  /api/weather/:
+    get:
+      operationId: weather_retrieve
+      description: |-
+        The weather where the signed-in person is, for the top bar. Their browser gives the
+        coordinates, only when they switch it on. Without coordinates it says nothing is available.
+      parameters:
+      - in: query
+        name: lat
+        schema:
+          type: number
+          format: float
+      - in: query
+        name: lon
+        schema:
+          type: number
+          format: float
+      tags:
+      - weather
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Weather'
+          description: ''
 components:
   schemas:
     ActionEnum:
@@ -12187,8 +12215,12 @@ components:
         size_bytes:
           type: integer
           readOnly: true
+        drive_file_id:
+          type: string
+          readOnly: true
       required:
       - content_type
+      - drive_file_id
       - id
       - original_filename
       - size_bytes
@@ -12653,6 +12685,9 @@ components:
         external_author:
           type: string
           readOnly: true
+        external_avatar:
+          type: string
+          readOnly: true
         source:
           allOf:
           - $ref: '#/components/schemas/Source395Enum'
@@ -12674,6 +12709,7 @@ components:
       - body
       - created_at
       - external_author
+      - external_avatar
       - id
       - reactions
       - source
@@ -15387,9 +15423,15 @@ components:
           type: string
         kind:
           $ref: '#/components/schemas/GoogleChatSpaceKindEnum'
+        members:
+          type: array
+          items:
+            type: string
+          description: Names of the other participants, when Google will give them.
       required:
       - display_name
       - kind
+      - members
       - name
     GoogleChatSpaceKindEnum:
       enum:
@@ -16265,6 +16307,9 @@ components:
         external_author:
           type: string
           readOnly: true
+        external_avatar:
+          type: string
+          readOnly: true
         source:
           allOf:
           - $ref: '#/components/schemas/Source395Enum'
@@ -16286,6 +16331,7 @@ components:
       - body
       - created_at
       - external_author
+      - external_avatar
       - id
       - reactions
       - source
@@ -21147,6 +21193,19 @@ components:
       description: |-
         * `google_meet` - Google Meet
         * `zoom` - Zoom
+    Weather:
+      type: object
+      properties:
+        available:
+          type: boolean
+        temperature_c:
+          type: integer
+        code:
+          type: integer
+        place:
+          type: string
+      required:
+      - available
     Webhook:
       type: object
       description: 'Never the address or the secret: `host` says where it goes.'
