@@ -107,11 +107,17 @@ def _call(account, method, url, **kwargs):
 
 
 KINDS = {"SPACE": "space", "GROUP_CHAT": "group_chat", "DIRECT_MESSAGE": "direct_message"}
-LABELLED = 20  # unnamed group chats and messages named by their members, most recent first
+LABELLED = 60  # unnamed group chats and messages named by their members, most recent first
 
 
 def _member_names(account, space) -> list[str]:
-    """The names Google will give for a conversation's other members, in listed order."""
+    """The names Google will give for a conversation's other members, in listed order. Uses the
+    name on the membership when Google sends one, else the Workspace directory. Cached briefly,
+    so reopening the picker is cheap."""
+    ckey = f"gchat-members:{account.lab_id}:{account.external_account_id}:{space}"
+    cached = cache.get(ckey)
+    if cached is not None:
+        return cached
     try:
         resp = send(
             "GET",
@@ -121,16 +127,24 @@ def _member_names(account, space) -> list[str]:
             params={"pageSize": 20},
         )
         rows = resp.json().get("memberships", []) if resp.status_code == 200 else []
-        ids = [
-            str((m.get("member") or {}).get("name", "")).removeprefix("users/")
-            for m in rows
-            if isinstance(m, dict)
-        ]
+        people = [(m.get("member") or {}) for m in rows if isinstance(m, dict)]
     except (AccountUnavailable, IntegrationError, ValueError, AttributeError):
         return []
-    ids = [i for i in ids if i and i != account.external_account_id]
-    names = google_names(account, ids)
-    return [names[i] for i in ids if i in names]
+    pairs = [
+        (
+            str(p.get("name", "")).removeprefix("users/"),
+            "".join(c for c in str(p.get("displayName", "")) if c.isprintable())[:200],
+        )
+        for p in people
+        if isinstance(p, dict) and p.get("type", "HUMAN") == "HUMAN"
+    ]
+    pairs = [(i, n) for i, n in pairs if i and i != account.external_account_id]
+    directory = google_names(account, [i for i, n in pairs if not n])
+    out = [n or directory.get(i, "") for i, n in pairs]
+    out = [n for n in out if n]
+    if out:
+        cache.set(ckey, out, 600)
+    return out
 
 
 def _members_label(names: list[str]) -> str:
@@ -174,8 +188,10 @@ def list_spaces(lab, user) -> list[dict]:
     for r in chats:
         r["members"] = _member_names(account, r["name"])
         if not r["display_name"]:
+            kind = "Direct message" if r["kind"] == "direct_message" else "Group chat"
+            when = r["active"].strftime("%b %-d") if r["active"] else ""
             r["display_name"] = _members_label(r["members"]) or (
-                "Direct message" if r["kind"] == "direct_message" else "Group chat"
+                f"{kind} · {when}" if when else kind
             )
     for r in named:
         r["members"] = []
@@ -466,9 +482,12 @@ def google_names(account, user_ids) -> dict[str, str]:
                 ],
             },
         )
-        rows = resp.json().get("responses", []) if resp.status_code == 200 else []
+        ok = resp.status_code == 200
+        if not ok:
+            log.warning("Google directory lookup failed: HTTP %s", resp.status_code)
+        rows = resp.json().get("responses", []) if ok else []
     except (AccountUnavailable, IntegrationError, ValueError, AttributeError):
-        rows = []
+        ok, rows = False, []
     fresh = {}
     for row in rows if isinstance(rows, list) else []:
         try:
@@ -478,8 +497,12 @@ def google_names(account, user_ids) -> dict[str, str]:
             continue
         if pid in keys:
             fresh[pid] = "".join(c for c in name if c.isprintable())[:200]
-    # Unknown ids are cached as "" so a stranger's id isn't looked up on every poll.
-    cache.set_many({keys[i]: fresh.get(i, "") for i in missing}, NAME_CACHE)
+    # Unknown ids are cached as "" so a stranger's id isn't looked up on every poll, but only when
+    # Google answered: a failed lookup must not hide a colleague's name for a day.
+    if ok:
+        cache.set_many({keys[i]: fresh.get(i, "") for i in missing}, NAME_CACHE)
+    else:
+        cache.set_many({keys[i]: n for i, n in fresh.items()}, NAME_CACHE)
     out.update(fresh)
     return {i: n for i, n in out.items() if n}
 
