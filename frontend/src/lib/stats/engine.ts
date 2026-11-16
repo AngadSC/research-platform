@@ -1,4 +1,5 @@
 import type {
+  DataRows,
   DataShape,
   EngineState,
   LoadOptions,
@@ -92,6 +93,12 @@ export function createStatsEngine(
     prepare(test: TestId) {
       // Queued like any job, so it never delays a run that was asked for first.
       send({ type: "prepare", test }).catch(() => {});
+    },
+    tableXlsx(table, context) {
+      return send<Uint8Array>({ type: "table_xlsx", table, context });
+    },
+    rows(offset, limit) {
+      return send<DataRows>({ type: "rows", offset, limit });
     },
     run(req: StatsRequest) {
       return send<StatsResult>({ type: "run", test: req.test, params: req.params });

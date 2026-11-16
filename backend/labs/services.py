@@ -22,6 +22,7 @@ from integrations.services import revoke_member_accounts
 from labs.admin_services import apply_starter_resources, institution_for, revoke_calendar_feed
 from labs.models import (
     CalendarFeedToken,
+    ChatSource,
     Invite,
     Lab,
     LabChatMessage,
@@ -45,6 +46,9 @@ def post_lab_message(*, lab, by, body) -> LabChatMessage:
         target=lab,
         key=f"labchat:{message.pk}",
     )
+    from labs import google_chat
+
+    google_chat.queue_relay(message)  # D317: to the linked Google Chat space, if any
     return message
 
 
@@ -62,6 +66,17 @@ def delete_lab_message(*, message, by, request=None) -> None:
         request=request,
         metadata={"author": str(message.author_id)},
     )
+    if message.external_id and message.source == ChatSource.APP:
+        # D319: what we posted to Google goes there too. Messages that came from Google are only
+        # removed here: Google lets people delete their own messages, not others'.
+        from labs import jobs
+
+        lab_id, external_id = str(message.lab_id), message.external_id
+        author_id = str(message.author_id) if message.author_id else ""
+        transaction.on_commit(
+            lambda: jobs.delete_google_chat_message.delay(lab_id, external_id, author_id),
+            robust=True,
+        )
     message.delete()
 
 

@@ -116,3 +116,14 @@ describe("stats engine", () => {
     expect(workers).toHaveLength(2);
   });
 });
+
+describe("test catalogue", () => {
+  it("has a Python function for every test the screens list, and a unique id and label", async () => {
+    const { TESTS } = await import("@/lib/stats/contract");
+    const py = (await import("@/lib/stats/stats.py?raw")).default;
+    for (const t of TESTS) expect(py, t.id).toContain(`def ${t.id}(`);
+    expect(new Set(TESTS.map((t) => t.id)).size).toBe(TESTS.length);
+    expect(new Set(TESTS.map((t) => t.label)).size).toBe(TESTS.length);
+    expect(TESTS.length).toBeGreaterThanOrEqual(28);
+  });
+});

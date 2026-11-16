@@ -11,7 +11,8 @@ export type ParamKind =
   | "category" // one column treated as groups (any column; the engine uses its distinct values)
   | "columns" // one or more columns of any kind
   | "number" // a typed number
-  | "choice"; // one of `options`
+  | "choice" // one of `options`
+  | "text"; // a typed value, such as one answer in a column
 
 export interface ParamSpec {
   key: string;
@@ -41,12 +42,31 @@ export type TestId =
   | "chi_square"
   | "correlation"
   | "linear_regression"
-  | "logistic_regression";
+  | "logistic_regression"
+  | "levene"
+  | "welch_anova"
+  | "ks_two_sample"
+  | "binomial"
+  | "gof_chi_square"
+  | "mcnemar"
+  | "friedman"
+  | "anova_repeated"
+  | "ancova"
+  | "partial_correlation"
+  | "cohens_kappa"
+  | "cronbach_alpha"
+  | "pca";
 
 export interface TestSpec {
   id: TestId;
   label: string;
-  group: "Describe" | "Compare groups" | "Relationships";
+  group:
+    | "Describe"
+    | "Compare groups"
+    | "Repeated measures"
+    | "Relationships"
+    | "Counts and agreement"
+    | "Scales and structure";
   /** One plain sentence: when to use it. */
   help: string;
   params: ParamSpec[];
@@ -209,6 +229,133 @@ export const TESTS: TestSpec[] = [
       { key: "predictors", label: "Predictors", kind: "columns", min: 1 },
     ],
   },
+  {
+    id: "levene",
+    label: "Equal spreads (Levene)",
+    group: "Compare groups",
+    help: "Do the groups vary by the same amount? Check this before a t-test or ANOVA.",
+    params: [
+      OUTCOME,
+      GROUP,
+      {
+        key: "center",
+        label: "Centre",
+        kind: "choice",
+        default: "median",
+        options: [
+          { value: "median", label: "Median (Brown-Forsythe, robust)" },
+          { value: "mean", label: "Mean (original Levene)" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "welch_anova",
+    label: "Welch's ANOVA",
+    group: "Compare groups",
+    help: "Three or more groups that may have unequal spreads.",
+    params: [OUTCOME, GROUP],
+  },
+  {
+    id: "ks_two_sample",
+    label: "Kolmogorov-Smirnov",
+    group: "Compare groups",
+    help: "Do two groups have the same overall distribution, not just the same average?",
+    params: [OUTCOME, { ...GROUP, help: "Exactly two groups." }],
+  },
+  {
+    id: "ancova",
+    label: "ANCOVA",
+    group: "Compare groups",
+    help: "Compare groups after adjusting for one or more numeric columns, such as a baseline score.",
+    params: [
+      OUTCOME,
+      GROUP,
+      { key: "covariates", label: "Covariates (numbers)", kind: "numerics", min: 1 },
+    ],
+  },
+  {
+    id: "anova_repeated",
+    label: "Repeated-measures ANOVA",
+    group: "Repeated measures",
+    help: "The same people measured two or more times, with pairwise comparisons.",
+    params: [{ key: "columns", label: "Measurements (one column each)", kind: "numerics", min: 2 }],
+  },
+  {
+    id: "friedman",
+    label: "Friedman test",
+    group: "Repeated measures",
+    help: "Three or more measurements of the same people, without assuming normal data.",
+    params: [{ key: "columns", label: "Measurements (one column each)", kind: "numerics", min: 3 }],
+  },
+  {
+    id: "mcnemar",
+    label: "McNemar's test",
+    group: "Repeated measures",
+    help: "Did a yes/no answer change between two measurements of the same people?",
+    params: [
+      { key: "first", label: "First measurement", kind: "category" },
+      { key: "second", label: "Second measurement", kind: "category" },
+    ],
+  },
+  {
+    id: "partial_correlation",
+    label: "Partial correlation",
+    group: "Relationships",
+    help: "The link between two numeric columns after removing the effect of others.",
+    params: [
+      { key: "x", label: "First column", kind: "numeric" },
+      { key: "y", label: "Second column", kind: "numeric" },
+      { key: "controls", label: "Control for", kind: "numerics", min: 1 },
+    ],
+  },
+  {
+    id: "binomial",
+    label: "Binomial test",
+    group: "Counts and agreement",
+    help: "Is the share of one answer different from a set share, such as 50%?",
+    params: [
+      { key: "column", label: "Column", kind: "category" },
+      {
+        key: "success",
+        label: "Answer to count",
+        kind: "text",
+        help: "Type it exactly as it appears in the column.",
+      },
+      { key: "p0", label: "Compare with (0 to 1)", kind: "number", default: 0.5 },
+    ],
+  },
+  {
+    id: "gof_chi_square",
+    label: "Chi-square goodness of fit",
+    group: "Counts and agreement",
+    help: "Are all the values in a column equally common?",
+    params: [{ key: "column", label: "Column", kind: "category" }],
+  },
+  {
+    id: "cohens_kappa",
+    label: "Agreement (Cohen's kappa)",
+    group: "Counts and agreement",
+    help: "How well do two raters agree on categories, beyond chance?",
+    params: [
+      { key: "rater1", label: "First rater", kind: "category" },
+      { key: "rater2", label: "Second rater", kind: "category" },
+    ],
+  },
+  {
+    id: "cronbach_alpha",
+    label: "Reliability (Cronbach's alpha)",
+    group: "Scales and structure",
+    help: "How consistent are the items of a questionnaire scale?",
+    params: [{ key: "columns", label: "Items (one column each)", kind: "numerics", min: 2 }],
+  },
+  {
+    id: "pca",
+    label: "Principal components",
+    group: "Scales and structure",
+    help: "Find the main patterns running through several numeric columns.",
+    params: [{ key: "columns", label: "Columns", kind: "numerics", min: 2 }],
+  },
 ];
 
 /** The file the engine reads. CSV, TSV, TXT and XLSX. */
@@ -268,6 +415,13 @@ export interface DataShape {
   columns: ColumnInfo[];
   /** Problems found on reading, most important first; empty for a clean file. */
   issues: DataIssue[];
+}
+
+/** A slice of the loaded table, for the data grid. */
+export interface DataRows {
+  offset: number;
+  total: number;
+  rows: (string | number | null)[][];
 }
 
 /** Param values by `ParamSpec.key`: a column name, a list of names, a number or a choice. */
@@ -342,6 +496,13 @@ export interface StatsEngine {
   load(file: StatsFile, options?: LoadOptions): Promise<DataShape>;
   /** Start fetching the packages a test needs in the background, so its first run is quicker. */
   prepare(test: TestId): void;
+  /** Rows `offset` up to `offset + limit` (at most 500) of the loaded file, in column order. */
+  rows(offset: number, limit: number): Promise<DataRows>;
+  /** One result table as an Excel workbook (a Summary sheet, then the table). */
+  tableXlsx(
+    table: StatsTable,
+    context: { title: string; summary: string; n: number; file: string },
+  ): Promise<Uint8Array>;
   /** Run a test on the loaded file. */
   run(req: StatsRequest): Promise<StatsResult>;
 }

@@ -480,6 +480,74 @@ def edit_in_google(attachment, *, user, request=None) -> Attachment:
     )
 
 
+EXPORT_NAME_MAX = 100
+
+
+def export_to_drive(project, file, *, user, name="", participant_data=False, request=None) -> dict:
+    """Send a table, workbook or chart made on the statistics page to the person's own Google Drive.
+    Nothing is stored here and nothing is attached to the project: the file goes straight out,
+    so it is recorded in the audit log. The caller has checked the export right on the project.
+    Data that identifies participants may go too (D307); the event records whether it was marked.
+    """
+    from integrations.http import IntegrationError
+    from integrations.models import AccountStatus, ConnectedAccount
+    from integrations.providers import google_drive
+
+    stem, dot, ext = (file.name or "").rpartition(".")
+    ext = f".{ext.lower()}" if dot else ""
+    if ext not in google_drive.EXPORTABLE:
+        raise ValidationError({"file": "Only Excel, CSV, PNG and SVG files can be sent to Google."})
+    limit = google_drive.CONVERT_MAX_BYTES
+    if file.size > limit:
+        raise ValidationError(
+            {"file": f"This file is too large to send to Google ({limit // 1048576} MB maximum)."}
+        )
+    label = "".join(c for c in (name or stem) if c.isprintable() and c not in "/\\")
+    label = label.strip()[:EXPORT_NAME_MAX] or "Statistics result"
+    account = (
+        ConnectedAccount.objects.for_lab(project.lab_id)
+        .filter(user=user, provider=google_drive.PROVIDER.name, status=AccountStatus.ACTIVE)
+        .first()
+    )
+    if account is None:
+        raise ValidationError({"file": "Connect Google in Integrations first."})
+    data = file.read()
+    try:
+        file_id = google_drive.create_export(account, name=label, extension=ext, data=data)
+    except IntegrationError:  # AccountUnavailable too
+        # Google may have received the file before it failed to answer, so the attempt is recorded.
+        record(
+            AuditAction.ATTACHMENT_DOWNLOADED,
+            actor=user,
+            lab=project.lab,
+            target=project,
+            request=request,
+            metadata={
+                "via": "stats_export",
+                "extension": ext,
+                "participant_data": bool(participant_data),
+                "outcome": "uncertain",
+            },
+        )
+        raise ValidationError({"file": "Google Drive did not answer. Try again."}) from None
+    # The bytes have left: recorded now, whatever happens next.
+    record(
+        AuditAction.ATTACHMENT_DOWNLOADED,
+        actor=user,
+        lab=project.lab,
+        target=project,
+        request=request,
+        metadata={
+            "via": "stats_export",
+            "drive_file_id": file_id,
+            "extension": ext,
+            "participant_data": bool(participant_data),
+        },
+    )
+    mime = google_drive.EXPORTABLE[ext][1] or google_drive.EXPORTABLE[ext][0]
+    return {"id": file_id, "name": label, "url": google_drive.view_url(mime, file_id)}
+
+
 @transaction.atomic
 def delete_attachment(attachment, *, user, request=None) -> None:
     """Soft delete. The stored bytes stay; nothing is purged automatically (D24)."""

@@ -46,7 +46,15 @@ export type DeadlineInput = Schemas["DeadlineInput"];
 export type Task = Schemas["Task"];
 export type MyTask = Schemas["MyTask"];
 export type TaskInput = Schemas["TaskInput"];
-export type ChatMessage = Schemas["ChatMessage"];
+/** A project or lab chat message. Lab chat messages may come from Google Chat (D316): then
+ * `author` is null when the sender has no account here, and `external_author` names them. */
+export type ChatMessage =
+  | (Schemas["ChatMessage"] & { source?: undefined; external_author?: undefined })
+  | Schemas["LabChatMessage"];
+export type GoogleChatStatus = Schemas["GoogleChatStatus"];
+export type GoogleChatSpace = Schemas["GoogleChatSpace"];
+export type GoogleChatThread = Schemas["GoogleChatThread"];
+export type LinkPreview = Schemas["LinkPreview"];
 export type ChatUnread = Schemas["ChatUnread"];
 export type TaskPost = Schemas["TaskPost"];
 export type TaskDocument = Schemas["TaskDocument"];

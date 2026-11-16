@@ -63,6 +63,15 @@ function fakeEngine(over: Partial<StatsEngine> = {}) {
     },
     load: vi.fn(async () => shape),
     run: vi.fn(async () => result),
+    tableXlsx: vi.fn(async () => new Uint8Array([80, 75])),
+    rows: vi.fn(async () => ({
+      offset: 0,
+      total: 2,
+      rows: [
+        [1, "A", "x"],
+        [2, "B", null],
+      ],
+    })),
     ...over,
   } as never;
   return Object.assign(e, { emit: (s: EngineState) => listener(s) });
@@ -142,7 +151,7 @@ function setup(
 async function loadAndRun(u: ReturnType<typeof userEvent.setup>) {
   await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
   await screen.findByText(/6 rows, 3 columns/);
-  await u.selectOptions(screen.getByLabelText("Test"), "t_independent");
+  await u.click(screen.getByRole("button", { name: "Independent t-test" }));
   await u.selectOptions(screen.getByLabelText("Outcome (numbers)"), "score");
   await u.selectOptions(screen.getByLabelText("Groups"), "arm");
   await u.click(screen.getByRole("button", { name: "Run" }));
@@ -161,8 +170,8 @@ describe("Analyse page", () => {
     expect(engine.warmUp).toHaveBeenCalled();
     await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
     expect(await screen.findByText(/6 rows, 3 columns/)).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "note" })).toBeInTheDocument();
-    await u.selectOptions(screen.getByLabelText("Test"), "t_independent");
+    expect(screen.getByRole("columnheader", { name: /note/ })).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Independent t-test" }));
     const outcome = screen.getByLabelText("Outcome (numbers)");
     expect(
       within(outcome)
@@ -309,7 +318,7 @@ describe("Analyse page", () => {
     });
     const u = userEvent.setup();
     await screen.findByText(/6 rows, 3 columns/);
-    await u.selectOptions(screen.getByLabelText("Test"), "t_independent");
+    await u.click(screen.getByRole("button", { name: "Independent t-test" }));
     await u.selectOptions(screen.getByLabelText("Outcome (numbers)"), "score");
     await u.selectOptions(screen.getByLabelText("Groups"), "arm");
     await u.click(screen.getByRole("button", { name: "Run" }));
@@ -395,7 +404,7 @@ describe("Analyse page", () => {
     const u = userEvent.setup();
     await screen.findByText(/6 rows, 3 columns/);
     expect(calls.some((c) => c.path.endsWith("/folders/"))).toBe(true);
-    await u.selectOptions(screen.getByLabelText("Test"), "t_independent");
+    await u.click(screen.getByRole("button", { name: "Independent t-test" }));
     await u.selectOptions(screen.getByLabelText("Outcome (numbers)"), "score");
     await u.selectOptions(screen.getByLabelText("Groups"), "arm");
     await u.click(screen.getByRole("button", { name: "Run" }));
@@ -438,7 +447,7 @@ describe("Analyse page", () => {
       new File(["a,b"], "mine.csv"),
     );
     await screen.findByText(/6 rows/);
-    await u.selectOptions(screen.getByLabelText("Test"), "describe");
+    await u.click(screen.getByRole("button", { name: "Summary statistics" }));
     await u.click(screen.getByRole("checkbox", { name: "score" }));
     await u.click(screen.getByRole("button", { name: "Run" }));
     await u.click(await screen.findByRole("button", { name: "Save to project" }));
@@ -496,10 +505,16 @@ describe("Analyse page", () => {
     await screen.findByText(/6 rows, 3 columns/);
     await u.click(screen.getByText("Which test should I use?"));
     await u.click(screen.getByRole("button", { name: "Are two groups different?" }));
-    expect(screen.getByLabelText("Test")).toHaveValue("t_independent");
+    expect(screen.getByRole("button", { name: "Independent t-test" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(engine.prepare).toHaveBeenCalledWith("t_independent");
     await u.click(screen.getByRole("button", { name: "Are my numbers roughly normal?" }));
-    expect(screen.getByLabelText("Test")).toHaveValue("normality");
+    expect(screen.getByRole("button", { name: "Check normality" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(screen.getByLabelText(/Split by/)).toHaveValue("arm");
   });
 
@@ -508,5 +523,120 @@ describe("Analyse page", () => {
     await loadAndRun(userEvent.setup());
     await screen.findByText("t(4) = 2.31, p = .026");
     expect(screen.queryByRole("button", { name: "Save to project" })).toBeNull();
+  });
+});
+
+describe("Studio layout", () => {
+  it("shows the real rows in a grid with column types", async () => {
+    setup(fakeEngine());
+    const u = userEvent.setup();
+    await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
+    const grid = await screen.findByRole("table", { name: "Data" });
+    expect(await within(grid).findByRole("cell", { name: "x" })).toBeInTheDocument();
+    expect(within(grid).getByRole("columnheader", { name: /score/ })).toHaveTextContent("numbers");
+  });
+
+  it("updates the result as options change when asked, and keeps it on request", async () => {
+    const engine = fakeEngine();
+    setup(engine);
+    const u = userEvent.setup();
+    await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
+    await screen.findByText(/6 rows, 3 columns/);
+    await u.click(screen.getByRole("button", { name: "Independent t-test" }));
+    await u.click(screen.getByLabelText("Update results as I change options"));
+    await u.selectOptions(screen.getByLabelText("Outcome (numbers)"), "score");
+    await u.selectOptions(screen.getByLabelText("Groups"), "arm");
+    expect(
+      await screen.findByText("Live result. It changes when you change the options."),
+    ).toBeInTheDocument();
+    expect(engine.run).toHaveBeenCalledTimes(1);
+    await u.click(screen.getByRole("button", { name: "Keep this result" }));
+    expect(screen.queryByText(/Live result/)).toBeNull();
+    expect(screen.getByText("t(4) = 2.31, p = .026")).toBeInTheDocument();
+  });
+});
+
+describe("Focus mode", () => {
+  async function enter(engine = fakeEngine()) {
+    setup(engine, { query: "" });
+    const u = userEvent.setup();
+    await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
+    await screen.findByText(/6 rows, 3 columns/);
+    await u.click(screen.getByRole("button", { name: /Focus mode/ }));
+    return { u, engine };
+  }
+
+  it("fills the screen with a ribbon, the data and the options, and Esc leaves it", async () => {
+    const { u } = await enter();
+    const workspace = await screen.findByRole("region", { name: "Statistics workspace" });
+    expect(within(workspace).getByRole("tablist", { name: "Analysis groups" })).toBeInTheDocument();
+    expect(within(workspace).getByRole("region", { name: "Data pane" })).toBeInTheDocument();
+    await u.click(within(workspace).getByRole("tab", { name: "Compare groups" }));
+    await u.click(within(workspace).getByRole("button", { name: "Independent t-test" }));
+    expect(within(workspace).getByLabelText("Outcome (numbers)")).toBeInTheDocument();
+    await u.keyboard("{Escape}");
+    expect(screen.queryByRole("region", { name: "Statistics workspace" })).toBeNull();
+    expect(screen.getByRole("button", { name: /Focus mode/ })).toBeInTheDocument();
+  });
+
+  it("hides the data with D and resizes it from the keyboard", async () => {
+    const { u } = await enter();
+    const bar = await screen.findByRole("separator", { name: "Resize the data pane" });
+    const before = Number(bar.getAttribute("aria-valuenow"));
+    bar.focus();
+    await u.keyboard("{ArrowRight}");
+    expect(Number(bar.getAttribute("aria-valuenow"))).toBe(before + 3);
+    (document.activeElement as HTMLElement).blur();
+    await u.keyboard("d");
+    expect(screen.queryByRole("region", { name: "Data pane" })).toBeNull();
+    await u.keyboard("d");
+    expect(screen.getByRole("region", { name: "Data pane" })).toBeInTheDocument();
+  });
+
+  it("copies a table and removes a kept result", async () => {
+    const { u, engine } = await enter();
+    await u.click(screen.getByRole("tab", { name: "Compare groups" }));
+    await u.click(screen.getByRole("button", { name: "Independent t-test" }));
+    await u.selectOptions(screen.getByLabelText("Outcome (numbers)"), "score");
+    await u.selectOptions(screen.getByLabelText("Groups"), "arm");
+    await u.click(screen.getByRole("button", { name: "Run" }));
+    expect(await screen.findByText("t(4) = 2.31, p = .026")).toBeInTheDocument();
+    expect(engine.run).toHaveBeenCalledTimes(1);
+    await u.click(screen.getByRole("button", { name: "Remove Score by arm" }));
+    expect(screen.queryByText("t(4) = 2.31, p = .026")).toBeNull();
+  });
+});
+
+describe("Exports", () => {
+  it("sends a table to Google Sheets for someone who may export", async () => {
+    vi.mocked(upload).mockResolvedValue({
+      id: "g1",
+      name: "x",
+      url: "https://docs.google.com/spreadsheets/d/g1/edit",
+    } as never);
+    const engine = fakeEngine();
+    setup(engine, { perms: ["view_project", "edit_content", "export"] });
+    const u = userEvent.setup();
+    await loadAndRun(u);
+    await u.click(await screen.findByRole("button", { name: "Export table Group means" }));
+    await u.click(await screen.findByRole("menuitem", { name: "Send to Google Sheets" }));
+    await waitFor(() => expect(upload).toHaveBeenCalled());
+    const [path, form] = vi.mocked(upload).mock.calls[0]!;
+    expect(path).toBe("/api/labs/lab1/projects/p1/drive-export/");
+    expect((form as FormData).get("participant_data")).toBe("false"); // an unmarked project file
+    expect((form as FormData).get("name")).toBe("Score by arm: Group means");
+    expect(((form as FormData).get("file") as File).name).toMatch(/\.xlsx$/);
+    expect(engine.tableXlsx).toHaveBeenCalled();
+  });
+
+  it("offers downloads but no Google choices without the export right", async () => {
+    setup(fakeEngine(), { perms: ["view_project", "edit_content"] });
+    const u = userEvent.setup();
+    await loadAndRun(u);
+    await u.click(await screen.findByRole("button", { name: "Export table Group means" }));
+    expect(await screen.findByRole("menuitem", { name: "Download CSV" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Download Excel (.xlsx)" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Send to Google Sheets" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Send results to Google Sheets" })).toBeNull();
   });
 });

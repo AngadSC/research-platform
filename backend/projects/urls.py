@@ -48,6 +48,11 @@ urlpatterns = [
         name="chatmessage-detail",
     ),
     path(
+        "labs/<uuid:lab_id>/messages/<uuid:chatmessage_id>/reactions/",
+        views.ChatReactionView.as_view(),
+        name="chatmessage-reactions",
+    ),
+    path(
         "labs/<uuid:lab_id>/tasks/<uuid:task_id>/posts/",
         views.TaskPostListCreateView.as_view(),
         name="taskpost-list",

@@ -7,6 +7,7 @@ from rest_framework import generics, serializers, status
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
+from core import reactions
 from core.permissions import Perm, can
 from core.tenancy import project_of
 from core.views import LabScopedViewMixin
@@ -39,6 +40,7 @@ from projects.serializers import (
     ProjectMembershipRoleSerializer,
     ProjectMembershipSerializer,
     ProjectSerializer,
+    ReactionInputSerializer,
     RetentionItemSerializer,
     TaskFilterSerializer,
     TaskInputSerializer,
@@ -377,6 +379,25 @@ class ChatMessageDetailView(ProjectScopedMixin, generics.GenericAPIView):
     def delete(self, request, lab_id, chatmessage_id):
         services.delete_message(message=self.get_object(), by=request.user, request=request)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ChatReactionView(ProjectScopedMixin, generics.GenericAPIView):
+    """D321: add or take away your emoji on a message. Whoever can read the chat can react."""
+
+    model = ChatMessage
+    serializer_class = ChatMessageSerializer
+    lookup_url_kwarg = "chatmessage_id"
+    perms = {"POST": Perm.VIEW_PROJECT}
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("author")
+
+    @extend_schema(request=ReactionInputSerializer, responses=ChatMessageSerializer)
+    def post(self, request, lab_id, chatmessage_id):
+        message = self.get_object()
+        emoji = self.body(ReactionInputSerializer)["emoji"]
+        message = reactions.toggle(self.get_queryset(), message.pk, request.user, emoji)
+        return self.out(message)
 
 
 class ChatReadView(ProjectScopedMixin, generics.GenericAPIView):

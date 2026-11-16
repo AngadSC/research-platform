@@ -398,6 +398,153 @@ error("three.csv", "logistic_regression", "exactly two values", outcome="g", pre
 error("three.csv", "linear_regression", "both the outcome and a predictor", outcome="v", predictors=["v"])
 error("plants.csv", "describe", "Pick a column with 20 groups or fewer", columns=["weight"], group="weight")
 error("three.csv", "nonsense", "not available")
+# ---- more tests (cross-checked against scipy / statsmodels called directly, or known values) ----
+import numpy as np
+import scipy.stats as sps
+import statsmodels.api as sm_
+import statsmodels.formula.api as smf_
+from statsmodels.stats.anova import AnovaRM, anova_lm
+from statsmodels.stats.oneway import anova_oneway as sm_welch
+
+rng = np.random.default_rng(7)
+ga, gb, gc = rng.normal(10, 1, 12), rng.normal(12, 3, 12), rng.normal(11, 6, 12)
+grp = ["a"] * 12 + ["b"] * 12 + ["c"] * 12
+write("three.csv", csv_of({"y": list(ga) + list(gb) + list(gc), "g": grp}))
+
+# Levene (median-centred = Brown-Forsythe) and mean-centred
+r = run("three.csv", "levene", outcome="y", group="g")
+ref = sps.levene(ga, gb, gc, center="median")
+close(cell(r, "Levene's test", "F"), ref.statistic, "Brown-Forsythe F")
+close(cell(r, "Levene's test", "p"), ref.pvalue, "Brown-Forsythe p")
+r = run("three.csv", "levene", outcome="y", group="g", center="mean")
+close(cell(r, "Levene's test", "F"), sps.levene(ga, gb, gc, center="mean").statistic, "Levene F")
+
+# Welch's ANOVA against statsmodels
+r = run("three.csv", "welch_anova", outcome="y", group="g")
+ref = sm_welch([ga, gb, gc], use_var="unequal")
+close(cell(r, "Welch's ANOVA", "F"), ref.statistic, "Welch ANOVA F")
+close(cell(r, "Welch's ANOVA", "df 2"), ref.df_denom, "Welch ANOVA df2")
+close(cell(r, "Welch's ANOVA", "p"), ref.pvalue, "Welch ANOVA p")
+
+# Kolmogorov-Smirnov
+write("two.csv", csv_of({"y": list(ga) + list(gb), "g": ["a"] * 12 + ["b"] * 12}))
+r = run("two.csv", "ks_two_sample", outcome="y", group="g")
+ref = sps.ks_2samp(ga, gb)
+close(cell(r, "Kolmogorov-Smirnov", "D"), ref.statistic, "KS D")
+close(cell(r, "Kolmogorov-Smirnov", "p"), ref.pvalue, "KS p")
+error("three.csv", "ks_two_sample", "exactly two groups", outcome="y", group="g")
+
+# Binomial: R binom.test(7, 10): p = 0.3438, 95% CI 0.3475471 0.9332605
+write("coin.csv", csv_of({"r": ["H"] * 7 + ["T"] * 3}))
+r = run("coin.csv", "binomial", column="r", success="H", p0=0.5)
+close(cell(r, "Binomial test", "p"), 0.34375, "binomial p")
+close(cell(r, "Binomial test", "95% CI low"), 0.3475471, "binomial CI low")
+close(cell(r, "Binomial test", "95% CI high"), 0.9332605, "binomial CI high")
+error("coin.csv", "binomial", "no \"X\"", column="r", success="X")
+
+# Goodness of fit: counts 20/30/50 give chi-square 14 on 2 df, p = exp(-7)
+write("gof.csv", csv_of({"c": ["a"] * 20 + ["b"] * 30 + ["c"] * 50}))
+r = run("gof.csv", "gof_chi_square", column="c")
+close(cell(r, "Chi-square goodness of fit", "χ²"), 14.0, "gof chi-square")
+close(cell(r, "Chi-square goodness of fit", "p"), math.exp(-7), "gof p", tol=1e-3)
+
+# McNemar (Agresti's approval ratings: 794, 86, 150, 570): corrected chi-square (|86-150|-1)^2/236
+first = ["y"] * 794 + ["y"] * 86 + ["n"] * 150 + ["n"] * 570
+second = ["y"] * 794 + ["n"] * 86 + ["y"] * 150 + ["n"] * 570
+write("mcn.csv", csv_of({"t1": first, "t2": second}))
+r = run("mcn.csv", "mcnemar", first="t1", second="t2")
+close(cell(r, "McNemar's test", "Statistic"), 63**2 / 236, "McNemar chi-square")
+ok(cell(r, "McNemar's test", "p") < 0.001, "McNemar p")
+
+# Friedman
+m = rng.normal(0, 1, (15, 3)) + np.array([0, 0.5, 1.2])
+write("fr.csv", csv_of({"t1": m[:, 0], "t2": m[:, 1], "t3": m[:, 2]}))
+r = run("fr.csv", "friedman", columns=["t1", "t2", "t3"])
+ref = sps.friedmanchisquare(m[:, 0], m[:, 1], m[:, 2])
+close(cell(r, "Friedman test", "χ²"), ref.statistic, "Friedman chi-square")
+close(cell(r, "Friedman test", "p"), ref.pvalue, "Friedman p")
+
+# Repeated-measures ANOVA against statsmodels AnovaRM
+r = run("fr.csv", "anova_repeated", columns=["t1", "t2", "t3"])
+long = pd.DataFrame({"s": np.tile(np.arange(15), 3), "t": np.repeat(["t1", "t2", "t3"], 15), "v": m.T.ravel()})
+ref = AnovaRM(long, "v", "s", within=["t"]).fit().anova_table
+close(cell(r, "Repeated-measures ANOVA", "F"), ref["F Value"].iloc[0], "RM ANOVA F")
+close(cell(r, "Repeated-measures ANOVA", "p"), ref["Pr > F"].iloc[0], "RM ANOVA p")
+eps = cell(r, "Repeated-measures ANOVA", "df", row=2) / 2
+ok(0.5 - 1e-9 <= eps <= 1 + 1e-9, "Greenhouse-Geisser epsilon in range")
+two_m = run("fr.csv", "anova_repeated", columns=["t1", "t2"])
+tt = sps.ttest_rel(m[:, 0], m[:, 1])
+close(cell(two_m, "Repeated-measures ANOVA", "F"), tt.statistic**2, "RM ANOVA with two measurements equals paired t squared")
+
+# ANCOVA against statsmodels (type II sums of squares)
+x = rng.normal(50, 10, 36)
+y = 2 + 0.3 * x + np.array([0] * 12 + [3] * 12 + [5] * 12) + rng.normal(0, 2, 36)
+write("anc.csv", csv_of({"y": y, "g": grp, "x": x}))
+r = run("anc.csv", "ancova", outcome="y", group="g", covariates=["x"])
+ref = anova_lm(smf_.ols("y ~ C(g) + x", data=pd.DataFrame({"y": y, "g": grp, "x": x})).fit(), typ=2)
+close(cell(r, "ANCOVA", "F", row=0), ref.loc["C(g)", "F"], "ANCOVA group F")
+close(cell(r, "ANCOVA", "p", row=0), ref.loc["C(g)", "PR(>F)"], "ANCOVA group p")
+close(cell(r, "ANCOVA", "F", row=1), ref.loc["x", "F"], "ANCOVA covariate F")
+error("anc.csv", "ancova", "different columns", outcome="y", group="x", covariates=["x"])
+
+# Partial correlation: r_xy.z = (r_xy - r_xz r_yz) / sqrt((1 - r_xz^2)(1 - r_yz^2))
+z = rng.normal(0, 1, 60)
+px, py = z + rng.normal(0, 1, 60), z + rng.normal(0, 1, 60)
+write("part.csv", csv_of({"x": px, "y": py, "z": z}))
+r = run("part.csv", "partial_correlation", x="x", y="y", controls=["z"])
+rxy, rxz, ryz = np.corrcoef(px, py)[0, 1], np.corrcoef(px, z)[0, 1], np.corrcoef(py, z)[0, 1]
+close(cell(r, "Partial correlation", "r"), (rxy - rxz * ryz) / math.sqrt((1 - rxz**2) * (1 - ryz**2)), "partial r")
+close(cell(r, "Partial correlation", "df"), 57, "partial df")
+
+# Cohen's kappa: [[20, 5], [10, 15]] gives po = .7, pe = .5, kappa = .4
+a1 = ["y"] * 20 + ["y"] * 5 + ["n"] * 10 + ["n"] * 15
+a2 = ["y"] * 20 + ["n"] * 5 + ["y"] * 10 + ["n"] * 15
+write("kap.csv", csv_of({"r1": a1, "r2": a2}))
+r = run("kap.csv", "cohens_kappa", rater1="r1", rater2="r2")
+close(cell(r, "Agreement", "Cohen's κ"), 0.4, "kappa")
+close(cell(r, "Agreement", "Observed agreement"), 0.7, "kappa po")
+close(cell(r, "Agreement", "Expected by chance"), 0.5, "kappa pe")
+
+# Cronbach's alpha: k/(k-1) * (1 - trace(C) / sum(C)); identical items give 1
+items = rng.normal(0, 1, (40, 1)) + rng.normal(0, 0.8, (40, 4))
+write("scale.csv", csv_of({f"i{j}": items[:, j] for j in range(4)}))
+r = run("scale.csv", "cronbach_alpha", columns=["i0", "i1", "i2", "i3"])
+C = np.cov(items, rowvar=False)
+close(cell(r, "Reliability", "Cronbach's α"), 4 / 3 * (1 - np.trace(C) / C.sum()), "alpha")
+write("same.csv", csv_of({"a": [1, 2, 3, 4, 5], "b": [1, 2, 3, 4, 5]}))
+close(cell(run("same.csv", "cronbach_alpha", columns=["a", "b"]), "Reliability", "Cronbach's α"), 1.0, "alpha of identical items")
+
+# PCA: two perfectly correlated columns give eigenvalues 2 and 0 and loadings of 1/sqrt(2) x sqrt(2) = 1
+write("pc.csv", csv_of({"a": [1, 2, 3, 4, 5, 6], "b": [2, 4, 6, 8, 10, 12], "c": [6, 1, 5, 2, 4, 3]}))
+r = run("pc.csv", "pca", columns=["a", "b"])
+close(cell(r, "Components", "Eigenvalue", row=0), 2.0, "PCA eigenvalue 1")
+close(cell(r, "Components", "Eigenvalue", row=1), 0.0, "PCA eigenvalue 2", tol=1e-6)
+close(cell(r, "Loadings", "PC1", row=0), 1.0, "PCA loading", tol=1e-6)
+r = run("pc.csv", "pca", columns=["a", "b", "c"])
+close(sum(row[1] for row in table(r, "Components")["rows"]), 3.0, "eigenvalues sum to the number of columns")
+
+# one table as its own workbook
+import openpyxl as _xl
+
+wb_bytes = engine_table_xlsx(  # noqa: F821
+    json.dumps({"title": "Score by arm", "summary": "S", "n": 6, "file": "my data.csv"}),
+    json.dumps({"title": "Group means", "columns": ["Group", "Mean"], "rows": [["A", 1.5], ["=1+1", None]]}),
+)
+ok(wb_bytes[1][:2] == b"PK", "table workbook is a zip")
+wb = _xl.load_workbook(io.BytesIO(wb_bytes[1]))
+ok(wb.sheetnames == ["Summary", "Group means"], f"table workbook sheets: {wb.sheetnames}")
+ok(wb["Group means"]["B3"].value == 1.5 and wb["Group means"]["A4"].data_type == "s", "table workbook cells")
+ok(any(c.value == "my data.csv" for row in wb["Summary"].iter_rows() for c in row), "table workbook names the file")
+ok("error" in json.loads(engine_table_xlsx("{}", "{}")[0]), "table workbook refuses a bad table")  # noqa: F821
+
+# the data grid's rows
+write("grid.csv", "a,b\n1,x\n2,\n3,z\n")
+load("grid.csv")
+page = json.loads(engine_rows(1, 5)[0])  # noqa: F821
+ok(page["total"] == 3 and page["offset"] == 1, "grid: total and offset")
+ok(page["rows"] == [[2, None], [3, "z"]], "grid: rows with a blank as None")
+ok(json.loads(engine_rows(0, 10000)[0])["rows"][0] == [1, "x"], "grid: first row")  # noqa: F821
+
 ok(json.loads(engine_load("missing.csv", "missing.csv")[0]).get("error", "").startswith("Something went wrong"), "missing file")  # noqa: F821
 write("empty.csv", "")
 ok(load("empty.csv").get("error") == "The file is empty.", "empty file")
@@ -604,7 +751,9 @@ ok(not any("like an ID" in w for w in r["warnings"]), r["warnings"])
 
 covered = {"describe", "frequencies", "normality", "t_one_sample", "t_independent", "t_paired", "mann_whitney",
            "wilcoxon", "anova_oneway", "anova_twoway", "kruskal", "chi_square", "correlation",
-           "linear_regression", "logistic_regression"}
+           "linear_regression", "logistic_regression", "levene", "welch_anova", "ks_two_sample", "binomial",
+           "gof_chi_square", "mcnemar", "friedman", "anova_repeated", "ancova", "partial_correlation",
+           "cohens_kappa", "cronbach_alpha", "pca"}
 ok(covered == set(TESTS), f"every TestId has a function: {covered ^ set(TESTS)}")  # noqa: F821
 
 print(f"{CHECKS[0]} checks, {len(FAILS)} failed")

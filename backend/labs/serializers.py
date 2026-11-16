@@ -4,7 +4,8 @@ from core.models import Institution
 from core.permissions import LAB_ROLE_PERMS, lab_role
 from core.serializers import UserSerializer, no_control_chars
 from labs.admin_serializers import web_url
-from labs.models import Invite, Lab, LabMembership, LabRole
+from labs.models import GoogleChatBridge, Invite, Lab, LabChatMessage, LabMembership, LabRole
+from projects.serializers import ReactionsMixin  # D321: shared with project chat
 
 
 class InstitutionSerializer(serializers.ModelSerializer):
@@ -105,3 +106,68 @@ class InvitePreviewSerializer(serializers.Serializer):
     lab_name = serializers.CharField()
     role = serializers.CharField()
     email = serializers.EmailField()
+
+
+# ---------------------------------------------------------------- lab chat and Google Chat (D316)
+
+
+class LabChatMessageSerializer(ReactionsMixin, serializers.ModelSerializer):
+    """The project chat's shape plus where it came from. `author` is null for a message from
+    someone in Google Chat who has no connected account here; `external_author` names them."""
+
+    author = UserSerializer(read_only=True, allow_null=True)
+
+    class Meta:
+        model = LabChatMessage
+        fields = ["id", "author", "external_author", "source", "body", "reactions", "created_at"]
+        read_only_fields = fields
+
+
+class GoogleChatBridgeSerializer(serializers.ModelSerializer):
+    """What every member sees of the link; `last_error` and `last_polled_at` help whoever
+    manages it."""
+
+    linked_by = UserSerializer(source="created_by", read_only=True)
+
+    class Meta:
+        model = GoogleChatBridge
+        fields = ["space", "space_name", "linked_by", "last_polled_at", "last_error", "created_at"]
+        read_only_fields = fields
+
+
+class GoogleChatStatusSerializer(serializers.Serializer):
+    bridge = GoogleChatBridgeSerializer(allow_null=True)
+    configured = serializers.BooleanField(help_text="The site has a Google Chat app set up.")
+    connected = serializers.BooleanField(help_text="You have connected Google Chat in this lab.")
+    can_manage = serializers.BooleanField()
+
+
+class GoogleChatSpaceSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    display_name = serializers.CharField()
+
+
+class GoogleChatThreadSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    first = serializers.CharField(allow_blank=True, help_text="The thread's first words.")
+    count = serializers.IntegerField(help_text="Messages among the space's recent ones.")
+    last_at = serializers.DateTimeField()
+
+
+class GoogleChatImportInputSerializer(serializers.Serializer):
+    space = serializers.CharField(max_length=120)
+    thread = serializers.CharField(max_length=260)
+
+
+class GoogleChatLinkInputSerializer(serializers.Serializer):
+    space = serializers.CharField(max_length=120)
+
+
+class LinkPreviewSerializer(serializers.Serializer):
+    """D322: plain text only; the client shows it as text, never as markup."""
+
+    url = serializers.CharField()
+    host = serializers.CharField()
+    title = serializers.CharField(allow_blank=True)
+    description = serializers.CharField(allow_blank=True)
+    site_name = serializers.CharField(allow_blank=True)

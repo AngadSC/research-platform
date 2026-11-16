@@ -261,12 +261,35 @@ class HandoverSerializer(serializers.Serializer):
     sections = HandoverSectionSerializer(many=True)
 
 
-class ChatMessageSerializer(serializers.ModelSerializer):
+class ReactionSerializer(serializers.Serializer):
+    emoji = serializers.CharField()
+    count = serializers.IntegerField()
+    mine = serializers.BooleanField()
+
+
+class ReactionInputSerializer(serializers.Serializer):
+    emoji = serializers.CharField(max_length=32)
+
+
+class ReactionsMixin(serializers.Serializer):
+    """D321: each emoji, how many, and whether the reader is one of them."""
+
+    reactions = serializers.SerializerMethodField()
+
+    @extend_schema_field(ReactionSerializer(many=True))
+    def get_reactions(self, obj):
+        from core.reactions import summary
+
+        request = self.context.get("request")
+        return summary(obj.reactions, getattr(request, "user", None))
+
+
+class ChatMessageSerializer(ReactionsMixin, serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
 
     class Meta:
         model = ChatMessage
-        fields = ["id", "author", "body", "created_at"]
+        fields = ["id", "author", "body", "reactions", "created_at"]
         read_only_fields = fields
 
 

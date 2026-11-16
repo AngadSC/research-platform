@@ -1,0 +1,400 @@
+"""The lab chat and Google Chat, both ways (D315 to D320). Every Google call goes through the
+patched HTTP layer; nothing leaves the process."""
+
+from urllib.parse import parse_qs, urlsplit
+
+import pytest
+from django.urls import reverse
+from rest_framework.test import APIClient
+
+from audit.models import AuditAction, AuditEvent
+from integrations import services
+from integrations.models import AccountStatus
+from integrations.providers import google_chat
+from integrations.tests.conftest import make_request, token_reply
+from integrations.tests.fake import response
+from labs import google_chat as sync
+from labs import services as lab_services
+from labs.models import ChatSource, GoogleChatBridge, LabChatMessage
+
+pytestmark = pytest.mark.django_db
+
+API = google_chat.API
+SPACE = "spaces/AAAA1234"
+MESSAGES = f"{API}/{SPACE}/messages"
+SCOPES = " ".join(google_chat.PROVIDER.scopes)
+
+
+@pytest.fixture(autouse=True)
+def configured(settings):
+    settings.INTEGRATION_CLIENTS = {
+        **settings.INTEGRATION_CLIENTS,
+        "google_chat": {"client_id": "gc-client", "client_secret": "gc-secret"},
+    }
+
+
+@pytest.fixture(autouse=True)
+def committed(monkeypatch):
+    """Run on_commit work at once, as a real commit would (the relay and Google deletes)."""
+    monkeypatch.setattr(
+        "django.db.transaction.on_commit", lambda func, using=None, robust=False: func()
+    )
+
+
+def api(user):
+    client = APIClient()
+    client.force_login(user)
+    return client
+
+
+def connect_chat(transport, user, lab, sub, email):
+    request = make_request(user)
+    url = services.start_connect(request, lab, "google_chat")
+    query = parse_qs(urlsplit(url).query)
+    assert set(query["scope"][0].split()) == set(google_chat.PROVIDER.scopes)
+    assert query["client_id"] == ["gc-client"]  # its own Google app, not Drive's (D315)
+    transport.on("POST", google_chat.PROVIDER.token_url, token_reply("gc-at", "gc-rt", SCOPES))
+    transport.on(
+        "GET", google_chat.PROVIDER.identity_url, response(200, {"sub": sub, "email": email})
+    )
+    return services.complete_connect(request, state=query["state"][0], code="code")
+
+
+@pytest.fixture
+def linked(transport, lab_users):
+    """The lab admin connects Google Chat and links the lab chat to SPACE."""
+    lab, u = lab_users
+    account = connect_chat(transport, u["lab_admin"], lab, "1001", "admin@example.test")
+    transport.on("GET", f"{API}/{SPACE}", response(200, {"name": SPACE, "displayName": "Lab"}))
+    bridge = sync.link_space(lab=lab, by=u["lab_admin"], space=SPACE)
+    return lab, u, account, bridge
+
+
+def test_connect_names_the_account_by_google_user_id(transport, lab_users):
+    lab, u = lab_users
+    account = connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    assert account.provider == "google_chat"
+    assert account.external_account_id == "2002"
+    assert account.external_email == "member@example.test"
+
+
+def test_spaces_and_link_need_manage_lab_integrations(transport, lab_users):
+    lab, u = lab_users
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    url = reverse("labs:google-chat-spaces", args=[lab.pk])
+    assert api(u["member"]).get(url).status_code == 403
+    resp = api(u["member"]).put(
+        reverse("labs:google-chat", args=[lab.pk]), {"space": SPACE}, format="json"
+    )
+    assert resp.status_code == 403
+    assert not GoogleChatBridge.objects.for_lab(lab).exists()
+
+
+def test_admin_lists_spaces_links_and_unlinks(transport, lab_users):
+    lab, u = lab_users
+    connect_chat(transport, u["lab_admin"], lab, "1001", "admin@example.test")
+    transport.on(
+        "GET",
+        f"{API}/spaces",
+        response(
+            200,
+            {
+                "spaces": [
+                    {"name": "spaces/B", "displayName": "Zebra"},
+                    {"name": "spaces/A", "displayName": "alpha"},
+                    {"name": "https://evil.test/x", "displayName": "bad"},
+                ]
+            },
+        ),
+    )
+    client = api(u["lab_admin"])
+    spaces = client.get(reverse("labs:google-chat-spaces", args=[lab.pk])).json()
+    assert [s["name"] for s in spaces] == ["spaces/A", "spaces/B"]
+
+    transport.on("GET", f"{API}/{SPACE}", response(200, {"name": SPACE, "displayName": "Lab"}))
+    url = reverse("labs:google-chat", args=[lab.pk])
+    body = client.put(url, {"space": SPACE}, format="json").json()
+    assert body["bridge"]["space_name"] == "Lab"
+    assert body["can_manage"] and body["connected"]
+    assert AuditEvent.objects.filter(action=AuditAction.GOOGLE_CHAT_LINKED).exists()
+
+    # Every member sees that it is linked, so the composer can say so.
+    seen = api(u["viewer"]).get(url).json()
+    assert seen["bridge"]["space"] == SPACE and not seen["can_manage"]
+
+    assert client.delete(url).status_code == 204
+    assert not GoogleChatBridge.objects.for_lab(lab).exists()
+    assert AuditEvent.objects.filter(action=AuditAction.GOOGLE_CHAT_UNLINKED).exists()
+
+
+def test_link_refuses_a_bad_space_name(transport, linked):
+    lab, u, _, _ = linked
+    resp = api(u["lab_admin"]).put(
+        reverse("labs:google-chat", args=[lab.pk]), {"space": "spaces/../x"}, format="json"
+    )
+    assert resp.status_code == 400
+
+
+def _posted(name):
+    return response(200, {"name": name})
+
+
+def test_a_member_with_google_chat_posts_as_themselves(transport, linked):
+    lab, u, _, _ = linked
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    transport.on("POST", MESSAGES, _posted(f"{SPACE}/messages/m1"))
+    message = lab_services.post_lab_message(
+        lab=lab, by=u["member"], body="**Hi** @[Pat](user:00000000-0000-0000-0000-000000000000)"
+    )
+    (call,) = transport.sent("POST", MESSAGES)
+    assert call["json"] == {"text": "*Hi* @Pat"}
+    assert call["params"]["messageId"] == f"{sync.CLIENT_PREFIX}{message.pk}"
+    assert call["headers"]["Authorization"] == "Bearer gc-at"
+    message.refresh_from_db()
+    assert message.external_id == f"{SPACE}/messages/m1"
+
+
+def test_a_member_without_google_chat_is_posted_by_the_link_with_their_name(transport, linked):
+    lab, u, _, _ = linked
+    u["member"].display_name = "Robin Example"
+    u["member"].save()
+    transport.on("POST", MESSAGES, _posted(f"{SPACE}/messages/m2"))
+    lab_services.post_lab_message(lab=lab, by=u["member"], body="hello")
+    (call,) = transport.sent("POST", MESSAGES)
+    assert call["json"] == {"text": f"*Robin Example ({u['member'].email})* via LabBench: hello"}
+
+
+def test_a_member_not_in_the_space_falls_back_to_the_link(transport, linked):
+    lab, u, _, _ = linked
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    transport.on("POST", MESSAGES, response(403, {}), _posted(f"{SPACE}/messages/m3"))
+    message = lab_services.post_lab_message(lab=lab, by=u["member"], body="hello")
+    calls = transport.sent("POST", MESSAGES)
+    assert len(calls) == 2 and calls[1]["json"]["text"].endswith("via LabBench: hello")
+    message.refresh_from_db()
+    assert message.external_id == f"{SPACE}/messages/m3"
+
+
+def test_nothing_is_relayed_without_a_link(transport, lab_users):
+    lab, u = lab_users
+    lab_services.post_lab_message(lab=lab, by=u["member"], body="hello")
+    assert transport.calls == []
+
+
+def _google(name, text, sender="users/9", kind="HUMAN", at="2099-01-01T00:00:01.123456789Z", **kw):
+    return {
+        "name": f"{SPACE}/messages/{name}",
+        "text": text,
+        "createTime": at,
+        "sender": {"name": sender, "type": kind},
+        **kw,
+    }
+
+
+def test_poll_brings_in_new_messages_once(transport, linked):
+    lab, u, _, bridge = linked
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    transport.on(
+        "GET",
+        MESSAGES,
+        response(
+            200,
+            {
+                "messages": [
+                    _google("g1", "from a stranger"),
+                    _google("g2", "from the member", sender="users/2002"),
+                    _google("g3", "ours", clientAssignedMessageId=f"{sync.CLIENT_PREFIX}x"),
+                    _google("g4", "a bot", kind="BOT"),
+                    _google("g5", "sneaky @[Pat](user:00000000-0000-0000-0000-000000000000)"),
+                    _google("g6", "x", name_override=True) | {"name": "spaces/OTHER/messages/1"},
+                ]
+            },
+        ),
+    )
+    assert sync.poll_all() == 3
+    rows = {m.external_id.rsplit("/", 1)[1]: m for m in LabChatMessage.objects.for_lab(lab)}
+    assert set(rows) == {"g1", "g2", "g5"}
+    assert rows["g1"].author is None and rows["g1"].external_author == sync.UNKNOWN_SENDER
+    assert rows["g2"].author == u["member"] and rows["g2"].source == ChatSource.GOOGLE_CHAT
+    assert "@[" not in rows["g5"].body  # can't draw a mention chip or notify anyone here
+    (call,) = transport.sent("GET", MESSAGES)
+    assert call["params"]["filter"].startswith('createTime > "')
+    bridge.refresh_from_db()
+    assert bridge.cursor == "2099-01-01T00:00:01.123456Z" and bridge.last_error == ""
+
+    assert sync.poll_all() == 0  # the same answer again adds nothing
+
+
+def test_messages_from_google_show_in_the_lab_chat_api(transport, linked):
+    lab, u, _, _ = linked
+    transport.on("GET", MESSAGES, response(200, {"messages": [_google("g1", "hi")]}))
+    sync.poll_all()
+    (row,) = api(u["viewer"]).get(reverse("labs:labchat-list", args=[lab.pk])).json()
+    assert row["author"] is None and row["source"] == "google_chat"
+    assert row["external_author"] == sync.UNKNOWN_SENDER
+
+
+def test_a_revoked_link_connection_stops_the_sync(transport, linked):
+    lab, u, account, bridge = linked
+    services.disconnect(account, actor=u["lab_admin"])
+    transport.calls.clear()
+    assert sync.poll_all() == 0
+    lab_services.post_lab_message(lab=lab, by=u["member"], body="hello")
+    assert [c for c in transport.calls if "chat.googleapis.com" in c[1]] == []
+    bridge.refresh_from_db()
+    assert "no longer active" in bridge.last_error
+    assert account.status == AccountStatus.REVOKED
+
+
+def test_deleting_a_relayed_message_deletes_it_in_google(transport, linked):
+    lab, u, _, _ = linked
+    transport.on("POST", MESSAGES, _posted(f"{SPACE}/messages/m9"))
+    message = lab_services.post_lab_message(lab=lab, by=u["member"], body="oops")
+    message.refresh_from_db()
+    transport.on("DELETE", f"{MESSAGES}/m9", response(200, {}))
+    lab_services.delete_lab_message(message=message, by=u["member"])
+    assert len(transport.sent("DELETE", f"{MESSAGES}/m9")) == 1
+
+
+def test_deleting_a_message_from_google_only_removes_it_here(transport, linked):
+    lab, u, _, _ = linked
+    transport.on("GET", MESSAGES, response(200, {"messages": [_google("g1", "hi")]}))
+    sync.poll_all()
+    message = LabChatMessage.objects.for_lab(lab).get()
+    lab_services.delete_lab_message(message=message, by=u["lab_admin"])
+    assert not [c for c in transport.calls if c[0] == "DELETE"]
+    assert not LabChatMessage.objects.for_lab(lab).exists()
+
+
+# ---------------------------------------------------------------- names and thread import (D320)
+
+PEOPLE = f"{google_chat.PEOPLE}/people:batchGet"
+
+
+def _people(*pairs):
+    return response(
+        200,
+        {
+            "responses": [
+                {"person": {"resourceName": f"people/{i}", "names": [{"displayName": n}]}}
+                for i, n in pairs
+            ]
+        },
+    )
+
+
+def test_poll_names_strangers_from_the_directory(transport, linked):
+    lab, *_ = linked
+    transport.on("GET", PEOPLE, _people(("9", "Dana Example")))
+    transport.on("GET", MESSAGES, response(200, {"messages": [_google("g1", "hi")]}))
+    sync.poll_all()
+    assert LabChatMessage.objects.for_lab(lab).get().external_author == "Dana Example"
+    (call,) = transport.sent("GET", PEOPLE)
+    assert call["params"]["resourceNames"] == ["people/9"]
+
+
+THREAD = f"{SPACE}/threads/T1"
+
+
+@pytest.fixture
+def project(lab_users):
+    from projects.models import Project, ProjectMembership, ProjectRole
+
+    lab, u = lab_users
+    p = Project.objects.create(lab=lab, name="Atlas", created_by=u["pi"])
+    ProjectMembership.objects.create(
+        lab=lab, project=p, user=u["member"], role=ProjectRole.CONTRIBUTOR
+    )
+    return p
+
+
+def test_threads_are_listed_newest_first(transport, lab_users, project):
+    lab, u = lab_users
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    newest_first = [
+        _google("m3", "later", at="2099-01-03T00:00:00Z") | {"thread": {"name": THREAD}},
+        _google("m2", "other", at="2099-01-02T00:00:00Z")
+        | {"thread": {"name": f"{SPACE}/threads/T2"}},
+        _google("m1", "opening words", at="2099-01-01T00:00:00Z") | {"thread": {"name": THREAD}},
+        _google("x", "elsewhere") | {"thread": {"name": "spaces/OTHER/threads/T9"}},
+    ]
+    transport.on("GET", MESSAGES, response(200, {"messages": newest_first}))
+    url = reverse("documents:google-chat-threads", args=[lab.pk, project.pk])
+    rows = api(u["member"]).get(url, {"space": SPACE}).json()
+    assert [(r["name"], r["first"], r["count"]) for r in rows] == [
+        (THREAD, "opening words", 2),
+        (f"{SPACE}/threads/T2", "other", 1),
+    ]
+
+
+def test_importing_a_thread_makes_a_document(transport, lab_users, project):
+    from documents.models import Document
+
+    lab, u = lab_users
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    transport.on("GET", f"{API}/{SPACE}", response(200, {"name": SPACE, "displayName": "Lab"}))
+    transport.on("GET", PEOPLE, _people(("9", "Dana Example")))
+    msgs = [
+        _google("m1", "Shall we rerun?", at="2099-01-01T10:00:00Z") | {"thread": {"name": THREAD}},
+        _google("m2", "Yes", sender="users/2002", at="2099-01-01T10:05:00Z")
+        | {"thread": {"name": THREAD}},
+        _google("m3", "not this thread") | {"thread": {"name": f"{SPACE}/threads/T2"}},
+    ]
+    transport.on("GET", MESSAGES, response(200, {"messages": msgs}))
+    url = reverse("documents:google-chat-import", args=[lab.pk, project.pk])
+    resp = api(u["member"]).post(url, {"space": SPACE, "thread": THREAD}, format="json")
+    assert resp.status_code == 201
+    doc = Document.objects.for_lab(lab).get(pk=resp.json()["id"])
+    assert doc.title == "Google Chat: Shall we rerun?" and doc.project == project
+    lines = ["".join(c["text"] for c in b["content"]) for b in doc.content]
+    assert lines[2] == "Dana Example, 2099-01-01 10:00: Shall we rerun?"
+    assert lines[3].startswith(u["member"].email + ", 2099-01-01 10:05: Yes")
+    assert len(lines) == 4
+    (call,) = transport.sent("GET", MESSAGES)
+    assert call["params"]["filter"] == f'thread.name = "{THREAD}"'
+
+
+def test_import_refuses_a_thread_from_another_space(transport, lab_users, project):
+    lab, u = lab_users
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    url = reverse("documents:google-chat-import", args=[lab.pk, project.pk])
+    resp = api(u["member"]).post(
+        url, {"space": SPACE, "thread": "spaces/OTHER/threads/T1"}, format="json"
+    )
+    assert resp.status_code == 400
+    assert not [c for c in transport.calls if "chat.googleapis.com" in c[1]]
+
+
+def test_a_display_name_cannot_pass_for_someone_else_in_google(transport, linked):
+    lab, u, _, _ = linked
+    u["member"].display_name = "*Prof. Alice*\nsays"
+    u["member"].save()
+    transport.on("POST", MESSAGES, _posted(f"{SPACE}/messages/m5"))
+    lab_services.post_lab_message(lab=lab, by=u["member"], body="hi")
+    (call,) = transport.sent("POST", MESSAGES)
+    assert call["json"]["text"] == f"*Prof. Alice says ({u['member'].email})* via LabBench: hi"
+
+
+def test_a_google_account_shared_by_two_members_credits_neither(transport, linked):
+    lab, u, _, _ = linked
+    connect_chat(transport, u["member"], lab, "2002", "shared@example.test")
+    connect_chat(transport, u["viewer"], lab, "2002", "shared@example.test")
+    transport.on("GET", PEOPLE, response(200, {"responses": []}))
+    transport.on(
+        "GET", MESSAGES, response(200, {"messages": [_google("g1", "hi", sender="users/2002")]})
+    )
+    sync.poll_all()
+    row = LabChatMessage.objects.for_lab(lab).get()
+    assert row.author is None
+
+
+def test_inbound_messages_are_capped_per_hour(transport, linked, monkeypatch):
+    lab, _, _, bridge = linked
+    monkeypatch.setattr(sync, "INBOUND_PER_HOUR", 1)
+    transport.on("GET", PEOPLE, response(200, {"responses": []}))
+    first = _google("g1", "one", at="2099-01-01T00:00:01Z")
+    second = _google("g2", "two", at="2099-01-01T00:00:02Z")
+    transport.on("GET", MESSAGES, response(200, {"messages": [first, second]}))
+    assert sync.poll_all() == 1
+    bridge.refresh_from_db()
+    assert bridge.cursor == "2099-01-01T00:00:01.000000Z" and bridge.last_error.startswith("Paused")

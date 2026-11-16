@@ -19,7 +19,9 @@ export type Job =
       options?: LoadOptions;
     }
   | { id: number; type: "run"; test: string; params: Record<string, unknown> }
-  | { id: number; type: "prepare"; test: string };
+  | { id: number; type: "prepare"; test: string }
+  | { id: number; type: "rows"; offset: number; limit: number }
+  | { id: number; type: "table_xlsx"; context: Record<string, unknown>; table: unknown };
 
 export type Reply =
   | { type: "state"; state: EngineState }
@@ -119,6 +121,19 @@ async function handle(job: Job) {
       const { value, bytes } = callPython(py, "engine_run", job.test, JSON.stringify(job.params));
       const xlsx = new Uint8Array(bytes ?? []);
       post({ type: "done", id: job.id, value: { ...value, xlsx } }, [xlsx.buffer]);
+    } else if (job.type === "table_xlsx") {
+      await ensurePackages(py, ["openpyxl"]);
+      const { bytes } = callPython(
+        py,
+        "engine_table_xlsx",
+        JSON.stringify(job.context),
+        JSON.stringify(job.table),
+      );
+      const xlsx = new Uint8Array(bytes ?? []);
+      post({ type: "done", id: job.id, value: xlsx }, [xlsx.buffer]);
+    } else if (job.type === "rows") {
+      const { value } = callPython(py, "engine_rows", job.offset, job.limit);
+      post({ type: "done", id: job.id, value });
     } else {
       if (job.type === "prepare")
         await ensurePackages(py, py.globals.get("packages_for")(job.test).toJs());

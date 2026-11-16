@@ -1,14 +1,14 @@
-import { Landmark } from "lucide-react";
+import { ChevronRight, Landmark } from "lucide-react";
 import { useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
-import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormField } from "@/components/shared/FormField";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { useAttachments } from "@/hooks/projects";
 import { useFunding } from "@/hooks/workflow";
 import { personName, type Funding, type FundingInput } from "@/lib/api-types";
@@ -52,66 +52,6 @@ function FundingPanel({ labId, projectId, project }: ProjectTabProps) {
     params.get("new") === "1" ? "new" : null,
   );
 
-  const cols: Column<Funding>[] = [
-    {
-      key: "funder",
-      header: "Funder",
-      cell: (f) => (
-        <div>
-          <div className="font-medium">{f.funder}</div>
-          {f.program && <div className="text-xs text-muted-foreground">{f.program}</div>}
-        </div>
-      ),
-    },
-    { key: "no", header: "Award number", cell: (f) => f.award_number || "" },
-    { key: "amount", header: "Amount", cell: (f) => money(f.amount, f.currency) ?? "" },
-    {
-      key: "dates",
-      header: "Dates",
-      cell: (f) => (f.start_date || f.end_date ? `${day(f.start_date)} to ${day(f.end_date)}` : ""),
-    },
-    {
-      key: "status",
-      header: "Status",
-      cell: (f) => (
-        <Badge variant={WORKFLOW_TONE[f.status] ?? "secondary"}>
-          {label(FUNDING_STATUSES, f.status)}
-        </Badge>
-      ),
-    },
-    { key: "holder", header: "Held by", cell: (f) => (f.holder ? personName(f.holder) : "") },
-    {
-      key: "actions",
-      header: "Actions",
-      className: "text-right",
-      cell: (f) => (
-        <div className="flex justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label={`Edit ${f.funder}`}
-            onClick={() => setEditing(f)}
-          >
-            Edit
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label={`Remove ${f.funder}`}
-            onClick={() =>
-              remove.mutate(f.id, {
-                onSuccess: () => toast.success("Funding removed"),
-                onError: fail,
-              })
-            }
-          >
-            Remove
-          </Button>
-        </div>
-      ),
-    },
-  ];
-
   const add =
     project.status === "archived" ? undefined : (
       <Button onClick={() => setEditing("new")}>Add funding</Button>
@@ -119,21 +59,39 @@ function FundingPanel({ labId, projectId, project }: ProjectTabProps) {
   return (
     <div className="grid gap-6">
       <section aria-label="Funding" className="grid gap-3">
-        {(list.data?.length ?? 0) > 0 && <div className="flex justify-end">{add}</div>}
-        <DataTable
-          columns={cols}
-          rows={list.data ?? []}
-          getRowKey={(f) => f.id}
-          loading={list.isLoading}
-          empty={
+        {(list.data?.length ?? 0) === 0 ? (
+          list.isLoading ? null : (
             <EmptyState
               icon={Landmark}
               title="No funding recorded yet"
               description="Record the grants and awards behind this project: who funds it, the award number, dates and who holds it."
               action={add}
             />
-          }
-        />
+          )
+        ) : (
+          <>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="text-sm text-muted-foreground">{fundingSummary(list.data ?? [])}</p>
+              {add}
+            </div>
+            <ul className="grid gap-2" aria-label="Awards">
+              {(list.data ?? []).map((f) => (
+                <FundingRow
+                  key={f.id}
+                  funding={f}
+                  canEdit={project.status !== "archived"}
+                  onEdit={() => setEditing(f)}
+                  onRemove={() =>
+                    remove.mutate(f.id, {
+                      onSuccess: () => toast.success("Funding removed"),
+                      onError: fail,
+                    })
+                  }
+                />
+              ))}
+            </ul>
+          </>
+        )}
       </section>
       <InstitutionLinks
         labId={labId}
@@ -154,6 +112,106 @@ function FundingPanel({ labId, projectId, project }: ProjectTabProps) {
         />
       )}
     </div>
+  );
+}
+
+/** "2 awards · CA$120,000 · next ends Mar 2027": the whole page in one line. */
+function fundingSummary(items: Funding[]): string {
+  const totals = new Map<string, number>();
+  for (const f of items)
+    if (f.amount !== null) {
+      const cur = f.currency || "CAD";
+      totals.set(cur, (totals.get(cur) ?? 0) + Number(f.amount));
+    }
+  const today = new Date().toLocaleDateString("en-CA");
+  const next = items
+    .map((f) => f.end_date)
+    .filter((d): d is string => !!d && d >= today)
+    .sort()[0];
+  return [
+    `${items.length} ${items.length === 1 ? "award" : "awards"}`,
+    ...[...totals].map(([cur, n]) => money(String(n), cur)),
+    next ? `next ends ${day(next)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/** One award: funder, status and amount on a line; the rest opens underneath. */
+function FundingRow({
+  funding: f,
+  canEdit,
+  onEdit,
+  onRemove,
+}: {
+  funding: Funding;
+  canEdit: boolean;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const details: [string, string][] = [
+    ["Program", f.program],
+    ["Award number", f.award_number],
+    ["Dates", f.start_date || f.end_date ? `${day(f.start_date)} to ${day(f.end_date)}` : ""],
+    ["Held by", f.holder ? personName(f.holder) : ""],
+    ["Notes", f.notes],
+  ].filter((d): d is [string, string] => !!d[1]);
+  return (
+    <li className="rounded-xl border bg-card">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        <ChevronRight
+          aria-hidden
+          className={cn(
+            "size-4 shrink-0 text-muted-foreground transition-transform",
+            open && "rotate-90",
+          )}
+        />
+        <span className="min-w-0 flex-1 truncate font-medium">{f.funder}</span>
+        <Badge variant={WORKFLOW_TONE[f.status] ?? "secondary"}>
+          {label(FUNDING_STATUSES, f.status)}
+        </Badge>
+        <span className="w-28 text-right text-sm tabular-nums">
+          {money(f.amount, f.currency) ?? ""}
+        </span>
+      </button>
+      {open && (
+        <div className="grid gap-2 border-t px-3 py-3 pl-10 text-sm">
+          {details.length === 0 ? (
+            <p className="text-muted-foreground">Nothing else recorded.</p>
+          ) : (
+            <dl className="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1">
+              {details.map(([k, v]) => (
+                <div key={k} className="contents">
+                  <dt className="text-muted-foreground">{k}</dt>
+                  <dd>{v}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          <div className="flex gap-1">
+            <Button variant="ghost" size="sm" aria-label={`Edit ${f.funder}`} onClick={onEdit}>
+              Edit
+            </Button>
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label={`Remove ${f.funder}`}
+                onClick={onRemove}
+              >
+                Remove
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+    </li>
   );
 }
 

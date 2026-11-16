@@ -20,6 +20,21 @@ urlpatterns = [
         views.DocumentListCreateView.as_view(),
         name="document-list",
     ),
+    path(  # D320: a Google Chat thread as a document
+        L + "projects/<uuid:project_id>/google-chat/spaces/",
+        views.GoogleChatProjectSpacesView.as_view(),
+        name="google-chat-spaces",
+    ),
+    path(
+        L + "projects/<uuid:project_id>/google-chat/threads/",
+        views.GoogleChatThreadsView.as_view(),
+        name="google-chat-threads",
+    ),
+    path(
+        L + "projects/<uuid:project_id>/google-chat/import/",
+        views.GoogleChatImportView.as_view(),
+        name="google-chat-import",
+    ),
     path(L + "lab-documents/", views.LabDocumentListCreateView.as_view(), name="lab-document-list"),
     path(
         L + "documents/<uuid:document_id>/",
@@ -65,6 +80,11 @@ urlpatterns = [
         L + "projects/<uuid:project_id>/attachments/",
         views.AttachmentListCreateView.as_view(),
         name="attachment-list",
+    ),
+    path(
+        L + "projects/<uuid:project_id>/drive-export/",
+        views.ProjectDriveExportView.as_view(),
+        name="project-drive-export",
     ),
     path(
         L + "attachments/<uuid:attachment_id>/",

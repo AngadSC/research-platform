@@ -143,7 +143,10 @@ def provider_problems(p) -> list[str]:  # noqa: C901 - a checklist, one line per
     need(p.auth_type in set(AuthType) and p.category in set(Category), "auth_type, category")
     if p.name in WRITERS:  # D253: a writer declares exactly its allowed writes and links nothing
         need(p.metadata_only is False and p.writes == WRITERS[p.name], "writes must match WRITERS")
-        need(p.category == Category.MEETINGS and not p.link_targets, "writers: meetings, no links")
+        need(
+            p.category in (Category.MEETINGS, Category.CHAT) and not p.link_targets,
+            "writers: meetings or chat, no links",
+        )
     else:
         need(p.metadata_only is True and not p.writes, "metadata_only must be True (D84)")
         need(p.link_targets and set(p.link_targets) <= set(TARGETS), "link_targets")

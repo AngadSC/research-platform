@@ -79,6 +79,35 @@ A new Google app starts in **Testing**. In Testing, only people you list as **te
 `drive.file` alone does not need this verification, so a site that only used Drive could skip it.
 The Calendar permissions are what trigger it.
 
+### Google Chat (lab chat sync and thread import)
+
+Google Chat uses its **own** sign-in client, in the same Google Cloud project, so that
+disconnecting Chat never disconnects Drive or Calendar (DECISIONS D315). Only Google Workspace
+accounts (university or company) can use it; personal Gmail accounts cannot.
+
+1. **Turn on two more APIs**: **Google Chat API** and **People API**.
+2. **Configure the Chat app** (search **Google Chat API**, then the **Configuration** tab). Google
+   refuses every Chat call until this page is saved, even for an app that only acts as the
+   signed-in person. Give it a name, an avatar URL and a description; turn **off** "Interactive
+   features" (we don't receive events); under **Visibility**, choose the people or domain who
+   may use it.
+3. **Add these scopes** to the consent screen:
+   - `https://www.googleapis.com/auth/chat.messages`
+   - `https://www.googleapis.com/auth/chat.spaces.readonly`
+   - `https://www.googleapis.com/auth/directory.readonly`
+   - `openid` and `https://www.googleapis.com/auth/userinfo.email`
+
+   Google classes the Chat and directory scopes as sensitive or restricted (the console says
+   which when you add them), so publishing to everyone needs Google's verification, and a
+   restricted scope may also need a security assessment. For one university, a consent screen
+   of user type **Internal**, in a Cloud project owned by that university's Workspace, needs no
+   verification.
+4. **Make a second OAuth client** (type **Web application**, the same redirect address) and put
+   it in `INTEGRATION_GOOGLE_CHAT_CLIENT_ID` and `INTEGRATION_GOOGLE_CHAT_CLIENT_SECRET`.
+
+Then each person connects **Google Chat** under Settings, Integrations. A PI or lab admin opens
+**Lab chat**, clicks **Sync with Google Chat** and picks a space they are in.
+
 ---
 
 ## 2. Zoom
@@ -123,6 +152,8 @@ GOOGLE_DRIVE_API_KEY=your-picker-key
 GOOGLE_DRIVE_APP_ID=your-project-number
 INTEGRATION_ZOOM_CLIENT_ID=your-zoom-client-id
 INTEGRATION_ZOOM_CLIENT_SECRET=your-zoom-client-secret
+INTEGRATION_GOOGLE_CHAT_CLIENT_ID=your-google-chat-client-id
+INTEGRATION_GOOGLE_CHAT_CLIENT_SECRET=your-google-chat-client-secret
 ```
 
 Never commit `.env`. Then restart so the server reads it:

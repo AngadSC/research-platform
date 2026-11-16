@@ -200,7 +200,8 @@ describe("rules dialog", () => {
       },
     });
     renderRoute("/labs/lab1/projects/p1/participants");
-    await userEvent.click(await screen.findByRole("button", { name: "Rules and flow" }));
+    await userEvent.click(await screen.findByRole("button", { name: "More actions" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Rules and flow" }));
     expect(await screen.findByText(/version 2/)).toBeInTheDocument();
     expect(await screen.findByText("Analysed (Figure 2)")).toBeInTheDocument();
     expect(screen.getByText(/Some counts are under 5/)).toBeInTheDocument();

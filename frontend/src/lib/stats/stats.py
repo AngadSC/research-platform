@@ -1348,12 +1348,488 @@ def logistic_regression(df, outcome, predictors):
     return _result(f'Logistic regression: "{outcome}"', summary, tables, charts, warn, len(y))
 
 
+# More tests: assumptions, proportions, agreement, repeated measures, ANCOVA, reliability, PCA ----
+
+
+def _count_bars(title, label, counts):
+    return {
+        "kind": "bar",
+        "title": title,
+        "yLabel": label,
+        "bars": [{"name": str(k), "value": float(v)} for k, v in counts.items()],
+    }
+
+
+def _matrix(df, columns, warn, at_least, what):
+    """Numeric columns as a rows-by-columns array, keeping rows that have every value."""
+    columns = list(dict.fromkeys(_list(columns)))
+    if len(columns) < at_least:
+        raise UserError(f"Pick at least {at_least} columns for {what}.")
+    frame = _complete(pd.DataFrame({c: _numbers(df, c, warn) for c in columns}), warn)
+    if len(frame) < 3:
+        raise UserError("There need to be at least 3 rows with a value in every chosen column.")
+    return frame, columns
+
+
+def levene(df, outcome, group, center="median"):
+    """Do the groups have equal spreads? Levene's test (median-centred is Brown-Forsythe)."""
+    from scipy import stats
+
+    warn = []
+    frame, groups = _k_groups(df, outcome, group, warn, "Levene's test")
+    warn[:] = [w for w in warn if not w.startswith("There are only two groups")]
+    res = stats.levene(*groups.values(), center=center)
+    k, n = len(groups), len(frame)
+    tables = [
+        _table(
+            "Levene's test",
+            ["Centre", "F", "df 1", "df 2", "p"],
+            [["median (Brown-Forsythe)" if center == "median" else "mean", res.statistic, k - 1, n - k, res.pvalue]],
+        ),
+        _table(
+            "Spread by group",
+            ["Group", "N", "SD", "Variance"],
+            [[name, len(v), v.std(ddof=1), v.var(ddof=1)] for name, v in groups.items()],
+        ),
+    ]
+    stat = f"F({k - 1}, {n - k}) = {_f(res.statistic)}, {_p(res.pvalue)}"
+    if res.pvalue < 0.05:
+        summary = (
+            f'The spread of "{outcome}" differs between the groups of "{group}", {stat}. '
+            "Equal-variance tests such as Student's t-test or the standard ANOVA may not suit; use Welch's version."
+        )
+    else:
+        summary = f'The spread of "{outcome}" does not differ significantly between the groups of "{group}", {stat}.'
+    charts = [_box(f'"{outcome}" by "{group}"', outcome, groups)]
+    return _result(f'Levene\'s test: "{outcome}" by "{group}"', summary, tables, charts, warn, n)
+
+
+def welch_anova(df, outcome, group):
+    """Do three or more groups differ on average, without assuming equal spreads? Welch's ANOVA."""
+    from scipy import stats
+
+    warn = []
+    frame, groups = _k_groups(df, outcome, group, warn, "Welch ANOVA")
+    names, values = list(groups), list(groups.values())
+    k, n = len(values), len(frame)
+    ns = np.array([len(v) for v in values], float)
+    means = np.array([v.mean() for v in values])
+    variances = np.array([v.var(ddof=1) for v in values])
+    if (variances == 0).any():
+        raise UserError(f'"{outcome}" does not vary within every group, so Welch\'s ANOVA can\'t be run.')
+    w = ns / variances
+    total_w = w.sum()
+    grand = (w * means).sum() / total_w
+    a = (w * (means - grand) ** 2).sum() / (k - 1)
+    lam = (((1 - w / total_w) ** 2) / (ns - 1)).sum()
+    b = 1 + 2 * (k - 2) / (k**2 - 1) * lam
+    f_stat = a / b
+    df1, df2 = k - 1, (k**2 - 1) / (3 * lam)
+    p = float(stats.f.sf(f_stat, df1, df2))
+    omega2 = max(0.0, (df1 * (f_stat - 1)) / (df1 * (f_stat - 1) + n))
+    tables = [
+        _table(
+            "Welch's ANOVA",
+            ["F", "df 1", "df 2", "p"],
+            [[f_stat, df1, df2, p]],
+        ),
+        _table(
+            "Descriptives",
+            ["Group", "N", "Mean", "SD"],
+            [[names[i], int(ns[i]), means[i], math.sqrt(variances[i])] for i in range(k)],
+        ),
+        _table("Effect size", ["Measure", "Value"], [["Omega squared (approximate)", omega2]]),
+    ]
+    stat = f"F({df1}, {_dof(df2)}) = {_f(f_stat)}, {_p(p)}"
+    verb = "differed" if p < 0.05 else "did not differ significantly"
+    summary = f'"{outcome}" {verb} between the groups of "{group}", {stat}.'
+    charts = [_box(f'"{outcome}" by "{group}"', outcome, groups), _mean_bars(f'Mean "{outcome}" by "{group}"', outcome, groups)]
+    return _result(f'Welch\'s ANOVA: "{outcome}" by "{group}"', summary, tables, charts, warn, n)
+
+
+def ks_two_sample(df, outcome, group):
+    """Do two groups have the same distribution? Kolmogorov-Smirnov test."""
+    from scipy import stats
+
+    warn = []
+    frame, groups = _two_groups(df, outcome, group, warn, "Kolmogorov-Smirnov test", "a Kruskal-Wallis test")
+    (name_a, a), (name_b, b) = groups.items()
+    res = stats.ks_2samp(a, b)
+    tables = [
+        _table("Kolmogorov-Smirnov", ["D", "p"], [[res.statistic, res.pvalue]]),
+        _table("Groups", ["Group", "N", "Median"], [[name_a, len(a), float(np.median(a))], [name_b, len(b), float(np.median(b))]]),
+    ]
+    verb = "differ" if res.pvalue < 0.05 else "do not differ significantly"
+    summary = f'The distributions of "{outcome}" {verb} between "{name_a}" and "{name_b}", D = {_f(res.statistic)}, {_p(res.pvalue)}.'
+    return _result(f'Kolmogorov-Smirnov: "{outcome}" by "{group}"', summary, tables, [_hist(f'"{outcome}" by "{group}"', outcome, groups)], warn, len(frame))
+
+
+def binomial(df, column, success, p0=0.5):
+    """Is the share of one value different from a set share? Exact binomial test."""
+    from scipy import stats
+
+    warn = []
+    if not 0 < p0 < 1:
+        raise UserError("The share to compare with must be between 0 and 1 (for example 0.5).")
+    labels = _labels(df, column).dropna()
+    if len(labels) == 0:
+        raise UserError(f'"{column}" has no values.')
+    success = str(success).strip()
+    if success not in set(labels):
+        raise UserError(f'There is no "{success}" in "{column}". Type a value exactly as it appears in the column.')
+    k, n = int((labels == success).sum()), len(labels)
+    res = stats.binomtest(k, n, p0)
+    ci = res.proportion_ci(confidence_level=0.95, method="exact")
+    share = k / n
+    tables = [
+        _table(
+            "Binomial test",
+            ["Value", "Count", "Total", "Share", "Compared with", "95% CI low", "95% CI high", "p"],
+            [[success, k, n, share, p0, ci.low, ci.high, res.pvalue]],
+            note="Exact (Clopper-Pearson) confidence interval; two-sided p.",
+        )
+    ]
+    verb = "differs from" if res.pvalue < 0.05 else "does not differ significantly from"
+    summary = (
+        f'The share of "{success}" in "{column}" ({_f(100 * share, 1)}%, {k} of {n}) {verb} '
+        f'{_f(100 * p0, 1)}%, {_p(res.pvalue)}, 95% CI [{_nz(ci.low)}, {_nz(ci.high)}].'
+    )
+    counts = labels.value_counts().sort_index()
+    return _result(f'Binomial test: "{column}"', summary, tables, [_count_bars(f'Counts in "{column}"', "Count", counts)], warn, n)
+
+
+def gof_chi_square(df, column):
+    """Are the values equally common? Chi-square goodness of fit."""
+    from scipy import stats
+
+    warn = []
+    labels = _labels(df, column).dropna()
+    counts = labels.value_counts()
+    counts = counts.reindex(sorted(counts.index, key=_key))
+    if len(counts) < 2:
+        raise UserError(f'"{column}" needs at least two different values.')
+    if len(counts) > MAX_GROUPS:
+        raise UserError(f'"{column}" has {len(counts)} different values. Pick a column with {MAX_GROUPS} or fewer.')
+    n, k = int(counts.sum()), len(counts)
+    expected = n / k
+    if expected < 5:
+        warn.append("Some expected counts are below 5, so the chi-square approximation may be unreliable.")
+    res = stats.chisquare(counts.to_numpy(float))
+    v = math.sqrt(res.statistic / (n * (k - 1)))
+    tables = [
+        _table("Counts", ["Value", "Observed", "Expected", "Share"], [[name, int(c), expected, c / n] for name, c in counts.items()]),
+        _table("Chi-square goodness of fit", ["χ²", "df", "p", "Cramér's V"], [[res.statistic, k - 1, res.pvalue, v]]),
+    ]
+    verb = "are not equally common" if res.pvalue < 0.05 else "are not significantly different from equally common"
+    summary = f'The values of "{column}" {verb}, χ²({k - 1}, N = {n}) = {_f(res.statistic)}, {_p(res.pvalue)}, V = {_nz(v)}.'
+    return _result(f'Goodness of fit: "{column}"', summary, tables, [_count_bars(f'Counts in "{column}"', "Count", counts)], warn, n)
+
+
+def mcnemar(df, first, second):
+    """Did a yes/no answer change between two measurements of the same people? McNemar's test."""
+    from statsmodels.stats.contingency_tables import mcnemar as _mcnemar
+
+    warn = []
+    if first == second:
+        raise UserError("Pick two different columns for the two measurements.")
+    frame = _complete(pd.DataFrame({"a": _labels(df, first), "b": _labels(df, second)}), warn)
+    levels = sorted(set(frame["a"]) | set(frame["b"]), key=_key)
+    if len(levels) != 2:
+        raise UserError(f"McNemar's test needs exactly two possible answers, but these columns have {len(levels)}.")
+    table = np.array([[int(((frame["a"] == x) & (frame["b"] == y)).sum()) for y in levels] for x in levels])
+    b, c = int(table[0, 1]), int(table[1, 0])
+    if b + c == 0:
+        raise UserError("Nobody changed between the two measurements, so there is nothing to test.")
+    exact = b + c < 25
+    res = _mcnemar(table, exact=exact, correction=True)
+    tables = [
+        _table(
+            "Answers across the two measurements",
+            [f'{first} ↓ / {second} →', levels[0], levels[1]],
+            [[levels[0], table[0, 0], table[0, 1]], [levels[1], table[1, 0], table[1, 1]]],
+        ),
+        _table(
+            "McNemar's test",
+            ["Version", "Statistic", "p"],
+            [["exact binomial" if exact else "chi-square (continuity corrected)", res.statistic, res.pvalue]],
+            note=f"{b + c} people changed their answer.",
+        ),
+    ]
+    verb = "changed" if res.pvalue < 0.05 else "did not change significantly"
+    summary = f'Answers {verb} between "{first}" and "{second}": {b} went {levels[0]} to {levels[1]}, {c} went {levels[1]} to {levels[0]}, {_p(res.pvalue)}.'
+    return _result(f'McNemar\'s test: "{first}" and "{second}"', summary, tables, [], warn, len(frame))
+
+
+def friedman(df, columns):
+    """Do three or more measurements of the same people differ, without assuming normal data? Friedman test."""
+    from scipy import stats
+
+    warn = []
+    frame, columns = _matrix(df, columns, warn, 3, "the Friedman test")
+    data = frame[columns].to_numpy(float)
+    n, k = data.shape
+    res = stats.friedmanchisquare(*[data[:, j] for j in range(k)])
+    ranks = stats.rankdata(data, axis=1).mean(axis=0)
+    w = res.statistic / (n * (k - 1))
+    tables = [
+        _table("Friedman test", ["χ²", "df", "p", "Kendall's W"], [[res.statistic, k - 1, res.pvalue, w]]),
+        _table("Measurements", ["Measurement", "Median", "Mean rank"], [[c, float(np.median(data[:, j])), ranks[j]] for j, c in enumerate(columns)]),
+    ]
+    verb = "differed" if res.pvalue < 0.05 else "did not differ significantly"
+    summary = f"The {k} measurements {verb}, χ²({k - 1}, N = {n}) = {_f(res.statistic)}, {_p(res.pvalue)}, W = {_nz(w)}."
+    charts = [_box("Measurements", "Value", {c: data[:, j] for j, c in enumerate(columns)})]
+    return _result("Friedman test", summary, tables, charts, warn, n)
+
+
+def anova_repeated(df, columns):
+    """Do the same people differ across three or more measurements? Repeated-measures ANOVA."""
+    from scipy import stats
+
+    warn = []
+    frame, columns = _matrix(df, columns, warn, 2, "a repeated-measures ANOVA")
+    x = frame[columns].to_numpy(float)
+    n, k = x.shape
+    grand = x.mean()
+    ss_time = n * ((x.mean(axis=0) - grand) ** 2).sum()
+    ss_subj = k * ((x.mean(axis=1) - grand) ** 2).sum()
+    ss_total = ((x - grand) ** 2).sum()
+    ss_err = ss_total - ss_time - ss_subj
+    df_time, df_err = k - 1, (n - 1) * (k - 1)
+    if ss_err <= 0:
+        raise UserError("The measurements differ by exactly the same amount for everyone, so the error can't be estimated.")
+    f_stat = (ss_time / df_time) / (ss_err / df_err)
+    p = float(stats.f.sf(f_stat, df_time, df_err))
+    eta2 = ss_time / (ss_time + ss_err)
+    rows = [["Measurements", ss_time, df_time, ss_time / df_time, f_stat, p], ["Error", ss_err, df_err, ss_err / df_err, None, None]]
+    gg_note = ""
+    if k >= 3:
+        s = np.cov(x, rowvar=False)
+        sc = s - s.mean(axis=0, keepdims=True) - s.mean(axis=1, keepdims=True) + s.mean()
+        eps = float(np.trace(sc) ** 2 / ((k - 1) * (sc**2).sum()))
+        eps = min(1.0, max(1 / (k - 1), eps))
+        p_gg = float(stats.f.sf(f_stat, df_time * eps, df_err * eps))
+        rows.append(["Greenhouse-Geisser corrected", None, df_time * eps, None, f_stat, p_gg])
+        gg_note = f" Greenhouse-Geisser ε = {_nz(eps)}, corrected {_p(p_gg)}."
+        if eps < 0.75:
+            warn.append("The spreads of the differences are unequal (ε below .75), so use the Greenhouse-Geisser corrected p.")
+    pairs, m = [], k * (k - 1) // 2
+    for i in range(k):
+        for j in range(i + 1, k):
+            t = stats.ttest_rel(x[:, i], x[:, j])
+            pairs.append([columns[i], columns[j], float((x[:, i] - x[:, j]).mean()), t.statistic, min(1.0, float(t.pvalue) * m)])
+    tables = [
+        _table("Repeated-measures ANOVA", ["Source", "Sum of squares", "df", "Mean square", "F", "p"], rows),
+        _table("Effect size", ["Measure", "Value"], [["Partial eta squared (η²p)", eta2]]),
+        _table("Means", ["Measurement", "N", "Mean", "SD"], [[c, n, x[:, j].mean(), x[:, j].std(ddof=1)] for j, c in enumerate(columns)]),
+        _table("Pairwise comparisons", ["Measurement", "Compared with", "Mean difference", "t", "p (Bonferroni)"], pairs),
+    ]
+    verb = "differed" if p < 0.05 else "did not differ significantly"
+    summary = f"The {k} measurements {verb}, F({df_time}, {df_err}) = {_f(f_stat)}, {_p(p)}, η²p = {_nz(eta2)}.{gg_note}"
+    charts = [_box("Measurements", "Value", {c: x[:, j] for j, c in enumerate(columns)})]
+    return _result("Repeated-measures ANOVA", summary, tables, charts, warn, n)
+
+
+def ancova(df, outcome, group, covariates):
+    """Do groups differ after adjusting for other numbers? Analysis of covariance."""
+    import statsmodels.api as sm
+    from scipy import stats
+
+    warn = []
+    covariates = list(dict.fromkeys(_list(covariates)))
+    if not covariates:
+        raise UserError("Pick at least one covariate (a column of numbers to adjust for).")
+    if outcome in covariates or group in covariates or outcome == group:
+        raise UserError("The outcome, the groups and the covariates must be different columns.")
+    frame = pd.DataFrame({"y": _numbers(df, outcome, warn), "g": _labels(df, group)})
+    for c in covariates:
+        frame[c] = _numbers(df, c, warn)
+    frame = _complete(frame, warn)
+    levels = _levels(frame["g"], group)
+    if len(levels) < 2:
+        raise UserError(f'"{group}" needs at least two groups.')
+    dummies = pd.DataFrame({f"g:{lv}": (frame["g"] == lv).astype(float) for lv in levels[1:]}, index=frame.index)
+    cov = frame[covariates].astype(float)
+    y = frame["y"].to_numpy(float)
+
+    def fit(*parts):
+        X = sm.add_constant(pd.concat(parts, axis=1).to_numpy(float), has_constant="add")
+        if len(y) <= X.shape[1]:
+            raise UserError("There are too few rows for this many covariates and groups.")
+        return sm.OLS(y, X).fit()
+
+    full = fit(dummies, cov)
+    ss_err, df_err = float(full.ssr), int(full.df_resid)
+    if ss_err <= 0:
+        raise UserError("The model fits perfectly, so the error can't be estimated.")
+    rows, effects = [], [(f'"{group}"', fit(cov), len(levels) - 1)] + [
+        (f'"{c}"', fit(dummies, cov.drop(columns=c)) if len(covariates) > 1 else fit(dummies), 1) for c in covariates
+    ]
+    for name, reduced, d in effects:
+        ss = float(reduced.ssr) - ss_err
+        f_stat = (ss / d) / (ss_err / df_err)
+        p = float(stats.f.sf(f_stat, d, df_err))
+        rows.append([name, ss, d, ss / d, f_stat, p, ss / (ss + ss_err)])
+    rows.append(["Error", ss_err, df_err, ss_err / df_err, None, None, None])
+    means = cov.mean()
+    adjusted = []
+    for lv in levels:
+        row = {f"g:{x}": float(x == lv) for x in levels[1:]}
+        X = np.array([1.0] + [row[c] for c in dummies.columns] + [float(means[c]) for c in covariates])
+        raw = frame.loc[frame["g"] == lv, "y"]
+        adjusted.append([lv, len(raw), raw.mean(), float(X @ full.params)])
+    # slopes: does the covariate effect differ by group? (an assumption of the method)
+    inter = pd.concat([dummies.mul(cov[c], axis=0).add_suffix(f"*{c}") for c in covariates], axis=1)
+    cross = fit(dummies, cov, inter)
+    if cross.df_resid > 0 and cross.ssr > 0:
+        f_int = ((ss_err - float(cross.ssr)) / inter.shape[1]) / (float(cross.ssr) / cross.df_resid)
+        p_int = float(stats.f.sf(f_int, inter.shape[1], cross.df_resid))
+        if p_int < 0.05:
+            warn.append(f"The effect of the covariate differs between groups ({_p(p_int)}), which ANCOVA assumes it does not.")
+    tables = [
+        _table("ANCOVA", ["Source", "Sum of squares", "df", "Mean square", "F", "p", "Partial η²"], rows),
+        _table("Means", ["Group", "N", "Mean", "Adjusted mean"], adjusted, note="Adjusted means are at the average of the covariates."),
+    ]
+    g = rows[0]
+    verb = "differed" if g[5] < 0.05 else "did not differ significantly"
+    summary = f'After adjusting for {", ".join(chr(34) + c + chr(34) for c in covariates)}, "{outcome}" {verb} between the groups of "{group}", F({g[2]}, {df_err}) = {_f(g[4])}, {_p(g[5])}, η²p = {_nz(g[6])}.'
+    charts = [_count_bars(f'Adjusted mean "{outcome}" by "{group}"', outcome, {r[0]: r[3] for r in adjusted})]
+    return _result(f'ANCOVA: "{outcome}" by "{group}"', summary, tables, charts, warn, len(y))
+
+
+def partial_correlation(df, x, y, controls):
+    """How strongly are two numeric columns related once other columns are accounted for?"""
+    from scipy import stats
+
+    warn = []
+    controls = list(dict.fromkeys(_list(controls)))
+    if not controls:
+        raise UserError("Pick at least one column to control for.")
+    if len({x, y, *controls}) != 2 + len(controls):
+        raise UserError("The two columns and the controls must all be different.")
+    frame = _complete(pd.DataFrame({c: _numbers(df, c, warn) for c in [x, y, *controls]}), warn)
+    n, m = len(frame), len(controls)
+    if n < m + 4:
+        raise UserError("There are too few rows for this many controls.")
+    Z = np.column_stack([np.ones(n), frame[controls].to_numpy(float)])
+
+    def resid(v):
+        v = frame[v].to_numpy(float)
+        return v - Z @ np.linalg.lstsq(Z, v, rcond=None)[0]
+
+    rx, ry = resid(x), resid(y)
+    if rx.std() == 0 or ry.std() == 0:
+        raise UserError("One of the columns is fully explained by the controls, so there is nothing left to correlate.")
+    r = float(np.corrcoef(rx, ry)[0, 1])
+    dof = n - 2 - m
+    t = r * math.sqrt(dof / (1 - r**2)) if abs(r) < 1 else float("inf")
+    p = float(2 * stats.t.sf(abs(t), dof))
+    lo, hi = np.tanh(np.arctanh(r) - 1.959964 / math.sqrt(n - 3 - m)), np.tanh(np.arctanh(r) + 1.959964 / math.sqrt(n - 3 - m))
+    plain = float(np.corrcoef(frame[x], frame[y])[0, 1])
+    tables = [
+        _table("Partial correlation", ["r", "df", "t", "p", "95% CI low", "95% CI high"], [[r, dof, t, p, lo, hi]]),
+        _table("For comparison", ["Measure", "Value"], [["Correlation without controls", plain]]),
+    ]
+    ctl = ", ".join(f'"{c}"' for c in controls)
+    summary = f'Controlling for {ctl}, "{x}" and "{y}" are {_strength(r)} {"positively" if r > 0 else "negatively"} related, r({dof}) = {_nz(r)}, {_p(p)}.'
+    return _result(f'Partial correlation: "{x}" and "{y}"', summary, tables, [_scatter("Left over after controls", f"{x} (residual)", f"{y} (residual)", rx, ry)], warn, n)
+
+
+def cohens_kappa(df, rater1, rater2):
+    """How well do two raters agree on categories? Cohen's kappa."""
+    warn = []
+    if rater1 == rater2:
+        raise UserError("Pick two different columns, one for each rater.")
+    frame = _complete(pd.DataFrame({"a": _labels(df, rater1), "b": _labels(df, rater2)}), warn)
+    levels = sorted(set(frame["a"]) | set(frame["b"]), key=_key)
+    if len(levels) < 2:
+        raise UserError("Both raters gave the same single category, so agreement can't be measured.")
+    if len(levels) > MAX_GROUPS:
+        raise UserError(f"There are {len(levels)} categories; pick columns with {MAX_GROUPS} or fewer.")
+    table = np.array([[int(((frame["a"] == x) & (frame["b"] == y)).sum()) for y in levels] for x in levels], float)
+    n = table.sum()
+    po = np.trace(table) / n
+    pe = float((table.sum(axis=1) * table.sum(axis=0)).sum() / n**2)
+    if pe == 1:
+        raise UserError("Both raters used one category for everything, so agreement can't be measured.")
+    kappa = (po - pe) / (1 - pe)
+    se = math.sqrt(po * (1 - po) / (n * (1 - pe) ** 2))
+    lo, hi = _ci95(kappa, se)
+    level = "poor" if kappa < 0 else "slight" if kappa <= 0.2 else "fair" if kappa <= 0.4 else "moderate" if kappa <= 0.6 else "substantial" if kappa <= 0.8 else "almost perfect"
+    tables = [
+        _table("Agreement", ["Cohen's κ", "Observed agreement", "Expected by chance", "SE", "95% CI low", "95% CI high"], [[kappa, po, pe, se, lo, hi]], note="Interpretation bands follow Landis and Koch (1977)."),
+        _table("Ratings", [f"{rater1} ↓ / {rater2} →", *levels], [[lv, *[int(v) for v in table[i]]] for i, lv in enumerate(levels)]),
+    ]
+    summary = f'The raters agreed {level}ly (κ = {_nz(kappa)}, 95% CI [{_nz(lo)}, {_nz(hi)}]); they chose the same category {_f(100 * po, 1)}% of the time.'
+    return _result(f'Cohen\'s kappa: "{rater1}" and "{rater2}"', summary, tables, [], warn, int(n))
+
+
+def cronbach_alpha(df, columns):
+    """How consistent are the items of a scale? Cronbach's alpha."""
+    warn = []
+    frame, columns = _matrix(df, columns, warn, 2, "Cronbach's alpha")
+    x = frame[columns].to_numpy(float)
+    n, k = x.shape
+
+    def alpha_of(m):
+        kk = m.shape[1]
+        total = m.sum(axis=1).var(ddof=1)
+        return float(kk / (kk - 1) * (1 - m.var(axis=0, ddof=1).sum() / total)) if total > 0 else float("nan")
+
+    alpha = alpha_of(x)
+    if not np.isfinite(alpha):
+        raise UserError("The scale total does not vary, so alpha can't be worked out.")
+    total = x.sum(axis=1)
+    items = []
+    for j, c in enumerate(columns):
+        rest = np.delete(x, j, axis=1)
+        r_it = float(np.corrcoef(x[:, j], rest.sum(axis=1))[0, 1]) if rest.shape[1] >= 1 else None
+        items.append([c, x[:, j].mean(), x[:, j].std(ddof=1), r_it, alpha_of(rest) if k > 2 else None])
+    word = "unacceptable" if alpha < 0.5 else "poor" if alpha < 0.6 else "questionable" if alpha < 0.7 else "acceptable" if alpha < 0.8 else "good" if alpha < 0.9 else "excellent"
+    if alpha < 0:
+        warn.append("A negative alpha usually means some items point the other way and need reversing.")
+    tables = [
+        _table("Reliability", ["Cronbach's α", "Items", "N"], [[alpha, k, n]]),
+        _table("Items", ["Item", "Mean", "SD", "Item-rest correlation", "α if item dropped"], items),
+    ]
+    summary = f"The {k} items form a scale with {word} reliability, α = {_nz(alpha)} (N = {n})."
+    charts = [_hist("Scale total", "Sum of items", {"Total": total})]
+    return _result("Cronbach's alpha", summary, tables, charts, warn, n)
+
+
+def pca(df, columns):
+    """Which patterns run through several numeric columns? Principal component analysis (correlation-based)."""
+    warn = []
+    frame, columns = _matrix(df, columns, warn, 2, "a principal component analysis")
+    x = frame[columns].to_numpy(float)
+    n, k = x.shape
+    if (x.std(axis=0) == 0).any():
+        raise UserError("A chosen column has the same value in every row, so it can't be included.")
+    corr = np.corrcoef(x, rowvar=False)
+    values, vectors = np.linalg.eigh(corr)
+    order = np.argsort(values)[::-1]
+    values, vectors = np.clip(values[order], 0, None), vectors[:, order]
+    for j in range(k):  # a fixed sign so the same data always gives the same loadings
+        if vectors[np.argmax(np.abs(vectors[:, j])), j] < 0:
+            vectors[:, j] = -vectors[:, j]
+    share = values / values.sum()
+    keep = max(1, int((values > 1 + 1e-9).sum()))
+    loadings = vectors * np.sqrt(values)
+    tables = [
+        _table("Components", ["Component", "Eigenvalue", "% of variance", "Cumulative %"], [[f"PC{j + 1}", values[j], 100 * share[j], 100 * share[: j + 1].sum()] for j in range(k)], note="Eigenvalues above 1 are usually kept (Kaiser's rule)."),
+        _table("Loadings", ["Column", *[f"PC{j + 1}" for j in range(keep)]], [[c, *[loadings[i, j] for j in range(keep)]] for i, c in enumerate(columns)]),
+    ]
+    summary = f"{keep} component{'s' if keep != 1 else ''} with eigenvalue above 1 explain{'' if keep != 1 else 's'} {_f(100 * share[:keep].sum(), 1)}% of the variance in the {k} columns."
+    return _result("Principal component analysis", summary, tables, [_count_bars("Scree plot (eigenvalues)", "Eigenvalue", {f"PC{j + 1}": values[j] for j in range(k)})], warn, n)
+
+
 TESTS = {
     f.__name__: f
     for f in (
         describe, frequencies, normality, t_one_sample, t_independent, t_paired, mann_whitney,
         wilcoxon, anova_oneway, anova_twoway, kruskal, chi_square, correlation,
-        linear_regression, logistic_regression,
+        linear_regression, logistic_regression, levene, welch_anova, ks_two_sample, binomial,
+        gof_chi_square, mcnemar, friedman, anova_repeated, ancova, partial_correlation,
+        cohens_kappa, cronbach_alpha, pca,
     )
 }
 
@@ -1373,8 +1849,8 @@ def print_result(result):
 
 # Engine: called by the browser worker; never copied into saved scripts ---------------------------
 
-SCIPY_FREE = {"describe", "frequencies"}
-NEEDS_STATSMODELS = {"anova_twoway", "linear_regression", "logistic_regression"}
+SCIPY_FREE = {"describe", "frequencies", "cohens_kappa", "pca", "cronbach_alpha"}
+NEEDS_STATSMODELS = {"anova_twoway", "linear_regression", "logistic_regression", "mcnemar", "ancova"}
 _loaded = {}
 
 
@@ -1683,6 +2159,62 @@ def engine_load(path, name, sheet=None, options=None):
     return _safe(load)
 
 
+def engine_table_xlsx(context_json, table_json):
+    """One table as its own workbook (a Summary sheet naming the result, then the table)."""
+    import json
+
+    def build():
+        context, table = json.loads(context_json), json.loads(table_json)
+        cols, rows = table.get("columns"), table.get("rows")
+        if not isinstance(cols, list) or not isinstance(rows, list):
+            raise UserError("That table could not be exported.")
+        result = {
+            "title": str(context.get("title", "Statistics result")),
+            "summary": str(context.get("summary", "")),
+            "warnings": [],
+            "n": context.get("n", ""),
+            "file": str(context.get("file", "")),
+            "tables": [{"title": str(table.get("title", "Table")), "columns": cols, "rows": rows}],
+        }
+        return json.dumps({"ok": True}), make_xlsx(result)
+
+    return _safe(build)
+
+
+def engine_rows(offset, limit):
+    """A slice of the loaded table for the data grid: cell values as text or numbers, None for blank."""
+    import json
+
+    def rows():
+        if "df" not in _loaded:
+            raise UserError("Open a file first.")
+        df = _loaded["df"]
+        offset_, limit_ = max(0, int(offset)), max(1, min(int(limit), 500))
+        part = df.iloc[offset_ : offset_ + limit_]
+        out = [[_clean_cell(v) for v in row] for row in part.itertuples(index=False, name=None)]
+        return json.dumps({"offset": offset_, "total": int(len(df)), "rows": out}, allow_nan=False), None
+
+    return _safe(rows)
+
+
+def _clean_cell(v):
+    """One table cell as JSON: numbers stay numbers, blanks become None, everything else text."""
+    if v is None:
+        return None
+    try:
+        if pd.isna(v):
+            return None
+    except (TypeError, ValueError):
+        pass
+    if isinstance(v, (bool, np.bool_)):
+        return str(bool(v))
+    if isinstance(v, (int, np.integer)):
+        return int(v)
+    if isinstance(v, (float, np.floating)):
+        return float(v)
+    return str(v)
+
+
 def engine_run(test, params_json):
     """Run a test on the loaded file. Returns (result JSON, xlsx bytes)."""
     import inspect
@@ -1800,7 +2332,9 @@ def make_xlsx(result):
     wb = Workbook()
     ws = wb.active
     ws.title = "Summary"
-    file_name = _loaded["name"] + (f" (sheet {_loaded['sheet']})" if _loaded.get("sheet") else "")
+    file_name = result.get("file") or (
+        _loaded["name"] + (f" (sheet {_loaded['sheet']})" if _loaded.get("sheet") else "")
+    )
     for label, value in [
         ("Title", result["title"]),
         ("Summary", result["summary"]),

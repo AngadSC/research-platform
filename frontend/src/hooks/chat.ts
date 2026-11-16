@@ -15,6 +15,8 @@ const url = (labId: string, projectId?: string) =>
   projectId ? `${lab(labId)}/projects/${projectId}/messages/` : `${lab(labId)}/chat/messages/`;
 const messageUrl = (labId: string, projectId: string | undefined, id: string) =>
   projectId ? `${lab(labId)}/messages/${id}/` : `${lab(labId)}/chat/messages/${id}/`;
+const reactUrl = (labId: string, projectId: string | undefined, id: string) =>
+  `${messageUrl(labId, projectId, id)}reactions/`;
 const unreadKey = (labId: string | undefined) => ["labs", labId, "chat-unread"];
 
 /** Unread message counts for the lab: by project id, plus `LAB_CHAT`. Chats with none are missing. */
@@ -48,6 +50,12 @@ export function useChat(labId: string, projectId?: string) {
     mutationFn: (id: string) => api(messageUrl(labId, projectId, id), { method: "DELETE" }),
     onSuccess: refresh,
   });
+  // D321: add or take away your emoji. The answer is the message with its new reactions.
+  const react = useMutation({
+    mutationFn: ({ id, emoji }: { id: string; emoji: string }) =>
+      api<ChatMessage>(reactUrl(labId, projectId, id), { method: "POST", body: { emoji } }),
+    onSuccess: refresh,
+  });
   // Clears the badge at once; the refetch afterwards corrects it if anything newer arrived.
   const markRead = useMutation({
     mutationFn: (lastReadAt: string) =>
@@ -63,7 +71,7 @@ export function useChat(labId: string, projectId?: string) {
     },
     onSettled: () => qc.invalidateQueries({ queryKey: unreadKey(labId) }),
   });
-  return { messages, send, remove, markRead: markRead.mutate };
+  return { messages, send, remove, react, markRead: markRead.mutate };
 }
 
 /** The page of messages just before `iso`, oldest first. */

@@ -45,7 +45,12 @@ export function QuickCapture() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    const show = () => setOpen(true);
+    // D321: "Create task" on a chat message opens this with the message as the text.
+    const show = (e: Event) => {
+      const prefill = (e as CustomEvent<{ text?: string } | null>).detail?.text;
+      if (typeof prefill === "string") setText(prefill);
+      setOpen(true);
+    };
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "g") {
         e.preventDefault(); // the browser's own "find next"

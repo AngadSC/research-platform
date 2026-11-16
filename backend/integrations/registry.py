@@ -27,6 +27,7 @@ ENABLED = [
     "google_drive",
     "google_calendar",
     "zoom",
+    "google_chat",
     "github",
     "gitlab",
     "overleaf",

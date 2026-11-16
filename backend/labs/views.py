@@ -10,17 +10,23 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from core.permissions import Perm, labs_for
+from core import link_preview, reactions
+from core.permissions import Perm, can, labs_for
 from core.views import LabScopedViewMixin
 from integrations.http import IntegrationError
-from labs import admin_services, ror, services
+from labs import admin_services, google_chat, ror, services
 from labs.admin_serializers import LabDetailsInputSerializer
-from labs.models import Invite, LabChatMessage, LabMembership
+from labs.models import GoogleChatBridge, Invite, LabChatMessage, LabMembership
 from labs.serializers import (
+    GoogleChatLinkInputSerializer,
+    GoogleChatSpaceSerializer,
+    GoogleChatStatusSerializer,
     InviteCreateSerializer,
     InvitePreviewSerializer,
     InviteSerializer,
+    LabChatMessageSerializer,
     LabSerializer,
+    LinkPreviewSerializer,
     MembershipSerializer,
     RoleSerializer,
     TokenSerializer,
@@ -28,8 +34,8 @@ from labs.serializers import (
 from projects.serializers import (
     ChatMessageFilterSerializer,
     ChatMessageInputSerializer,
-    ChatMessageSerializer,
     ChatReadInputSerializer,
+    ReactionInputSerializer,
 )
 
 
@@ -113,11 +119,11 @@ class LabDetailView(LabScopedViewMixin, generics.GenericAPIView):
 
 
 class LabChatMixin(LabScopedViewMixin):
-    """The project chat's API (D206, D207) for the whole lab. Same message shape, so the same
-    serializers: they only read `id`, `author`, `body` and `created_at`."""
+    """The project chat's API (D206, D207) for the whole lab. The same message shape plus where a
+    message came from (D316), since the lab chat can be linked to Google Chat."""
 
     model = LabChatMessage
-    serializer_class = ChatMessageSerializer
+    serializer_class = LabChatMessageSerializer
     pagination_class = None
     page_size = 100  # must match CHAT_PAGE_SIZE in the client
 
@@ -134,7 +140,7 @@ class LabChatListView(LabChatMixin, generics.GenericAPIView):
         return super().get_throttles() if self.request.method == "POST" else []
 
     @extend_schema(
-        parameters=[ChatMessageFilterSerializer], responses=ChatMessageSerializer(many=True)
+        parameters=[ChatMessageFilterSerializer], responses=LabChatMessageSerializer(many=True)
     )
     def get(self, request, lab_id):
         """The newest page, oldest first; `before` (a message's created_at) pages back."""
@@ -146,7 +152,7 @@ class LabChatListView(LabChatMixin, generics.GenericAPIView):
         page = list(qs.order_by("-created_at", "-id")[: self.page_size])
         return Response(self.get_serializer(reversed(page), many=True).data)
 
-    @extend_schema(request=ChatMessageInputSerializer, responses={201: ChatMessageSerializer})
+    @extend_schema(request=ChatMessageInputSerializer, responses={201: LabChatMessageSerializer})
     def post(self, request, lab_id):
         ser = ChatMessageInputSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
@@ -166,6 +172,23 @@ class LabChatDetailView(LabChatMixin, generics.GenericAPIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class LabChatReactionView(LabChatMixin, generics.GenericAPIView):
+    """D321: add or take away your emoji on a lab chat message."""
+
+    lookup_url_kwarg = "labchatmessage_id"
+    perms = {"POST": Perm.VIEW_LAB}
+
+    @extend_schema(request=ReactionInputSerializer, responses=LabChatMessageSerializer)
+    def post(self, request, lab_id, labchatmessage_id):
+        message = self.get_object()
+        ser = ReactionInputSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        message = reactions.toggle(
+            self.get_queryset(), message.pk, request.user, ser.validated_data["emoji"]
+        )
+        return Response(self.get_serializer(message).data)
+
+
 class LabChatReadView(LabChatMixin, generics.GenericAPIView):
     serializer_class = ChatReadInputSerializer
     perms = {"POST": Perm.VIEW_LAB}
@@ -178,6 +201,86 @@ class LabChatReadView(LabChatMixin, generics.GenericAPIView):
             lab=request.lab, user=request.user, read_to=ser.validated_data["last_read_at"]
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class LinkPreviewView(LabScopedViewMixin, generics.GenericAPIView):
+    """D322: a web page's title and description, for a link pasted in chat. Any member; the
+    page is read by the server through the SSRF-safe client, and the answer is plain text."""
+
+    model = LabChatMessage
+    serializer_class = LinkPreviewSerializer
+    perms = {"GET": Perm.VIEW_LAB}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "link_preview"
+
+    @extend_schema(
+        parameters=[OpenApiParameter("url", str, required=True)], responses=LinkPreviewSerializer
+    )
+    def get(self, request, lab_id):
+        try:
+            data = link_preview.preview(request.query_params.get("url", ""))
+        except ValueError:
+            raise serializers.ValidationError(
+                {"url": ["This address can't be previewed."]}
+            ) from None
+        return Response(LinkPreviewSerializer(data).data)
+
+
+class GoogleChatView(LabScopedViewMixin, generics.GenericAPIView):
+    """D318: the lab chat's link to a Google Chat space. Everyone sees whether it is linked, so
+    the composer can say where messages also go; `manage_lab_integrations` links and unlinks."""
+
+    model = GoogleChatBridge
+    serializer_class = GoogleChatStatusSerializer
+    perms = {
+        "GET": Perm.VIEW_LAB,
+        "PUT": Perm.MANAGE_LAB_INTEGRATIONS,
+        "DELETE": Perm.MANAGE_LAB_INTEGRATIONS,
+    }
+
+    def _status(self, request):
+        lab, user = request.lab, request.user
+        return Response(
+            GoogleChatStatusSerializer(
+                {
+                    "bridge": google_chat.bridge_for(lab),
+                    "configured": google_chat.PROVIDER.configured,
+                    "connected": google_chat.own_account(lab, user) is not None,
+                    "can_manage": can(user, Perm.MANAGE_LAB_INTEGRATIONS, lab),
+                }
+            ).data
+        )
+
+    def get(self, request, lab_id):
+        return self._status(request)
+
+    @extend_schema(request=GoogleChatLinkInputSerializer, responses=GoogleChatStatusSerializer)
+    def put(self, request, lab_id):
+        ser = GoogleChatLinkInputSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        google_chat.link_space(
+            lab=request.lab, by=request.user, space=ser.validated_data["space"], request=request
+        )
+        return self._status(request)
+
+    @extend_schema(responses={204: None})
+    def delete(self, request, lab_id):
+        google_chat.unlink_space(lab=request.lab, by=request.user, request=request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class GoogleChatSpacesView(LabScopedViewMixin, generics.GenericAPIView):
+    """The spaces the caller's own Google Chat connection is in, to pick one (D318)."""
+
+    model = GoogleChatBridge
+    serializer_class = GoogleChatSpaceSerializer
+    pagination_class = None
+    perms = {"GET": Perm.MANAGE_LAB_INTEGRATIONS}
+
+    @extend_schema(responses=GoogleChatSpaceSerializer(many=True))
+    def get(self, request, lab_id):
+        spaces = google_chat.list_spaces(request.lab, request.user)
+        return Response(GoogleChatSpaceSerializer(spaces, many=True).data)
 
 
 class MemberListView(LabScopedViewMixin, generics.ListAPIView):
