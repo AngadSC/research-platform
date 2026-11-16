@@ -147,6 +147,55 @@ def _member_names(account, space) -> list[str]:
     return out
 
 
+def member_map(account, space) -> dict[str, dict[str, str]]:
+    """Google user id -> {"name", "photo"} from the conversation's own member list. Google puts a
+    name on a membership when it will, which covers people the directory does not (outside the
+    domain, or a connection made before the directory scope was granted). Cached briefly."""
+    ckey = f"gchat-membermap:{account.lab_id}:{account.external_account_id}:{space}"
+    cached = cache.get(ckey)
+    if cached is not None:
+        return cached
+    out: dict[str, dict[str, str]] = {}
+    token = ""
+    for _ in range(5):  # up to 5 pages of 100
+        params = {"pageSize": 100, **({"pageToken": token} if token else {})}
+        try:
+            resp = send(
+                "GET",
+                f"{API}/{quote(space, safe='/')}/members",
+                provider=PROVIDER,
+                account=account,
+                params=params,
+            )
+            data = resp.json() if resp.status_code == 200 else {}
+        except (AccountUnavailable, IntegrationError, ValueError, AttributeError):
+            break
+        for m in data.get("memberships", []) if isinstance(data, dict) else []:
+            p = (m.get("member") or {}) if isinstance(m, dict) else {}
+            uid = str(p.get("name", "")).removeprefix("users/")
+            name = "".join(c for c in str(p.get("displayName", "")) if c.isprintable())[:200]
+            if uid and name and p.get("type", "HUMAN") == "HUMAN":
+                out[uid] = {"name": name, "photo": ""}
+        token = str(data.get("nextPageToken", "")) if isinstance(data, dict) else ""
+        if not token:
+            break
+    cache.set(ckey, out, 600)
+    return out
+
+
+def _people_for(account, space, ids) -> dict[str, dict[str, str]]:
+    """Names for Google ids: the Workspace directory first, then the conversation's members."""
+    ids = {i for i in ids if i}
+    if not ids:
+        return {}
+    people = dict(google_people(account, ids))
+    if any(i not in people for i in ids):
+        for uid, person in member_map(account, space).items():
+            if uid in ids and uid not in people:
+                people[uid] = person
+    return people
+
+
 def _members_label(names: list[str]) -> str:
     """An unnamed group chat or direct message, named by its other members ("Ana, Ben +2")."""
     shown = names[:3]
@@ -195,9 +244,7 @@ def list_spaces(lab, user) -> list[dict]:
             )
     for r in named:
         r["members"] = []
-    return [
-        {k: r[k] for k in ("name", "display_name", "kind", "members")} for r in named + chats
-    ]
+    return [{k: r[k] for k in ("name", "display_name", "kind", "members")} for r in named + chats]
 
 
 def _cursor(moment) -> str:
@@ -517,7 +564,10 @@ def google_people(account, user_ids) -> dict[str, dict[str, str]]:
         # only when Google answered.
         empty = {"name": "", "photo": ""}
         if ok:
-            cache.set_many({keys[i]: fresh.get(i, empty) for i in missing}, NAME_CACHE)
+            # A blank answer is remembered for an hour only, so fixing the connection (a fresh
+            # sign-in that grants the directory scope) shows names soon, not tomorrow.
+            cache.set_many({keys[i]: fresh[i] for i in fresh}, NAME_CACHE)
+            cache.set_many({keys[i]: empty for i in missing if i not in fresh}, 3600)
         else:
             cache.set_many({keys[i]: v for i, v in fresh.items()}, NAME_CACHE)
         out.update(fresh)
@@ -589,6 +639,7 @@ def poll(bridge) -> int:
         _fail(bridge, "Google Chat sent an answer we could not read.")
         return 0
 
+    started = timezone.now()
     authors = _authors(bridge.lab, bridge.project)
     model = _model(bridge)
     where = {"project": bridge.project} if bridge.project_id else {}
@@ -597,7 +648,7 @@ def poll(bridge) -> int:
         for i in items
         if isinstance(i, dict) and isinstance(i.get("sender"), dict)
     } - set(authors)
-    people = google_people(bridge.account, strangers) if strangers else {}
+    people = _people_for(bridge.account, bridge.space, strangers)
     added = 0
     cursor = bridge.cursor
     room = INBOUND_PER_HOUR - (
@@ -659,7 +710,48 @@ def poll(bridge) -> int:
     GoogleChatBridge.objects.for_lab(bridge.lab_id).filter(pk=bridge.pk).update(
         cursor=cursor, last_polled_at=timezone.now(), last_error=paused
     )
+    _repair_names(bridge, authors, model, where, started)
     return added
+
+
+def _repair_names(bridge, authors, model, where, before) -> None:
+    """Messages that came in as "Someone on Google Chat" get their real name once Google will give
+    it (a reconnect that grants the directory, say). Looks at the latest 1000 messages, at most
+    once an hour per conversation, and only when there is something to fix."""
+    unknown = list(
+        model.objects.for_lab(bridge.lab_id)
+        .filter(
+            **where,
+            source=ChatSource.GOOGLE_CHAT,
+            external_author=UNKNOWN_SENDER,
+            created_at__lt=before,  # not the ones this very poll just brought in
+        )
+        .values_list("pk", "external_id")[:1000]
+    )
+    if not unknown or not cache.add(f"gchat-repair:{bridge.pk}", 1, 3600):
+        return
+    try:
+        items = _messages(
+            bridge.account,
+            bridge.space,
+            params={"pageSize": 1000, "orderBy": "createTime DESC"},
+        )
+    except ValidationError:
+        return
+    sender_of = {
+        str(i.get("name", "")): str((i.get("sender") or {}).get("name", "")).removeprefix("users/")
+        for i in items
+        if isinstance(i.get("sender"), dict)
+    }
+    ids = {uid for ext, uid in sender_of.items() if uid} - set(authors)
+    people = _people_for(bridge.account, bridge.space, ids)
+    for pk, ext in unknown:
+        person = people.get(sender_of.get(ext, ""), {})
+        if person.get("name"):
+            fix = {"external_author": person["name"][:200]}
+            if person.get("photo"):
+                fix["external_avatar"] = person["photo"]
+            model.objects.for_lab(bridge.lab_id).filter(pk=pk).update(**fix)
 
 
 def poll_all() -> int:
@@ -786,7 +878,7 @@ def import_messages(*, lab, user, space, thread="", project=None, request=None) 
         for i in items
         if isinstance(i.get("sender"), dict)
     }
-    people = google_people(account, ids - set(authors)) if ids - set(authors) else {}
+    people = _people_for(account, space, ids - set(authors))
     known = {
         ext: (pk, who, pic)
         for ext, pk, who, pic in model.objects.for_lab(lab)
@@ -830,9 +922,7 @@ def import_messages(*, lab, user, space, thread="", project=None, request=None) 
                     **where,
                     lab=lab,
                     author=author,
-                    external_author=""
-                    if author
-                    else (person.get("name") or UNKNOWN_SENDER)[:200],
+                    external_author="" if author else (person.get("name") or UNKNOWN_SENDER)[:200],
                     external_avatar="" if author else person.get("photo", ""),
                     body=body,
                     source=ChatSource.GOOGLE_CHAT,
