@@ -19,6 +19,7 @@ import type { StatsResult, StatsTable } from "@/lib/stats/contract";
 import { Chart } from "@/pages/project/analyse/charts";
 import { useGetEngine } from "@/pages/project/analyse/engine";
 import { ExportMenu } from "@/pages/project/analyse/ExportMenu";
+import { cn } from "@/lib/utils";
 import { svgToPng } from "@/pages/project/analyse/png";
 import { SaveDialog } from "@/pages/project/analyse/SaveDialog";
 import { cleanName, type SaveOutcome } from "@/pages/project/analyse/save";
@@ -45,6 +46,9 @@ async function copy(text: string, what: string) {
 }
 
 const fileStem = (r: StatsResult) => cleanName(r.title);
+// Only long text may break anywhere: on every cell it would split short numbers too.
+const wrapLong = (v: unknown) =>
+  typeof v === "string" && v.length > 30 && "min-w-48 [overflow-wrap:anywhere]";
 
 export function ResultCard({
   run,
@@ -222,12 +226,12 @@ export function ResultCard({
 
       {result.tables.map((t) => (
         <div key={t.title} className="grid gap-1 overflow-x-auto">
-          <Table>
+          <Table className="[overflow-wrap:normal]">
             <caption className="caption-top pb-1 text-left text-sm font-medium">{t.title}</caption>
             <TableHeader>
               <TableRow>
                 {t.columns.map((c) => (
-                  <TableHead key={c} scope="col" className="whitespace-normal">
+                  <TableHead key={c} scope="col" className={cn("whitespace-normal", wrapLong(c))}>
                     {c}
                   </TableHead>
                 ))}
@@ -237,7 +241,7 @@ export function ResultCard({
               {t.rows.map((r, i) => (
                 <TableRow key={i}>
                   {r.map((v, j) => (
-                    <TableCell key={j} className="whitespace-normal">
+                    <TableCell key={j} className={cn("whitespace-normal", wrapLong(v))}>
                       {v ?? ""}
                     </TableCell>
                   ))}
