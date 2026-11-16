@@ -342,6 +342,11 @@ MATRIX: dict[tuple[str, str], str] = {
     # Undoing a use needs a lead, or the person who recorded it (D228). `lead` recorded the
     # fixture's usage; pi and admin are implicit leads; contrib did not record it.
     ("POST",   "labs:inventory-usage-reverse"): "401 404 2 2 2 403 403 404 403",
+    # A use logged on the item (D328): anyone who contributes may log one, and its author or an
+    # inventory manager (every lab member, as for editing items) may undo it. Viewers only read.
+    ("GET",    "labs:inventory-item-usage"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "labs:inventory-item-usage"): "401 404 2 2 2 2 2 2 403",
+    ("POST",   "labs:inventory-item-usage-reverse"): "401 404 2 2 2 2 2 2 403",
     ("GET",    "provenance:manuscript-list"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "provenance:manuscript-list"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "provenance:manuscript-detail"): "401 404 2 2 2 2 2 404 2",
@@ -846,7 +851,21 @@ def _protocol_fixtures(lab, project, user, tag):
         used_by=user,
         request_id=uuid.uuid4(),
     )
-    return {"protocol_id": protocol.pk, "reagent_id": reagent.pk, "inventoryusage_id": usage.pk}
+    on_item = InventoryUsage.objects.create(  # logged on the item itself, for no project (D328)
+        lab=lab,
+        item=reagent_item,
+        amount=1,
+        unit="mL",
+        deducted=1,
+        used_by=user,
+        request_id=uuid.uuid4(),
+    )
+    return {
+        "protocol_id": protocol.pk,
+        "reagent_id": reagent.pk,
+        "inventoryusage_id": usage.pk,
+        "itemusage_id": on_item.pk,
+    }
 
 
 def _lab_tool_fixtures(lab, user, inv, tag, attendees=()):
@@ -1679,6 +1698,12 @@ PAYLOADS = {
         "request_id": str(uuid.uuid4()),
     },
     ("POST", "labs:inventory-usage-reverse"): lambda user, w: {},
+    ("POST", "labs:inventory-item-usage"): lambda user, w: {
+        "amount": "0.000001",
+        "unit": "",
+        "request_id": str(uuid.uuid4()),
+    },
+    ("POST", "labs:inventory-item-usage-reverse"): lambda user, w: {},
     ("PATCH", "labs:inventory-detail"): lambda user, w: {"notes": "Edited"},
     ("POST", "labs:order-list"): lambda user, w: {"name": "New order", "quantity": "2"},
     ("PATCH", "labs:order-detail"): lambda user, w: {"status": "ordered"},

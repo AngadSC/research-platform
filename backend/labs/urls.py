@@ -94,6 +94,16 @@ urlpatterns = [
         name="inventory-usage",
     ),
     path(
+        "labs/<uuid:lab_id>/inventory/<uuid:inventoryitem_id>/usage/",
+        protocols.ItemUsageView.as_view(),
+        name="inventory-item-usage",
+    ),
+    path(
+        "labs/<uuid:lab_id>/inventory/usage/<uuid:itemusage_id>/reverse/",
+        protocols.ItemUsageReverseView.as_view(),
+        name="inventory-item-usage-reverse",
+    ),
+    path(
         "labs/<uuid:lab_id>/inventory-usage/<uuid:inventoryusage_id>/reverse/",
         protocols.UsageReverseView.as_view(),
         name="inventory-usage-reverse",

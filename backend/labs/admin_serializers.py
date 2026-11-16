@@ -158,7 +158,7 @@ class InventoryInputSerializer(serializers.Serializer):
     category = serializers.ChoiceField(choices=InventoryCategory.choices)
     location = serializers.CharField(max_length=200, allow_blank=True, required=False)
     quantity = serializers.DecimalField(
-        max_digits=12, decimal_places=2, min_value=0, required=False
+        max_digits=18, decimal_places=6, min_value=0, required=False
     )
     unit = serializers.CharField(max_length=32, allow_blank=True, required=False)
     owner = serializers.UUIDField(allow_null=True, required=False)  # resolved in the service

@@ -4211,6 +4211,77 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/inventory/{inventoryitem_id}/usage/:
+    get:
+      operationId: labs_inventory_usage_list
+      description: GET the item's recent uses (everyone in the lab); POST logs one
+        (anyone who contributes).
+      parameters:
+      - in: path
+        name: inventoryitem_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InventoryUsage'
+          description: ''
+    post:
+      operationId: labs_inventory_usage_create
+      description: GET the item's recent uses (everyone in the lab); POST logs one
+        (anyone who contributes).
+      parameters:
+      - in: path
+        name: inventoryitem_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemUseInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ItemUseInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ItemUseInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryUsage'
+          description: ''
   /api/labs/{lab_id}/inventory/export/:
     get:
       operationId: labs_inventory_export_retrieve
@@ -4408,6 +4479,35 @@ paths:
               schema:
                 type: string
                 format: binary
+          description: ''
+  /api/labs/{lab_id}/inventory/usage/{itemusage_id}/reverse/:
+    post:
+      operationId: labs_inventory_usage_reverse_create_2
+      description: 'Undo a use logged on an item: the person who logged it, or whoever
+        manages inventory.'
+      parameters:
+      - in: path
+        name: itemusage_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryUsage'
           description: ''
   /api/labs/{lab_id}/invites/:
     get:
@@ -15777,7 +15877,7 @@ components:
         quantity:
           type: string
           format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,12}(?:\.\d{0,6})?$
           readOnly: true
         unit:
           type: string
@@ -15907,7 +16007,7 @@ components:
         quantity:
           type: string
           format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,12}(?:\.\d{0,6})?$
         unit:
           type: string
           maxLength: 32
@@ -16057,12 +16157,31 @@ components:
         protocol_name:
           type: string
           readOnly: true
+        project:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        project_name:
+          type: string
+          readOnly: true
+        item_unit:
+          type: string
         amount:
           type: string
           format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,12}(?:\.\d{0,6})?$
           readOnly: true
         unit:
+          type: string
+          readOnly: true
+        deducted:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,6})?$
+          readOnly: true
+          nullable: true
+        note:
           type: string
           readOnly: true
         used_by:
@@ -16083,9 +16202,14 @@ components:
       - amount
       - can_reverse
       - created_at
+      - deducted
       - id
       - item
       - item_name
+      - item_unit
+      - note
+      - project
+      - project_name
       - protocol
       - protocol_name
       - reversed_at
@@ -16183,6 +16307,34 @@ components:
       - subtitle
       - title
       - url
+    ItemUseInput:
+      type: object
+      description: 'Log a use straight on an inventory item (D328): any unit of the
+        same kind as the item''s.'
+      properties:
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,6})?$
+        unit:
+          type: string
+          default: ''
+          maxLength: 32
+        project:
+          type: string
+          format: uuid
+          nullable: true
+        note:
+          type: string
+          default: ''
+          maxLength: 300
+        request_id:
+          type: string
+          format: uuid
+          description: New per click; a repeat of one takes stock once.
+      required:
+      - amount
+      - request_id
     KeySave:
       type: object
       properties:
@@ -18597,7 +18749,7 @@ components:
         quantity:
           type: string
           format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,12}(?:\.\d{0,6})?$
         unit:
           type: string
           maxLength: 32
@@ -19463,7 +19615,7 @@ components:
         amount:
           type: string
           format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,12}(?:\.\d{0,6})?$
           readOnly: true
         unit:
           type: string
@@ -19471,7 +19623,7 @@ components:
         stock:
           type: string
           format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,12}(?:\.\d{0,6})?$
         stock_unit:
           type: string
       required:
@@ -19678,7 +19830,7 @@ components:
         amount:
           type: string
           format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,12}(?:\.\d{0,6})?$
         unit:
           type: string
           default: ''
@@ -21126,7 +21278,7 @@ components:
         amount:
           type: string
           format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,12}(?:\.\d{0,6})?$
         request_id:
           type: string
           format: uuid

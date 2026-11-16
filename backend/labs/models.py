@@ -362,7 +362,7 @@ class InventoryItem(LabScopedModel):
     name = models.CharField(max_length=200)
     category = models.CharField(max_length=24, choices=InventoryCategory.choices)
     location = models.CharField(max_length=200, blank=True)
-    quantity = models.DecimalField(max_digits=12, decimal_places=2, default=1)
+    quantity = models.DecimalField(max_digits=18, decimal_places=6, default=1)
     unit = models.CharField(max_length=32, blank=True)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
@@ -456,7 +456,7 @@ class ProtocolReagent(LabScopedModel):
 
     protocol = models.ForeignKey(Protocol, on_delete=models.CASCADE, related_name="reagents")
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT, related_name="+")
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    amount = models.DecimalField(max_digits=18, decimal_places=6)
     unit = models.CharField(max_length=32, blank=True)
 
     class Meta(LabScopedModel.Meta):
@@ -478,14 +478,21 @@ class InventoryUsage(LabScopedModel):
     project_path = "project"
     lab_parents = ("project", "protocol", "item")
 
-    project = models.ForeignKey("projects.Project", on_delete=models.CASCADE, related_name="+")
+    # Null: a use logged on the item itself, for the lab and no particular project (D328).
+    project = models.ForeignKey(
+        "projects.Project", on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+    )
     protocol = models.ForeignKey(
         Protocol, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
-    protocol_name = models.CharField(max_length=200)  # survives the protocol being deleted
+    protocol_name = models.CharField(max_length=200, blank=True)  # survives the protocol going
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT, related_name="+")
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    amount = models.DecimalField(max_digits=18, decimal_places=6)  # as typed, in `unit`
     unit = models.CharField(max_length=32, blank=True)
+    # What actually left the item, in the item's own unit (they differ when 10 mL comes off litres).
+    # Null on rows from before units converted: then `amount` is what left.
+    deducted = models.DecimalField(max_digits=18, decimal_places=6, null=True, blank=True)
+    note = models.CharField(max_length=300, blank=True)
     used_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
     )

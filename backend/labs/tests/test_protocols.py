@@ -2,6 +2,7 @@
 D229). Who reaches each endpoint is in tests/test_permission_matrix.py."""
 
 import uuid
+from decimal import Decimal
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -83,17 +84,122 @@ def test_never_below_zero_and_says_so(world):
     assert stock(world) == 0
 
 
-def test_units_must_match_when_writing_and_when_using(world):
+def test_units_of_another_kind_are_refused_when_writing_and_when_using(world):
     lab, pi, _, project, item = world
     url = reverse("labs:protocol-list", kwargs={"lab_id": lab.pk, "project_id": project.pk})
-    body = {"name": "Bad", "reagents": [{"item": str(item.pk), "amount": "1", "unit": "L"}]}
+    body = {"name": "Bad", "reagents": [{"item": str(item.pk), "amount": "1", "unit": "vials"}]}
     r = api(pi).post(url, body, "json")
-    assert r.status_code == 400 and "We do not convert units" in str(r.json()["reagents"])
-    protocol = make_protocol(world)  # "mL" matches "ml"-style case differences too
-    InventoryItem.objects.for_lab(lab).filter(pk=item.pk).update(unit="uL")  # changed afterwards
+    assert r.status_code == 400 and "cannot be taken from" in str(r.json()["reagents"])
+    protocol = make_protocol(world)
+    InventoryItem.objects.for_lab(lab).filter(pk=item.pk).update(unit="vials")  # changed afterwards
     r = use(world, protocol)
-    assert r.status_code == 400 and "We do not convert units" in str(r.json()["amount"])
+    assert r.status_code == 400 and "cannot be taken from" in str(r.json()["unit"])
     assert stock(world) == 10
+
+
+def test_a_protocol_may_use_a_different_unit_of_the_same_kind(world):
+    lab, *_ = world
+    protocol = make_protocol(world, unit="uL", amount="500")  # 500 uL from a stock of 10 mL
+    assert use(world, protocol).status_code == 201
+    assert stock(world) == Decimal("9.5")
+
+
+def _item_use_url(world):
+    lab, *_, item = world
+    return reverse(
+        "labs:inventory-item-usage", kwargs={"lab_id": lab.pk, "inventoryitem_id": item.pk}
+    )
+
+
+def test_ten_ml_comes_off_a_hundred_litres(world):
+    lab, pi, member, project, item = world
+    InventoryItem.objects.for_lab(lab).filter(pk=item.pk).update(
+        name="Water", quantity=100, unit="L"
+    )
+    r = api(member).post(
+        _item_use_url(world),
+        {"amount": "10", "unit": "mL", "request_id": str(uuid.uuid4())},
+        "json",
+    )
+    assert r.status_code == 201, r.content
+    assert stock(world) == Decimal("99.99")
+    assert r.json()["unit"] == "mL" and Decimal(r.json()["deducted"]) == Decimal("0.01")
+    # The log shows it, and the whole lab can read it.
+    log = api(pi).get(_item_use_url(world)).json()
+    assert len(log) == 1 and log[0]["used_by"]["id"] == str(member.pk)
+
+
+def test_a_use_logged_twice_by_one_click_takes_stock_once(world):
+    lab, _, member, *_ = world
+    body = {"amount": "1", "unit": "mL", "request_id": str(uuid.uuid4())}
+    assert api(member).post(_item_use_url(world), body, "json").status_code == 201
+    assert api(member).post(_item_use_url(world), body, "json").status_code == 201
+    assert stock(world) == 9
+
+
+def test_a_use_larger_than_the_stock_is_refused_and_leaves_nothing(world):
+    _, _, member, *_ = world
+    r = api(member).post(
+        _item_use_url(world),
+        {"amount": "11", "unit": "mL", "request_id": str(uuid.uuid4())},
+        "json",
+    )
+    assert r.status_code == 400 and "is left" in str(r.json())
+    assert stock(world) == 10
+    assert InventoryUsage.objects.for_lab(world[0]).count() == 0
+
+
+def test_a_use_in_the_wrong_kind_of_unit_is_refused(world):
+    _, _, member, *_ = world
+    r = api(member).post(
+        _item_use_url(world),
+        {"amount": "1", "unit": "g", "request_id": str(uuid.uuid4())},
+        "json",
+    )
+    assert r.status_code == 400 and "cannot be taken from" in str(r.json())
+    assert stock(world) == 10
+
+
+def test_undoing_a_use_logged_on_an_item_puts_back_what_left(world):
+    lab, pi, member, project, item = world
+    InventoryItem.objects.for_lab(lab).filter(pk=item.pk).update(quantity=100, unit="L")
+    usage = (
+        api(member)
+        .post(
+            _item_use_url(world),
+            {"amount": "10", "unit": "mL", "request_id": str(uuid.uuid4())},
+            "json",
+        )
+        .json()
+    )
+    url = reverse(
+        "labs:inventory-item-usage-reverse",
+        kwargs={"lab_id": lab.pk, "itemusage_id": usage["id"]},
+    )
+    assert api(pi).post(url).status_code == 200  # an inventory manager may
+    assert stock(world) == 100
+    assert api(member).post(url).status_code == 400  # already undone
+
+
+def test_a_use_can_count_towards_a_project_the_person_edits(world):
+    lab, _, member, project, item = world
+    r = api(member).post(
+        _item_use_url(world),
+        {"amount": "1", "unit": "mL", "project": str(project.pk), "request_id": str(uuid.uuid4())},
+        "json",
+    )
+    assert r.status_code == 201 and r.json()["project_name"] == project.name
+    outsider = api(member).post(
+        _item_use_url(world),
+        {
+            "amount": "1",
+            "unit": "mL",
+            "project": str(uuid.uuid4()),
+            "request_id": str(uuid.uuid4()),
+        },
+        "json",
+    )
+    assert outsider.status_code == 400
 
 
 def test_reverse_puts_stock_back_exactly_once_and_is_audited(world):

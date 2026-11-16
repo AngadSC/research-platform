@@ -290,7 +290,7 @@ def test_receiving_without_an_item_changes_nothing(world):
 def test_an_overflowing_receipt_is_a_400_and_leaves_the_order_open(world, stocked):
     lab, u, *_ = world
     InventoryItem.objects.for_lab(lab).filter(pk=stocked.pk).update(
-        quantity=Decimal("9999999999.99")
+        quantity=Decimal("999999999999.99")
     )
     order = order_of(lab, u["member"], stocked)
     target = url(lab, f"inventory/orders/{order.pk}/")

@@ -1695,6 +1695,24 @@ export interface paths {
         patch: operations["labs_inventory_partial_update"];
         trace?: never;
     };
+    "/api/labs/{lab_id}/inventory/{inventoryitem_id}/usage/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description GET the item's recent uses (everyone in the lab); POST logs one (anyone who contributes). */
+        get: operations["labs_inventory_usage_list"];
+        put?: never;
+        /** @description GET the item's recent uses (everyone in the lab); POST logs one (anyone who contributes). */
+        post: operations["labs_inventory_usage_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/inventory/export/": {
         parameters: {
             query?: never;
@@ -1790,6 +1808,23 @@ export interface paths {
         get: operations["labs_inventory_orders_export_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/inventory/usage/{itemusage_id}/reverse/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Undo a use logged on an item: the person who logged it, or whoever manages inventory. */
+        post: operations["labs_inventory_usage_reverse_create_2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6461,9 +6496,16 @@ export interface components {
             /** Format: uuid */
             readonly protocol: string | null;
             readonly protocol_name: string;
+            /** Format: uuid */
+            readonly project: string | null;
+            readonly project_name: string;
+            item_unit: string;
             /** Format: decimal */
             readonly amount: string;
             readonly unit: string;
+            /** Format: decimal */
+            readonly deducted: string | null;
+            readonly note: string;
             used_by: components["schemas"]["User"];
             /** Format: date-time */
             readonly created_at: string;
@@ -6507,6 +6549,22 @@ export interface components {
             /** Format: date-time */
             modified: string | null;
             url: string;
+        };
+        /** @description Log a use straight on an inventory item (D328): any unit of the same kind as the item's. */
+        ItemUseInput: {
+            /** Format: decimal */
+            amount: string;
+            /** @default  */
+            unit: string;
+            /** Format: uuid */
+            project?: string | null;
+            /** @default  */
+            note: string;
+            /**
+             * Format: uuid
+             * @description New per click; a repeat of one takes stock once.
+             */
+            request_id: string;
         };
         KeySave: {
             api_key: string;
@@ -11824,6 +11882,56 @@ export interface operations {
             };
         };
     };
+    labs_inventory_usage_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inventoryitem_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryUsage"][];
+                };
+            };
+        };
+    };
+    labs_inventory_usage_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inventoryitem_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemUseInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ItemUseInput"];
+                "multipart/form-data": components["schemas"]["ItemUseInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryUsage"];
+                };
+            };
+        };
+    };
     labs_inventory_export_retrieve: {
         parameters: {
             query?: {
@@ -11970,6 +12078,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": string;
+                };
+            };
+        };
+    };
+    labs_inventory_usage_reverse_create_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemusage_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryUsage"];
                 };
             };
         };

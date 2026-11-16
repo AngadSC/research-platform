@@ -16,6 +16,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { inventoryExportUrl, useInventory } from "@/hooks/admin";
 import { ImportInventory } from "./ImportInventory";
+import { UseStockDialog } from "./UseStockDialog";
+import { Minus } from "lucide-react";
+import { trimNumber } from "@/lib/units";
 import { useMembers } from "@/hooks/workspace";
 import type { InventoryInput, InventoryItem } from "@/lib/api-types";
 import { localDateISO } from "@/lib/format";
@@ -254,12 +257,14 @@ export function InventorySection({
   const { list, remove, create, update } = useInventory(labId, query);
   const [editing, setEditing] = useState<InventoryItem | null>(null);
   const [adding, setAdding] = useState(false);
+  const [usingId, setUsing] = useState<string | null>(null);
+  const using = (list.data ?? []).find((i) => i.id === usingId) ?? null;
 
   const cols: Column<InventoryItem>[] = [
     { key: "name", header: "Name", cell: (i) => <span className="font-medium">{i.name}</span> },
     { key: "category", header: "Category", cell: (i) => nameOf(CATEGORIES, i.category) },
     { key: "location", header: "Location", cell: (i) => i.location || "-" },
-    { key: "qty", header: "Quantity", cell: (i) => `${Number(i.quantity)} ${i.unit}`.trim() },
+    { key: "qty", header: "Quantity", cell: (i) => `${trimNumber(i.quantity)} ${i.unit}`.trim() },
     {
       key: "owner",
       header: "Owner",
@@ -275,6 +280,17 @@ export function InventorySection({
             className: "text-right",
             cell: (i: InventoryItem) => (
               <div className="flex justify-end gap-1">
+                {i.category !== "equipment" && i.category !== "software_licence" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-label={`Use ${i.name}`}
+                    title="Log what you used; it comes off the stock"
+                    onClick={() => setUsing(i.id)}
+                  >
+                    <Minus aria-hidden /> Use
+                  </Button>
+                )}
                 {onReorder && (
                   <Button
                     variant="ghost"
@@ -378,6 +394,7 @@ export function InventorySection({
           />
         }
       />
+      {using && <UseStockDialog labId={labId} item={using} onClose={() => setUsing(null)} />}
       <ItemDialog
         labId={labId}
         create={create}

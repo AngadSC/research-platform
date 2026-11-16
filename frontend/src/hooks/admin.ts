@@ -269,3 +269,43 @@ export function useCalendarFeed(labId: string) {
     }),
   };
 }
+
+/** Uses logged on an inventory item itself (D328): who took how much, and taking more. */
+export function useItemUse(labId: string, itemId: string | undefined) {
+  const qc = useQueryClient();
+  const log = useQuery({
+    queryKey: ["labs", labId, "inventory", "usage", itemId],
+    queryFn: () => api<InventoryUsage[]>(`${base(labId)}/inventory/${itemId}/usage/`),
+    enabled: !!itemId,
+  });
+  const done = () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: ["labs", labId, "inventory"] }),
+      qc.invalidateQueries({ queryKey: ["labs", labId, "protocols"] }),
+    ]);
+  const take = useMutation({
+    mutationFn: (v: {
+      amount: string;
+      unit: string;
+      project: string | null;
+      note: string;
+      request_id: string;
+    }) =>
+      api<InventoryUsage>(`${base(labId)}/inventory/${itemId}/usage/`, {
+        method: "POST",
+        ...body(v),
+      }),
+    onSuccess: done,
+  });
+  const undo = useMutation({
+    mutationFn: (usage: InventoryUsage) =>
+      api<InventoryUsage>(
+        usage.project
+          ? `${base(labId)}/inventory-usage/${usage.id}/reverse/`
+          : `${base(labId)}/inventory/usage/${usage.id}/reverse/`,
+        { method: "POST" },
+      ),
+    onSuccess: done,
+  });
+  return { log, take, undo };
+}
