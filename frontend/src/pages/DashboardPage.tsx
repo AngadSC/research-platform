@@ -465,13 +465,13 @@ export function DashboardPage() {
       <PageHeader
         title="Home"
         description={lab && `${lab.name} · You are ${roleLabel(lab.my_role ?? "")}`}
+        actions={lab ? <MorningDigest labId={labId} /> : undefined}
       />
       {lab && !allowed && <Today labId={labId} />}
     </>
   );
   const extras = (
     <div className="mt-6 grid gap-4">
-      {lab && <MorningDigest labId={labId} />}
       {lab && <ParticipantCards labId={labId} />}
       <GettingStarted labId={labId} />
       <Recents />
