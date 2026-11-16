@@ -1,5 +1,5 @@
 import { ParticipantCards } from "@/components/dashboard/ParticipantCards";
-import { CalendarClock, GraduationCap } from "lucide-react";
+import { CalendarClock, CircleAlert, GraduationCap } from "lucide-react";
 import { Link, useParams } from "react-router";
 import { StatusPill } from "@/components/training/ComplianceMatrix";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -7,6 +7,7 @@ import { FormError } from "@/components/shared/FormError";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCalendar } from "@/hooks/admin";
+import { useMyTasks } from "@/hooks/projects";
 import { useMyTraining } from "@/hooks/training";
 import { shortDate } from "@/lib/dashboard";
 import { dayText } from "@/lib/ethics";
@@ -27,7 +28,9 @@ function MyDeadlines({ labId }: { labId: string }) {
   const today = localDateISO();
   if (list.error) return <FormError message={formErrors(list.error, []).form} />;
   if (list.isLoading) return <Skeleton className="h-24 w-full" />;
-  const rows = (list.data ?? []).filter((i) => i.kind === "deadline" && !i.done);
+  const rows = (list.data ?? [])
+    .filter((i) => i.kind === "deadline" && !i.done)
+    .sort((a, b) => a.date.localeCompare(b.date)); // overdue ones are the oldest, so they lead
   if (rows.length === 0)
     return (
       <EmptyState
@@ -41,7 +44,11 @@ function MyDeadlines({ labId }: { labId: string }) {
       {rows.map((d) => (
         <li
           key={d.id}
-          className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
+          className={
+            d.date < today
+              ? "flex flex-wrap items-center justify-between gap-3 rounded-md border border-danger/50 bg-danger/5 p-3"
+              : "flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
+          }
         >
           <div className="min-w-0">
             <Link
@@ -109,6 +116,59 @@ function MyTrainings({ labId }: { labId: string }) {
   );
 }
 
+/** Everything of yours that is already late, first on the page. Nothing renders when all is on time. */
+function OverdueNow({ labId }: { labId: string }) {
+  const today = localDateISO();
+  const tasks = (useMyTasks(labId).data ?? []).filter((t) => t.due_date && t.due_date < today);
+  const { list } = useCalendar(labId, addDays(-30), addDays(0), true);
+  const deadlines = (list.data ?? []).filter(
+    (i) => i.kind === "deadline" && !i.done && i.date < today,
+  );
+  if (tasks.length + deadlines.length === 0) return null;
+  return (
+    <section
+      aria-labelledby="overdue-now"
+      className="rounded-xl border border-danger/50 bg-danger/10 p-4"
+    >
+      <h2
+        id="overdue-now"
+        className="flex items-center gap-2 text-lg font-semibold text-danger-text"
+      >
+        <CircleAlert className="size-5" aria-hidden />
+        Overdue · {tasks.length + deadlines.length}
+      </h2>
+      <ul className="mt-2 grid gap-1 text-sm">
+        {deadlines.map((d) => (
+          <li key={`d-${d.id}`}>
+            <Link
+              to={`/labs/${labId}/projects/${d.project_id}/overview`}
+              className="font-medium underline-offset-2 hover:underline"
+            >
+              {d.title}
+            </Link>{" "}
+            <span className="text-muted-foreground">
+              · deadline · {d.project_name} · due {shortDate(d.date)}
+            </span>
+          </li>
+        ))}
+        {tasks.map((t) => (
+          <li key={`t-${t.id}`}>
+            <Link
+              to={`/labs/${labId}/projects/${t.project}/tasks?task=${t.id}`}
+              className="font-medium underline-offset-2 hover:underline"
+            >
+              {t.title}
+            </Link>{" "}
+            <span className="text-muted-foreground">
+              · task · {t.project_name} · due {shortDate(t.due_date!)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** One person's own view of what they have to do, across every project in this lab. */
 export function MyWorkPage() {
   const { labId = "" } = useParams();
@@ -116,6 +176,7 @@ export function MyWorkPage() {
     <>
       <PageHeader title="My work" description="Your tasks, deadlines and trainings in this lab." />
       <div className="grid gap-8">
+        <OverdueNow labId={labId} />
         <ParticipantCards labId={labId} compact />
         <Section title="Tasks" description="Open tasks assigned to you, soonest due first.">
           <MyTasksList labId={labId} />

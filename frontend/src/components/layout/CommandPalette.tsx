@@ -19,6 +19,8 @@ interface Props {
   labId?: string;
   /** Called with the SPA route of a chosen search hit. */
   onGo?: (url: string) => void;
+  /** What the user opened lately, shown first before they type. */
+  recents?: { url: string; label: string }[];
 }
 
 /** Registered groups that jump somewhere; shown together under one "Go to" heading, so they never
@@ -26,13 +28,14 @@ interface Props {
 const GO_TO_GROUPS = new Set(["Navigate", "Projects", "Documents", "Research", "Workflow"]);
 
 /** Opens on Cmd/Ctrl+K; Cmd/Ctrl+F stays the browser's own find. Add entries with useRegisterCommands (see lib/commands.ts). */
-export function CommandPalette({ labId, onGo }: Props) {
+export function CommandPalette({ labId, onGo, recents: recentItems = [] }: Props) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [selected, setSelected] = useState("");
   const commands = useCommands();
   const assistantReady = useAssistantReady(open ? labId : undefined);
   const ask = text.trim();
+  const recents = recentItems.slice(0, 5);
   const { hits, loading, error } = useLabSearch(open ? labId : undefined, text);
 
   // The palette opens from a shortcut or an event, not a dialog trigger, so the dialog has nothing
@@ -109,6 +112,23 @@ export function CommandPalette({ labId, onGo }: Props) {
         {hits.length === 0 && (
           <CommandEmpty>{loading ? "Searching..." : "No matches."}</CommandEmpty>
         )}
+        {!ask && recents.length > 0 && (
+          <CommandGroup heading="Recent">
+            {recents.map((r) => (
+              <CommandItem
+                key={r.url}
+                value={`recent ${r.label} ${r.url}`}
+                onSelect={() => {
+                  setOpen(false);
+                  setText("");
+                  onGo?.(r.url);
+                }}
+              >
+                <span className="truncate">{r.label}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
         {groupHits(hits).map(([label, items]) => (
           <CommandGroup key={label} heading={label} forceMount>
             {items.map((h) => (
@@ -174,6 +194,17 @@ export function CommandPalette({ labId, onGo }: Props) {
           </CommandGroup>
         ))}
       </CommandList>
+      <p className="flex gap-4 border-t px-3 py-2 text-xs text-muted-foreground">
+        <span>
+          <kbd className="rounded bg-muted px-1">↑↓</kbd> move
+        </span>
+        <span>
+          <kbd className="rounded bg-muted px-1">Enter</kbd> open
+        </span>
+        <span>
+          <kbd className="rounded bg-muted px-1">Esc</kbd> close
+        </span>
+      </p>
     </CommandDialog>
   );
 }

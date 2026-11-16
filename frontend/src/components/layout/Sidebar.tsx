@@ -23,7 +23,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { LAB_CHAT, useUnreadChats } from "@/hooks/chat";
 import { useCurrentLabId, useCurrentProjectId } from "@/hooks/crumbs";
 import { useSidebarOrder } from "@/hooks/preferences";
-import { useProjects } from "@/hooks/projects";
+import { useMyTasks, useProjects } from "@/hooks/projects";
+import { localDateISO } from "@/lib/format";
 import { useLabs } from "@/hooks/workspace";
 import type { Lab, Project } from "@/lib/api-types";
 import { navItems, PROJECT_SECTIONS, type NavItem } from "@/lib/nav";
@@ -95,7 +96,14 @@ function ProjectItem({
               <li key={to}>
                 <NavLink
                   to={`${base}/${to}`}
-                  className={linkClass}
+                  className={(s) =>
+                    cn(
+                      linkClass(s),
+                      // The section you are on wears the project's own colour.
+                      s.isActive && "text-(--project) before:bg-(--project)",
+                      !s.isActive && "hover:bg-[color-mix(in_srgb,var(--project)_14%,transparent)]",
+                    )
+                  }
                   onClick={onNavigate}
                   title={hint}
                   aria-description={hint}
@@ -193,6 +201,11 @@ export function Sidebar({
   const navigate = useNavigate();
   const current = labs.find((l) => l.id === labId);
   const unread = useUnreadCount(labId);
+  const today = localDateISO();
+  const overdueMine = (useMyTasks(labId ?? "").data ?? []).filter(
+    (t) => t.due_date && t.due_date < today,
+  ).length;
+  const done = projects.filter((p) => p.status === "completed" && p.id !== projectId);
   const items = navItems(labId, current?.my_permissions, current?.inventory_enabled).filter(
     ({ to }) => to !== "/settings" && to !== "/help" && !to.endsWith("/notifications"), // each has its own menu
   );
@@ -219,6 +232,9 @@ export function Sidebar({
     <NavLink key={to} to={to} end={end} className={linkClass} onClick={onClose}>
       <Icon aria-hidden />
       {label}
+      {to.endsWith("/my-work") && (
+        <UnreadBadge count={overdueMine} noun="overdue task" className="ml-auto" />
+      )}
       {to.endsWith("/chat") && (
         <UnreadBadge count={chatUnread[LAB_CHAT] ?? 0} noun="message" className="ml-auto" />
       )}
@@ -239,7 +255,11 @@ export function Sidebar({
     >
       <div>
         <div className="flex items-center justify-between px-2 pb-1">
-          <p className="text-xs text-muted-foreground">{APP_NAME}</p>
+          <img
+            src="/logo-full.png"
+            alt={APP_NAME}
+            className="h-7 w-auto rounded dark:bg-white/90 dark:px-1.5"
+          />
           <button
             type="button"
             aria-label="Create a lab"
@@ -262,76 +282,109 @@ export function Sidebar({
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
         <PinnedNav onNavigate={onClose} />
-        <nav aria-label="Main" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
-          <span className={groupLabel}>Lab</span>
-          {mainItems.map((item) => (
-            <ReorderRow key={item.to} id={keyOf(item.to)} reorder={mainReorder}>
-              {item.to.endsWith("/projects") ? (
-                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
-                  <div className="flex items-center gap-0.5">
-                    <NavLink
-                      to={item.to}
-                      end={item.end}
-                      className={(s) => cn(linkClass(s), "min-w-0 flex-1")}
-                      onClick={onClose}
-                    >
-                      <item.icon aria-hidden />
-                      {item.label}
-                    </NavLink>
-                    {current?.my_permissions.includes("create_project") && (
-                      <button
-                        type="button"
-                        aria-label="New project"
-                        onClick={() => {
-                          onClose();
-                          void navigate(`${item.to}?new=project`);
-                        }}
-                        className={iconButton}
-                      >
-                        <Plus aria-hidden />
-                      </button>
-                    )}
-                  </div>
-                  <ul className="ml-3 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
-                    {projects.map((p) => (
-                      <ProjectItem
-                        key={p.id}
-                        labId={labId!}
-                        project={p}
-                        isCurrent={p.id === projectId}
-                        unread={chatUnread[p.id] ?? 0}
-                        onNavigate={onClose}
-                      />
-                    ))}
-                  </ul>
-                </div>
-              ) : (
-                link(item)
-              )}
-            </ReorderRow>
-          ))}
-          {(order.main.length > 0 || order.admin.length > 0) && (
-            <button
-              type="button"
-              onClick={order.reset}
-              className="mt-1 self-start rounded px-3 text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            >
-              Reset order
-            </button>
-          )}
-        </nav>
-        {adminItems.length > 0 && (
-          <nav
-            aria-label="Admin"
-            className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5 border-t pt-4"
-          >
-            <span className={groupLabel}>Admin</span>
-            {adminItems.map((item) => (
-              <ReorderRow key={item.to} id={keyOf(item.to)} reorder={adminReorder}>
-                {link(item)}
-              </ReorderRow>
+        {labId && !current ? (
+          <div aria-busy="true" aria-label="Loading navigation" className="grid gap-2 px-3">
+            {Array.from({ length: 8 }, (_, i) => (
+              <Skeleton key={i} className="h-5 w-full" />
             ))}
-          </nav>
+          </div>
+        ) : (
+          <>
+            <nav aria-label="Main" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+              <span className={groupLabel}>Lab</span>
+              {mainItems.map((item) => (
+                <ReorderRow key={item.to} id={keyOf(item.to)} reorder={mainReorder}>
+                  {item.to.endsWith("/projects") ? (
+                    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+                      <div className="flex items-center gap-0.5">
+                        <NavLink
+                          to={item.to}
+                          end={item.end}
+                          className={(s) => cn(linkClass(s), "min-w-0 flex-1")}
+                          onClick={onClose}
+                        >
+                          <item.icon aria-hidden />
+                          {item.label}
+                        </NavLink>
+                        {current?.my_permissions.includes("create_project") && (
+                          <button
+                            type="button"
+                            aria-label="New project"
+                            onClick={() => {
+                              onClose();
+                              void navigate(`${item.to}?new=project`);
+                            }}
+                            className={iconButton}
+                          >
+                            <Plus aria-hidden />
+                          </button>
+                        )}
+                      </div>
+                      <ul className="ml-3 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+                        {projects
+                          .filter((p) => p.status !== "completed" || p.id === projectId)
+                          .map((p) => (
+                            <ProjectItem
+                              key={p.id}
+                              labId={labId!}
+                              project={p}
+                              isCurrent={p.id === projectId}
+                              unread={chatUnread[p.id] ?? 0}
+                              onNavigate={onClose}
+                            />
+                          ))}
+                        {done.length > 0 && (
+                          <li>
+                            <details>
+                              <summary className="cursor-pointer rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+                                Completed ({done.length})
+                              </summary>
+                              <ul className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+                                {done.map((p) => (
+                                  <ProjectItem
+                                    key={p.id}
+                                    labId={labId!}
+                                    project={p}
+                                    isCurrent={false}
+                                    unread={chatUnread[p.id] ?? 0}
+                                    onNavigate={onClose}
+                                  />
+                                ))}
+                              </ul>
+                            </details>
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  ) : (
+                    link(item)
+                  )}
+                </ReorderRow>
+              ))}
+              {(order.main.length > 0 || order.admin.length > 0) && (
+                <button
+                  type="button"
+                  onClick={order.reset}
+                  className="mt-1 self-start rounded px-3 text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                >
+                  Reset order
+                </button>
+              )}
+            </nav>
+            {adminItems.length > 0 && (
+              <nav
+                aria-label="Admin"
+                className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5 border-t pt-4"
+              >
+                <span className={groupLabel}>Admin</span>
+                {adminItems.map((item) => (
+                  <ReorderRow key={item.to} id={keyOf(item.to)} reorder={adminReorder}>
+                    {link(item)}
+                  </ReorderRow>
+                ))}
+              </nav>
+            )}
+          </>
         )}
         {/* a fade at the bottom tells you the list scrolls */}
         <div

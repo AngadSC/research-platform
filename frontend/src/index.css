@@ -15,7 +15,7 @@
   --secondary: #f4f4f5;
   --secondary-foreground: #27272a;
   --muted: #f4f4f5;
-  --muted-foreground: #52525b; /* 7.7:1 on white */
+  --muted-foreground: #46464f; /* 9:1 on white */
   --accent: #f4f4f5;
   --accent-foreground: #18181b;
   /* Status fills. Each has a foreground that passes AA on it (white on red 4.8, green 5.0, blue 5.9;

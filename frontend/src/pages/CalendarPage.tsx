@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useCalendar } from "@/hooks/admin";
 import { googleOn, useGoogleEvents, useGoogleSync } from "@/hooks/meetings";
+import { useProjects } from "@/hooks/projects";
 import { useLab } from "@/hooks/workspace";
 import type { CalendarItem, GoogleEvent } from "@/lib/api-types";
 import { calendarHref, itemsOn, monthGrid } from "@/lib/calendar";
@@ -421,7 +422,19 @@ export function CalendarPage() {
       agenda ? localDateISO(agendaEnd) : localDateISO(days[days.length - 1]!),
       !!google?.connected && google.show_google_events,
     ).data ?? [];
-  const items = list.data ?? [];
+  const projects = useProjects(labId).data ?? [];
+  const projectId = params.get("project") ?? "";
+  const activeProject = projects.find((p) => p.id === projectId);
+  const setProject = (id: string) =>
+    setParams((p) => {
+      const next = new URLSearchParams(p);
+      if (id) next.set("project", id);
+      else next.delete("project");
+      return next;
+    });
+  const items = (list.data ?? []).filter(
+    (i) => !activeProject || i.project_id === activeProject.id,
+  );
   const today = localDateISO();
   const move = (months: number) =>
     setCursor((c) => new Date(c.getFullYear(), c.getMonth() + months, 1));
@@ -459,10 +472,62 @@ export function CalendarPage() {
                 onClick={() => setDialog({ kind: "event" })}
               />
             )}
-            {canEdit && <Button onClick={() => setDialog({ kind: "meeting" })}>Add meeting</Button>}
+            {activeProject && (
+              <Button asChild>
+                <Link to={`/labs/${labId}/projects/${activeProject.id}/tasks?new=task`}>
+                  Add task to {activeProject.name}
+                </Link>
+              </Button>
+            )}
+            {canEdit && (
+              <Button
+                variant={activeProject ? "outline" : "default"}
+                onClick={() => setDialog({ kind: "meeting" })}
+              >
+                Add meeting
+              </Button>
+            )}
           </>
         }
       />
+      <div
+        role="group"
+        aria-label="Calendar scope"
+        className="group/scope mb-3 flex w-fit max-w-full items-center gap-1 overflow-x-auto rounded-full border bg-card p-1"
+      >
+        <Button
+          size="sm"
+          variant={activeProject ? "ghost" : "secondary"}
+          aria-pressed={!activeProject}
+          onClick={() => setProject("")}
+        >
+          Full lab
+        </Button>
+        {projects.map((p) => {
+          const on = p.id === projectId;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              aria-pressed={on}
+              aria-label={p.name}
+              title={p.name}
+              onClick={() => setProject(p.id)}
+              style={projectColorStyle(p.color)}
+              className={cn(
+                "flex h-8 shrink-0 items-center gap-1.5 overflow-hidden rounded-full px-2.5 text-sm transition-[max-width,background-color] duration-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                // Collapsed to a dot until hovered or focused; the selected one stays open.
+                on
+                  ? "max-w-56 bg-[color-mix(in_srgb,var(--project)_22%,transparent)] font-semibold"
+                  : "max-w-8 text-muted-foreground hover:max-w-56 hover:bg-foreground/5 hover:text-foreground focus-visible:max-w-56",
+              )}
+            >
+              <span aria-hidden className="size-3 shrink-0 rounded-full bg-(--project)" />
+              <span className="truncate whitespace-nowrap">{p.name}</span>
+            </button>
+          );
+        })}
+      </div>
       <div role="group" aria-label="Which calendar" className="mb-3 flex gap-1">
         <Button
           size="sm"

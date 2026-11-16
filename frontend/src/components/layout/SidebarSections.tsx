@@ -31,7 +31,7 @@ export const linkClass = ({ isActive }: { isActive: boolean }) =>
     "relative flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-[background-color,box-shadow,color] duration-[var(--dur)] ease-[var(--ease-glass)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4",
     isActive
       ? // The accent bar says where you are even where a grey fill is hard to see.
-        "glass-pill-active font-semibold text-primary before:absolute before:top-1.5 before:bottom-1.5 before:left-0 before:w-1 before:rounded-full before:bg-primary"
+        "glass-pill-active font-semibold text-primary [&_svg]:stroke-[2.5] before:absolute before:top-1.5 before:bottom-1.5 before:left-0 before:w-1 before:rounded-full before:bg-primary"
       : `text-muted-foreground ${hoverTint}`,
   );
 

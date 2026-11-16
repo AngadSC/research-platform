@@ -80,7 +80,15 @@ export function LabDocumentsPage() {
                 ? "Write something the whole lab needs, such as a lab manual or an SOP."
                 : "Only lab members who can edit can add documents. Ask a PI or lab admin."
             }
+            why="Keeping them here means new members find the current version, not a copy in someone's email."
             action={addButton}
+            secondary={
+              canAdd ? (
+                <Button variant="outline" onClick={() => setAdding(true)}>
+                  Link a Google Drive file
+                </Button>
+              ) : undefined
+            }
           />
         }
       />

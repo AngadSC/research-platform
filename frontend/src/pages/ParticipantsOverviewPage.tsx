@@ -24,6 +24,7 @@ export function ParticipantsOverviewPage() {
           icon={Users}
           title="No participant data yet"
           description="Open a project, choose Participants, and add your first participants or import a sheet."
+          why="Once participants are added, you can see what is missing and what is overdue across every project."
         />
       )}
       {data && data.projects.length > 0 && (

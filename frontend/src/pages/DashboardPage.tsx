@@ -171,7 +171,27 @@ function ProjectTable({
     key: "health",
     dir: "asc",
   });
-  const rows = useMemo(() => sortProjects(projects, sort.key, sort.dir), [projects, sort]);
+  const [filters, setFilters] = useState({ status: "", health: "", lead: "" });
+  const leads = useMemo(
+    () => [...new Set(projects.flatMap((p) => p.leads.map((l) => l.name)))].sort(),
+    [projects],
+  );
+  const statuses = useMemo(() => [...new Set(projects.map((p) => p.status))].sort(), [projects]);
+  const rows = useMemo(
+    () =>
+      sortProjects(
+        projects.filter(
+          (p) =>
+            (!filters.status || p.status === filters.status) &&
+            (!filters.health || p.health === filters.health) &&
+            (!filters.lead || p.leads.some((l) => l.name === filters.lead)),
+        ),
+        sort.key,
+        sort.dir,
+      ),
+    [projects, sort, filters],
+  );
+  const filtering = !!(filters.status || filters.health || filters.lead);
   const toggle = (key: SortKey) =>
     setSort((s) => ({ key, dir: s.key === key && s.dir === "asc" ? "desc" : "asc" }));
 
@@ -189,110 +209,181 @@ function ProjectTable({
       />
     );
 
+  const selectClass =
+    "h-8 rounded-md border bg-background px-2 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
   return (
-    <div className="rounded-lg border">
-      <Table>
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            {COLUMNS.filter((c) => seesFunding || c.key !== "funding").map((c) => {
-              const active = sort.key === c.key;
-              return (
-                <TableHead
-                  key={c.key}
-                  aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
-                  className={c.right ? "text-right" : undefined}
-                >
-                  <button
-                    type="button"
-                    onClick={() => toggle(c.key)}
-                    className="inline-flex items-center gap-1 rounded-sm font-medium hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    <div className="grid gap-2">
+      <div role="group" aria-label="Filter projects" className="flex flex-wrap items-center gap-2">
+        <select
+          aria-label="Status"
+          className={cn(selectClass, "capitalize")}
+          value={filters.status}
+          onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+        >
+          <option value="">All statuses</option>
+          {statuses.map((s) => (
+            <option key={s} value={s}>
+              Status: {s.replace(/_/g, " ")}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="Health"
+          className={selectClass}
+          value={filters.health}
+          onChange={(e) => setFilters({ ...filters, health: e.target.value })}
+        >
+          <option value="">Any health</option>
+          {(Object.keys(HEALTH_LABEL) as (keyof typeof HEALTH_LABEL)[]).map((h) => (
+            <option key={h} value={h}>
+              Health: {HEALTH_LABEL[h]}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="Project lead"
+          className={selectClass}
+          value={filters.lead}
+          onChange={(e) => setFilters({ ...filters, lead: e.target.value })}
+        >
+          <option value="">Any lead</option>
+          {leads.map((l) => (
+            <option key={l} value={l}>
+              Lead: {l}
+            </option>
+          ))}
+        </select>
+        {filtering && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setFilters({ status: "", health: "", lead: "" })}
+          >
+            Clear filters
+          </Button>
+        )}
+        <span className="ml-auto text-xs text-muted-foreground" aria-live="polite">
+          {rows.length} of {projects.length}
+        </span>
+      </div>
+      <div className="rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              {COLUMNS.filter((c) => seesFunding || c.key !== "funding").map((c) => {
+                const active = sort.key === c.key;
+                return (
+                  <TableHead
+                    key={c.key}
+                    aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+                    className={c.right ? "text-right" : undefined}
                   >
-                    {c.header}
-                    {active &&
-                      (sort.dir === "asc" ? (
-                        <ArrowUp className="size-3" aria-hidden />
-                      ) : (
-                        <ArrowDown className="size-3" aria-hidden />
-                      ))}
-                  </button>
-                </TableHead>
-              );
-            })}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((p) => (
-            <TableRow key={p.id}>
-              <TableCell className="min-w-40">
-                <Link
-                  to={`/labs/${labId}/projects/${p.id}`}
-                  className="font-medium underline-offset-2 hover:underline"
+                    <button
+                      type="button"
+                      onClick={() => toggle(c.key)}
+                      className="inline-flex items-center gap-1 rounded-sm font-medium hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {c.header}
+                      {active &&
+                        (sort.dir === "asc" ? (
+                          <ArrowUp className="size-3" aria-hidden />
+                        ) : (
+                          <ArrowDown className="size-3" aria-hidden />
+                        ))}
+                    </button>
+                  </TableHead>
+                );
+              })}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((p) => (
+              <TableRow key={p.id}>
+                <TableCell className="min-w-40">
+                  <Link
+                    to={`/labs/${labId}/projects/${p.id}`}
+                    className="font-medium underline-offset-2 hover:underline"
+                  >
+                    {p.name}
+                  </Link>
+                  <p className="text-xs text-muted-foreground">
+                    {p.leads.length ? p.leads.map((l) => l.name).join(", ") : "No project lead"}
+                  </p>
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={p.status} />
+                </TableCell>
+                <TableCell>
+                  <Health p={p} />
+                </TableCell>
+                <TableCell className="text-right tabular-nums">{p.open_tasks}</TableCell>
+                <TableCell
+                  className={cn(
+                    "text-right tabular-nums",
+                    p.overdue_tasks > 0 && "font-semibold text-danger-text",
+                  )}
                 >
-                  {p.name}
-                </Link>
-                <p className="text-xs text-muted-foreground">
-                  {p.leads.length ? p.leads.map((l) => l.name).join(", ") : "No project lead"}
-                </p>
-              </TableCell>
-              <TableCell>
-                <StatusBadge status={p.status} />
-              </TableCell>
-              <TableCell>
-                <Health p={p} />
-              </TableCell>
-              <TableCell className="text-right tabular-nums">{p.open_tasks}</TableCell>
-              <TableCell
-                className={cn(
-                  "text-right tabular-nums",
-                  p.overdue_tasks > 0 && "font-semibold text-danger-text",
-                )}
-              >
-                {p.overdue_tasks}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">{p.in_progress_tasks}</TableCell>
-              <TableCell className="min-w-40">
-                {p.next_deadline ? (
-                  <>
-                    <span className="flex items-center gap-1.5">
-                      {p.next_deadline.title}
-                      {priorityBadge(p.next_deadline.priority)}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {shortDate(p.next_deadline.due_date)}
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-muted-foreground">None</span>
-                )}
-              </TableCell>
-              <TableCell className="min-w-32">
-                {p.last_activity_at ? (
-                  <>
-                    <RelativeTime value={p.last_activity_at} />
-                    {p.last_activity_by && (
-                      <p className="text-xs text-muted-foreground">by {p.last_activity_by.name}</p>
-                    )}
-                  </>
-                ) : (
-                  <span className="text-muted-foreground">No edits yet</span>
-                )}
-              </TableCell>
-              {seesFunding && (
-                <TableCell className="min-w-28">
-                  {p.funding_end_date ? (
+                  {p.overdue_tasks}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">{p.in_progress_tasks}</TableCell>
+                <TableCell className="min-w-40">
+                  {p.next_deadline ? (
                     <>
-                      {shortDate(p.funding_end_date)}
-                      <p className="text-xs text-muted-foreground capitalize">{p.funding_status}</p>
+                      <span className="flex items-center gap-1.5">
+                        {p.next_deadline.title}
+                        {priorityBadge(p.next_deadline.priority)}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {shortDate(p.next_deadline.due_date)}
+                      </span>
                     </>
                   ) : (
-                    <span className="text-muted-foreground">No funding</span>
+                    <span className="text-muted-foreground">None</span>
                   )}
                 </TableCell>
-              )}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                <TableCell className="min-w-32">
+                  {p.last_activity_at ? (
+                    <>
+                      <RelativeTime value={p.last_activity_at} />
+                      {p.last_activity_by && (
+                        <p className="text-xs text-muted-foreground">
+                          by {p.last_activity_by.name}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">No edits yet</span>
+                  )}
+                </TableCell>
+                {seesFunding && (
+                  <TableCell className="min-w-28">
+                    {p.funding_end_date ? (
+                      <>
+                        {shortDate(p.funding_end_date)}
+                        <p className="text-xs text-muted-foreground capitalize">
+                          {p.funding_status}
+                        </p>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">No funding</span>
+                    )}
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+            {rows.length === 0 && (
+              <TableRow className="hover:bg-transparent">
+                <TableCell
+                  colSpan={COLUMNS.length}
+                  className="py-6 text-center text-muted-foreground"
+                >
+                  No projects match these filters.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -375,23 +466,28 @@ export function DashboardPage() {
         title="Home"
         description={lab && `${lab.name} · You are ${roleLabel(lab.my_role ?? "")}`}
       />
-      {lab && <MorningDigest labId={labId} />}
       {lab && !allowed && <Today labId={labId} />}
+    </>
+  );
+  const extras = (
+    <div className="grid gap-4">
+      {lab && <MorningDigest labId={labId} />}
       {lab && <ParticipantCards labId={labId} />}
       <GettingStarted labId={labId} />
       <Recents />
-    </>
+    </div>
   );
   if (lab && !allowed)
     return (
       <>
         {header}
         <section aria-labelledby="my-tasks" className="grid gap-3">
-          <h2 id="my-tasks" className="text-base font-semibold">
+          <h2 id="my-tasks" className="text-lg font-semibold">
             My tasks
           </h2>
           <MyTasksList labId={labId} />
         </section>
+        {extras}
       </>
     );
 
@@ -427,7 +523,7 @@ export function DashboardPage() {
             </p>
           ) : (
             <section aria-labelledby="attention" className="grid gap-3">
-              <h2 id="attention" className="text-base font-semibold">
+              <h2 id="attention" className="text-lg font-semibold">
                 Needs attention
               </h2>
               <div className="grid gap-3 md:grid-cols-2">
@@ -488,7 +584,7 @@ export function DashboardPage() {
                 </Card>
                 <Card
                   id="deadlines"
-                  title="Deadlines in 14 days"
+                  title="Deadlines overdue or due in 14 days"
                   tone="amber"
                   total={a.deadlines.total}
                   shown={a.deadlines.items.length}
@@ -602,20 +698,25 @@ export function DashboardPage() {
             </section>
           )}
 
+          {extras}
+
           <section aria-labelledby="projects" className="grid gap-3">
-            <h2 id="projects" className="text-base font-semibold">
+            <h2 id="projects" className="text-lg font-semibold">
               Projects
             </h2>
             <ProjectTable
               labId={labId}
               projects={data.projects}
-              seesFunding={lab?.my_permissions.includes("access_funding") ?? false}
+              seesFunding={
+                (lab?.my_permissions.includes("access_funding") ?? false) &&
+                data.projects.some((p) => p.funding_end_date)
+              }
             />
           </section>
 
           <section aria-labelledby="people" className="grid gap-3">
             <div>
-              <h2 id="people" className="text-base font-semibold">
+              <h2 id="people" className="text-lg font-semibold">
                 People
               </h2>
               <p className="text-xs text-muted-foreground">

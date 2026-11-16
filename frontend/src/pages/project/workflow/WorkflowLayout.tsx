@@ -51,6 +51,8 @@ export function WorkflowLayout(props: ProjectTabProps) {
   const open = pathname.split("/workflow/")[1]?.split("/")[0];
   const openStage = stages.find((s) => s.key === open);
   const doneCount = stages.filter((s) => s.done).length;
+  const completed = project.status === "completed";
+  const remaining = stages.filter((s) => !s.done);
 
   return (
     <div className="grid gap-6">
@@ -59,6 +61,31 @@ export function WorkflowLayout(props: ProjectTabProps) {
           <p role="status" className="rounded-lg bg-muted p-3 text-sm font-medium">
             Archived. Set it back to Active to make changes.
           </p>
+        )}
+        {completed && remaining.length > 0 && (
+          <div
+            role="status"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted p-3 text-sm"
+          >
+            <span>
+              This project is completed, so its {remaining.length} open{" "}
+              {remaining.length === 1 ? "step is" : "steps are"} optional.
+            </span>
+            {canEdit && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={mark.isPending}
+                onClick={() =>
+                  remaining.forEach((st) =>
+                    mark.mutate({ stage: st.key, done: true }, { onError: fail }),
+                  )
+                }
+              >
+                Mark them not needed
+              </Button>
+            )}
+          </div>
         )}
         <nav aria-label="Workflow sections" className="glass overflow-x-auto rounded-2xl px-3 py-3">
           <ol className="flex min-w-max">
@@ -127,7 +154,9 @@ export function WorkflowLayout(props: ProjectTabProps) {
         </nav>
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted p-3">
           <p className="text-sm">
-            {next ? (
+            {next && completed ? (
+              <span className="font-semibold">Completed project. Steps below are optional.</span>
+            ) : next ? (
               <>
                 <span className="font-semibold">
                   {canEdit ? "Do this next" : "Next step"}: {nameOf(next)}.

@@ -133,73 +133,76 @@ export function ProjectPage() {
         style={projectColorStyle(project.color)}
         className="glass relative overflow-hidden rounded-2xl border-l-4 border-l-(--project) p-4 pl-5 before:pointer-events-none before:absolute before:inset-0 before:bg-[linear-gradient(90deg,color-mix(in_srgb,var(--project)_14%,transparent),transparent_45%)] [&>*]:relative"
       >
-        <PageHeader
-          title={project.name}
-          description={undefined}
-          actions={
-            <>
-              <StatusBadge status={project.status} />
-              <Button
-                variant="ghost"
-                aria-label={unread > 0 ? `Chat, ${unread} unread` : undefined}
-                onClick={() => setChatOpen(true)}
-              >
-                <MessagesSquare aria-hidden /> Chat
-                <UnreadBadge count={unread} noun="message" decorative />
-              </Button>
-              {can("edit_project") && (
+        <div className="[&_h1]:text-3xl [&_h1]:font-bold [&>header]:mb-0">
+          <PageHeader
+            title={project.name}
+            description={undefined}
+            actions={
+              <>
+                <StatusBadge status={project.status} />
                 <Button
                   variant="ghost"
-                  size="icon"
-                  aria-label="Edit"
-                  title="Edit project"
-                  onClick={() => setEditing(true)}
+                  aria-label={unread > 0 ? `Chat, ${unread} unread` : undefined}
+                  onClick={() => setChatOpen(true)}
                 >
-                  <Pencil aria-hidden />
+                  <MessagesSquare aria-hidden /> Chat
+                  <UnreadBadge count={unread} noun="message" decorative />
                 </Button>
-              )}
-              {(can("export") || can("delete_project")) && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" aria-label="More project actions">
-                      <MoreHorizontal aria-hidden />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {can("export") && (
-                      <DropdownMenuItem
-                        disabled={exportProject.isPending}
-                        onSelect={() =>
-                          exportProject.mutate(undefined, {
-                            onSuccess: (d) => {
-                              const base = project.name
-                                .replace(/[^\w-]+/g, "-")
-                                .replace(/^-+|-+$/g, "");
-                              saveJson(d, `${base || "project"}-export.json`);
-                              toast.success("Project exported");
-                            },
-                            onError: (e) => toast.error(formErrors(e, []).form ?? "Export failed."),
-                          })
-                        }
-                      >
-                        Export project
-                      </DropdownMenuItem>
-                    )}
-                    {can("export") && can("delete_project") && <DropdownMenuSeparator />}
-                    {can("delete_project") && (
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onSelect={() => setDeleting(true)}
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </>
-          }
-        />
+                {can("edit_project") && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Edit"
+                    title="Edit project"
+                    onClick={() => setEditing(true)}
+                  >
+                    <Pencil aria-hidden />
+                  </Button>
+                )}
+                {(can("export") || can("delete_project")) && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" aria-label="More project actions">
+                        <MoreHorizontal aria-hidden />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {can("export") && (
+                        <DropdownMenuItem
+                          disabled={exportProject.isPending}
+                          onSelect={() =>
+                            exportProject.mutate(undefined, {
+                              onSuccess: (d) => {
+                                const base = project.name
+                                  .replace(/[^\w-]+/g, "-")
+                                  .replace(/^-+|-+$/g, "");
+                                saveJson(d, `${base || "project"}-export.json`);
+                                toast.success("Project exported");
+                              },
+                              onError: (e) =>
+                                toast.error(formErrors(e, []).form ?? "Export failed."),
+                            })
+                          }
+                        >
+                          Export project
+                        </DropdownMenuItem>
+                      )}
+                      {can("export") && can("delete_project") && <DropdownMenuSeparator />}
+                      {can("delete_project") && (
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onSelect={() => setDeleting(true)}
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </>
+            }
+          />
+        </div>
       </div>
       {/* The sidebar dropdown holds these from md up; below that the sidebar is a drawer. */}
       <TabNav

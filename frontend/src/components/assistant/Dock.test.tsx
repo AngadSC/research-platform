@@ -133,7 +133,7 @@ describe("docked assistant", () => {
 
     const dock = await screen.findByRole("complementary", { name: "Assistant" });
     expect(dock).toHaveStyle({ width: "384px" });
-    expect(document.documentElement.style.getPropertyValue("--assistant-w")).toBe("384px");
+    expect(document.documentElement.style.getPropertyValue("--assistant-w")).toBe("0px");
     expect(saved()).toMatchObject({ mode: "open", width: 384 });
 
     // the typed text survives a move to another page: the panel is not remounted

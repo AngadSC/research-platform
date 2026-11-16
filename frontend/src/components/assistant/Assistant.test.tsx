@@ -247,7 +247,7 @@ describe("assistant panel", () => {
     const opened = vi.spyOn(window, "open").mockReturnValue({} as Window);
     renderDrawer();
     await open();
-    expect(await screen.findByText(/Claude is connected/)).toBeInTheDocument();
+    expect(await screen.findByText(/Claude connected/)).toBeInTheDocument();
     expect(screen.queryByText(/Click Connect to Claude/)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("link", { name: "Open Claude beside this page" }));
     expect(opened).toHaveBeenCalledWith(

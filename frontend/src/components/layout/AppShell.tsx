@@ -8,7 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { useUnreadChats } from "@/hooks/chat";
 import { useCrumbs, useCurrentLabId } from "@/hooks/crumbs";
-import { useGlass, usePins, useSyncTimeZone, useTrackRecent } from "@/hooks/preferences";
+import {
+  useGlass,
+  usePins,
+  useRecents,
+  useSyncTimeZone,
+  useTrackRecent,
+} from "@/hooks/preferences";
 import { useProjects } from "@/hooks/projects";
 import { useLabs } from "@/hooks/workspace";
 import { useRegisterCommands, type Command } from "@/lib/commands";
@@ -76,6 +82,7 @@ export function AppShell() {
   const navigate = useNavigate();
   const crumbs = useCrumbs();
   useTrackRecent(crumbs);
+  const recents = useRecents();
   const title = pageTitle(crumbs);
   useEffect(() => {
     document.title = title;
@@ -218,7 +225,7 @@ export function AppShell() {
               </Button>
               {labId && (
                 <Button
-                  variant="default"
+                  variant="outline"
                   size="sm"
                   aria-label="Add a task"
                   title={`Add a task (${MOD_KEY} G)`}
@@ -249,7 +256,7 @@ export function AppShell() {
       <MobileTabBar labId={labId} onMore={() => setNavOpen(true)} />
       <QuickCapture />
       <GoogleEditorHost />
-      <CommandPalette labId={labId} onGo={(url) => void navigate(url)} />
+      <CommandPalette labId={labId} recents={recents} onGo={(url) => void navigate(url)} />
       <Tutorial />
       <Toaster position="top-center" />
     </TooltipProvider>

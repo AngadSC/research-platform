@@ -263,14 +263,31 @@ function ClaudeOption() {
   );
   // Not connected yet: the button is step 1 ("Connect to Claude"), opened in the same side window.
   const url = connected ? "https://claude.ai/new" : claudeConnectUrl();
+  if (connected)
+    return (
+      <div className="flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm">
+        <span className="inline-flex items-center gap-1.5 font-medium text-success-text">
+          <span aria-hidden className="size-2 rounded-full bg-success" />
+          Claude connected
+        </span>
+        <Button asChild size="sm" variant="outline" className="ml-auto">
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              if (window.open(url, "labbenchos-claude", claudeWindowFeatures())) e.preventDefault();
+            }}
+          >
+            Open Claude beside this page
+          </a>
+        </Button>
+      </div>
+    );
   return (
     <div className="grid justify-items-start gap-2 rounded-md border p-3 text-sm">
       <h3 className="font-medium">Use Claude with this lab</h3>
-      {connected ? (
-        <p className="text-muted-foreground">Claude is connected to your labs.</p>
-      ) : (
-        <ClaudeSteps />
-      )}
+      <ClaudeSteps />
       <Button asChild size="sm">
         <a
           href={url}
@@ -750,12 +767,12 @@ export function AssistantDrawer({ labId }: { labId: string }) {
       // storage is blocked: the choice lasts until the page reloads
     }
   }, [dock]);
-  // the page makes room: AppShell pads itself by this
+  // Open, the panel floats over the page so tables keep their width; only the thin strip makes room.
   useEffect(() => {
     if (!shown) return;
     document.documentElement.style.setProperty(
       "--assistant-w",
-      `${dock.mode === "strip" ? STRIP_W : dock.width}px`,
+      `${dock.mode === "strip" ? STRIP_W : 0}px`,
     );
     return () => {
       document.documentElement.style.removeProperty("--assistant-w");
@@ -822,7 +839,7 @@ export function AssistantDrawer({ labId }: { labId: string }) {
           <aside
             aria-label="Assistant"
             style={{ width: dock.mode === "strip" ? STRIP_W : dock.width }}
-            className={`fixed inset-y-0 right-0 z-30 border-l bg-background print:hidden ${
+            className={`fixed inset-y-0 right-0 z-30 border-l bg-background print:hidden ${dock.mode === "open" ? "shadow-2xl" : ""} ${
               dock.mode === "strip" ? "flex-col items-center bg-muted" : ""
             } ${dock.mode === "closed" ? "hidden" : "flex"}`}
           >

@@ -24,6 +24,7 @@ export function ParticipantCards({
   const missing = data.projects.reduce((n, p) => n + p.missing, 0);
   const overdue = data.projects.reduce((n, p) => n + p.overdue, 0);
   const first = data.projects[0]!;
+  const percentsAllZero = data.projects.every((p) => p.percent === 0);
 
   const waiting = (
     <section aria-label="Waiting on me" className="glass rounded-2xl p-4">
@@ -51,6 +52,15 @@ export function ParticipantCards({
     </section>
   );
   if (compact) return waiting;
+  if (percentsAllZero && missing === 0 && overdue === 0 && mine.length === 0)
+    return (
+      <p className="text-sm text-muted-foreground">
+        Participant data: not started on any project.{" "}
+        <Link to={`/labs/${labId}/participants`} className="underline underline-offset-2">
+          Open participants
+        </Link>
+      </p>
+    );
   return (
     <div className="grid gap-3 lg:grid-cols-3" aria-label="Participant data">
       <section aria-label="Completeness" className="glass rounded-2xl p-4">
@@ -60,11 +70,13 @@ export function ParticipantCards({
             <li key={p.id}>
               <Link to={at(labId, p.id)} className="flex items-center justify-between gap-2">
                 <span className="truncate">{p.name}</span>
-                <span className="text-muted-foreground">{p.percent}%</span>
+                <span className="text-muted-foreground">
+                  {p.percent === 0 ? "Not started" : `${p.percent}%`}
+                </span>
               </Link>
               <div
                 role="img"
-                aria-label={`${p.percent}% complete`}
+                aria-label={p.percent === 0 ? "Not started" : `${p.percent}% complete`}
                 className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted"
               >
                 <div className="h-full bg-success" style={{ width: `${p.percent}%` }} />
@@ -79,8 +91,8 @@ export function ParticipantCards({
           All projects
         </Link>
       </section>
-      <section aria-label="Gaps" className="glass rounded-2xl p-4">
-        <h2 className="text-sm font-semibold">Gaps</h2>
+      <section aria-label="Participant data gaps" className="glass rounded-2xl p-4">
+        <h2 className="text-sm font-semibold">Missing participant data</h2>
         <ul className="mt-2 grid grid-cols-2 gap-2">
           <li>
             <Link

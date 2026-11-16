@@ -1,10 +1,11 @@
+import { cn } from "@/lib/utils";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 
 const TONES: Record<string, BadgeVariant> = {
-  active: "success",
+  active: "info",
   approved: "success",
   complete: "success",
-  completed: "success",
+  completed: "secondary",
   published: "success",
   pending: "warning",
   in_review: "warning",
@@ -27,7 +28,14 @@ const TONES: Record<string, BadgeVariant> = {
 export function StatusBadge({ status }: { status: string }) {
   const label = status === "todo" ? "to do" : status.replace(/_/g, " ");
   return (
-    <Badge variant={TONES[status.toLowerCase()] ?? "secondary"} className="capitalize">
+    <Badge
+      variant={TONES[status.toLowerCase()] ?? "secondary"}
+      className={cn(
+        "capitalize",
+        status.toLowerCase() === "completed" &&
+          "bg-violet-100 text-violet-800 dark:bg-violet-500/20 dark:text-violet-200",
+      )}
+    >
       {label}
     </Badge>
   );

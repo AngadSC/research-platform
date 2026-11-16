@@ -388,6 +388,21 @@ export function PapersPage() {
                   ? "Add a paper the lab has read, then share notes on it."
                   : "Papers the lab adds will show here."
             }
+            why={q ? undefined : "Shared notes keep the reading the lab has done from being lost."}
+            action={
+              !q && canAdd ? (
+                <Button onClick={() => setAdding(true)}>
+                  <Plus aria-hidden /> Add paper
+                </Button>
+              ) : undefined
+            }
+            secondary={
+              !q && canAdd && zotero ? (
+                <Button variant="outline" onClick={() => setImporting(true)}>
+                  Import from Zotero
+                </Button>
+              ) : undefined
+            }
           />
         }
       />

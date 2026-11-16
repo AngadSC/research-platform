@@ -103,6 +103,7 @@ export function EthicsListPage() {
             icon={FileCheck2}
             title="No ethics approvals yet"
             description="Add an approval to track when it expires and which projects it covers. You will get a reminder before it runs out."
+            why="An expired approval can block data collection, so it is worth knowing early."
             action={add}
           />
         }
