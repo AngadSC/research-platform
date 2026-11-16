@@ -2,6 +2,7 @@ import { useMemo, useState, type ComponentType } from "react";
 import { TabNav } from "@/components/shared/TabNav";
 import {
   Navigate,
+  NavLink,
   Outlet,
   useLocation,
   useNavigate,
@@ -9,7 +10,7 @@ import {
   useParams,
   useSearchParams,
 } from "react-router";
-import { MessagesSquare, MoreHorizontal, Pencil } from "lucide-react";
+import { Check, ChevronDown, Compass, MessagesSquare, MoreHorizontal, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { DetailPanel } from "@/components/shared/DetailPanel";
 import { FormError } from "@/components/shared/FormError";
@@ -67,6 +68,7 @@ export function ProjectTab({ as: Tab }: { as: ComponentType<ProjectTabProps> }) 
 export function ProjectPage() {
   const { labId = "", projectId = "" } = useParams();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { data: project, error } = useProject(labId, projectId);
   const update = useUpdateProject(labId, projectId);
   const del = useDeleteProject(labId, projectId);
@@ -139,6 +141,29 @@ export function ProjectPage() {
             description={undefined}
             actions={
               <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" aria-label="Navigate this project">
+                      <Compass aria-hidden /> Navigate <ChevronDown aria-hidden />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-52">
+                    {PROJECT_SECTIONS.map(({ to, label, icon: Icon }) => {
+                      const target = `/labs/${labId}/projects/${projectId}/${to}`;
+                      return (
+                        <DropdownMenuItem key={to} asChild>
+                          <NavLink to={target}>
+                            <Icon aria-hidden className="size-4" />
+                            <span className="flex-1">{label}</span>
+                            {pathname.startsWith(target) && (
+                              <Check aria-hidden className="size-4 text-primary" />
+                            )}
+                          </NavLink>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <StatusBadge status={project.status} />
                 <Button
                   variant="ghost"
