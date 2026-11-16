@@ -2,6 +2,7 @@ import { BarChart3, Maximize2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { IconAction } from "@/components/shared/IconAction";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -744,9 +745,12 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
         title="Statistics"
         description="Runs on your computer. Your data is not sent anywhere unless you save it."
         actions={
-          <Button variant="outline" onClick={() => setFocus(true)}>
-            <Maximize2 aria-hidden /> Focus mode
-          </Button>
+          <IconAction
+            label="Focus mode"
+            icon={<Maximize2 aria-hidden />}
+            variant="outline"
+            onClick={() => setFocus(true)}
+          />
         }
       />
       {messages}

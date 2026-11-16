@@ -6,6 +6,7 @@ import type { Attachment } from "@/lib/api-types";
 interface PickerDoc {
   id: string;
   name: string;
+  url?: string;
 }
 interface PickerResponse {
   action: string;
@@ -61,6 +62,8 @@ export function loadPicker(): Promise<void> {
 export interface PickedFile {
   id: string;
   name: string;
+  /** Where Google opens it, when the Picker says. */
+  url?: string;
 }
 
 interface PickerOpts {
@@ -91,7 +94,7 @@ async function openPicker(opts: PickerOpts, multiple: boolean): Promise<PickedFi
     if (multiple) picker.enableFeature(g.Feature.MULTISELECT_ENABLED);
     picker.setCallback((r) => {
       if (r.action === g.Action.PICKED && r.docs?.length) {
-        resolve(r.docs.map((d) => ({ id: d.id, name: d.name })));
+        resolve(r.docs.map((d) => ({ id: d.id, name: d.name, url: d.url })));
       } else if (r.action === g.Action.CANCEL) resolve([]);
     });
     picker.build().setVisible(true);

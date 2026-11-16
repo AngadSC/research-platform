@@ -83,7 +83,8 @@ describe("lab chat and Google Chat", () => {
       [`PUT ${L}/chat/google/`]: { body: status({ bridge, connected: true, can_manage: true }) },
     });
     renderRoute("/labs/lab1/chat");
-    await userEvent.click(await screen.findByRole("button", { name: "Sync with Google Chat" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Google Chat options" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Sync with Google Chat" }));
     const dialog = await screen.findByRole("dialog");
     await userEvent.click(within(dialog).getByRole("combobox"));
     await userEvent.click(await screen.findByRole("option", { name: /Sleep lab/ }));
@@ -218,7 +219,8 @@ describe("project chat and Google Chat", () => {
       },
     });
     renderRoute("/labs/lab1/projects/p1/chat");
-    await userEvent.click(await screen.findByRole("button", { name: "Sync with Google Chat" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Google Chat options" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Sync with Google Chat" }));
     const dialog = await screen.findByRole("dialog", { name: "Sync with Google Chat" });
     await userEvent.click(within(dialog).getByRole("combobox"));
     const option = await screen.findByRole("option", { name: /Dana, Eli/ });
@@ -252,7 +254,8 @@ describe("importing from Google Chat into a chat (D327)", () => {
       [`POST ${L}/chat/google/import/`]: { body: { imported: 2, skipped: 1 } },
     });
     renderRoute("/labs/lab1/chat");
-    await userEvent.click(await screen.findByRole("button", { name: "Import messages" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Google Chat options" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Import messages" }));
     const dialog = await screen.findByRole("dialog", { name: "Import from Google Chat" });
     expect(within(dialog).getByText(/added to this chat as messages/)).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole("combobox"));
@@ -274,6 +277,6 @@ describe("importing from Google Chat into a chat (D327)", () => {
     mockFetch(world([], status({ bridge, connected: true, can_manage: false })));
     renderRoute("/labs/lab1/chat");
     expect(await screen.findByText("Sleep lab")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Import messages" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Google Chat options" })).toBeNull();
   });
 });

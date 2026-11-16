@@ -218,6 +218,7 @@ export function ResearchForm({
       !!((record ?? prefill) as Dataset | undefined)?.contains_participant_data,
   );
   const [uploading, setUploading] = useState(false);
+  const [uploadField, setUploadField] = useState<string | null>(null);
   const save = useSaveRecord<{ id: string }>(labId, projectId, kind, record?.id);
   const { uploadFile } = useAttachments(labId, projectId);
   const qc = useQueryClient();
@@ -330,15 +331,55 @@ export function ResearchForm({
                 self={record?.id}
                 value={v[f.name] as string}
                 onChange={(x) => set(f.name, x)}
+                extra={
+                  f.source === "attachments" && (
+                    <span className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setUploadField(f.name)}
+                      >
+                        <Upload aria-hidden /> Upload a file
+                      </Button>
+                      <FromDriveButton
+                        labId={labId}
+                        quiet
+                        onPick={async (file) => {
+                          const a = await attachFromDrive(
+                            `/api/labs/${labId}/projects/${projectId}/attachments/`,
+                            file.id,
+                          );
+                          await qc.invalidateQueries({ queryKey: root(labId) });
+                          set(f.name, a.id);
+                        }}
+                      />
+                    </span>
+                  )
+                }
               />
             ) : (
-              <Input
-                {...p}
-                maxLength={RESEARCH_MAX_LENGTH[f.name]}
-                type={f.type === "date" ? "date" : f.type === "url" ? "url" : "text"}
-                value={v[f.name] as string}
-                onChange={(e) => set(f.name, e.target.value)}
-              />
+              <>
+                <Input
+                  {...p}
+                  maxLength={RESEARCH_MAX_LENGTH[f.name]}
+                  type={f.type === "date" ? "date" : f.type === "url" ? "url" : "text"}
+                  value={v[f.name] as string}
+                  onChange={(e) => set(f.name, e.target.value)}
+                />
+                {kind === "manuscripts" && f.name === "url" && (
+                  <FromDriveButton
+                    labId={labId}
+                    quiet
+                    label="From Drive"
+                    onPick={async (file) => {
+                      if (!file.url) throw new Error("Google did not give a link.");
+                      set("url", file.url);
+                      if (!(v.title as string).trim()) set("title", file.name);
+                    }}
+                  />
+                )}
+              </>
             )
           }
         </FormField>
@@ -357,6 +398,17 @@ export function ResearchForm({
           Save
         </Button>
       </div>
+      {uploadField && (
+        <UploadDialog
+          open
+          onOpenChange={(o) => !o && setUploadField(null)}
+          send={async (file, onProgress) => {
+            const a = await uploadFile.mutateAsync({ file, onProgress });
+            await qc.invalidateQueries({ queryKey: root(labId) });
+            set(uploadField, a.id);
+          }}
+        />
+      )}
       {kind === "results" && (
         <UploadDialog
           open={uploading}
@@ -572,6 +624,7 @@ function Select({
   self,
   value,
   onChange,
+  extra,
 }: {
   labId: string;
   projectId: string;
@@ -580,6 +633,7 @@ function Select({
   self?: string;
   value: string;
   onChange: (v: string) => void;
+  extra?: ReactNode;
 }) {
   const opts = useOptions(labId, projectId, f.source ?? "datasets", f.unflagged);
   const [showAll, setShowAll] = useState(false);
@@ -621,6 +675,7 @@ function Select({
           Show all files
         </Button>
       )}
+      {extra}
     </>
   );
 }

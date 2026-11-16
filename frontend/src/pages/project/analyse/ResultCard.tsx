@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
+import { Copy, Download, FileSpreadsheet, Save, Sheet, X } from "lucide-react";
+import { IconAction } from "@/components/shared/IconAction";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -201,19 +203,30 @@ export function ResultCard({
         </div>
         <div className="flex gap-2">
           {onRemove && !saved && (
-            <Button variant="ghost" onClick={onRemove} aria-label={`Remove ${result.title}`}>
-              Remove
-            </Button>
+            <IconAction
+              label={`Remove ${result.title}`}
+              icon={<X aria-hidden />}
+              onClick={onRemove}
+            />
           )}
-          {canSave && !saved && <Button onClick={() => setSaving(true)}>Save to project</Button>}
+          {canSave && !saved && (
+            <IconAction
+              label="Save to project"
+              icon={<Save aria-hidden />}
+              variant="default"
+              onClick={() => setSaving(true)}
+            />
+          )}
         </div>
       </header>
 
       <div className="flex items-start gap-2">
         <p className="text-sm">{result.summary}</p>
-        <Button variant="ghost" size="sm" onClick={() => void copy(result.summary, "Summary")}>
-          Copy
-        </Button>
+        <IconAction
+          label="Copy"
+          icon={<Copy aria-hidden />}
+          onClick={() => void copy(result.summary, "Summary")}
+        />
       </div>
 
       {result.warnings.length > 0 && (
@@ -273,29 +286,32 @@ export function ResultCard({
             <code>{result.code}</code>
           </pre>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => void copy(result.code, "Code")}>
-              Copy code
-            </Button>
-            <Button
+            <IconAction
+              label="Copy code"
+              icon={<Copy aria-hidden />}
               variant="outline"
-              size="sm"
+              onClick={() => void copy(result.code, "Code")}
+            />
+            <IconAction
+              label="Download .py"
+              icon={<Download aria-hidden />}
+              variant="outline"
               onClick={() =>
                 download(
                   new Blob([result.code], { type: "text/x-python" }),
                   `${fileStem(result)}.py`,
                 )
               }
-            >
-              Download .py
-            </Button>
+            />
           </div>
         </div>
       </details>
 
       <div className="flex flex-wrap gap-2">
-        <Button
+        <IconAction
+          label="Download results (.xlsx)"
+          icon={<FileSpreadsheet aria-hidden />}
           variant="outline"
-          size="sm"
           onClick={() =>
             download(
               new Blob([result.xlsx as BlobPart], {
@@ -304,13 +320,12 @@ export function ResultCard({
               `${fileStem(result)}.xlsx`,
             )
           }
-        >
-          Download results (.xlsx)
-        </Button>
+        />
         {canExport && (
-          <Button
+          <IconAction
+            label="Send results to Google Sheets"
+            icon={<Sheet aria-hidden />}
             variant="outline"
-            size="sm"
             onClick={() =>
               void toDrive(
                 new Blob([result.xlsx as BlobPart], { type: XLSX_TYPE }),
@@ -319,9 +334,7 @@ export function ResultCard({
                 "Results workbook",
               )
             }
-          >
-            Send results to Google Sheets
-          </Button>
+          />
         )}
       </div>
 

@@ -1,4 +1,5 @@
-import { BarChart3, FlaskConical, Plus } from "lucide-react";
+import { BarChart3, FlaskConical, Pencil, Plus } from "lucide-react";
+import { isGoogleDocLink, openGoogleLinkInPanel } from "@/lib/googleFiles";
 import { GoogleEditButton } from "@/components/shared/GoogleEditButton";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -544,7 +545,22 @@ function fields(kind: Kind, r: AnyRecord, labId: string, base: string): [string,
     case "manuscripts": {
       const m = r as Manuscript;
       return [
-        ["Link", <Ext key="u" url={m.url} />],
+        [
+          "Link",
+          <span key="u" className="inline-flex flex-wrap items-center gap-2">
+            <Ext url={m.url} />
+            {isGoogleDocLink(m.url) && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => openGoogleLinkInPanel(m.url, m.title)}
+              >
+                <Pencil aria-hidden /> Edit
+              </Button>
+            )}
+          </span>,
+        ],
         ["Status", <StatusBadge key="s" status={m.status} />],
         ["Results used", <Refs key="r" base={base} kind="results" items={t(m.results)} />],
         ["Created by", who(m.created_by)],

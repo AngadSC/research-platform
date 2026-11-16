@@ -41,3 +41,20 @@ export function openInGooglePanel(
   });
   return true;
 }
+
+const DOC_URL =
+  /^https:\/\/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([A-Za-z0-9_-]{10,})/;
+
+/** Opens a link to a Google Doc, Sheet or Slides file in the floating panel, if it is one.
+ * Rebuilt from the file id, so the panel only ever loads docs.google.com. Returns false for any
+ * other link. */
+export function openGoogleLinkInPanel(url: string, title: string) {
+  const m = DOC_URL.exec(url);
+  if (!m) return false;
+  const kind = Object.values(KINDS).find((k) => k.path === m[1])!;
+  const base = `https://docs.google.com/${kind.path}/d/${m[2]}`;
+  openGooglePanel({ title, label: kind.label, src: `${base}/edit`, openUrl: `${base}/edit` });
+  return true;
+}
+
+export const isGoogleDocLink = (url: string) => DOC_URL.test(url);
