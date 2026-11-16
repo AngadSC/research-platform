@@ -183,9 +183,9 @@ class ChatMessage(LabScopedModel):
         indexes = [models.Index(fields=["project", "created_at"], name="chatmessage_recent_idx")]
         constraints = [
             models.UniqueConstraint(
-                fields=["lab", "external_id"],
+                fields=["project", "external_id"],
                 condition=~models.Q(external_id=""),
-                name="chatmessage_one_per_external",
+                name="chatmessage_one_per_project_external",
             )
         ]
 

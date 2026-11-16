@@ -790,7 +790,7 @@ def import_messages(*, lab, user, space, thread="", project=None, request=None) 
     known = {
         ext: (pk, who, pic)
         for ext, pk, who, pic in model.objects.for_lab(lab)
-        .filter(external_id__in=[str(i.get("name", "")) for i in items])
+        .filter(**where, external_id__in=[str(i.get("name", "")) for i in items])
         .values_list("external_id", "pk", "external_author", "external_avatar")
     }
     imported = skipped = 0
