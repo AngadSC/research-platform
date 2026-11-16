@@ -470,7 +470,7 @@ export function DashboardPage() {
     </>
   );
   const extras = (
-    <div className="grid gap-4">
+    <div className="mt-6 grid gap-4">
       {lab && <MorningDigest labId={labId} />}
       {lab && <ParticipantCards labId={labId} />}
       <GettingStarted labId={labId} />

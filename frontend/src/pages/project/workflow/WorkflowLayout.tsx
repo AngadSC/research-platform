@@ -182,6 +182,7 @@ export function WorkflowLayout(props: ProjectTabProps) {
               <Button
                 size="sm"
                 variant="outline"
+                title="Done means this step is finished, or you do not need it for this project."
                 disabled={mark.isPending}
                 onClick={() =>
                   openStage.marked
@@ -207,11 +208,6 @@ export function WorkflowLayout(props: ProjectTabProps) {
           </div>
         </div>
       </div>
-      {canEdit && openStage && !openStage.done && (
-        <p className="-mt-3 text-xs text-muted-foreground">
-          Done means this step is finished, or you do not need it for this project.
-        </p>
-      )}
       <Dialog open={asking} onOpenChange={setAsking}>
         <DialogContent>
           <DialogTitle className="text-base font-semibold">Mark as done?</DialogTitle>

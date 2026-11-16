@@ -29,8 +29,11 @@ export function ParticipantsOverviewPage() {
         />
       )}
       {data && data.projects.length > 0 && (
-        <div className="grid gap-8">
-          <section aria-label="Projects" className="grid gap-2">
+        <div className="grid gap-5">
+          <section
+            aria-label="Projects"
+            className="grid content-start gap-2 rounded-2xl border bg-card p-5 shadow-sm"
+          >
             <h2 className="text-base font-semibold">Projects</h2>
             <ul className="divide-y rounded-lg border">
               {data.projects.map((p) => (
@@ -62,7 +65,10 @@ export function ParticipantsOverviewPage() {
               ))}
             </ul>
           </section>
-          <section aria-label="By column" className="grid gap-2">
+          <section
+            aria-label="By column"
+            className="grid content-start gap-2 rounded-2xl border bg-card p-5 shadow-sm"
+          >
             <h2 className="text-base font-semibold">Completeness by column</h2>
             <ul className="grid gap-2">
               {data.by_component.map((c) => (
@@ -83,8 +89,11 @@ export function ParticipantsOverviewPage() {
               ))}
             </ul>
           </section>
-          <div className="grid gap-6 md:grid-cols-2">
-            <section aria-label="Missing by reason" className="grid gap-2">
+          <div className="grid gap-5 md:grid-cols-2">
+            <section
+              aria-label="Missing by reason"
+              className="grid content-start gap-2 rounded-2xl border bg-card p-5 shadow-sm"
+            >
               <h2 className="text-base font-semibold">Missing, and why</h2>
               {data.missing_by_reason.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nothing is marked missing.</p>
@@ -99,7 +108,10 @@ export function ParticipantsOverviewPage() {
                 </ul>
               )}
             </section>
-            <section aria-label="Translations pending" className="grid gap-2">
+            <section
+              aria-label="Translations pending"
+              className="grid content-start gap-2 rounded-2xl border bg-card p-5 shadow-sm"
+            >
               <h2 className="text-base font-semibold">Translations pending, by language</h2>
               {data.translation_pending.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No translations are waiting.</p>
@@ -115,10 +127,13 @@ export function ParticipantsOverviewPage() {
               )}
             </section>
           </div>
-          <section aria-label="Recently changed" className="grid gap-2">
+          <section
+            aria-label="Recently changed"
+            className="grid content-start gap-2 rounded-2xl border bg-card p-5 shadow-sm"
+          >
             <h2 className="text-base font-semibold">Recently changed</h2>
             <ul className="text-sm">
-              {data.recent.map((m) => (
+              {data.recent.slice(0, 8).map((m) => (
                 <li
                   key={`${m.participant_id}-${m.component}-${m.at}`}
                   className="flex items-center gap-2 border-b py-1"

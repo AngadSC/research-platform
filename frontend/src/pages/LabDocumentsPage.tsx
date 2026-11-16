@@ -63,7 +63,7 @@ export function LabDocumentsPage() {
       <PageHeader
         title="Lab documents"
         description="The lab manual, protocols and SOPs. Everyone in the lab can read these."
-        actions={addButton}
+        actions={(docs.data?.length ?? 0) > 0 ? addButton : undefined}
       />
       <DataTable
         columns={COLUMNS}

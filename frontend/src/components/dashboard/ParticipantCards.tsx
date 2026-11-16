@@ -51,7 +51,7 @@ export function ParticipantCards({
       )}
     </section>
   );
-  if (compact) return waiting;
+  if (compact) return mine.length > 0 ? waiting : null;
   if (percentsAllZero && missing === 0 && overdue === 0 && mine.length === 0)
     return (
       <p className="text-sm text-muted-foreground">
@@ -62,7 +62,10 @@ export function ParticipantCards({
       </p>
     );
   return (
-    <div className="grid gap-3 lg:grid-cols-3" aria-label="Participant data">
+    <div
+      className={cn("grid gap-3", mine.length > 0 ? "lg:grid-cols-3" : "lg:grid-cols-2")}
+      aria-label="Participant data"
+    >
       <section aria-label="Completeness" className="glass rounded-2xl p-4">
         <h2 className="text-sm font-semibold">Participant data</h2>
         <ul className="mt-2 grid gap-2 text-sm">
@@ -124,7 +127,7 @@ export function ParticipantCards({
           </ul>
         )}
       </section>
-      {waiting}
+      {mine.length > 0 && waiting}
     </div>
   );
 }

@@ -349,7 +349,7 @@ export function PapersPage() {
         title="Papers"
         description="Papers the lab has read and every member's notes on them."
         actions={
-          canAdd ? (
+          canAdd && ((papers.data?.length ?? 0) > 0 || q) ? (
             <div className="flex flex-wrap gap-2">
               {zotero && (
                 <IconAction
