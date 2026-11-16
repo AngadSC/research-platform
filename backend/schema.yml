@@ -5176,6 +5176,36 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/notebook/{entry_id}/hints/:
+    get:
+      operationId: labs_notebook_hints_retrieve
+      description: 'What your entry says about inventory and protocols: suggestions
+        you can accept (D332).'
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/labs/{lab_id}/notebook/{entry_id}/lock/:
     post:
       operationId: labs_notebook_lock_create
@@ -8356,6 +8386,46 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/projects/{project_id}/notebook/{pentry_id}/hints/:
+    get:
+      operationId: labs_projects_notebook_hints_retrieve
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: pentry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/labs/{lab_id}/projects/{project_id}/notebook/{pentry_id}/lock/:
     post:
       operationId: labs_projects_notebook_lock_create
@@ -20419,6 +20489,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProtocolReagent'
+        similar:
+          type: array
+          items:
+            type: string
+          readOnly: true
+          description: Other protocols in this project with the same name or mostly
+            the same reagents.
         created_at:
           type: string
           format: date-time
@@ -20429,6 +20506,7 @@ components:
       - name
       - notes
       - reagents
+      - similar
     ProtocolInput:
       type: object
       properties:

@@ -105,6 +105,16 @@ urlpatterns = [
         name="notebook-mine-lock",
     ),
     path(
+        "labs/<uuid:lab_id>/notebook/<uuid:entry_id>/hints/",
+        notebook.MyNotebookHintsView.as_view(),
+        name="notebook-mine-hints",
+    ),
+    path(
+        "labs/<uuid:lab_id>/projects/<uuid:project_id>/notebook/<uuid:pentry_id>/hints/",
+        notebook.ProjectNotebookHintsView.as_view(),
+        name="notebook-project-hints",
+    ),
+    path(
         "labs/<uuid:lab_id>/projects/<uuid:project_id>/notebook/",
         notebook.ProjectNotebookView.as_view(),
         name="notebook-project",

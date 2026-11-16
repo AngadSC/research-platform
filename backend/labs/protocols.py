@@ -21,7 +21,7 @@ from audit.services import record
 from core.permissions import Perm, can, can_reverse_usage
 from core.serializers import UserSerializer, no_control_chars
 from core.views import LabScopedViewMixin
-from labs import low_stock
+from labs import low_stock, notebook_hints
 from labs.models import InventoryItem, InventoryUsage, Protocol, ProtocolReagent
 from labs.units import convert
 from projects.views import ProjectScopedMixin
@@ -68,11 +68,17 @@ class ProtocolReagentSerializer(serializers.ModelSerializer):
 
 class ProtocolSerializer(serializers.ModelSerializer):
     reagents = ProtocolReagentSerializer(many=True)
+    similar = serializers.SerializerMethodField(
+        help_text="Other protocols in this project with the same name or mostly the same reagents."
+    )
 
     class Meta:
         model = Protocol
-        fields = ["id", "name", "notes", "reagents", "created_at"]
+        fields = ["id", "name", "notes", "reagents", "similar", "created_at"]
         read_only_fields = fields
+
+    def get_similar(self, protocol) -> list[str]:
+        return self.context.get("similar", {}).get(protocol.pk, [])
 
 
 class ReagentInputSerializer(serializers.Serializer):
@@ -373,6 +379,17 @@ class _ProtocolMixin(_Inventory):
 
     def get_queryset(self):
         return super().get_queryset().prefetch_related("reagents__item").order_by("name", "id")
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        if self.project is not None and getattr(self.request, "lab", None) is not None:
+            siblings = (
+                Protocol.objects.for_lab(self.request.lab.pk)
+                .filter(project=self.project)
+                .prefetch_related("reagents")
+            )
+            ctx["similar"] = notebook_hints.similar_protocols(list(siblings))
+        return ctx
 
 
 class ProtocolListCreateView(_ProtocolMixin):

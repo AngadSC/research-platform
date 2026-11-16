@@ -40,3 +40,64 @@ export function useNotebook(labId: string, projectId?: string) {
   };
   return { list, create, update, remove, lock, exportUrl };
 }
+
+/** What an entry says about inventory and protocols (D332). Only the author's own text, read for
+ * them: each suggestion is accepted with a click, and nothing is taken from stock before that. */
+export interface UseHint {
+  request_id: string;
+  item: string;
+  item_name: string;
+  item_unit: string;
+  stock: string;
+  amount: string;
+  unit: string;
+  snippet: string;
+  status: "new" | "logged" | "reversed" | "possible_duplicate" | "not_enough";
+}
+export interface ProtocolChange {
+  protocol: string;
+  item_name: string;
+  protocol_amount: string;
+  noted_amount: string;
+}
+export interface EntryHints {
+  uses: UseHint[];
+  protocol_changes: ProtocolChange[];
+}
+
+export function useEntryHints(
+  labId: string,
+  projectId: string | undefined,
+  entryId: string,
+  enabled: boolean,
+) {
+  const qc = useQueryClient();
+  const root = projectId
+    ? `/api/labs/${labId}/projects/${projectId}/notebook/`
+    : `/api/labs/${labId}/notebook/`;
+  const key = ["labs", labId, "notebook", projectId ?? "mine", entryId, "hints"];
+  const hints = useQuery({
+    queryKey: key,
+    queryFn: () => api<EntryHints>(`${root}${entryId}/hints/`),
+    enabled,
+  });
+  const take = useMutation({
+    mutationFn: (v: { hint: UseHint; title: string }) =>
+      api(`/api/labs/${labId}/inventory/${v.hint.item}/usage/`, {
+        method: "POST",
+        ...body({
+          amount: v.hint.amount,
+          unit: v.hint.unit,
+          project: projectId ?? null,
+          note: `From notebook: ${v.title}`.slice(0, 300),
+          request_id: v.hint.request_id,
+        }),
+      }),
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: key }),
+        qc.invalidateQueries({ queryKey: ["labs", labId, "inventory"] }),
+      ]),
+  });
+  return { hints, take };
+}

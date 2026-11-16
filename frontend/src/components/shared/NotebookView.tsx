@@ -1,5 +1,15 @@
-import { Download, FileText, Lock, Pencil, Plus, Trash2 } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import {
+  Beaker,
+  Download,
+  FileText,
+  FlaskConical,
+  Lock,
+  Pencil,
+  Plus,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
@@ -21,7 +31,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useNotebook, type ExportFormat } from "@/hooks/notebook";
+import { useEntryHints, useNotebook, type ExportFormat } from "@/hooks/notebook";
+import { useProtocols } from "@/hooks/admin";
+import { useProjects } from "@/hooks/projects";
+import { trimNumber } from "@/lib/units";
+import { NativeSelect } from "@/pages/admin/common";
 import type { NotebookEntry } from "@/lib/api-types";
 import { shortDate } from "@/lib/dashboard";
 import { localDateISO } from "@/lib/format";
@@ -34,16 +48,204 @@ const EXPORTS: { fmt: ExportFormat; label: string; hint: string }[] = [
   { fmt: "json", label: "Data (.json)", hint: "For other software" },
 ];
 
+/** Pick a protocol and paste it into the entry as text: its name and each reagent with its
+ * amount, so the entry records what was actually planned. */
+function InsertProtocol({
+  labId,
+  projectId,
+  onInsert,
+}: {
+  labId: string;
+  projectId?: string;
+  onInsert: (text: string) => void;
+}) {
+  const projects = useProjects(labId).data ?? [];
+  const [pick, setPick] = useState(projectId ?? "");
+  const { list } = useProtocols(labId, pick);
+  const [protocol, setProtocol] = useState("");
+  const chosen = (list.data ?? []).find((p) => p.id === protocol);
+  return (
+    <fieldset className="grid gap-2 rounded-lg border p-3">
+      <legend className="px-1 text-sm font-medium">Insert a protocol</legend>
+      <div className="flex flex-wrap items-end gap-2">
+        {!projectId && (
+          <label className="grid gap-0.5 text-xs text-muted-foreground">
+            Project
+            <NativeSelect
+              aria-label="Project to take a protocol from"
+              value={pick}
+              onChange={(e) => {
+                setPick(e.target.value);
+                setProtocol("");
+              }}
+            >
+              <option value="">Choose a project</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </NativeSelect>
+          </label>
+        )}
+        <label className="grid gap-0.5 text-xs text-muted-foreground">
+          Protocol
+          <NativeSelect
+            aria-label="Protocol to insert"
+            value={protocol}
+            disabled={!pick}
+            onChange={(e) => setProtocol(e.target.value)}
+          >
+            <option value="">{pick ? "Choose a protocol" : "Pick a project first"}</option>
+            {(list.data ?? []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </NativeSelect>
+        </label>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={!chosen}
+          onClick={() =>
+            chosen &&
+            onInsert(
+              `Protocol: ${chosen.name}\n${chosen.reagents
+                .map((r) => `- ${trimNumber(r.amount)} ${r.unit} ${r.item_name}`.replace("  ", " "))
+                .join("\n")}\n`,
+            )
+          }
+        >
+          <FlaskConical aria-hidden /> Insert
+        </Button>
+      </div>
+    </fieldset>
+  );
+}
+
+/** What an entry says about inventory: amounts of known items you can log with a click, uses that
+ * may already be logged, and amounts that differ from the protocol the entry names (D332). */
+function EntryHints({
+  labId,
+  projectId,
+  entry,
+}: {
+  labId: string;
+  projectId?: string;
+  entry: NotebookEntry;
+}) {
+  const { hints, take } = useEntryHints(labId, projectId, entry.id, true);
+  const data = hints.data;
+  if (hints.isLoading) return <p className="text-sm text-muted-foreground">Reading the entry</p>;
+  if (!data || (data.uses.length === 0 && data.protocol_changes.length === 0))
+    return (
+      <p className="text-sm text-muted-foreground">
+        Nothing to log. Amounts like "10 mL ethanol", written with an item from the inventory, show
+        up here.
+      </p>
+    );
+  return (
+    <div className="grid gap-2">
+      {data.uses.length > 0 && (
+        <ul aria-label="Inventory in this entry" className="grid gap-1.5">
+          {data.uses.map((h) => (
+            <li
+              key={h.request_id}
+              className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm"
+            >
+              <Beaker aria-hidden className="size-4 text-primary" />
+              <span className="font-medium">
+                {trimNumber(h.amount)} {h.unit} {h.item_name}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                “{h.snippet}”
+              </span>
+              {h.status === "logged" && (
+                <span className="text-xs font-medium text-success-text">Logged</span>
+              )}
+              {h.status === "reversed" && (
+                <span className="text-xs text-muted-foreground">Logged, then undone</span>
+              )}
+              {h.status === "not_enough" && (
+                <span className="text-xs font-medium text-danger-text">
+                  Only {trimNumber(h.stock)} {h.item_unit} in stock
+                </span>
+              )}
+              {h.status === "possible_duplicate" && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-warning-text">
+                  <TriangleAlert aria-hidden className="size-3" /> May already be logged
+                </span>
+              )}
+              {(h.status === "new" || h.status === "possible_duplicate") && (
+                <Button
+                  size="sm"
+                  variant={h.status === "new" ? "secondary" : "outline"}
+                  aria-label={`Log ${h.amount} ${h.unit} ${h.item_name} from this entry`}
+                  disabled={take.isPending}
+                  onClick={() =>
+                    take.mutate(
+                      { hint: h, title: entry.title },
+                      {
+                        onSuccess: () =>
+                          toast.success(`Took ${h.amount} ${h.unit} of ${h.item_name}`),
+                        onError: (e) =>
+                          toast.error(formErrors(e, []).form ?? "Could not take that from stock."),
+                      },
+                    )
+                  }
+                >
+                  {h.status === "new" ? "Take from stock" : "Take anyway"}
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {data.protocol_changes.length > 0 && (
+        <ul aria-label="Differences from the protocol" className="grid gap-1.5">
+          {data.protocol_changes.map((c, i) => (
+            <li
+              key={i}
+              className="flex items-center gap-2 rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-sm"
+            >
+              <TriangleAlert aria-hidden className="size-4 text-warning-text" />
+              <span>
+                {c.item_name}: the entry says <strong>{c.noted_amount}</strong>, the protocol “
+                {c.protocol}” says <strong>{c.protocol_amount}</strong>. Update the protocol if this
+                is the new way.
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function EntryDialog({
+  labId,
+  projectId,
   entry,
   onClose,
   onSave,
 }: {
+  labId: string;
+  projectId?: string;
   entry: NotebookEntry | null;
   onClose: () => void;
   onSave: (v: { title: string; entry_date: string; body: string }) => Promise<unknown>;
 }) {
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const insert = (text: string) => {
+    const box = bodyRef.current;
+    if (!box) return;
+    const at = box.selectionStart ?? box.value.length;
+    box.value = `${box.value.slice(0, at)}${at > 0 && !box.value.slice(0, at).endsWith("\n") ? "\n" : ""}${text}${box.value.slice(at)}`;
+    box.focus();
+  };
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -99,6 +301,7 @@ function EntryDialog({
             {(p) => (
               <Textarea
                 {...p}
+                ref={bodyRef}
                 name="body"
                 rows={14}
                 className="font-mono text-sm"
@@ -107,6 +310,7 @@ function EntryDialog({
               />
             )}
           </FormField>
+          <InsertProtocol labId={labId} projectId={projectId} onInsert={insert} />
           <FormError message={errors.form} />
           <div className="flex justify-end gap-2">
             <DialogClose asChild>
@@ -139,6 +343,7 @@ export function NotebookView({
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [q, setQ] = useState("");
+  const [checking, setChecking] = useState<string | null>(null);
   const rows = useMemo(() => {
     const t = q.trim().toLowerCase();
     return (nb.list.data ?? []).filter(
@@ -294,6 +499,24 @@ export function NotebookView({
                 )}
               </div>
               {e.body && <p className="mt-3 text-sm break-words whitespace-pre-wrap">{e.body}</p>}
+              {e.body && (
+                <div className="mt-3 grid gap-2 border-t pt-3">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-fit"
+                    aria-expanded={checking === e.id}
+                    title="Finds amounts of inventory items you wrote down, so you can take them from stock"
+                    onClick={() => setChecking(checking === e.id ? null : e.id)}
+                  >
+                    <Beaker aria-hidden />{" "}
+                    {checking === e.id ? "Hide inventory" : "Check inventory"}
+                  </Button>
+                  {checking === e.id && (
+                    <EntryHints labId={labId} projectId={projectId} entry={e} />
+                  )}
+                </div>
+              )}
             </li>
           ))}
         </ol>
@@ -302,6 +525,8 @@ export function NotebookView({
       {(adding || editing) && (
         <EntryDialog
           key={editing?.id ?? "new"}
+          labId={labId}
+          projectId={projectId}
           entry={editing}
           onClose={() => {
             setAdding(false);

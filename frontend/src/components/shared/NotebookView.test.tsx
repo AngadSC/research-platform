@@ -90,3 +90,64 @@ describe("NotebookView", () => {
     expect(screen.queryByRole("button", { name: /Edit/ })).toBeNull();
   });
 });
+
+describe("NotebookView inventory hints", () => {
+  it("offers to take what an entry mentions, and says what is already logged", async () => {
+    const calls = mockFetch({
+      [SESSION]: signedIn,
+      "GET /api/labs/lab1/notebook/": {
+        body: [entry({ body: "Used 10 mL ethanol and 2 g NaCl" })],
+      },
+      "GET /api/labs/lab1/notebook/e1/hints/": {
+        body: {
+          uses: [
+            {
+              request_id: "r1",
+              item: "i1",
+              item_name: "Ethanol",
+              item_unit: "mL",
+              stock: "90.000000",
+              amount: "10",
+              unit: "mL",
+              snippet: "Used 10 mL ethanol",
+              status: "new",
+            },
+            {
+              request_id: "r2",
+              item: "i2",
+              item_name: "NaCl",
+              item_unit: "g",
+              stock: "500.000000",
+              amount: "2",
+              unit: "g",
+              snippet: "and 2 g NaCl",
+              status: "logged",
+            },
+          ],
+          protocol_changes: [
+            {
+              protocol: "Wash",
+              item_name: "Ethanol",
+              protocol_amount: "5 mL",
+              noted_amount: "10 mL",
+            },
+          ],
+        },
+      },
+      "POST /api/labs/lab1/inventory/i1/usage/": { status: 201, body: {} },
+    });
+    show();
+    await userEvent.click(await screen.findByRole("button", { name: /Check inventory/ }));
+    const list = await screen.findByRole("list", { name: "Inventory in this entry" });
+    expect(within(list).getByText("Logged")).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Differences from the protocol" })).toHaveTextContent(
+      "the protocol “Wash” says 5 mL",
+    );
+    await userEvent.click(screen.getByRole("button", { name: /Log 10 mL Ethanol/ }));
+    await waitFor(() => {
+      const post = calls.find((c) => c.method === "POST" && c.path.endsWith("/usage/"));
+      expect(post?.body).toMatchObject({ amount: "10", unit: "mL", request_id: "r1" });
+    });
+    expect(screen.queryByRole("button", { name: /Log 2 g NaCl/ })).toBeNull();
+  });
+});

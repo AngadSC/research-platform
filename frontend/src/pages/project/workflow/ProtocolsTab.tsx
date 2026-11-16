@@ -90,6 +90,14 @@ export default function ProtocolsTab({ labId, projectId, project }: ProjectTabPr
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
                 <h3 className="font-semibold break-words">{p.name}</h3>
+                {(p.similar?.length ?? 0) > 0 && (
+                  <p
+                    className="mt-0.5 text-xs font-medium text-warning-text"
+                    title="Same name or mostly the same reagents. Merge them if they are the same."
+                  >
+                    Looks like a duplicate of {p.similar?.join(", ")}
+                  </p>
+                )}
                 {p.notes && <p className="text-sm text-muted-foreground">{p.notes}</p>}
               </div>
               {canEdit && (

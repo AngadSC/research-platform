@@ -2,6 +2,7 @@
 endpoint is in tests/test_permission_matrix.py."""
 
 import json
+import uuid
 
 import pytest
 from django.urls import reverse
@@ -120,3 +121,135 @@ def test_my_notebook_exports_only_my_entries(world):
 def test_a_blank_title_is_refused(world):
     lab, ann, *_ = world
     assert api(ann).post(mine(lab), {"title": "   "}, "json").status_code == 400
+
+
+# ---------------------------------------------------------------- inventory hints (D332)
+
+
+def _stock(lab, name="Ethanol", qty=100, unit="mL"):
+    from labs.models import InventoryItem
+
+    return InventoryItem.objects.create(
+        lab=lab, name=name, category="reagent", quantity=qty, unit=unit
+    )
+
+
+def _hints(client, lab, entry_id):
+    url = reverse("labs:notebook-mine-hints", kwargs={"lab_id": lab.pk, "entry_id": entry_id})
+    return client.get(url).json()
+
+
+def test_amounts_of_known_items_become_suggestions(world):
+    lab, ann, _, _ = world
+    _stock(lab, "Ethanol")
+    _stock(lab, "NaCl", 500, "g")
+    body = (
+        "Rinsed with 10 mL of ethanol, then 2 g NaCl added. 5 minutes at 37 C. 3 mL ethanolamine."
+    )
+    e = api(ann).post(mine(lab), {"title": "Day 1", "body": body}, "json").json()
+    uses = _hints(api(ann), lab, e["id"])["uses"]
+    assert [(u["item_name"], u["amount"], u["unit"], u["status"]) for u in uses] == [
+        ("Ethanol", "10", "mL", "new"),
+        ("NaCl", "2", "g", "new"),
+    ]  # "5 minutes" fits no item, and ethanolamine is not ethanol
+
+
+def test_a_unit_that_does_not_fit_the_item_is_not_suggested(world):
+    lab, ann, _, _ = world
+    _stock(lab, "Ethanol")
+    e = api(ann).post(mine(lab), {"title": "x", "body": "Added 4 g ethanol"}, "json").json()
+    assert _hints(api(ann), lab, e["id"])["uses"] == []
+
+
+def test_accepting_a_suggestion_twice_takes_stock_once_and_then_shows_logged(world):
+    lab, ann, _, _ = world
+    item = _stock(lab)
+    e = api(ann).post(mine(lab), {"title": "d", "body": "Used 10 mL ethanol"}, "json").json()
+    hint = _hints(api(ann), lab, e["id"])["uses"][0]
+    use = reverse(
+        "labs:inventory-item-usage", kwargs={"lab_id": lab.pk, "inventoryitem_id": item.pk}
+    )
+    body = {
+        "amount": hint["amount"],
+        "unit": hint["unit"],
+        "request_id": hint["request_id"],
+        "note": "From notebook: d",
+    }
+    assert api(ann).post(use, body, "json").status_code == 201
+    assert api(ann).post(use, body, "json").status_code == 201
+    item.refresh_from_db()
+    assert item.quantity == 90
+    assert _hints(api(ann), lab, e["id"])["uses"][0]["status"] == "logged"
+
+
+def test_a_use_already_logged_by_hand_is_flagged_as_a_possible_duplicate(world):
+    lab, ann, _, _ = world
+    item = _stock(lab)
+    use = reverse(
+        "labs:inventory-item-usage", kwargs={"lab_id": lab.pk, "inventoryitem_id": item.pk}
+    )
+    api(ann).post(use, {"amount": "10", "unit": "mL", "request_id": str(uuid.uuid4())}, "json")
+    from django.utils import timezone
+
+    e = (
+        api(ann)
+        .post(
+            mine(lab),
+            {
+                "title": "d",
+                "body": "Used 10 mL ethanol",
+                "entry_date": timezone.localdate().isoformat(),
+            },
+            "json",
+        )
+        .json()
+    )
+    assert _hints(api(ann), lab, e["id"])["uses"][0]["status"] == "possible_duplicate"
+
+
+def test_a_protocol_named_in_an_entry_is_checked_against_its_amounts(world):
+    from labs.models import Protocol, ProtocolReagent
+
+    lab, ann, _, project = world
+    item = _stock(lab)
+    p = Protocol.objects.create(lab=lab, project=project, name="Wash", created_by=ann)
+    ProtocolReagent.objects.create(lab=lab, protocol=p, item=item, amount=10, unit="mL")
+    e = (
+        api(ann)
+        .post(
+            shared(lab, project), {"title": "d", "body": "Did the Wash with 15 mL ethanol"}, "json"
+        )
+        .json()
+    )
+    url = shared(lab, project, "notebook-project-hints", pentry_id=e["id"])
+    changes = api(ann).get(url).json()["protocol_changes"]
+    assert changes == [
+        {
+            "protocol": "Wash",
+            "item_name": "Ethanol",
+            "protocol_amount": "10 mL",
+            "noted_amount": "15 mL",
+        }
+    ]
+
+
+def test_similar_protocols_are_pointed_out_in_a_project(world):
+    from labs.models import Protocol, ProtocolReagent
+
+    lab, ann, _, project = world
+    a, b = _stock(lab, "Tris", 10, "g"), _stock(lab, "EDTA", 10, "g")
+    for name in ("Lysis buffer", "Lysis buffer v2"):
+        p = Protocol.objects.create(lab=lab, project=project, name=name, created_by=ann)
+        for item in (a, b):
+            ProtocolReagent.objects.create(lab=lab, protocol=p, item=item, amount=1, unit="g")
+    url = reverse("labs:protocol-list", kwargs={"lab_id": lab.pk, "project_id": project.pk})
+    rows = {r["name"]: r["similar"] for r in api(ann).get(url).json()}
+    assert rows == {"Lysis buffer": ["Lysis buffer v2"], "Lysis buffer v2": ["Lysis buffer"]}
+
+
+def test_nobody_reads_another_persons_notebook_for_hints(world):
+    lab, ann, ben, _ = world
+    _stock(lab)
+    e = api(ann).post(mine(lab), {"title": "d", "body": "Used 10 mL ethanol"}, "json").json()
+    url = reverse("labs:notebook-mine-hints", kwargs={"lab_id": lab.pk, "entry_id": e["id"]})
+    assert api(ben).get(url).status_code == 404

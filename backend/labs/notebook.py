@@ -21,7 +21,8 @@ from audit.services import record
 from core.permissions import Perm, can
 from core.serializers import UserSerializer, no_control_chars
 from core.views import LabScopedViewMixin
-from labs.models import NotebookEntry
+from labs import notebook_hints
+from labs.models import NotebookEntry, Protocol
 from projects.views import ProjectScopedMixin
 
 MAX_BODY = 100_000
@@ -312,6 +313,24 @@ class MyNotebookLockView(_Mine):
         return Response(self.get_serializer(self.get_queryset().get(pk=entry.pk)).data)
 
 
+class MyNotebookHintsView(_Mine):
+    """What your entry says about inventory and protocols: suggestions you can accept (D332)."""
+
+    lookup_url_kwarg = "entry_id"
+    perms = {"GET": Perm.VIEW_LAB}
+
+    @extend_schema(responses=OpenApiTypes.OBJECT)
+    def get(self, request, lab_id, entry_id):
+        from projects.models import Project
+
+        entry = self.get_object()
+        ids = Project.objects.visible_to(request.user, request.lab).values_list("pk", flat=True)
+        protocols = Protocol.objects.for_lab(request.lab.pk).filter(project_id__in=list(ids))
+        return Response(
+            notebook_hints.hints_for(entry, user=request.user, protocols_visible_to=list(protocols))
+        )
+
+
 class MyNotebookExportView(_Mine):
     perms = {"GET": Perm.VIEW_LAB}
 
@@ -387,6 +406,19 @@ class ProjectNotebookLockView(_Shared):
     def post(self, request, lab_id, project_id, pentry_id):
         entry = lock_entry(self.get_object(), user=request.user, request=request)
         return self.out(self.get_queryset().get(pk=entry.pk))
+
+
+class ProjectNotebookHintsView(_Shared):
+    lookup_url_kwarg = "pentry_id"
+    perms = {"GET": Perm.VIEW_PROJECT}
+
+    @extend_schema(responses=OpenApiTypes.OBJECT)
+    def get(self, request, lab_id, project_id, pentry_id):
+        entry = self.get_object()
+        protocols = Protocol.objects.for_lab(request.lab.pk).filter(project=self.project)
+        return Response(
+            notebook_hints.hints_for(entry, user=request.user, protocols_visible_to=list(protocols))
+        )
 
 
 class ProjectNotebookExportView(_Shared):

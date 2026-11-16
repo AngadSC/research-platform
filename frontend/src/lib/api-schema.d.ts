@@ -2102,6 +2102,23 @@ export interface paths {
         patch: operations["labs_notebook_partial_update"];
         trace?: never;
     };
+    "/api/labs/{lab_id}/notebook/{entry_id}/hints/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What your entry says about inventory and protocols: suggestions you can accept (D332). */
+        get: operations["labs_notebook_hints_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/notebook/{entry_id}/lock/": {
         parameters: {
             query?: never;
@@ -3388,6 +3405,29 @@ export interface paths {
          *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
          */
         patch: operations["labs_projects_notebook_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/notebook/{pentry_id}/hints/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        get: operations["labs_projects_notebook_hints_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/labs/{lab_id}/projects/{project_id}/notebook/{pentry_id}/lock/": {
@@ -8228,6 +8268,8 @@ export interface components {
             readonly name: string;
             readonly notes: string;
             reagents: components["schemas"]["ProtocolReagent"][];
+            /** @description Other protocols in this project with the same name or mostly the same reagents. */
+            readonly similar: string[];
             /** Format: date-time */
             readonly created_at: string;
         };
@@ -12999,6 +13041,30 @@ export interface operations {
             };
         };
     };
+    labs_notebook_hints_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     labs_notebook_lock_create: {
         parameters: {
             query?: never;
@@ -15180,6 +15246,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NotebookEntry"];
+                };
+            };
+        };
+    };
+    labs_projects_notebook_hints_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                pentry_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };

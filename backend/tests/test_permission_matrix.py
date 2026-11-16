@@ -348,6 +348,8 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "labs:notebook-mine"): "401 404 2 2 2 2 2 2 2",
     ("POST",   "labs:notebook-mine"): "401 404 2 2 2 2 2 2 403",
     ("GET",    "labs:notebook-mine-export"): "401 404 2 2 2 2 2 2 2",
+    ("GET",    "labs:notebook-mine-hints"): "401 404 404 404 2 404 404 404 404",
+    ("GET",    "labs:notebook-project-hints"): "401 404 2 2 2 2 2 404 2",
     ("PATCH",  "labs:notebook-mine-entry"): "401 404 404 404 2 404 404 404 403",
     ("DELETE", "labs:notebook-mine-entry"): "401 404 404 404 2 404 404 404 403",
     ("POST",   "labs:notebook-mine-lock"): "401 404 404 404 2 404 404 404 403",
