@@ -183,7 +183,11 @@ export function ResultCard({
   }
 
   return (
-    <article ref={root} aria-label={result.title} className="grid gap-4 rounded-lg border p-4">
+    <article
+      ref={root}
+      aria-label={result.title}
+      className="grid min-w-0 gap-4 rounded-lg border p-4 [overflow-wrap:anywhere]"
+    >
       <header className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-base font-semibold">{result.title}</h2>
@@ -223,7 +227,7 @@ export function ResultCard({
             <TableHeader>
               <TableRow>
                 {t.columns.map((c) => (
-                  <TableHead key={c} scope="col" className="break-words whitespace-normal">
+                  <TableHead key={c} scope="col" className="whitespace-normal">
                     {c}
                   </TableHead>
                 ))}
@@ -233,7 +237,7 @@ export function ResultCard({
               {t.rows.map((r, i) => (
                 <TableRow key={i}>
                   {r.map((v, j) => (
-                    <TableCell key={j} className="break-words whitespace-normal">
+                    <TableCell key={j} className="whitespace-normal">
                       {v ?? ""}
                     </TableCell>
                   ))}

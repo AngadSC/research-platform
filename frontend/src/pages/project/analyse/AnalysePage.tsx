@@ -96,7 +96,10 @@ function ParamField({
     input = (
       <div className="flex flex-wrap gap-x-4 gap-y-1">
         {cols.map((c) => (
-          <label key={c.name} className="flex items-center gap-2 text-sm">
+          <label
+            key={c.name}
+            className="flex min-w-0 items-center gap-2 text-sm [overflow-wrap:anywhere]"
+          >
             <input
               type="checkbox"
               checked={chosen.includes(c.name)}
@@ -698,7 +701,7 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
           </p>
         )}
         {runs.map((r, i) => (
-          <div key={r.id} ref={i === 0 ? newest : undefined} className="scroll-mt-4">
+          <div key={r.id} ref={i === 0 ? newest : undefined} className="scroll-mt-24">
             <ResultCard
               run={r}
               labId={labId}

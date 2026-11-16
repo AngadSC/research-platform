@@ -66,7 +66,9 @@ export async function saveRun(a: SaveArgs, d: SaveDeps): Promise<SaveOutcome> {
   const stem = cleanName(a.title);
   const taken = new Set<string>();
   const chartName = (i: number) => {
-    const base = cleanName(a.chartTitles?.[i] || `${stem} chart ${i + 1}`);
+    const t = a.chartTitles?.[i];
+    const own = t ? cleanName(t) : `chart ${i + 1}`;
+    const base = own === stem ? stem : `${stem} - ${own}`;
     let n = base;
     for (let k = 2; taken.has(n.toLowerCase()); k++) n = `${base} (${k})`;
     taken.add(n.toLowerCase());

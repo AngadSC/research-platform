@@ -252,7 +252,7 @@ function Box({ c }: { c: Extract<StatsChart, { kind: "box" }> }) {
               />
             ))}
             <text x={cx} y={H - M.b + 16} textAnchor="middle" fill="var(--viz-muted)">
-              {short(s.name, Math.max(4, Math.floor(band / 6)))}
+              {short(s.name, Math.max(4, Math.min(30, Math.floor(band / 8))))}
             </text>
           </g>
         );
@@ -341,7 +341,7 @@ function Bar({ c }: { c: Extract<StatsChart, { kind: "bar" }> }) {
               </g>
             )}
             <text x={cx} y={H - M.b + 16} textAnchor="middle" fill="var(--viz-muted)">
-              {short(b.name, Math.max(4, Math.floor(band / 6)))}
+              {short(b.name, Math.max(4, Math.min(30, Math.floor(band / 8))))}
             </text>
           </g>
         );
