@@ -8147,7 +8147,7 @@ export interface components {
             /** Format: date */
             readonly retain_until: string | null;
             readonly retention_note: string;
-            readonly study_types: unknown;
+            readonly study_types: components["schemas"]["StudyTypesEnum"][];
             readonly created_by: components["schemas"]["User"];
             /** Format: date-time */
             readonly created_at: string;

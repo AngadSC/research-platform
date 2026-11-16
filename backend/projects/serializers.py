@@ -28,6 +28,9 @@ class ProjectSerializer(serializers.ModelSerializer):
     last_activity_by = UserSerializer(read_only=True)
     my_project_role = serializers.SerializerMethodField()
     my_permissions = serializers.SerializerMethodField()
+    study_types = serializers.ListField(
+        child=serializers.ChoiceField(choices=STUDY_TYPES), read_only=True
+    )
 
     class Meta:
         model = Project

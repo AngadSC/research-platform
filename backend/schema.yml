@@ -20214,6 +20214,9 @@ components:
           type: string
           readOnly: true
         study_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudyTypesEnum'
           readOnly: true
         created_by:
           allOf:

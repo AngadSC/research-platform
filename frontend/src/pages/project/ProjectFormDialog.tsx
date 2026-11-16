@@ -93,7 +93,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, canRetention, o
         ...(color && { color }),
         description: String(f.get("description") ?? ""),
         status,
-        study_types: studyTypes,
+        study_types: studyTypes as NonNullable<ProjectInput["study_types"]>,
         start_date: String(f.get("start_date") ?? "") || null,
         ...(template !== BLANK && { template: template as ProjectInput["template"] }),
         ...(canRetention && {
