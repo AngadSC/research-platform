@@ -1,4 +1,5 @@
-import { BookOpen, FileText, Plus } from "lucide-react";
+import { IconAction } from "@/components/shared/IconAction";
+import { BookOpen, Download, FileText, Plus } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
@@ -351,9 +352,12 @@ export function PapersPage() {
           canAdd ? (
             <div className="flex flex-wrap gap-2">
               {zotero && (
-                <Button variant="outline" onClick={() => setImporting(true)}>
-                  Import from Zotero
-                </Button>
+                <IconAction
+                  label="Import from Zotero"
+                  icon={<Download aria-hidden />}
+                  variant="outline"
+                  onClick={() => setImporting(true)}
+                />
               )}
               <Button onClick={() => setAdding(true)}>
                 <Plus aria-hidden /> Add paper

@@ -1,3 +1,4 @@
+import { IconAction } from "@/components/shared/IconAction";
 import { AlertTriangle, Printer } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
@@ -285,9 +286,13 @@ export function HandoverPage() {
         title={`Handover for ${personName({ display_name: data.person.display_name, email: data.person.email })}`}
         description={`Everything this person owns or leads, so it can be given to someone else when they leave. Made ${date}. ${scope}`}
         actions={
-          <Button variant="outline" className="print:hidden" onClick={() => window.print()}>
-            <Printer className="size-4" aria-hidden /> Print or save as PDF
-          </Button>
+          <IconAction
+            label="Print or save as PDF"
+            icon={<Printer aria-hidden />}
+            variant="outline"
+            className="print:hidden"
+            onClick={() => window.print()}
+          />
         }
       />
       {canAct && (

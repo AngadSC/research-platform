@@ -1,3 +1,4 @@
+import { IconAction } from "@/components/shared/IconAction";
 import { Copy, Download, Eye, Pencil, Sparkles, Trash2, Upload } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -270,20 +271,23 @@ export function PaperDetailPage() {
         actions={
           <>
             {canContribute && (
-              <Button variant="outline" onClick={() => setEditing(true)}>
-                Edit
-              </Button>
+              <IconAction
+                label="Edit"
+                icon={<Pencil aria-hidden />}
+                variant="outline"
+                onClick={() => setEditing(true)}
+              />
             )}
             {(canContribute && paper.added_by.email === email) || isManager ? (
-              <Button
+              <IconAction
+                label="Delete"
+                icon={<Trash2 aria-hidden />}
                 variant="outline"
                 onClick={() => {
                   setDeleteError(undefined);
                   setConfirmDelete(true);
                 }}
-              >
-                Delete
-              </Button>
+              />
             ) : null}
           </>
         }

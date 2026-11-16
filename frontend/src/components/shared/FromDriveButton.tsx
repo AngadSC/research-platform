@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
+import { IconAction } from "@/components/shared/IconAction";
 import { Button } from "@/components/ui/button";
 import { fetchPickerToken, useProviders } from "@/hooks/integrations";
 import { pickDriveFile, pickDriveFiles, type PickedFile } from "@/lib/drive";
@@ -52,6 +53,7 @@ export function FromDriveButton({
   disabled,
   quiet,
   multiple,
+  iconOnly,
 }: {
   labId: string;
   onPick: (file: PickedFile) => Promise<unknown>;
@@ -63,6 +65,8 @@ export function FromDriveButton({
   quiet?: boolean;
   /** Lets the person choose several files at once. */
   multiple?: boolean;
+  /** Shows only Google's Drive mark; the label appears on hover and names the button. */
+  iconOnly?: boolean;
 }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -129,6 +133,16 @@ export function FromDriveButton({
     }
   }
 
+  if (iconOnly)
+    return (
+      <IconAction
+        label={label}
+        icon={<DriveLogo />}
+        variant={variant}
+        disabled={busy || disabled}
+        onClick={() => void run()}
+      />
+    );
   return (
     <Button
       type="button"

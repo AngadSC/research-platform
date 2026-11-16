@@ -1,4 +1,5 @@
-import { BarChart3, FlaskConical, Pencil, Plus } from "lucide-react";
+import { IconAction } from "@/components/shared/IconAction";
+import { BarChart3, CopyPlus, FlaskConical, GitBranch, Pencil, Plus, Trash2 } from "lucide-react";
 import { isGoogleDocLink, openGoogleLinkInPanel } from "@/lib/googleFiles";
 import { GoogleEditButton } from "@/components/shared/GoogleEditButton";
 import type { ReactNode } from "react";
@@ -611,22 +612,24 @@ function Detail({
         title={title}
         actions={
           <>
-            <Button variant="outline" asChild>
-              <Link
-                to={`/labs/${labId}/projects/${projectId}/workflow/lineage?focus=${KINDS[kind].one}:${id}`}
-              >
-                View in lineage
-              </Link>
-            </Button>
+            <IconAction
+              label="View in lineage"
+              icon={<GitBranch aria-hidden />}
+              variant="outline"
+              to={`/labs/${labId}/projects/${projectId}/workflow/lineage?focus=${KINDS[kind].one}:${id}`}
+            />
             {kind === "datasets" && (r as Dataset).data_file && (
               <Button variant="outline" asChild>
                 <StatsLink to={`${base}/analyse?dataset=${id}`}>Analyse</StatsLink>
               </Button>
             )}
             {kind === "datasets" && canEdit && (
-              <Button variant="outline" asChild>
-                <Link to={`${recordPath(base, "datasets", "new")}?from=${id}`}>New version</Link>
-              </Button>
+              <IconAction
+                label="New version"
+                icon={<CopyPlus aria-hidden />}
+                variant="outline"
+                to={`${recordPath(base, "datasets", "new")}?from=${id}`}
+              />
             )}
             {kind === "analyses" && <DownloadCode labId={labId} analysis={r as Analysis} />}
             {kind === "analyses" && canEdit && (
@@ -634,12 +637,18 @@ function Detail({
             )}
             {canEdit && (
               <>
-                <Button variant="outline" onClick={() => setEditing(true)}>
-                  Edit
-                </Button>
-                <Button variant="outline" onClick={() => setDeleting(true)}>
-                  Delete
-                </Button>
+                <IconAction
+                  label="Edit"
+                  icon={<Pencil aria-hidden />}
+                  variant="outline"
+                  onClick={() => setEditing(true)}
+                />
+                <IconAction
+                  label="Delete"
+                  icon={<Trash2 aria-hidden />}
+                  variant="outline"
+                  onClick={() => setDeleting(true)}
+                />
               </>
             )}
           </>

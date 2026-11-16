@@ -56,6 +56,7 @@ import { formErrors, type FormErrors } from "@/lib/forms";
 import { LIVE_POLL_MS, useNewItemToasts } from "@/hooks/liveRefresh";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { UploadDialog } from "@/pages/project/UploadDialog";
+import { IconAction } from "@/components/shared/IconAction";
 import { FromDriveButton } from "@/components/shared/FromDriveButton";
 import { attachFromDrive } from "@/lib/drive";
 import { convertible, googleEditor, isImage } from "@/lib/googleFiles";
@@ -359,20 +360,26 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
       <div className="grid w-full min-w-0 gap-4">
         {canEdit && !archived && (
           <div className="flex flex-wrap justify-end gap-2">
-            <Button variant="outline" asChild>
-              <StatsLink to={`${base}/analyse`}>
-                <BarChart3 aria-hidden /> Statistics
+            <Button variant="outline" size="icon" asChild>
+              <StatsLink to={`${base}/analyse`} aria-label="Statistics" title="Statistics">
+                <BarChart3 aria-hidden />
               </StatsLink>
             </Button>
-            <Button variant="outline" onClick={() => setEmbedding(true)}>
-              <Link2 className="size-4" /> Embed a Google or Office doc
-            </Button>
-            <Button variant="outline" onClick={() => setUploading(true)}>
-              <Upload aria-hidden /> Upload file
-            </Button>
+            <IconAction
+              label="Embed a Google or Office doc"
+              icon={<Link2 aria-hidden />}
+              variant="outline"
+              onClick={() => setEmbedding(true)}
+            />
+            <IconAction
+              label="Upload file"
+              icon={<Upload aria-hidden />}
+              variant="outline"
+              onClick={() => setUploading(true)}
+            />
             <FromDriveButton
               labId={labId}
-              size="default"
+              iconOnly
               multiple
               onPick={(f) =>
                 attachFromDrive(

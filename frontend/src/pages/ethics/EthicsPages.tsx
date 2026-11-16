@@ -1,3 +1,4 @@
+import { IconAction } from "@/components/shared/IconAction";
 import { Download, Eye, FileCheck2, Lock, Pencil, Trash2, Upload } from "lucide-react";
 import { GoogleEditButton } from "@/components/shared/GoogleEditButton";
 import { useState, type FormEvent, type ReactNode } from "react";
@@ -139,14 +140,13 @@ export function EthicsDetailPage() {
         actions={
           canEdit && (
             <>
-              <Button variant="outline" asChild>
-                <Link to="edit">
-                  <Pencil aria-hidden /> Edit
-                </Link>
-              </Button>
-              <Button variant="outline" onClick={() => setDeleting(true)}>
-                <Trash2 aria-hidden /> Delete
-              </Button>
+              <IconAction label="Edit" icon={<Pencil aria-hidden />} variant="outline" to="edit" />
+              <IconAction
+                label="Delete"
+                icon={<Trash2 aria-hidden />}
+                variant="outline"
+                onClick={() => setDeleting(true)}
+              />
             </>
           )
         }

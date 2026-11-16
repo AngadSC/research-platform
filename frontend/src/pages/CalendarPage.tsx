@@ -1,4 +1,5 @@
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { IconAction } from "@/components/shared/IconAction";
+import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Rss } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
@@ -438,16 +439,25 @@ export function CalendarPage() {
         }
         actions={
           <>
-            <Button variant="outline" onClick={() => setGoogleOpen(true)}>
-              <CalendarDays aria-hidden /> Google Calendar
-            </Button>
-            <Button variant="outline" onClick={() => setSubscribing(true)}>
-              Subscribe
-            </Button>
+            <IconAction
+              label="Google Calendar"
+              icon={<CalendarDays aria-hidden />}
+              variant="outline"
+              onClick={() => setGoogleOpen(true)}
+            />
+            <IconAction
+              label="Subscribe"
+              icon={<Rss aria-hidden />}
+              variant="outline"
+              onClick={() => setSubscribing(true)}
+            />
             {canEdit && !mine && (
-              <Button variant="outline" onClick={() => setDialog({ kind: "event" })}>
-                Add event
-              </Button>
+              <IconAction
+                label="Add event"
+                icon={<CalendarPlus aria-hidden />}
+                variant="outline"
+                onClick={() => setDialog({ kind: "event" })}
+              />
             )}
             {canEdit && <Button onClick={() => setDialog({ kind: "meeting" })}>Add meeting</Button>}
           </>
