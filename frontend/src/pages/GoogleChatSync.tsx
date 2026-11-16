@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { KIND_LABEL, useGoogleChat, useGoogleChatSpaces } from "@/hooks/googleChat";
 import { cn } from "@/lib/utils";
 import { formErrors } from "@/lib/forms";
@@ -182,12 +183,26 @@ function PickSpaceDialog({
               </SelectTrigger>
               <SelectContent>
                 {(spaces.data ?? []).map((sp) => (
-                  <SelectItem key={sp.name} value={sp.name}>
-                    {sp.display_name || sp.name}
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {KIND_LABEL[sp.kind]}
-                    </span>
-                  </SelectItem>
+                  <Tooltip key={sp.name}>
+                    <TooltipTrigger asChild>
+                      <SelectItem value={sp.name}>
+                        {sp.display_name || sp.name}
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {KIND_LABEL[sp.kind]}
+                        </span>
+                      </SelectItem>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" align="start" className="max-w-64">
+                      <p className="mb-0.5 font-medium">Participants</p>
+                      <p className="text-muted-foreground">
+                        {sp.members.length > 0
+                          ? sp.members.join(", ")
+                          : sp.kind === "space"
+                            ? "Open the space in Google Chat to see who is in it."
+                            : "Google did not share the names."}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
                 ))}
               </SelectContent>
             </Select>

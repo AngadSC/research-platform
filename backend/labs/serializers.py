@@ -146,6 +146,10 @@ class GoogleChatSpaceSerializer(serializers.Serializer):
     name = serializers.CharField()
     display_name = serializers.CharField()
     kind = serializers.ChoiceField(choices=["space", "group_chat", "direct_message"])
+    members = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="Names of the other participants, when Google will give them.",
+    )
 
 
 class GoogleChatThreadSerializer(serializers.Serializer):

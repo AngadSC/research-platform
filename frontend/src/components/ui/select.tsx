@@ -38,12 +38,14 @@ export function SelectContent({
         position="popper"
         sideOffset={4}
         className={cn(
-          "glass glass--strong glass-in z-50 min-w-[var(--radix-select-trigger-width)] rounded-lg p-1.5 text-popover-foreground",
+          "glass glass--strong glass-in z-50 min-w-[var(--radix-select-trigger-width)] max-h-[min(var(--radix-select-content-available-height),24rem)] overflow-hidden rounded-lg p-1.5 text-popover-foreground",
           className,
         )}
         {...props}
       >
-        <S.Viewport>{children}</S.Viewport>
+        <S.Viewport className="max-h-[inherit] overflow-y-auto overscroll-contain">
+          {children}
+        </S.Viewport>
       </S.Content>
     </S.Portal>
   );

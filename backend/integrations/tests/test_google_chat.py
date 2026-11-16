@@ -461,9 +461,19 @@ def test_group_chats_and_messages_are_listed_by_their_members(transport, lab_use
     url = reverse("projects:project-google-chat-spaces", args=[lab.pk, _project(lab, u).pk])
     rows = api(u["member"]).get(url).json()
     assert rows == [
-        {"name": "spaces/S1", "display_name": "Lab", "kind": "space"},
-        {"name": GROUP, "display_name": "Dana Example, Eli Example", "kind": "group_chat"},
-        {"name": "spaces/DM1", "display_name": "Dana Example", "kind": "direct_message"},
+        {"name": "spaces/S1", "display_name": "Lab", "kind": "space", "members": []},
+        {
+            "name": GROUP,
+            "display_name": "Dana Example, Eli Example",
+            "kind": "group_chat",
+            "members": ["Dana Example", "Eli Example"],
+        },
+        {
+            "name": "spaces/DM1",
+            "display_name": "Dana Example",
+            "kind": "direct_message",
+            "members": ["Dana Example"],
+        },
     ]
 
 

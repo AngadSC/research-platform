@@ -110,8 +110,8 @@ KINDS = {"SPACE": "space", "GROUP_CHAT": "group_chat", "DIRECT_MESSAGE": "direct
 LABELLED = 20  # unnamed group chats and messages named by their members, most recent first
 
 
-def _members_label(account, space) -> str:
-    """An unnamed group chat or direct message, named by its other members ("Ana, Ben +2")."""
+def _member_names(account, space) -> list[str]:
+    """The names Google will give for a conversation's other members, in listed order."""
     try:
         resp = send(
             "GET",
@@ -127,11 +127,16 @@ def _members_label(account, space) -> str:
             if isinstance(m, dict)
         ]
     except (AccountUnavailable, IntegrationError, ValueError, AttributeError):
-        return ""
+        return []
     ids = [i for i in ids if i and i != account.external_account_id]
     names = google_names(account, ids)
-    shown = [names[i] for i in ids if i in names][:3]
-    more = len(ids) - len(shown)
+    return [names[i] for i in ids if i in names]
+
+
+def _members_label(names: list[str]) -> str:
+    """An unnamed group chat or direct message, named by its other members ("Ana, Ben +2")."""
+    shown = names[:3]
+    more = len(names) - len(shown)
     return ", ".join(shown) + (f" +{more}" if shown and more > 0 else "")
 
 
@@ -167,11 +172,16 @@ def list_spaces(lab, user) -> list[dict]:
         reverse=True,
     )[:LABELLED]
     for r in chats:
+        r["members"] = _member_names(account, r["name"])
         if not r["display_name"]:
-            r["display_name"] = _members_label(account, r["name"]) or (
+            r["display_name"] = _members_label(r["members"]) or (
                 "Direct message" if r["kind"] == "direct_message" else "Group chat"
             )
-    return [{k: r[k] for k in ("name", "display_name", "kind")} for r in named + chats]
+    for r in named:
+        r["members"] = []
+    return [
+        {k: r[k] for k in ("name", "display_name", "kind", "members")} for r in named + chats
+    ]
 
 
 def _cursor(moment) -> str:
@@ -207,7 +217,9 @@ def link_space(*, lab, by, space, project=None, request=None) -> GoogleChatBridg
         data = resp.json()
         if data.get("name") != space:
             raise ValueError
-        name = str(data.get("displayName", ""))[:200] or _members_label(account, space)
+        name = str(data.get("displayName", ""))[:200] or _members_label(
+            _member_names(account, space)
+        )
     except (ValueError, TypeError, AttributeError) as exc:
         raise RemoteError({"space": ["Google Chat sent an answer we could not read."]}) from exc
     bridge = _bridges(lab, project).select_for_update().first()

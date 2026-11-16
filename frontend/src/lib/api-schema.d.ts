@@ -6197,6 +6197,8 @@ export interface components {
             name: string;
             display_name: string;
             kind: components["schemas"]["GoogleChatSpaceKindEnum"];
+            /** @description Names of the other participants, when Google will give them. */
+            members: string[];
         };
         /**
          * @description * `space` - space
