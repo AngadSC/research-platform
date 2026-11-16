@@ -4968,6 +4968,7 @@ export interface components {
             readonly original_filename: string;
             readonly content_type: string;
             readonly size_bytes: number;
+            readonly drive_file_id: string;
         };
         /**
          * @description * `web` - Web

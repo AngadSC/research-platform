@@ -1,4 +1,5 @@
 import { BarChart3, FlaskConical, Plus } from "lucide-react";
+import { GoogleEditButton } from "@/components/shared/GoogleEditButton";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
@@ -413,6 +414,7 @@ function Files({ labId, base, items }: { labId: string; base: string; items?: At
           <a className="text-primary hover:underline" href={downloadUrl(labId, a.id)} download>
             Download
           </a>
+          <GoogleEditButton file={a} />
         </li>
       ))}
     </ul>

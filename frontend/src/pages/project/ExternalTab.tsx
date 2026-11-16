@@ -1,4 +1,7 @@
 import { Download, Presentation, Sparkles, Upload } from "lucide-react";
+import { FromDriveButton } from "@/components/shared/FromDriveButton";
+import { attachFromDrive } from "@/lib/drive";
+import { GoogleEditButton } from "@/components/shared/GoogleEditButton";
 import { useState } from "react";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/shared/DataTable";
@@ -85,14 +88,17 @@ export default function ExternalTab({ labId, projectId, project }: ProjectTabPro
       header: "File",
       cell: (x) =>
         x.attachment && (
-          <a
-            href={downloadUrl(labId, x.attachment.id)}
-            download
-            aria-label={`Download ${x.attachment.original_filename}`}
-            className="inline-flex items-center gap-1 text-primary hover:underline"
-          >
-            <Download aria-hidden className="size-4" /> {x.attachment.original_filename}
-          </a>
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <a
+              href={downloadUrl(labId, x.attachment.id)}
+              download
+              aria-label={`Download ${x.attachment.original_filename}`}
+              className="inline-flex items-center gap-1 text-primary hover:underline"
+            >
+              <Download aria-hidden className="size-4" /> {x.attachment.original_filename}
+            </a>
+            <GoogleEditButton file={x.attachment} />
+          </span>
         ),
     },
     ...(canEdit
@@ -251,15 +257,28 @@ function ExternalDialog({
                 </NativeSelect>
               )}
             </FormField>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="justify-self-start"
-              onClick={() => setUploading(true)}
-            >
-              <Upload aria-hidden /> Upload a file
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="justify-self-start"
+                onClick={() => setUploading(true)}
+              >
+                <Upload aria-hidden /> Upload a file
+              </Button>
+              <FromDriveButton
+                labId={labId}
+                quiet
+                onPick={async (f) => {
+                  const a = await attachFromDrive(
+                    `/api/labs/${labId}/projects/${projectId}/attachments/`,
+                    f.id,
+                  );
+                  setAttachment(a.id);
+                }}
+              />
+            </div>
           </>
         )}
       </RecordDialog>

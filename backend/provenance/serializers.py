@@ -79,7 +79,7 @@ class DocumentRefSerializer(serializers.ModelSerializer):
 class AttachmentRefSerializer(serializers.ModelSerializer):
     class Meta:
         model = Attachment
-        fields = ["id", "original_filename", "content_type", "size_bytes"]
+        fields = ["id", "original_filename", "content_type", "size_bytes", "drive_file_id"]
         read_only_fields = fields
 
     def to_representation(self, attachment):

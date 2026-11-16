@@ -1,4 +1,5 @@
 import { FileText, Paperclip, Plus, Upload, X } from "lucide-react";
+import { GoogleEditButton } from "@/components/shared/GoogleEditButton";
 import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
@@ -143,6 +144,7 @@ export function TaskFiles({
                 <Paperclip aria-hidden className="size-4 shrink-0" />
                 <span className="truncate">{a.original_filename}</span>
               </a>
+              <GoogleEditButton file={a} />
               {canEdit && (
                 <Button
                   variant="ghost"

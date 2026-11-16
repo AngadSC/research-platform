@@ -1,4 +1,5 @@
 import type { Attachment } from "@/lib/api-types";
+import { openGooglePanel } from "@/lib/googlePanel";
 
 // What a Drive-linked file's type says it is. Drive gives these types to Docs, Sheets and Slides.
 const KINDS: Record<string, { path: string; label: string }> = {
@@ -23,3 +24,20 @@ export const isImage = (a: Pick<Attachment, "content_type" | "drive_file_id">) =
 /** An upload that "Edit in Google" can turn into a Google Doc, Sheet or Slides copy (VISION B3). */
 export const convertible = (a: Pick<Attachment, "original_filename" | "drive_file_id">) =>
   !a.drive_file_id && /\.(docx|xlsx|pptx)$/i.test(a.original_filename);
+
+/** Opens a linked Google Doc, Sheet or Slides file in the floating panel (D326): editing, or just
+ * a preview. Returns false for any other file. */
+export function openInGooglePanel(
+  file: Pick<Attachment, "content_type" | "drive_file_id" | "original_filename">,
+  edit = true,
+) {
+  const editor = googleEditor(file);
+  if (!editor) return false;
+  openGooglePanel({
+    title: file.original_filename,
+    label: editor.label,
+    src: edit ? editor.edit : editor.preview,
+    openUrl: editor.edit,
+  });
+  return true;
+}

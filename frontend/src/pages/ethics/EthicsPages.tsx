@@ -1,4 +1,5 @@
 import { Download, Eye, FileCheck2, Lock, Pencil, Trash2, Upload } from "lucide-react";
+import { GoogleEditButton } from "@/components/shared/GoogleEditButton";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
@@ -208,6 +209,7 @@ export function EthicsDetailPage() {
               <li key={f.id} className="flex items-center justify-between px-3 py-2 text-sm">
                 <span className="font-medium">{f.original_filename}</span>
                 <span className="flex gap-1">
+                  <GoogleEditButton file={f} />
                   {isPdf(f) && (
                     <Button variant="ghost" size="sm" asChild>
                       <Link to={`files/${f.id}`} aria-label={`Open ${f.original_filename}`}>
