@@ -706,3 +706,35 @@ class Subject(LabScopedModel):
 
     def __str__(self):
         return self.code
+
+
+class NotebookEntry(LabScopedModel):
+    """One dated entry in a lab notebook (D330). With no project it is in the author's own
+    notebook, which only they can see. With a project it is in that project's shared notebook,
+    which everyone on the project can read. A locked entry is a signed record: it can no longer
+    be changed or deleted, so corrections go in a new entry."""
+
+    permission_domain = "project"
+    project_path = "project"
+    lab_parents = ("project",)
+
+    project = models.ForeignKey(
+        "projects.Project", on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+    )
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    title = models.CharField(max_length=200)
+    entry_date = models.DateField()
+    body = models.TextField(blank=True)  # Markdown
+    locked_at = models.DateTimeField(null=True, blank=True)
+    locked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+
+    class Meta(LabScopedModel.Meta):
+        indexes = [
+            models.Index(fields=["lab", "author", "entry_date"], name="notebook_author_idx"),
+            models.Index(fields=["project", "entry_date"], name="notebook_project_idx"),
+        ]
+
+    def __str__(self):
+        return self.title

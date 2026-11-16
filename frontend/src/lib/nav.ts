@@ -16,6 +16,8 @@ import {
   Home,
   ListChecks,
   MessagesSquare,
+  NotebookPen,
+  NotebookText,
   Plug,
   Presentation,
   Settings,
@@ -29,6 +31,12 @@ import {
 export const PROJECT_SECTIONS = [
   { to: "overview", label: "Overview", icon: LayoutDashboard },
   { to: "tasks", label: "Tasks", icon: CheckSquare },
+  {
+    to: "notebook",
+    label: "Notebook",
+    icon: NotebookText,
+    hint: "The project's shared lab notebook",
+  },
   { to: "documents", label: "Documents and files", icon: FileText },
   { to: "participants", label: "Participants", icon: Users },
   {
@@ -98,6 +106,7 @@ export function navItems(
     page("dashboard", "Home", Home),
     page("projects", "Projects", FolderKanban),
     page("my-work", "My work", ListChecks),
+    page("notebook", "My notebook", NotebookPen),
     page("participants", "Participants", Users),
     page("members", "Members", Users),
     ...(inventoryEnabled ? [page("inventory", "Inventory", Boxes)] : []), // D227: wet labs only

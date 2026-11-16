@@ -213,10 +213,11 @@ describe("app shell", () => {
       .getAllByRole("link")
       .map((a) => a.textContent)
       .filter((t) => t !== "Sleep");
-    expect(labels.slice(0, 6)).toEqual([
+    expect(labels.slice(0, 7)).toEqual([
       "Home",
       "Projects",
       "My work",
+      "My notebook",
       "Participants",
       "Members",
       "Inventory",

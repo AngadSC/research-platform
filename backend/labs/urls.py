@@ -1,7 +1,7 @@
 from django.urls import path
 
 from labs import admin_views as av
-from labs import contributions, dashboard, lab_calendar, protocols, subjects, views
+from labs import contributions, dashboard, lab_calendar, notebook, protocols, subjects, views
 from labs.getting_started import GettingStartedView
 
 app_name = "labs"
@@ -87,6 +87,42 @@ urlpatterns = [
         "labs/<uuid:lab_id>/projects/<uuid:project_id>/subjects/export/",
         subjects.SubjectExportView.as_view(),
         name="subject-export",
+    ),
+    path("labs/<uuid:lab_id>/notebook/", notebook.MyNotebookView.as_view(), name="notebook-mine"),
+    path(
+        "labs/<uuid:lab_id>/notebook/export/",
+        notebook.MyNotebookExportView.as_view(),
+        name="notebook-mine-export",
+    ),
+    path(
+        "labs/<uuid:lab_id>/notebook/<uuid:entry_id>/",
+        notebook.MyNotebookEntryView.as_view(),
+        name="notebook-mine-entry",
+    ),
+    path(
+        "labs/<uuid:lab_id>/notebook/<uuid:entry_id>/lock/",
+        notebook.MyNotebookLockView.as_view(),
+        name="notebook-mine-lock",
+    ),
+    path(
+        "labs/<uuid:lab_id>/projects/<uuid:project_id>/notebook/",
+        notebook.ProjectNotebookView.as_view(),
+        name="notebook-project",
+    ),
+    path(
+        "labs/<uuid:lab_id>/projects/<uuid:project_id>/notebook/export/",
+        notebook.ProjectNotebookExportView.as_view(),
+        name="notebook-project-export",
+    ),
+    path(
+        "labs/<uuid:lab_id>/projects/<uuid:project_id>/notebook/<uuid:pentry_id>/",
+        notebook.ProjectNotebookEntryView.as_view(),
+        name="notebook-project-entry",
+    ),
+    path(
+        "labs/<uuid:lab_id>/projects/<uuid:project_id>/notebook/<uuid:pentry_id>/lock/",
+        notebook.ProjectNotebookLockView.as_view(),
+        name="notebook-project-lock",
     ),
     path(
         "labs/<uuid:lab_id>/subjects/<uuid:subject_id>/",

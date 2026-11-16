@@ -1214,6 +1214,11 @@ paths:
           - inventory_item.deleted
           - inventory.exported
           - inventory.imported
+          - notebook.created
+          - notebook.updated
+          - notebook.deleted
+          - notebook.locked
+          - notebook.exported
           - subject.created
           - subject.updated
           - subject.deleted
@@ -1386,6 +1391,11 @@ paths:
           * `inventory_item.deleted` - Inventory Item Deleted
           * `inventory.exported` - Inventory Exported
           * `inventory.imported` - Inventory Imported
+          * `notebook.created` - Notebook Created
+          * `notebook.updated` - Notebook Updated
+          * `notebook.deleted` - Notebook Deleted
+          * `notebook.locked` - Notebook Locked
+          * `notebook.exported` - Notebook Exported
           * `subject.created` - Subject Created
           * `subject.updated` - Subject Updated
           * `subject.deleted` - Subject Deleted
@@ -5043,6 +5053,200 @@ paths:
                 items:
                   $ref: '#/components/schemas/MyTask'
           description: ''
+  /api/labs/{lab_id}/notebook/:
+    get:
+      operationId: labs_notebook_list
+      description: Your own notebook in this lab. Rows of anyone else are simply not
+        there (404).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotebookEntry'
+          description: ''
+    post:
+      operationId: labs_notebook_create
+      description: Your own notebook in this lab. Rows of anyone else are simply not
+        there (404).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotebookEntryInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NotebookEntryInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NotebookEntryInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotebookEntry'
+          description: ''
+  /api/labs/{lab_id}/notebook/{entry_id}/:
+    patch:
+      operationId: labs_notebook_partial_update
+      description: Your own notebook in this lab. Rows of anyone else are simply not
+        there (404).
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedNotebookEntryInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedNotebookEntryInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedNotebookEntryInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotebookEntry'
+          description: ''
+    delete:
+      operationId: labs_notebook_destroy
+      description: Your own notebook in this lab. Rows of anyone else are simply not
+        there (404).
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/notebook/{entry_id}/lock/:
+    post:
+      operationId: labs_notebook_lock_create
+      description: Your own notebook in this lab. Rows of anyone else are simply not
+        there (404).
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotebookEntry'
+          description: ''
+  /api/labs/{lab_id}/notebook/export/:
+    get:
+      operationId: labs_notebook_export_retrieve
+      description: Your own notebook in this lab. Rows of anyone else are simply not
+        there (404).
+      parameters:
+      - in: query
+        name: fmt
+        schema:
+          type: string
+          enum:
+          - html
+          - json
+          - md
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            text/markdown:
+              schema:
+                type: string
+                format: binary
+          description: ''
   /api/labs/{lab_id}/notifications/:
     get:
       operationId: labs_notifications_list
@@ -7989,6 +8193,260 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/projects/{project_id}/notebook/:
+    get:
+      operationId: labs_projects_notebook_list
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotebookEntry'
+          description: ''
+    post:
+      operationId: labs_projects_notebook_create
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotebookEntryInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NotebookEntryInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NotebookEntryInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotebookEntry'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/notebook/{pentry_id}/:
+    patch:
+      operationId: labs_projects_notebook_partial_update
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: pentry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedNotebookEntryInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedNotebookEntryInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedNotebookEntryInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotebookEntry'
+          description: ''
+    delete:
+      operationId: labs_projects_notebook_destroy
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: pentry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/projects/{project_id}/notebook/{pentry_id}/lock/:
+    post:
+      operationId: labs_projects_notebook_lock_create
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: pentry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotebookEntry'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/notebook/export/:
+    get:
+      operationId: labs_projects_notebook_export_retrieve
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: query
+        name: fmt
+        schema:
+          type: string
+          enum:
+          - html
+          - json
+          - md
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            text/markdown:
+              schema:
+                type: string
+                format: binary
+          description: ''
   /api/labs/{lab_id}/projects/{project_id}/participant-cells/:
     get:
       operationId: labs_projects_participant_cells_list
@@ -11929,6 +12387,11 @@ components:
       - inventory_item.deleted
       - inventory.exported
       - inventory.imported
+      - notebook.created
+      - notebook.updated
+      - notebook.deleted
+      - notebook.locked
+      - notebook.exported
       - subject.created
       - subject.updated
       - subject.deleted
@@ -12100,6 +12563,11 @@ components:
         * `inventory_item.deleted` - Inventory Item Deleted
         * `inventory.exported` - Inventory Exported
         * `inventory.imported` - Inventory Imported
+        * `notebook.created` - Notebook Created
+        * `notebook.updated` - Notebook Updated
+        * `notebook.deleted` - Notebook Deleted
+        * `notebook.locked` - Notebook Locked
+        * `notebook.exported` - Notebook Exported
         * `subject.created` - Subject Created
         * `subject.updated` - Subject Updated
         * `subject.deleted` - Subject Deleted
@@ -17477,6 +17945,78 @@ components:
           maxLength: 20000
       required:
       - body
+    NotebookEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        project:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        author:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        entry_date:
+          type: string
+          format: date
+          readOnly: true
+        body:
+          type: string
+          readOnly: true
+        locked_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        locked_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        can_edit:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - author
+      - body
+      - can_edit
+      - created_at
+      - entry_date
+      - id
+      - locked_at
+      - locked_by
+      - project
+      - title
+      - updated_at
+    NotebookEntryInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        entry_date:
+          type: string
+          format: date
+        body:
+          type: string
+          maxLength: 100000
+      required:
+      - title
     Notification:
       type: object
       description: |-
@@ -19156,6 +19696,18 @@ components:
         body:
           type: string
           maxLength: 20000
+    PatchedNotebookEntryInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        entry_date:
+          type: string
+          format: date
+        body:
+          type: string
+          maxLength: 100000
     PatchedOnboardingItemInput:
       type: object
       properties:

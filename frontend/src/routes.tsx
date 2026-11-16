@@ -37,6 +37,8 @@ import ProtocolsTab from "@/pages/project/workflow/ProtocolsTab";
 import ParticipantsTab from "@/pages/project/workflow/ParticipantsTab";
 import { ParticipantsOverviewPage } from "@/pages/ParticipantsOverviewPage";
 import ParticipantPage from "@/pages/project/participants/ParticipantPage";
+import NotebookTab from "@/pages/project/NotebookTab";
+import { NotebookPage } from "@/pages/NotebookPage";
 import SubjectsTab from "@/pages/project/SubjectsTab";
 import ParticipantRegistry from "@/pages/project/participants/ParticipantRegistry";
 import ReviewTab from "@/pages/project/workflow/ReviewTab";
@@ -138,6 +140,7 @@ export const routes: RouteObject[] = [
               { index: true, element: <Navigate to="dashboard" replace /> },
               { path: "dashboard", element: <DashboardPage />, handle: { crumb: "Home" } },
               { path: "my-work", element: <MyWorkPage />, handle: { crumb: "My work" } },
+              { path: "notebook", element: <NotebookPage />, handle: { crumb: "My notebook" } },
               {
                 path: "participants",
                 element: <ParticipantsOverviewPage />,
@@ -205,6 +208,11 @@ export const routes: RouteObject[] = [
                             handle: { crumb: "Participant" },
                           },
                         ],
+                      },
+                      {
+                        path: "notebook",
+                        element: <ProjectTab as={NotebookTab} />,
+                        handle: { crumb: "Notebook" },
                       },
                       {
                         path: "subjects",

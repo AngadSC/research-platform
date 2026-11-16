@@ -45,6 +45,7 @@ from labs.models import (  # admin area (Run 4)
     InventoryItem,
     InventoryOrder,
     InventoryUsage,
+    NotebookEntry,
     Subject,
     Invite,
     Lab,
@@ -341,6 +342,21 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "labs:protocol-use"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "labs:inventory-usage"): "401 404 2 2 2 2 2 404 2",
     # Non-human subjects of a project (D329): read with view_project, write with edit_content.
+    # Notebooks (D330). Your own: only the author reaches an entry, anyone else gets 404. A
+    # project's: anyone who can edit writes; changing an entry needs its author or a lead
+    # (`lead` wrote the fixture's; pi and admin count as leads).
+    ("GET",    "labs:notebook-mine"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "labs:notebook-mine"): "401 404 2 2 2 2 2 2 403",
+    ("GET",    "labs:notebook-mine-export"): "401 404 2 2 2 2 2 2 2",
+    ("PATCH",  "labs:notebook-mine-entry"): "401 404 404 404 2 404 404 404 403",
+    ("DELETE", "labs:notebook-mine-entry"): "401 404 404 404 2 404 404 404 403",
+    ("POST",   "labs:notebook-mine-lock"): "401 404 404 404 2 404 404 404 403",
+    ("GET",    "labs:notebook-project"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "labs:notebook-project"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "labs:notebook-project-export"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "labs:notebook-project-entry"): "401 404 2 2 2 403 403 404 403",
+    ("DELETE", "labs:notebook-project-entry"): "401 404 2 2 2 403 403 404 403",
+    ("POST",   "labs:notebook-project-lock"): "401 404 2 2 2 403 403 404 403",
     ("GET",    "labs:subject-list"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "labs:subject-list"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "labs:subject-export"): "401 404 2 2 2 2 2 404 2",
@@ -870,7 +886,15 @@ def _protocol_fixtures(lab, project, user, tag):
     subject = Subject.objects.create(
         lab=lab, project=project, kind="animal", code=f"M-{tag}", created_by=user
     )
+    mine = NotebookEntry.objects.create(
+        lab=lab, author=user, title=f"Mine {tag}", entry_date="2026-01-05"
+    )
+    shared = NotebookEntry.objects.create(
+        lab=lab, project=project, author=user, title=f"Shared {tag}", entry_date="2026-01-05"
+    )
     return {
+        "entry_id": mine.pk,
+        "pentry_id": shared.pk,
         "subject_id": subject.pk,
         "protocol_id": protocol.pk,
         "reagent_id": reagent.pk,
@@ -1708,6 +1732,12 @@ PAYLOADS = {
         "reagent": w.a["reagent_id"],
         "request_id": str(uuid.uuid4()),
     },
+    ("POST", "labs:notebook-mine"): lambda user, w: {"title": "Day 1"},
+    ("PATCH", "labs:notebook-mine-entry"): lambda user, w: {"title": "Day 1, edited"},
+    ("POST", "labs:notebook-mine-lock"): lambda user, w: {},
+    ("POST", "labs:notebook-project-lock"): lambda user, w: {},
+    ("POST", "labs:notebook-project"): lambda user, w: {"title": "Shared note"},
+    ("PATCH", "labs:notebook-project-entry"): lambda user, w: {"title": "Edited"},
     ("POST", "labs:subject-list"): lambda user, w: {
         "kind": "animal",
         "code": f"M-{uuid.uuid4().hex[:8]}",
