@@ -122,6 +122,16 @@ urlpatterns = [
         name="google-chat-spaces",
     ),
     path(
+        "labs/<uuid:lab_id>/chat/google/threads/",
+        views.GoogleChatThreadsView.as_view(),
+        name="google-chat-threads",
+    ),
+    path(
+        "labs/<uuid:lab_id>/chat/google/import/",
+        views.GoogleChatImportView.as_view(),
+        name="google-chat-import",
+    ),
+    path(
         "labs/<uuid:lab_id>/chat/messages/read/",
         views.LabChatReadView.as_view(),
         name="labchat-read",

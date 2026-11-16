@@ -761,6 +761,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/chat/google/import/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description D327: copy a Google Chat thread or conversation into the lab chat, as messages. */
+        post: operations["labs_chat_google_import_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/chat/google/spaces/": {
         parameters: {
             query?: never;
@@ -770,6 +787,23 @@ export interface paths {
         };
         /** @description The spaces the caller's own Google Chat connection is in, to pick one (D318). */
         get: operations["labs_chat_google_spaces_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/chat/google/threads/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description D327: a conversation's recent threads, to import one into the lab chat. */
+        get: operations["labs_chat_google_threads_list"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2572,6 +2606,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/projects/{project_id}/chat/google/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description D325: a project chat's link to a Google Chat conversation. Whoever can read the project
+         *     chat sees whether it is linked; whoever can edit the project links and unlinks it, with
+         *     their own Google Chat connection (pick from `project-google-chat-spaces`).
+         */
+        get: operations["labs_projects_chat_google_retrieve"];
+        /**
+         * @description D325: a project chat's link to a Google Chat conversation. Whoever can read the project
+         *     chat sees whether it is linked; whoever can edit the project links and unlinks it, with
+         *     their own Google Chat connection (pick from `project-google-chat-spaces`).
+         */
+        put: operations["labs_projects_chat_google_update"];
+        post?: never;
+        /**
+         * @description D325: a project chat's link to a Google Chat conversation. Whoever can read the project
+         *     chat sees whether it is linked; whoever can edit the project links and unlinks it, with
+         *     their own Google Chat connection (pick from `project-google-chat-spaces`).
+         */
+        delete: operations["labs_projects_chat_google_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/chat/google/import/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description D327: copy a Google Chat thread or conversation into this project's chat, as messages. */
+        post: operations["labs_projects_chat_google_import_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/chat/google/spaces/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description D325: the conversations the caller's own connection is in, to link or import one. */
+        get: operations["labs_projects_chat_google_spaces_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/chat/google/threads/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+         *     or item the user cannot see is a 404 and HasPerm checks the project's perms.
+         *
+         *     - `<project_id>` in the URL (nested collections and the project itself): that project.
+         *     - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+         */
+        get: operations["labs_projects_chat_google_threads_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/projects/{project_id}/data-management-plan/": {
         parameters: {
             query?: never;
@@ -2897,66 +3019,6 @@ export interface paths {
          *     project and prefetches every nested link, so no list or detail makes per-row queries.
          */
         post: operations["labs_projects_funding_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/labs/{lab_id}/projects/{project_id}/google-chat/import/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * @description Project-nested: read with the caller's own Google Chat connection, so they see only the
-         *     spaces they are in, and import into a project they can add documents to.
-         */
-        post: operations["labs_projects_google_chat_import_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/labs/{lab_id}/projects/{project_id}/google-chat/spaces/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * @description Project-nested: read with the caller's own Google Chat connection, so they see only the
-         *     spaces they are in, and import into a project they can add documents to.
-         */
-        get: operations["labs_projects_google_chat_spaces_list"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/labs/{lab_id}/projects/{project_id}/google-chat/threads/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * @description Project-nested: read with the caller's own Google Chat connection, so they see only the
-         *     spaces they are in, and import into a project they can add documents to.
-         */
-        get: operations["labs_projects_google_chat_threads_list"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4706,6 +4768,7 @@ export interface components {
          *     * `calendar_feed.revoked` - Calendar Feed Revoked
          *     * `google_chat.linked` - Google Chat Linked
          *     * `google_chat.unlinked` - Google Chat Unlinked
+         *     * `google_chat.imported` - Google Chat Imported
          *     * `onboarding_item.created` - Onboarding Item Created
          *     * `onboarding_item.updated` - Onboarding Item Updated
          *     * `onboarding_item.deleted` - Onboarding Item Deleted
@@ -4782,7 +4845,7 @@ export interface components {
          *     * `file_link.created` - File Link Created
          * @enum {string}
          */
-        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "google_chat.linked" | "google_chat.unlinked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "participant.created" | "participant.updated" | "participant.archived" | "participant.restored" | "participant_component.created" | "participant_component.updated" | "participant_component.deleted" | "participant_cell.changed" | "participant_file.added" | "participant_file.changed" | "participant_file.removed" | "participant_reason.changed" | "participant.identifier_blocked" | "participant.imported" | "participant.import_undone" | "participant.files_matched" | "participant.links_checked" | "participant.tasks_created" | "participant_rule.saved" | "participant_rule.archived" | "participant_set.locked" | "participant_flow.exported" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
+        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "google_chat.linked" | "google_chat.unlinked" | "google_chat.imported" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "participant.created" | "participant.updated" | "participant.archived" | "participant.restored" | "participant_component.created" | "participant_component.updated" | "participant_component.deleted" | "participant_cell.changed" | "participant_file.added" | "participant_file.changed" | "participant_file.removed" | "participant_reason.changed" | "participant.identifier_blocked" | "participant.imported" | "participant.import_undone" | "participant.files_matched" | "participant.links_checked" | "participant.tasks_created" | "participant_rule.saved" | "participant_rule.archived" | "participant_set.locked" | "participant_flow.exported" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
         /**
          * @description * `read` - Read
          *     * `write` - Write
@@ -5106,11 +5169,16 @@ export interface components {
             /** Format: date */
             readonly due_date: string;
         };
-        /** @description D321: each emoji, how many, and whether the reader is one of them. */
+        /**
+         * @description `author` is null for a message from someone in the linked Google Chat with no account
+         *     here (D325); `external_author` names them.
+         */
         ChatMessage: {
             /** Format: uuid */
             readonly id: string;
-            readonly author: components["schemas"]["User"];
+            readonly author: components["schemas"]["User"] | null;
+            readonly external_author: string;
+            readonly source: components["schemas"]["Source395Enum"];
             readonly body: string;
             readonly reactions: components["schemas"]["Reaction"][];
             /** Format: date-time */
@@ -6114,7 +6182,13 @@ export interface components {
         };
         GoogleChatImportInput: {
             space: string;
+            /** @default  */
             thread: string;
+        };
+        GoogleChatImportResult: {
+            imported: number;
+            /** @description Already in this chat. */
+            skipped: number;
         };
         GoogleChatLinkInput: {
             space: string;
@@ -6122,13 +6196,22 @@ export interface components {
         GoogleChatSpace: {
             name: string;
             display_name: string;
+            kind: components["schemas"]["GoogleChatSpaceKindEnum"];
         };
+        /**
+         * @description * `space` - space
+         *     * `group_chat` - group_chat
+         *     * `direct_message` - direct_message
+         * @enum {string}
+         */
+        GoogleChatSpaceKindEnum: "space" | "group_chat" | "direct_message";
         GoogleChatStatus: {
             bridge: components["schemas"]["GoogleChatBridge"] | null;
             /** @description The site has a Google Chat app set up. */
             configured: boolean;
             /** @description You have connected Google Chat in this lab. */
             connected: boolean;
+            /** @description You may link or unlink this chat. */
             can_manage: boolean;
         };
         GoogleChatThread: {
@@ -6451,18 +6534,12 @@ export interface components {
             readonly id: string;
             readonly author: components["schemas"]["User"] | null;
             readonly external_author: string;
-            readonly source: components["schemas"]["LabChatMessageSourceEnum"];
+            readonly source: components["schemas"]["Source395Enum"];
             readonly body: string;
             readonly reactions: components["schemas"]["Reaction"][];
             /** Format: date-time */
             readonly created_at: string;
         };
-        /**
-         * @description * `app` - App
-         *     * `google_chat` - Google Chat
-         * @enum {string}
-         */
-        LabChatMessageSourceEnum: "app" | "google_chat";
         LabEvent: {
             /** Format: uuid */
             readonly id: string;
@@ -8076,6 +8153,12 @@ export interface components {
             rule: string;
         };
         /**
+         * @description * `app` - App
+         *     * `google_chat` - Google Chat
+         * @enum {string}
+         */
+        Source395Enum: "app" | "google_chat";
+        /**
          * @description * `funding` - funding
          *     * `ethics` - ethics
          *     * `participants` - participants
@@ -9570,6 +9653,7 @@ export interface operations {
                  *     * `calendar_feed.revoked` - Calendar Feed Revoked
                  *     * `google_chat.linked` - Google Chat Linked
                  *     * `google_chat.unlinked` - Google Chat Unlinked
+                 *     * `google_chat.imported` - Google Chat Imported
                  *     * `onboarding_item.created` - Onboarding Item Created
                  *     * `onboarding_item.updated` - Onboarding Item Updated
                  *     * `onboarding_item.deleted` - Onboarding Item Deleted
@@ -9645,7 +9729,7 @@ export interface operations {
                  *     * `dataset.participant_flag_changed` - Dataset Participant Flag Changed
                  *     * `file_link.created` - File Link Created
                  */
-                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "google_chat.linked" | "google_chat.unlinked" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "participant.created" | "participant.updated" | "participant.archived" | "participant.restored" | "participant_component.created" | "participant_component.updated" | "participant_component.deleted" | "participant_cell.changed" | "participant_file.added" | "participant_file.changed" | "participant_file.removed" | "participant_reason.changed" | "participant.identifier_blocked" | "participant.imported" | "participant.import_undone" | "participant.files_matched" | "participant.links_checked" | "participant.tasks_created" | "participant_rule.saved" | "participant_rule.archived" | "participant_set.locked" | "participant_flow.exported" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
+                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "google_chat.linked" | "google_chat.unlinked" | "google_chat.imported" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "participant.created" | "participant.updated" | "participant.archived" | "participant.restored" | "participant_component.created" | "participant_component.updated" | "participant_component.deleted" | "participant_cell.changed" | "participant_file.added" | "participant_file.changed" | "participant_file.removed" | "participant_reason.changed" | "participant.identifier_blocked" | "participant.imported" | "participant.import_undone" | "participant.files_matched" | "participant.links_checked" | "participant.tasks_created" | "participant_rule.saved" | "participant_rule.archived" | "participant_set.locked" | "participant_flow.exported" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
                 actor?: string;
                 /** @description Leave out views, downloads and other reads. */
                 changes_only?: boolean;
@@ -10098,6 +10182,33 @@ export interface operations {
             };
         };
     };
+    labs_chat_google_import_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleChatImportInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["GoogleChatImportInput"];
+                "multipart/form-data": components["schemas"]["GoogleChatImportInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleChatImportResult"];
+                };
+            };
+        };
+    };
     labs_chat_google_spaces_list: {
         parameters: {
             query?: never;
@@ -10115,6 +10226,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GoogleChatSpace"][];
+                };
+            };
+        };
+    };
+    labs_chat_google_threads_list: {
+        parameters: {
+            query: {
+                space: string;
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleChatThread"][];
                 };
             };
         };
@@ -13235,6 +13369,151 @@ export interface operations {
             };
         };
     };
+    labs_projects_chat_google_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleChatStatus"];
+                };
+            };
+        };
+    };
+    labs_projects_chat_google_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleChatLinkInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["GoogleChatLinkInput"];
+                "multipart/form-data": components["schemas"]["GoogleChatLinkInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleChatStatus"];
+                };
+            };
+        };
+    };
+    labs_projects_chat_google_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_projects_chat_google_import_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleChatImportInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["GoogleChatImportInput"];
+                "multipart/form-data": components["schemas"]["GoogleChatImportInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleChatImportResult"];
+                };
+            };
+        };
+    };
+    labs_projects_chat_google_spaces_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleChatSpace"][];
+                };
+            };
+        };
+    };
+    labs_projects_chat_google_threads_list: {
+        parameters: {
+            query: {
+                space: string;
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleChatThread"][];
+                };
+            };
+        };
+    };
     labs_projects_data_management_plan_retrieve: {
         parameters: {
             query?: never;
@@ -13794,80 +14073,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Funding"];
-                };
-            };
-        };
-    };
-    labs_projects_google_chat_import_create: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                lab_id: string;
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GoogleChatImportInput"];
-                "application/x-www-form-urlencoded": components["schemas"]["GoogleChatImportInput"];
-                "multipart/form-data": components["schemas"]["GoogleChatImportInput"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Document"];
-                };
-            };
-        };
-    };
-    labs_projects_google_chat_spaces_list: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                lab_id: string;
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GoogleChatSpace"][];
-                };
-            };
-        };
-    };
-    labs_projects_google_chat_threads_list: {
-        parameters: {
-            query: {
-                space: string;
-            };
-            header?: never;
-            path: {
-                lab_id: string;
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GoogleChatThread"][];
                 };
             };
         };

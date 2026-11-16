@@ -139,12 +139,13 @@ class GoogleChatStatusSerializer(serializers.Serializer):
     bridge = GoogleChatBridgeSerializer(allow_null=True)
     configured = serializers.BooleanField(help_text="The site has a Google Chat app set up.")
     connected = serializers.BooleanField(help_text="You have connected Google Chat in this lab.")
-    can_manage = serializers.BooleanField()
+    can_manage = serializers.BooleanField(help_text="You may link or unlink this chat.")
 
 
 class GoogleChatSpaceSerializer(serializers.Serializer):
     name = serializers.CharField()
     display_name = serializers.CharField()
+    kind = serializers.ChoiceField(choices=["space", "group_chat", "direct_message"])
 
 
 class GoogleChatThreadSerializer(serializers.Serializer):
@@ -156,7 +157,13 @@ class GoogleChatThreadSerializer(serializers.Serializer):
 
 class GoogleChatImportInputSerializer(serializers.Serializer):
     space = serializers.CharField(max_length=120)
-    thread = serializers.CharField(max_length=260)
+    # Blank: the conversation's latest messages, for a group chat or direct message (D325).
+    thread = serializers.CharField(max_length=260, required=False, allow_blank=True, default="")
+
+
+class GoogleChatImportResultSerializer(serializers.Serializer):
+    imported = serializers.IntegerField()
+    skipped = serializers.IntegerField(help_text="Already in this chat.")
 
 
 class GoogleChatLinkInputSerializer(serializers.Serializer):

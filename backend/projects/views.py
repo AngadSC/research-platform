@@ -12,7 +12,16 @@ from core.permissions import Perm, can
 from core.tenancy import project_of
 from core.views import LabScopedViewMixin
 from documents.models import Attachment, Document
+from labs import google_chat
 from labs.models import LabMembership
+from labs.serializers import (
+    GoogleChatImportInputSerializer,
+    GoogleChatImportResultSerializer,
+    GoogleChatLinkInputSerializer,
+    GoogleChatSpaceSerializer,
+    GoogleChatStatusSerializer,
+    GoogleChatThreadSerializer,
+)
 from projects import handover, services
 from projects.models import (
     ChatMessage,
@@ -398,6 +407,108 @@ class ChatReactionView(ProjectScopedMixin, generics.GenericAPIView):
         emoji = self.body(ReactionInputSerializer)["emoji"]
         message = reactions.toggle(self.get_queryset(), message.pk, request.user, emoji)
         return self.out(message)
+
+
+class ProjectGoogleChatView(ProjectScopedMixin, generics.GenericAPIView):
+    """D325: a project chat's link to a Google Chat conversation. Whoever can read the project
+    chat sees whether it is linked; whoever can edit the project links and unlinks it, with
+    their own Google Chat connection (pick from `project-google-chat-spaces`)."""
+
+    model = ChatMessage
+    serializer_class = GoogleChatStatusSerializer
+    nested = True
+    perms = {"GET": Perm.VIEW_PROJECT, "PUT": Perm.EDIT_PROJECT, "DELETE": Perm.EDIT_PROJECT}
+
+    def _status(self, request):
+        lab, user, project = request.lab, request.user, self.project
+        return Response(
+            GoogleChatStatusSerializer(
+                {
+                    "bridge": google_chat.bridge_for(lab, project),
+                    "configured": google_chat.PROVIDER.configured,
+                    "connected": google_chat.own_account(lab, user) is not None,
+                    "can_manage": can(user, Perm.EDIT_PROJECT, project),
+                }
+            ).data
+        )
+
+    def get(self, request, lab_id, project_id):
+        return self._status(request)
+
+    @extend_schema(request=GoogleChatLinkInputSerializer, responses=GoogleChatStatusSerializer)
+    def put(self, request, lab_id, project_id):
+        data = self.body(GoogleChatLinkInputSerializer)
+        google_chat.link_space(
+            lab=request.lab,
+            by=request.user,
+            space=data["space"],
+            project=self.project,
+            request=request,
+        )
+        return self._status(request)
+
+    @extend_schema(responses={204: None})
+    def delete(self, request, lab_id, project_id):
+        google_chat.unlink_space(
+            lab=request.lab, by=request.user, project=self.project, request=request
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ProjectGoogleChatSpacesView(ProjectScopedMixin, generics.GenericAPIView):
+    """D325: the conversations the caller's own connection is in, to link or import one."""
+
+    model = ChatMessage
+    serializer_class = GoogleChatSpaceSerializer
+    nested = True
+    pagination_class = None
+    perms = {"GET": Perm.EDIT_PROJECT}
+
+    @extend_schema(responses=GoogleChatSpaceSerializer(many=True))
+    def get(self, request, lab_id, project_id):
+        rows = google_chat.list_spaces(request.lab, request.user)
+        return Response(GoogleChatSpaceSerializer(rows, many=True).data)
+
+
+class ProjectGoogleChatThreadsView(ProjectScopedMixin, generics.GenericAPIView):
+    model = ChatMessage
+    serializer_class = GoogleChatThreadSerializer
+    nested = True
+    pagination_class = None
+    perms = {"GET": Perm.EDIT_PROJECT}
+
+    @extend_schema(
+        parameters=[OpenApiParameter("space", str, required=True)],
+        responses=GoogleChatThreadSerializer(many=True),
+    )
+    def get(self, request, lab_id, project_id):
+        rows = google_chat.list_threads(
+            request.lab, request.user, request.query_params.get("space", "")
+        )
+        return Response(GoogleChatThreadSerializer(rows, many=True).data)
+
+
+class ProjectGoogleChatImportView(ProjectScopedMixin, generics.GenericAPIView):
+    """D327: copy a Google Chat thread or conversation into this project's chat, as messages."""
+
+    model = ChatMessage
+    serializer_class = GoogleChatImportInputSerializer
+    nested = True
+    perms = {"POST": Perm.EDIT_PROJECT}
+
+    @extend_schema(
+        request=GoogleChatImportInputSerializer, responses=GoogleChatImportResultSerializer
+    )
+    def post(self, request, lab_id, project_id):
+        services.refuse_if_archived(self.project)
+        result = google_chat.import_messages(
+            lab=request.lab,
+            user=request.user,
+            project=self.project,
+            request=request,
+            **self.body(GoogleChatImportInputSerializer),
+        )
+        return Response(GoogleChatImportResultSerializer(result).data)
 
 
 class ChatReadView(ProjectScopedMixin, generics.GenericAPIView):

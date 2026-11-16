@@ -18,7 +18,6 @@ import { DataTable, HIDE_NARROW, HIDE_NARROWER, type Column } from "@/components
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
-import { GoogleEditorPanel } from "@/components/shared/GoogleEditorPanel";
 import { StatsLink } from "@/components/shared/StatsLink";
 import { LinkedFiles } from "@/components/shared/LinkedFiles";
 import {
@@ -58,9 +57,9 @@ import { LIVE_POLL_MS, useNewItemToasts } from "@/hooks/liveRefresh";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { UploadDialog } from "@/pages/project/UploadDialog";
 import { FromDriveButton } from "@/components/shared/FromDriveButton";
-import { GoogleChatImportButton } from "@/pages/project/GoogleChatImport";
 import { attachFromDrive } from "@/lib/drive";
 import { convertible, googleEditor, isImage } from "@/lib/googleFiles";
+import { openGooglePanel } from "@/lib/googlePanel";
 
 const isPdf = (a: Attachment) =>
   a.content_type === "application/pdf" || a.original_filename.toLowerCase().endsWith(".pdf");
@@ -154,8 +153,17 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
   const [embedding, setEmbedding] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [previewing, setPreviewing] = useState<Attachment | null>(null);
-  const [panel, setPanel] = useState<{ file: Attachment; edit: boolean } | null>(null);
-  const panelEditor = panel && googleEditor(panel.file);
+  // D326: the Google panel lives in the app shell, so it stays open on other pages.
+  const setPanel = ({ file, edit }: { file: Attachment; edit: boolean }) => {
+    const editor = googleEditor(file);
+    if (!editor) return;
+    openGooglePanel({
+      title: file.original_filename,
+      label: editor.label,
+      src: edit ? editor.edit : editor.preview,
+      openUrl: editor.edit,
+    });
+  };
   const base = `/labs/${labId}/projects/${projectId}`;
   const open = (id: string) => void navigate(`${base}/documents/${id}`);
   const add = () =>
@@ -374,11 +382,6 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
                 )
               }
             />
-            <GoogleChatImportButton
-              labId={labId}
-              projectId={projectId}
-              onImported={(doc) => open(doc.id)}
-            />
             <Button disabled={create.isPending} onClick={add}>
               <Plus className="size-4" /> New document
             </Button>
@@ -477,15 +480,6 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
           </DialogContent>
         </Dialog>
       </div>
-      {panel && panelEditor && (
-        <GoogleEditorPanel
-          title={panel.file.original_filename}
-          label={panelEditor.label}
-          src={panel.edit ? panelEditor.edit : panelEditor.preview}
-          openUrl={panelEditor.edit}
-          onClose={() => setPanel(null)}
-        />
-      )}
     </div>
   );
 }

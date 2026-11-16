@@ -1231,6 +1231,7 @@ paths:
           - calendar_feed.revoked
           - google_chat.linked
           - google_chat.unlinked
+          - google_chat.imported
           - onboarding_item.created
           - onboarding_item.updated
           - onboarding_item.deleted
@@ -1399,6 +1400,7 @@ paths:
           * `calendar_feed.revoked` - Calendar Feed Revoked
           * `google_chat.linked` - Google Chat Linked
           * `google_chat.unlinked` - Google Chat Unlinked
+          * `google_chat.imported` - Google Chat Imported
           * `onboarding_item.created` - Onboarding Item Created
           * `onboarding_item.updated` - Onboarding Item Updated
           * `onboarding_item.deleted` - Onboarding Item Deleted
@@ -2058,6 +2060,41 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/chat/google/import/:
+    post:
+      operationId: labs_chat_google_import_create
+      description: 'D327: copy a Google Chat thread or conversation into the lab chat,
+        as messages.'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleChatImportInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GoogleChatImportInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GoogleChatImportInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleChatImportResult'
+          description: ''
   /api/labs/{lab_id}/chat/google/spaces/:
     get:
       operationId: labs_chat_google_spaces_list
@@ -2082,6 +2119,36 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/GoogleChatSpace'
+          description: ''
+  /api/labs/{lab_id}/chat/google/threads/:
+    get:
+      operationId: labs_chat_google_threads_list
+      description: 'D327: a conversation''s recent threads, to import one into the
+        lab chat.'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: space
+        schema:
+          type: string
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GoogleChatThread'
           description: ''
   /api/labs/{lab_id}/chat/messages/:
     get:
@@ -6286,6 +6353,217 @@ paths:
               schema:
                 $ref: '#/components/schemas/Attachment'
           description: ''
+  /api/labs/{lab_id}/projects/{project_id}/chat/google/:
+    get:
+      operationId: labs_projects_chat_google_retrieve
+      description: |-
+        D325: a project chat's link to a Google Chat conversation. Whoever can read the project
+        chat sees whether it is linked; whoever can edit the project links and unlinks it, with
+        their own Google Chat connection (pick from `project-google-chat-spaces`).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleChatStatus'
+          description: ''
+    put:
+      operationId: labs_projects_chat_google_update
+      description: |-
+        D325: a project chat's link to a Google Chat conversation. Whoever can read the project
+        chat sees whether it is linked; whoever can edit the project links and unlinks it, with
+        their own Google Chat connection (pick from `project-google-chat-spaces`).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleChatLinkInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GoogleChatLinkInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GoogleChatLinkInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleChatStatus'
+          description: ''
+    delete:
+      operationId: labs_projects_chat_google_destroy
+      description: |-
+        D325: a project chat's link to a Google Chat conversation. Whoever can read the project
+        chat sees whether it is linked; whoever can edit the project links and unlinks it, with
+        their own Google Chat connection (pick from `project-google-chat-spaces`).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/projects/{project_id}/chat/google/import/:
+    post:
+      operationId: labs_projects_chat_google_import_create
+      description: 'D327: copy a Google Chat thread or conversation into this project''s
+        chat, as messages.'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleChatImportInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GoogleChatImportInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GoogleChatImportInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleChatImportResult'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/chat/google/spaces/:
+    get:
+      operationId: labs_projects_chat_google_spaces_list
+      description: 'D325: the conversations the caller''s own connection is in, to
+        link or import one.'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GoogleChatSpace'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/chat/google/threads/:
+    get:
+      operationId: labs_projects_chat_google_threads_list
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: space
+        schema:
+          type: string
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GoogleChatThread'
+          description: ''
   /api/labs/{lab_id}/projects/{project_id}/data-management-plan/:
     get:
       operationId: labs_projects_data_management_plan_retrieve
@@ -7129,117 +7407,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Funding'
-          description: ''
-  /api/labs/{lab_id}/projects/{project_id}/google-chat/import/:
-    post:
-      operationId: labs_projects_google_chat_import_create
-      description: |-
-        Project-nested: read with the caller's own Google Chat connection, so they see only the
-        spaces they are in, and import into a project they can add documents to.
-      parameters:
-      - in: path
-        name: lab_id
-        schema:
-          type: string
-          format: uuid
-        required: true
-      - in: path
-        name: project_id
-        schema:
-          type: string
-          format: uuid
-        required: true
-      tags:
-      - labs
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GoogleChatImportInput'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/GoogleChatImportInput'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/GoogleChatImportInput'
-        required: true
-      security:
-      - sessionAuth: []
-      responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Document'
-          description: ''
-  /api/labs/{lab_id}/projects/{project_id}/google-chat/spaces/:
-    get:
-      operationId: labs_projects_google_chat_spaces_list
-      description: |-
-        Project-nested: read with the caller's own Google Chat connection, so they see only the
-        spaces they are in, and import into a project they can add documents to.
-      parameters:
-      - in: path
-        name: lab_id
-        schema:
-          type: string
-          format: uuid
-        required: true
-      - in: path
-        name: project_id
-        schema:
-          type: string
-          format: uuid
-        required: true
-      tags:
-      - labs
-      security:
-      - sessionAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/GoogleChatSpace'
-          description: ''
-  /api/labs/{lab_id}/projects/{project_id}/google-chat/threads/:
-    get:
-      operationId: labs_projects_google_chat_threads_list
-      description: |-
-        Project-nested: read with the caller's own Google Chat connection, so they see only the
-        spaces they are in, and import into a project they can add documents to.
-      parameters:
-      - in: path
-        name: lab_id
-        schema:
-          type: string
-          format: uuid
-        required: true
-      - in: path
-        name: project_id
-        schema:
-          type: string
-          format: uuid
-        required: true
-      - in: query
-        name: space
-        schema:
-          type: string
-        required: true
-      tags:
-      - labs
-      security:
-      - sessionAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/GoogleChatThread'
           description: ''
   /api/labs/{lab_id}/projects/{project_id}/handover/:
     get:
@@ -11464,6 +11631,7 @@ components:
       - calendar_feed.revoked
       - google_chat.linked
       - google_chat.unlinked
+      - google_chat.imported
       - onboarding_item.created
       - onboarding_item.updated
       - onboarding_item.deleted
@@ -11631,6 +11799,7 @@ components:
         * `calendar_feed.revoked` - Calendar Feed Revoked
         * `google_chat.linked` - Google Chat Linked
         * `google_chat.unlinked` - Google Chat Unlinked
+        * `google_chat.imported` - Google Chat Imported
         * `onboarding_item.created` - Onboarding Item Created
         * `onboarding_item.updated` - Onboarding Item Updated
         * `onboarding_item.deleted` - Onboarding Item Deleted
@@ -12468,7 +12637,9 @@ components:
       - title
     ChatMessage:
       type: object
-      description: 'D321: each emoji, how many, and whether the reader is one of them.'
+      description: |-
+        `author` is null for a message from someone in the linked Google Chat with no account
+        here (D325); `external_author` names them.
       properties:
         id:
           type: string
@@ -12477,6 +12648,14 @@ components:
         author:
           allOf:
           - $ref: '#/components/schemas/User'
+          readOnly: true
+          nullable: true
+        external_author:
+          type: string
+          readOnly: true
+        source:
+          allOf:
+          - $ref: '#/components/schemas/Source395Enum'
           readOnly: true
         body:
           type: string
@@ -12494,8 +12673,10 @@ components:
       - author
       - body
       - created_at
+      - external_author
       - id
       - reactions
+      - source
     ChatMessageInput:
       type: object
       properties:
@@ -15174,10 +15355,21 @@ components:
           maxLength: 120
         thread:
           type: string
+          default: ''
           maxLength: 260
       required:
       - space
-      - thread
+    GoogleChatImportResult:
+      type: object
+      properties:
+        imported:
+          type: integer
+        skipped:
+          type: integer
+          description: Already in this chat.
+      required:
+      - imported
+      - skipped
     GoogleChatLinkInput:
       type: object
       properties:
@@ -15193,9 +15385,22 @@ components:
           type: string
         display_name:
           type: string
+        kind:
+          $ref: '#/components/schemas/GoogleChatSpaceKindEnum'
       required:
       - display_name
+      - kind
       - name
+    GoogleChatSpaceKindEnum:
+      enum:
+      - space
+      - group_chat
+      - direct_message
+      type: string
+      description: |-
+        * `space` - space
+        * `group_chat` - group_chat
+        * `direct_message` - direct_message
     GoogleChatStatus:
       type: object
       properties:
@@ -15211,6 +15416,7 @@ components:
           description: You have connected Google Chat in this lab.
         can_manage:
           type: boolean
+          description: You may link or unlink this chat.
       required:
       - bridge
       - can_manage
@@ -16061,7 +16267,7 @@ components:
           readOnly: true
         source:
           allOf:
-          - $ref: '#/components/schemas/LabChatMessageSourceEnum'
+          - $ref: '#/components/schemas/Source395Enum'
           readOnly: true
         body:
           type: string
@@ -16083,14 +16289,6 @@ components:
       - id
       - reactions
       - source
-    LabChatMessageSourceEnum:
-      enum:
-      - app
-      - google_chat
-      type: string
-      description: |-
-        * `app` - App
-        * `google_chat` - Google Chat
     LabEvent:
       type: object
       properties:
@@ -20107,6 +20305,14 @@ components:
       required:
       - name
       - rule
+    Source395Enum:
+      enum:
+      - app
+      - google_chat
+      type: string
+      description: |-
+        * `app` - App
+        * `google_chat` - Google Chat
     StageEnum:
       enum:
       - funding

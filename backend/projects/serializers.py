@@ -285,11 +285,14 @@ class ReactionsMixin(serializers.Serializer):
 
 
 class ChatMessageSerializer(ReactionsMixin, serializers.ModelSerializer):
-    author = UserSerializer(read_only=True)
+    """`author` is null for a message from someone in the linked Google Chat with no account
+    here (D325); `external_author` names them."""
+
+    author = UserSerializer(read_only=True, allow_null=True)
 
     class Meta:
         model = ChatMessage
-        fields = ["id", "author", "body", "reactions", "created_at"]
+        fields = ["id", "author", "external_author", "source", "body", "reactions", "created_at"]
         read_only_fields = fields
 
 

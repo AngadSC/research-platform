@@ -54,6 +54,7 @@ export type ChatMessage =
 export type GoogleChatStatus = Schemas["GoogleChatStatus"];
 export type GoogleChatSpace = Schemas["GoogleChatSpace"];
 export type GoogleChatThread = Schemas["GoogleChatThread"];
+export type GoogleChatImportResult = Schemas["GoogleChatImportResult"];
 export type LinkPreview = Schemas["LinkPreview"];
 export type ChatUnread = Schemas["ChatUnread"];
 export type TaskPost = Schemas["TaskPost"];

@@ -74,7 +74,7 @@ def delete_lab_message(*, message, by, request=None) -> None:
         lab_id, external_id = str(message.lab_id), message.external_id
         author_id = str(message.author_id) if message.author_id else ""
         transaction.on_commit(
-            lambda: jobs.delete_google_chat_message.delay(lab_id, external_id, author_id),
+            lambda: jobs.delete_google_chat_message.delay(lab_id, external_id, author_id, ""),
             robust=True,
         )
     message.delete()

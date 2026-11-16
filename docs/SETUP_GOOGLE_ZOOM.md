@@ -94,6 +94,7 @@ accounts (university or company) can use it; personal Gmail accounts cannot.
 3. **Add these scopes** to the consent screen:
    - `https://www.googleapis.com/auth/chat.messages`
    - `https://www.googleapis.com/auth/chat.spaces.readonly`
+   - `https://www.googleapis.com/auth/chat.memberships.readonly` (names group chats by member)
    - `https://www.googleapis.com/auth/directory.readonly`
    - `openid` and `https://www.googleapis.com/auth/userinfo.email`
 
@@ -106,7 +107,8 @@ accounts (university or company) can use it; personal Gmail accounts cannot.
    it in `INTEGRATION_GOOGLE_CHAT_CLIENT_ID` and `INTEGRATION_GOOGLE_CHAT_CLIENT_SECRET`.
 
 Then each person connects **Google Chat** under Settings, Integrations. A PI or lab admin opens
-**Lab chat**, clicks **Sync with Google Chat** and picks a space they are in.
+**Lab chat**, clicks **Sync with Google Chat** and picks a space, group chat or direct message
+they are in. A project lead does the same from the top of the project's chat.
 
 ---
 

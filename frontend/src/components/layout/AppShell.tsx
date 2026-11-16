@@ -19,6 +19,7 @@ import { useMe } from "@/hooks/workspace";
 import { useAccountTheme } from "@/lib/theme";
 import { AssistantDrawer } from "@/components/assistant/AssistantDrawer";
 import { NamePrompt } from "./NamePrompt";
+import { GoogleEditorHost } from "@/components/shared/GoogleEditorPanel";
 import { QuickCapture } from "./QuickCapture";
 import { greeting } from "@/lib/greeting";
 import { NotificationBell } from "./NotificationBell";
@@ -247,6 +248,7 @@ export function AppShell() {
       </div>
       <MobileTabBar labId={labId} onMore={() => setNavOpen(true)} />
       <QuickCapture />
+      <GoogleEditorHost />
       <CommandPalette labId={labId} onGo={(url) => void navigate(url)} />
       <Tutorial />
       <Toaster position="top-center" />

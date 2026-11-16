@@ -21,7 +21,7 @@ from projects.models import ProjectMembership, ProjectRole
 pytestmark = pytest.mark.django_db
 
 FILE_ID = "1AbC-dEf_9"
-FILE_URL = f"https://www.googleapis.com/drive/v3/files/{FILE_ID}?fields={google_drive.FIELDS}"
+FILE_URL = f"https://www.googleapis.com/drive/v3/files/{FILE_ID}?fields={google_drive.FIELDS}&supportsAllDrives=true"
 WEB = f"https://drive.google.com/file/d/{FILE_ID}/view"
 
 
@@ -229,7 +229,7 @@ def test_a_paper_takes_a_drive_pdf_only_and_explains_it_cannot_be_read(transport
 # ---- "Edit in Google" (VISION B3): a Word, Excel or PowerPoint upload copied into Drive
 
 COPY_ID = "gCopy-1"
-COPY_URL = f"https://www.googleapis.com/drive/v3/files/{COPY_ID}?fields={google_drive.FIELDS}"
+COPY_URL = f"https://www.googleapis.com/drive/v3/files/{COPY_ID}?fields={google_drive.FIELDS}&supportsAllDrives=true"
 DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 

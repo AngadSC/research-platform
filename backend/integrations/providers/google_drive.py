@@ -41,7 +41,9 @@ def fetch_item(account, external_id):
     (access lost) or trashed."""
     resp = http.send(
         "GET",
-        f"https://www.googleapis.com/drive/v3/files/{quote(external_id, safe='')}?fields={FIELDS}",
+        # supportsAllDrives: files in shared drives are otherwise "not found" (Google's default).
+        f"https://www.googleapis.com/drive/v3/files/{quote(external_id, safe='')}"
+        f"?fields={FIELDS}&supportsAllDrives=true",
         provider=PROVIDER,
         account=account,
     )

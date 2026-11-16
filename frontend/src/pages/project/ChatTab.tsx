@@ -1,4 +1,12 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { ArrowDown, ListPlus, MessagesSquare, Plus, SmilePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { EmojiPicker } from "@/components/composer/EmojiPicker";
@@ -24,6 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/auth";
+import { useGoogleChat } from "@/hooks/googleChat";
 import { useMentionPeople } from "@/hooks/mentions";
 import { CHAT_PAGE_SIZE, fetchOlderMessages, useChat } from "@/hooks/chat";
 import { personName, type ChatMessage } from "@/lib/api-types";
@@ -33,6 +42,7 @@ import { formErrors } from "@/lib/forms";
 import { parseGoogleLink } from "@/lib/googleLinks";
 import { MessageText } from "@/lib/markdown";
 import { cn } from "@/lib/utils";
+import { GoogleChatSync } from "@/pages/GoogleChatSync";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 
 const GROUP_GAP_MS = 5 * 60 * 1000;
@@ -230,8 +240,11 @@ function MessageRow({
 
 /** Keyed by project, so a draft or scroll position never carries over to another project. */
 export default function ChatTab({ labId, projectId, project }: ProjectTabProps) {
+  const google = useGoogleChat(labId, projectId).status.data?.bridge; // D325
   return (
     <ChatPanel
+      top={<GoogleChatSync labId={labId} projectId={projectId} compact />}
+      alsoSentTo={google ? `the Google Chat ${google.space_name || "conversation"}` : undefined}
       key={projectId}
       labId={labId}
       projectId={projectId}
@@ -252,6 +265,7 @@ export function ChatPanel({
   audience,
   inPanel,
   alsoSentTo,
+  top,
 }: {
   labId: string;
   projectId?: string;
@@ -262,6 +276,8 @@ export function ChatPanel({
   inPanel?: boolean;
   /** Where messages also go (the lab chat's Google Chat space, D318), said under the composer. */
   alsoSentTo?: string;
+  /** Above the messages: the project chat's Google Chat line (D325). */
+  top?: ReactNode;
 }) {
   const { email } = useAuth();
   const { messages, send, remove, react, markRead } = useChat(labId, projectId);
@@ -383,6 +399,7 @@ export function ChatPanel({
         inPanel ? "h-full min-h-0" : "h-[calc(100dvh-5.5rem)] min-h-96 md:h-[calc(100dvh-13.5rem)]",
       )}
     >
+      {top}
       <div
         ref={scroller}
         onScroll={onScroll}

@@ -476,7 +476,7 @@ def api_drive_picker_check_accept_and_job(w):
                 _dump(w.client(w.users[role]).get(_lab_url(w, "integrations/google/picker-token/")))
             )
 
-        file_url = f"https://www.googleapis.com/drive/v3/files/f9?fields={DRIVE_FIELDS}"
+        file_url = f"https://www.googleapis.com/drive/v3/files/f9?fields={DRIVE_FIELDS}&supportsAllDrives=true"
         item = {
             "name": "Raw.csv",
             "webViewLink": "https://drive.google.com/f9",

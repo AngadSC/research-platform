@@ -9,6 +9,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from core.tenancy import LabScopedModel
+from projects.models import ChatSource  # noqa: F401 - D316, shared by lab and project chat
 
 INVITE_TTL = timedelta(days=7)
 
@@ -139,11 +140,6 @@ class Invite(LabScopedModel):
 # ---------------------------------------------------------------- lab-wide chat and calendar
 
 
-class ChatSource(models.TextChoices):
-    APP = "app"
-    GOOGLE_CHAT = "google_chat"  # came in from the lab's Google Chat space (D316)
-
-
 class LabChatMessage(LabScopedModel):
     """One message in the lab's group chat: project chat's rules (D206), for every lab member.
 
@@ -178,8 +174,9 @@ class LabChatMessage(LabScopedModel):
 
 
 class GoogleChatBridge(LabScopedModel):
-    """The lab chat's link to one Google Chat space (D315 to D320). At most one per lab. Every
-    member may see that it exists and the space's name; only `manage_lab_integrations` sets it.
+    """A chat's link to one Google Chat conversation (D315 to D320, D325): the lab chat's (one
+    per lab, set by `manage_lab_integrations`) or a project chat's (one per project, set by whoever
+    can edit the project). Whoever can read that chat may see that it exists and its name.
 
     `account` is the Google Chat connection of whoever set it up: it reads the space, and posts
     for members who have not connected Google Chat themselves (D317)."""
@@ -189,10 +186,14 @@ class GoogleChatBridge(LabScopedModel):
     account = models.ForeignKey(
         "integrations.ConnectedAccount", on_delete=models.CASCADE, related_name="+"
     )
+    # D325: a project's chat instead of the lab chat. Null: the lab chat.
+    project = models.ForeignKey(
+        "projects.Project", on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
     )
-    space = models.CharField(max_length=120)  # `spaces/<id>`
+    space = models.CharField(max_length=120)  # `spaces/<id>`: a space, group chat or DM
     space_name = models.CharField(max_length=200, blank=True)
     # Google's createTime of the newest message read in, exactly as Google wrote it (nanoseconds),
     # so the next read asks for what is strictly newer.
@@ -200,10 +201,17 @@ class GoogleChatBridge(LabScopedModel):
     last_polled_at = models.DateTimeField(null=True, blank=True)
     last_error = models.CharField(max_length=200, blank=True)
 
-    lab_parents = ("account",)
+    lab_parents = ("account", "project")
 
     class Meta(LabScopedModel.Meta):
-        constraints = [models.UniqueConstraint(fields=["lab"], name="gchatbridge_one_per_lab")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lab"], condition=Q(project__isnull=True), name="gchatbridge_one_per_lab"
+            ),
+            models.UniqueConstraint(fields=["project"], name="gchatbridge_one_per_project"),
+            # One conversation feeds one chat, so a message never lands in two places.
+            models.UniqueConstraint(fields=["lab", "space"], name="gchatbridge_space_once"),
+        ]
 
     def __str__(self):
         return f"Lab chat to {self.space}"

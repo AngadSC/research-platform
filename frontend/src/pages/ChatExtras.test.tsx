@@ -66,7 +66,7 @@ describe("lab chat and Google Chat", () => {
     expect(await screen.findByText("Sleep lab")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Connect Google Chat" })).toBeInTheDocument();
     expect(
-      screen.getByText(/Messages are also sent to the Google Chat space Sleep lab/),
+      screen.getByText(/Messages are also sent to the Google Chat Sleep lab/),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Stop syncing" })).not.toBeInTheDocument();
   });
@@ -78,7 +78,7 @@ describe("lab chat and Google Chat", () => {
         "manage_lab_integrations",
       ]),
       [`GET ${L}/chat/google/spaces/`]: {
-        body: [{ name: "spaces/AAAA", display_name: "Sleep lab" }],
+        body: [{ name: "spaces/AAAA", display_name: "Sleep lab", kind: "space" }],
       },
       [`PUT ${L}/chat/google/`]: { body: status({ bridge, connected: true, can_manage: true }) },
     });
@@ -86,7 +86,7 @@ describe("lab chat and Google Chat", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Sync with Google Chat" }));
     const dialog = await screen.findByRole("dialog");
     await userEvent.click(within(dialog).getByRole("combobox"));
-    await userEvent.click(await screen.findByRole("option", { name: "Sleep lab" }));
+    await userEvent.click(await screen.findByRole("option", { name: /Sleep lab/ }));
     await userEvent.click(within(dialog).getByRole("button", { name: "Start syncing" }));
     await waitFor(() =>
       expect(calls.find((c) => c.method === "PUT")?.body).toEqual({ space: "spaces/AAAA" }),
@@ -176,5 +176,104 @@ describe("link cards", () => {
     );
     expect(await screen.findByRole("link", { name: "Cell atlas" })).toBeInTheDocument();
     expect(screen.getByText("A reference atlas")).toBeInTheDocument();
+  });
+});
+
+describe("project chat and Google Chat", () => {
+  const P = `${L}/projects/p1`;
+  const project = {
+    id: "p1",
+    name: "Sleep",
+    status: "active",
+    description: "",
+    my_permissions: ["view_project", "edit_project", "edit_content"],
+  };
+  const projectWorld = (google = status()) => ({
+    ...world([]),
+    [`GET ${L}/projects/`]: { body: [project] },
+    [`GET ${P}/`]: { body: project },
+    [`GET ${P}/messages/`]: { body: [] },
+    [`POST ${P}/messages/read/`]: { status: 204 },
+    [`GET ${P}/chat/google/`]: { body: google },
+    [`GET ${P}/documents/`]: { body: [] },
+    [`GET ${P}/datasets/`]: { body: [] },
+    [`GET ${P}/analyses/`]: { body: [] },
+    [`GET ${P}/results/`]: { body: [] },
+    [`GET ${P}/decisions/`]: { body: [] },
+    [`GET ${P}/manuscripts/`]: { body: [] },
+  });
+
+  it("links a project chat to a group chat", async () => {
+    const calls = mockFetch({
+      ...projectWorld(status({ connected: true, can_manage: true })),
+      [`GET ${P}/chat/google/spaces/`]: {
+        body: [{ name: "spaces/GRP1", display_name: "Dana, Eli", kind: "group_chat" }],
+      },
+      [`PUT ${P}/chat/google/`]: {
+        body: status({
+          bridge: { ...bridge, space: "spaces/GRP1", space_name: "Dana, Eli" },
+          connected: true,
+          can_manage: true,
+        }),
+      },
+    });
+    renderRoute("/labs/lab1/projects/p1/chat");
+    await userEvent.click(await screen.findByRole("button", { name: "Sync with Google Chat" }));
+    const dialog = await screen.findByRole("dialog", { name: "Sync with Google Chat" });
+    await userEvent.click(within(dialog).getByRole("combobox"));
+    const option = await screen.findByRole("option", { name: /Dana, Eli/ });
+    expect(option).toHaveTextContent("Group chat");
+    await userEvent.click(option);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Start syncing" }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "PUT")?.body).toEqual({ space: "spaces/GRP1" }),
+    );
+  });
+
+  it("says where a linked project chat's messages also go", async () => {
+    mockFetch(projectWorld(status({ bridge: { ...bridge, space_name: "Dana, Eli" } })));
+    renderRoute("/labs/lab1/projects/p1/chat");
+    expect(
+      await screen.findByText(/Messages are also sent to the Google Chat Dana, Eli/),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("importing from Google Chat into a chat (D327)", () => {
+  it("imports a group chat's latest messages into the lab chat", async () => {
+    const calls = mockFetch({
+      ...world([], status({ connected: true, can_manage: true }), [
+        "view_lab",
+        "manage_lab_integrations",
+      ]),
+      [`GET ${L}/chat/google/spaces/`]: {
+        body: [{ name: "spaces/GRP1", display_name: "Dana, Eli", kind: "group_chat" }],
+      },
+      [`POST ${L}/chat/google/import/`]: { body: { imported: 2, skipped: 1 } },
+    });
+    renderRoute("/labs/lab1/chat");
+    await userEvent.click(await screen.findByRole("button", { name: "Import messages" }));
+    const dialog = await screen.findByRole("dialog", { name: "Import from Google Chat" });
+    expect(within(dialog).getByText(/added to this chat as messages/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("combobox"));
+    await userEvent.click(await screen.findByRole("option", { name: /Dana, Eli/ }));
+    expect(within(dialog).getByText(/latest messages of this group chat/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Import" }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.path.endsWith("/import/"))?.body).toEqual({
+        space: "spaces/GRP1",
+        thread: "",
+      }),
+    );
+    expect(
+      await screen.findByText("Imported 2 messages; 1 message were already here"),
+    ).toBeInTheDocument();
+  });
+
+  it("is not offered to members who cannot link the chat", async () => {
+    mockFetch(world([], status({ bridge, connected: true, can_manage: false })));
+    renderRoute("/labs/lab1/chat");
+    expect(await screen.findByText("Sleep lab")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Import messages" })).toBeNull();
   });
 });

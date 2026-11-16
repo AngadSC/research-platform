@@ -41,6 +41,22 @@ urlpatterns = [
     ),
     path(_P + "messages/", views.ChatMessageListCreateView.as_view(), name="chatmessage-list"),
     path(_P + "messages/read/", views.ChatReadView.as_view(), name="chatmessage-read"),
+    path(_P + "chat/google/", views.ProjectGoogleChatView.as_view(), name="project-google-chat"),
+    path(
+        _P + "chat/google/spaces/",
+        views.ProjectGoogleChatSpacesView.as_view(),
+        name="project-google-chat-spaces",
+    ),
+    path(
+        _P + "chat/google/threads/",
+        views.ProjectGoogleChatThreadsView.as_view(),
+        name="project-google-chat-threads",
+    ),
+    path(
+        _P + "chat/google/import/",
+        views.ProjectGoogleChatImportView.as_view(),
+        name="project-google-chat-import",
+    ),
     path("labs/<uuid:lab_id>/chat/unread/", views.ChatUnreadView.as_view(), name="chat-unread"),
     path(
         "labs/<uuid:lab_id>/messages/<uuid:chatmessage_id>/",

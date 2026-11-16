@@ -46,6 +46,9 @@ function world(messages: unknown[], perms: string[] = []) {
     [`GET ${P}/messages/`]: { body: messages },
     [`POST ${P}/messages/read/`]: { status: 204 },
     [`GET ${L}/chat/unread/`]: { body: [] },
+    [`GET ${P}/chat/google/`]: {
+      body: { bridge: null, configured: false, connected: false, can_manage: false },
+    },
   };
 }
 

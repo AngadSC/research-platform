@@ -44,7 +44,9 @@ def read_content(account, external_id, max_bytes):
     only if Drive's own size for it is within `max_bytes`, and every body is cut off past
     `max_bytes` while it is read. Raises http.ResponseTooLarge or http.IntegrationError."""
     base = f"https://www.googleapis.com/drive/v3/files/{quote(external_id, safe='')}"
-    resp = _get_capped(account, f"{base}?fields=mimeType,size,trashed", max_bytes)
+    resp = _get_capped(
+        account, f"{base}?fields=mimeType,size,trashed&supportsAllDrives=true", max_bytes
+    )
     if resp is None:
         return None
     try:
@@ -61,6 +63,6 @@ def read_content(account, external_id, max_bytes):
     elif size > max_bytes:
         raise http.ResponseTooLarge("Google Drive: the file is too large")
     else:
-        url = f"{base}?alt=media"
+        url = f"{base}?alt=media&supportsAllDrives=true"
     resp = _get_capped(account, url, max_bytes)
     return None if resp is None else (resp.content, mime)

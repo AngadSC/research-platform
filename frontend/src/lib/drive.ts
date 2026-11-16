@@ -11,10 +11,16 @@ interface PickerResponse {
   action: string;
   docs?: PickerDoc[];
 }
+interface DocsViewT {
+  setIncludeFolders(on: boolean): DocsViewT;
+  setOwnedByMe(on: boolean): DocsViewT;
+  setEnableDrives(on: boolean): DocsViewT;
+  setLabel?(label: string): DocsViewT;
+}
 interface PickerNs {
   Action: { PICKED: string; CANCEL: string };
-  Feature: { MULTISELECT_ENABLED: string };
-  DocsView: new () => { setIncludeFolders(on: boolean): unknown };
+  Feature: { MULTISELECT_ENABLED: string; SUPPORT_DRIVES: string };
+  DocsView: new () => DocsViewT;
   PickerBuilder: new () => {
     enableFeature(feature: string): unknown;
     setAppId(id: string): unknown;
@@ -68,13 +74,20 @@ async function openPicker(opts: PickerOpts, multiple: boolean): Promise<PickedFi
   const g = window.google?.picker;
   if (!g) throw new Error("Google Drive could not be loaded. Try again.");
   return new Promise((resolve) => {
-    const view = new g.DocsView();
-    view.setIncludeFolders(false);
+    // Three tabs: your own Drive, files others shared with you (you need not own a file to bring
+    // it in, only be able to open it), and shared drives. Picking a file is what lets this app
+    // see it (drive.file), whoever owns it.
+    const mine = new g.DocsView().setIncludeFolders(false).setOwnedByMe(true);
+    const shared = new g.DocsView().setIncludeFolders(false).setOwnedByMe(false);
+    const drives = new g.DocsView().setIncludeFolders(false).setEnableDrives(true);
     const picker = new g.PickerBuilder();
     picker.setAppId(opts.appId);
     picker.setDeveloperKey(opts.apiKey);
     picker.setOAuthToken(opts.token);
-    picker.addView(view);
+    picker.addView(mine);
+    picker.addView(shared);
+    picker.addView(drives);
+    picker.enableFeature(g.Feature.SUPPORT_DRIVES);
     if (multiple) picker.enableFeature(g.Feature.MULTISELECT_ENABLED);
     picker.setCallback((r) => {
       if (r.action === g.Action.PICKED && r.docs?.length) {

@@ -7,7 +7,8 @@ Workspace accounts can use the Chat API.
 
 Scopes, all about Chat messages and spaces only:
 `chat.messages` reads and posts messages as the person (posting as each person, D317);
-`chat.spaces.readonly` lists the spaces they are in, so an admin can pick one;
+`chat.spaces.readonly` lists the spaces, group chats and direct messages they are in, so one
+can be picked; `chat.memberships.readonly` names an unnamed group chat by its members (D325);
 `directory.readonly` looks up the names of senders in the same Google Workspace, because Chat
 gives an app signed in as a person only the sender's number (D320);
 `openid` and `userinfo.email` name the account. The `sub` that names it is the same number Google
@@ -23,6 +24,7 @@ from integrations.providers import AuthType, Category, Provider
 API = "https://chat.googleapis.com/v1"
 MESSAGES = "https://www.googleapis.com/auth/chat.messages"
 SPACES = "https://www.googleapis.com/auth/chat.spaces.readonly"
+MEMBERSHIPS = "https://www.googleapis.com/auth/chat.memberships.readonly"
 EMAIL = "https://www.googleapis.com/auth/userinfo.email"
 DIRECTORY = "https://www.googleapis.com/auth/directory.readonly"
 PEOPLE = "https://people.googleapis.com/v1"
@@ -44,7 +46,7 @@ PROVIDER = Provider(
     metadata_only=False,
     writes=frozenset({"chat_messages"}),
     link_targets=frozenset(),
-    scopes=("openid", EMAIL, MESSAGES, SPACES, DIRECTORY),
+    scopes=("openid", EMAIL, MESSAGES, SPACES, MEMBERSHIPS, DIRECTORY),
     authorize_url="https://accounts.google.com/o/oauth2/v2/auth",
     token_url="https://oauth2.googleapis.com/token",
     revoke_url="https://oauth2.googleapis.com/revoke",

@@ -150,13 +150,29 @@ class Task(LabScopedModel):
         return self.title
 
 
+class ChatSource(models.TextChoices):
+    """Where a chat message came from (D316). Used by the lab chat and project chats."""
+
+    APP = "app"
+    GOOGLE_CHAT = "google_chat"  # from the linked Google Chat conversation
+
+
 class ChatMessage(LabScopedModel):
-    """One message in a project's group chat. Removal is a real delete (see services)."""
+    """One message in a project's group chat. Removal is a real delete (see services).
+
+    D325: with a Google Chat conversation linked, messages also come in from Google, as in the
+    lab chat (D316): `author` is null for a sender with no account here (or one who can't see the
+    project), and `external_author` names them."""
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="chat_messages")
-    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
     body = models.TextField()
     reactions = models.JSONField(default=dict, blank=True)  # {emoji: [user id, ...]}, D321
+    source = models.CharField(max_length=16, choices=ChatSource.choices, default=ChatSource.APP)
+    external_author = models.CharField(max_length=200, blank=True)
+    external_id = models.CharField(max_length=255, blank=True)  # the Google Chat message
 
     lab_parents = ("project",)
     permission_domain = "project"
@@ -164,6 +180,13 @@ class ChatMessage(LabScopedModel):
 
     class Meta(LabScopedModel.Meta):
         indexes = [models.Index(fields=["project", "created_at"], name="chatmessage_recent_idx")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lab", "external_id"],
+                condition=~models.Q(external_id=""),
+                name="chatmessage_one_per_external",
+            )
+        ]
 
     def __str__(self):
         return f"{self.author_id}: {self.body[:40]}"

@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as drive from "@/lib/drive";
@@ -221,6 +221,29 @@ describe("Google editor panel", () => {
     // The list stays on screen beside it.
     expect(screen.getByRole("cell", { name: "Methods" })).toBeInTheDocument();
     await userEvent.click(within(panel).getByRole("button", { name: "Close panel" }));
+    expect(screen.queryByRole("complementary", { name: /Talk in/ })).toBeNull();
+  });
+
+  it("stays open on other pages until its X is pressed (D326)", async () => {
+    mockFetch({
+      ...base(["edit_content"], files),
+      "GET /api/labs/lab1/": { body: makeLab(["view_lab"]) },
+      "GET /api/labs/lab1/chat/messages/": { body: [] },
+      "POST /api/labs/lab1/chat/messages/read/": { status: 204 },
+      "GET /api/labs/lab1/chat/google/": {
+        body: { bridge: null, configured: false, connected: false, can_manage: false },
+      },
+    });
+    const router = renderRoute(DOCS);
+    await userEvent.click(await screen.findByRole("button", { name: "Edit Talk" }));
+    const panel = await screen.findByRole("complementary", { name: /Talk in Google Slides/ });
+    const frame = within(panel).getByTitle("Talk");
+    await act(() => router.navigate("/labs/lab1/chat"));
+    expect(await screen.findByRole("region", { name: "Lab chat" })).toBeInTheDocument();
+    // The same frame, never reloaded: the person's place in the Doc is kept.
+    const still = screen.getByRole("complementary", { name: /Talk in Google Slides/ });
+    expect(within(still).getByTitle("Talk")).toBe(frame);
+    await userEvent.click(within(still).getByRole("button", { name: "Close panel" }));
     expect(screen.queryByRole("complementary", { name: /Talk in/ })).toBeNull();
   });
 

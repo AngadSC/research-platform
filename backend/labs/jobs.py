@@ -24,21 +24,26 @@ def poll_google_chat() -> int:
     retry_backoff=5,
     max_retries=5,
 )
-def relay_lab_chat_message(lab_id: str, message_id: str) -> bool:
-    """D317: post one lab chat message to the lab's Google Chat space."""
-    from labs.models import LabChatMessage
-
-    message = (
-        LabChatMessage.objects.for_lab(lab_id).select_related("author", "lab").filter(pk=message_id)
-    ).first()
+def relay_lab_chat_message(lab_id: str, message_id: str, project_id: str = "") -> bool:
+    """D317, D325: post one lab or project chat message to its linked Google Chat."""
+    model = google_chat._model(project_id or None)
+    related = ("author", "lab", "project") if project_id else ("author", "lab")
+    message = model.objects.for_lab(lab_id).select_related(*related).filter(pk=message_id).first()
     return google_chat.relay(message) if message is not None else False
 
 
 @shared_task(soft_time_limit=50, time_limit=60)
-def delete_google_chat_message(lab_id: str, external_id: str, author_id: str) -> None:
-    """D319: remove a deleted lab chat message from Google Chat too (best effort)."""
+def delete_google_chat_message(
+    lab_id: str, external_id: str, author_id: str, project_id: str = ""
+) -> None:
+    """D319: remove a deleted chat message from Google Chat too (best effort)."""
     from labs.models import Lab
+    from projects.models import Project
 
     lab = Lab.objects.filter(pk=lab_id).first()
-    if lab is not None:
-        google_chat.delete_remote(lab, external_id, author_id or None)
+    if lab is None:
+        return
+    project = Project.objects.for_lab(lab).filter(pk=project_id).first() if project_id else None
+    if project_id and project is None:
+        return
+    google_chat.delete_remote(lab, external_id, author_id or None, project)

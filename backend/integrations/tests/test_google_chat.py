@@ -302,9 +302,7 @@ def project(lab_users):
 
     lab, u = lab_users
     p = Project.objects.create(lab=lab, name="Atlas", created_by=u["pi"])
-    ProjectMembership.objects.create(
-        lab=lab, project=p, user=u["member"], role=ProjectRole.CONTRIBUTOR
-    )
+    ProjectMembership.objects.create(lab=lab, project=p, user=u["member"], role=ProjectRole.LEAD)
     return p
 
 
@@ -319,7 +317,7 @@ def test_threads_are_listed_newest_first(transport, lab_users, project):
         _google("x", "elsewhere") | {"thread": {"name": "spaces/OTHER/threads/T9"}},
     ]
     transport.on("GET", MESSAGES, response(200, {"messages": newest_first}))
-    url = reverse("documents:google-chat-threads", args=[lab.pk, project.pk])
+    url = reverse("projects:project-google-chat-threads", args=[lab.pk, project.pk])
     rows = api(u["member"]).get(url, {"space": SPACE}).json()
     assert [(r["name"], r["first"], r["count"]) for r in rows] == [
         (THREAD, "opening words", 2),
@@ -327,37 +325,60 @@ def test_threads_are_listed_newest_first(transport, lab_users, project):
     ]
 
 
-def test_importing_a_thread_makes_a_document(transport, lab_users, project):
-    from documents.models import Document
+def test_importing_a_thread_brings_its_messages_into_the_project_chat(
+    transport, lab_users, project
+):
+    from projects.models import ChatMessage
 
     lab, u = lab_users
     connect_chat(transport, u["member"], lab, "2002", "member@example.test")
-    transport.on("GET", f"{API}/{SPACE}", response(200, {"name": SPACE, "displayName": "Lab"}))
     transport.on("GET", PEOPLE, _people(("9", "Dana Example")))
     msgs = [
-        _google("m1", "Shall we rerun?", at="2099-01-01T10:00:00Z") | {"thread": {"name": THREAD}},
-        _google("m2", "Yes", sender="users/2002", at="2099-01-01T10:05:00Z")
+        _google("m1", "Shall we rerun?", at="2026-01-01T10:00:00Z") | {"thread": {"name": THREAD}},
+        _google("m2", "Yes", sender="users/2002", at="2026-01-01T10:05:00Z")
         | {"thread": {"name": THREAD}},
         _google("m3", "not this thread") | {"thread": {"name": f"{SPACE}/threads/T2"}},
+        _google("m4", "a bot", kind="BOT") | {"thread": {"name": THREAD}},
     ]
     transport.on("GET", MESSAGES, response(200, {"messages": msgs}))
-    url = reverse("documents:google-chat-import", args=[lab.pk, project.pk])
+    url = reverse("projects:project-google-chat-import", args=[lab.pk, project.pk])
     resp = api(u["member"]).post(url, {"space": SPACE, "thread": THREAD}, format="json")
-    assert resp.status_code == 201
-    doc = Document.objects.for_lab(lab).get(pk=resp.json()["id"])
-    assert doc.title == "Google Chat: Shall we rerun?" and doc.project == project
-    lines = ["".join(c["text"] for c in b["content"]) for b in doc.content]
-    assert lines[2] == "Dana Example, 2099-01-01 10:00: Shall we rerun?"
-    assert lines[3].startswith(u["member"].email + ", 2099-01-01 10:05: Yes")
-    assert len(lines) == 4
+    assert resp.json() == {"imported": 2, "skipped": 0}
+    rows = list(ChatMessage.objects.for_lab(lab).filter(project=project).order_by("created_at"))
+    assert [(r.author, r.external_author, r.body) for r in rows] == [
+        (None, "Dana Example", "Shall we rerun?"),
+        (u["member"], "", "Yes"),
+    ]
+    # They keep their own times, so they sit in the history where they were said.
+    assert rows[0].created_at.isoformat().startswith("2026-01-01T10:00")
+    assert all(r.source == ChatSource.GOOGLE_CHAT for r in rows)
     (call,) = transport.sent("GET", MESSAGES)
     assert call["params"]["filter"] == f'thread.name = "{THREAD}"'
+    # Imported messages are never sent back to Google, and a second import adds nothing.
+    assert not transport.sent("POST", MESSAGES)
+    again = api(u["member"]).post(url, {"space": SPACE, "thread": THREAD}, format="json")
+    assert again.json() == {"imported": 0, "skipped": 2}
+    assert AuditEvent.objects.filter(action=AuditAction.GOOGLE_CHAT_IMPORTED).count() == 2
+
+
+def test_importing_into_the_lab_chat_needs_manage_lab_integrations(transport, lab_users):
+    lab, u = lab_users
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    url = reverse("labs:google-chat-import", args=[lab.pk])
+    assert api(u["member"]).post(url, {"space": SPACE}, format="json").status_code == 403
+
+    connect_chat(transport, u["lab_admin"], lab, "1001", "admin@example.test")
+    transport.on("GET", PEOPLE, response(200, {"responses": []}))
+    transport.on("GET", MESSAGES, response(200, {"messages": [_google("m1", "hello")]}))
+    resp = api(u["lab_admin"]).post(url, {"space": SPACE}, format="json")
+    assert resp.json() == {"imported": 1, "skipped": 0}
+    assert LabChatMessage.objects.for_lab(lab).get().body == "hello"
 
 
 def test_import_refuses_a_thread_from_another_space(transport, lab_users, project):
     lab, u = lab_users
     connect_chat(transport, u["member"], lab, "2002", "member@example.test")
-    url = reverse("documents:google-chat-import", args=[lab.pk, project.pk])
+    url = reverse("projects:project-google-chat-import", args=[lab.pk, project.pk])
     resp = api(u["member"]).post(
         url, {"space": SPACE, "thread": "spaces/OTHER/threads/T1"}, format="json"
     )
@@ -398,3 +419,145 @@ def test_inbound_messages_are_capped_per_hour(transport, linked, monkeypatch):
     assert sync.poll_all() == 1
     bridge.refresh_from_db()
     assert bridge.cursor == "2099-01-01T00:00:01.000000Z" and bridge.last_error.startswith("Paused")
+
+
+# ------------------------------------------------------- group chats and project chats (D325)
+
+GROUP = "spaces/GRP1"
+GROUP_MESSAGES = f"{API}/{GROUP}/messages"
+
+
+def test_group_chats_and_messages_are_listed_by_their_members(transport, lab_users):
+    lab, u = lab_users
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    transport.on(
+        "GET",
+        f"{API}/spaces",
+        response(
+            200,
+            {
+                "spaces": [
+                    {"name": "spaces/S1", "displayName": "Lab", "spaceType": "SPACE"},
+                    {
+                        "name": GROUP,
+                        "spaceType": "GROUP_CHAT",
+                        "lastActiveTime": "2099-01-02T00:00:00Z",
+                    },
+                    {
+                        "name": "spaces/DM1",
+                        "spaceType": "DIRECT_MESSAGE",
+                        "lastActiveTime": "2099-01-01T00:00:00Z",
+                    },
+                ]
+            },
+        ),
+    )
+    members = lambda *ids: response(  # noqa: E731
+        200, {"memberships": [{"member": {"name": f"users/{i}"}} for i in ids]}
+    )
+    transport.on("GET", f"{API}/{GROUP}/members", members("2002", "9", "8"))
+    transport.on("GET", f"{API}/spaces/DM1/members", members("2002", "9"))
+    transport.on("GET", PEOPLE, _people(("9", "Dana Example"), ("8", "Eli Example")))
+    url = reverse("projects:project-google-chat-spaces", args=[lab.pk, _project(lab, u).pk])
+    rows = api(u["member"]).get(url).json()
+    assert rows == [
+        {"name": "spaces/S1", "display_name": "Lab", "kind": "space"},
+        {"name": GROUP, "display_name": "Dana Example, Eli Example", "kind": "group_chat"},
+        {"name": "spaces/DM1", "display_name": "Dana Example", "kind": "direct_message"},
+    ]
+
+
+def _project(lab, u):
+    from projects.models import Project, ProjectMembership, ProjectRole
+
+    p = Project.objects.for_lab(lab).filter(name="Sync").first()
+    if p is None:
+        p = Project.objects.create(lab=lab, name="Sync", created_by=u["pi"])
+        ProjectMembership.objects.create(
+            lab=lab, project=p, user=u["member"], role=ProjectRole.LEAD
+        )
+    return p
+
+
+@pytest.fixture
+def project_linked(transport, lab_users):
+    """A project lead links their project's chat to a group chat."""
+    lab, u = lab_users
+    p = _project(lab, u)
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    transport.on("GET", f"{API}/{GROUP}", response(200, {"name": GROUP, "spaceType": "GROUP_CHAT"}))
+    transport.on("GET", f"{API}/{GROUP}/members", response(200, {"memberships": []}))
+    url = reverse("projects:project-google-chat", args=[lab.pk, p.pk])
+    resp = api(u["member"]).put(url, {"space": GROUP}, format="json")
+    assert resp.status_code == 200, resp.content
+    return lab, u, p
+
+
+def test_a_project_chat_syncs_with_its_own_conversation(transport, project_linked):
+    from projects import services as project_services
+    from projects.models import ChatMessage
+
+    lab, u, p = project_linked
+    transport.on("POST", GROUP_MESSAGES, _posted(f"{GROUP}/messages/p1"))
+    message = project_services.post_message(project=p, by=u["member"], body="hello project")
+    (call,) = transport.sent("POST", GROUP_MESSAGES)
+    assert call["json"] == {"text": "hello project"}
+    message.refresh_from_db()
+    assert message.external_id == f"{GROUP}/messages/p1"
+
+    transport.on("GET", PEOPLE, response(200, {"responses": []}))
+    item = _google("x", "from google") | {"name": f"{GROUP}/messages/x"}
+    transport.on("GET", GROUP_MESSAGES, response(200, {"messages": [item]}))
+    sync.poll_all()
+    row = ChatMessage.objects.for_lab(lab).get(source=ChatSource.GOOGLE_CHAT)
+    assert row.project == p and row.author is None and row.body == "from google"
+    # The lab chat is untouched.
+    assert not LabChatMessage.objects.for_lab(lab).exists()
+    # Everyone on the project sees the link; it arrives in the project chat API.
+    seen = api(u["pi"]).get(reverse("projects:project-google-chat", args=[lab.pk, p.pk])).json()
+    assert seen["bridge"]["space"] == GROUP
+
+
+def test_only_project_editors_link_a_project_chat(transport, lab_users):
+    from projects.models import ProjectMembership, ProjectRole
+
+    lab, u = lab_users
+    p = _project(lab, u)
+    ProjectMembership.objects.create(lab=lab, project=p, user=u["viewer"], role=ProjectRole.VIEWER)
+    url = reverse("projects:project-google-chat", args=[lab.pk, p.pk])
+    assert api(u["viewer"]).get(url).status_code == 200
+    assert api(u["viewer"]).put(url, {"space": GROUP}, format="json").status_code == 403
+
+
+def test_one_conversation_feeds_one_chat(transport, linked):
+    lab, u, _, _ = linked  # the lab chat is linked to SPACE
+    p = _project(lab, u)
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    transport.on("GET", f"{API}/{SPACE}", response(200, {"name": SPACE, "displayName": "Lab"}))
+    url = reverse("projects:project-google-chat", args=[lab.pk, p.pk])
+    resp = api(u["member"]).put(url, {"space": SPACE}, format="json")
+    assert resp.status_code == 400 and "already linked" in str(resp.json())
+
+
+def test_importing_a_whole_group_chat(transport, lab_users):
+    from projects.models import ChatMessage
+
+    lab, u = lab_users
+    p = _project(lab, u)
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    transport.on("GET", PEOPLE, response(200, {"responses": []}))
+    newest_first = [
+        _google("b", "second", at="2026-01-01T10:05:00Z") | {"name": f"{GROUP}/messages/b"},
+        _google("a", "first", at="2026-01-01T10:00:00Z") | {"name": f"{GROUP}/messages/a"},
+    ]
+    transport.on("GET", GROUP_MESSAGES, response(200, {"messages": newest_first}))
+    url = reverse("projects:project-google-chat-import", args=[lab.pk, p.pk])
+    resp = api(u["member"]).post(url, {"space": GROUP}, format="json")
+    assert resp.json() == {"imported": 2, "skipped": 0}, resp.content
+    bodies = list(
+        ChatMessage.objects.for_lab(lab)
+        .filter(project=p)
+        .order_by("created_at")
+        .values_list("body", flat=True)
+    )
+    assert bodies == ["first", "second"]

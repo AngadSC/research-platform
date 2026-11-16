@@ -172,6 +172,14 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST", "projects:chatmessage-read"): "401 404 2 2 2 2 2 404 2",
     # D321: whoever can read a chat can react in it.
     ("POST", "projects:chatmessage-reactions"): "401 404 2 2 2 2 2 404 2",
+    # D325: a project chat's Google Chat link. Anyone on the project sees it; edit_project links.
+    ("GET", "projects:project-google-chat"): "401 404 2 2 2 2 2 404 2",
+    ("PUT", "projects:project-google-chat"): "401 404 2 2 2 403 403 404 403",
+    # D327: listing conversations and importing into the project chat need edit_project too.
+    ("GET", "projects:project-google-chat-spaces"): "401 404 2 2 2 403 403 404 403",
+    ("GET", "projects:project-google-chat-threads"): "401 404 2 2 2 403 403 404 403",
+    ("POST", "projects:project-google-chat-import"): "401 404 2 2 2 403 403 404 403",
+    ("DELETE", "projects:project-google-chat"): "401 404 2 2 2 403 403 404 403",
     ("GET", "projects:chat-unread"): "401 404 2 2 2 2 2 2 2",
     # --- task thread and links (Run 4, D141/D142) ---
     # Reading the thread needs view_project; posting and linking need edit_content. The fixture
@@ -194,10 +202,6 @@ MATRIX: dict[tuple[str, str], str] = {
     # edit_content, not edit_project, so contrib may delete. Download needs only view_project.
     ("GET",    "documents:document-list"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "documents:document-list"): "401 404 2 2 2 2 403 404 403",
-    # D320: importing a Google Chat thread makes a document, so it needs edit_content.
-    ("GET",    "documents:google-chat-spaces"): "401 404 2 2 2 2 403 404 403",
-    ("GET",    "documents:google-chat-threads"): "401 404 2 2 2 2 403 404 403",
-    ("POST",   "documents:google-chat-import"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:lab-document-list"): "401 404 2 2 2 2 2 2 2",
     ("POST",   "documents:lab-document-list"): "401 404 2 2 2 2 2 2 403",
     ("GET",    "documents:document-detail"): "401 404 2 2 2 2 2 404 2",
@@ -473,6 +477,8 @@ MATRIX: dict[tuple[str, str], str] = {
     ("PUT",    "labs:google-chat"): "401 404 2 2 403 403 403 403 403",
     ("DELETE", "labs:google-chat"): "401 404 2 2 403 403 403 403 403",
     ("GET",    "labs:google-chat-spaces"): "401 404 2 2 403 403 403 403 403",
+    ("GET",    "labs:google-chat-threads"): "401 404 2 2 403 403 403 403 403",  # D327
+    ("POST",   "labs:google-chat-import"): "401 404 2 2 403 403 403 403 403",
     # The calendar is a read for every member (rows are filtered: test_lab_tools.py); events need
     # contribute_lab, which the lab viewer lacks.
     ("GET",    "labs:calendar"): "401 404 2 2 2 2 2 2 2",
@@ -969,11 +975,7 @@ def _matrix_fake_provider(monkeypatch, settings):
     monkeypatch.setattr(lab_google_chat, "link_space", lambda **kw: None)
     monkeypatch.setattr(lab_google_chat, "list_threads", lambda lab, user, space: [])
     monkeypatch.setattr(
-        lab_google_chat,
-        "import_thread",
-        lambda *, project, user, space, thread: document_services.create_document(
-            project=project, user=user, title="Imported", content=[]
-        ),
+        lab_google_chat, "import_messages", lambda **kw: {"imported": 0, "skipped": 0}
     )
     monkeypatch.setattr(  # D322: no page is read in the matrix
         link_preview,
@@ -1462,10 +1464,8 @@ PAYLOADS = {
     ("POST", "projects:task-attachment-add"): lambda user, w: {"id": str(w.a["attachment_id"])},
     # --- end projects/tasks (Phase 3) ---
     # --- documents/attachments (Phase 3) ---
-    ("POST", "documents:google-chat-import"): lambda user, w: {
-        "space": "spaces/AAAA",
-        "thread": "spaces/AAAA/threads/T1",
-    },
+    ("POST", "labs:google-chat-import"): lambda user, w: {"space": "spaces/AAAA"},
+    ("POST", "projects:project-google-chat-import"): lambda user, w: {"space": "spaces/AAAA"},
     ("POST", "documents:document-list"): lambda user, w: {
         "title": "New doc",
         "content": [{"type": "paragraph"}],
@@ -1686,6 +1686,7 @@ PAYLOADS = {
     ("POST", "labs:labchat-list"): lambda user, w: {"body": "Hello"},
     ("POST", "labs:labchat-read"): lambda user, w: {"last_read_at": "2030-01-01T00:00:00Z"},
     ("PUT", "labs:google-chat"): lambda user, w: {"space": "spaces/AAAA"},
+    ("PUT", "projects:project-google-chat"): lambda user, w: {"space": "spaces/BBBB"},
     ("POST", "labs:labchat-reactions"): lambda user, w: {"emoji": "\U0001f44d"},
     ("GET", "labs:calendar"): lambda user, w: {"from": "2030-01-01", "to": "2030-01-31"},
     ("POST", "labs:labevent-list"): lambda user, w: {"title": "New", "date": "2030-02-01"},

@@ -1,9 +1,12 @@
-"""The lab chat and one Google Chat space, both ways (D315 to D320).
+"""The lab chat, or a project's chat, and one Google Chat conversation, both ways (D315 to D325).
 
-Out: each lab chat message is posted to the space as its author, through their own Google Chat
-connection; a member who has not connected (or is not in the space) is posted by the connection
-that set the link up, with their name in front (D317). In: the space is read every few seconds
-(`poll_all`, Celery beat) and new messages are added to the lab chat (D316).
+A conversation is a space, a group chat or a direct message: Google names all three
+`spaces/<id>`. Each chat links to at most one, and each conversation to at most one chat.
+
+Out: each chat message is posted there as its author, through their own Google Chat connection; a
+member who has not connected (or is not in it) is posted by the connection that set the link up,
+with their name in front (D317). In: the conversation is read every few seconds (`poll_all`,
+Celery beat) and new messages are added to the chat (D316).
 
 Every call goes through `integrations.http.send` with a connected account, so the host allow-list,
 token refresh, timeouts and the account's status rules all apply. Nothing but message text and
@@ -23,11 +26,12 @@ from rest_framework.exceptions import ValidationError
 
 from audit.models import AuditAction
 from audit.services import record
-from core.permissions import Perm, lab_role, require
+from core.permissions import Perm, can, lab_role, require
 from integrations.http import AccountUnavailable, IntegrationError, interactive, send
 from integrations.models import AccountStatus, ConnectedAccount
 from integrations.providers import google_chat
 from labs.models import ChatSource, GoogleChatBridge, LabChatMessage
+from projects.models import ChatMessage
 
 log = logging.getLogger(__name__)
 
@@ -63,8 +67,18 @@ def own_account(lab, user):
     )
 
 
-def bridge_for(lab):
-    return GoogleChatBridge.objects.for_lab(lab).select_related("account", "created_by").first()
+def bridge_for(lab, project=None):
+    """The lab chat's link, or with `project` that project chat's; None when not linked."""
+    qs = GoogleChatBridge.objects.for_lab(lab).select_related("account", "created_by", "project")
+    if project is None:
+        return qs.filter(project__isnull=True).first()
+    return qs.filter(project=project).first()
+
+
+def _model(bridge_or_project_id):
+    """The message model a link feeds: project chat or lab chat."""
+    pid = getattr(bridge_or_project_id, "project_id", bridge_or_project_id)
+    return ChatMessage if pid else LabChatMessage
 
 
 def _call(account, method, url, **kwargs):
@@ -92,29 +106,72 @@ def _call(account, method, url, **kwargs):
     raise RemoteError({"space": ["Google Chat refused the request. Try again."]})
 
 
+KINDS = {"SPACE": "space", "GROUP_CHAT": "group_chat", "DIRECT_MESSAGE": "direct_message"}
+LABELLED = 20  # unnamed group chats and messages named by their members, most recent first
+
+
+def _members_label(account, space) -> str:
+    """An unnamed group chat or direct message, named by its other members ("Ana, Ben +2")."""
+    try:
+        resp = send(
+            "GET",
+            f"{API}/{quote(space, safe='/')}/members",
+            provider=PROVIDER,
+            account=account,
+            params={"pageSize": 20},
+        )
+        rows = resp.json().get("memberships", []) if resp.status_code == 200 else []
+        ids = [
+            str((m.get("member") or {}).get("name", "")).removeprefix("users/")
+            for m in rows
+            if isinstance(m, dict)
+        ]
+    except (AccountUnavailable, IntegrationError, ValueError, AttributeError):
+        return ""
+    ids = [i for i in ids if i and i != account.external_account_id]
+    names = google_names(account, ids)
+    shown = [names[i] for i in ids if i in names][:3]
+    more = len(ids) - len(shown)
+    return ", ".join(shown) + (f" +{more}" if shown and more > 0 else "")
+
+
 @interactive
 def list_spaces(lab, user) -> list[dict]:
-    """The named spaces `user` is in, for the picker. Direct messages and group chats without a
-    name are left out: the lab chat goes to a space."""
+    """The conversations `user` is in, for a picker: spaces by name, then group chats and direct
+    messages, most recently active first, named by their members (D325)."""
     account = own_account(lab, user)
     if account is None:
         raise RemoteError({"space": ["Connect Google Chat in Integrations first."]})
-    resp = _call(
-        account,
-        "GET",
-        f"{API}/spaces",
-        params={"pageSize": 200, "filter": 'spaceType = "SPACE"'},
-    )
+    resp = _call(account, "GET", f"{API}/spaces", params={"pageSize": 1000})
     try:
         spaces = resp.json().get("spaces", [])
-        out = [
-            {"name": str(s["name"]), "display_name": str(s.get("displayName", ""))[:200]}
-            for s in spaces
-            if re.fullmatch(google_chat.SPACE_PATTERN, str(s.get("name", "")))
+        rows = [
+            {
+                "name": str(sp["name"]),
+                "display_name": str(sp.get("displayName", ""))[:200],
+                "kind": KINDS.get(str(sp.get("spaceType", "")), "space"),
+                "active": _parse_time(sp.get("lastActiveTime")),
+            }
+            for sp in spaces
+            if isinstance(sp, dict)
+            and re.fullmatch(google_chat.SPACE_PATTERN, str(sp.get("name", "")))
         ]
     except (ValueError, KeyError, TypeError, AttributeError) as exc:
         raise RemoteError({"space": ["Google Chat sent an answer we could not read."]}) from exc
-    return sorted(out, key=lambda s: s["display_name"].lower())
+    named = sorted(
+        (r for r in rows if r["kind"] == "space"), key=lambda r: r["display_name"].lower()
+    )
+    chats = sorted(
+        (r for r in rows if r["kind"] != "space"),
+        key=lambda r: r["active"] or timezone.now().replace(year=1970),
+        reverse=True,
+    )[:LABELLED]
+    for r in chats:
+        if not r["display_name"]:
+            r["display_name"] = _members_label(account, r["name"]) or (
+                "Direct message" if r["kind"] == "direct_message" else "Group chat"
+            )
+    return [{k: r[k] for k in ("name", "display_name", "kind")} for r in named + chats]
 
 
 def _cursor(moment) -> str:
@@ -134,10 +191,11 @@ def _parse_time(value):
 
 @interactive
 @transaction.atomic
-def link_space(*, lab, by, space, request=None) -> GoogleChatBridge:
-    """Point the lab chat at `space`, read and posted through `by`'s own connection. Only
-    messages sent from now on cross over: nothing older is copied either way."""
-    require(by, Perm.MANAGE_LAB_INTEGRATIONS, lab)
+def link_space(*, lab, by, space, project=None, request=None) -> GoogleChatBridge:
+    """Point the lab chat (or `project`'s chat) at `space`, read and posted through `by`'s own
+    connection. Only messages sent from now on cross over: nothing older is copied either way.
+    The lab chat needs `manage_lab_integrations`; a project chat `edit_project` (D325)."""
+    _require_manage(by, lab, project)
     account = own_account(lab, by)
     if account is None:
         raise RemoteError({"space": ["Connect Google Chat in Integrations first."]})
@@ -149,12 +207,19 @@ def link_space(*, lab, by, space, request=None) -> GoogleChatBridge:
         data = resp.json()
         if data.get("name") != space:
             raise ValueError
-        name = str(data.get("displayName", ""))[:200]
+        name = str(data.get("displayName", ""))[:200] or _members_label(account, space)
     except (ValueError, TypeError, AttributeError) as exc:
         raise RemoteError({"space": ["Google Chat sent an answer we could not read."]}) from exc
-    bridge = GoogleChatBridge.objects.for_lab(lab).select_for_update().first()
+    bridge = _bridges(lab, project).select_for_update().first()
+    others = GoogleChatBridge.objects.for_lab(lab).filter(space=space)
+    if bridge is not None:
+        others = others.exclude(pk=bridge.pk)
+    if others.exists():  # one conversation feeds one chat
+        raise ValidationError(
+            {"space": ["That conversation is already linked to another chat here."]}
+        )
     if bridge is None:
-        bridge = GoogleChatBridge(lab=lab)
+        bridge = GoogleChatBridge(lab=lab, project=project)
     bridge.account = account
     bridge.created_by = by
     bridge.space = space
@@ -169,15 +234,27 @@ def link_space(*, lab, by, space, request=None) -> GoogleChatBridge:
         lab=lab,
         target=bridge,
         request=request,
-        metadata={"space": space},
+        metadata={"space": space, **({"project": str(project.pk)} if project else {})},
     )
     return bridge
 
 
+def _bridges(lab, project):
+    qs = GoogleChatBridge.objects.for_lab(lab)
+    return qs.filter(project=project) if project else qs.filter(project__isnull=True)
+
+
+def _require_manage(user, lab, project):
+    if project is None:
+        require(user, Perm.MANAGE_LAB_INTEGRATIONS, lab)
+    else:
+        require(user, Perm.EDIT_PROJECT, project)
+
+
 @transaction.atomic
-def unlink_space(*, lab, by, request=None) -> None:
-    require(by, Perm.MANAGE_LAB_INTEGRATIONS, lab)
-    bridge = GoogleChatBridge.objects.for_lab(lab).select_for_update().first()
+def unlink_space(*, lab, by, project=None, request=None) -> None:
+    _require_manage(by, lab, project)
+    bridge = _bridges(lab, project).select_for_update().first()
     if bridge is None:
         return
     record(
@@ -186,18 +263,20 @@ def unlink_space(*, lab, by, request=None) -> None:
         lab=lab,
         target=bridge,
         request=request,
-        metadata={"space": bridge.space},
+        metadata={"space": bridge.space, **({"project": str(project.pk)} if project else {})},
     )
     bridge.delete()
 
 
 def _usable(bridge) -> bool:
-    """The link works only while its connection is active and its owner still in the lab."""
+    """The link works only while its connection is active and its owner still in the lab (and,
+    for a project chat, still able to see the project)."""
     account = bridge.account
     return (
         account.status == AccountStatus.ACTIVE
         and account.user.is_active
         and lab_role(account.user, bridge.lab) is not None
+        and (bridge.project_id is None or can(account.user, Perm.VIEW_PROJECT, bridge.project))
     )
 
 
@@ -217,13 +296,14 @@ def to_google_text(body: str) -> str:
 
 
 def queue_relay(message) -> None:
-    """After the post commits: relay it, if the lab chat is linked."""
-    if not GoogleChatBridge.objects.for_lab(message.lab_id).exists():
+    """After the post commits: relay it, if its chat (lab or project) is linked."""
+    project_id = getattr(message, "project_id", None)
+    if not _bridges(message.lab_id, project_id).exists():
         return
     from labs import jobs
 
-    lab_id, pk = str(message.lab_id), str(message.pk)
-    transaction.on_commit(lambda: jobs.relay_lab_chat_message.delay(lab_id, pk), robust=True)
+    lab_id, pk, pid = str(message.lab_id), str(message.pk), str(project_id or "")
+    transaction.on_commit(lambda: jobs.relay_lab_chat_message.delay(lab_id, pk, pid), robust=True)
 
 
 def _post(account, bridge, message, text) -> str | None:
@@ -265,9 +345,9 @@ def _relayed(message, text) -> str:
 
 
 def relay(message) -> bool:
-    """Post one lab chat message to the space. As its author when they have connected Google
-    Chat and are in the space; otherwise through the link's connection with their name first."""
-    bridge = bridge_for(message.lab)
+    """Post one chat message to its linked conversation. As its author when they have connected
+    Google Chat and are in it; otherwise through the link's connection with their name first."""
+    bridge = bridge_for(message.lab, getattr(message, "project", None))
     if bridge is None or message.source != ChatSource.APP or message.external_id:
         return False
     if not _usable(bridge):
@@ -295,16 +375,14 @@ def relay(message) -> bool:
         _fail(bridge, "Google Chat refused a message. Check the space still exists.")
         return False
     if name:
-        LabChatMessage.objects.for_lab(message.lab_id).filter(pk=message.pk).update(
-            external_id=name
-        )
+        type(message).objects.for_lab(message.lab_id).filter(pk=message.pk).update(external_id=name)
     return True
 
 
-def delete_remote(lab, external_id, author_id) -> None:
+def delete_remote(lab, external_id, author_id, project=None) -> None:
     """Best effort: remove a message we posted, as whoever can (its author's own connection,
     then the link's). Google allows deleting your own messages only, so one of them can."""
-    bridge = bridge_for(lab)
+    bridge = bridge_for(lab, project)
     if bridge is None or not external_id.startswith(bridge.space + "/messages/"):
         return
     accounts = []
@@ -394,9 +472,10 @@ def google_names(account, user_ids) -> dict[str, str]:
     return {i: n for i, n in out.items() if n}
 
 
-def _authors(lab) -> dict[str, object]:
-    """Google user id -> lab member, from members' active Google Chat connections. The id was
-    named by Google when they connected, so no one can claim someone else's."""
+def _authors(lab, project=None) -> dict[str, object]:
+    """Google user id -> lab member (who can see `project`, if given), from members' active
+    Google Chat connections. The id was named by Google when they connected, so no one can
+    claim someone else's."""
     rows = (
         ConnectedAccount.objects.for_lab(lab)
         .filter(provider=PROVIDER.name)
@@ -406,7 +485,12 @@ def _authors(lab) -> dict[str, object]:
     holders: dict[str, set] = {}
     users = {}
     for r in rows:
-        if r.status == AccountStatus.ACTIVE and r.user.is_active and lab_role(r.user, lab):
+        if (
+            r.status == AccountStatus.ACTIVE
+            and r.user.is_active
+            and lab_role(r.user, lab)
+            and (project is None or can(r.user, Perm.VIEW_PROJECT, project))
+        ):
             holders.setdefault(r.external_account_id, set()).add(r.user_id)
             users[r.user_id] = r.user
     # A Google account several members connected (a shared login) credits none of them.
@@ -414,7 +498,7 @@ def _authors(lab) -> dict[str, object]:
 
 
 def poll(bridge) -> int:
-    """Read the space's new messages into the lab chat. Returns how many were added."""
+    """Read the conversation's new messages into its chat. Returns how many were added."""
     if not _usable(bridge):
         _fail(bridge, "The Google Chat connection that set this up is no longer active.")
         return 0
@@ -448,7 +532,9 @@ def poll(bridge) -> int:
         _fail(bridge, "Google Chat sent an answer we could not read.")
         return 0
 
-    authors = _authors(bridge.lab)
+    authors = _authors(bridge.lab, bridge.project)
+    model = _model(bridge)
+    where = {"project": bridge.project} if bridge.project_id else {}
     strangers = {
         str((i.get("sender") or {}).get("name", "")).removeprefix("users/")
         for i in items
@@ -458,8 +544,12 @@ def poll(bridge) -> int:
     added = 0
     cursor = bridge.cursor
     room = INBOUND_PER_HOUR - (
-        LabChatMessage.objects.for_lab(bridge.lab_id)
-        .filter(source=ChatSource.GOOGLE_CHAT, created_at__gte=timezone.now() - timedelta(hours=1))
+        model.objects.for_lab(bridge.lab_id)
+        .filter(
+            source=ChatSource.GOOGLE_CHAT,
+            created_at__gte=timezone.now() - timedelta(hours=1),
+            **where,
+        )
         .count()
     )
     paused = ""
@@ -494,7 +584,8 @@ def poll(bridge) -> int:
             )[:200]
         try:
             with transaction.atomic():
-                LabChatMessage.objects.create(
+                model.objects.create(
+                    **where,
                     lab=bridge.lab,
                     author=author,
                     external_author=external_author,
@@ -512,32 +603,28 @@ def poll(bridge) -> int:
 
 
 def poll_all() -> int:
-    """The scheduled run: every linked lab, one at a time, never two runs on one link."""
+    """The scheduled run: every link, lab by lab, never two runs on one link."""
     from labs.models import Lab
 
     added = 0
-    # Each lab is read alone (D18), like the other scheduled jobs: no query across labs.
-    for lab in Lab.objects.all():
-        bridge = (
-            GoogleChatBridge.objects.for_lab(lab)
-            .select_related("lab", "account", "account__user")
-            .first()
+    for lab in Lab.objects.all():  # lab by lab, as every job does (D49)
+        bridges = GoogleChatBridge.objects.for_lab(lab).select_related(
+            "lab", "project", "account", "account__user"
         )
-        if bridge is None:
-            continue
-        key = f"google-chat-poll:{bridge.pk}"
-        if not cache.add(key, 1, LOCK_SECONDS):
-            continue
-        try:
-            added += poll(bridge)
-        except Exception:  # noqa: BLE001 - one lab's failure never stops the others
-            log.exception("google_chat poll failed")
-        finally:
-            cache.delete(key)
+        for bridge in bridges:
+            key = f"google-chat-poll:{bridge.pk}"
+            if not cache.add(key, 1, LOCK_SECONDS):
+                continue
+            try:
+                added += poll(bridge)
+            except Exception:  # noqa: BLE001 - one link's failure never stops the others
+                log.exception("google_chat poll failed")
+            finally:
+                cache.delete(key)
     return added
 
 
-# ---------------------------------------------------------------- a thread into a project (D320)
+# ------------------------------------------------------- importing into a chat (D320, D327)
 
 THREAD_SCAN = 500  # recent messages read to find a space's threads
 THREAD_MAX = 1000  # messages imported from one thread at most
@@ -597,74 +684,103 @@ def list_threads(lab, user, space) -> list[dict]:
     return rows[:THREADS_SHOWN]
 
 
-def _block(text, *, bold_prefix="", kind="paragraph", **props) -> dict:
-    content = []
-    if bold_prefix:
-        content.append({"type": "text", "text": bold_prefix, "styles": {"bold": True}})
-    if text:
-        content.append({"type": "text", "text": text, "styles": {}})
-    return {"type": kind, "props": props, "content": content, "children": []}
-
-
 @interactive
-def import_thread(*, project, user, space, thread):
-    """One thread as a new document in `project`: who said what, and when (UTC). Read as
-    `user`; the document is theirs like any other they make (D320)."""
-    from documents.services import create_document
-
+def import_messages(*, lab, user, space, thread="", project=None, request=None) -> dict:
+    """Copy one thread, or with no `thread` the conversation's latest messages, into the lab
+    chat or `project`'s chat (D327). Read as `user`, so only conversations they are in. Each
+    message keeps its sender (a member, as for synced messages, else their Google name) and its
+    time, so it sits in the history where it was said and never counts as unread. Already-copied
+    or synced messages are skipped. Nothing is sent back to Google, no one is notified and our
+    mention syntax is broken up, as for synced messages (D316). Only whoever may link that chat
+    may import into it, since the messages appear under other people's names."""
+    _require_manage(user, lab, project)
     _space_ok(space)
-    if not re.fullmatch(google_chat.THREAD_PATTERN, thread or "") or not thread.startswith(
-        space + "/threads/"
+    if thread and (
+        not re.fullmatch(google_chat.THREAD_PATTERN, thread)
+        or not thread.startswith(space + "/threads/")
     ):
         raise ValidationError({"thread": ["Pick a thread from the list."]})
-    account = _need_account(project.lab, user)
-    info = _call(account, "GET", f"{API}/{quote(space, safe='/')}")
-    try:
-        space_name = str(info.json().get("displayName", "")).strip()[:200] or "Google Chat"
-    except (ValueError, AttributeError):
-        space_name = "Google Chat"
-    items = _messages(
-        account,
-        space,
-        params={
-            "pageSize": THREAD_MAX,
-            "orderBy": "createTime ASC",
-            "filter": f'thread.name = "{thread}"',
+    account = _need_account(lab, user)
+    if thread:
+        items = _messages(
+            account,
+            space,
+            params={
+                "pageSize": THREAD_MAX,
+                "orderBy": "createTime ASC",
+                "filter": f'thread.name = "{thread}"',
+            },
+        )
+        items = [i for i in items if str((i.get("thread") or {}).get("name", "")) == thread]
+    else:
+        latest = _messages(
+            account, space, params={"pageSize": THREAD_MAX, "orderBy": "createTime DESC"}
+        )
+        items = list(reversed(latest))
+
+    model = _model(project.pk if project else None)
+    where = {"project": project} if project else {}
+    authors = _authors(lab, project)
+    ids = {
+        str((i.get("sender") or {}).get("name", "")).removeprefix("users/")
+        for i in items
+        if isinstance(i.get("sender"), dict)
+    }
+    names = google_names(account, ids - set(authors)) if ids - set(authors) else {}
+    known = set(
+        model.objects.for_lab(lab)
+        .filter(external_id__in=[str(i.get("name", "")) for i in items])
+        .values_list("external_id", flat=True)
+    )
+    imported = skipped = 0
+    now = timezone.now()
+    for item in items:
+        name = str(item.get("name", ""))
+        sender = item.get("sender") if isinstance(item.get("sender"), dict) else {}
+        created = _parse_time(item.get("createTime"))
+        if (
+            not name.startswith(space + "/messages/")
+            or len(name) > 255
+            or created is None
+            or sender.get("type") != "HUMAN"
+        ):
+            continue
+        if name in known:
+            skipped += 1
+            continue
+        body = from_google_text(item)
+        if not body:
+            continue
+        uid = str(sender.get("name", "")).removeprefix("users/")
+        author = authors.get(uid)
+        try:
+            with transaction.atomic():
+                row = model.objects.create(
+                    **where,
+                    lab=lab,
+                    author=author,
+                    external_author="" if author else (names.get(uid) or UNKNOWN_SENDER)[:200],
+                    body=body,
+                    source=ChatSource.GOOGLE_CHAT,
+                    external_id=name,
+                )
+                # Its own time, never later than now (created_at is set on create).
+                model.objects.for_lab(lab).filter(pk=row.pk).update(created_at=min(created, now))
+            imported += 1
+        except IntegrityError:
+            skipped += 1
+    record(
+        AuditAction.GOOGLE_CHAT_IMPORTED,
+        actor=user,
+        lab=lab,
+        target=project or lab,
+        request=request,
+        metadata={
+            "space": space,
+            "thread": thread,
+            "imported": imported,
+            "skipped": skipped,
+            **({"project": str(project.pk)} if project else {}),
         },
     )
-    items = [i for i in items if str((i.get("thread") or {}).get("name", "")) == thread]
-    if not items:
-        raise ValidationError({"thread": ["That thread has no messages we can read."]})
-
-    members = _authors(project.lab)
-    ids = {str((i.get("sender") or {}).get("name", "")).removeprefix("users/") for i in items}
-    names = google_names(account, ids - set(members))
-    blocks = [
-        _block(f"Google Chat thread from {space_name}", kind="heading", level=2),
-        _block(
-            f"Imported {timezone.now():%Y-%m-%d} by {user.display_name or user.email}. "
-            f"{len(items)} message{'s' if len(items) != 1 else ''}; times are UTC."
-            + (" Only the first 1000 messages were imported." if len(items) >= THREAD_MAX else "")
-        ),
-    ]
-    for item in items:
-        sender = item.get("sender") or {}
-        uid = str(sender.get("name", "")).removeprefix("users/")
-        member = members.get(uid)
-        who = (
-            (member.display_name or member.email)
-            if member is not None
-            else names.get(uid) or ("An app" if sender.get("type") == "BOT" else UNKNOWN_SENDER)
-        )
-        created = _parse_time(item.get("createTime"))
-        when = f"{created.astimezone(UTC):%Y-%m-%d %H:%M}" if created else ""
-        text = str(item.get("text") or "").strip() or (
-            "(an attachment)" if item.get("attachment") else ""
-        )
-        if not text:
-            continue
-        blocks.append(_block(text[:20000], bold_prefix=f"{who}, {when}: "))
-    first = _snippet(items[0].get("text") or "", 80) or "thread"
-    return create_document(
-        project=project, user=user, title=f"Google Chat: {first}"[:300], content=blocks
-    )
+    return {"imported": imported, "skipped": skipped}

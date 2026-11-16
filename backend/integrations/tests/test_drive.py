@@ -23,7 +23,7 @@ pytestmark = pytest.mark.django_db
 
 DRIVE = google_drive.PROVIDER
 FILE_ID = "1AbC-dEf_9"
-FILE_URL = f"https://www.googleapis.com/drive/v3/files/{FILE_ID}?fields={google_drive.FIELDS}"
+FILE_URL = f"https://www.googleapis.com/drive/v3/files/{FILE_ID}?fields={google_drive.FIELDS}&supportsAllDrives=true"
 SCOPE = "https://www.googleapis.com/auth/drive.file"
 # D262: one Google sign-in covers Drive, Calendar and Meet, so a connect asks for all of it.
 GRANT = " ".join(registry.bundle_scopes(DRIVE))

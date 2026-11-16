@@ -75,7 +75,11 @@ def raw(data: bytes):
 
 def meta(transport, mime, size=None, file_id="1AbC-dEf_9", **over):
     body = {"mimeType": mime, "trashed": False, **({"size": str(size)} if size else {}), **over}
-    transport.on("GET", f"{BASE}{file_id}?fields=mimeType,size,trashed", response(200, body))
+    transport.on(
+        "GET",
+        f"{BASE}{file_id}?fields=mimeType,size,trashed&supportsAllDrives=true",
+        response(200, body),
+    )
 
 
 def read(world, user, att, **args):
@@ -126,7 +130,7 @@ def test_a_drive_pdf_is_downloaded_and_read_by_page(world, transport):
     pdf = make_pdf(["Hello"])
     att = linked(world, "application/pdf", name="Protocol")
     meta(transport, "application/pdf", size=len(pdf))
-    transport.on("GET", f"{BASE}1AbC-dEf_9?alt=media", raw(pdf))
+    transport.on("GET", f"{BASE}1AbC-dEf_9?alt=media&supportsAllDrives=true", raw(pdf))
     out = read(world, world.u.contrib, att)
     assert out["text"]["untrusted_content"] == "[Page 1]\nHello" and out["total_pages"] == 1
 
@@ -165,7 +169,9 @@ def test_no_google_connection_never_borrows_another_members(world, transport):
 def test_a_file_google_will_not_open_gets_a_plain_message(world, transport, reply):
     google(world.u.contrib, world.lab_a, "t")
     att = linked(world, DOC)
-    transport.on("GET", f"{BASE}1AbC-dEf_9?fields=mimeType,size,trashed", reply)
+    transport.on(
+        "GET", f"{BASE}1AbC-dEf_9?fields=mimeType,size,trashed&supportsAllDrives=true", reply
+    )
     assert refused(world, world.u.contrib, att) == tools.NO_DRIVE_ACCESS
 
 

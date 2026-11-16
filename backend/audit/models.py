@@ -104,6 +104,7 @@ class AuditAction(models.TextChoices):
     CALENDAR_FEED_REVOKED = "calendar_feed.revoked"
     GOOGLE_CHAT_LINKED = "google_chat.linked"  # D318
     GOOGLE_CHAT_UNLINKED = "google_chat.unlinked"
+    GOOGLE_CHAT_IMPORTED = "google_chat.imported"  # D327
     ONBOARDING_ITEM_CREATED = "onboarding_item.created"
     ONBOARDING_ITEM_UPDATED = "onboarding_item.updated"
     ONBOARDING_ITEM_DELETED = "onboarding_item.deleted"

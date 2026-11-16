@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { announcePanel } from "@/components/shared/DockHandle";
@@ -31,19 +31,39 @@ describe("Google editor panel", () => {
     expect(handle).toHaveAttribute("aria-valuenow", "584");
   });
 
-  it("never leaves the page less than 640px beside the sidebar", () => {
+  it("can be widened to nearly the whole window", () => {
     window.innerWidth = 1280;
     panel();
     const handle = screen.getByRole("separator", { name: "Resize panel" });
-    expect(handle).toHaveAttribute("aria-valuemax", "384");
+    expect(handle).toHaveAttribute("aria-valuemax", "1200");
   });
 
-  it("closes when the assistant opens", () => {
+  it("floats instead of closing when the assistant opens", () => {
     const onClose = vi.fn();
     panel(onClose);
-    announcePanel("google");
+    act(() => announcePanel("assistant"));
     expect(onClose).not.toHaveBeenCalled();
-    announcePanel("assistant");
+    expect(screen.getByRole("separator", { name: "Resize window" })).toBeInTheDocument();
+    expect(document.documentElement.style.getPropertyValue("--google-w")).toBe("");
+  });
+
+  it("floats as a window that resizes from its corner, and docks again", async () => {
+    panel();
+    await userEvent.click(screen.getByRole("button", { name: "Float as a window" }));
+    const grip = screen.getByRole("separator", { name: "Resize window" });
+    grip.focus();
+    await userEvent.keyboard("{ArrowRight}{ArrowDown}");
+    expect(grip.getAttribute("aria-valuetext")).toMatch(/^664 by /);
+    await userEvent.click(screen.getByRole("button", { name: "Dock to the right" }));
+    expect(screen.getByRole("separator", { name: "Resize panel" })).toBeInTheDocument();
+  });
+
+  it("closes only from its X, which is the first control", async () => {
+    const onClose = vi.fn();
+    panel(onClose);
+    const buttons = screen.getAllByRole("button");
+    expect(buttons[0]).toHaveAccessibleName("Close panel");
+    await userEvent.click(buttons[0]!);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

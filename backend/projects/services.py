@@ -20,6 +20,7 @@ from projects import templates
 from projects.models import (
     ChatMessage,
     ChatReadState,
+    ChatSource,
     Project,
     ProjectColor,
     ProjectDeadline,
@@ -402,6 +403,9 @@ def post_message(*, project, by, body) -> ChatMessage:
         target=project,
         key=f"chat:{message.pk}",
     )
+    from labs import google_chat
+
+    google_chat.queue_relay(message)  # D325: to the project's linked Google Chat, if any
     return message
 
 
@@ -420,6 +424,17 @@ def delete_message(*, message, by, request=None) -> None:
         request=request,
         metadata={"author": str(message.author_id)},
     )
+    if message.external_id and message.source == ChatSource.APP:
+        # D319, D325: what we posted to Google goes there too; messages from Google stay there.
+        from labs import jobs
+
+        args = (
+            str(message.lab_id),
+            message.external_id,
+            str(message.author_id or ""),
+            str(message.project_id),
+        )
+        transaction.on_commit(lambda: jobs.delete_google_chat_message.delay(*args), robust=True)
     message.delete()
 
 

@@ -18,9 +18,12 @@ from labs import admin_services, google_chat, ror, services
 from labs.admin_serializers import LabDetailsInputSerializer
 from labs.models import GoogleChatBridge, Invite, LabChatMessage, LabMembership
 from labs.serializers import (
+    GoogleChatImportInputSerializer,
+    GoogleChatImportResultSerializer,
     GoogleChatLinkInputSerializer,
     GoogleChatSpaceSerializer,
     GoogleChatStatusSerializer,
+    GoogleChatThreadSerializer,
     InviteCreateSerializer,
     InvitePreviewSerializer,
     InviteSerializer,
@@ -281,6 +284,44 @@ class GoogleChatSpacesView(LabScopedViewMixin, generics.GenericAPIView):
     def get(self, request, lab_id):
         spaces = google_chat.list_spaces(request.lab, request.user)
         return Response(GoogleChatSpaceSerializer(spaces, many=True).data)
+
+
+class GoogleChatThreadsView(LabScopedViewMixin, generics.GenericAPIView):
+    """D327: a conversation's recent threads, to import one into the lab chat."""
+
+    model = GoogleChatBridge
+    serializer_class = GoogleChatThreadSerializer
+    pagination_class = None
+    perms = {"GET": Perm.MANAGE_LAB_INTEGRATIONS}
+
+    @extend_schema(
+        parameters=[OpenApiParameter("space", str, required=True)],
+        responses=GoogleChatThreadSerializer(many=True),
+    )
+    def get(self, request, lab_id):
+        rows = google_chat.list_threads(
+            request.lab, request.user, request.query_params.get("space", "")
+        )
+        return Response(GoogleChatThreadSerializer(rows, many=True).data)
+
+
+class GoogleChatImportView(LabScopedViewMixin, generics.GenericAPIView):
+    """D327: copy a Google Chat thread or conversation into the lab chat, as messages."""
+
+    model = GoogleChatBridge
+    serializer_class = GoogleChatImportInputSerializer
+    perms = {"POST": Perm.MANAGE_LAB_INTEGRATIONS}
+
+    @extend_schema(
+        request=GoogleChatImportInputSerializer, responses=GoogleChatImportResultSerializer
+    )
+    def post(self, request, lab_id):
+        ser = GoogleChatImportInputSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        result = google_chat.import_messages(
+            lab=request.lab, user=request.user, request=request, **ser.validated_data
+        )
+        return Response(GoogleChatImportResultSerializer(result).data)
 
 
 class MemberListView(LabScopedViewMixin, generics.ListAPIView):

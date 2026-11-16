@@ -21,9 +21,7 @@ export function LabChatPage() {
           canModerate={lab.my_permissions.includes("manage_lab")}
           label="Lab chat"
           audience="this lab"
-          alsoSentTo={
-            google ? `the Google Chat space ${google.space_name || ""}`.trim() : undefined
-          }
+          alsoSentTo={google ? `the Google Chat ${google.space_name || "conversation"}` : undefined}
         />
       )}
     </>
