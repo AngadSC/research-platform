@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, ChevronsUpDown, Plus } from "lucide-react";
+import { ChevronRight, ChevronsUpDown, Plus, Star } from "lucide-react";
 import { NavLink, useNavigate } from "react-router";
 import {
   DropdownMenu,
@@ -22,7 +22,7 @@ import { UnreadBadge, useUnreadCount } from "@/components/layout/UnreadBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LAB_CHAT, useUnreadChats } from "@/hooks/chat";
 import { useCurrentLabId, useCurrentProjectId } from "@/hooks/crumbs";
-import { useSidebarOrder } from "@/hooks/preferences";
+import { usePins, useSidebarOrder } from "@/hooks/preferences";
 import { useMyTasks, useProjects } from "@/hooks/projects";
 import { localDateISO } from "@/lib/format";
 import { useLabs } from "@/hooks/workspace";
@@ -34,6 +34,55 @@ import { cn } from "@/lib/utils";
 
 /** The lab part of a link, so one saved order fits every lab. */
 const keyOf = (to: string) => to.replace(/^\/labs\/[^/]+\//, "");
+
+/** A group heading that folds its links away. The choice is kept in this browser. */
+function useFolded(key: string) {
+  const [folded, setFolded] = useState(() => {
+    try {
+      return localStorage.getItem(`sidebar-folded-${key}`) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggle = () => {
+    setFolded(!folded);
+    try {
+      localStorage.setItem(`sidebar-folded-${key}`, folded ? "0" : "1");
+    } catch {
+      // storage is blocked: the choice lasts until the page reloads
+    }
+  };
+  return [folded, toggle] as const;
+}
+
+function GroupHeading({
+  label,
+  folded,
+  onToggle,
+}: {
+  label: string;
+  folded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-expanded={!folded}
+      aria-label={`${label} group`}
+      onClick={onToggle}
+      className={cn(
+        groupLabel,
+        "flex w-full items-center justify-between rounded-md text-left hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+      )}
+    >
+      {label}
+      <ChevronRight
+        aria-hidden
+        className={cn("size-3 transition-transform", !folded && "rotate-90")}
+      />
+    </button>
+  );
+}
 
 /** A project row that opens into its sections. The project you are in opens by itself. */
 function ProjectItem({
@@ -49,13 +98,15 @@ function ProjectItem({
   unread: number;
   onNavigate: () => void;
 }) {
+  const { pins, toggle: togglePin } = usePins();
   const [choice, setChoice] = useState<boolean>();
   const open = choice ?? isCurrent;
   const base = `/labs/${labId}/projects/${project.id}`;
   const listId = `project-sections-${project.id}`;
+  const pinned = pins.some((p) => p.url === base);
   return (
     <li style={projectColorStyle(project.color)}>
-      <div className="flex items-center gap-0.5 rounded-md hover:bg-[color-mix(in_srgb,var(--project)_18%,transparent)]">
+      <div className="group/row flex items-center gap-0.5 rounded-md hover:bg-[color-mix(in_srgb,var(--project)_18%,transparent)]">
         <NavLink
           to={base}
           onClick={() => {
@@ -76,6 +127,20 @@ function ProjectItem({
           )}
           <UnreadBadge count={unread} noun="message" className="ml-auto shrink-0" />
         </NavLink>
+        <button
+          type="button"
+          aria-label={pinned ? `Unpin ${project.name}` : `Pin ${project.name}`}
+          aria-pressed={pinned}
+          onClick={() => togglePin({ url: base, label: project.name })}
+          className={cn(
+            iconButton,
+            "hover:bg-transparent",
+            !pinned && "md:opacity-0 md:group-hover/row:opacity-100 focus-visible:opacity-100",
+            pinned && "text-warning-text",
+          )}
+        >
+          <Star aria-hidden className={cn(pinned && "fill-current")} />
+        </button>
         <button
           type="button"
           aria-label={`${project.name} sections`}
@@ -210,6 +275,8 @@ export function Sidebar({
     ({ to }) => to !== "/settings" && to !== "/help" && !to.endsWith("/notifications"), // each has its own menu
   );
   const order = useSidebarOrder();
+  const [labFolded, toggleLab] = useFolded("lab");
+  const [adminFolded, toggleAdmin] = useFolded("admin");
   const mainItems = applyOrder(
     items.filter((item) => !item.admin),
     (i) => keyOf(i.to),

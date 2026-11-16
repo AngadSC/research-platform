@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { DataTable, HIDE_NARROW, HIDE_NARROWER, type Column } from "@/components/shared/DataTable";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, GettingStartedLink } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -388,6 +388,7 @@ export function PapersPage() {
                   ? "Add a paper the lab has read, then share notes on it."
                   : "Papers the lab adds will show here."
             }
+            footer={q ? undefined : <GettingStartedLink labId={labId} />}
             why={q ? undefined : "Shared notes keep the reading the lab has done from being lost."}
             action={
               !q && canAdd ? (

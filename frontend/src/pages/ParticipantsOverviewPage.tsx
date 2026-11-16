@@ -1,6 +1,6 @@
 import { Users } from "lucide-react";
 import { Link, useParams } from "react-router";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, GettingStartedLink } from "@/components/shared/EmptyState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLabOverview } from "@/hooks/participants";
@@ -24,6 +24,7 @@ export function ParticipantsOverviewPage() {
           icon={Users}
           title="No participant data yet"
           description="Open a project, choose Participants, and add your first participants or import a sheet."
+          footer={<GettingStartedLink labId={labId} />}
           why="Once participants are added, you can see what is missing and what is overdue across every project."
         />
       )}

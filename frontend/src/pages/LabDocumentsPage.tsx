@@ -2,7 +2,7 @@ import { FileText, Plus } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router";
 import { DataTable, type Column } from "@/components/shared/DataTable";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, GettingStartedLink } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -80,6 +80,7 @@ export function LabDocumentsPage() {
                 ? "Write something the whole lab needs, such as a lab manual or an SOP."
                 : "Only lab members who can edit can add documents. Ask a PI or lab admin."
             }
+            footer={<GettingStartedLink labId={labId} />}
             why="Keeping them here means new members find the current version, not a copy in someone's email."
             action={addButton}
             secondary={

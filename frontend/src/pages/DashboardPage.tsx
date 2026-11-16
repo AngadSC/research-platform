@@ -121,7 +121,7 @@ function Item({
         <Link to={to} className="font-medium underline-offset-2 hover:underline">
           {title}
         </Link>
-        <p className={cn("text-xs", TONE_TEXT[tone])}>{meta}</p>
+        <p className={cn("text-[13px]", TONE_TEXT[tone])}>{meta}</p>
       </div>
       {badge}
     </li>

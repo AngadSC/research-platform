@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode } from "react";
+import { Link } from "react-router";
 import { cn } from "@/lib/utils";
 
 interface EmptyStateProps {
@@ -11,6 +12,8 @@ interface EmptyStateProps {
   action?: ReactNode;
   /** A shortcut beside the primary action, such as importing from Drive. */
   secondary?: ReactNode;
+  /** A quiet line at the bottom, such as a link to the getting started checklist. */
+  footer?: ReactNode;
   className?: string;
 }
 
@@ -21,6 +24,7 @@ export function EmptyState({
   why,
   action,
   secondary,
+  footer,
   className,
 }: EmptyStateProps) {
   return (
@@ -40,6 +44,16 @@ export function EmptyState({
           {secondary}
         </div>
       )}
+      {footer && <div className="text-xs text-muted-foreground">{footer}</div>}
     </div>
+  );
+}
+
+/** Home shows the getting started checklist, and a "Show getting started" button if it was hidden. */
+export function GettingStartedLink({ labId }: { labId: string }) {
+  return (
+    <Link to={`/labs/${labId}`} className="underline underline-offset-2 hover:text-foreground">
+      Not sure where to begin? See the getting started checklist
+    </Link>
   );
 }

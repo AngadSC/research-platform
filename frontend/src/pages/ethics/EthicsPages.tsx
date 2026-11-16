@@ -6,7 +6,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { ApprovalBadge, ExpiryText } from "@/components/ethics/ApprovalBadge";
 import { DataTable, type Column } from "@/components/shared/DataTable";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, GettingStartedLink } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -103,6 +103,7 @@ export function EthicsListPage() {
             icon={FileCheck2}
             title="No ethics approvals yet"
             description="Add an approval to track when it expires and which projects it covers. You will get a reminder before it runs out."
+            footer={<GettingStartedLink labId={labId} />}
             why="An expired approval can block data collection, so it is worth knowing early."
             action={add}
           />
