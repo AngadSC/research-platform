@@ -5,6 +5,7 @@ from core.permissions import PROJECT_PERMS, Perm, can, member_change_refusal, pr
 from core.serializers import SaneDateTimeField, UserSerializer, no_control_chars
 from projects import templates
 from projects.models import (
+    STUDY_TYPES,
     ChatMessage,
     DeadlinePriority,
     Project,
@@ -39,6 +40,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "start_date",
             "retain_until",
             "retention_note",
+            "study_types",
             "created_by",
             "created_at",
             "updated_at",
@@ -66,6 +68,14 @@ class ProjectInputSerializer(serializers.Serializer):
     start_date = serializers.DateField(allow_null=True, required=False)
     retain_until = serializers.DateField(allow_null=True, required=False)
     retention_note = serializers.CharField(allow_blank=True, required=False)
+    study_types = serializers.ListField(
+        child=serializers.ChoiceField(choices=STUDY_TYPES),
+        required=False,
+        max_length=len(STUDY_TYPES),
+    )
+
+    def validate_study_types(self, value):
+        return sorted(set(value), key=STUDY_TYPES.index)
 
 
 class ProjectCreateSerializer(ProjectInputSerializer):
@@ -292,7 +302,16 @@ class ChatMessageSerializer(ReactionsMixin, serializers.ModelSerializer):
 
     class Meta:
         model = ChatMessage
-        fields = ["id", "author", "external_author", "external_avatar", "source", "body", "reactions", "created_at"]
+        fields = [
+            "id",
+            "author",
+            "external_author",
+            "external_avatar",
+            "source",
+            "body",
+            "reactions",
+            "created_at",
+        ]
         read_only_fields = fields
 
 

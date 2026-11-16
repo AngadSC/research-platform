@@ -21,6 +21,7 @@ import {
 } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
 import { PROJECT_COLORS, projectColorStyle } from "@/lib/projectColors";
+import { STUDY_TYPES } from "@/lib/nav";
 
 const BLANK = "blank";
 const TEMPLATES: { value: NonNullable<ProjectInput["template"]>; label: string; help: string }[] = [
@@ -75,6 +76,7 @@ interface Props {
 export function ProjectFormDialog({ open, onOpenChange, project, canRetention, onSave }: Props) {
   const [status, setStatus] = useState<ProjectStatus>(project?.status ?? "planning");
   const [template, setTemplate] = useState<string>(BLANK);
+  const [studyTypes, setStudyTypes] = useState<string[]>(project?.study_types ?? ["human"]);
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
   const [moreOpen, setMoreOpen] = useState(!!(project?.retain_until || project?.retention_note));
 
@@ -91,6 +93,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, canRetention, o
         ...(color && { color }),
         description: String(f.get("description") ?? ""),
         status,
+        study_types: studyTypes,
         start_date: String(f.get("start_date") ?? "") || null,
         ...(template !== BLANK && { template: template as ProjectInput["template"] }),
         ...(canRetention && {
@@ -179,6 +182,33 @@ export function ProjectFormDialog({ open, onOpenChange, project, canRetention, o
               )}
             </FormField>
           )}
+          <fieldset className="grid gap-2">
+            <legend className="text-sm font-medium">What does this project study?</legend>
+            <p className="text-xs text-muted-foreground">
+              This sets which pages the project shows: Participants for people, Subjects for
+              animals, strains, cell lines and samples. Pick as many as apply.
+            </p>
+            <div className="grid gap-1.5 sm:grid-cols-2">
+              {STUDY_TYPES.map((t) => (
+                <label
+                  key={t.value}
+                  title={t.help}
+                  className="flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/10"
+                >
+                  <input
+                    type="checkbox"
+                    checked={studyTypes.includes(t.value)}
+                    onChange={(e) =>
+                      setStudyTypes((cur) =>
+                        e.target.checked ? [...cur, t.value] : cur.filter((v) => v !== t.value),
+                      )
+                    }
+                  />
+                  {t.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
           <FormField label="Description" error={errors.fields.description}>
             {(p) => <Textarea {...p} name="description" defaultValue={project?.description} />}
           </FormField>

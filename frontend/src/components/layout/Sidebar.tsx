@@ -34,7 +34,7 @@ import { useMyTasks, useProjects } from "@/hooks/projects";
 import { localDateISO } from "@/lib/format";
 import { useLabs } from "@/hooks/workspace";
 import type { Lab, Project } from "@/lib/api-types";
-import { navItems, PROJECT_SECTIONS, type NavItem } from "@/lib/nav";
+import { navItems, projectSections, type NavItem } from "@/lib/nav";
 import { APP_NAME } from "@/lib/constants";
 import { projectColorStyle } from "@/lib/projectColors";
 import { cn } from "@/lib/utils";
@@ -161,7 +161,7 @@ function ProjectItem({
       </div>
       {open && (
         <ul id={listId} className="mt-0.5 ml-3 grid grid-cols-1 gap-0.5 border-l pl-2">
-          {PROJECT_SECTIONS.map((section) => {
+          {projectSections(project.study_types).map((section) => {
             const { to, label, icon: Icon } = section;
             const hint = (section as { hint?: string }).hint;
             return (

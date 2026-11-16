@@ -1214,6 +1214,9 @@ paths:
           - inventory_item.deleted
           - inventory.exported
           - inventory.imported
+          - subject.created
+          - subject.updated
+          - subject.deleted
           - inventory.used
           - inventory.use_reversed
           - protocol.created
@@ -1383,6 +1386,9 @@ paths:
           * `inventory_item.deleted` - Inventory Item Deleted
           * `inventory.exported` - Inventory Exported
           * `inventory.imported` - Inventory Imported
+          * `subject.created` - Subject Created
+          * `subject.updated` - Subject Updated
+          * `subject.deleted` - Subject Deleted
           * `inventory.used` - Inventory Used
           * `inventory.use_reversed` - Inventory Use Reversed
           * `protocol.created` - Protocol Created
@@ -9671,6 +9677,115 @@ paths:
               schema:
                 $ref: '#/components/schemas/ReviewItem'
           description: ''
+  /api/labs/{lab_id}/projects/{project_id}/subjects/:
+    get:
+      operationId: labs_projects_subjects_list
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Subject'
+          description: ''
+    post:
+      operationId: labs_projects_subjects_create
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubjectInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SubjectInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SubjectInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subject'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/subjects/export/:
+    get:
+      operationId: labs_projects_subjects_export_retrieve
+      description: A spreadsheet of the project's subjects, for a methods section
+        or a regulator.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+          description: ''
   /api/labs/{lab_id}/projects/{project_id}/tasks/:
     get:
       operationId: labs_projects_tasks_list
@@ -10314,6 +10429,78 @@ paths:
               schema:
                 $ref: '#/components/schemas/SearchResults'
           description: ''
+  /api/labs/{lab_id}/subjects/{subject_id}/:
+    patch:
+      operationId: labs_subjects_partial_update
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: subject_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSubjectInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSubjectInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSubjectInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subject'
+          description: ''
+    delete:
+      operationId: labs_subjects_destroy
+      description: |-
+        Resolves `self.project` before permissions run (ARCHITECTURE section 2), so a project
+        or item the user cannot see is a 404 and HasPerm checks the project's perms.
+
+        - `<project_id>` in the URL (nested collections and the project itself): that project.
+        - otherwise `lookup_url_kwarg` (flat item routes): the item's project.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: subject_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/task-posts/{taskpost_id}/:
     patch:
       operationId: labs_task_posts_partial_update
@@ -11742,6 +11929,9 @@ components:
       - inventory_item.deleted
       - inventory.exported
       - inventory.imported
+      - subject.created
+      - subject.updated
+      - subject.deleted
       - inventory.used
       - inventory.use_reversed
       - protocol.created
@@ -11910,6 +12100,9 @@ components:
         * `inventory_item.deleted` - Inventory Item Deleted
         * `inventory.exported` - Inventory Exported
         * `inventory.imported` - Inventory Imported
+        * `subject.created` - Subject Created
+        * `subject.updated` - Subject Updated
+        * `subject.deleted` - Subject Deleted
         * `inventory.used` - Inventory Used
         * `inventory.use_reversed` - Inventory Use Reversed
         * `protocol.created` - Protocol Created
@@ -16377,6 +16570,20 @@ components:
       description: |-
         * `webhook` - Webhook
         * `slack` - Slack
+    Kind3d1Enum:
+      enum:
+      - animal
+      - microbe
+      - cell_line
+      - sample
+      - other
+      type: string
+      description: |-
+        * `animal` - Animal
+        * `microbe` - Microbe
+        * `cell_line` - Cell Line
+        * `sample` - Sample
+        * `other` - Other
     Kind4ddEnum:
       enum:
       - new_member
@@ -19063,6 +19270,11 @@ components:
           nullable: true
         retention_note:
           type: string
+        study_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudyTypesEnum'
+          maxItems: 6
     PatchedProjectMembershipRole:
       type: object
       properties:
@@ -19193,6 +19405,51 @@ components:
           type: string
           format: uuid
           nullable: true
+    PatchedSubjectInput:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/Kind3d1Enum'
+        code:
+          type: string
+          maxLength: 60
+        species:
+          type: string
+          maxLength: 120
+        line:
+          type: string
+          maxLength: 160
+        genotype:
+          type: string
+          maxLength: 300
+        sex:
+          type: string
+          maxLength: 16
+        count:
+          type: integer
+          maximum: 100000
+          minimum: 1
+        source:
+          type: string
+          maxLength: 200
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        passage:
+          type: string
+          maxLength: 40
+        location:
+          type: string
+          maxLength: 200
+        status:
+          $ref: '#/components/schemas/StatusCa5Enum'
+        approval:
+          type: string
+          maxLength: 120
+        notes:
+          type: string
+          maxLength: 5000
     PatchedTaskInput:
       type: object
       description: '`status` + `position` also reorder: the task lands at that index
@@ -19404,6 +19661,8 @@ components:
         retention_note:
           type: string
           readOnly: true
+        study_types:
+          readOnly: true
         created_by:
           allOf:
           - $ref: '#/components/schemas/User'
@@ -19449,6 +19708,7 @@ components:
       - retention_note
       - start_date
       - status
+      - study_types
       - updated_at
     ProjectCreate:
       type: object
@@ -19472,6 +19732,11 @@ components:
           nullable: true
         retention_note:
           type: string
+        study_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudyTypesEnum'
+          maxItems: 6
         template:
           $ref: '#/components/schemas/TemplateEnum'
       required:
@@ -20593,6 +20858,18 @@ components:
         * `in_repair` - In Repair
         * `retired` - Retired
         * `lost` - Lost
+    StatusCa5Enum:
+      enum:
+      - active
+      - stored
+      - finished
+      - gone
+      type: string
+      description: |-
+        * `active` - Active
+        * `stored` - Stored
+        * `finished` - Finished
+        * `gone` - Gone
     StatusFccEnum:
       enum:
       - screened
@@ -20618,6 +20895,154 @@ components:
       - can_act
       - done
       - key
+    StudyTypesEnum:
+      enum:
+      - human
+      - animal
+      - microbial
+      - cell_line
+      - samples
+      - computational
+      type: string
+      description: |-
+        * `human` - human
+        * `animal` - animal
+        * `microbial` - microbial
+        * `cell_line` - cell_line
+        * `samples` - samples
+        * `computational` - computational
+    Subject:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/Kind3d1Enum'
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+        species:
+          type: string
+          readOnly: true
+        line:
+          type: string
+          readOnly: true
+        genotype:
+          type: string
+          readOnly: true
+        sex:
+          type: string
+          readOnly: true
+        count:
+          type: integer
+          readOnly: true
+        source:
+          type: string
+          readOnly: true
+        start_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        passage:
+          type: string
+          readOnly: true
+        location:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusCa5Enum'
+          readOnly: true
+        approval:
+          type: string
+          readOnly: true
+        notes:
+          type: string
+          readOnly: true
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - approval
+      - code
+      - count
+      - created_at
+      - created_by
+      - genotype
+      - id
+      - kind
+      - line
+      - location
+      - notes
+      - passage
+      - sex
+      - source
+      - species
+      - start_date
+      - status
+      - updated_at
+    SubjectInput:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/Kind3d1Enum'
+        code:
+          type: string
+          maxLength: 60
+        species:
+          type: string
+          maxLength: 120
+        line:
+          type: string
+          maxLength: 160
+        genotype:
+          type: string
+          maxLength: 300
+        sex:
+          type: string
+          maxLength: 16
+        count:
+          type: integer
+          maximum: 100000
+          minimum: 1
+        source:
+          type: string
+          maxLength: 200
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        passage:
+          type: string
+          maxLength: 40
+        location:
+          type: string
+          maxLength: 200
+        status:
+          $ref: '#/components/schemas/StatusCa5Enum'
+        approval:
+          type: string
+          maxLength: 120
+        notes:
+          type: string
+          maxLength: 5000
+      required:
+      - code
+      - kind
     SyncResult:
       type: object
       properties:

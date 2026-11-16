@@ -41,7 +41,7 @@ import { useDeleteProject, useProject, useUpdateProject } from "@/hooks/projects
 import type { Project } from "@/lib/api-types";
 import { useRegisterCommands } from "@/lib/commands";
 import { formErrors } from "@/lib/forms";
-import { PROJECT_SECTIONS } from "@/lib/nav";
+import { projectSections } from "@/lib/nav";
 import { projectColorStyle } from "@/lib/projectColors";
 import ChatTab from "@/pages/project/ChatTab";
 import { ProjectDropZone } from "@/pages/project/ProjectDropZone";
@@ -148,7 +148,7 @@ export function ProjectPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="min-w-52">
-                    {PROJECT_SECTIONS.map(({ to, label, icon: Icon }) => {
+                    {projectSections(project.study_types).map(({ to, label, icon: Icon }) => {
                       const target = `/labs/${labId}/projects/${projectId}/${to}`;
                       return (
                         <DropdownMenuItem key={to} asChild>
@@ -232,7 +232,7 @@ export function ProjectPage() {
       {/* The sidebar dropdown holds these from md up; below that the sidebar is a drawer. */}
       <TabNav
         label="Project sections"
-        tabs={PROJECT_SECTIONS.map(({ to, label }) => [to, label])}
+        tabs={projectSections(project.study_types).map(({ to, label }) => [to, label])}
         className="mb-6 md:hidden"
       />
       <ProjectDropZone

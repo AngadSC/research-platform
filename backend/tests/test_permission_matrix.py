@@ -45,6 +45,7 @@ from labs.models import (  # admin area (Run 4)
     InventoryItem,
     InventoryOrder,
     InventoryUsage,
+    Subject,
     Invite,
     Lab,
     LabChatMessage,
@@ -339,6 +340,12 @@ MATRIX: dict[tuple[str, str], str] = {
     ("DELETE", "labs:protocol-detail"): "401 404 2 2 2 2 403 404 403",
     ("POST",   "labs:protocol-use"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "labs:inventory-usage"): "401 404 2 2 2 2 2 404 2",
+    # Non-human subjects of a project (D329): read with view_project, write with edit_content.
+    ("GET",    "labs:subject-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "labs:subject-list"): "401 404 2 2 2 2 403 404 403",
+    ("GET",    "labs:subject-export"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "labs:subject-detail"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "labs:subject-detail"): "401 404 2 2 2 2 403 404 403",
     # Undoing a use needs a lead, or the person who recorded it (D228). `lead` recorded the
     # fixture's usage; pi and admin are implicit leads; contrib did not record it.
     ("POST",   "labs:inventory-usage-reverse"): "401 404 2 2 2 403 403 404 403",
@@ -860,7 +867,11 @@ def _protocol_fixtures(lab, project, user, tag):
         used_by=user,
         request_id=uuid.uuid4(),
     )
+    subject = Subject.objects.create(
+        lab=lab, project=project, kind="animal", code=f"M-{tag}", created_by=user
+    )
     return {
+        "subject_id": subject.pk,
         "protocol_id": protocol.pk,
         "reagent_id": reagent.pk,
         "inventoryusage_id": usage.pk,
@@ -1697,6 +1708,11 @@ PAYLOADS = {
         "reagent": w.a["reagent_id"],
         "request_id": str(uuid.uuid4()),
     },
+    ("POST", "labs:subject-list"): lambda user, w: {
+        "kind": "animal",
+        "code": f"M-{uuid.uuid4().hex[:8]}",
+    },
+    ("PATCH", "labs:subject-detail"): lambda user, w: {"notes": "Moved to cage 4"},
     ("POST", "labs:inventory-usage-reverse"): lambda user, w: {},
     ("POST", "labs:inventory-item-usage"): lambda user, w: {
         "amount": "0.000001",

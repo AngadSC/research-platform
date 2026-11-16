@@ -33,6 +33,13 @@ class ProjectColor(models.TextChoices):
     BROWN = "brown"
 
 
+STUDY_TYPES = ("human", "animal", "microbial", "cell_line", "samples", "computational")
+
+
+def default_study_types():
+    return ["human"]  # what every project was before this setting existed
+
+
 class Project(LabScopedModel):
     name = models.CharField(max_length=200)
     color = models.CharField(max_length=16, choices=ProjectColor.choices, default=ProjectColor.BLUE)
@@ -52,6 +59,9 @@ class Project(LabScopedModel):
     )
     # Workflow stages someone marked as done or not needed (provenance.WORKFLOW_STAGES).
     workflow_marked_done = models.JSONField(default=list, blank=True)
+    # What the project studies, so it shows the right pages: people (Participants), animals,
+    # microbes, cell lines or samples (Subjects), or none (computational). D329.
+    study_types = models.JSONField(default=default_study_types, blank=True)
 
     permission_domain = "project"
     project_path = ""  # itself

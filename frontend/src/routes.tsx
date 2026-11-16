@@ -37,6 +37,7 @@ import ProtocolsTab from "@/pages/project/workflow/ProtocolsTab";
 import ParticipantsTab from "@/pages/project/workflow/ParticipantsTab";
 import { ParticipantsOverviewPage } from "@/pages/ParticipantsOverviewPage";
 import ParticipantPage from "@/pages/project/participants/ParticipantPage";
+import SubjectsTab from "@/pages/project/SubjectsTab";
 import ParticipantRegistry from "@/pages/project/participants/ParticipantRegistry";
 import ReviewTab from "@/pages/project/workflow/ReviewTab";
 import {
@@ -204,6 +205,11 @@ export const routes: RouteObject[] = [
                             handle: { crumb: "Participant" },
                           },
                         ],
+                      },
+                      {
+                        path: "subjects",
+                        element: <ProjectTab as={SubjectsTab} />,
+                        handle: { crumb: "Subjects" },
                       },
                       // Chat is a side panel over any section; old links open it.
                       {

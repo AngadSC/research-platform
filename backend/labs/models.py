@@ -651,3 +651,58 @@ class SyncedEvent(LabScopedModel):
 
     def __str__(self):
         return self.key
+
+
+class SubjectKind(models.TextChoices):
+    ANIMAL = "animal"  # a mouse, rat, zebrafish, fly: one animal or a cohort
+    MICROBE = "microbe"  # a bacterial, yeast or viral strain or culture
+    CELL_LINE = "cell_line"
+    SAMPLE = "sample"  # a tissue, blood, soil or other specimen
+    OTHER = "other"
+
+
+class SubjectStatus(models.TextChoices):
+    ACTIVE = "active"  # alive, growing or in use
+    STORED = "stored"  # frozen, archived or banked
+    FINISHED = "finished"  # the experiment on it is done
+    GONE = "gone"  # died, culled, discarded or lost
+
+
+class Subject(LabScopedModel):
+    """Something a project studies that is not a person (D329): an animal or cohort, a microbial
+    strain, a cell line, a sample. People stay in the participants app, with its own coded-ID
+    rules; nothing here may identify a person."""
+
+    permission_domain = "project"
+    project_path = "project"
+    lab_parents = ("project",)
+
+    project = models.ForeignKey("projects.Project", on_delete=models.CASCADE, related_name="+")
+    kind = models.CharField(max_length=16, choices=SubjectKind.choices)
+    code = models.CharField(max_length=60)  # the label on the cage, tube or plate
+    species = models.CharField(max_length=120, blank=True)  # Mus musculus, E. coli
+    line = models.CharField(max_length=160, blank=True)  # the strain or line: C57BL/6J, HEK293
+    genotype = models.CharField(max_length=300, blank=True)
+    sex = models.CharField(max_length=16, blank=True)  # animals: female, male, mixed, unknown
+    count = models.PositiveIntegerField(default=1)  # animals in a cohort, tubes in a batch
+    source = models.CharField(max_length=200, blank=True)  # a vendor, a colleague, the wild
+    start_date = models.DateField(null=True, blank=True)  # born, received, thawed or collected
+    passage = models.CharField(max_length=40, blank=True)  # cells and microbes: P12, generation
+    location = models.CharField(max_length=200, blank=True)  # cage, rack, freezer box
+    status = models.CharField(
+        max_length=16, choices=SubjectStatus.choices, default=SubjectStatus.ACTIVE
+    )
+    approval = models.CharField(max_length=120, blank=True)  # animal protocol or biosafety number
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+
+    class Meta(LabScopedModel.Meta):
+        indexes = [models.Index(fields=["project", "code"], name="subject_project_code_idx")]
+        constraints = [
+            models.UniqueConstraint(fields=["project", "code"], name="subject_code_once")
+        ]
+
+    def __str__(self):
+        return self.code

@@ -1,7 +1,7 @@
 from django.urls import path
 
 from labs import admin_views as av
-from labs import contributions, dashboard, lab_calendar, protocols, views
+from labs import contributions, dashboard, lab_calendar, protocols, subjects, views
 from labs.getting_started import GettingStartedView
 
 app_name = "labs"
@@ -77,6 +77,21 @@ urlpatterns = [
         "labs/<uuid:lab_id>/projects/<uuid:project_id>/protocols/",
         protocols.ProtocolListCreateView.as_view(),
         name="protocol-list",
+    ),
+    path(
+        "labs/<uuid:lab_id>/projects/<uuid:project_id>/subjects/",
+        subjects.SubjectListCreateView.as_view(),
+        name="subject-list",
+    ),
+    path(
+        "labs/<uuid:lab_id>/projects/<uuid:project_id>/subjects/export/",
+        subjects.SubjectExportView.as_view(),
+        name="subject-export",
+    ),
+    path(
+        "labs/<uuid:lab_id>/subjects/<uuid:subject_id>/",
+        subjects.SubjectDetailView.as_view(),
+        name="subject-detail",
     ),
     path(
         "labs/<uuid:lab_id>/protocols/<uuid:protocol_id>/",

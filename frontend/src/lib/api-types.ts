@@ -175,6 +175,8 @@ export type RetentionItem = Schemas["RetentionItem"];
 
 // Admin area (Run 4)
 export type Protocol = Schemas["Protocol"];
+export type Subject = Schemas["Subject"];
+export type SubjectInput = Schemas["SubjectInput"];
 export type ProtocolInput = Schemas["ProtocolInput"];
 export type InventoryUsage = Schemas["InventoryUsage"];
 export type InventoryImportResult = Schemas["InventoryImportResult"];

@@ -1,5 +1,6 @@
 import {
   Archive,
+  Bug,
   Bell,
   BookOpen,
   Boxes,
@@ -31,6 +32,12 @@ export const PROJECT_SECTIONS = [
   { to: "documents", label: "Documents and files", icon: FileText },
   { to: "participants", label: "Participants", icon: Users },
   {
+    to: "subjects",
+    label: "Subjects",
+    icon: Bug,
+    hint: "Animals, strains, cell lines and samples",
+  },
+  {
     to: "workflow",
     label: "Workflow",
     icon: Workflow,
@@ -38,6 +45,28 @@ export const PROJECT_SECTIONS = [
   },
   { to: "external", label: "Posters and talks", icon: Presentation },
 ] as const;
+
+/** The kinds of study a project can have, with how to say them (D329). */
+export const STUDY_TYPES = [
+  { value: "human", label: "People", help: "Human participants, with coded IDs" },
+  { value: "animal", label: "Animals", help: "Mice, rats, fish, flies and other cohorts" },
+  { value: "microbial", label: "Microbes", help: "Bacterial, yeast or viral strains and cultures" },
+  { value: "cell_line", label: "Cell lines", help: "Lines, passages and stocks" },
+  { value: "samples", label: "Samples", help: "Tissue, blood, soil and other specimens" },
+  { value: "computational", label: "Computational", help: "Code, models and existing data only" },
+] as const;
+
+/** The pages a project shows: Participants for studies of people, Subjects for anything else that
+ * is studied (animals, microbes, cell lines, samples). A project that says nothing shows the
+ * participants it always had. */
+export function projectSections(studyTypes: readonly string[] | undefined) {
+  const types = studyTypes ?? ["human"];
+  const people = types.includes("human");
+  const things = types.some((t) => ["animal", "microbial", "cell_line", "samples"].includes(t));
+  return PROJECT_SECTIONS.filter(
+    (s) => (s.to !== "participants" || people) && (s.to !== "subjects" || things),
+  );
+}
 
 export interface NavItem {
   to: string;
