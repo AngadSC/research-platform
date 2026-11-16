@@ -6656,6 +6656,10 @@ export interface components {
             /** Format: decimal */
             readonly quantity: string;
             readonly unit: string;
+            /** Format: decimal */
+            readonly low_stock_at: string | null;
+            /** @description Stock is at or below its alert level. */
+            readonly low: boolean;
             readonly owner: components["schemas"]["User"];
             readonly serial_number: string;
             /** Format: date */
@@ -6703,6 +6707,8 @@ export interface components {
             /** Format: decimal */
             quantity?: string;
             unit?: string;
+            /** Format: decimal */
+            low_stock_at?: string | null;
             /** Format: uuid */
             owner?: string | null;
             serial_number?: string;
@@ -7274,9 +7280,10 @@ export interface components {
          *     * `project_archived` - Project Archived
          *     * `document_owner` - Document Owner
          *     * `dataset_controller` - Dataset Controller
+         *     * `low_stock` - Low Stock
          * @enum {string}
          */
-        NotificationKindEnum: "ethics_expiry" | "retention_due" | "invite_accepted" | "task_assigned" | "task_unassigned" | "project_exported" | "integration_issue" | "task_post" | "training_expiry" | "training_digest" | "mention" | "project_role" | "project_archived" | "document_owner" | "dataset_controller";
+        NotificationKindEnum: "ethics_expiry" | "retention_due" | "invite_accepted" | "task_assigned" | "task_unassigned" | "project_exported" | "integration_issue" | "task_post" | "training_expiry" | "training_digest" | "mention" | "project_role" | "project_archived" | "document_owner" | "dataset_controller" | "low_stock";
         /** @enum {unknown} */
         NullEnum: null;
         OnboardingItem: {
@@ -7837,6 +7844,8 @@ export interface components {
             /** Format: decimal */
             quantity?: string;
             unit?: string;
+            /** Format: decimal */
+            low_stock_at?: string | null;
             /** Format: uuid */
             owner?: string | null;
             serial_number?: string;

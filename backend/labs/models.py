@@ -364,6 +364,8 @@ class InventoryItem(LabScopedModel):
     location = models.CharField(max_length=200, blank=True)
     quantity = models.DecimalField(max_digits=18, decimal_places=6, default=1)
     unit = models.CharField(max_length=32, blank=True)
+    # D331: tell the lab's PIs and admins (and the owner) when stock falls to this much or less.
+    low_stock_at = models.DecimalField(max_digits=18, decimal_places=6, null=True, blank=True)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
     )

@@ -21,6 +21,7 @@ from audit.services import record
 from core.permissions import Perm, can, can_reverse_usage
 from core.serializers import UserSerializer, no_control_chars
 from core.views import LabScopedViewMixin
+from labs import low_stock
 from labs.models import InventoryItem, InventoryUsage, Protocol, ProtocolReagent
 from labs.units import convert
 from projects.views import ProjectScopedMixin
@@ -263,6 +264,11 @@ def _take_stock(
                 f"{_qty(amount)} {unit} cannot be taken. Nothing was changed."
             }
         )
+    low_stock.check(
+        item.pk,
+        lab.pk,
+        before=InventoryItem.objects.for_lab(lab).get(pk=item.pk).quantity + deducted,
+    )
     record(
         A.INVENTORY_USED,
         actor=user,

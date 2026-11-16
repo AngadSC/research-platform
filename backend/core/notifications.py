@@ -23,6 +23,7 @@ EMAIL_KINDS = frozenset(
         NotificationKind.INTEGRATION_ISSUE,
         NotificationKind.TRAINING_EXPIRY,  # D178
         NotificationKind.TRAINING_DIGEST,
+        NotificationKind.LOW_STOCK,  # D331: someone has to reorder it
     }
 )
 
@@ -206,6 +207,8 @@ def notification_url(n, user) -> str:
         return f"{lab}/training"
     if n.kind == NotificationKind.INTEGRATION_ISSUE:
         return f"{lab}/settings/integrations"
+    if n.kind == NotificationKind.LOW_STOCK:
+        return f"{lab}/inventory"
     if n.kind == NotificationKind.MENTION and n.dedupe_key.startswith("mention:labchat:"):
         return f"{lab}/chat"
     if target == "ethics.ethicsapproval" and n.target_id:

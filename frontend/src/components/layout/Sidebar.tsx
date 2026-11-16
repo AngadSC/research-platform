@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ChevronRight,
   ChevronsUpDown,
@@ -88,6 +88,85 @@ function GroupHeading({
         className={cn("size-3 transition-transform", !folded && "rotate-90")}
       />
     </button>
+  );
+}
+
+/** Icons-only sidebar: a project is one coloured initial. Hovering (or focusing) it opens a small
+ * menu of its pages, so you can go straight to Tasks, Notebook, Documents and the rest. */
+function SlimProject({
+  labId,
+  project,
+  isCurrent,
+  onNavigate,
+}: {
+  labId: string;
+  project: Project;
+  isCurrent: boolean;
+  onNavigate: () => void;
+}) {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const timer = useRef<number>(0);
+  const base = `/labs/${labId}/projects/${project.id}`;
+  const show = () => {
+    window.clearTimeout(timer.current);
+    setOpen(true);
+  };
+  const hide = () => {
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setOpen(false), 160);
+  };
+  return (
+    <li style={projectColorStyle(project.color)}>
+      <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
+        <DropdownMenuTrigger
+          aria-label={`${project.name}, pages`}
+          onPointerEnter={show}
+          onPointerLeave={hide}
+          onClick={() => {
+            setOpen(false);
+            onNavigate();
+            void navigate(`${base}/overview`);
+          }}
+          className={cn(
+            "grid size-8 place-items-center rounded-lg text-xs font-semibold text-(--project) hover:bg-[color-mix(in_srgb,var(--project)_18%,transparent)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            isCurrent && "bg-[color-mix(in_srgb,var(--project)_22%,transparent)]",
+          )}
+        >
+          {project.name.slice(0, 1).toUpperCase()}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          side="right"
+          align="start"
+          sideOffset={10}
+          onPointerEnter={show}
+          onPointerLeave={hide}
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          className="w-56"
+        >
+          <DropdownMenuLabel className="flex items-center gap-2 font-semibold text-foreground">
+            <span
+              aria-hidden
+              className="size-2.5 rounded-full bg-(--project)"
+              style={projectColorStyle(project.color)}
+            />
+            <span className="truncate">{project.name}</span>
+          </DropdownMenuLabel>
+          {projectSections(project.study_types).map(({ to, label, icon: Icon }) => (
+            <DropdownMenuItem
+              key={to}
+              onSelect={() => {
+                onNavigate();
+                void navigate(`${base}/${to}`);
+              }}
+            >
+              <Icon aria-hidden className="size-4" />
+              {label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </li>
   );
 }
 
@@ -448,21 +527,13 @@ export function Sidebar({
                             {projects
                               .filter((p) => p.status !== "completed" || p.id === projectId)
                               .map((p) => (
-                                <li key={p.id} style={projectColorStyle(p.color)}>
-                                  <NavLink
-                                    to={`/labs/${labId}/projects/${p.id}`}
-                                    title={p.name}
-                                    aria-label={p.name}
-                                    onClick={onClose}
-                                    className={cn(
-                                      "grid size-8 place-items-center rounded-lg text-xs font-semibold text-(--project) hover:bg-[color-mix(in_srgb,var(--project)_18%,transparent)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                                      p.id === projectId &&
-                                        "bg-[color-mix(in_srgb,var(--project)_22%,transparent)]",
-                                    )}
-                                  >
-                                    {p.name.slice(0, 1).toUpperCase()}
-                                  </NavLink>
-                                </li>
+                                <SlimProject
+                                  key={p.id}
+                                  labId={labId!}
+                                  project={p}
+                                  isCurrent={p.id === projectId}
+                                  onNavigate={onClose}
+                                />
                               ))}
                           </ul>
                         ) : (

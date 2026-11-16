@@ -16543,6 +16543,16 @@ components:
         unit:
           type: string
           readOnly: true
+        low_stock_at:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,6})?$
+          readOnly: true
+          nullable: true
+        low:
+          type: boolean
+          readOnly: true
+          description: Stock is at or below its alert level.
         owner:
           allOf:
           - $ref: '#/components/schemas/User'
@@ -16581,6 +16591,8 @@ components:
       - due_date
       - id
       - location
+      - low
+      - low_stock_at
       - name
       - notes
       - owner
@@ -16672,6 +16684,11 @@ components:
         unit:
           type: string
           maxLength: 32
+        low_stock_at:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,6})?$
+          nullable: true
         owner:
           type: string
           format: uuid
@@ -18084,6 +18101,7 @@ components:
       - project_archived
       - document_owner
       - dataset_controller
+      - low_stock
       type: string
       description: |-
         * `ethics_expiry` - Ethics Expiry
@@ -18101,6 +18119,7 @@ components:
         * `project_archived` - Project Archived
         * `document_owner` - Document Owner
         * `dataset_controller` - Dataset Controller
+        * `low_stock` - Low Stock
     NullEnum:
       enum:
       - null
@@ -19500,6 +19519,11 @@ components:
         unit:
           type: string
           maxLength: 32
+        low_stock_at:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,6})?$
+          nullable: true
         owner:
           type: string
           format: uuid

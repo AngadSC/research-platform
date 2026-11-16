@@ -165,6 +165,7 @@ class NotificationKind(models.TextChoices):
     PROJECT_ARCHIVED = "project_archived"
     DOCUMENT_OWNER = "document_owner"
     DATASET_CONTROLLER = "dataset_controller"  # a dataset handed to you
+    LOW_STOCK = "low_stock"  # D331: an inventory item fell to its alert level
 
 
 class Notification(LabScopedModel):

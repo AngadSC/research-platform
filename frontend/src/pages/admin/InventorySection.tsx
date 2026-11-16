@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { inventoryExportUrl, useInventory } from "@/hooks/admin";
 import { ImportInventory } from "./ImportInventory";
 import { UseStockDialog } from "./UseStockDialog";
-import { Minus } from "lucide-react";
+import { Minus, TriangleAlert } from "lucide-react";
 import { trimNumber } from "@/lib/units";
 import { useMembers } from "@/hooks/workspace";
 import type { InventoryInput, InventoryItem } from "@/lib/api-types";
@@ -54,6 +54,7 @@ const KNOWN = [
   "location",
   "quantity",
   "unit",
+  "low_stock_at",
   "owner",
   "serial_number",
   "purchase_date",
@@ -96,6 +97,7 @@ function ItemDialog({
       location: v("location"),
       quantity: v("quantity") || "1",
       unit: v("unit"),
+      low_stock_at: v("low_stock_at") || null,
       owner: v("owner") || null,
       serial_number: v("serial_number"),
       purchase_date: v("purchase_date") || null,
@@ -167,6 +169,22 @@ function ItemDialog({
             </FormField>
             <FormField label="Unit" error={f.unit}>
               {(p) => <Input maxLength={32} {...p} name="unit" defaultValue={item?.unit} />}
+            </FormField>
+            <FormField
+              label="Alert me at or below"
+              hint="Leave empty for no alert. The PIs, admins and the owner are told when stock falls to this."
+              error={f.low_stock_at}
+            >
+              {(p) => (
+                <Input
+                  {...p}
+                  name="low_stock_at"
+                  type="number"
+                  min="0"
+                  step="any"
+                  defaultValue={item?.low_stock_at ? trimNumber(item.low_stock_at) : ""}
+                />
+              )}
             </FormField>
             <FormField label="Location" error={f.location}>
               {(p) => (
@@ -264,7 +282,23 @@ export function InventorySection({
     { key: "name", header: "Name", cell: (i) => <span className="font-medium">{i.name}</span> },
     { key: "category", header: "Category", cell: (i) => nameOf(CATEGORIES, i.category) },
     { key: "location", header: "Location", cell: (i) => i.location || "-" },
-    { key: "qty", header: "Quantity", cell: (i) => `${trimNumber(i.quantity)} ${i.unit}`.trim() },
+    {
+      key: "qty",
+      header: "Quantity",
+      cell: (i) => (
+        <span className="inline-flex items-center gap-2">
+          {`${trimNumber(i.quantity)} ${i.unit}`.trim()}
+          {i.low && (
+            <span
+              title={`At or below the alert level of ${trimNumber(i.low_stock_at ?? 0)} ${i.unit}`}
+              className="inline-flex items-center gap-1 rounded-full bg-warning/25 px-2 py-0.5 text-xs font-semibold text-warning-text"
+            >
+              <TriangleAlert aria-hidden className="size-3" /> Low
+            </span>
+          )}
+        </span>
+      ),
+    },
     {
       key: "owner",
       header: "Owner",

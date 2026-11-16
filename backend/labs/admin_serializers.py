@@ -131,6 +131,10 @@ class CompletionInputSerializer(serializers.Serializer):
 
 class InventorySerializer(serializers.ModelSerializer):
     owner = UserSerializer(read_only=True)
+    low = serializers.SerializerMethodField(help_text="Stock is at or below its alert level.")
+
+    def get_low(self, item) -> bool:
+        return item.low_stock_at is not None and item.quantity <= item.low_stock_at
 
     class Meta:
         model = InventoryItem
@@ -141,6 +145,8 @@ class InventorySerializer(serializers.ModelSerializer):
             "location",
             "quantity",
             "unit",
+            "low_stock_at",
+            "low",
             "owner",
             "serial_number",
             "purchase_date",
@@ -161,6 +167,9 @@ class InventoryInputSerializer(serializers.Serializer):
         max_digits=18, decimal_places=6, min_value=0, required=False
     )
     unit = serializers.CharField(max_length=32, allow_blank=True, required=False)
+    low_stock_at = serializers.DecimalField(
+        max_digits=18, decimal_places=6, min_value=0, required=False, allow_null=True
+    )
     owner = serializers.UUIDField(allow_null=True, required=False)  # resolved in the service
     serial_number = serializers.CharField(max_length=100, allow_blank=True, required=False)
     purchase_date = serializers.DateField(allow_null=True, required=False)

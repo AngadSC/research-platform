@@ -304,3 +304,44 @@ def test_limits_and_unreadable_files(world):
     assert "too large" in str(post_import(world, b"x" * (1024 * 1024 + 1)).json())
     assert "Excel" in str(post_import(world, b"PK\x03\x04 not really").json())
     assert "first row" in str(post_import(world, "Colour,Size\nred,big\n").json())
+
+
+# ---------------------------------------------------------------- low-stock alerts (D331)
+
+
+def _alerts(lab):
+    from core.models import Notification
+
+    return list(Notification.objects.for_lab(lab).filter(kind="low_stock"))
+
+
+def test_stock_falling_to_the_alert_level_tells_the_pi_and_the_owner_once(world, make_user, join):
+    from labs.models import LabRole
+
+    lab, pi, member, project, item = world
+    admin = make_user()
+    join(admin, lab, LabRole.LAB_ADMIN)
+    InventoryItem.objects.for_lab(lab).filter(pk=item.pk).update(
+        quantity=10, low_stock_at=5, owner=member
+    )
+    body = {"amount": "4", "unit": "mL", "request_id": str(uuid.uuid4())}
+    assert api(member).post(_item_use_url(world), body, "json").status_code == 201
+    assert _alerts(lab) == []  # 6 mL left: still above the level
+    body = {"amount": "2", "unit": "mL", "request_id": str(uuid.uuid4())}
+    assert api(member).post(_item_use_url(world), body, "json").status_code == 201
+    who = {n.recipient_id for n in _alerts(lab)}
+    assert who == {pi.pk, admin.pk, member.pk}  # PIs, admins and the owner
+    assert "running low" in _alerts(lab)[0].title and "4 mL left" in _alerts(lab)[0].body
+    body = {"amount": "1", "unit": "mL", "request_id": str(uuid.uuid4())}
+    assert api(member).post(_item_use_url(world), body, "json").status_code == 201
+    assert len(_alerts(lab)) == 3  # already below: no second alert today
+
+
+def test_an_item_without_a_level_never_alerts_and_the_level_is_shown(world):
+    lab, pi, member, _, item = world
+    body = {"amount": "9", "unit": "mL", "request_id": str(uuid.uuid4())}
+    assert api(member).post(_item_use_url(world), body, "json").status_code == 201
+    assert _alerts(lab) == []
+    url = reverse("labs:inventory-detail", kwargs={"lab_id": lab.pk, "inventoryitem_id": item.pk})
+    assert api(pi).patch(url, {"low_stock_at": "2"}, "json").json()["low"] is True  # 1 mL left
+    assert api(pi).patch(url, {"low_stock_at": None}, "json").json()["low"] is False

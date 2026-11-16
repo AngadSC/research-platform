@@ -14,6 +14,7 @@ from core.institution_starters import NATIONAL_RESOURCES, STARTER_RESOURCES, mat
 from core.models import Institution, User
 from core.permissions import calendar_feeds_of
 from documents.services import Conflict
+from labs import low_stock
 from labs.admin_serializers import InventoryInputSerializer
 from labs.models import (
     CalendarFeedToken,
@@ -252,9 +253,12 @@ def update_inventory_item(obj, *, user, data, request=None):
     until commit, or a use recorded since this request read the item would be undone."""
     obj = InventoryItem.objects.for_lab(obj.lab_id).select_for_update().get(pk=obj.pk)
     data = dict(data)
+    before = obj.quantity
     if "owner" in data:
         data["owner"] = _members_only_owner(obj.lab, data["owner"])
-    return _update(obj, A.INVENTORY_ITEM_UPDATED, user=user, data=data, request=request)
+    obj = _update(obj, A.INVENTORY_ITEM_UPDATED, user=user, data=data, request=request)
+    low_stock.check(obj.pk, obj.lab_id, before=before)  # an edit can lower the stock too
+    return obj
 
 
 @transaction.atomic
