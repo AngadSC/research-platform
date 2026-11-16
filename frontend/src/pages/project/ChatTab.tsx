@@ -63,7 +63,12 @@ const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { tim
 const authorKey = (m: ChatMessage) => m.author?.id ?? `google:${m.external_author ?? ""}`;
 /** The person to show: a member, or a stand-in for someone in Google Chat with no account here. */
 const shownAuthor = (m: ChatMessage) =>
-  m.author ?? { id: authorKey(m), email: "", display_name: m.external_author || "Google Chat" };
+  m.author ?? {
+    id: authorKey(m),
+    email: "",
+    display_name: m.external_author || "Google Chat",
+    avatar_url: m.external_avatar || null,
+  };
 
 /** A new group starts when the author changes, after a pause, or on a new day. */
 function startsGroup(m: ChatMessage, prev: ChatMessage | undefined) {

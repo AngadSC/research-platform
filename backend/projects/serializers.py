@@ -292,7 +292,7 @@ class ChatMessageSerializer(ReactionsMixin, serializers.ModelSerializer):
 
     class Meta:
         model = ChatMessage
-        fields = ["id", "author", "external_author", "source", "body", "reactions", "created_at"]
+        fields = ["id", "author", "external_author", "external_avatar", "source", "body", "reactions", "created_at"]
         read_only_fields = fields
 
 

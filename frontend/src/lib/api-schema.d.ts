@@ -5178,6 +5178,7 @@ export interface components {
             readonly id: string;
             readonly author: components["schemas"]["User"] | null;
             readonly external_author: string;
+            readonly external_avatar: string;
             readonly source: components["schemas"]["Source395Enum"];
             readonly body: string;
             readonly reactions: components["schemas"]["Reaction"][];
@@ -6536,6 +6537,7 @@ export interface components {
             readonly id: string;
             readonly author: components["schemas"]["User"] | null;
             readonly external_author: string;
+            readonly external_avatar: string;
             readonly source: components["schemas"]["Source395Enum"];
             readonly body: string;
             readonly reactions: components["schemas"]["Reaction"][];

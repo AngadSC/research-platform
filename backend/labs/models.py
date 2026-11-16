@@ -155,6 +155,7 @@ class LabChatMessage(LabScopedModel):
     body = models.TextField()
     source = models.CharField(max_length=16, choices=ChatSource.choices, default=ChatSource.APP)
     external_author = models.CharField(max_length=200, blank=True)
+    external_avatar = models.CharField(max_length=500, blank=True)
     # The Google Chat message (`spaces/<id>/messages/<id>`) this one is, either way; "" if none.
     external_id = models.CharField(max_length=255, blank=True)
     reactions = models.JSONField(default=dict, blank=True)  # {emoji: [user id, ...]}, D321

@@ -172,6 +172,7 @@ class ChatMessage(LabScopedModel):
     reactions = models.JSONField(default=dict, blank=True)  # {emoji: [user id, ...]}, D321
     source = models.CharField(max_length=16, choices=ChatSource.choices, default=ChatSource.APP)
     external_author = models.CharField(max_length=200, blank=True)
+    external_avatar = models.CharField(max_length=500, blank=True)
     external_id = models.CharField(max_length=255, blank=True)  # the Google Chat message
 
     lab_parents = ("project",)

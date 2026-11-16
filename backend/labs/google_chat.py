@@ -457,54 +457,76 @@ def from_google_text(message: dict) -> str:
 NAME_CACHE = 24 * 3600
 
 
-def google_names(account, user_ids) -> dict[str, str]:
-    """Google user id -> name, from the Workspace directory (D320). Best effort: whatever Google
-    will not name (outside the domain, a failure) is simply missing. Cached a day per lab."""
+def _photo_url(value) -> str:
+    """A Google profile picture address, only if it is https on Google's image host."""
+    url = str(value or "")
+    m = re.fullmatch(r"https://([a-z0-9-]+\.)*googleusercontent\.com/[^\s\"'<>]{1,400}", url)
+    return url if m else ""
+
+
+def google_people(account, user_ids) -> dict[str, dict[str, str]]:
+    """Google user id -> {"name", "photo"}, from the Workspace directory (D320). Best effort:
+    whatever Google will not name (outside the domain, a failure) is simply missing. Cached a day
+    per lab; a failed lookup is never cached, so it cannot hide a colleague for a day."""
     ids = sorted({i for i in user_ids if re.fullmatch(r"[0-9]{1,40}", i or "")})
-    keys = {i: f"gchat-name:{account.lab_id}:{i}" for i in ids}
+    keys = {i: f"gchat-person:{account.lab_id}:{i}" for i in ids}
     found = cache.get_many(list(keys.values()))  # keyed by cache key
     out = {i: found[k] for i, k in keys.items() if k in found}
     missing = [i for i in ids if i not in out][:200]
-    if not missing:
-        return {i: n for i, n in out.items() if n}
-    try:
-        resp = send(
-            "GET",
-            f"{google_chat.PEOPLE}/people:batchGet",
-            provider=PROVIDER,
-            account=account,
-            params={
-                "resourceNames": [f"people/{i}" for i in missing],
-                "personFields": "names",
-                "sources": [
-                    "READ_SOURCE_TYPE_DOMAIN_PROFILE",
-                    "READ_SOURCE_TYPE_DOMAIN_CONTACT",
-                ],
-            },
-        )
-        ok = resp.status_code == 200
-        if not ok:
-            log.warning("Google directory lookup failed: HTTP %s", resp.status_code)
-        rows = resp.json().get("responses", []) if ok else []
-    except (AccountUnavailable, IntegrationError, ValueError, AttributeError):
-        ok, rows = False, []
-    fresh = {}
-    for row in rows if isinstance(rows, list) else []:
+    if missing:
         try:
-            pid = str(row["person"]["resourceName"]).removeprefix("people/")
-            name = str(row["person"]["names"][0]["displayName"])
-        except (KeyError, IndexError, TypeError):
-            continue
-        if pid in keys:
-            fresh[pid] = "".join(c for c in name if c.isprintable())[:200]
-    # Unknown ids are cached as "" so a stranger's id isn't looked up on every poll, but only when
-    # Google answered: a failed lookup must not hide a colleague's name for a day.
-    if ok:
-        cache.set_many({keys[i]: fresh.get(i, "") for i in missing}, NAME_CACHE)
-    else:
-        cache.set_many({keys[i]: n for i, n in fresh.items()}, NAME_CACHE)
-    out.update(fresh)
-    return {i: n for i, n in out.items() if n}
+            resp = send(
+                "GET",
+                f"{google_chat.PEOPLE}/people:batchGet",
+                provider=PROVIDER,
+                account=account,
+                params={
+                    "resourceNames": [f"people/{i}" for i in missing],
+                    "personFields": "names,photos",
+                    "sources": [
+                        "READ_SOURCE_TYPE_DOMAIN_PROFILE",
+                        "READ_SOURCE_TYPE_DOMAIN_CONTACT",
+                    ],
+                },
+            )
+            ok = resp.status_code == 200
+            if not ok:
+                log.warning("Google directory lookup failed: HTTP %s", resp.status_code)
+            rows = resp.json().get("responses", []) if ok else []
+        except (AccountUnavailable, IntegrationError, ValueError, AttributeError):
+            ok, rows = False, []
+        fresh = {}
+        for row in rows if isinstance(rows, list) else []:
+            try:
+                person = row["person"]
+                pid = str(person["resourceName"]).removeprefix("people/")
+                name = str(person["names"][0]["displayName"])
+            except (KeyError, IndexError, TypeError):
+                continue
+            photo = ""
+            for ph in person.get("photos") or []:
+                if isinstance(ph, dict) and not ph.get("default"):
+                    photo = _photo_url(ph.get("url"))
+                    break
+            if pid in keys:
+                fresh[pid] = {
+                    "name": "".join(c for c in name if c.isprintable())[:200],
+                    "photo": photo,
+                }
+        # Unknown ids are cached as empty so a stranger's id isn't looked up on every poll, but
+        # only when Google answered.
+        empty = {"name": "", "photo": ""}
+        if ok:
+            cache.set_many({keys[i]: fresh.get(i, empty) for i in missing}, NAME_CACHE)
+        else:
+            cache.set_many({keys[i]: v for i, v in fresh.items()}, NAME_CACHE)
+        out.update(fresh)
+    return {i: v for i, v in out.items() if v.get("name")}
+
+
+def google_names(account, user_ids) -> dict[str, str]:
+    """Google user id -> name; see `google_people`."""
+    return {i: v["name"] for i, v in google_people(account, user_ids).items()}
 
 
 def _authors(lab, project=None) -> dict[str, object]:
@@ -575,7 +597,7 @@ def poll(bridge) -> int:
         for i in items
         if isinstance(i, dict) and isinstance(i.get("sender"), dict)
     } - set(authors)
-    names = google_names(bridge.account, strangers) if strangers else {}
+    people = google_people(bridge.account, strangers) if strangers else {}
     added = 0
     cursor = bridge.cursor
     room = INBOUND_PER_HOUR - (
@@ -612,11 +634,13 @@ def poll(bridge) -> int:
             continue
         user_id = str(sender.get("name", "")).removeprefix("users/")
         author = authors.get(user_id)
-        external_author = ""
+        external_author = external_avatar = ""
         if author is None:
+            person = people.get(user_id, {})
             external_author = str(
-                names.get(user_id) or sender.get("displayName") or UNKNOWN_SENDER
+                person.get("name") or sender.get("displayName") or UNKNOWN_SENDER
             )[:200]
+            external_avatar = person.get("photo", "")
         try:
             with transaction.atomic():
                 model.objects.create(
@@ -624,6 +648,7 @@ def poll(bridge) -> int:
                     lab=bridge.lab,
                     author=author,
                     external_author=external_author,
+                    external_avatar=external_avatar,
                     body=body,
                     source=ChatSource.GOOGLE_CHAT,
                     external_id=name,
@@ -761,12 +786,13 @@ def import_messages(*, lab, user, space, thread="", project=None, request=None) 
         for i in items
         if isinstance(i.get("sender"), dict)
     }
-    names = google_names(account, ids - set(authors)) if ids - set(authors) else {}
-    known = set(
-        model.objects.for_lab(lab)
+    people = google_people(account, ids - set(authors)) if ids - set(authors) else {}
+    known = {
+        ext: (pk, who, pic)
+        for ext, pk, who, pic in model.objects.for_lab(lab)
         .filter(external_id__in=[str(i.get("name", "")) for i in items])
-        .values_list("external_id", flat=True)
-    )
+        .values_list("external_id", "pk", "external_author", "external_avatar")
+    }
     imported = skipped = 0
     now = timezone.now()
     for item in items:
@@ -780,13 +806,23 @@ def import_messages(*, lab, user, space, thread="", project=None, request=None) 
             or sender.get("type") != "HUMAN"
         ):
             continue
+        uid = str(sender.get("name", "")).removeprefix("users/")
+        person = people.get(uid, {})
         if name in known:
+            # Fill in a name or picture that was missing when the message first came in.
+            pk, who, pic = known[name]
+            fix = {}
+            if who in ("", UNKNOWN_SENDER) and person.get("name") and uid not in authors:
+                fix["external_author"] = person["name"]
+            if not pic and person.get("photo") and uid not in authors:
+                fix["external_avatar"] = person["photo"]
+            if fix:
+                model.objects.for_lab(lab).filter(pk=pk).update(**fix)
             skipped += 1
             continue
         body = from_google_text(item)
         if not body:
             continue
-        uid = str(sender.get("name", "")).removeprefix("users/")
         author = authors.get(uid)
         try:
             with transaction.atomic():
@@ -794,7 +830,10 @@ def import_messages(*, lab, user, space, thread="", project=None, request=None) 
                     **where,
                     lab=lab,
                     author=author,
-                    external_author="" if author else (names.get(uid) or UNKNOWN_SENDER)[:200],
+                    external_author=""
+                    if author
+                    else (person.get("name") or UNKNOWN_SENDER)[:200],
+                    external_avatar="" if author else person.get("photo", ""),
                     body=body,
                     source=ChatSource.GOOGLE_CHAT,
                     external_id=name,
