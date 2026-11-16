@@ -131,7 +131,7 @@ export function ProjectPage() {
     <>
       <div
         style={projectColorStyle(project.color)}
-        className="glass relative overflow-hidden rounded-2xl border-l-4 border-l-(--project) p-4 pl-5 before:pointer-events-none before:absolute before:inset-0 before:bg-[linear-gradient(90deg,color-mix(in_srgb,var(--project)_14%,transparent),transparent_45%)] [&>*]:relative"
+        className="glass relative overflow-hidden rounded-2xl border-l-4 border-l-(--project) p-4 pl-5 before:pointer-events-none before:absolute before:inset-0 before:bg-[linear-gradient(90deg,color-mix(in_srgb,var(--project)_28%,transparent),transparent_60%)] [&>*]:relative"
       >
         <div className="[&_h1]:text-3xl [&_h1]:font-bold [&>header]:mb-0">
           <PageHeader

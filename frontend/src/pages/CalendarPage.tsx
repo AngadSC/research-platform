@@ -490,78 +490,80 @@ export function CalendarPage() {
           </>
         }
       />
-      <div
-        role="group"
-        aria-label="Calendar scope"
-        className="group/scope mb-3 flex w-fit max-w-full items-center gap-1 overflow-x-auto rounded-full border bg-card p-1"
-      >
-        <Button
-          size="sm"
-          variant={activeProject ? "ghost" : "secondary"}
-          aria-pressed={!activeProject}
-          onClick={() => setProject("")}
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div
+          role="group"
+          aria-label="Calendar scope"
+          className="group/scope flex w-fit max-w-full items-center gap-1 overflow-x-auto rounded-full border bg-card p-1"
         >
-          Full lab
-        </Button>
-        {projects.map((p) => {
-          const on = p.id === projectId;
-          return (
-            <button
-              key={p.id}
-              type="button"
-              aria-pressed={on}
-              aria-label={p.name}
-              title={p.name}
-              onClick={() => setProject(p.id)}
-              style={projectColorStyle(p.color)}
-              className={cn(
-                "flex h-8 shrink-0 items-center gap-1.5 overflow-hidden rounded-full px-2.5 text-sm transition-[max-width,background-color] duration-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                // Collapsed to a dot until hovered or focused; the selected one stays open.
-                on
-                  ? "max-w-56 bg-[color-mix(in_srgb,var(--project)_22%,transparent)] font-semibold"
-                  : "max-w-8 text-muted-foreground hover:max-w-56 hover:bg-foreground/5 hover:text-foreground focus-visible:max-w-56",
-              )}
-            >
-              <span aria-hidden className="size-3 shrink-0 rounded-full bg-(--project)" />
-              <span className="truncate whitespace-nowrap">{p.name}</span>
-            </button>
-          );
-        })}
-      </div>
-      <div role="group" aria-label="Which calendar" className="mb-3 flex gap-1">
-        <Button
-          size="sm"
-          variant={mine ? "outline" : "secondary"}
-          aria-pressed={!mine}
-          onClick={() => setView(false, agenda)}
-        >
-          Lab calendar
-        </Button>
-        <Button
-          size="sm"
-          variant={mine ? "secondary" : "outline"}
-          aria-pressed={mine}
-          onClick={() => setView(true, agenda)}
-        >
-          My calendar
-        </Button>
-        <span className="mx-1" />
-        <Button
-          size="sm"
-          variant={agenda ? "outline" : "secondary"}
-          aria-pressed={!agenda}
-          onClick={() => setView(mine, false)}
-        >
-          Month
-        </Button>
-        <Button
-          size="sm"
-          variant={agenda ? "secondary" : "outline"}
-          aria-pressed={agenda}
-          onClick={() => setView(mine, true)}
-        >
-          Agenda
-        </Button>
+          <Button
+            size="sm"
+            variant={activeProject ? "ghost" : "secondary"}
+            aria-pressed={!activeProject}
+            onClick={() => setProject("")}
+          >
+            Full lab
+          </Button>
+          {projects.map((p) => {
+            const on = p.id === projectId;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                aria-pressed={on}
+                aria-label={p.name}
+                title={p.name}
+                onClick={() => setProject(p.id)}
+                style={projectColorStyle(p.color)}
+                className={cn(
+                  "flex h-8 shrink-0 items-center gap-1.5 overflow-hidden rounded-full px-2.5 text-sm transition-[max-width,background-color] duration-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  // Collapsed to a dot until hovered or focused; the selected one stays open.
+                  on
+                    ? "max-w-56 bg-[color-mix(in_srgb,var(--project)_22%,transparent)] font-semibold"
+                    : "max-w-8 text-muted-foreground hover:max-w-56 hover:bg-foreground/5 hover:text-foreground focus-visible:max-w-56",
+                )}
+              >
+                <span aria-hidden className="size-3 shrink-0 rounded-full bg-(--project)" />
+                <span className="truncate whitespace-nowrap">{p.name}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div role="group" aria-label="Which calendar" className="flex gap-1">
+          <Button
+            size="sm"
+            variant={mine ? "outline" : "secondary"}
+            aria-pressed={!mine}
+            onClick={() => setView(false, agenda)}
+          >
+            Lab calendar
+          </Button>
+          <Button
+            size="sm"
+            variant={mine ? "secondary" : "outline"}
+            aria-pressed={mine}
+            onClick={() => setView(true, agenda)}
+          >
+            My calendar
+          </Button>
+          <span className="mx-1" />
+          <Button
+            size="sm"
+            variant={agenda ? "outline" : "secondary"}
+            aria-pressed={!agenda}
+            onClick={() => setView(mine, false)}
+          >
+            Month
+          </Button>
+          <Button
+            size="sm"
+            variant={agenda ? "secondary" : "outline"}
+            aria-pressed={agenda}
+            onClick={() => setView(mine, true)}
+          >
+            Agenda
+          </Button>
+        </div>
       </div>
       {agenda && list.error && <FormError message={formErrors(list.error, []).form} />}
       {agenda && (

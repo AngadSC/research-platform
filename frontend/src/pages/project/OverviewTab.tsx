@@ -206,7 +206,7 @@ function Deadlines({
       : []),
   ];
   return (
-    <section className="grid gap-3">
+    <section className="grid gap-3 rounded-2xl border bg-card p-5 shadow-sm">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold">Deadlines</h2>
         {canEdit && (
@@ -434,7 +434,7 @@ function Members({
       : []),
   ];
   return (
-    <section className="grid gap-3">
+    <section className="grid gap-3 rounded-2xl border bg-card p-5 shadow-sm">
       <h2 className="text-base font-semibold">Members</h2>
       {canManage && (
         <AddMember
@@ -473,7 +473,7 @@ function ProjectApprovals({
   const mine = (data ?? []).filter((a) => a.projects.some((p) => p.id === projectId));
   if (!lab?.my_permissions.includes("view_ethics")) return null;
   return (
-    <section className="grid gap-3">
+    <section className="grid gap-3 rounded-2xl border bg-card p-5 shadow-sm">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold">Ethics approvals</h2>
         {canLink && lab.my_permissions.includes("edit_ethics") && (
@@ -512,7 +512,10 @@ function FundingSummary({ labId, projectId }: { labId: string; projectId: string
   const { list } = useFunding(labId, projectId);
   const rows = list.data ?? [];
   return (
-    <section className="grid gap-3" aria-labelledby="overview-funding">
+    <section
+      className="grid gap-3 rounded-2xl border bg-card p-5 shadow-sm"
+      aria-labelledby="overview-funding"
+    >
       <div className="flex items-center justify-between">
         <h2 id="overview-funding" className="text-base font-semibold">
           Funding
@@ -561,7 +564,7 @@ function ArchiveProject({
   const update = useUpdateProject(labId, projectId);
   const [open, setOpen] = useState(false);
   return (
-    <section className="grid gap-2">
+    <section className="grid gap-2 rounded-2xl border bg-card p-5 shadow-sm">
       <div>
         <Button variant="outline" onClick={() => setOpen(true)}>
           Archive project
@@ -637,7 +640,7 @@ export default function OverviewTab({ labId, projectId, project }: ProjectTabPro
           </Button>
         )}
       </div>
-      <section className="grid gap-3">
+      <section className="grid gap-3 rounded-2xl border bg-card p-5 shadow-sm">
         <h2 className="text-base font-semibold">About</h2>
         <p className="text-sm whitespace-pre-wrap">
           {project.description || "No description yet."}
