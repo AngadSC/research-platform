@@ -515,3 +515,78 @@ def test_describe_call_names_the_task_and_the_new_assignee(world, ctx):
     cleared = tools.describe_call(c, "update_task", args | {"due_date": "", "assignee_id": "none"})
     assert cleared["resolved"]["person"] == "Nobody (the task will be unassigned)"
     assert cleared["preview"][-1]["text"] == "None (the due date will be cleared)"
+
+
+# ---------------------------------------------------------------- inventory: low stock and orders
+
+
+def _stock_item(world, **kw):
+    from labs.models import InventoryItem
+
+    return InventoryItem.objects.create(
+        lab=world.lab_a,
+        name=kw.pop("name", "Ethanol"),
+        category="reagent",
+        quantity=kw.pop("quantity", 3),
+        unit="mL",
+        low_stock_at=kw.pop("low_stock_at", 5),
+        **kw,
+    )
+
+
+def test_low_stock_lists_only_items_at_or_below_their_level(world, ctx):
+    low = _stock_item(world)
+    _stock_item(world, name="Plenty", quantity=50)
+    _stock_item(world, name="No level", quantity=1, low_stock_at=None)
+    c = ctx(world.u.contrib, world.lab_a)
+    out = run(c, "list_low_stock", lab_id=str(world.lab_a.pk))
+    assert [i["name"] for i in out["items"]] == ["Ethanol"]
+    assert out["items"][0]["id"] == str(low.pk) and out["items"][0]["open_order"] is None
+
+
+def test_an_order_request_is_only_a_request_audited_and_not_repeated(world, ctx):
+    from labs.models import InventoryOrder
+
+    item = _stock_item(world)
+    c = ctx(world.u.contrib, world.lab_a, write=True)
+    lab = str(world.lab_a.pk)
+    out = run(c, "request_order", lab_id=lab, item_id=str(item.pk), quantity="20")
+    order = InventoryOrder.objects.for_lab(world.lab_a).get(pk=out["created"]["id"])
+    assert order.status == "requested" and order.item_id == item.pk and order.unit == "mL"
+    assert "AI assistant" in order.notes and "request only" in out["note"]
+    item.refresh_from_db()
+    assert item.quantity == 3  # nothing was received or bought
+    event = AuditEvent.objects.get(action=AuditAction.AI_TOOL_WRITE)
+    assert event.metadata["tool"] == "request_order"
+    with pytest.raises(tools.ToolError, match="already has an open order"):
+        run(c, "request_order", lab_id=lab, item_id=str(item.pk), quantity="20")
+    listed = run(c, "list_low_stock", lab_id=lab)["items"][0]["open_order"]
+    assert listed["status"] == "requested"
+
+
+def test_a_viewer_cannot_request_an_order_and_a_read_grant_cannot_write(world, ctx):
+    item = _stock_item(world)
+    lab = str(world.lab_a.pk)
+    with pytest.raises(tools.ToolError, match="does not allow"):
+        run(
+            ctx(world.u.viewer, world.lab_a, write=True),
+            "request_order",
+            lab_id=lab,
+            item_id=str(item.pk),
+            quantity="5",
+        )
+    with pytest.raises(tools.WriteNotAllowed):
+        run(
+            ctx(world.u.contrib, world.lab_a),
+            "request_order",
+            lab_id=lab,
+            item_id=str(item.pk),
+            quantity="5",
+        )
+
+
+def test_inventory_tools_refuse_a_lab_with_inventory_off(world, ctx):
+    world.lab_a.inventory_enabled = False
+    world.lab_a.save(update_fields=["inventory_enabled"])
+    with pytest.raises(tools.ToolError, match="inventory turned off"):
+        run(ctx(world.u.contrib, world.lab_a), "list_low_stock", lab_id=str(world.lab_a.pk))

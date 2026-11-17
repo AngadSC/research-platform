@@ -19,6 +19,7 @@ import json
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
+from decimal import Decimal
 from types import SimpleNamespace
 
 from django.apps import apps
@@ -58,7 +59,8 @@ from ethics.models import EthicsApproval
 from integrations import http as integration_http
 from integrations import services as integration_services
 from integrations.providers import google_drive
-from labs.models import LabMembership
+from labs import admin_services
+from labs.models import InventoryItem, InventoryOrder, LabMembership
 from papers import citation as paper_citation
 from papers import services as paper_services
 from papers.models import Paper, PaperNote
@@ -1559,6 +1561,123 @@ def create_task(ctx, lab_id, project_id, title, description="", due_date=None, a
     t = project_services.create_task(project=p, by=ctx.user, data=data)
     _audit_write(ctx, lab, "create_task", t)
     return {"created": _task_row(t), "url": _url(f"/labs/{lab.pk}/projects/{p.pk}/tasks")}
+
+
+def _inventory_lab(ctx, lab_id):
+    """A lab whose inventory this connection may read, with the inventory switched on."""
+    lab = _lab(ctx, lab_id)
+    if not lab.inventory_enabled:
+        raise ToolError("This lab has inventory turned off.")
+    return lab
+
+
+@tool(
+    "list_low_stock",
+    "List inventory running low",
+    "Inventory items whose stock is at or below the alert level someone set on them, with what is "
+    "left, the level, the unit and any open order request. Use it to see what the lab should "
+    "reorder. Needs no write access.",
+    required=("lab_id",),
+    lab_id=LAB,
+)
+def list_low_stock(ctx, lab_id):
+    lab = _inventory_lab(ctx, lab_id)
+    items = [
+        i
+        for i in InventoryItem.objects.for_lab(lab.pk)
+        .filter(low_stock_at__isnull=False, status="active")
+        .order_by("name", "id")
+        if i.quantity <= i.low_stock_at
+    ]
+    open_orders = {
+        o.item_id: o
+        for o in InventoryOrder.objects.for_lab(lab.pk).filter(
+            item__in=items, status__in=["requested", "ordered"]
+        )
+    }
+    return {
+        "items": [
+            {
+                "id": i.pk,
+                "name": i.name,
+                "left": str(i.quantity.normalize()),
+                "alert_at": str(i.low_stock_at.normalize()),
+                "unit": i.unit,
+                "location": i.location,
+                "open_order": (
+                    {"id": o.pk, "status": o.status, "quantity": str(o.quantity.normalize())}
+                    if (o := open_orders.get(i.pk))
+                    else None
+                ),
+            }
+            for i in items
+        ],
+        "url": _url(f"/labs/{lab.pk}/inventory"),
+    }
+
+
+@tool(
+    "request_order",
+    "Request an order for an inventory item",
+    "Add a purchase REQUEST for an inventory item to the lab's orders list, as 'requested'. It "
+    "does not buy anything: a person in the lab reviews and places every order. Refuses if the "
+    "item already has an open request. Give the quantity in the item's own unit. Needs permission "
+    "to manage inventory.",
+    required=("lab_id", "item_id", "quantity"),
+    write=True,
+    lab_id=LAB,
+    item_id={"type": "string", "description": "Inventory item id, from list_low_stock."},
+    quantity={
+        "type": "string",
+        "maxLength": 20,
+        "description": "How much to order, in the item's unit, for example 20 or 0.5.",
+    },
+    vendor={"type": "string", "maxLength": 200},
+    note={"type": "string", "maxLength": 1000},
+)
+def request_order(ctx, lab_id, item_id, quantity, vendor="", note=""):
+    lab = _inventory_lab(ctx, lab_id)
+    if not can(ctx.user, Perm.MANAGE_INVENTORY, lab):
+        raise ToolError("Your role does not allow requesting orders.")
+    item = InventoryItem.objects.for_lab(lab.pk).filter(pk=_id(item_id, "item_id")).first()
+    if item is None:
+        raise ToolError("No inventory item with that id in this lab.")
+    try:
+        amount = Decimal(str(quantity).strip()).quantize(Decimal("0.01"))
+    except ArithmeticError:
+        raise ToolError("quantity must be a number, for example 20 or 0.5.") from None
+    if not (0 < amount <= 1_000_000):
+        raise ToolError("quantity must be more than 0 and at most 1,000,000.")
+    if (
+        InventoryOrder.objects.for_lab(lab.pk)
+        .filter(item=item, status__in=["requested", "ordered"])
+        .exists()
+    ):
+        raise ToolError(f"{item.name} already has an open order request. Nothing was added.")
+    order = admin_services.create_inventory_order(
+        lab=lab,
+        user=ctx.user,
+        data={
+            "item": item.pk,
+            "name": item.name,
+            "quantity": amount,
+            "unit": item.unit,
+            "vendor": vendor.strip(),
+            "notes": (f"Requested by an AI assistant. {note}".strip())[:5000],
+            "status": "requested",
+        },
+    )
+    _audit_write(ctx, lab, "request_order", order)
+    return {
+        "created": {
+            "id": order.pk,
+            "item": item.name,
+            "quantity": str(order.quantity),
+            "status": "requested",
+        },
+        "url": _url(f"/labs/{lab.pk}/inventory"),
+        "note": "This is a request only. A person must review and place the order.",
+    }
 
 
 @tool(
