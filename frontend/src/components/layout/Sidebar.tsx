@@ -433,11 +433,28 @@ export function Sidebar({
         <div
           className={cn("flex items-center pb-1", slim ? "flex-col gap-2" : "justify-between px-2")}
         >
-          <img
-            src={slim ? "/logo.png" : "/logo-full.png"}
-            alt={APP_NAME}
-            className={cn("w-auto rounded dark:bg-white/90 dark:px-1.5", slim ? "h-8" : "h-7")}
-          />
+          {/* Light theme: the original logo. Dark theme (chosen, or the system's): the dark logo
+              and a light wordmark. The `dark` class is set for both, so it switches by itself. */}
+          <span className="inline-flex items-center">
+            <img
+              src={slim ? "/logo.png" : "/logo-full.png"}
+              alt={APP_NAME}
+              className={cn("w-auto dark:hidden", slim ? "h-8" : "h-7")}
+            />
+            <span className="hidden items-center gap-2 dark:inline-flex">
+              <img
+                src="/logo-dark.png"
+                alt={slim ? APP_NAME : ""}
+                className={cn("w-auto", slim ? "h-8" : "h-8")}
+              />
+              {!slim && (
+                <span className="text-lg font-bold tracking-tight">
+                  <span className="text-white">lab</span>
+                  <span className="text-[#16a34a]">benchos</span>
+                </span>
+              )}
+            </span>
+          </span>
           <span className="flex items-center gap-0.5">
             {!slim && (
               <button
