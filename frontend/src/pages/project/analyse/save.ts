@@ -54,6 +54,10 @@ export const cleanName = (s: string) =>
 /** Saved analyses carry this line, which is how the data picker tells results from data. */
 export const SAVED_MARK = "Run in the browser with labbenchos statistics.";
 
+/** Reports saved while the work is still going carry this line (finished ones do not). */
+export const IN_PROGRESS_MARK = "Status: In progress";
+export const isInProgress = (description: string) => description.includes(IN_PROGRESS_MARK);
+
 export const errorText = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong.");
 
 /** Upload the files, then record the analysis and the result, then (optionally) the Google copy. */

@@ -24,6 +24,7 @@ import {
   type TestSpec,
 } from "@/lib/stats/contract";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
+import { useDraftReport } from "@/pages/project/analyse/draft";
 import { DataIssues } from "@/pages/project/analyse/DataIssues";
 import { useGetEngine } from "@/pages/project/analyse/engine";
 import { FocusShell } from "@/pages/project/analyse/FocusShell";
@@ -31,6 +32,7 @@ import { DataGrid } from "@/pages/project/analyse/DataGrid";
 import { ResultCard, type Run } from "@/pages/project/analyse/ResultCard";
 import { EngineStatus } from "@/pages/project/analyse/EngineStatus";
 import { errorText, SAVED_MARK } from "@/pages/project/analyse/save";
+import { StatsTabs, type ReportStatus, type TabInfo } from "@/pages/project/analyse/StatsTabs";
 import { TestGuide } from "@/pages/project/analyse/TestGuide";
 
 const SELECT =
@@ -76,19 +78,22 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 function ParamField({
+  uid,
   spec,
   shape,
   value,
   error,
   onChange,
 }: {
+  /** Tells this report's fields from another report's, so each label finds its own field. */
+  uid: string;
   spec: ParamSpec;
   shape: DataShape;
   value: ParamValues[string];
   error?: string;
   onChange: (v: ParamValues[string]) => void;
 }) {
-  const id = `param-${spec.key}`;
+  const id = `param-${uid}-${spec.key}`;
   const numeric = shape.columns.filter((c) => c.kind === "numeric");
   let input: ReactNode;
   if (spec.kind === "numerics" || spec.kind === "columns") {
@@ -228,7 +233,29 @@ const defaults = (t: TestSpec): ParamValues =>
     t.params.filter((p) => p.default !== undefined).map((p) => [p.key, p.default]),
   );
 
-export default function AnalysePage({ labId, projectId, project }: ProjectTabProps) {
+interface WorkspaceProps extends ProjectTabProps {
+  tabId: string;
+  active: boolean;
+  /** The first report also answers the links from a dataset or file row. */
+  primary: boolean;
+  /** Which report's data the engine holds now: the engine reads one file at a time. */
+  claim: { get: () => string | undefined; set: (id: string | undefined) => void };
+  /** The tab strip, shown at the top of the workspace. */
+  tabs: ReactNode;
+  onInfo: (id: string, info: { title: string; status: ReportStatus }) => void;
+}
+
+function StatsWorkspace({
+  labId,
+  projectId,
+  project,
+  tabId,
+  active,
+  primary,
+  claim,
+  tabs,
+  onInfo,
+}: WorkspaceProps) {
   const { engine, failed } = useEngine();
   const [params, setParams] = useSearchParams();
   const focus = params.get("focus") === "1";
@@ -321,6 +348,7 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
     try {
       // load() moves the bytes into the worker; keep our own copy for a later sheet change
       const s = await engine.load({ name: src.name, bytes: src.bytes.slice(0) });
+      claim.set(tabId);
       setSource(src);
       setShape(s);
     } catch (e) {
@@ -379,6 +407,7 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
         { name: source.name, bytes: source.bytes.slice(0), sheet },
         options,
       );
+      claim.set(tabId);
       setSource({ ...source, options });
       setShape(s);
     } catch (e) {
@@ -388,12 +417,42 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
     }
   }
 
+  const reloadTicket = useRef(0);
+  // Another report may have loaded its file since this one was last in front: read ours again.
+  useEffect(() => {
+    if (!active || !engine || !source || !shape || claim.get() === tabId) return;
+    const ticket = ++reloadTicket.current;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoading(true);
+    engine
+      .load(
+        { name: source.name, bytes: source.bytes.slice(0), sheet: shape.sheet ?? undefined },
+        source.options,
+      )
+      .then(() => claim.set(tabId))
+      .catch((e) => ticket === reloadTicket.current && setLoadError(errorText(e)))
+      .finally(() => ticket === reloadTicket.current && setLoading(false));
+    return () => {
+      reloadTicket.current++;
+    };
+    // only when this report comes to the front
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+
   // The links from a dataset row or a file row: pick once the lists (folders too, for the
   // participant mark) have arrived.
   const deepLinked = useRef(false);
   const foldersSettled = !!folders.data || folders.isError;
   useEffect(() => {
-    if (deepLinked.current || !engine || !files.data || !datasets.data || !foldersSettled) return;
+    if (
+      !primary ||
+      deepLinked.current ||
+      !engine ||
+      !files.data ||
+      !datasets.data ||
+      !foldersSettled
+    )
+      return;
     const key = params.get("dataset")
       ? `dataset:${params.get("dataset")}`
       : params.get("file")
@@ -431,7 +490,7 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
   const valuesKey = JSON.stringify(values);
   const hasErrors = test ? Object.keys(validate(test, values)).length > 0 : true;
   useEffect(() => {
-    if (!live || !engine || !test || !source || hasErrors) return;
+    if (!active || !live || !engine || !test || !source || hasErrors) return;
     const ticket = ++previewTicket.current;
     const timer = setTimeout(() => {
       const clean = Object.fromEntries(Object.entries(values).filter(([, v]) => v !== undefined));
@@ -453,7 +512,7 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
     return () => clearTimeout(timer);
     // `values` is covered by valuesKey; the rest are the inputs of the run
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live, engine, test, source, hasErrors, valuesKey]);
+  }, [active, live, engine, test, source, hasErrors, valuesKey]);
   function keepPreview() {
     if (!preview) return;
     setRuns((r) => [{ ...preview, id: nextId.current++ }, ...r]);
@@ -482,6 +541,33 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
       setRunError(errorText(e));
     }
   }
+
+  // The report is kept in the project's Analysis list from the moment a test is chosen, until the
+  // first result is saved (ResultCard then finishes the same record). Data that may identify
+  // participants is never kept without the user's say-so, so those reports are saved by hand.
+  const draft = useDraftReport({
+    labId,
+    projectId,
+    enabled: canSave && !!test && source?.flagged === false && runs.length === 0,
+    title: source?.name ?? "Statistics",
+    testLabel: test?.label ?? "",
+    inputName: source?.name ?? "",
+    datasetId: source?.datasetId,
+    options: values,
+  });
+  const autoSave = canSave ? { draftId: draft.draftId } : undefined;
+  const unsavedRuns = runs.some((r) => !r.saved);
+  const status: ReportStatus = runs.length
+    ? unsavedRuns
+      ? "unsaved"
+      : "saved"
+    : draft.state === "saved" || draft.state === "saving"
+      ? "progress"
+      : "new";
+  const tabTitle = shape ? `${test ? `${test.label} · ` : ""}${shape.fileName}` : "New report";
+  useEffect(() => {
+    onInfo(tabId, { title: tabTitle, status });
+  }, [onInfo, tabId, tabTitle, status]);
 
   const groups = [...new Set(TESTS.map((t) => t.group))].map((g) => ({
     g,
@@ -542,11 +628,11 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
       <div className="grid max-w-3xl gap-3 sm:grid-cols-2">
         {options.length > 0 && (
           <div className="grid gap-1.5">
-            <label htmlFor="data-pick" className="text-sm font-medium">
+            <label htmlFor={`data-pick-${tabId}`} className="text-sm font-medium">
               From this project
             </label>
             <select
-              id="data-pick"
+              id={`data-pick-${tabId}`}
               className={SELECT}
               value={picked}
               onChange={(e) => void choose(e.target.value)}
@@ -577,11 +663,11 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
           </div>
         )}
         <div className="grid gap-1.5">
-          <label htmlFor="data-local" className="text-sm font-medium">
+          <label htmlFor={`data-local-${tabId}`} className="text-sm font-medium">
             From this computer
           </label>
           <input
-            id="data-local"
+            id={`data-local-${tabId}`}
             type="file"
             accept=".csv,.tsv,.txt,.xlsx"
             onChange={(e) => void chooseLocal(e.target.files?.[0])}
@@ -611,6 +697,7 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
         <div className={cn("grid gap-4", focus && "md:grid-cols-2 xl:grid-cols-3")}>
           {test.params.map((p) => (
             <ParamField
+              uid={tabId}
               key={`${test.id}-${p.key}`}
               spec={p}
               shape={shape}
@@ -632,7 +719,7 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
           Update results as I change options
         </label>
         <div className="flex items-center gap-3">
-          <Button onClick={() => void run()} disabled={busy}>
+          <Button onClick={() => void run()} disabled={busy || loading}>
             Run
           </Button>
         </div>
@@ -653,11 +740,11 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
         />
         {shape.sheets.length > 1 && (
           <div className="grid max-w-xs gap-1.5">
-            <label htmlFor="sheet-pick" className="text-sm font-medium">
+            <label htmlFor={`sheet-pick-${tabId}`} className="text-sm font-medium">
               Sheet
             </label>
             <select
-              id="sheet-pick"
+              id={`sheet-pick-${tabId}`}
               className={SELECT}
               value={shape.sheet ?? ""}
               onChange={(e) => void chooseSheet(e.target.value)}
@@ -709,6 +796,7 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
               projectId={projectId}
               canSave={canSave}
               canExport={canExport}
+              autoSave={autoSave}
               onSaved={(saved) =>
                 setRuns((all) => all.map((x) => (x.id === r.id ? { ...x, saved } : x)))
               }
@@ -720,8 +808,10 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
     ) : null;
 
   if (focus) {
+    if (!active) return null;
     return (
       <FocusShell
+        tabs={tabs}
         projectId={projectId}
         title={shape ? shape.fileName : "Statistics"}
         engineState={state}
@@ -740,7 +830,13 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
   }
 
   return (
-    <div className="grid gap-6 pb-24 md:pb-8">
+    <div
+      hidden={!active}
+      role="tabpanel"
+      id={`report-panel-${tabId}`}
+      aria-labelledby={`report-tab-${tabId}`}
+      className="grid gap-6 pb-24 md:pb-8"
+    >
       <PageHeader
         title="Statistics"
         description="Runs on your computer. Your data is not sent anywhere unless you save it."
@@ -753,6 +849,12 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
           />
         }
       />
+      {tabs}
+      {draft.state === "error" && (
+        <p role="alert" className="text-sm font-medium text-destructive">
+          Could not keep this report in the project&apos;s Analysis list: {draft.error}
+        </p>
+      )}
       {messages}
 
       <Section title={shape ? "Data" : "1. Choose your data"}>{picker}</Section>
@@ -811,5 +913,90 @@ export default function AnalysePage({ labId, projectId, project }: ProjectTabPro
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * Statistics: one tab per report, like browser tabs. Each tab keeps its own data, test, options and
+ * results; the engine holds one file at a time, so a tab reads its file again when it comes back to
+ * the front. Reports are kept in the project's Analysis list while in progress and when finished.
+ */
+export default function AnalysePage(props: ProjectTabProps) {
+  const [tabs, setTabs] = useState<string[]>(["r1"]);
+  const [activeId, setActiveId] = useState("r1");
+  const [info, setInfo] = useState<Record<string, Omit<TabInfo, "id">>>({});
+  const claimed = useRef<string>();
+  const claim = useMemo(
+    () => ({
+      get: () => claimed.current,
+      set: (id: string | undefined) => {
+        claimed.current = id;
+      },
+    }),
+    [],
+  );
+  const counter = useRef(2);
+
+  const onInfo = useMemo(
+    () => (id: string, i: Omit<TabInfo, "id">) =>
+      setInfo((m) =>
+        m[id]?.title === i.title && m[id]?.status === i.status ? m : { ...m, [id]: i },
+      ),
+    [],
+  );
+  const add = () => {
+    const id = `r${counter.current++}`;
+    setTabs((t) => [...t, id]);
+    setActiveId(id);
+  };
+  const close = (id: string) => {
+    if (
+      info[id]?.status === "unsaved" &&
+      !window.confirm("This report has results that are not saved. Close it anyway?")
+    )
+      return;
+    if (claim.get() === id) claim.set(undefined);
+    setInfo((m) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== id)));
+    if (tabs.length === 1) {
+      const fresh = `r${counter.current++}`;
+      setTabs([fresh]);
+      setActiveId(fresh);
+      return;
+    }
+    const i = tabs.indexOf(id);
+    const rest = tabs.filter((t) => t !== id);
+    setTabs(rest);
+    if (activeId === id) setActiveId(rest[Math.min(i, rest.length - 1)]!);
+  };
+
+  const strip = (
+    <StatsTabs
+      tabs={tabs.map((id) => ({
+        id,
+        title: info[id]?.title ?? "New report",
+        status: info[id]?.status ?? "new",
+      }))}
+      activeId={activeId}
+      onSelect={setActiveId}
+      onNew={add}
+      onClose={close}
+    />
+  );
+
+  return (
+    <>
+      {tabs.map((id, i) => (
+        <StatsWorkspace
+          key={id}
+          {...props}
+          tabId={id}
+          active={id === activeId}
+          primary={i === 0 && id === "r1"}
+          claim={claim}
+          tabs={strip}
+          onInfo={onInfo}
+        />
+      ))}
+    </>
   );
 }

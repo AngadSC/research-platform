@@ -640,3 +640,111 @@ describe("Exports", () => {
     expect(screen.queryByRole("button", { name: "Send results to Google Sheets" })).toBeNull();
   });
 });
+
+describe("Report tabs", () => {
+  const named = () =>
+    fakeEngine({
+      load: vi.fn(async (f: { name: string }) => ({ ...shape, fileName: f.name })) as never,
+    });
+
+  it("keeps a report per tab and reads a tab's file again when it comes back", async () => {
+    const engine = named();
+    setup(engine, { files: [att("a1", "data.csv"), att("a2", "other.csv")] });
+    const u = userEvent.setup();
+    await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
+    await screen.findByText(/6 rows, 3 columns/);
+    expect(screen.getByRole("tab", { name: /data\.csv/ })).toHaveAttribute("aria-selected", "true");
+
+    await u.click(screen.getByRole("button", { name: "New report" }));
+    expect(screen.getByRole("tab", { name: /New report/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    // the first report is out of sight, not gone
+    expect(screen.getByText(/6 rows, 3 columns/)).not.toBeVisible();
+    // label queries see hidden panels too, so ask the visible one
+    await u.selectOptions(
+      within(screen.getByRole("tabpanel")).getByLabelText("From this project"),
+      "file:a2",
+    );
+    await screen.findByRole("tab", { name: /other\.csv/ });
+    expect(engine.load).toHaveBeenCalledTimes(2);
+
+    await u.click(screen.getByRole("tab", { name: /data\.csv/ }));
+    expect(
+      await within(screen.getByRole("tabpanel")).findByText(/6 rows, 3 columns/),
+    ).toBeVisible();
+    await waitFor(() => expect(engine.load).toHaveBeenCalledTimes(3));
+    expect(engine.load.mock.calls[2]![0]).toMatchObject({ name: "data.csv" });
+  });
+
+  it("closes a tab and always leaves one", async () => {
+    setup(named());
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: "New report" }));
+    expect(screen.getAllByRole("tab", { name: /New report/ })).toHaveLength(2);
+    await u.click(screen.getAllByRole("button", { name: /^Close New report/ })[1]!);
+    expect(screen.getAllByRole("tab", { name: /New report/ })).toHaveLength(1);
+    await u.click(screen.getByRole("button", { name: /^Close New report/ }));
+    expect(screen.getAllByRole("tab", { name: /New report/ })).toHaveLength(1);
+  });
+
+  it("keeps the report in the Analysis list while in progress, then finishes it in place", async () => {
+    vi.mocked(upload).mockImplementation(async (_p, form) => {
+      const f = (form as FormData).get("file") as File;
+      return { id: `id-${f.name}` } as never;
+    });
+    const calls = setup(fakeEngine(), {
+      extra: {
+        [`POST ${P}/analyses/`]: { status: 201, body: { id: "an1" } },
+        "PATCH /api/labs/lab1/analyses/an1/": { status: 200, body: { id: "an1" } },
+        [`POST ${P}/results/`]: { status: 201, body: { id: "r1" } },
+      } as never,
+    });
+    const u = userEvent.setup();
+    await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
+    await screen.findByText(/6 rows, 3 columns/);
+    await u.click(screen.getByRole("button", { name: "Independent t-test" }));
+    await waitFor(
+      () =>
+        expect(calls.some((c) => c.method === "POST" && c.path === `${P}/analyses/`)).toBe(true),
+      { timeout: 4000 },
+    );
+    const draft = calls.find((c) => c.method === "POST" && c.path === `${P}/analyses/`)!
+      .body as Record<string, string>;
+    expect(draft.title).toBe("data.csv (in progress)");
+    expect(draft.description).toContain("Status: In progress");
+    expect(screen.getByRole("tab", { name: /In progress/ })).toBeInTheDocument();
+
+    await u.selectOptions(screen.getByLabelText("Outcome (numbers)"), "score");
+    await u.selectOptions(screen.getByLabelText("Groups"), "arm");
+    await u.click(screen.getByRole("button", { name: "Run" }));
+    // no click on Save: a result of a project file is kept as soon as it is shown
+    await waitFor(
+      () => expect(calls.some((c) => c.method === "POST" && c.path === `${P}/results/`)).toBe(true),
+      { timeout: 4000 },
+    );
+    const done = calls.filter((c) => c.method === "PATCH").at(-1)!.body as Record<string, string>;
+    expect(done.title).toBe("Score by arm");
+    expect(done.description).not.toContain("In progress");
+    expect(calls.filter((c) => c.method === "POST" && c.path === `${P}/analyses/`)).toHaveLength(1);
+    expect(await screen.findByRole("tab", { name: /Finished/ })).toBeInTheDocument();
+  });
+
+  it("does not save a file from this computer by itself", async () => {
+    const calls = setup(fakeEngine());
+    const u = userEvent.setup();
+    await u.upload(
+      await screen.findByLabelText("From this computer"),
+      new File(["a,b\n1,2"], "mine.csv", { type: "text/csv" }),
+    );
+    await screen.findByText(/6 rows, 3 columns/);
+    await u.click(screen.getByRole("button", { name: "Independent t-test" }));
+    await u.selectOptions(screen.getByLabelText("Outcome (numbers)"), "score");
+    await u.selectOptions(screen.getByLabelText("Groups"), "arm");
+    await u.click(screen.getByRole("button", { name: "Run" }));
+    expect(await screen.findByRole("button", { name: "Save to project" })).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 2000));
+    expect(calls.filter((c) => c.method !== "GET")).toHaveLength(0);
+  });
+});

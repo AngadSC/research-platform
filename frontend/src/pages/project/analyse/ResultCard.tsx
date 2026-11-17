@@ -1,9 +1,8 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 import { Copy, Download, FileSpreadsheet, Save, Sheet, X } from "lucide-react";
 import { IconAction } from "@/components/shared/IconAction";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -13,6 +12,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useDriveExport } from "@/hooks/driveExport";
+import { useAttachments } from "@/hooks/projects";
+import { useSaveRecord } from "@/hooks/research";
+import type { Analysis, ResearchResult } from "@/lib/api-types";
 import { formErrors } from "@/lib/forms";
 import { fileSafe, saveBlob, svgFile, tableCsv, tableTsv, XLSX_TYPE } from "@/lib/exportFiles";
 import { recordPath } from "@/lib/workflow";
@@ -24,7 +26,7 @@ import { ExportMenu } from "@/pages/project/analyse/ExportMenu";
 import { cn } from "@/lib/utils";
 import { svgToPng } from "@/pages/project/analyse/png";
 import { SaveDialog } from "@/pages/project/analyse/SaveDialog";
-import { cleanName, type SaveOutcome } from "@/pages/project/analyse/save";
+import { cleanName, errorText, saveRun, type SaveOutcome } from "@/pages/project/analyse/save";
 
 export interface Run {
   id: number;
@@ -60,6 +62,7 @@ export function ResultCard({
   onSaved,
   onRemove,
   canExport = false,
+  autoSave,
 }: {
   run: Run;
   labId: string;
@@ -70,12 +73,66 @@ export function ResultCard({
   onRemove?: () => void;
   /** May send results to Google Drive (the project's export right). */
   canExport?: boolean;
+  /**
+   * Save this result to the project as soon as it is shown (only when the data file is known not
+   * to identify participants). `draftId` is the in-progress report to finish instead of a new one.
+   */
+  autoSave?: { draftId?: string };
 }) {
   const { result, saved } = run;
+  const { uploadFile } = useAttachments(labId, projectId);
+  const analyses = useSaveRecord<Analysis>(labId, projectId, "analyses", autoSave?.draftId);
+  const results = useSaveRecord<ResearchResult>(labId, projectId, "results");
+  const [autoError, setAutoError] = useState<string>();
+  const [autoBusy, setAutoBusy] = useState(false);
+  const autoTried = useRef(false);
+  const savedNow = useRef(saved);
+  useEffect(() => {
+    savedNow.current = saved;
+  });
   const root = useRef<HTMLElement>(null);
   const [saving, setSaving] = useState(false);
   const svgs = () => Array.from(root.current?.querySelectorAll<SVGSVGElement>("svg.viz") ?? []);
   const base = `/labs/${labId}/projects/${projectId}`;
+  useEffect(() => {
+    if (!autoSave || !canSave || saved || run.flagged !== false) return;
+    // a moment for the charts to draw, because they are saved as pictures
+    const timer = setTimeout(() => {
+      if (autoTried.current || savedNow.current) return;
+      autoTried.current = true;
+      setAutoBusy(true);
+      saveRun(
+        {
+          result,
+          title: result.title,
+          inputName: run.inputName,
+          datasetId: run.datasetId,
+          participant: false,
+          svgs: svgs(),
+          chartTitles: result.charts.map((c) => c.title),
+          toDrive: false,
+        },
+        {
+          upload: (file, participant) => uploadFile.mutateAsync({ file, participant }),
+          createAnalysis: (b) => analyses.mutateAsync(b),
+          createResult: (b) => results.mutateAsync(b),
+          editInGoogle: () => Promise.reject(new Error("not used")),
+          toPng: svgToPng,
+        },
+      )
+        .then(
+          (out) => {
+            toast.success("Saved to the project", { description: "It is in the Analysis tab." });
+            onSaved(out);
+          },
+          (e) => setAutoError(errorText(e)),
+        )
+        .finally(() => setAutoBusy(false));
+    }, 400);
+    return () => clearTimeout(timer);
+    // once per result: the mutations and callbacks are rebuilt on every render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSave !== undefined, canSave, saved, run.flagged]);
   const sheet = saved?.copy && googleEditor(saved.copy);
   const getEngine = useGetEngine();
   const drive = useDriveExport(labId, projectId);
@@ -209,12 +266,15 @@ export function ResultCard({
               onClick={onRemove}
             />
           )}
-          {canSave && !saved && (
+          {canSave && !saved && !autoBusy && (
             <IconAction
               label="Save to project"
               icon={<Save aria-hidden />}
               variant="default"
-              onClick={() => setSaving(true)}
+              onClick={() => {
+                autoTried.current = true; // saving by hand replaces the automatic save
+                setSaving(true);
+              }}
             />
           )}
         </div>
@@ -337,6 +397,12 @@ export function ResultCard({
           />
         )}
       </div>
+
+      {autoError && !saved && (
+        <p role="alert" className="text-sm font-medium text-destructive">
+          Could not save this result automatically. {autoError} Use Save to project to try again.
+        </p>
+      )}
 
       {saved && (
         <div role="status" className="grid gap-1 rounded-md border bg-muted p-3 text-sm">

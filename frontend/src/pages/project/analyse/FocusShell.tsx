@@ -31,6 +31,7 @@ const isTyping = (t: EventTarget | null) =>
  * Analyse page; this only arranges them.
  */
 export function FocusShell({
+  tabs,
   projectId,
   title,
   engineState,
@@ -45,6 +46,8 @@ export function FocusShell({
   messages,
   onExit,
 }: {
+  /** The strip of report tabs. */
+  tabs?: ReactNode;
   projectId: string;
   title: string;
   engineState: EngineState;
@@ -133,6 +136,8 @@ export function FocusShell({
           </Button>
         )}
       </header>
+
+      {tabs && <div className="px-3 pt-1">{tabs}</div>}
 
       {(chooser || needsData) && (
         <div className="max-h-[45vh] overflow-y-auto border-b bg-muted/40 px-4 py-3">{picker}</div>
