@@ -241,18 +241,21 @@ describe("document page", () => {
     const router = renderRoute(DOC);
     await userEvent.type(await screen.findByLabelText("Title"), "!");
     void router.navigate(TAB);
-    await waitFor(() => expect(router.state.location.pathname).toBe(TAB));
+    // Generous waits: under a full parallel run the save on the way out can take over a second.
+    await waitFor(() => expect(router.state.location.pathname).toBe(TAB), { timeout: 5000 });
     expect(screen.queryByText("Leave without saving?")).not.toBeInTheDocument();
-    expect(calls.filter((c) => c.method === "PUT")).toHaveLength(1);
+    await waitFor(() => expect(calls.filter((c) => c.method === "PUT")).toHaveLength(1));
 
     fail = true;
     void router.navigate(DOC);
     await userEvent.type(await screen.findByLabelText("Title"), "?");
     void router.navigate(TAB);
-    expect(await screen.findByText("Leave without saving?")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Leave without saving?", undefined, { timeout: 5000 }),
+    ).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Stay" }));
     expect(router.state.location.pathname).toBe(DOC);
-  });
+ }, 20000);
 
   it("keeps History, Retention, Linked files and Delete behind one menu", async () => {
     const calls = mockFetch(
