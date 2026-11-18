@@ -504,3 +504,16 @@ def test_ethics_file_keeps_its_rule_in_s3_mode(w, settings, monkeypatch):
     resp = download(api(w.u["contrib"]), w, attachment)
     assert resp.status_code == 302 and resp["Location"].startswith("https://lab-bucket")
     assert fake.url.call_args.kwargs["expire"] <= 60
+
+
+def test_pending_approval_needs_no_dates_but_active_does(w):
+    client = api(w.u["pi"])
+    dates = {"approval_date": None, "expiry_date": None}
+    resp = client.post(url("ethics:approval-list", w), body(status="pending", **dates), "json")
+    assert resp.status_code == 201, resp.content
+    assert resp.json()["expiry_date"] is None
+    active = client.post(
+        url("ethics:approval-list", w), body(approval_number="X2", **dates), "json"
+    )
+    assert active.status_code == 400
+    assert "expiry_date" in str(active.json())

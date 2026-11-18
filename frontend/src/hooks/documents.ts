@@ -139,8 +139,8 @@ export function useDocument(labId: string, id: string) {
 export function useSaveDocument(labId: string, id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: DocumentSaveInput) =>
-      api<DocumentFull>(`${base(labId)}/documents/${id}/`, { method: "PUT", body: v }),
+    mutationFn: ({ keepalive, ...v }: DocumentSaveInput & { keepalive?: boolean }) =>
+      api<DocumentFull>(`${base(labId)}/documents/${id}/`, { method: "PUT", body: v, keepalive }),
     onSuccess: (doc) => {
       qc.setQueryData(docKey(labId, id), doc);
       void qc.invalidateQueries({ queryKey: ["labs", labId, "projects"] });

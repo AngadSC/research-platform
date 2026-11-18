@@ -77,6 +77,12 @@ describe("validation", () => {
     expect(validateApproval({ ...ok, expiry_date: "2026-03-01" }).expiry_date).toMatch(/after/);
   });
 
+  it("needs no dates while pending", () => {
+    const none = { ...ok, approval_date: "", expiry_date: "" };
+    expect(validateApproval(none, "pending")).toEqual({});
+    expect(Object.keys(validateApproval(none, "active"))).toEqual(["approval_date", "expiry_date"]);
+  });
+
   it("shows the message inline and does not submit", async () => {
     const calls = mockFetch({
       ...base(["view_lab", "view_ethics", "edit_ethics"]),

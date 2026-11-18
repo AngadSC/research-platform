@@ -265,7 +265,11 @@ function DocumentEditor({
   }, []);
 
   const send = useCallback(
-    (autosave: boolean, baseVersion: number = version.current): Promise<boolean> => {
+    (
+      autosave: boolean,
+      baseVersion: number = version.current,
+      keepalive = false,
+    ): Promise<boolean> => {
       const sentEdits = edits.current;
       const sentBaseline = JSON.stringify(content.current);
       setSaveState("saving");
@@ -274,6 +278,7 @@ function DocumentEditor({
         content: content.current,
         base_version: baseVersion,
         autosave,
+        ...(keepalive && { keepalive }),
         ...(canRetention && {
           retain_until: retention.current.until || null,
           retention_note: retention.current.note,
@@ -317,11 +322,11 @@ function DocumentEditor({
 
   /** Resolves true when nothing is left to save. Autosave pauses while a conflict is open. */
   const flush = useCallback(
-    async (autosave: boolean): Promise<boolean> => {
+    async (autosave: boolean, keepalive = false): Promise<boolean> => {
       while (flight.current) await flight.current; // one save at a time, always the latest state
       if (!dirtyRef.current) return true;
       if (!canEdit || conflictOpen.current) return false;
-      return send(autosave);
+      return send(autosave, version.current, keepalive);
     },
     [canEdit, send],
   );
@@ -355,12 +360,15 @@ function DocumentEditor({
     if (!dirty) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
     const onHide = () => {
-      if (document.visibilityState === "hidden") void flush(true);
+      if (document.visibilityState === "hidden") void flush(true, true);
     };
+    const onPageHide = () => void flush(true, true);
     window.addEventListener("beforeunload", warn);
+    window.addEventListener("pagehide", onPageHide);
     document.addEventListener("visibilitychange", onHide);
     return () => {
       window.removeEventListener("beforeunload", warn);
+      window.removeEventListener("pagehide", onPageHide);
       document.removeEventListener("visibilitychange", onHide);
     };
   }, [dirty, flush]);
@@ -474,6 +482,12 @@ function DocumentEditor({
             setTitle(e.target.value);
             titleRef.current = e.target.value;
             schedule();
+          }}
+          onBlur={() => {
+            // the breadcrumb and Recents follow the saved title, so save as soon as it is left
+            if (!dirtyRef.current) return;
+            clearTimeout(timer.current);
+            void flush(true);
           }}
         />
         {flagged && (

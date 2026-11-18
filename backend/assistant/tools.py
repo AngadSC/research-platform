@@ -827,7 +827,7 @@ def list_ethics_approvals(ctx, lab_id, project_id=None, expiring_within_days=Non
                 "status": a.status,
                 "approval_date": a.approval_date,
                 "expiry_date": a.expiry_date,
-                "days_until_expiry": (a.expiry_date - today).days,
+                "days_until_expiry": (a.expiry_date - today).days if a.expiry_date else None,
                 # only linked projects you can see, never the names of the others
                 "projects": [_project_ref(p) for p in a.projects.all() if p.pk in visible],
             }

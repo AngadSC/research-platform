@@ -15359,10 +15359,12 @@ components:
           type: string
           format: date
           readOnly: true
+          nullable: true
         expiry_date:
           type: string
           format: date
           readOnly: true
+          nullable: true
         status:
           allOf:
           - $ref: '#/components/schemas/ApprovalStatusEnum'
@@ -15430,18 +15432,18 @@ components:
         approval_date:
           type: string
           format: date
+          nullable: true
         expiry_date:
           type: string
           format: date
+          nullable: true
         status:
           $ref: '#/components/schemas/ApprovalStatusEnum'
         restricted:
           type: boolean
       required:
-      - approval_date
       - approval_number
       - board
-      - expiry_date
       - title
     Event:
       type: object
@@ -15646,9 +15648,11 @@ components:
         approval_date:
           type: string
           format: date
+          nullable: true
         expiry_date:
           type: string
           format: date
+          nullable: true
         status:
           type: string
       required:
@@ -19555,9 +19559,11 @@ components:
         approval_date:
           type: string
           format: date
+          nullable: true
         expiry_date:
           type: string
           format: date
+          nullable: true
         status:
           $ref: '#/components/schemas/ApprovalStatusEnum'
         restricted:

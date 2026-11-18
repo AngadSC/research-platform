@@ -22,8 +22,9 @@ class EthicsApproval(LabScopedModel):
     projects = models.ManyToManyField(
         "projects.Project", blank=True, related_name="ethics_approvals"
     )
-    approval_date = models.DateField()
-    expiry_date = models.DateField()
+    # null only while the status is pending (the board has not decided yet)
+    approval_date = models.DateField(null=True, blank=True)
+    expiry_date = models.DateField(null=True, blank=True)
     status = models.CharField(
         max_length=16, choices=ApprovalStatus.choices, default=ApprovalStatus.ACTIVE
     )

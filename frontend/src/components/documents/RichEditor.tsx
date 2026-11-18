@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { BlockNoteSchema, defaultInlineContentSpecs, filterSuggestionItems } from "@blocknote/core";
 import {
   createReactInlineContentSpec,
+  FormattingToolbarController,
   SuggestionMenuController,
   useCreateBlockNote,
 } from "@blocknote/react";
@@ -81,8 +82,13 @@ export default function RichEditor({
         editor={editor}
         editable={editable}
         theme={dark ? "dark" : "light"}
+        formattingToolbar={false}
         onChange={() => onChange?.(editor.document)}
       >
+        {/* Below the selection: above it, the toolbar covers the "Add a task" button over the editor. */}
+        <FormattingToolbarController
+          floatingUIOptions={{ useFloatingOptions: { placement: "bottom-start" } }}
+        />
         {editable && people && (
           <SuggestionMenuController
             triggerCharacter="@"

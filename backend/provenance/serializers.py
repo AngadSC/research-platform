@@ -648,8 +648,8 @@ class ExportMemberSerializer(serializers.Serializer):
 class ExportEthicsSerializer(serializers.Serializer):
     approval_number = serializers.CharField()
     board = serializers.CharField()
-    approval_date = serializers.DateField()
-    expiry_date = serializers.DateField()
+    approval_date = serializers.DateField(allow_null=True)
+    expiry_date = serializers.DateField(allow_null=True)
     status = serializers.CharField()
 
 

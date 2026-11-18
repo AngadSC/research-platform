@@ -282,7 +282,7 @@ function EntryDialog({
                   name="title"
                   maxLength={200}
                   autoFocus
-                  placeholder="Western blot, day 2"
+                  placeholder="Pilot session 3 notes"
                   defaultValue={entry?.title}
                 />
               )}

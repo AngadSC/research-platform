@@ -92,7 +92,7 @@ export const QUICK_REACTIONS: [emoji: string, name: string][] = [
   ["\u2753", "question"],
 ];
 const ACTION_BUTTON =
-  "rounded-md p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100 [&_svg]:size-4";
+  "rounded-md p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100 max-md:opacity-100 max-md:inline-flex max-md:size-10 max-md:items-center max-md:justify-center [@media(hover:none)]:inline-flex [@media(hover:none)]:size-10 [@media(hover:none)]:items-center [@media(hover:none)]:justify-center [&_svg]:size-4";
 
 /** A message as a task title: plain text, mentions as names, first line, at most 200 characters. */
 export const taskText = (body: string) =>
@@ -400,7 +400,8 @@ export function ChatPanel({
       ref={panel}
       aria-label={label}
       className={cn(
-        "relative flex flex-col overflow-hidden rounded-lg border bg-card text-card-foreground",
+        "relative flex scroll-mb-24 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground",
+        "md:scroll-mb-0",
         inPanel ? "h-full min-h-0" : "h-[calc(100dvh-5.5rem)] min-h-96 md:h-[calc(100dvh-13.5rem)]",
       )}
     >

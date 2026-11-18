@@ -382,13 +382,26 @@ describe("documents table", () => {
     mockFetch(
       base(
         ["edit_content"],
-        [file({ id: "c1", original_filename: "n.csv", content_type: "text/csv" })],
+        [file({ id: "c1", original_filename: "n.zip", content_type: "application/zip" })],
       ),
     );
     renderRoute(DOCS);
-    await userEvent.click(await screen.findByText("n.csv"));
+    await userEvent.click(await screen.findByText("n.zip"));
     expect(click).toHaveBeenCalledTimes(1);
     click.mockRestore();
+  });
+
+  it("opens a CSV in Analyse when its row is clicked", async () => {
+    mockFetch(
+      base(
+        ["edit_content"],
+        [file({ id: "c1", original_filename: "n.csv", content_type: "text/csv" })],
+      ),
+    );
+    const router = renderRoute(DOCS);
+    await userEvent.click(await screen.findByText("n.csv"));
+    await waitFor(() => expect(router.state.location.search).toBe("?file=c1"));
+    expect(router.state.location.pathname).toMatch(/\/analyse$/);
   });
 
   it("says a Drive file stays in Drive, and keeps the dialog open with the reason when delete fails", async () => {
