@@ -413,13 +413,15 @@ def _plain_name(value) -> str:
 
 
 def _relayed(message, text) -> str:
-    """Text posted for someone through the link's connection: their name, then the fixed marker,
-    which the member can't choose and which says the post was relayed (D317). Never their email:
-    the space may hold people outside the lab (Google verification readiness, item 5)."""
+    """Text posted for someone through the link's connection. The email anchors it: a display
+    name is the member's own choice, the email and the fixed marker are not (security review of
+    D317)."""
     if not message.author_id:
         return text
-    name = _plain_name(message.author.display_name) or "A lab member"
-    return f"*{name}* via labbenchos: {text}"
+    author = message.author
+    name = _plain_name(author.display_name)
+    who = f"{name} ({author.email})" if name else author.email
+    return f"*{who}* via labbenchos: {text}"
 
 
 def relay(message) -> bool:

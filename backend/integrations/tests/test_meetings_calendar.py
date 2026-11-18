@@ -41,7 +41,7 @@ def api(user):
     return client
 
 
-def connect_google(transport, user, lab, email="pi@uni.edu"):
+def connect_google(transport, user, lab, email="pi@example.test"):
     request = make_request(user)
     url = services.start_connect(request, lab, "google_calendar")
     state = parse_qs(urlsplit(url).query)["state"][0]
@@ -50,7 +50,7 @@ def connect_google(transport, user, lab, email="pi@uni.edu"):
     return services.complete_connect(request, state=state, code="code")
 
 
-def google_identity(transport, email="pi@uni.edu"):
+def google_identity(transport, email="pi@example.test"):
     """Drive names the account by `about`, Calendar by OpenID userinfo."""
     transport.on(
         "GET",
@@ -68,7 +68,7 @@ def connect_zoom(transport, user, lab):
     state = parse_qs(urlsplit(url).query)["state"][0]
     transport.on("POST", zoom.PROVIDER.token_url, token_reply("z-at", "z-rt", ZOOM_SCOPES))
     transport.on(
-        "GET", zoom.PROVIDER.identity_url, response(200, {"id": "zu1", "email": "pi@uni.edu"})
+        "GET", zoom.PROVIDER.identity_url, response(200, {"id": "zu1", "email": "pi@example.test"})
     )
     return services.complete_connect(request, state=state, code="code")
 
@@ -133,8 +133,8 @@ def test_one_google_sign_in_connects_drive_calendar_and_meet(transport, lab_user
     # each service keeps only its own scopes and names the account the way it does
     assert set(rows["google_drive"].granted_scopes) == set(google_drive.PROVIDER.scopes)
     assert set(rows["google_calendar"].granted_scopes) == set(google_calendar.PROVIDER.scopes)
-    assert rows["google_calendar"].external_account_id == "pi@uni.edu"
-    assert rows["google_drive"].external_account_id == "perm-pi@uni.edu"
+    assert rows["google_calendar"].external_account_id == "pi@example.test"
+    assert rows["google_drive"].external_account_id == "perm-pi@example.test"
     assert rows["google_drive"].access_token() == rows["google_calendar"].access_token()
 
 
@@ -182,7 +182,7 @@ def test_declining_drive_connects_calendar_named_by_userinfo(transport, lab_user
     account = grant(transport, users["pi"], lab, scopes, start="google_drive")
     assert account.provider == "google_calendar" and account.skipped == ["google_drive"]
     assert set(accounts_of(lab, users["pi"])) == {"google_calendar"}
-    assert account.external_account_id == account.external_email == "pi@uni.edu"
+    assert account.external_account_id == account.external_email == "pi@example.test"
     # Calendar's own identity: Drive's `about` is never asked without drive.file
     assert transport.sent("GET", google_drive.PROVIDER.identity_url) == []
     [sent] = transport.sent("GET", google_calendar.IDENTITY_URL)
@@ -259,10 +259,28 @@ def test_disconnecting_one_disconnects_the_whole_google_sign_in(transport, lab_u
     assert len(transport.sent("POST", google_drive.PROVIDER.revoke_url)) == 1  # revoked once
 
 
+def test_a_sibling_service_in_another_lab_keeps_the_grant_alive(
+    transport, lab_users, make_lab, join
+):
+    """Drive rows are named by permissionId and Calendar rows by email, but Google revokes one
+    grant for both: Calendar in lab B going away must not revoke lab A's Drive-only row."""
+    lab_a, users = lab_users
+    lab_b = make_lab("Other")
+    join(users["pi"], lab_b, "pi")
+    connect_google(transport, users["pi"], lab_a, email="pi@example.test")
+    connect_google(transport, users["pi"], lab_b, email="pi@example.test")
+    ConnectedAccount.objects.for_lab(lab_a).filter(provider="google_calendar").delete()
+    ConnectedAccount.objects.for_lab(lab_b).filter(provider="google_drive").delete()
+    transport.on("POST", google_drive.PROVIDER.revoke_url, response(200, {}))
+    services.disconnect(accounts_of(lab_b, users["pi"])["google_calendar"], actor=users["pi"])
+    assert transport.sent("POST", google_drive.PROVIDER.revoke_url) == []
+    assert accounts_of(lab_a, users["pi"])["google_drive"].status == AccountStatus.ACTIVE
+
+
 def test_another_persons_google_is_not_disconnected(transport, lab_users):
     lab, users = lab_users
-    connect_google(transport, users["pi"], lab, email="pi@uni.edu")
-    connect_google(transport, users["member"], lab, email="m@uni.edu")
+    connect_google(transport, users["pi"], lab, email="pi@example.test")
+    connect_google(transport, users["member"], lab, email="m@example.test")
     transport.on("POST", google_drive.PROVIDER.revoke_url, response(200, {}))
     services.disconnect(accounts_of(lab, users["pi"])["google_drive"], actor=users["pi"])
     assert {r.status for r in accounts_of(lab, users["member"]).values()} == {AccountStatus.ACTIVE}
@@ -468,7 +486,7 @@ def pushing(transport, lab_users, make_project, monkeypatch):
         due_date=datetime.date(2030, 3, 10),
         description="SECRET TASK TEXT",
     )
-    connect_google(transport, users["member"], lab, email="m@uni.edu")
+    connect_google(transport, users["member"], lab, email="m@example.test")
     transport.on("POST", f"{GCAL}/calendars", response(200, {"id": "appcal@group"}))
     on = {"push_meetings": True, "push_tasks": True, "push_deadlines": True}
     assert (
@@ -537,7 +555,7 @@ def test_pushing_is_off_and_no_settings_row_exists_until_the_person_turns_it_on(
     from labs import video_calendar
 
     lab, users = lab_users
-    connect_google(transport, users["member"], lab, email="m@uni.edu")
+    connect_google(transport, users["member"], lab, email="m@example.test")
     client = api(users["member"])
     url = f"/api/labs/{lab.pk}/calendar/google/"
     got = client.get(url).json()
@@ -552,6 +570,29 @@ def test_pushing_is_off_and_no_settings_row_exists_until_the_person_turns_it_on(
     assert client.patch(url, {"push_tasks": True}, "json").json()["push_tasks"] is True
     row = GoogleCalendarSync.objects.for_lab(lab).get()
     assert row.push_tasks and not row.push_meetings and not row.push_deadlines
+
+
+def test_migration_switches_push_off_for_existing_rows(transport, lab_users):
+    from importlib import import_module
+
+    from django.db import connection
+    from django.db.migrations.executor import MigrationExecutor
+
+    lab, users = lab_users
+    connect_google(transport, users["pi"], lab)
+    row = GoogleCalendarSync.objects.create(
+        lab=lab,
+        user=users["pi"],
+        account=accounts_of(lab, users["pi"])["google_calendar"],
+        push_meetings=True,
+        push_tasks=True,
+        push_deadlines=True,
+    )
+    node = ("labs", "0022_calendar_push_off_by_default")
+    apps = MigrationExecutor(connection).loader.project_state(node).apps
+    import_module("labs.migrations.0022_calendar_push_off_by_default").push_off(apps, None)
+    row.refresh_from_db()
+    assert not (row.push_meetings or row.push_tasks or row.push_deadlines)
 
 
 def test_the_scheduled_run_skips_people_who_push_nothing(transport, pushing):
@@ -591,8 +632,8 @@ def test_connecting_never_reads_the_primary_calendar_record(transport, lab_users
     asked = [u for _, u, _ in transport.calls]
     assert not [u for u in asked if u.rstrip("/").endswith("/calendars/primary")]
     rows = accounts_of(lab, users["pi"])
-    assert rows["google_calendar"].external_email == "pi@uni.edu"
-    assert rows["google_calendar"].external_account_id == "pi@uni.edu"
+    assert rows["google_calendar"].external_email == "pi@example.test"
+    assert rows["google_calendar"].external_account_id == "pi@example.test"
 
 
 def test_calendar_account_falls_back_to_the_openid_sub_without_an_email(transport, lab_users):

@@ -184,24 +184,24 @@ def test_a_member_with_google_chat_posts_as_themselves(transport, linked):
     assert message.external_id == f"{SPACE}/messages/m1"
 
 
-def test_a_member_without_google_chat_is_posted_by_the_link_with_their_name(transport, linked):
+def test_a_member_without_google_chat_is_posted_by_the_link_with_name_and_email(transport, linked):
     lab, u, _, _ = linked
     u["member"].display_name = "Robin Example"
     u["member"].save()
     transport.on("POST", MESSAGES, _posted(f"{SPACE}/messages/m2"))
     lab_services.post_lab_message(lab=lab, by=u["member"], body="hello")
     (call,) = transport.sent("POST", MESSAGES)
-    assert call["json"] == {"text": "*Robin Example* via labbenchos: hello"}  # never the email
+    assert call["json"] == {"text": f"*Robin Example ({u['member'].email})* via labbenchos: hello"}
 
 
-def test_a_member_with_no_name_is_relayed_without_their_email(transport, linked):
+def test_a_member_with_no_name_is_relayed_by_email(transport, linked):
     lab, u, _, _ = linked
     u["member"].display_name = ""
     u["member"].save()
     transport.on("POST", MESSAGES, _posted(f"{SPACE}/messages/m2"))
     lab_services.post_lab_message(lab=lab, by=u["member"], body="hello")
     (call,) = transport.sent("POST", MESSAGES)
-    assert call["json"] == {"text": "*A lab member* via labbenchos: hello"}
+    assert call["json"] == {"text": f"*{u['member'].email}* via labbenchos: hello"}
 
 
 def test_a_member_not_in_the_space_falls_back_to_the_link(transport, linked):
@@ -450,7 +450,7 @@ def test_a_display_name_cannot_pass_for_someone_else_in_google(transport, linked
     transport.on("POST", MESSAGES, _posted(f"{SPACE}/messages/m5"))
     lab_services.post_lab_message(lab=lab, by=u["member"], body="hi")
     (call,) = transport.sent("POST", MESSAGES)
-    assert call["json"]["text"] == "*Prof. Alice says* via labbenchos: hi"
+    assert call["json"]["text"] == (f"*Prof. Alice says ({u['member'].email})* via labbenchos: hi")
 
 
 def test_a_google_account_shared_by_two_members_credits_neither(transport, linked):

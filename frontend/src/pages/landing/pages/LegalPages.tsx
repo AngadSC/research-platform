@@ -86,12 +86,16 @@ export function PrivacyPage() {
         <li>
           <strong>Linking a file:</strong> we store its title, type, link and version. Everyone who
           can see the project sees the title and the link. Opening the file still needs their own
-          access in Google. When you link a file, we ask whether it identifies participants.
+          access in Google. When you link a file to a project, we ask whether it identifies
+          participants.
         </li>
         <li>
-          <strong>Daily check:</strong> once a day, using the connection of the person who linked
-          it, we read each linked file&rsquo;s title, version and last-modified time, to tell the
-          project when it changes or disappears. This check never reads what is in the file.
+          <strong>Daily check:</strong> once a day, for files linked to a project as links, we use
+          the connection of the person who linked each one to read its title, version and
+          last-modified time, to tell the project when it changes or disappears. In a
+          project&rsquo;s participant tracker, &ldquo;Check links now&rdquo; reads a linked Drive
+          file&rsquo;s title, type and last-modified time when someone asks for it, using their own
+          connection. Neither check reads what is in the file.
         </li>
         <li>
           <strong>Copies in your Drive:</strong> &ldquo;Edit in Google&rdquo; uploads a copy of a
@@ -169,8 +173,9 @@ export function PrivacyPage() {
           <strong>Posting:</strong> messages written in a synced chat are posted to the
           conversation. If you have connected Google Chat and are in the conversation, they are
           posted as you. Otherwise they are posted through the connection of the person who linked
-          it, starting with your name and &ldquo;via labbenchos&rdquo;. Your email address is not
-          included.
+          it, starting with your name and email address and followed by &ldquo;via
+          labbenchos&rdquo;. Anyone in the conversation, including people outside your lab, can see
+          them.
         </li>
         <li>
           <strong>Deleting:</strong> when a message we posted is deleted in labbenchos, we delete it

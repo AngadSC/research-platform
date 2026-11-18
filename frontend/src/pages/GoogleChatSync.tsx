@@ -227,9 +227,10 @@ function PickSpaceDialog({
             message; each can feed only one chat here.{" "}
             {projectId ? "Everyone who can see this project" : "Everyone in the lab"} sees the
             conversation&rsquo;s name and its new messages, with each sender&rsquo;s name and photo.
-            Members who connect Google Chat post there as themselves; everyone else&rsquo;s messages
-            are posted through your connection as &ldquo;Name via labbenchos&rdquo;, without their
-            email. Google Chat works only with Google Workspace accounts.
+            Members who connect Google Chat post there as themselves. For members who have not,
+            their messages are posted through your connection with their name and email, as
+            &ldquo;Name (email) via labbenchos&rdquo;. Google Chat works only with Google Workspace
+            accounts.
           </DialogDescription>
           {!connected ? (
             <p className="text-sm">

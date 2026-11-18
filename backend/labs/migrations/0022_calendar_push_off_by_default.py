@@ -3,6 +3,14 @@
 from django.db import migrations, models
 
 
+def push_off(apps, schema_editor):
+    """Rows made before this were created with push on, without the person asking. Switch it off;
+    nothing already in Google is deleted."""
+    apps.get_model("labs", "GoogleCalendarSync").objects.update(
+        push_meetings=False, push_tasks=False, push_deadlines=False
+    )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -25,4 +33,5 @@ class Migration(migrations.Migration):
             name="push_tasks",
             field=models.BooleanField(default=False),
         ),
+        migrations.RunPython(push_off, migrations.RunPython.noop),
     ]
