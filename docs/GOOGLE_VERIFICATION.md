@@ -57,7 +57,7 @@ Tags: **[S]** our server calls Google; **[B]** browser code calls Google; **[E]*
 | Chat poller (15 s) | [S] `GET spaces/{id}/messages` (createTime filter) | Chat, linker's token | chat.messages | Stores messages (4000 chars), sender name, avatar URL; whole lab or project sees them | google_chat.py:601-794 |
 | Chat post | [S] `POST spaces/{id}/messages` as the author, else relayed via the linker as "*Name (email)* via LabBench" | Chat | chat.messages | Member's message and, when relayed, their **email** | google_chat.py:367-448 |
 | Chat delete | [S] `DELETE spaces/{id}/messages/{id}` (only ours) | Chat | chat.messages | | google_chat.py:451-481 |
-| Chat thread import | [S] `GET messages` (500 to 1000) | Chat, importer's token | chat.messages | Thread copied into a project document, outsiders' names included; audited | google_chat.py:830-967 |
+| Chat thread import | [S] `GET messages` (500 to 1000) | Chat, importer's token | chat.messages | Thread (or the latest messages, up to 1000) copied into the lab or project chat as messages, outsiders' names included; audited | google_chat.py:830-967 |
 | Directory names | [S] `GET people:batchGet?personFields=names,photos` (domain profile) | Chat | directory.readonly | names and photo URLs cached 24 h per lab | google_chat.py:151-197, 498-573 |
 | Link previews of Google URLs | none (card or icon only, never fetched) | | | | F components/shared/LinkCard.tsx:29-30 |
 
@@ -139,7 +139,7 @@ For the project holding `<SIGN_IN_CLIENT_ID>` and `<DRIVE_CLIENT_ID>` (and the C
 
 **calendar.app.created**: labbenchos keeps one secondary calendar per lab ("labbenchos: <lab name>") that it creates in the member's account, and adds, updates and removes events on it for the member's task deadlines, project deadlines and lab meetings, only when the member turns sync on. It never touches any other calendar through this scope.
 
-**chat.messages** (restricted): a lab can link its labbenchos lab chat to one Google Chat space the linking member belongs to. labbenchos lists new messages in that space every 15 seconds to show them in the lab chat, posts each lab-chat message to the space as its author, and deletes a message in the space when its author deletes it in labbenchos. A member can also import one Chat thread they can read into a project as a document. Messages are stored only to show them to members of that lab or project and are never used for AI or advertising. chat.messages.readonly plus chat.messages.create would not cover deleting our own posts, and both read scopes are restricted anyway.
+**chat.messages** (restricted): a lab can link its labbenchos lab chat to one Google Chat space the linking member belongs to. labbenchos lists new messages in that space every 15 seconds to show them in the lab chat, posts each lab-chat message to the space as its author, and deletes a message in the space when its author deletes it in labbenchos. Whoever may link a chat can also copy one thread they can read (or a conversation's latest messages, up to 1000) into the lab or project chat. Messages are stored only to show them to members of that lab or project and are never used for AI or advertising. chat.messages.readonly plus chat.messages.create would not cover deleting our own posts, and both read scopes are restricted anyway.
 
 **chat.spaces.readonly**: used to list the Google Chat spaces the member belongs to, so they can pick which space to link or import from, and to read the linked space's name. No space settings are changed.
 
@@ -163,7 +163,7 @@ Use a dummy Workspace account (for example `pilot.pi@<test-domain>`) and the fak
 1. Settings → Integrations → Google Chat → Connect. Address bar with `client_id`, consent screen with the Chat permissions. Allow.
 2. chat.spaces.readonly (+ memberships): Lab chat → Sync with Google Chat → the list of spaces the account is in → pick a fake test space.
 3. chat.messages: post "Hello from labbenchos" in the lab chat → it appears in the Google Chat space as the member. Post in Google Chat → it appears in the lab chat within 15 s with the sender's name (directory.readonly). Delete the labbenchos post → it disappears from Google Chat.
-4. Import: in a project, Import from Google Chat → choose the space and a thread → the document is created, showing names and times.
+4. Import: in a project chat, Import from Google Chat → choose the space and a thread → the messages appear in the chat with names and times.
 5. Unlink the space and disconnect.
 
 ## 8. Acceptance tests
@@ -178,7 +178,7 @@ Functionality (live, with a dummy Workspace account; not covered by mocked tests
 - Drive `about` works with drive.file only.
 - Picker works with the configured key and app id; shared-drive files can be linked and read.
 - Meet event created, moved and deleted on primary; app calendar created and filled only after sync is turned on.
-- Chat: link a space, both directions within 15 s, delete sync, thread import with names.
+- Chat: link a space, both directions within 15 s, delete sync, thread import into a chat with names.
 
 Data lifecycle
 - Disconnect revokes at Google (myaccount permissions page) unless another lab still uses the same grant.

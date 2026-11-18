@@ -144,7 +144,7 @@ export function IntegrationsPage() {
     <div className="grid gap-8">
       <PageHeader
         title="Integrations"
-        description="Connect AI apps like Claude, and outside services whose files you link to your projects. For linked files we only read details such as titles and modified times."
+        description="Connect AI apps like Claude, and outside services you use with your projects. Each service below says what connecting it lets labbenchos do."
       />
       <p className="text-sm text-muted-foreground">Each person connects their own accounts here.</p>
       <FormError message={failure ?? connectError(initialError)} />
@@ -383,6 +383,7 @@ function ProviderCard({
           <span className="text-xs text-muted-foreground">
             {note || (p.account ? `${who}${help}` : "Not connected")}
           </span>
+          <WhatItDoes p={p} />
         </div>
       </div>
       <div className="flex items-center gap-3">
@@ -404,6 +405,21 @@ function NotSetUp({ label }: { label: string }) {
       Not available yet
     </span>
   );
+}
+
+/** What connecting each Google service lets labbenchos do, shown next to its Connect button. */
+const DISCLOSURE: Record<string, string> = {
+  google_drive:
+    "Only files you pick or that labbenchos creates. The assistant reads a file only when you ask.",
+  google_calendar:
+    "Adds meetings you schedule, with a Meet link, to your calendar. Shows your events only to you. The labbenchos calendar stays off until you turn it on.",
+  google_chat:
+    "Lists your conversations so you can pick one. Reads and posts messages only in a conversation synced with a chat here, and reads one you choose to import.",
+};
+
+function WhatItDoes({ p }: { p: IntegrationProvider }) {
+  const text = DISCLOSURE[p.name];
+  return text ? <span className="text-xs text-muted-foreground">{text}</span> : null;
 }
 
 /** One sign-in for several services (D262), for example Google's Drive, Calendar and Meet. */
@@ -457,6 +473,9 @@ function BundleCard({
         <div className="grid min-w-0">
           <span className="text-sm font-medium">{joined(members)}</span>
           <span className="text-xs text-muted-foreground">{note}</span>
+          {members.map((m) => (
+            <WhatItDoes key={m.name} p={m} />
+          ))}
         </div>
       </div>
       <div className="flex items-center gap-3">

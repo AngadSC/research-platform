@@ -93,7 +93,12 @@ export function GoogleChatImportDialog({
         <DialogDescription className="text-sm text-muted-foreground">
           Pick a space, group chat or direct message, then a thread or its latest messages. They are
           added to this chat as messages, each under its sender and at the time it was sent, and are
-          not sent back to Google. Do not import conversations that identify participants.
+          not sent back to Google.{" "}
+          {projectId
+            ? "Everyone who can see this project will see them, "
+            : "Everyone in the lab will see them, "}
+          including the names of people outside the lab who wrote them. Do not import conversations
+          that identify participants.
         </DialogDescription>
         {!connected ? (
           <p className="text-sm">

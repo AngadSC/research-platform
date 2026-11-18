@@ -60,7 +60,7 @@ const PILLARS: { icon: string; title: string; body: string; tone: Tone; more: st
   {
     icon: ICONS.link,
     title: "Careful with other systems",
-    body: "Connections to Drive, GitHub, Zotero and others read only the details needed, like titles and modified dates.",
+    body: "Each person connects their own Drive, GitHub, Zotero or other account. Linked files are checked by title and modified date; contents are read only when someone asks the assistant to.",
     tone: "teal",
     more: [
       "Tokens encrypted at rest, with key rotation",
