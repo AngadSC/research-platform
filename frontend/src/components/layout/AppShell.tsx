@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { useIncomingBanners } from "@/hooks/banners";
 import { useUnreadChats } from "@/hooks/chat";
-import { useCrumbs, useCurrentLabId } from "@/hooks/crumbs";
+import { useCurrentProjectId, useCrumbs, useCurrentLabId } from "@/hooks/crumbs";
 import {
   useGlass,
   useLayout,
@@ -94,6 +94,20 @@ export function AppShell() {
   const labId = useCurrentLabId();
   const { data: labs } = useLabs();
   const { data: projects } = useProjects(labId);
+  const projectId = useCurrentProjectId();
+  const projectColor = projects?.find((p) => p.id === projectId)?.color;
+  // Inside a project, its colour themes the whole page: background, accents and headings.
+  useEffect(() => {
+    const el = document.documentElement;
+    if (projectColor) {
+      el.dataset.projectTheme = projectColor;
+      el.style.setProperty("--project", `var(--project-${projectColor})`);
+    }
+    return () => {
+      delete el.dataset.projectTheme;
+      el.style.removeProperty("--project");
+    };
+  }, [projectColor]);
   const hasUnread = Object.keys(useUnreadChats(labId)).length > 0;
   const [navOpen, setNavOpen] = useState(false);
   const [sidebarHidden, setSidebarHidden] = useState(readSidebarHidden);

@@ -2,7 +2,15 @@ import { fireEvent, waitFor, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { localDateISO } from "@/lib/format";
-import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
+import {
+  makeLab,
+  mockFetch,
+  openSidebarGroup,
+  renderRoute,
+  SESSION,
+  signedIn,
+  pickMenuItem,
+} from "@/test/utils";
 
 const ADMIN = ["view_lab", "manage_lab", "manage_inventory", "view_audit_log", "view_ethics"];
 const lab = (perms: string[]) => ({
@@ -60,10 +68,8 @@ describe("admin area", () => {
     }
     for (const name of ["Inventory", "Training"])
       expect(screen.queryByRole("heading", { name })).toBeNull();
-    expect(screen.getByRole("link", { name: "Lab details" })).toHaveAttribute(
-      "href",
-      "/labs/lab1/admin",
-    );
+    await openSidebarGroup("Lab details");
+    expect(await screen.findByRole("menuitem", { name: "Lab details" })).toBeInTheDocument();
   });
 
   it("hides the Admin group and explains for a member", async () => {
@@ -175,11 +181,11 @@ describe("admin area", () => {
       }),
     );
     renderRoute("/labs/lab1/inventory");
-    await userEvent.click(await screen.findByRole("button", { name: "Edit Ethanol" }));
+    await pickMenuItem("More for Ethanol", "Edit");
     await userEvent.click(await screen.findByRole("button", { name: "Save" }));
     await waitFor(() => expect(calls.some((c) => c.method === "PATCH")).toBe(true));
     expect(calls.find((c) => c.method === "PATCH")!.body).not.toHaveProperty("quantity");
-    await userEvent.click(screen.getByRole("button", { name: "Delete Ethanol" }));
+    await pickMenuItem("More for Ethanol", "Delete");
     expect(await screen.findByText("Mark the item as retired instead.")).toBeInTheDocument();
   });
 

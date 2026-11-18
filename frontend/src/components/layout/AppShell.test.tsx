@@ -174,9 +174,9 @@ describe("app shell", () => {
     renderRoute("/settings#appearance");
     await screen.findByRole("heading", { name: "Appearance" });
     const main = within(await screen.findByRole("navigation", { name: "Main" }));
-    expect(await main.findByRole("link", { name: "Members" })).toHaveAttribute(
+    expect(await main.findByRole("link", { name: "Calendar" })).toHaveAttribute(
       "href",
-      "/labs/lab2/members",
+      "/labs/lab2/calendar",
     );
     expect(screen.getByRole("button", { name: "Switch lab" })).toHaveTextContent("Second Lab");
     expect(within(screen.getAllByRole("banner")[0]!).queryByRole("radio")).toBeNull();
@@ -186,9 +186,10 @@ describe("app shell", () => {
     localStorage.setItem("last-lab", "gone");
     mockFetch(world({}));
     renderRoute("/settings");
-    expect(await screen.findByRole("link", { name: "Members" })).toHaveAttribute(
+    const main = within(await screen.findByRole("navigation", { name: "Main" }));
+    expect(await main.findByRole("link", { name: "Calendar" })).toHaveAttribute(
       "href",
-      "/labs/lab1/members",
+      "/labs/lab1/calendar",
     );
   });
 
@@ -204,7 +205,7 @@ describe("app shell", () => {
     );
   });
 
-  it("lists the links in order, without Notifications, and hides Admin from a member", async () => {
+  it("lists the main links in order, without Notifications, with the rest behind two groups", async () => {
     mockFetch(world({}));
     renderRoute("/labs/lab1/members");
     const main = within(await screen.findByRole("navigation", { name: "Main" }));
@@ -218,17 +219,25 @@ describe("app shell", () => {
       "Projects",
       "My work",
       "My notebook",
-      "Participants",
-      "Members",
-      "Inventory",
+      "Calendar",
+      "Lab chat",
+      "Integrations", // every member connects their own accounts
     ]);
-    expect(labels).toContain("Training");
-    expect(labels).toContain("Integrations"); // every member connects their own accounts
+    for (const moved of ["Training", "Members", "Participants", "Papers", "Inventory"])
+      expect(main.queryByRole("link", { name: moved })).toBeNull();
     expect(main.queryByRole("link", { name: "Notifications" })).toBeNull();
-    expect(screen.queryByRole("navigation", { name: "Admin" })).toBeNull();
+    // a member has the lab's pages, but nothing of the admin pages beyond Inventory
+    const groups = within(screen.getByRole("navigation", { name: "Lab and admin" }));
+    expect(groups.getByRole("button", { name: "Lab details, pages" })).toBeInTheDocument();
+    const user = userEvent.setup();
+    groups.getByRole("button", { name: "Admin, pages" }).focus();
+    await user.keyboard("{Enter}");
+    expect(await screen.findByRole("menuitem", { name: "Inventory" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Audit log" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Retention" })).toBeNull();
   });
 
-  it("shows the Admin group to a PI, with links out and Ethics in the main list", async () => {
+  it("puts the lab's pages under Lab details and Admin pages under Admin, for a PI", async () => {
     const perms = [
       "view_lab",
       "view_ethics",
@@ -242,18 +251,28 @@ describe("app shell", () => {
       "GET /api/labs/": { body: [makeLab(perms)] },
       [`GET ${L}/`]: { body: makeLab(perms) },
     });
-    renderRoute("/labs/lab1/members");
-    const admin = within(await screen.findByRole("navigation", { name: "Admin" }));
-    expect(admin.getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual([
-      "/labs/lab1/audit-log",
-      "/labs/lab1/retention",
-      "/labs/lab1/admin",
+    renderRoute("/labs/lab1/calendar");
+    const groups = within(await screen.findByRole("navigation", { name: "Lab and admin" }));
+    const user = userEvent.setup();
+    (await groups.findByRole("button", { name: "Admin, pages" })).focus();
+    await user.keyboard("{Enter}");
+    expect((await screen.findAllByRole("menuitem")).map((i) => i.textContent)).toEqual([
+      "Audit log",
+      "Retention",
+      "Inventory",
+      "Ethics",
     ]);
-    expect(
-      within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", {
-        name: "Ethics",
-      }),
-    ).toHaveAttribute("href", "/labs/lab1/ethics");
+    await user.keyboard("{Escape}");
+    groups.getByRole("button", { name: "Lab details, pages" }).focus();
+    await user.keyboard("{Enter}");
+    expect((await screen.findAllByRole("menuitem")).map((i) => i.textContent)).toEqual([
+      "Lab details",
+      "Lab documents",
+      "Papers",
+      "Training",
+      "Members",
+      "Participants",
+    ]);
   });
 
   it("lists every lab at /labs", async () => {

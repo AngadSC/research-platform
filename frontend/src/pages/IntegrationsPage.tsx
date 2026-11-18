@@ -1,3 +1,4 @@
+import { Disclosure } from "@/components/shared/Disclosure";
 import { Plug } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
@@ -139,86 +140,84 @@ export function IntegrationsPage() {
       <p className="text-sm text-muted-foreground">Each person connects their own accounts here.</p>
       <FormError message={failure ?? connectError(initialError)} />
       <AiAppsSection />
-      <section aria-labelledby="services" className="grid gap-3">
-        <h2 id="services" className="text-base font-semibold">
-          Services
-        </h2>
-        {providers.isLoading ? (
-          <div aria-busy="true" aria-label="Loading" className="grid gap-2">
-            <Skeleton className="h-16 w-full" />
-          </div>
-        ) : providers.data?.length ? (
-          groupByCategory(providers.data).map(([cat, label, list]) => (
-            <div key={cat} className="grid gap-2">
-              <h3 className="text-sm font-medium text-muted-foreground">{label}</h3>
-              <ul className="grid gap-3 sm:grid-cols-2">
-                {list.map((members) => {
-                  const p = members[0]!;
-                  const onConnect = () => (p.auth_type === "api_key" ? setKeyed(p) : start(p));
-                  const disconnectWith = (id: string, title: string, extra: string) =>
-                    setConfirm({
-                      id,
-                      action: "Disconnect",
-                      title,
-                      description: `${extra}Linked items stay in your projects, but we stop checking them until you connect again.`,
-                    });
-                  return members.length > 1 ? (
-                    <BundleCard
-                      key={p.name}
-                      members={members}
-                      busy={connect.isPending}
-                      onConnect={onConnect}
-                      onDisconnect={(id, what) =>
-                        disconnectWith(
-                          id,
-                          `Disconnect ${p.bundle_label}?`,
-                          `This disconnects ${what} together, because they use one sign-in. `,
-                        )
-                      }
-                    />
-                  ) : (
-                    <ProviderCard
-                      key={p.name}
-                      p={p}
-                      busy={connect.isPending}
-                      onConnect={onConnect}
-                      onDisconnect={() =>
-                        p.account && disconnectWith(p.account.id, `Disconnect ${p.label}?`, "")
-                      }
-                    />
-                  );
-                })}
-              </ul>
+      <Disclosure card region defaultOpen title="Services">
+        <div className="grid gap-3">
+          {providers.isLoading ? (
+            <div aria-busy="true" aria-label="Loading" className="grid gap-2">
+              <Skeleton className="h-16 w-full" />
             </div>
-          ))
-        ) : (
-          <EmptyState
-            icon={Plug}
-            title="No services yet"
-            description="Nothing can be connected yet."
-          />
-        )}
-      </section>
+          ) : providers.data?.length ? (
+            groupByCategory(providers.data).map(([cat, label, list]) => (
+              <div key={cat} className="grid gap-2">
+                <h3 className="text-sm font-medium text-muted-foreground">{label}</h3>
+                <ul className="grid gap-3 sm:grid-cols-2">
+                  {list.map((members) => {
+                    const p = members[0]!;
+                    const onConnect = () => (p.auth_type === "api_key" ? setKeyed(p) : start(p));
+                    const disconnectWith = (id: string, title: string, extra: string) =>
+                      setConfirm({
+                        id,
+                        action: "Disconnect",
+                        title,
+                        description: `${extra}Linked items stay in your projects, but we stop checking them until you connect again.`,
+                      });
+                    return members.length > 1 ? (
+                      <BundleCard
+                        key={p.name}
+                        members={members}
+                        busy={connect.isPending}
+                        onConnect={onConnect}
+                        onDisconnect={(id, what) =>
+                          disconnectWith(
+                            id,
+                            `Disconnect ${p.bundle_label}?`,
+                            `This disconnects ${what} together, because they use one sign-in. `,
+                          )
+                        }
+                      />
+                    ) : (
+                      <ProviderCard
+                        key={p.name}
+                        p={p}
+                        busy={connect.isPending}
+                        onConnect={onConnect}
+                        onDisconnect={() =>
+                          p.account && disconnectWith(p.account.id, `Disconnect ${p.label}?`, "")
+                        }
+                      />
+                    );
+                  })}
+                </ul>
+              </div>
+            ))
+          ) : (
+            <EmptyState
+              icon={Plug}
+              title="No services yet"
+              description="Nothing can be connected yet."
+            />
+          )}
+        </div>
+      </Disclosure>
       {canSeeAll && <WebhooksSection labId={labId} />}
       {canSeeAll && (
-        <section aria-labelledby="everyone" className="grid gap-3">
-          <h2 id="everyone" className="text-base font-semibold">
-            Everyone&apos;s connections
-          </h2>
-          <DataTable
-            columns={cols}
-            rows={everyone.data ?? []}
-            getRowKey={(a) => a.id}
-            loading={everyone.isLoading}
-            empty={
-              <EmptyState
-                title="No connections yet"
-                description="Connections made by lab members appear here."
-              />
-            }
-          />
-          <LabAiApps labId={labId} />
-        </section>
+        <Disclosure card region title="Everyone's connections">
+          <div className="grid gap-3">
+            <DataTable
+              columns={cols}
+              rows={everyone.data ?? []}
+              getRowKey={(a) => a.id}
+              loading={everyone.isLoading}
+              empty={
+                <EmptyState
+                  title="No connections yet"
+                  description="Connections made by lab members appear here."
+                />
+              }
+            />
+            <LabAiApps labId={labId} />
+          </div>
+        </Disclosure>
       )}
       <ConnectDialog labId={labId} provider={keyed} onClose={() => setKeyed(null)} />
       <Dialog open={!!confirm} onOpenChange={(open) => !open && setConfirm(null)}>
@@ -246,23 +245,22 @@ export function IntegrationsPage() {
 function AiAppsSection() {
   const apps = (useAiGrants().data ?? []).filter((g) => g.kind === "oauth" && !g.revoked_at);
   return (
-    <section aria-labelledby="ai-apps" className="grid gap-3">
-      <h2 id="ai-apps" className="text-base font-semibold">
-        Claude and other AI apps
-      </h2>
-      <div className="grid gap-3 rounded-lg border bg-background px-4 py-3">
-        <p className="text-sm text-muted-foreground">
-          {apps.length
-            ? `Connected: ${apps.map((g) => g.client_name).join(", ")}.`
-            : "No AI app connected."}{" "}
-          They see only what you can see, in the labs you choose.{" "}
-          <Link to="/settings#ai" className="font-medium text-foreground underline">
-            Manage in Settings
-          </Link>
-        </p>
-        <ConnectClaude />
+    <Disclosure card region title="Claude and other AI apps">
+      <div className="grid gap-3">
+        <div className="grid gap-3 rounded-lg border bg-background px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            {apps.length
+              ? `Connected: ${apps.map((g) => g.client_name).join(", ")}.`
+              : "No AI app connected."}{" "}
+            They see only what you can see, in the labs you choose.{" "}
+            <Link to="/settings#ai" className="font-medium text-foreground underline">
+              Manage in Settings
+            </Link>
+          </p>
+          <ConnectClaude />
+        </div>
       </div>
-    </section>
+    </Disclosure>
   );
 }
 

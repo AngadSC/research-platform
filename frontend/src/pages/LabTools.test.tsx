@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { localDateISO } from "@/lib/format";
 import { monthGrid } from "@/lib/calendar";
-import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
+import { makeLab, mockFetch, renderRoute, SESSION, signedIn, pickMenuItem } from "@/test/utils";
 
 const L = "/api/labs/lab1";
 const base = (perms: string[], extra: Record<string, unknown> = {}) => ({
@@ -99,7 +99,7 @@ describe("calendar", () => {
       }),
     );
     renderRoute("/labs/lab1/calendar");
-    expect(await screen.findByRole("button", { name: "Add event" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "More actions" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Next month" }));
     await expect.poll(() => calls.some((c) => c.path === `${L}/calendar/?${nextRange}`)).toBe(true);
   });
@@ -167,7 +167,7 @@ describe("meetings and my work", () => {
       }),
     );
     renderRoute("/labs/lab1/calendar");
-    await userEvent.click(await screen.findByRole("button", { name: "Subscribe" }));
+    await pickMenuItem("More actions", "Subscribe");
     await userEvent.click(await screen.findByRole("button", { name: "Make a link" }));
     expect(await screen.findByLabelText("My calendar link")).toHaveValue(
       `${window.location.origin}/api/calendar.ics?token=s3cret&mine=1`,
@@ -292,7 +292,7 @@ describe("orders", () => {
     expect(place).toHaveAttribute("target", "_blank");
     expect(place).toHaveAttribute("rel", "noopener noreferrer");
     expect(screen.queryByRole("button", { name: "New order" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Reorder Tips" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More for Tips" })).not.toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: "Status of Tips" })).not.toBeInTheDocument();
   });
 
@@ -303,7 +303,7 @@ describe("orders", () => {
       }),
     );
     renderRoute("/labs/lab1/inventory");
-    await userEvent.click(await screen.findByRole("button", { name: "Reorder Tips" }));
+    await pickMenuItem("More for Tips", "Reorder");
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByLabelText("Name")).toHaveValue("Tips");
     expect(within(dialog).getByLabelText("Catalog number")).toHaveValue("CAT-9");

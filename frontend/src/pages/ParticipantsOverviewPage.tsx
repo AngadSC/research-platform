@@ -1,3 +1,4 @@
+import { Disclosure } from "@/components/shared/Disclosure";
 import { Users } from "lucide-react";
 import { Link, useParams } from "react-router";
 import { EmptyState, GettingStartedLink } from "@/components/shared/EmptyState";
@@ -30,125 +31,118 @@ export function ParticipantsOverviewPage() {
       )}
       {data && data.projects.length > 0 && (
         <div className="grid gap-5">
-          <section
-            aria-label="Projects"
-            className="grid content-start gap-2 rounded-2xl border bg-card p-5 shadow-sm"
-          >
-            <h2 className="text-base font-semibold">Projects</h2>
-            <ul className="divide-y rounded-lg border">
-              {data.projects.map((p) => (
-                <li key={p.id} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm">
-                  <Link
-                    to={to(p.id)}
-                    className="min-w-40 flex-1 font-medium underline-offset-2 hover:underline"
+          <Disclosure card region title="Projects" defaultOpen>
+            <div className="grid gap-3">
+              <ul className="divide-y rounded-lg border">
+                {data.projects.map((p) => (
+                  <li key={p.id} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm">
+                    <Link
+                      to={to(p.id)}
+                      className="min-w-40 flex-1 font-medium underline-offset-2 hover:underline"
+                    >
+                      {p.name}
+                    </Link>
+                    <span>{p.participants} participants</span>
+                    <span>{p.percent}% complete</span>
+                    <Link
+                      to={to(p.id, "?status=missing")}
+                      className="underline-offset-2 hover:underline"
+                    >
+                      {p.missing} missing
+                    </Link>
+                    <Link
+                      to={to(p.id, "?overdue=1")}
+                      className="underline-offset-2 hover:underline"
+                    >
+                      {p.overdue} overdue
+                    </Link>
+                    <Link
+                      to={to(p.id, "?status=needs_review")}
+                      className="underline-offset-2 hover:underline"
+                    >
+                      {p.needs_review} to review
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Disclosure>
+          <Disclosure card region title="Completeness by column">
+            <div className="grid gap-3">
+              <ul className="grid gap-2">
+                {data.by_component.map((c) => (
+                  <li
+                    key={c.name}
+                    className="grid grid-cols-[10rem_1fr_3rem] items-center gap-2 text-sm"
                   >
-                    {p.name}
-                  </Link>
-                  <span>{p.participants} participants</span>
-                  <span>{p.percent}% complete</span>
-                  <Link
-                    to={to(p.id, "?status=missing")}
-                    className="underline-offset-2 hover:underline"
-                  >
-                    {p.missing} missing
-                  </Link>
-                  <Link to={to(p.id, "?overdue=1")} className="underline-offset-2 hover:underline">
-                    {p.overdue} overdue
-                  </Link>
-                  <Link
-                    to={to(p.id, "?status=needs_review")}
-                    className="underline-offset-2 hover:underline"
-                  >
-                    {p.needs_review} to review
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-          <section
-            aria-label="By column"
-            className="grid content-start gap-2 rounded-2xl border bg-card p-5 shadow-sm"
-          >
-            <h2 className="text-base font-semibold">Completeness by column</h2>
-            <ul className="grid gap-2">
-              {data.by_component.map((c) => (
-                <li
-                  key={c.name}
-                  className="grid grid-cols-[10rem_1fr_3rem] items-center gap-2 text-sm"
-                >
-                  <span className="truncate">{c.name}</span>
-                  <div
-                    role="img"
-                    aria-label={`${c.name}: ${c.percent}% complete`}
-                    className="h-2 overflow-hidden rounded-full bg-muted"
-                  >
-                    <div className="h-full bg-success" style={{ width: `${c.percent}%` }} />
-                  </div>
-                  <span className="text-right text-muted-foreground">{c.percent}%</span>
-                </li>
-              ))}
-            </ul>
-          </section>
+                    <span className="truncate">{c.name}</span>
+                    <div
+                      role="img"
+                      aria-label={`${c.name}: ${c.percent}% complete`}
+                      className="h-2 overflow-hidden rounded-full bg-muted"
+                    >
+                      <div className="h-full bg-success" style={{ width: `${c.percent}%` }} />
+                    </div>
+                    <span className="text-right text-muted-foreground">{c.percent}%</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Disclosure>
           <div className="grid gap-5 md:grid-cols-2">
-            <section
-              aria-label="Missing by reason"
-              className="grid content-start gap-2 rounded-2xl border bg-card p-5 shadow-sm"
-            >
-              <h2 className="text-base font-semibold">Missing, and why</h2>
-              {data.missing_by_reason.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nothing is marked missing.</p>
-              ) : (
-                <ul className="text-sm">
-                  {data.missing_by_reason.map((r) => (
-                    <li key={r.reason} className="flex justify-between border-b py-1">
-                      <span>{r.reason}</span>
-                      <span>{r.count}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-            <section
-              aria-label="Translations pending"
-              className="grid content-start gap-2 rounded-2xl border bg-card p-5 shadow-sm"
-            >
-              <h2 className="text-base font-semibold">Translations pending, by language</h2>
-              {data.translation_pending.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No translations are waiting.</p>
-              ) : (
-                <ul className="text-sm">
-                  {data.translation_pending.map((r) => (
-                    <li key={r.group} className="flex justify-between border-b py-1">
-                      <span>{r.group}</span>
-                      <span>{r.count}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+            <Disclosure card region title="Missing, and why">
+              <div className="grid gap-3">
+                {data.missing_by_reason.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nothing is marked missing.</p>
+                ) : (
+                  <ul className="text-sm">
+                    {data.missing_by_reason.map((r) => (
+                      <li key={r.reason} className="flex justify-between border-b py-1">
+                        <span>{r.reason}</span>
+                        <span>{r.count}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </Disclosure>
+            <Disclosure card region title="Translations pending, by language">
+              <div className="grid gap-3">
+                {data.translation_pending.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No translations are waiting.</p>
+                ) : (
+                  <ul className="text-sm">
+                    {data.translation_pending.map((r) => (
+                      <li key={r.group} className="flex justify-between border-b py-1">
+                        <span>{r.group}</span>
+                        <span>{r.count}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </Disclosure>
           </div>
-          <section
-            aria-label="Recently changed"
-            className="grid content-start gap-2 rounded-2xl border bg-card p-5 shadow-sm"
-          >
-            <h2 className="text-base font-semibold">Recently changed</h2>
-            <ul className="text-sm">
-              {data.recent.slice(0, 8).map((m) => (
-                <li
-                  key={`${m.participant_id}-${m.component}-${m.at}`}
-                  className="flex items-center gap-2 border-b py-1"
-                >
-                  <Link
-                    to={to(m.project)}
-                    className="flex-1 truncate underline-offset-2 hover:underline"
+          <Disclosure card region title="Recently changed">
+            <div className="grid gap-3">
+              <ul className="text-sm">
+                {data.recent.slice(0, 8).map((m) => (
+                  <li
+                    key={`${m.participant_id}-${m.component}-${m.at}`}
+                    className="flex items-center gap-2 border-b py-1"
                   >
-                    {m.project_name}: {m.participant}, {m.component}
-                  </Link>
-                  <StatusChip status={m.status} compact />
-                </li>
-              ))}
-            </ul>
-          </section>
+                    <Link
+                      to={to(m.project)}
+                      className="flex-1 truncate underline-offset-2 hover:underline"
+                    >
+                      {m.project_name}: {m.participant}, {m.component}
+                    </Link>
+                    <StatusChip status={m.status} compact />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Disclosure>
         </div>
       )}
     </>

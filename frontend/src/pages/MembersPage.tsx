@@ -1,3 +1,4 @@
+import { Disclosure } from "@/components/shared/Disclosure";
 import { UserPlus } from "lucide-react";
 import { RelativeTime } from "@/components/shared/RelativeTime";
 import { useState, type FormEvent } from "react";
@@ -97,43 +98,39 @@ function InviteForm({ labId }: { labId: string }) {
   }
 
   return (
-    <form
-      onSubmit={submit}
-      noValidate
-      aria-label="Invite someone"
-      className="mb-8 grid gap-3 rounded-lg border p-6"
-    >
-      <h2 className="text-base font-semibold">Invite someone</h2>
-      <div className="flex flex-wrap items-start gap-3">
-        <div className="w-72">
-          <FormField label="Email" error={errors.fields.email}>
-            {(p) => <Input maxLength={254} {...p} name="email" type="email" autoComplete="off" />}
-          </FormField>
+    <Disclosure card title="Invite someone" className="mb-6">
+      <form onSubmit={submit} noValidate aria-label="Invite someone" className="grid gap-3">
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="w-72">
+            <FormField label="Email" error={errors.fields.email}>
+              {(p) => <Input maxLength={254} {...p} name="email" type="email" autoComplete="off" />}
+            </FormField>
+          </div>
+          <div className="w-40">
+            <FormField label="Role" error={errors.fields.role}>
+              {(p) => (
+                <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+                  <SelectTrigger {...p}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLES.map((r) => (
+                      <SelectItem key={r.value} value={r.value} hint={r.help}>
+                        {r.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </FormField>
+          </div>
+          <Button type="submit" className="mt-[1.375rem]" disabled={create.isPending}>
+            Send invitation
+          </Button>
         </div>
-        <div className="w-40">
-          <FormField label="Role" error={errors.fields.role}>
-            {(p) => (
-              <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-                <SelectTrigger {...p}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLES.map((r) => (
-                    <SelectItem key={r.value} value={r.value} hint={r.help}>
-                      {r.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </FormField>
-        </div>
-        <Button type="submit" className="mt-[1.375rem]" disabled={create.isPending}>
-          Send invitation
-        </Button>
-      </div>
-      <FormError message={errors.form} />
-    </form>
+        <FormError message={errors.form} />
+      </form>
+    </Disclosure>
   );
 }
 
@@ -323,38 +320,40 @@ export function MembersPage() {
           ))}
         </dl>
       </details>
-      <section className="mb-8 grid gap-3">
-        <h2 className="text-base font-semibold">People</h2>
-        <DataTable
-          columns={memberCols}
-          rows={members.data ?? []}
-          getRowKey={(m) => m.id}
-          loading={members.isLoading || !lab}
-          empty={
-            <EmptyState
-              title="No members yet"
-              description="People you add to this lab will appear here."
-            />
-          }
-        />
-      </section>
-      {canManage && (
-        <section className="grid gap-3">
-          <h2 className="text-base font-semibold">Pending invitations</h2>
+      <Disclosure card region title="People" defaultOpen>
+        <div className="grid gap-3">
           <DataTable
-            columns={inviteCols}
-            rows={invites.data ?? []}
-            getRowKey={(i) => i.id}
-            loading={invites.isLoading}
+            columns={memberCols}
+            rows={members.data ?? []}
+            getRowKey={(m) => m.id}
+            loading={members.isLoading || !lab}
             empty={
               <EmptyState
-                icon={UserPlus}
-                title="No pending invitations"
-                description="Invitations you send stay here until they are accepted or expire."
+                title="No members yet"
+                description="People you add to this lab will appear here."
               />
             }
           />
-        </section>
+        </div>
+      </Disclosure>
+      {canManage && (
+        <Disclosure card region title="Pending invitations" defaultOpen>
+          <div className="grid gap-3">
+            <DataTable
+              columns={inviteCols}
+              rows={invites.data ?? []}
+              getRowKey={(i) => i.id}
+              loading={invites.isLoading}
+              empty={
+                <EmptyState
+                  icon={UserPlus}
+                  title="No pending invitations"
+                  description="Invitations you send stay here until they are accepted or expire."
+                />
+              }
+            />
+          </div>
+        </Disclosure>
       )}
       <Confirm
         open={!!revoking}

@@ -103,48 +103,79 @@
   --glass-bg-strong: color-mix(in srgb, var(--card) 82%, transparent);
   --glass-bg-solid: color-mix(in srgb, var(--card) 94%, transparent);
   --glass-bg-input: color-mix(in srgb, var(--foreground) 4%, var(--card) 70%);
-  --glass-border: rgb(24 24 40 / 0.11);
-  --glass-edge-shadow: rgb(24 24 27 / 0.06);
-  --glass-highlight: rgb(255 255 255 / 0.9);
-  --blur-sm: 8px;
-  --blur-md: 16px;
-  --blur-lg: 28px;
-  --glass-saturate: 1.4;
+  --glass-border: rgb(24 24 40 / 0.08);
+  --glass-edge-shadow: rgb(24 24 27 / 0.04);
+  --glass-highlight: rgb(255 255 255 / 0.55);
+  --blur-sm: 6px;
+  --blur-md: 12px;
+  --blur-lg: 20px;
+  --glass-saturate: 1.1;
   --radius-pill: 999px;
   --radius-dialog: 24px;
   --ease-glass: cubic-bezier(0.22, 1, 0.36, 1);
   --dur-fast: 120ms;
   --dur: 200ms;
   --dur-slow: 320ms;
-  --shadow-glass-1: 0 1px 2px var(--glass-edge-shadow), 0 4px 12px rgb(24 24 27 / 0.05);
-  --shadow-glass-2: 0 2px 4px var(--glass-edge-shadow), 0 12px 28px rgb(24 24 27 / 0.1);
-  --shadow-glass-3: 0 4px 8px var(--glass-edge-shadow), 0 24px 56px rgb(24 24 27 / 0.18);
-  --primary-glow: rgb(79 70 229 / 0.35);
+  --shadow-glass-1: 0 1px 2px var(--glass-edge-shadow);
+  --shadow-glass-2: 0 1px 3px var(--glass-edge-shadow), 0 8px 24px rgb(24 24 27 / 0.05);
+  --shadow-glass-3: 0 2px 6px var(--glass-edge-shadow), 0 16px 40px rgb(24 24 27 / 0.12);
+  --primary-glow: transparent;
   --primary-lift: #6d5ae8; /* a touch more violet than --primary, for the button gradient */
-  --mesh:
-    radial-gradient(60rem 40rem at 8% -10%, rgb(99 102 241 / 0.16), transparent 60%),
-    radial-gradient(50rem 36rem at 95% 0%, rgb(167 139 250 / 0.14), transparent 60%),
-    radial-gradient(46rem 34rem at 60% 105%, rgb(45 212 191 / 0.1), transparent 60%);
+  /* One faint wash from the top corner: enough light to feel like glass, nothing to look at. */
+  --mesh: radial-gradient(70rem 36rem at 6% -14%, rgb(99 102 241 / 0.07), transparent 65%);
 }
 .dark {
   --glass-bg: color-mix(in srgb, var(--card) 55%, transparent);
   --glass-bg-strong: color-mix(in srgb, var(--card) 78%, transparent);
   --glass-bg-solid: color-mix(in srgb, var(--card) 92%, transparent);
   --glass-bg-input: color-mix(in srgb, var(--foreground) 6%, var(--card) 60%);
-  --glass-border: rgb(255 255 255 / 0.1);
-  --glass-edge-shadow: rgb(0 0 0 / 0.5);
-  --glass-highlight: rgb(255 255 255 / 0.14);
-  --glass-saturate: 1.2;
-  --shadow-glass-1: 0 1px 2px rgb(0 0 0 / 0.5), 0 4px 12px rgb(0 0 0 / 0.35);
-  --shadow-glass-2: 0 2px 4px rgb(0 0 0 / 0.5), 0 12px 28px rgb(0 0 0 / 0.45);
-  --shadow-glass-3:
-    0 4px 8px rgb(0 0 0 / 0.5), 0 24px 56px rgb(0 0 0 / 0.6), 0 0 48px rgb(99 102 241 / 0.12);
-  --primary-glow: rgb(129 140 248 / 0.3);
-  --primary-lift: #a5b4fc;
-  --mesh:
-    radial-gradient(60rem 40rem at 8% -10%, rgb(79 70 229 / 0.28), transparent 60%),
-    radial-gradient(50rem 36rem at 95% 0%, rgb(124 58 237 / 0.22), transparent 60%),
-    radial-gradient(46rem 34rem at 60% 105%, rgb(15 118 110 / 0.18), transparent 60%);
+  --glass-border: rgb(255 255 255 / 0.08);
+  --glass-edge-shadow: rgb(0 0 0 / 0.4);
+  --glass-highlight: rgb(255 255 255 / 0.06);
+  --glass-saturate: 1.1;
+  --shadow-glass-1: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-glass-2: 0 1px 3px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.3);
+  --shadow-glass-3: 0 2px 6px rgb(0 0 0 / 0.5), 0 16px 40px rgb(0 0 0 / 0.5);
+  --primary-glow: transparent;
+  --primary-lift: #818cf8;
+  --mesh: radial-gradient(70rem 36rem at 6% -14%, rgb(99 102 241 / 0.13), transparent 65%);
+}
+
+/* A project's colour themes every page inside it (AppShell sets data-project-theme and --project).
+   The page, the accents, the headings and the soft wash all lean toward the colour; the mixes are
+   small enough that text keeps its contrast. */
+html[data-project-theme] {
+  --background: color-mix(in srgb, var(--project) 10%, #fbfbfc);
+  --foreground: color-mix(in srgb, var(--project) 10%, #18181b);
+  --muted-foreground: color-mix(in srgb, var(--project) 12%, #46464f);
+  --primary: color-mix(in srgb, var(--project) 90%, #0f0f14);
+  --ring: var(--primary);
+  --primary-lift: var(--primary);
+  --accent: color-mix(in srgb, var(--project) 12%, #ffffff);
+  --secondary: color-mix(in srgb, var(--project) 8%, #ffffff);
+  --muted: color-mix(in srgb, var(--project) 8%, #ffffff);
+  --border: color-mix(in srgb, var(--project) 20%, #e4e4e7);
+  --sidebar: color-mix(in srgb, var(--project) 8%, #ffffff);
+  --mesh: radial-gradient(80rem 44rem at 6% -16%, color-mix(in srgb, var(--project) 22%, transparent), transparent 65%);
+}
+html.dark[data-project-theme] {
+  --background: color-mix(in srgb, var(--project) 9%, #09090b);
+  --foreground: color-mix(in srgb, var(--project) 8%, #fafafa);
+  --muted-foreground: color-mix(in srgb, var(--project) 14%, #a1a1aa);
+  --primary: color-mix(in srgb, var(--project) 92%, #ffffff);
+  --accent: color-mix(in srgb, var(--project) 14%, #111113);
+  --secondary: color-mix(in srgb, var(--project) 10%, #111113);
+  --muted: color-mix(in srgb, var(--project) 10%, #111113);
+  --border: color-mix(in srgb, var(--project) 22%, #27272a);
+  --sidebar: color-mix(in srgb, var(--project) 8%, #0d0d10);
+  --mesh: radial-gradient(80rem 44rem at 6% -16%, color-mix(in srgb, var(--project) 26%, transparent), transparent 65%);
+}
+html[data-project-theme] main h1,
+html[data-project-theme] main h2 {
+  color: color-mix(in srgb, var(--project) 55%, var(--foreground));
+}
+html[data-project-theme] body {
+  transition: background-color var(--dur-slow) var(--ease-glass);
 }
 
 /* The soft backdrop the glass floats over. Fixed, so content scrolls over it. */
@@ -162,8 +193,7 @@ body::after {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  opacity: 0.035;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  display: none; /* the grain made the page look busy */
 }
 
 /* In the components layer, so a utility class (rounded-xl, bg-…) always wins over these. */
@@ -213,18 +243,14 @@ body::after {
       0 0 0 3px color-mix(in srgb, var(--ring) 28%, transparent);
   }
   .btn-primary-glass {
-    background-image: linear-gradient(135deg, var(--primary), var(--primary-lift));
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.35),
-      0 1px 2px var(--glass-edge-shadow),
-      0 6px 16px var(--primary-glow);
+    background-image: none;
+    box-shadow: 0 1px 2px var(--glass-edge-shadow);
     transition:
       transform var(--dur-fast) var(--ease-glass),
       box-shadow var(--dur) var(--ease-glass),
       filter var(--dur) var(--ease-glass);
   }
   .btn-primary-glass:hover {
-    transform: translateY(-1px);
     filter: brightness(1.08);
   }
   .btn-primary-glass:active {
@@ -236,30 +262,28 @@ body::after {
   /* Outline buttons: a solid card face with a clear border, so they read on any background. */
   .btn-glass {
     background: var(--card);
-    border: 1px solid color-mix(in srgb, var(--foreground) 24%, transparent);
-    box-shadow: 0 1px 2px var(--glass-edge-shadow);
+    border: 1px solid color-mix(in srgb, var(--foreground) 16%, transparent);
+    box-shadow: none;
     transition:
       background-color var(--dur) var(--ease-glass),
       box-shadow var(--dur) var(--ease-glass),
       transform var(--dur-fast) var(--ease-glass);
   }
   .btn-glass:hover {
-    background: color-mix(in srgb, var(--primary) 9%, var(--card));
-    border-color: color-mix(in srgb, var(--primary) 55%, transparent);
-    color: var(--primary);
-    box-shadow: var(--shadow-glass-1);
+    background: color-mix(in srgb, var(--foreground) 5%, var(--card));
+    border-color: color-mix(in srgb, var(--foreground) 26%, transparent);
   }
   /* Secondary buttons: tinted with the brand colour, so they sit between primary and outline. */
   .btn-tint {
-    background: color-mix(in srgb, var(--primary) 13%, var(--card));
-    border: 1px solid color-mix(in srgb, var(--primary) 32%, transparent);
-    color: var(--primary);
+    background: color-mix(in srgb, var(--foreground) 5%, var(--card));
+    border: 1px solid var(--glass-border);
+    color: var(--foreground);
     transition:
       background-color var(--dur) var(--ease-glass),
       transform var(--dur-fast) var(--ease-glass);
   }
   .btn-tint:hover {
-    background: color-mix(in srgb, var(--primary) 24%, var(--card));
+    background: color-mix(in srgb, var(--foreground) 9%, var(--card));
   }
   .btn-tint:active {
     transform: scale(0.98);
@@ -281,16 +305,15 @@ body::after {
   /* A segmented control: a glass track with a raised pill under the active tab. */
   .glass-track {
     background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
+    background: color-mix(in srgb, var(--foreground) 5%, transparent);
+    border: 0;
     border-radius: var(--radius-pill);
-    box-shadow: inset 0 1px 2px var(--glass-edge-shadow);
+    box-shadow: none;
     padding: 3px;
   }
   .glass-pill-active {
-    background: var(--glass-bg-strong);
-    box-shadow:
-      inset 0 1px 0 var(--glass-highlight),
-      var(--shadow-glass-1);
+    background: var(--card);
+    box-shadow: var(--shadow-glass-1);
   }
   @keyframes glass-in {
     from {

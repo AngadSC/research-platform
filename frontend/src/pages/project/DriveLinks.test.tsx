@@ -7,7 +7,7 @@ import { LineageDetail } from "@/components/lineage/LineageDetail";
 import type { LineageNode } from "@/lib/api-types";
 import * as drive from "@/lib/drive";
 import { indexLineage } from "@/lib/lineage";
-import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
+import { makeLab, mockFetch, openSection, renderRoute, SESSION, signedIn } from "@/test/utils";
 
 vi.mock("pdfjs-dist", () => ({ GlobalWorkerOptions: {}, getDocument: vi.fn() }));
 // The Picker is stubbed: nothing here loads Google's script.
@@ -96,6 +96,7 @@ describe("Google Drive on the Files tab", () => {
   it("hides the action when Drive is not set up", async () => {
     mockFetch(base([provider({ configured: false, public_config: {} })]));
     renderRoute(FILES);
+    await openSection("Linked files");
     await screen.findByText("No documents or files yet");
     expect(screen.queryByRole("button", LINK_BUTTON)).toBeNull();
   });
@@ -103,6 +104,7 @@ describe("Google Drive on the Files tab", () => {
   it("hides the action when the Picker settings are missing", async () => {
     mockFetch(base([provider({ public_config: {} })]));
     renderRoute(FILES);
+    await openSection("Linked files");
     await screen.findByText("No documents or files yet");
     expect(screen.queryByRole("button", LINK_BUTTON)).toBeNull();
   });
@@ -110,6 +112,7 @@ describe("Google Drive on the Files tab", () => {
   it("asks to connect first when there is no active account", async () => {
     const calls = mockFetch(base([provider({ account: null })]));
     renderRoute(FILES);
+    await openSection("Linked files");
     await userEvent.click(await screen.findByRole("button", LINK_BUTTON));
     expect(await screen.findByText(/Connect a service under Settings/)).toBeVisible();
     expect(screen.queryByRole("menuitem", { name: /Google Drive/ })).toBeNull();
@@ -125,6 +128,7 @@ describe("Google Drive on the Files tab", () => {
       "POST /api/labs/lab1/projects/p1/external-links/": { status: 201, body: link() },
     });
     renderRoute(FILES);
+    await openSection("Linked files");
     await linkFromDrive();
     await waitFor(() =>
       expect(drive.pickDriveFile).toHaveBeenCalledWith({
@@ -143,6 +147,7 @@ describe("Google Drive on the Files tab", () => {
     vi.mocked(drive.pickDriveFile).mockResolvedValue(null);
     const calls = mockFetch({ ...base([provider()]), [TOKEN]: token });
     renderRoute(FILES);
+    await openSection("Linked files");
     await linkFromDrive();
     await waitFor(() => expect(drive.pickDriveFile).toHaveBeenCalled());
     expect(calls.some((c) => c.method === "POST")).toBe(false);
@@ -151,6 +156,7 @@ describe("Google Drive on the Files tab", () => {
   it("shows a linked file that opens in a new tab, with the sharing note and its status", async () => {
     mockFetch(base([provider()], [link()]));
     renderRoute(FILES);
+    await openSection("Linked files");
     const a = await screen.findByRole("link", { name: /raw.csv/ });
     expect(a).toHaveAttribute("href", "https://drive.google.com/file/d/f1/view");
     expect(a).toHaveAttribute("target", "_blank");
@@ -167,6 +173,7 @@ describe("Google Drive on the Files tab", () => {
       "POST /api/labs/lab1/external-links/l1/check/": { body: link() },
     });
     renderRoute(FILES);
+    await openSection("Linked files");
     await userEvent.click(await screen.findByRole("button", { name: "Refresh raw.csv" }));
     await waitFor(() => expect(calls.some((c) => c.path.endsWith("/check/"))).toBe(true));
   });
@@ -177,6 +184,7 @@ describe("Google Drive on the Files tab", () => {
       "POST /api/labs/lab1/external-links/l1/accept-change/": { body: link() },
     });
     renderRoute(FILES);
+    await openSection("Linked files");
     expect(await screen.findByText("Changed since linked")).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: "Accept change to raw.csv" }));
     await waitFor(() => expect(calls.some((c) => c.path.endsWith("/accept-change/"))).toBe(true));
@@ -186,6 +194,7 @@ describe("Google Drive on the Files tab", () => {
     const gone = link({ unavailable_since: "2026-02-01T00:00:00Z", status: "unavailable" });
     mockFetch(base([provider()], [gone]));
     renderRoute(FILES);
+    await openSection("Linked files");
     expect(await screen.findByText("No longer available")).toBeVisible();
     expect(screen.queryByRole("button", { name: /Accept change/ })).toBeNull();
   });
@@ -194,6 +203,7 @@ describe("Google Drive on the Files tab", () => {
     const blocked = link({ linker_connection_status: "expired", check_blocked: "linker_inactive" });
     mockFetch(base([provider()], [blocked]));
     renderRoute(FILES);
+    await openSection("Linked files");
     expect(
       await screen.findByText(/Can't check: the linker's connection is inactive/),
     ).toBeVisible();
@@ -203,6 +213,7 @@ describe("Google Drive on the Files tab", () => {
   it("asks for a relink when the linker lost access, and hides Refresh", async () => {
     mockFetch(base([provider()], [link({ check_blocked: "linker_access_lost" })]));
     renderRoute(FILES);
+    await openSection("Linked files");
     expect(await screen.findByText(/lost access to this project. Relink it/)).toBeVisible();
     expect(screen.queryByRole("button", { name: "Refresh raw.csv" })).toBeNull();
   });
@@ -218,6 +229,7 @@ describe("Google Drive on the Files tab", () => {
       ),
     );
     renderRoute(FILES);
+    await openSection("Linked files");
     expect(await screen.findByText("blanked")).toBeVisible();
     expect(screen.queryByRole("link", { name: /blanked|scripted/ })).toBeNull();
     expect(screen.getByText("scripted")).toBeVisible();
@@ -226,6 +238,7 @@ describe("Google Drive on the Files tab", () => {
   it("keeps links to records off the project's file list", async () => {
     mockFetch(base([provider()], [link({ id: "l2", title: "in a dataset", dataset: "d1" })]));
     renderRoute(FILES);
+    await openSection("Linked files");
     await screen.findByText("No documents or files yet");
     expect(screen.queryByText("in a dataset")).toBeNull();
   });

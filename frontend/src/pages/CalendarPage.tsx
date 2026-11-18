@@ -1,10 +1,11 @@
-import { IconAction } from "@/components/shared/IconAction";
 import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Rss } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
+import { MoreMenu } from "@/components/shared/MoreMenu";
+import { Segmented } from "@/components/shared/Segmented";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
@@ -452,26 +453,6 @@ export function CalendarPage() {
         }
         actions={
           <>
-            <IconAction
-              label="Google Calendar"
-              icon={<CalendarDays aria-hidden />}
-              variant="outline"
-              onClick={() => setGoogleOpen(true)}
-            />
-            <IconAction
-              label="Subscribe"
-              icon={<Rss aria-hidden />}
-              variant="outline"
-              onClick={() => setSubscribing(true)}
-            />
-            {canEdit && !mine && (
-              <IconAction
-                label="Add event"
-                icon={<CalendarPlus aria-hidden />}
-                variant="outline"
-                onClick={() => setDialog({ kind: "event" })}
-              />
-            )}
             {activeProject && (
               <Button asChild>
                 <Link to={`/labs/${labId}/projects/${activeProject.id}/tasks?new=task`}>
@@ -487,82 +468,71 @@ export function CalendarPage() {
                 Add meeting
               </Button>
             )}
+            <MoreMenu
+              items={[
+                canEdit &&
+                  !mine && {
+                    label: "Add event",
+                    icon: <CalendarPlus aria-hidden />,
+                    onSelect: () => setDialog({ kind: "event" }),
+                  },
+                {
+                  label: "Google Calendar",
+                  icon: <CalendarDays aria-hidden />,
+                  onSelect: () => setGoogleOpen(true),
+                },
+                {
+                  label: "Subscribe",
+                  icon: <Rss aria-hidden />,
+                  onSelect: () => setSubscribing(true),
+                },
+              ]}
+            />
           </>
         }
       />
-      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <Segmented
+          label="Which calendar"
+          value={mine ? "mine" : "lab"}
+          onChange={(v) => setView(v === "mine", agenda)}
+          options={[
+            { value: "lab", label: "Lab calendar" },
+            { value: "mine", label: "My calendar" },
+          ]}
+        />
+        <Segmented
+          label="Layout"
+          value={agenda ? "agenda" : "month"}
+          onChange={(v) => setView(mine, v === "agenda")}
+          options={[
+            { value: "month", label: "Month" },
+            { value: "agenda", label: "Agenda" },
+          ]}
+        />
         <div
           role="group"
           aria-label="Calendar scope"
-          className="group/scope flex w-fit max-w-full items-center gap-1 overflow-x-auto rounded-full border bg-card p-1"
+          className="flex items-center gap-2"
+          style={activeProject ? projectColorStyle(activeProject.color) : undefined}
         >
-          <Button
-            size="sm"
-            variant={activeProject ? "ghost" : "secondary"}
-            aria-pressed={!activeProject}
-            onClick={() => setProject("")}
+          <span
+            aria-hidden
+            className={cn("size-2.5 rounded-full", activeProject ? "bg-(--project)" : "bg-muted")}
+          />
+          <select
+            aria-label="Project"
+            value={projectId}
+            onChange={(e) => setProject(e.target.value)}
+            className="h-8 rounded-md border border-input bg-background px-2 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
-            Full lab
-          </Button>
-          {projects.map((p) => {
-            const on = p.id === projectId;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                aria-pressed={on}
-                aria-label={p.name}
-                title={p.name}
-                onClick={() => setProject(p.id)}
-                style={projectColorStyle(p.color)}
-                className={cn(
-                  "flex h-8 shrink-0 items-center gap-1.5 overflow-hidden rounded-full px-2.5 text-sm transition-[max-width,background-color] duration-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                  // Collapsed to a dot until hovered or focused; the selected one stays open.
-                  on
-                    ? "max-w-56 bg-[color-mix(in_srgb,var(--project)_22%,transparent)] font-semibold"
-                    : "max-w-8 text-muted-foreground hover:max-w-56 hover:bg-foreground/5 hover:text-foreground focus-visible:max-w-56",
-                )}
-              >
-                <span aria-hidden className="size-3 shrink-0 rounded-full bg-(--project)" />
-                <span className="truncate whitespace-nowrap">{p.name}</span>
-              </button>
-            );
-          })}
-        </div>
-        <div role="group" aria-label="Which calendar" className="flex gap-1">
-          <Button
-            size="sm"
-            variant={mine ? "outline" : "secondary"}
-            aria-pressed={!mine}
-            onClick={() => setView(false, agenda)}
-          >
-            Lab calendar
-          </Button>
-          <Button
-            size="sm"
-            variant={mine ? "secondary" : "outline"}
-            aria-pressed={mine}
-            onClick={() => setView(true, agenda)}
-          >
-            My calendar
-          </Button>
-          <span className="mx-1" />
-          <Button
-            size="sm"
-            variant={agenda ? "outline" : "secondary"}
-            aria-pressed={!agenda}
-            onClick={() => setView(mine, false)}
-          >
-            Month
-          </Button>
-          <Button
-            size="sm"
-            variant={agenda ? "secondary" : "outline"}
-            aria-pressed={agenda}
-            onClick={() => setView(mine, true)}
-          >
-            Agenda
-          </Button>
+            <option value="">Full lab</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
       {agenda && list.error && <FormError message={formErrors(list.error, []).form} />}
@@ -583,20 +553,20 @@ export function CalendarPage() {
         <>
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <Button
-              variant="outline"
+              variant="ghost"
               size="icon"
               aria-label="Previous month"
               onClick={() => move(-1)}
             >
               <ChevronLeft aria-hidden />
             </Button>
-            <Button variant="outline" onClick={() => setCursor(FIRST_OF_THIS_MONTH())}>
+            <Button variant="outline" size="sm" onClick={() => setCursor(FIRST_OF_THIS_MONTH())}>
               Today
             </Button>
-            <Button variant="outline" size="icon" aria-label="Next month" onClick={() => move(1)}>
+            <Button variant="ghost" size="icon" aria-label="Next month" onClick={() => move(1)}>
               <ChevronRight aria-hidden />
             </Button>
-            <h2 aria-live="polite" className="ml-2 text-base font-semibold">
+            <h2 aria-live="polite" className="ml-2 text-base font-medium">
               {cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
             </h2>
           </div>

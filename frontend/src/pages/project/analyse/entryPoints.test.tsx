@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
+import { makeLab, mockFetch, renderRoute, SESSION, signedIn, pickMenuItem } from "@/test/utils";
 
 const user = { id: "u1", email: "ada@uni.test", display_name: "Ada" };
 const P = "/api/labs/lab1/projects/p1";
@@ -94,7 +94,7 @@ describe("ways into the statistics page", () => {
   it("has Statistics in the documents toolbar", async () => {
     mockFetch(base());
     const router = renderRoute("/labs/lab1/projects/p1/documents");
-    await userEvent.click(await screen.findByRole("link", { name: /Statistics/ }));
+    await pickMenuItem("More actions", "Statistics");
     expect(router.state.location.pathname).toBe("/labs/lab1/projects/p1/analyse");
   });
 

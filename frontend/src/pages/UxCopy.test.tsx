@@ -5,7 +5,7 @@ import { activeFirst } from "@/pages/LabHomePage";
 import { ProjectFormDialog } from "@/pages/project/ProjectFormDialog";
 import { PROJECT_SECTIONS } from "@/lib/nav";
 import type { Project } from "@/lib/api-types";
-import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
+import { makeLab, mockFetch, renderRoute, SESSION, signedIn, openSection } from "@/test/utils";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -78,8 +78,10 @@ describe("Help and Settings", () => {
     mockFetch(shell);
     renderRoute("/help");
     const h = await screen.findByRole("heading", { name: "Connect Claude" });
-    const section = h.closest("section")!;
+    await openSection("Connect Claude");
+    const section = h.closest("details")!;
     expect(within(section).getByText(/Click Add, then sign in/)).toBeVisible();
+    await openSection("Send feedback");
     expect(screen.getByText(/tell your lab admin/i)).toBeVisible();
   });
 

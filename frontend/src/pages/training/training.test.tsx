@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ComplianceMatrix } from "@/components/training/ComplianceMatrix";
 import type { TrainingCompliance } from "@/lib/api-types";
-import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
+import { makeLab, mockFetch, openSidebarGroup, renderRoute, SESSION, signedIn } from "@/test/utils";
 
 const req = (id: string, name: string, months: number | null = 12) => ({
   id,
@@ -154,7 +154,9 @@ describe("My training", () => {
     );
     renderRoute("/labs/lab1/training");
     await screen.findByRole("list", { name: "Required trainings" });
-    expect(screen.getAllByRole("link", { name: "Training" }).length).toBeGreaterThan(0);
+    await openSidebarGroup("Lab details");
+    expect(await screen.findByRole("menuitem", { name: "Training" })).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
     await userEvent.selectOptions(screen.getByLabelText("Training"), "r1");
     await userEvent.type(screen.getByLabelText("Completed on"), "2030-02-03");
     await userEvent.click(screen.getByRole("button", { name: "Save record" }));

@@ -1,3 +1,4 @@
+import { Disclosure } from "@/components/shared/Disclosure";
 import QRCode from "qrcode";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -46,13 +47,14 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="grid gap-4 rounded-lg border p-6">
-      <div>
-        <h2 className="text-base font-semibold">{title}</h2>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
-      </div>
-      {children}
-    </section>
+    <Disclosure
+      card
+      firstOpen
+      title={title}
+      hint={description && <span className="line-clamp-1">{description}</span>}
+    >
+      <div className="grid gap-4">{children}</div>
+    </Disclosure>
   );
 }
 

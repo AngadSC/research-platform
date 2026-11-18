@@ -3,6 +3,7 @@ import {
   ArrowDown,
   ArrowUp,
   CheckCircle2,
+  ChevronRight,
   CircleAlert,
   FolderKanban,
   type LucideIcon,
@@ -15,6 +16,7 @@ import { MorningDigest } from "@/components/dashboard/MorningDigest";
 import { ParticipantCards } from "@/components/dashboard/ParticipantCards";
 import { Today } from "@/components/dashboard/Today";
 import { FormError } from "@/components/shared/FormError";
+import { Disclosure } from "@/components/shared/Disclosure";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Recents } from "@/components/shared/Recents";
@@ -53,7 +55,6 @@ const TONE_TEXT: Record<Tone, string> = {
   amber: "text-warning-text",
   green: "text-success-text",
 };
-const TONE_EDGE = { red: "border-danger/50 bg-danger/5", amber: "border-warning/60 bg-warning/5" };
 const TONE_ICON: Record<Tone, LucideIcon> = {
   red: CircleAlert,
   amber: AlertTriangle,
@@ -78,27 +79,33 @@ function Card({
 }) {
   if (total === 0) return null;
   const Icon = TONE_ICON[tone];
+  // Folded to one quiet line: the kind of problem and how many. The detail opens on demand.
   return (
-    <section
+    <details
       id={id}
+      role="region"
       aria-labelledby={`${id}-title`}
-      className={cn("rounded-lg border p-4", TONE_EDGE[tone])}
+      className="group/card rounded-lg border bg-card/60 px-4 py-3 open:bg-card"
     >
-      <h3
+      <summary
         id={`${id}-title`}
-        className={cn("flex items-center gap-2 text-sm font-semibold", TONE_TEXT[tone])}
+        className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium [&::-webkit-details-marker]:hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
-        <Icon className="size-4" aria-hidden />
+        <Icon className={cn("size-4", TONE_TEXT[tone])} aria-hidden />
         {title}
-        <span className="ml-auto tabular-nums">{total}</span>
-      </h3>
+        <span className="ml-auto tabular-nums text-muted-foreground">{total}</span>
+        <ChevronRight
+          aria-hidden
+          className="size-4 text-muted-foreground transition-transform group-open/card:rotate-90"
+        />
+      </summary>
       <ul className="mt-3 grid gap-2 text-sm">{children}</ul>
       {total > shown && (
         <p className="mt-3 text-xs text-muted-foreground">
           Showing {shown} of {total}.
         </p>
       )}
-    </section>
+    </details>
   );
 }
 
@@ -145,16 +152,17 @@ function Health({ p }: { p: DashProject }) {
   );
 }
 
-const COLUMNS: { key: SortKey; header: string; right?: boolean }[] = [
+/** `more` columns stay folded away until "All columns" is chosen. */
+const COLUMNS: { key: SortKey; header: string; right?: boolean; more?: boolean }[] = [
   { key: "name", header: "Project" },
-  { key: "status", header: "Status" },
+  { key: "status", header: "Status", more: true },
   { key: "health", header: "Health" },
   { key: "open", header: "Open", right: true },
   { key: "overdue", header: "Overdue", right: true },
-  { key: "in_progress", header: "In progress", right: true },
+  { key: "in_progress", header: "In progress", right: true, more: true },
   { key: "deadline", header: "Next deadline" },
-  { key: "edited", header: "Last edited" },
-  { key: "funding", header: "Funding ends" },
+  { key: "edited", header: "Last edited", more: true },
+  { key: "funding", header: "Funding ends", more: true },
 ];
 
 function ProjectTable({
@@ -172,6 +180,9 @@ function ProjectTable({
     dir: "asc",
   });
   const [filters, setFilters] = useState({ status: "", health: "", lead: "" });
+  const [allColumns, setAllColumns] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const col = (key: SortKey) => allColumns || !COLUMNS.find((c) => c.key === key)?.more;
   const leads = useMemo(
     () => [...new Set(projects.flatMap((p) => p.leads.map((l) => l.name)))].sort(),
     [projects],
@@ -213,7 +224,33 @@ function ProjectTable({
     "h-8 rounded-md border bg-background px-2 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
   return (
     <div className="grid gap-2">
-      <div role="group" aria-label="Filter projects" className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-expanded={showFilters || filtering}
+          onClick={() => setShowFilters((v) => !v)}
+        >
+          Filter
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-pressed={allColumns}
+          onClick={() => setAllColumns((v) => !v)}
+        >
+          All columns
+        </Button>
+        <span className="ml-auto text-xs text-muted-foreground" aria-live="polite">
+          {rows.length} of {projects.length}
+        </span>
+      </div>
+      <div
+        role="group"
+        aria-label="Filter projects"
+        hidden={!(showFilters || filtering)}
+        className="flex flex-wrap items-center gap-2"
+      >
         <select
           aria-label="Status"
           className={cn(selectClass, "capitalize")}
@@ -262,38 +299,39 @@ function ProjectTable({
             Clear filters
           </Button>
         )}
-        <span className="ml-auto text-xs text-muted-foreground" aria-live="polite">
-          {rows.length} of {projects.length}
-        </span>
       </div>
       <div className="rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              {COLUMNS.filter((c) => seesFunding || c.key !== "funding").map((c) => {
-                const active = sort.key === c.key;
-                return (
-                  <TableHead
-                    key={c.key}
-                    aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
-                    className={c.right ? "text-right" : undefined}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => toggle(c.key)}
-                      className="inline-flex items-center gap-1 rounded-sm font-medium hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              {COLUMNS.filter((c) => (seesFunding || c.key !== "funding") && col(c.key)).map(
+                (c) => {
+                  const active = sort.key === c.key;
+                  return (
+                    <TableHead
+                      key={c.key}
+                      aria-sort={
+                        active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"
+                      }
+                      className={c.right ? "text-right" : undefined}
                     >
-                      {c.header}
-                      {active &&
-                        (sort.dir === "asc" ? (
-                          <ArrowUp className="size-3" aria-hidden />
-                        ) : (
-                          <ArrowDown className="size-3" aria-hidden />
-                        ))}
-                    </button>
-                  </TableHead>
-                );
-              })}
+                      <button
+                        type="button"
+                        onClick={() => toggle(c.key)}
+                        className="inline-flex items-center gap-1 rounded-sm font-medium hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {c.header}
+                        {active &&
+                          (sort.dir === "asc" ? (
+                            <ArrowUp className="size-3" aria-hidden />
+                          ) : (
+                            <ArrowDown className="size-3" aria-hidden />
+                          ))}
+                      </button>
+                    </TableHead>
+                  );
+                },
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -310,9 +348,11 @@ function ProjectTable({
                     {p.leads.length ? p.leads.map((l) => l.name).join(", ") : "No project lead"}
                   </p>
                 </TableCell>
-                <TableCell>
-                  <StatusBadge status={p.status} />
-                </TableCell>
+                {col("status") && (
+                  <TableCell>
+                    <StatusBadge status={p.status} />
+                  </TableCell>
+                )}
                 <TableCell>
                   <Health p={p} />
                 </TableCell>
@@ -325,7 +365,9 @@ function ProjectTable({
                 >
                   {p.overdue_tasks}
                 </TableCell>
-                <TableCell className="text-right tabular-nums">{p.in_progress_tasks}</TableCell>
+                {col("in_progress") && (
+                  <TableCell className="text-right tabular-nums">{p.in_progress_tasks}</TableCell>
+                )}
                 <TableCell className="min-w-40">
                   {p.next_deadline ? (
                     <>
@@ -341,21 +383,23 @@ function ProjectTable({
                     <span className="text-muted-foreground">None</span>
                   )}
                 </TableCell>
-                <TableCell className="min-w-32">
-                  {p.last_activity_at ? (
-                    <>
-                      <RelativeTime value={p.last_activity_at} />
-                      {p.last_activity_by && (
-                        <p className="text-xs text-muted-foreground">
-                          by {p.last_activity_by.name}
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <span className="text-muted-foreground">No edits yet</span>
-                  )}
-                </TableCell>
-                {seesFunding && (
+                {col("edited") && (
+                  <TableCell className="min-w-32">
+                    {p.last_activity_at ? (
+                      <>
+                        <RelativeTime value={p.last_activity_at} />
+                        {p.last_activity_by && (
+                          <p className="text-xs text-muted-foreground">
+                            by {p.last_activity_by.name}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">No edits yet</span>
+                    )}
+                  </TableCell>
+                )}
+                {seesFunding && col("funding") && (
                   <TableCell className="min-w-28">
                     {p.funding_end_date ? (
                       <>
@@ -482,7 +526,7 @@ export function DashboardPage() {
       <>
         {header}
         <section aria-labelledby="my-tasks" className="grid gap-3">
-          <h2 id="my-tasks" className="text-lg font-semibold">
+          <h2 id="my-tasks" className="text-base font-medium">
             My tasks
           </h2>
           <MyTasksList labId={labId} />
@@ -523,10 +567,10 @@ export function DashboardPage() {
             </p>
           ) : (
             <section aria-labelledby="attention" className="grid gap-3">
-              <h2 id="attention" className="text-lg font-semibold">
+              <h2 id="attention" className="text-base font-medium">
                 Needs attention
               </h2>
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid items-start gap-2 md:grid-cols-2">
                 <Card
                   id="overdue"
                   title="Overdue tasks"
@@ -701,7 +745,7 @@ export function DashboardPage() {
           {extras}
 
           <section aria-labelledby="projects" className="grid gap-3">
-            <h2 id="projects" className="text-lg font-semibold">
+            <h2 id="projects" className="text-base font-medium">
               Projects
             </h2>
             <ProjectTable
@@ -714,20 +758,17 @@ export function DashboardPage() {
             />
           </section>
 
-          <section aria-labelledby="people" className="grid gap-3">
-            <div>
-              <h2 id="people" className="text-lg font-semibold">
-                People
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Task counts only, from tasks assigned to each person. Done in 30 days counts tasks
-                last marked done in that time.
-              </p>
-            </div>
+          <Disclosure title="People" hint={`${data.people.length} in the lab`}>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Task counts only, from tasks assigned to each person. Done in 30 days counts tasks
+              last marked done in that time.
+            </p>
             <PeopleTable people={data.people} />
-          </section>
+          </Disclosure>
 
-          <ContributionGraph labId={labId} people={data.people} />
+          <Disclosure title="Activity" hint="Who has been working, by day">
+            <ContributionGraph labId={labId} people={data.people} />
+          </Disclosure>
         </div>
       )}
     </>

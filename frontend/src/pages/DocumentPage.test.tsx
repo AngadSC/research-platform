@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
+import { makeLab, mockFetch, renderRoute, SESSION, signedIn, pickMenuItem } from "@/test/utils";
 
 // BlockNote needs a real browser; test our logic around it with a plain textarea.
 vi.mock("@/components/documents/RichEditor", () => ({
@@ -151,9 +151,7 @@ describe("documents tab", () => {
       }),
     );
     renderRoute(TAB);
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Embed a Google or Office doc" }),
-    );
+    await pickMenuItem("More actions", "Embed a Google or Office doc");
     await userEvent.type(screen.getByLabelText("Title"), "Shared");
     await userEvent.type(screen.getByLabelText("Link"), "https://example.com/x");
     await userEvent.click(screen.getByRole("button", { name: "Embed" }));

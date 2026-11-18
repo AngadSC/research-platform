@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { vi } from "vitest";
 import { routes } from "@/routes";
@@ -77,3 +78,25 @@ export const makeLab = (perms: string[], role = "pi") => ({
   my_role: role,
   my_permissions: perms,
 });
+
+/** Opens one of the sidebar's two groups of pages ("Lab details" or "Admin") from the keyboard. */
+export async function openSidebarGroup(name: "Lab details" | "Admin") {
+  const button = await screen.findByRole("button", { name: `${name}, pages` });
+  button.focus();
+  await userEvent.keyboard("{Enter}");
+}
+
+/** Opens a folded section (a Disclosure) by its heading. */
+export async function openSection(name: string | RegExp) {
+  const heading = await screen.findByRole("heading", { name });
+  const summary = heading.closest("summary");
+  if (summary && !summary.parentElement?.hasAttribute("open")) await userEvent.click(summary);
+}
+
+/** Opens a "⋯" or flyout menu from the keyboard and picks one item. */
+export async function pickMenuItem(trigger: string | RegExp, item: string | RegExp) {
+  const button = await screen.findByRole("button", { name: trigger });
+  button.focus();
+  await userEvent.keyboard("{Enter}");
+  await userEvent.click(await screen.findByRole("menuitem", { name: item }));
+}

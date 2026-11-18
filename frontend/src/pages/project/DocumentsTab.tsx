@@ -26,6 +26,8 @@ import {
   markLabel,
   useConfirmUnmark,
 } from "@/components/shared/ParticipantData";
+import { Disclosure } from "@/components/shared/Disclosure";
+import { MoreMenu } from "@/components/shared/MoreMenu";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -360,17 +362,6 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
       <div className="grid w-full min-w-0 gap-4">
         {canEdit && !archived && (
           <div className="flex flex-wrap justify-end gap-2">
-            <Button variant="outline" size="icon" asChild>
-              <StatsLink to={`${base}/analyse`} aria-label="Statistics" title="Statistics">
-                <BarChart3 aria-hidden />
-              </StatsLink>
-            </Button>
-            <IconAction
-              label="Embed a Google or Office doc"
-              icon={<Link2 aria-hidden />}
-              variant="outline"
-              onClick={() => setEmbedding(true)}
-            />
             <IconAction
               label="Upload file"
               icon={<Upload aria-hidden />}
@@ -392,6 +383,20 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
             <Button disabled={create.isPending} onClick={add}>
               <Plus className="size-4" /> New document
             </Button>
+            <MoreMenu
+              items={[
+                {
+                  label: "Embed a Google or Office doc",
+                  icon: <Link2 aria-hidden />,
+                  onSelect: () => setEmbedding(true),
+                },
+                {
+                  label: "Statistics",
+                  icon: <BarChart3 aria-hidden />,
+                  onSelect: () => navigate(`${base}/analyse`),
+                },
+              ]}
+            />
           </div>
         )}
         <FolderBrowser labId={labId} projectId={projectId} canEdit={canEdit} archived={archived} />
@@ -420,12 +425,9 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
           item={moving}
           onClose={() => setMoving(null)}
         />
-        <section aria-labelledby="linked-files" className="grid gap-2">
-          <h2 id="linked-files" className="text-sm font-medium">
-            Linked files
-          </h2>
+        <Disclosure title="Linked files" level={3}>
           <LinkedFiles labId={labId} projectId={projectId} canEdit={canEdit} />
-        </section>
+        </Disclosure>
         <UploadDialog
           open={uploading}
           onOpenChange={setUploading}

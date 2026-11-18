@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { DueChip } from "@/components/dashboard/DueChip";
 import { DataTable, HIDE_NARROW, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { MoreMenu } from "@/components/shared/MoreMenu";
+import { Segmented } from "@/components/shared/Segmented";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -205,6 +207,7 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
   const [fAssignee, setFAssignee] = useState("all");
   const canEdit = project.my_permissions.includes("edit_content");
   const [importing, setImporting] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const pref = useTaskView();
   const asked = params.get("view");
   const view = asked === "list" || asked === "board" ? asked : pref.saved; // D143
@@ -275,6 +278,7 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
   ];
 
   const archived = project.status === "archived"; // no new tasks
+  const filtering = fStatus !== "all" || fAssignee !== "all";
   const newTask =
     canEdit && !archived ? (
       <Button onClick={() => setParam("new", "task")}>
@@ -312,34 +316,56 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div role="group" aria-label="View" className="flex gap-1">
-          <Button
-            variant={view === "list" ? "secondary" : "ghost"}
-            size="sm"
-            aria-pressed={view === "list"}
-            onClick={() => setView("list")}
-          >
-            <LayoutList aria-hidden /> List
-          </Button>
-          <Button
-            variant={view === "board" ? "secondary" : "ghost"}
-            size="sm"
-            aria-pressed={view === "board"}
-            onClick={() => setView("board")}
-          >
-            <SquareKanban aria-hidden /> Board
-          </Button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {canEdit && !archived && taskApps.length > 0 && (
-            <Button variant="outline" onClick={() => setImporting(true)}>
-              Import tasks
+        <div className="flex items-center gap-2">
+          <Segmented
+            label="View"
+            value={view}
+            onChange={setView}
+            options={[
+              {
+                value: "list",
+                label: (
+                  <>
+                    <LayoutList aria-hidden /> List
+                  </>
+                ),
+              },
+              {
+                value: "board",
+                label: (
+                  <>
+                    <SquareKanban aria-hidden /> Board
+                  </>
+                ),
+              },
+            ]}
+          />
+          {view === "list" && all.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-expanded={showFilters || filtering}
+              onClick={() => setShowFilters((v) => !v)}
+            >
+              Filter{filtering ? " (on)" : ""}
             </Button>
           )}
+        </div>
+        <div className="flex items-center gap-2">
           {all.length > 0 && newTask}
+          <MoreMenu
+            items={[
+              canEdit &&
+                !archived &&
+                taskApps.length > 0 && {
+                  label: "Import tasks",
+                  onSelect: () => setImporting(true),
+                },
+            ]}
+          />
         </div>
       </div>
-      {view === "list" && all.length > 0 && (
+      {view === "list" && all.length > 0 && (showFilters || filtering) && (
         <div className="flex flex-wrap gap-3">
           <Select value={fStatus} onValueChange={setFStatus}>
             <SelectTrigger aria-label="Filter by status" className="w-44">

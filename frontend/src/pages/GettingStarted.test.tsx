@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
+import { makeLab, mockFetch, openSection, renderRoute, SESSION, signedIn } from "@/test/utils";
 
 const L = "/api/labs/lab1";
 const me = { id: "u1", email: "ada@uni.edu", preferences: {} };
@@ -115,6 +115,7 @@ describe("tutorial and help", () => {
       [`POST ${L}/getting-started/`]: { body: { steps, dismissed: false } },
     });
     renderRoute("/help");
+    await openSection("Keyboard shortcuts");
     expect(await screen.findByText("Save the document you are editing")).toBeVisible();
     await userEvent.click(
       await screen.findByRole("button", { name: "Show the getting-started checklist" }),

@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
 import { Badge } from "@/components/ui/badge";
+import { Disclosure } from "@/components/shared/Disclosure";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -206,40 +207,46 @@ function Deadlines({
       : []),
   ];
   return (
-    <section className="grid gap-3 rounded-2xl border bg-card p-5 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold">Deadlines</h2>
+    <Disclosure
+      card
+      defaultOpen={(list.data?.length ?? 0) > 0}
+      title="Deadlines"
+      hint={list.data?.length ? `${list.data.length}` : undefined}
+    >
+      <div className="grid gap-3">
         {canEdit && (
-          <Button variant="outline" size="sm" onClick={() => setEditing("new")}>
-            Add deadline
-          </Button>
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => setEditing("new")}>
+              Add deadline
+            </Button>
+          </div>
         )}
-      </div>
-      <DataTable
-        columns={cols}
-        rows={list.data ?? []}
-        getRowKey={(d) => d.id}
-        loading={list.isLoading}
-        empty={
-          <EmptyState
-            icon={CalendarClock}
-            title="No deadlines"
-            description="Add dates your team needs to hit."
-          />
-        }
-      />
-      {editing && (
-        <DeadlineDialog
-          deadline={editing}
-          onClose={() => setEditing(null)}
-          onSave={(v) =>
-            editing === "new"
-              ? create.mutateAsync(v)
-              : update.mutateAsync({ id: editing.id, patch: v })
+        <DataTable
+          columns={cols}
+          rows={list.data ?? []}
+          getRowKey={(d) => d.id}
+          loading={list.isLoading}
+          empty={
+            <EmptyState
+              icon={CalendarClock}
+              title="No deadlines"
+              description="Add dates your team needs to hit."
+            />
           }
         />
-      )}
-    </section>
+        {editing && (
+          <DeadlineDialog
+            deadline={editing}
+            onClose={() => setEditing(null)}
+            onSave={(v) =>
+              editing === "new"
+                ? create.mutateAsync(v)
+                : update.mutateAsync({ id: editing.id, patch: v })
+            }
+          />
+        )}
+      </div>
+    </Disclosure>
   );
 }
 
@@ -434,28 +441,29 @@ function Members({
       : []),
   ];
   return (
-    <section className="grid gap-3 rounded-2xl border bg-card p-5 shadow-sm">
-      <h2 className="text-base font-semibold">Members</h2>
-      {canManage && (
-        <AddMember
-          labId={labId}
-          existing={new Set((list.data ?? []).map((m) => m.user.id))}
-          onAdd={(v) => create.mutateAsync(v)}
-        />
-      )}
-      <DataTable
-        columns={cols}
-        rows={list.data ?? []}
-        getRowKey={(m) => m.id}
-        loading={list.isLoading}
-        empty={
-          <EmptyState
-            title="No members yet"
-            description="People added to this project can be assigned tasks."
+    <Disclosure card title="Members" hint={list.data?.length ? `${list.data.length}` : undefined}>
+      <div className="grid gap-3">
+        {canManage && (
+          <AddMember
+            labId={labId}
+            existing={new Set((list.data ?? []).map((m) => m.user.id))}
+            onAdd={(v) => create.mutateAsync(v)}
           />
-        }
-      />
-    </section>
+        )}
+        <DataTable
+          columns={cols}
+          rows={list.data ?? []}
+          getRowKey={(m) => m.id}
+          loading={list.isLoading}
+          empty={
+            <EmptyState
+              title="No members yet"
+              description="People added to this project can be assigned tasks."
+            />
+          }
+        />
+      </div>
+    </Disclosure>
   );
 }
 
@@ -473,37 +481,38 @@ function ProjectApprovals({
   const mine = (data ?? []).filter((a) => a.projects.some((p) => p.id === projectId));
   if (!lab?.my_permissions.includes("view_ethics")) return null;
   return (
-    <section className="grid gap-3 rounded-2xl border bg-card p-5 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold">Ethics approvals</h2>
-        {canLink && lab.my_permissions.includes("edit_ethics") && (
-          <Button variant="outline" size="sm" asChild>
-            <Link to={`/labs/${labId}/projects/${projectId}/workflow/ethics?link=1`}>
-              Link an approval
-            </Link>
-          </Button>
+    <Disclosure card title="Ethics approvals" hint={mine.length ? `${mine.length}` : "None linked"}>
+      <div className="grid gap-3">
+        <div className="flex items-center justify-end">
+          {canLink && lab.my_permissions.includes("edit_ethics") && (
+            <Button variant="outline" size="sm" asChild>
+              <Link to={`/labs/${labId}/projects/${projectId}/workflow/ethics?link=1`}>
+                Link an approval
+              </Link>
+            </Button>
+          )}
+        </div>
+        {mine.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No ethics approvals are linked to this project.
+          </p>
+        ) : (
+          <ul className="grid divide-y rounded-lg border">
+            {mine.map((a) => (
+              <li key={a.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                <Link to={`/labs/${labId}/ethics/${a.id}`} className="font-medium hover:underline">
+                  {a.approval_number}: {a.title}
+                </Link>
+                <span className="flex items-center gap-2">
+                  <ExpiryText expiry={a.expiry_date} />
+                  <ApprovalBadge status={a.status} expiry={a.expiry_date} />
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
-      {mine.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No ethics approvals are linked to this project.
-        </p>
-      ) : (
-        <ul className="grid divide-y rounded-lg border">
-          {mine.map((a) => (
-            <li key={a.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-              <Link to={`/labs/${labId}/ethics/${a.id}`} className="font-medium hover:underline">
-                {a.approval_number}: {a.title}
-              </Link>
-              <span className="flex items-center gap-2">
-                <ExpiryText expiry={a.expiry_date} />
-                <ApprovalBadge status={a.status} expiry={a.expiry_date} />
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+    </Disclosure>
   );
 }
 
@@ -512,40 +521,36 @@ function FundingSummary({ labId, projectId }: { labId: string; projectId: string
   const { list } = useFunding(labId, projectId);
   const rows = list.data ?? [];
   return (
-    <section
-      className="grid gap-3 rounded-2xl border bg-card p-5 shadow-sm"
-      aria-labelledby="overview-funding"
-    >
-      <div className="flex items-center justify-between">
-        <h2 id="overview-funding" className="text-base font-semibold">
-          Funding
-        </h2>
-        <Button variant="outline" size="sm" asChild>
-          <Link
-            to={`/labs/${labId}/projects/${projectId}/workflow/funding${rows.length ? "" : "?new=1"}`}
-          >
-            {rows.length ? "Open funding" : "Add funding"}
-          </Link>
-        </Button>
+    <Disclosure card title="Funding" hint={rows.length ? `${rows.length}` : "None recorded"}>
+      <div className="grid gap-3">
+        <div className="flex items-center justify-end">
+          <Button variant="outline" size="sm" asChild>
+            <Link
+              to={`/labs/${labId}/projects/${projectId}/workflow/funding${rows.length ? "" : "?new=1"}`}
+            >
+              {rows.length ? "Open funding" : "Add funding"}
+            </Link>
+          </Button>
+        </div>
+        {list.isLoading ? null : rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No funding recorded. Only PIs see this.</p>
+        ) : (
+          <ul className="grid divide-y rounded-lg border">
+            {rows.map((f) => (
+              <li key={f.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                <span className="font-medium">
+                  {[f.funder, f.program].filter(Boolean).join(", ")}
+                </span>
+                <span className="text-muted-foreground">
+                  {label(FUNDING_STATUSES, f.status)}
+                  {f.end_date && <> · ends {day(f.end_date)}</>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-      {list.isLoading ? null : rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No funding recorded. Only PIs see this.</p>
-      ) : (
-        <ul className="grid divide-y rounded-lg border">
-          {rows.map((f) => (
-            <li key={f.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-              <span className="font-medium">
-                {[f.funder, f.program].filter(Boolean).join(", ")}
-              </span>
-              <span className="text-muted-foreground">
-                {label(FUNDING_STATUSES, f.status)}
-                {f.end_date && <> · ends {day(f.end_date)}</>}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+    </Disclosure>
   );
 }
 
@@ -564,7 +569,7 @@ function ArchiveProject({
   const update = useUpdateProject(labId, projectId);
   const [open, setOpen] = useState(false);
   return (
-    <section className="grid gap-2 rounded-2xl border bg-card p-5 shadow-sm">
+    <section className="grid gap-2 rounded-2xl border bg-card p-5">
       <div>
         <Button variant="outline" onClick={() => setOpen(true)}>
           Archive project
@@ -615,7 +620,7 @@ export default function OverviewTab({ labId, projectId, project }: ProjectTabPro
   const can = (p: string) => project.my_permissions.includes(p);
   const assistantReady = useAssistantReady(labId);
   return (
-    <div className="grid gap-8">
+    <div className="grid gap-4">
       {project.status === "archived" && (
         <p role="status" className="rounded-lg bg-muted p-3 text-sm font-medium">
           Archived. Set it back to Active to make changes.
@@ -640,7 +645,7 @@ export default function OverviewTab({ labId, projectId, project }: ProjectTabPro
           </Button>
         )}
       </div>
-      <section className="grid gap-3 rounded-2xl border bg-card p-5 shadow-sm">
+      <section className="grid gap-3 rounded-2xl border bg-card p-5">
         <h2 className="text-base font-semibold">About</h2>
         <p className="text-sm whitespace-pre-wrap">
           {project.description || "No description yet."}

@@ -1,13 +1,15 @@
 import { useRef, useState } from "react";
 import {
   ChevronRight,
+  Building2,
   ChevronsUpDown,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  SlidersHorizontal,
   Star,
 } from "lucide-react";
-import { NavLink, useNavigate } from "react-router";
+import { NavLink, useLocation, useNavigate } from "react-router";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -88,6 +90,89 @@ function GroupHeading({
         className={cn("size-3 transition-transform", !folded && "rotate-90")}
       />
     </button>
+  );
+}
+
+/** The lab's pages that live in a group of their own, not in the main list. */
+const LAB_GROUP = ["admin", "documents", "papers", "training", "members", "participants"];
+const ADMIN_GROUP = ["audit-log", "retention", "inventory", "ethics"];
+
+/**
+ * A group of pages behind one icon, below the divider. Hovering (or clicking, or focusing) it opens
+ * a small menu of its pages, like a project does in the icons-only sidebar.
+ */
+function GroupFlyout({
+  label,
+  icon: Icon,
+  items,
+  slim,
+  onNavigate,
+}: {
+  label: string;
+  icon: NavItem["icon"];
+  items: NavItem[];
+  slim: boolean;
+  onNavigate: () => void;
+}) {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const [open, setOpen] = useState(false);
+  const timer = useRef<number>(0);
+  const show = () => {
+    window.clearTimeout(timer.current);
+    setOpen(true);
+  };
+  const hide = () => {
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setOpen(false), 160);
+  };
+  const here = items.some((i) => pathname === i.to || pathname.startsWith(`${i.to}/`));
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
+      <DropdownMenuTrigger
+        aria-label={`${label}, pages`}
+        title={slim ? label : undefined}
+        onPointerEnter={show}
+        onPointerLeave={hide}
+        // hovering already opened it: a click must keep it open, not toggle it shut
+        onPointerDown={(e) => {
+          e.preventDefault();
+          show();
+        }}
+        className={cn(
+          "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4",
+          here && "font-medium text-foreground",
+          slim && "justify-center px-0",
+        )}
+      >
+        <Icon aria-hidden />
+        {slim ? <span className="sr-only">{label}</span> : label}
+        {!slim && <ChevronRight aria-hidden className="ml-auto size-3.5 opacity-60" />}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        side="right"
+        align="end"
+        sideOffset={10}
+        onPointerEnter={show}
+        onPointerLeave={hide}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        className="w-52"
+      >
+        <DropdownMenuLabel className="font-semibold text-foreground">{label}</DropdownMenuLabel>
+        {items.map(({ to, label: name, icon: ItemIcon }) => (
+          <DropdownMenuItem
+            key={to}
+            onSelect={() => {
+              onNavigate();
+              void navigate(to);
+            }}
+          >
+            <ItemIcon aria-hidden className="size-4" />
+            {name}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -376,24 +461,19 @@ export function Sidebar({
   );
   const order = useSidebarOrder();
   const [labFolded, toggleLab] = useFolded("lab");
-  const [adminFolded, toggleAdmin] = useFolded("admin");
+  const grouped = (keys: string[]) =>
+    keys.flatMap((k) => items.filter((i) => keyOf(i.to) === k || keyOf(i.to) === `${k}/`));
+  const labGroup = grouped(LAB_GROUP);
+  const adminGroup = grouped(ADMIN_GROUP);
+  const inGroup = new Set([...labGroup, ...adminGroup].map((i) => i.to));
   const mainItems = applyOrder(
-    items.filter((item) => !item.admin),
+    items.filter((item) => !inGroup.has(item.to) && !item.admin),
     (i) => keyOf(i.to),
     order.main,
-  );
-  const adminItems = applyOrder(
-    items.filter((item) => item.admin),
-    (i) => keyOf(i.to),
-    order.admin,
   );
   const mainReorder = useHoldToReorder(
     mainItems.map((i) => keyOf(i.to)),
     order.setMain,
-  );
-  const adminReorder = useHoldToReorder(
-    adminItems.map((i) => keyOf(i.to)),
-    order.setAdmin,
   );
   const badgeAt = slim ? "absolute top-0 right-1" : "ml-auto";
   const link = ({ to, label, icon: Icon, end }: NavItem) => (
@@ -419,7 +499,7 @@ export function Sidebar({
     <aside
       id="app-sidebar"
       className={cn(
-        "glass glass--strong shrink-0 flex-col gap-4 overflow-hidden rounded-[20px] md:m-3 md:mr-0 print:hidden",
+        "glass glass--strong shrink-0 flex-col gap-4 overflow-hidden rounded-2xl md:m-3 md:mr-0 print:hidden",
         slim ? "w-[4.5rem] p-2" : "w-64 p-4",
         // Below md the sidebar is a drawer that only exists while open.
         open
@@ -596,7 +676,7 @@ export function Sidebar({
                     )}
                   </ReorderRow>
                 ))}
-              {!slim && (order.main.length > 0 || order.admin.length > 0) && (
+              {!slim && order.main.length > 0 && (
                 <button
                   type="button"
                   onClick={order.reset}
@@ -606,23 +686,32 @@ export function Sidebar({
                 </button>
               )}
             </nav>
-            {adminItems.length > 0 && (
+            {(labGroup.length > 0 || adminGroup.length > 0) && (
               <nav
-                aria-label="Admin"
+                aria-label="Lab and admin"
                 className={cn(
-                  "grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5",
-                  !slim && "border-t pt-4",
+                  "grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5 border-t",
+                  slim ? "pt-2" : "pt-3",
                 )}
               >
-                {slim ? null : (
-                  <GroupHeading label="Admin" folded={adminFolded} onToggle={toggleAdmin} />
+                {labGroup.length > 0 && (
+                  <GroupFlyout
+                    label="Lab details"
+                    icon={Building2}
+                    items={labGroup}
+                    slim={slim}
+                    onNavigate={onClose}
+                  />
                 )}
-                {(slim || !adminFolded) &&
-                  adminItems.map((item) => (
-                    <ReorderRow key={item.to} id={keyOf(item.to)} reorder={adminReorder}>
-                      {link(item)}
-                    </ReorderRow>
-                  ))}
+                {adminGroup.length > 0 && (
+                  <GroupFlyout
+                    label="Admin"
+                    icon={SlidersHorizontal}
+                    items={adminGroup}
+                    slim={slim}
+                    onNavigate={onClose}
+                  />
+                )}
               </nav>
             )}
           </>

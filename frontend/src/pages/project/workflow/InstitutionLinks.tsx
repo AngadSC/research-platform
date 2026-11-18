@@ -1,3 +1,4 @@
+import { Disclosure } from "@/components/shared/Disclosure";
 import { ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -43,8 +44,7 @@ export function InstitutionLinks({
     );
   }
   return (
-    <section aria-label={title} className="grid gap-2">
-      <h2 className="text-sm font-medium">{title}</h2>
+    <Disclosure region level={3} title={title}>
       <ul className="grid divide-y rounded-lg border bg-background text-sm">
         {data.map((r) => (
           <li key={r.id} className="grid gap-0.5 px-3 py-2">
@@ -64,6 +64,6 @@ export function InstitutionLinks({
           </li>
         ))}
       </ul>
-    </section>
+    </Disclosure>
   );
 }

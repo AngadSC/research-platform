@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { fullDate } from "@/lib/format";
-import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
+import { makeLab, mockFetch, openSidebarGroup, renderRoute, SESSION, signedIn } from "@/test/utils";
 
 const ev = (i: number) => ({
   id: `e${i}`,
@@ -138,6 +138,7 @@ describe("audit log", () => {
       [EVENTS]: { body: { next: null, results: [] } },
     });
     renderRoute("/labs/lab1/audit-log");
-    expect(await screen.findByRole("link", { name: "Audit log" })).toBeInTheDocument();
+    await openSidebarGroup("Admin");
+    expect(await screen.findByRole("menuitem", { name: "Audit log" })).toBeInTheDocument();
   });
 });

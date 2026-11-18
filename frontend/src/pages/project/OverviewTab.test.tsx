@@ -92,7 +92,7 @@ describe("project overview", () => {
       },
     });
     renderRoute("/labs/lab1/projects/p1/overview");
-    const section = (await screen.findByRole("heading", { name: "Funding" })).closest("section")!;
+    const section = (await screen.findByRole("heading", { name: "Funding" })).closest("details")!;
     expect(await within(section).findByText("Example Funder, Pilot")).toBeInTheDocument();
   });
 

@@ -82,7 +82,7 @@ describe("Calendar page", () => {
     renderRoute("/labs/lab1/calendar?view=agenda");
     expect(await screen.findByText("Nothing coming up")).toBeTruthy();
     await waitFor(() =>
-      expect(screen.getAllByRole("button", { name: "Add event" })).toHaveLength(2),
+      expect(screen.getAllByRole("button", { name: "Add event" })).toHaveLength(1),
     );
   });
 });

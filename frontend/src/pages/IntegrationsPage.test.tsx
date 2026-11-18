@@ -5,7 +5,7 @@ import { ExternalLinkItem } from "@/components/shared/ExternalLinkItem";
 import type { ExternalLink } from "@/lib/api-types";
 import { linkState } from "@/lib/integrations";
 import { KEYED, LINK_ONLY, OAUTH, PUBLIC } from "@/test/providers";
-import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
+import { makeLab, mockFetch, renderRoute, SESSION, signedIn, openSection } from "@/test/utils";
 
 const user = { id: "u1", email: "ada@uni.edu", display_name: "Ada" };
 const PAGE = "/labs/lab1/settings/integrations";
@@ -72,6 +72,7 @@ describe("Integrations page", () => {
     const ai = await screen.findByRole("heading", { name: "Claude and other AI apps" });
     const services = screen.getByRole("heading", { name: "Services" });
     expect(ai.compareDocumentPosition(services) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await openSection("Claude and other AI apps");
     expect(screen.getByText(/Click Connect to Claude/)).toBeVisible();
     expect(screen.getByText(/turn on labbenchos from the tools menu/)).toBeVisible();
     expect(screen.getByText(/need a Claude plan that supports them/)).toBeVisible();
@@ -89,6 +90,7 @@ describe("Integrations page", () => {
     };
     mockFetch({ ...base(ADMIN, []), "GET /api/labs/lab1/ai-grants/": { body: [grant] } });
     renderRoute(PAGE);
+    await openSection("Everyone's connections");
     expect(await screen.findByText(/Ada: Claude \(read only\)/)).toBeVisible();
   });
 

@@ -46,7 +46,7 @@ export function WeatherChip() {
         onClick={w.enable}
       >
         <MapPin aria-hidden />
-        <span className="hidden lg:inline">{w.denied ? "Location blocked" : "Show weather"}</span>
+        <span className="sr-only">{w.denied ? "Location blocked" : "Show weather"}</span>
       </Button>
     );
   const d = describe(w.data?.code);

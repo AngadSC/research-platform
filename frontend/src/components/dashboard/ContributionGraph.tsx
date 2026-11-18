@@ -73,7 +73,7 @@ export function ContributionGraph({ labId, people }: { labId: string; people: Da
     <section aria-labelledby="activity" className="grid gap-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 id="activity" className="text-base font-semibold">
+          <h2 id="activity" className="sr-only">
             Activity
           </h2>
           <p className="text-sm text-muted-foreground" aria-live="polite">

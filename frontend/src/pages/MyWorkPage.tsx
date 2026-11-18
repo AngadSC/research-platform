@@ -126,15 +126,9 @@ function OverdueNow({ labId }: { labId: string }) {
   );
   if (tasks.length + deadlines.length === 0) return null;
   return (
-    <section
-      aria-labelledby="overdue-now"
-      className="rounded-xl border border-danger/50 bg-danger/10 p-4"
-    >
-      <h2
-        id="overdue-now"
-        className="flex items-center gap-2 text-lg font-semibold text-danger-text"
-      >
-        <CircleAlert className="size-5" aria-hidden />
+    <section aria-labelledby="overdue-now" className="rounded-xl border bg-card p-4">
+      <h2 id="overdue-now" className="flex items-center gap-2 text-base font-medium">
+        <CircleAlert className="size-4 text-danger-text" aria-hidden />
         Overdue · {tasks.length + deadlines.length}
       </h2>
       <ul className="mt-2 grid gap-1 text-sm">
@@ -175,10 +169,14 @@ export function MyWorkPage() {
   return (
     <>
       <PageHeader title="My work" description="Your tasks, deadlines and trainings in this lab." />
-      <div className="grid gap-8">
+      <div className="grid gap-4">
         <OverdueNow labId={labId} />
         <ParticipantCards labId={labId} compact />
-        <Section title="Tasks" description="Open tasks assigned to you, soonest due first.">
+        <Section
+          title="Tasks"
+          description="Open tasks assigned to you, soonest due first."
+          defaultOpen
+        >
           <MyTasksList labId={labId} />
         </Section>
         <Section

@@ -1,3 +1,4 @@
+import { MoreMenu } from "@/components/shared/MoreMenu";
 import { useState, type FormEvent, type MouseEvent } from "react";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/shared/DataTable";
@@ -325,38 +326,22 @@ export function InventorySection({
                     <Minus aria-hidden /> Use
                   </Button>
                 )}
-                {onReorder && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label={`Reorder ${i.name}`}
-                    onClick={() => onReorder(i)}
-                  >
-                    Reorder
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Edit ${i.name}`}
-                  onClick={() => setEditing(i)}
-                >
-                  Edit
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Delete ${i.name}`}
-                  onClick={() =>
-                    remove.mutate(i.id, {
-                      onSuccess: () => toast.success("Item deleted"),
-                      onError: (e) =>
-                        toast.error(formErrors(e, []).form ?? "Could not delete the item."),
-                    })
-                  }
-                >
-                  Delete
-                </Button>
+                <MoreMenu
+                  label={`More for ${i.name}`}
+                  items={[
+                    onReorder && { label: "Reorder", onSelect: () => onReorder(i) },
+                    { label: "Edit", onSelect: () => setEditing(i) },
+                    {
+                      label: "Delete",
+                      onSelect: () =>
+                        remove.mutate(i.id, {
+                          onSuccess: () => toast.success("Item deleted"),
+                          onError: (e) =>
+                            toast.error(formErrors(e, []).form ?? "Could not delete the item."),
+                        }),
+                    },
+                  ]}
+                />
               </div>
             ),
           },
@@ -404,7 +389,7 @@ export function InventorySection({
             )}
           </FormField>
         </div>
-        <Button variant="outline" asChild>
+        <Button variant="ghost" asChild>
           <a href={inventoryExportUrl(labId, query)} download="inventory.csv">
             Export CSV
           </a>
