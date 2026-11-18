@@ -15,7 +15,7 @@ import {
 } from "@/hooks/participants";
 import { useRegistry } from "@/hooks/participants";
 import { formErrors } from "@/lib/forms";
-import { CODES_ONLY } from "@/lib/participants";
+import { CODES_ONLY, linkStateLabel } from "@/lib/participants";
 import { cn } from "@/lib/utils";
 import { NativeSelect } from "@/pages/project/workflow/parts";
 
@@ -517,7 +517,7 @@ export function LinkHealthDialog({ labId, projectId, onClose }: Props) {
               {h!.problems.map((p) => (
                 <li key={p.file} className="flex items-center gap-2">
                   <span className="flex-1">
-                    {p.participant} · {p.component} · {p.state.replace("_", " ")}
+                    {p.participant} · {p.component} · {linkStateLabel(p.state)}
                   </span>
                   <Button asChild size="sm" variant="ghost">
                     <a href={p.url} target="_blank" rel="noopener noreferrer">

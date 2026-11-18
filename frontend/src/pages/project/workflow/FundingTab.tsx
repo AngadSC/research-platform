@@ -387,11 +387,12 @@ function FundingDialog({
               <FromDriveButton
                 labId={labId}
                 label="Letter from Drive"
-                onPick={(f) =>
+                participant={false}
+                onPick={(f, participant) =>
                   attachFromDrive<{ id: string }>(
                     `/api/labs/${labId}/projects/${projectId}/attachments/`,
                     f.id,
-                    { pi_only: true },
+                    { pi_only: true, contains_participant_data: participant },
                   ).then((a) => setPicked(a.id))
                 }
               />

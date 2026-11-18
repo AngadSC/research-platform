@@ -3,7 +3,10 @@ package exporting `PROVIDER`; `integrations.registry.ENABLED` lists the enabled 
 one, and the security checklist: README.md next to this file.
 
 Everything the generic UI shows comes from these fields (the providers endpoint), so no provider
-needs UI code of its own. A provider reads metadata only, never file contents (D64, D84).
+needs UI code of its own. A provider module reads metadata only, never file contents (D64, D84;
+the contract test scans each module for download paths). Exceptions: the writers in `WRITERS`,
+Drive's "Edit in Google" upload (end of google_drive.py), and the AI tool's reads of Drive file
+contents (`alt=media` and export), which live in `assistant/drive_files.py` (D269).
 """
 
 import re
@@ -89,7 +92,8 @@ class Provider:
     token_auth: str = "body"
     # D262: providers that one sign-in covers, such as Google Drive and Google Calendar. Each name
     # is another provider that shares this one's grant: connecting any of them asks for all their
-    # scopes in one consent and stores one account per provider with the same tokens, and
+    # scopes in one consent and stores one account, with the same tokens, per provider whose
+    # `required_scopes` were all granted (the others are skipped and named to the person), and
     # disconnecting any of them disconnects them all. They must share one OAuth app (`client_from`)
     # because a refresh token only works with the app that issued it.
     bundle: tuple[str, ...] = ()
@@ -100,6 +104,9 @@ class Provider:
 
     # oauth2 (D65 to D68). `scopes` are the only scopes that may ever be requested.
     scopes: tuple[str, ...] = ()
+    # Scopes in `scopes` the person may decline on Google's screen: the account still connects
+    # and the code does without them (Google Chat's directory and membership lookups).
+    optional_scopes: tuple[str, ...] = ()
     authorize_url: str = ""
     token_url: str = ""
     revoke_url: str = ""
@@ -155,6 +162,11 @@ class Provider:
     opt_in: bool = False
     # The URL path is itself a credential (webhooks): logs get the host only (D241).
     secret_url: bool = False
+
+    @property
+    def required_scopes(self) -> frozenset[str]:
+        """What must be granted for this provider to connect."""
+        return frozenset(self.scopes) - frozenset(self.optional_scopes)
 
     @property
     def needs_account(self) -> bool:

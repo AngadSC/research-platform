@@ -55,13 +55,22 @@ export function IntegrationsPage() {
   const [failure, setFailure] = useState<string>();
   const [keyed, setKeyed] = useState<IntegrationProvider | null>(null);
 
-  // The server sends the browser back here with ?connected=<service> or ?error=<code>.
+  // The server sends the browser back here with ?connected=<service> or ?error=<code>, plus
+  // ?skipped=<services> when the person allowed only some of a shared sign-in's permissions.
   const connected = params.get("connected");
+  const skipped = (params.get("skipped") ?? "").split(",").filter(Boolean);
   const errorCode = params.get("error");
   const label = (name: string) => providers.data?.find((p) => p.name === name)?.label ?? name;
   const loaded = !!providers.data;
   useEffect(() => {
-    if (connected && loaded) toast.success(`${label(connected)} connected`);
+    if (connected && loaded && skipped.length) {
+      const group = providers.data?.find((p) => p.name === connected)?.bundle_label ?? "";
+      const short = skipped.map((n) => label(n).replace(`${group} `, "")).join(", ");
+      toast.warning(
+        `${label(connected)} connected. ${skipped.map(label).join(", ")} ${skipped.length > 1 ? "were" : "was"} not, because you did not allow ${skipped.length > 1 ? "their permissions" : "its permission"}.`,
+        { description: `To add it later, choose Add ${short} on the ${group} card.` },
+      );
+    } else if (connected && loaded) toast.success(`${label(connected)} connected`);
     if (errorCode || (connected && loaded)) setParams({}, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, errorCode, loaded]);

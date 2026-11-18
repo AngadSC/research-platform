@@ -1,6 +1,8 @@
 """Google Drive (ARCHITECTURE section 9, D64, D70, D76 to D78). Scope `drive.file` only: per-file
-access to what the person picks in the Google Picker. Metadata only: never `alt=media`, an export
-or a download. The one write is "Edit in Google" (end of file): a copy the person asks for."""
+access to what the person picks in the Google Picker. This module reads metadata only. File
+contents are read (`alt=media`, or an export for Google's own formats) in one other place, the AI
+tool `read_file`, with the asking person's own connection (`assistant/drive_files.py`, D269). The
+one write is "Edit in Google" (end of file): a copy the person asks for."""
 
 import json
 import secrets

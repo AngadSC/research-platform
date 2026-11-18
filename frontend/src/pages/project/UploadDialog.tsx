@@ -50,6 +50,37 @@ export function ParticipantChoice({
   );
 }
 
+/** The participant question, plus the ethics confirmation once "identifies" is chosen. Uploads
+ * and files linked from Drive ask it the same way. */
+export function ParticipantQuestion({
+  choice,
+  onChoice,
+  ethics,
+  onEthics,
+}: {
+  choice: boolean | null;
+  onChoice: (flagged: boolean) => void;
+  ethics: boolean;
+  onEthics: (ok: boolean) => void;
+}) {
+  return (
+    <>
+      <ParticipantChoice value={choice} onChange={onChoice} />
+      {choice === true && (
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={ethics}
+            onChange={(e) => onEthics(e.target.checked)}
+            className="mt-0.5"
+          />
+          I confirm my ethics approval allows keeping this identifying participant data here
+        </label>
+      )}
+    </>
+  );
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -171,20 +202,12 @@ function UploadForm({
         <p className="text-xs text-muted-foreground">Up to 50 MB{multiple && " each"}.</p>
       </div>
       {hasChoice ? (
-        <>
-          <ParticipantChoice value={choice} onChange={setChoice} />
-          {flagged && (
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={ethics}
-                onChange={(e) => setEthics(e.target.checked)}
-                className="mt-0.5"
-              />
-              I confirm my ethics approval allows keeping this identifying participant data here
-            </label>
-          )}
-        </>
+        <ParticipantQuestion
+          choice={choice}
+          onChoice={setChoice}
+          ethics={ethics}
+          onEthics={setEthics}
+        />
       ) : (
         <label className="flex items-start gap-2 text-sm">
           <input

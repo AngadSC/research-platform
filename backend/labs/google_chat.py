@@ -111,10 +111,18 @@ KINDS = {"SPACE": "space", "GROUP_CHAT": "group_chat", "DIRECT_MESSAGE": "direct
 LABELLED = 60  # unnamed group chats and messages named by their members, most recent first
 
 
+def _granted(account, scope) -> bool:
+    """Whether the person allowed an optional scope (memberships, directory) when connecting.
+    Without it the lookup is skipped rather than refused by Google on every poll."""
+    return scope in (account.granted_scopes or [])
+
+
 def _member_names(account, space) -> list[str]:
     """The names Google will give for a conversation's other members, in listed order. Uses the
     name on the membership when Google sends one, else the Workspace directory. Cached briefly,
     so reopening the picker is cheap."""
+    if not _granted(account, google_chat.MEMBERSHIPS):
+        return []
     ckey = f"gchat-members:{account.lab_id}:{account.external_account_id}:{space}"
     cached = cache.get(ckey)
     if cached is not None:
@@ -152,6 +160,8 @@ def member_map(account, space) -> dict[str, dict[str, str]]:
     """Google user id -> {"name", "photo"} from the conversation's own member list. Google puts a
     name on a membership when it will, which covers people the directory does not (outside the
     domain, or a connection made before the directory scope was granted). Cached briefly."""
+    if not _granted(account, google_chat.MEMBERSHIPS):
+        return {}
     ckey = f"gchat-membermap:{account.lab_id}:{account.external_account_id}:{space}"
     cached = cache.get(ckey)
     if cached is not None:
@@ -403,14 +413,13 @@ def _plain_name(value) -> str:
 
 
 def _relayed(message, text) -> str:
-    """Text posted for someone through the link's connection. The email and the fixed marker
-    can't be chosen by the member, unlike a display name (security review of D317)."""
+    """Text posted for someone through the link's connection: their name, then the fixed marker,
+    which the member can't choose and which says the post was relayed (D317). Never their email:
+    the space may hold people outside the lab (Google verification readiness, item 5)."""
     if not message.author_id:
         return text
-    author = message.author
-    name = _plain_name(author.display_name)
-    who = f"{name} ({author.email})" if name else author.email
-    return f"*{who}* via LabBench: {text}"
+    name = _plain_name(message.author.display_name) or "A lab member"
+    return f"*{name}* via labbenchos: {text}"
 
 
 def relay(message) -> bool:
@@ -509,6 +518,8 @@ def google_people(account, user_ids) -> dict[str, dict[str, str]]:
     """Google user id -> {"name", "photo"}, from the Workspace directory (D320). Best effort:
     whatever Google will not name (outside the domain, a failure) is simply missing. Cached a day
     per lab; a failed lookup is never cached, so it cannot hide a colleague for a day."""
+    if not _granted(account, google_chat.DIRECTORY):
+        return {}
     ids = sorted({i for i in user_ids if re.fullmatch(r"[0-9]{1,40}", i or "")})
     keys = {i: f"gchat-person:{account.lab_id}:{i}" for i in ids}
     found = cache.get_many(list(keys.values()))  # keyed by cache key

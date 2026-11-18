@@ -146,3 +146,11 @@ export const ENROLMENT = [
 ] as const;
 
 export const CODES_ONLY = "Coded IDs only. Do not enter names or contact details.";
+
+/** A link check's result in words. Google Drive shows the app only the files someone picked in
+ * Google's own picker (scope drive.file), so a pasted address it cannot see is most often one
+ * that was never picked, not one that is gone. */
+export const linkStateLabel = (state: string) =>
+  state === "not_found"
+    ? "Pick this file with From Drive so labbenchos can check it"
+    : state.replace("_", " ");

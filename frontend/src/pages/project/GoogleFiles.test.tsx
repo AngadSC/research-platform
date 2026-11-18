@@ -293,8 +293,12 @@ describe("From Drive picks several files", () => {
     });
     renderRoute(DOCS);
     await userEvent.click(await screen.findByRole("button", { name: "From Drive" }));
+    // Asked once for the batch, as an upload asks (item 12 of the Google readiness report).
+    await userEvent.click(await screen.findByLabelText(/no participant identifiers/));
+    await userEvent.click(screen.getByRole("button", { name: "Link" }));
     await waitFor(() => expect(FakeXHR.sent).toHaveLength(2));
     expect(FakeXHR.sent.map((f) => f.get("drive_file_id"))).toEqual(["f1", "f2"]);
+    expect(FakeXHR.sent.map((f) => f.get("contains_participant_data"))).toEqual(["false", "false"]);
     expect(await screen.findByText("Added 2 files from Drive")).toBeInTheDocument();
   });
 });

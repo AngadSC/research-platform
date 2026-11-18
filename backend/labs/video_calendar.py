@@ -220,13 +220,14 @@ def account_for_new_call(lab, user, provider) -> ConnectedAccount:
 
 
 def sync_for(lab, user):
+    """The person's settings, or None when Calendar is not connected. Until they change a setting
+    this is an unsaved row with the defaults (pushing nothing): connecting, reading and the
+    scheduled run never make one."""
     account = active_account(lab, user, google_calendar.PROVIDER.name)
     if account is None:
         return None
-    sync, _ = GoogleCalendarSync.objects.for_lab(lab).get_or_create(
-        lab=lab, account=account, defaults={"user": user}
-    )
-    return sync
+    sync = GoogleCalendarSync.objects.for_lab(lab).filter(account=account).first()
+    return sync or GoogleCalendarSync(lab=lab, account=account, user=user)
 
 
 def google_events(lab, user, start: date, end: date) -> list[dict]:
@@ -435,7 +436,7 @@ def push_all() -> int:
             if not account.user.is_active:
                 continue
             sync = sync_for(lab, account.user)
-            if sync is None or not sync.pushes:
+            if sync is None or not sync.pushes:  # an unsaved row pushes nothing
                 continue
             push(sync)
             done += 1

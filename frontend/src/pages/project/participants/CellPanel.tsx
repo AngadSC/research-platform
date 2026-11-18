@@ -15,7 +15,8 @@ import type {
 } from "@/lib/api-types";
 import { personName } from "@/lib/api-types";
 import { formErrors } from "@/lib/forms";
-import { REASON_KIND, STATUS, STATUSES } from "@/lib/participants";
+import { linkStateLabel, REASON_KIND, STATUS, STATUSES } from "@/lib/participants";
+import { FromDriveButton } from "@/components/shared/FromDriveButton";
 import { NativeSelect } from "@/pages/project/workflow/parts";
 import { StatusChip } from "@/pages/project/participants/StatusChip";
 import { RelativeTime } from "@/components/shared/RelativeTime";
@@ -314,7 +315,7 @@ export function CellPanel({
                 <span className="truncate">{f.title || f.url}</span>
               </a>
               {f.link_state !== "ok" && f.link_state !== "unchecked" && (
-                <span className="text-xs text-danger-text">{f.link_state.replace("_", " ")}</span>
+                <span className="text-xs text-danger-text">{linkStateLabel(f.link_state)}</span>
               )}
               {canEdit && (
                 <Button
@@ -353,9 +354,19 @@ export function CellPanel({
                 />
               )}
             </FormField>
-            <Button type="submit" variant="outline" size="sm">
-              Add link
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" variant="outline" size="sm">
+                Add link
+              </Button>
+              <FromDriveButton
+                labId={labId}
+                quiet
+                onPick={async (file) => {
+                  if (!file.url) throw new Error("Google did not give a link.");
+                  setLink({ url: file.url, title: link.title || file.name });
+                }}
+              />
+            </div>
           </form>
         )}
       </section>

@@ -1,11 +1,14 @@
 """Google sign-in (ARCHITECTURE section 7, D62). Google is mocked completely: no network."""
 
+import base64
+import hashlib
 from unittest import mock
 from urllib.parse import parse_qs, urlparse
 
 import pytest
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
 from allauth.socialaccount.models import SocialAccount
+from django.conf import settings
 from django.test import Client
 
 from audit.models import AuditAction, AuditEvent
@@ -19,7 +22,8 @@ GOOGLE_APP = {"client_id": "test-client", "secret": "test-secret"}
 
 
 def _providers(apps):
-    return {"google": {"SCOPE": ["openid", "email", "profile"], "APPS": apps}}
+    """The real sign-in settings (PKCE included) with test apps."""
+    return {"google": {**settings.SOCIALACCOUNT_PROVIDERS["google"], "APPS": apps}}
 
 
 @pytest.fixture
@@ -41,6 +45,7 @@ def google_login(client, *, email, verified, sub="google-1", process="login", **
     params = parse_qs(to_google.query)
     assert to_google.netloc == "accounts.google.com"
     assert sorted(params["scope"][0].split()) == ["email", "openid", "profile"]  # no Drive
+    assert params["code_challenge_method"] == ["S256"] and params["code_challenge"][0]  # PKCE
     identity = {
         "sub": sub,
         "email": email,
@@ -54,7 +59,7 @@ def google_login(client, *, email, verified, sub="google-1", process="login", **
         mock.patch(
             "allauth.socialaccount.providers.oauth2.client.OAuth2Client.get_access_token",
             return_value=token,
-        ),
+        ) as exchange,
         mock.patch(
             "allauth.socialaccount.providers.google.views._verify_and_decode",
             return_value=identity,
@@ -65,6 +70,10 @@ def google_login(client, *, email, verified, sub="google-1", process="login", **
             {"code": "c", "state": params["state"][0]},
         )
     assert back.status_code == 302
+    # The code is exchanged with the verifier that made the challenge.
+    verifier = exchange.call_args.kwargs["pkce_code_verifier"]
+    digest = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest())
+    assert digest.decode().rstrip("=") == params["code_challenge"][0]
     return back["Location"]
 
 

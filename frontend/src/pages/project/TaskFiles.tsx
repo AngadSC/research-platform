@@ -98,10 +98,12 @@ export function TaskFiles({
             </Button>
             <FromDriveButton
               labId={labId}
-              onPick={async (f) => {
+              participant={false}
+              onPick={async (f, participant) => {
                 const a = await attachFromDrive(
                   `/api/labs/${labId}/projects/${projectId}/attachments/`,
                   f.id,
+                  { contains_participant_data: participant },
                 );
                 await attach.mutateAsync({ kind: "attachments", id: a.id });
               }}

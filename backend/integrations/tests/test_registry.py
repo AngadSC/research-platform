@@ -61,7 +61,7 @@ def test_a_content_download_path_is_caught(bad):
 
 
 def test_docstrings_may_say_what_is_never_done():
-    """Drive's docstrings say it never calls `alt=media`; only code counts."""
+    """Drive's docstring names `alt=media` (read elsewhere, D269); only code counts."""
     assert content_paths(registry.get("google_drive")) == []
 
 

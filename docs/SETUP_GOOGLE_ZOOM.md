@@ -44,10 +44,12 @@ console for the name in bold.
    - User type **External**.
    - App name, your support email, and your site's address and privacy policy address.
    - **Authorized domains**: your site's domain, for example `labbenchos.com`.
-   - **Scopes**: add exactly these three and nothing wider:
+   - **Scopes**: add exactly these five and nothing wider:
      - `https://www.googleapis.com/auth/drive.file`
      - `https://www.googleapis.com/auth/calendar.events`
      - `https://www.googleapis.com/auth/calendar.app.created`
+     - `openid` and `https://www.googleapis.com/auth/userinfo.email` (Calendar uses these to
+       know which Google account it is, so it works even if someone declines Drive)
 4. **Make or check the sign-in client** (**Credentials**, then **Create credentials**, then
    **OAuth client ID**, type **Web application**):
    - **Authorized redirect URI**: the redirect address above.
@@ -94,9 +96,15 @@ accounts (university or company) can use it; personal Gmail accounts cannot.
 3. **Add these scopes** to the consent screen:
    - `https://www.googleapis.com/auth/chat.messages`
    - `https://www.googleapis.com/auth/chat.spaces.readonly`
-   - `https://www.googleapis.com/auth/chat.memberships.readonly` (names group chats by member)
-   - `https://www.googleapis.com/auth/directory.readonly`
+   - `https://www.googleapis.com/auth/chat.memberships.readonly` (optional: names group chats
+     by their members)
+   - `https://www.googleapis.com/auth/directory.readonly` (optional: shows senders' names and
+     photos from the Workspace directory)
    - `openid` and `https://www.googleapis.com/auth/userinfo.email`
+
+   A person may untick the two optional ones on Google's screen and still connect. Without them,
+   unnamed group chats show as "Group chat" and senders the app cannot name show as "Someone on
+   Google Chat". Without any of the others, nothing is connected.
 
    Google classes the Chat and directory scopes as sensitive or restricted (the console says
    which when you add them), so publishing to everyone needs Google's verification, and a
@@ -177,20 +185,23 @@ docker compose -f docker-compose.prod.yml up -d --force-recreate backend worker 
    normal **Connect** button, not a dimmed one with "Not set up on this server".
 2. Click **Connect** on Google. Google's consent screen should list Drive, Calendar and Meet
    permissions together. Allow all of them. You land back on Integrations with the card showing
-   your email and **Active**.
+   your email and **Active**. If someone allows Drive but not Calendar (or the other way round),
+   what they allowed is connected, they are told what was left out, and the card offers
+   **Add Calendar and Meet** (or **Add Drive**) to add it later.
 3. Open **Calendar**, then **Add meeting**, and choose **Make a Google Meet call**. Save. The
    join link should fill in by itself.
 4. Do the same with **Make a Zoom call**.
 
-If you are told **"Allow every requested permission to connect"**, the person unticked a box on
-Google's screen. They need to connect again and allow everything.
+If you are told **"Nothing was connected, because a permission it needs was not allowed"**, the
+person unticked every box a service needs (for Google Chat: reading and sending messages, or
+listing spaces). They need to connect again and tick them.
 
 If you are told **"Google would not tell us which account this is"**, Google refused a basic
 lookup right after sign-in. Nothing was connected. Check, in the Google Cloud project:
 
 - The **Google Drive API**, **Google Picker API** and **Google Calendar API** are all turned on
   (Step 2 above).
-- The consent screen lists all three scopes (Step 3 above).
+- The consent screen lists all five scopes (Step 3 above).
 - The client ID and secret in the server's settings belong to this same project.
 
 If a meeting says **"is not turned on for this site's Google project"**, the Calendar API (Step

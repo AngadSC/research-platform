@@ -4,10 +4,12 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { IconAction } from "@/components/shared/IconAction";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { fetchPickerToken, useProviders } from "@/hooks/integrations";
 import { pickDriveFile, pickDriveFiles, type PickedFile } from "@/lib/drive";
 import { formErrors } from "@/lib/forms";
 import { pickerReady } from "@/lib/integrations";
+import { ParticipantQuestion } from "@/pages/project/UploadDialog";
 
 /** Google's own Drive mark, as Google asks it to be shown for "from Drive" actions. */
 export function DriveLogo({ className = "size-4" }: { className?: string }) {
@@ -41,8 +43,54 @@ export function DriveLogo({ className = "size-4" }: { className?: string }) {
   );
 }
 
+/** Asked after picking, as an upload asks it: AI tools can read a linked Drive file unless it is
+ * marked as identifying participants. */
+function AskParticipant({
+  count,
+  flagged,
+  onCancel,
+  onDone,
+}: {
+  count: number;
+  flagged: boolean;
+  onCancel: () => void;
+  onDone: (flagged: boolean) => void;
+}) {
+  const [choice, setChoice] = useState<boolean | null>(flagged ? true : null);
+  const [ethics, setEthics] = useState(false);
+  const ready = choice === false || (choice === true && ethics);
+  return (
+    <Dialog open onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent>
+        <DialogTitle className="text-base font-semibold">
+          {count > 1 ? `Link ${count} files from Drive` : "Link a file from Drive"}
+        </DialogTitle>
+        <DialogDescription className="text-sm text-muted-foreground">
+          The file stays in Google Drive. Claude and other AI tools can read it unless you say it
+          identifies participants.
+        </DialogDescription>
+        <ParticipantQuestion
+          choice={choice}
+          onChoice={setChoice}
+          ethics={ethics}
+          onEthics={setEthics}
+        />
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button disabled={!ready} onClick={() => onDone(choice === true)}>
+            Link
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /** "From Drive": opens Google's file picker and hands the chosen file to `onPick` (with
- * `multiple`, once for each chosen file). Hidden when
+ * `multiple`, once for each chosen file). With `participant`, it first asks whether the files
+ * identify participants (starting on "identifies" when true) and passes the answer. Hidden when
  * the site has no Google Drive set up; when you have not connected yours, it says how. */
 export function FromDriveButton({
   labId,
@@ -54,9 +102,10 @@ export function FromDriveButton({
   quiet,
   multiple,
   iconOnly,
+  participant,
 }: {
   labId: string;
-  onPick: (file: PickedFile) => Promise<unknown>;
+  onPick: (file: PickedFile, participant: boolean) => Promise<unknown>;
   size?: "sm" | "default";
   variant?: "outline" | "secondary" | "ghost";
   label?: string;
@@ -67,11 +116,14 @@ export function FromDriveButton({
   multiple?: boolean;
   /** Shows only Google's Drive mark; the label appears on hover and names the button. */
   iconOnly?: boolean;
+  /** Ask the participant question; the files go to an endpoint that stores the answer. */
+  participant?: boolean;
 }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: providers = [] } = useProviders(labId);
   const [busy, setBusy] = useState(false);
+  const [asking, setAsking] = useState<PickedFile[] | null>(null);
   const drive = providers.find((p) => p.name === "google_drive");
   if (!drive?.configured || !pickerReady(drive)) return null;
   const connected = drive.account?.status === "active";
@@ -81,35 +133,16 @@ export function FromDriveButton({
     return fields.drive_file_id ?? fields.file ?? form ?? "Google Drive did not answer.";
   };
 
-  async function run() {
-    if (!connected) {
-      toast.info("Connect Google Drive first, then pick the file.", {
-        action: {
-          label: "Connect",
-          onClick: () => void navigate(`/labs/${labId}/settings/integrations`),
-        },
-      });
-      return;
-    }
+  async function link(files: PickedFile[], flagged: boolean) {
     setBusy(true);
     try {
-      const { access_token: token } = await fetchPickerToken(labId);
-      const opts = {
-        apiKey: drive!.public_config.api_key!,
-        appId: drive!.public_config.app_id!,
-        token,
-      };
-      const files = multiple
-        ? await pickDriveFiles(opts)
-        : [await pickDriveFile(opts)].filter((f): f is PickedFile => !!f);
-      if (!files.length) return;
       // One at a time: each is checked with Drive by the server, and one bad file must not
       // stop the rest.
       let added = 0;
       let lastError: unknown;
       for (const file of files) {
         try {
-          await onPick(file);
+          await onPick(file, flagged);
           added++;
         } catch (e) {
           lastError = e;
@@ -126,32 +159,81 @@ export function FromDriveButton({
             : `Added ${files.length} files from Drive`,
         );
       }
-    } catch (e) {
-      toast.error(reason(e));
     } finally {
       setBusy(false);
     }
   }
 
+  async function run() {
+    if (!connected) {
+      toast.info("Connect Google Drive first, then pick the file.", {
+        action: {
+          label: "Connect",
+          onClick: () => void navigate(`/labs/${labId}/settings/integrations`),
+        },
+      });
+      return;
+    }
+    setBusy(true);
+    let files: PickedFile[];
+    try {
+      const { access_token: token } = await fetchPickerToken(labId);
+      const opts = {
+        apiKey: drive!.public_config.api_key!,
+        appId: drive!.public_config.app_id!,
+        token,
+      };
+      files = multiple
+        ? await pickDriveFiles(opts)
+        : [await pickDriveFile(opts)].filter((f): f is PickedFile => !!f);
+    } catch (e) {
+      toast.error(reason(e));
+      return;
+    } finally {
+      setBusy(false);
+    }
+    if (!files.length) return;
+    if (participant === undefined) await link(files, false);
+    else setAsking(files);
+  }
+
+  const ask = asking && (
+    <AskParticipant
+      count={asking.length}
+      flagged={!!participant}
+      onCancel={() => setAsking(null)}
+      onDone={(flagged) => {
+        setAsking(null);
+        void link(asking, flagged);
+      }}
+    />
+  );
+
   if (iconOnly)
     return (
-      <IconAction
-        label={label}
-        icon={<DriveLogo />}
-        variant={variant}
-        disabled={busy || disabled}
-        onClick={() => void run()}
-      />
+      <>
+        <IconAction
+          label={label}
+          icon={<DriveLogo />}
+          variant={variant}
+          disabled={busy || disabled}
+          onClick={() => void run()}
+        />
+        {ask}
+      </>
     );
   return (
-    <Button
-      type="button"
-      variant={variant}
-      size={size}
-      disabled={busy || disabled}
-      onClick={() => void run()}
-    >
-      <DriveLogo /> {label}
-    </Button>
+    <>
+      <Button
+        type="button"
+        variant={variant}
+        size={size}
+        disabled={busy || disabled}
+        onClick={() => void run()}
+      >
+        <DriveLogo /> {label}
+      </Button>
+      {ask}
+    </>
   );
 }

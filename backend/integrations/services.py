@@ -182,10 +182,13 @@ def complete_connect(request, *, state, code="", error="") -> ConnectedAccount:
         },
     )
     access = tokens["access_token"]
-    members = registry.bundle_of(provider)  # D262: just this provider, unless it shares a grant
     allowed = set(registry.bundle_scopes(provider))
     granted = sorted(set(str(tokens.get("scope", "")).split()) or entry["scopes"])
-    if not set(entry["scopes"]) <= set(granted):
+    # Partial grants: each member of the bundle (D262) connects when every scope it needs was
+    # granted, and is skipped otherwise; the person is told which. A member's optional scopes
+    # may be missing. Nothing connects when no member has what it needs.
+    members = [m for m in registry.bundle_of(provider) if m.required_scopes <= set(granted)]
+    if not members:
         raise OAuthError("scope_not_granted")  # the user unticked a scope on the consent screen
     if not set(granted) <= allowed:
         raise OAuthError("unexpected_scope")  # D78: a merged grant; discarded, not stored
@@ -212,7 +215,7 @@ def complete_connect(request, *, state, code="", error="") -> ConnectedAccount:
     # A discarded token (any failure above or below) is never stored. It is not revoked at the
     # provider either: the same grant may back this person's account in another lab (D68).
     stored = {}
-    with transaction.atomic():  # all of the bundle or none of it
+    with transaction.atomic():  # every member that was granted, or none of them
         for member, external_id, email in identities:
             stored[member.name] = _store_account(
                 request,
@@ -225,7 +228,10 @@ def complete_connect(request, *, state, code="", error="") -> ConnectedAccount:
                 refresh=tokens.get("refresh_token") or None,
                 expires_at=_expiry(tokens),
             )
-    return stored[provider.name]
+    account = stored.get(provider.name) or stored[members[0].name]
+    # What the callback tells the person was left out (the redirect's `skipped`).
+    account.skipped = [m.name for m in registry.bundle_of(provider) if m.name not in stored]
+    return account
 
 
 @sensitive_variables("access", "refresh")
