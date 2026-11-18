@@ -90,7 +90,9 @@ function VideoChoice({
                 </Button>
               )}
               {call && !setUp && (
-                <span className="text-xs text-muted-foreground">Not set up on this site yet</span>
+                <span className="text-xs text-muted-foreground">
+                  {CALL_NAME[call]} is not turned on for this site. Ask a site admin to turn it on.
+                </span>
               )}
             </span>
           );

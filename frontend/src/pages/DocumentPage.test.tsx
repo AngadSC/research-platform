@@ -257,6 +257,18 @@ describe("document page", () => {
     expect(router.state.location.pathname).toBe(DOC);
   }, 20000);
 
+  it("saves as soon as the title field is left", async () => {
+    const calls = mockFetch(
+      handlers(EDIT, { "PUT /api/labs/lab1/documents/d1/": () => ({ body: doc(4) }) }),
+    );
+    renderRoute(DOC);
+    await userEvent.type(await screen.findByLabelText("Title"), "!");
+    await userEvent.tab();
+    await waitFor(() => expect(calls.filter((c) => c.method === "PUT")).toHaveLength(1), {
+      timeout: 2000, // well under the 3 second autosave
+    });
+  });
+
   it("keeps History, Retention, Linked files and Delete behind one menu", async () => {
     const calls = mockFetch(
       handlers(EDIT, {

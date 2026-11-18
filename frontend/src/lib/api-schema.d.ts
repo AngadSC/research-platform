@@ -6204,9 +6204,9 @@ export interface components {
             readonly board: string;
             readonly title: string;
             /** Format: date */
-            readonly approval_date: string;
+            readonly approval_date: string | null;
             /** Format: date */
-            readonly expiry_date: string;
+            readonly expiry_date: string | null;
             readonly status: components["schemas"]["ApprovalStatusEnum"];
             readonly restricted: boolean;
             readonly projects: components["schemas"]["ProjectRef"][];
@@ -6224,9 +6224,9 @@ export interface components {
             title: string;
             projects?: string[];
             /** Format: date */
-            approval_date: string;
+            approval_date?: string | null;
             /** Format: date */
-            expiry_date: string;
+            expiry_date?: string | null;
             status?: components["schemas"]["ApprovalStatusEnum"];
             restricted?: boolean;
         };
@@ -6298,9 +6298,9 @@ export interface components {
             approval_number: string;
             board: string;
             /** Format: date */
-            approval_date: string;
+            approval_date: string | null;
             /** Format: date */
-            expiry_date: string;
+            expiry_date: string | null;
             status: string;
         };
         /** @description Name and role only: the export is shared outside the lab, so no email. */
@@ -7826,9 +7826,9 @@ export interface components {
             title?: string;
             projects?: string[];
             /** Format: date */
-            approval_date?: string;
+            approval_date?: string | null;
             /** Format: date */
-            expiry_date?: string;
+            expiry_date?: string | null;
             status?: components["schemas"]["ApprovalStatusEnum"];
             restricted?: boolean;
         };

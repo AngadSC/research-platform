@@ -71,12 +71,14 @@ interface Options {
   method?: string;
   body?: unknown;
   signal?: AbortSignal;
+  /** Let the request finish after the page is gone (small bodies only). */
+  keepalive?: boolean;
 }
 
 /** Low-level call: never throws on HTTP status (allauth uses 401 for pending flows). */
 export async function rawRequest(
   path: string,
-  { method = "GET", body, signal }: Options = {},
+  { method = "GET", body, signal, keepalive }: Options = {},
 ): Promise<{ status: number; body: unknown }> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (!SAFE.has(method)) {
@@ -93,6 +95,7 @@ export async function rawRequest(
       headers,
       credentials: "same-origin",
       signal,
+      keepalive,
       body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     });
   } catch {

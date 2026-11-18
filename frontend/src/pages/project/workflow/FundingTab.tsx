@@ -46,11 +46,20 @@ export default function FundingTab(props: ProjectTabProps) {
 
 function FundingPanel({ labId, projectId, project }: ProjectTabProps) {
   const { list, create, update, remove } = useFunding(labId, projectId);
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   // `?new=1` comes from "Add funding" on the Overview: open the form straight away
   const [editing, setEditing] = useState<Funding | "new" | null>(
     params.get("new") === "1" ? "new" : null,
   );
+
+  const close = () => {
+    setEditing(null);
+    if (params.has("new")) {
+      const next = new URLSearchParams(params);
+      next.delete("new");
+      setParams(next, { replace: true });
+    }
+  };
 
   const add =
     project.status === "archived" ? undefined : (
@@ -103,7 +112,7 @@ function FundingPanel({ labId, projectId, project }: ProjectTabProps) {
           labId={labId}
           projectId={projectId}
           funding={editing === "new" ? undefined : editing}
-          onClose={() => setEditing(null)}
+          onClose={close}
           onSave={(v) =>
             editing === "new"
               ? create.mutateAsync(v as FundingInput)

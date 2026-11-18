@@ -288,6 +288,16 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
               <Eye aria-hidden />
             </Button>
           )}
+          {r.file && analysable(r.file) && (
+            <Button variant="ghost" size="sm" asChild>
+              <StatsLink
+                to={`${base}/analyse?file=${r.file.id}`}
+                aria-label={`Analyse ${rowName(r)}`}
+              >
+                Analyse
+              </StatsLink>
+            </Button>
+          )}
           {canEdit && r.file && googleEditor(r.file) && (
             <Button
               variant="ghost"
@@ -408,6 +418,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
           onRowClick={(r) => {
             if (r.doc) open(r.doc.id);
             else if (googleEditor(r.file) || previewable(r.file)) preview(r.file);
+            else if (analysable(r.file)) void navigate(`${base}/analyse?file=${r.file.id}`);
             else if (r.file.external_url) window.open(r.file.external_url, "_blank", "noopener");
             else startDownload(downloadUrl(labId, r.file.id));
           }}

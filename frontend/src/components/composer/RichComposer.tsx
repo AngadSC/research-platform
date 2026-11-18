@@ -55,10 +55,13 @@ const MAX_SUGGESTIONS = 6;
 
 function readToolbarPref() {
   try {
-    return localStorage.getItem(TOOLBAR_KEY) !== "0";
+    const saved = localStorage.getItem(TOOLBAR_KEY);
+    if (saved !== null) return saved !== "0";
   } catch {
-    return true;
+    /* no saved choice */
   }
+  // On a phone the toolbar would take much of the box: start with it behind "Aa".
+  return !window.matchMedia?.("(max-width: 767px)").matches;
 }
 
 const TOOLS: ([string, string, typeof Bold, keyof Actions] | "|")[] = [

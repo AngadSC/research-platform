@@ -169,10 +169,12 @@ export function useProtocols(labId: string, projectId: string) {
   const list = useQuery({
     queryKey: key,
     queryFn: () => api<Protocol[]>(`${base(labId)}/projects/${projectId}/protocols/`),
+    enabled: !!projectId,
   });
   const usage = useQuery({
     queryKey: [...key, "usage"],
     queryFn: () => api<InventoryUsage[]>(`${base(labId)}/projects/${projectId}/inventory-usage/`),
+    enabled: !!projectId,
   });
   const done = () =>
     Promise.all([

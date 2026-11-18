@@ -38,7 +38,19 @@ def _require_edit(user, approval):
 
 
 def _save(approval):
-    if approval.expiry_date < approval.approval_date:
+    if approval.status != ApprovalStatus.PENDING:
+        missing = {
+            f: "Enter this date."
+            for f in ("approval_date", "expiry_date")
+            if getattr(approval, f) is None
+        }
+        if missing:
+            raise ValidationError(missing)
+    if (
+        approval.approval_date
+        and approval.expiry_date
+        and approval.expiry_date < approval.approval_date
+    ):
         raise ValidationError({"expiry_date": "Expiry must not be before the approval date."})
     try:
         with transaction.atomic():
@@ -99,6 +111,7 @@ def update_approval(approval, *, user, data, request=None) -> EthicsApproval:
         "expiry_date" in data
         and "status" not in data
         and approval.status == ApprovalStatus.EXPIRED
+        and approval.expiry_date
         and approval.expiry_date >= timezone.localdate()
     ):
         approval.status = ApprovalStatus.ACTIVE  # a renewal re-activates (and re-arms reminders)

@@ -47,14 +47,16 @@ export interface ApprovalValues {
 }
 
 /** Messages say what to do. ISO dates compare as strings. */
-export function validateApproval(v: ApprovalValues): Record<string, string> {
+export function validateApproval(v: ApprovalValues, status = "active"): Record<string, string> {
   const e: Record<string, string> = {};
   if (!v.approval_number.trim()) e.approval_number = "Enter the approval number";
   if (!v.board.trim()) e.board = "Enter the ethics board";
   if (!v.title.trim()) e.title = "Enter a title";
-  if (!v.approval_date) e.approval_date = "Pick the approval date";
-  if (!v.expiry_date) e.expiry_date = "Pick the expiry date";
-  else if (v.approval_date && v.expiry_date <= v.approval_date)
+  const pending = status === "pending"; // no decision yet, so no dates yet
+  if (!v.approval_date && !pending) e.approval_date = "Pick the approval date";
+  if (!v.expiry_date) {
+    if (!pending) e.expiry_date = "Pick the expiry date";
+  } else if (v.approval_date && v.expiry_date <= v.approval_date)
     e.expiry_date = "Expiry must be after the approval date";
   return e;
 }

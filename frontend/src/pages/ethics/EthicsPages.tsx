@@ -159,9 +159,11 @@ export function EthicsDetailPage() {
         </Fact>
         <Fact label="Approved on">{dayText(a.approval_date)}</Fact>
         <Fact label="Expires on">{dayText(a.expiry_date)}</Fact>
-        <Fact label="Time left">
-          <ExpiryText expiry={a.expiry_date} />
-        </Fact>
+        {a.expiry_date && (
+          <Fact label="Time left">
+            <ExpiryText expiry={a.expiry_date} />
+          </Fact>
+        )}
       </dl>
       <section className="grid gap-2">
         <h2 className="text-base font-semibold">Projects covered</h2>
@@ -330,12 +332,19 @@ export function ApprovalForm({ labId, approval }: { labId: string; approval?: Et
       approval_date: get("approval_date"),
       expiry_date: get("expiry_date"),
     };
-    const errs = validateApproval(v);
+    const errs = validateApproval(v, status);
     setErrors(errs);
     setFormError(undefined);
     if (Object.keys(errs).length) return;
     save.mutate(
-      { ...v, status: status as EthicsApproval["status"], projects: linked, restricted },
+      {
+        ...v,
+        approval_date: v.approval_date || null,
+        expiry_date: v.expiry_date || null,
+        status: status as EthicsApproval["status"],
+        projects: linked,
+        restricted,
+      },
       {
         onSuccess: (r) => {
           toast.success("Saved");
@@ -372,19 +381,28 @@ export function ApprovalForm({ labId, approval }: { labId: string; approval?: Et
           {(p) => <Input maxLength={300} {...p} name="title" defaultValue={approval?.title} />}
         </FormField>
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="Approval date" error={errors.approval_date}>
+          <FormField
+            label="Approval date"
+            required={status !== "pending"}
+            error={errors.approval_date}
+          >
             {(p) => (
               <Input
                 {...p}
                 type="date"
                 name="approval_date"
-                defaultValue={approval?.approval_date}
+                defaultValue={approval?.approval_date ?? undefined}
               />
             )}
           </FormField>
-          <FormField label="Expiry date" error={errors.expiry_date}>
+          <FormField label="Expiry date" required={status !== "pending"} error={errors.expiry_date}>
             {(p) => (
-              <Input {...p} type="date" name="expiry_date" defaultValue={approval?.expiry_date} />
+              <Input
+                {...p}
+                type="date"
+                name="expiry_date"
+                defaultValue={approval?.expiry_date ?? undefined}
+              />
             )}
           </FormField>
         </div>
