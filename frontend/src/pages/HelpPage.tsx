@@ -36,6 +36,46 @@ const QUESTIONS = [
   ],
 ] as const;
 
+/** Short answers for lab members. `to` is a page in the lab, or null when it lives inside a project. */
+const BASICS = [
+  [
+    "How do I record participants?",
+    "Open a project, then Workflow, then Participants. Add one entry each time people enrol or drop out. Keep names and contact details out.",
+    "participants",
+    "Participants across the lab",
+  ],
+  [
+    "How do I run statistics?",
+    "Open a project and choose Statistics. Pick a file from the project or from your computer, choose a test, and the result appears next to your data. A file from your computer is never uploaded.",
+    null,
+    "",
+  ],
+  [
+    "What is the Workflow tab?",
+    "It lists the steps of a project, from funding to review, and shows which one to do next. Mark a step done, or not needed, when you are finished with it.",
+    null,
+    "",
+  ],
+  [
+    "How do I see my training?",
+    "Training lists what you are required to complete and when it expires. Your lab admin records new certificates.",
+    "training",
+    "Go to Training",
+  ],
+  [
+    "How do I find or ask for lab supplies?",
+    "Inventory shows what the lab has in stock. Open an item to see where it is, or to ask for more.",
+    "inventory",
+    "Go to Inventory",
+  ],
+  [
+    "Where are my tasks?",
+    "My work lists your tasks, deadlines and required training on one page.",
+    "my-work",
+    "Go to My work",
+  ],
+] as const;
+
 const SHORTCUTS = [
   [`${MOD_KEY} K`, "Search, or jump to any page"],
   [`${MOD_KEY} S`, "Save the document you are editing"],
@@ -81,6 +121,24 @@ export function HelpPage() {
               </Button>
               {labId && <ShowChecklistAgain labId={labId} />}
             </div>
+          </div>
+        </Disclosure>
+
+        <Disclosure card region title="Using labbenchos" defaultOpen>
+          <div className="grid gap-3">
+            {BASICS.map(([question, answer, to, linkText]) => (
+              <details key={question} className="rounded-md border p-3 text-sm">
+                <summary className="cursor-pointer font-medium">{question}</summary>
+                <p className="mt-2 text-muted-foreground">{answer}</p>
+                {to && labId && (
+                  <p className="mt-2">
+                    <Link to={`/labs/${labId}/${to}`} className="underline">
+                      {linkText}
+                    </Link>
+                  </p>
+                )}
+              </details>
+            ))}
           </div>
         </Disclosure>
 

@@ -388,6 +388,26 @@ describe("leaving a blank new document", () => {
   });
 });
 
+describe("renaming a document", () => {
+  it("updates the breadcrumb once the rename is saved", async () => {
+    mockFetch(
+      handlers(EDIT, {
+        "GET /api/labs/lab1/documents/d1/": { body: doc(1, "Untitled document") },
+        "PUT /api/labs/lab1/documents/d1/": (req: { body: unknown }) => ({
+          body: doc(2, (req.body as { title: string }).title),
+        }),
+      }),
+    );
+    renderRoute(DOC);
+    const title = await screen.findByLabelText("Title");
+    const crumbs = screen.getByRole("navigation", { name: /breadcrumb/i });
+    expect(within(crumbs).getByText("Untitled document")).toBeInTheDocument();
+    await userEvent.clear(title);
+    await userEvent.type(title, "Methods");
+    expect(await within(crumbs).findByText("Methods", {}, { timeout: 6000 })).toBeInTheDocument();
+  });
+});
+
 describe("document tasks and focus", () => {
   it("lists the tasks linked to the document and offers a task from it", async () => {
     mockFetch(

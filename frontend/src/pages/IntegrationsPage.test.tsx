@@ -118,8 +118,8 @@ describe("Integrations page", () => {
     mockFetch(base(MEMBER, [provider({ configured: false })]));
     renderRoute(PAGE);
     expect(await screen.findByText("Not available yet")).toBeInTheDocument();
-    // The button stays visible but cannot be used until the site has the app details.
-    expect(screen.getByRole("button", { name: /Connect/ })).toBeDisabled();
+    // No Connect button until the site has the app details.
+    expect(screen.queryByRole("button", { name: /Connect/ })).toBeNull();
   });
 
   it("disconnects your own account after a confirmation", async () => {
@@ -262,7 +262,7 @@ describe("Integrations page, generic providers", () => {
     expect(screen.getByRole("button", { name: "Connect Zotero" })).toBeVisible();
     // Unconfigured OAuth: the button is there but disabled, with a note saying why.
     expect(screen.getByText("Not available yet")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Connect Box (not available yet)" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Connect Box/ })).toBeNull();
     // Link-only and public need no connection.
     expect(screen.getByText(/No connection needed. Paste a link/)).toBeVisible();
     expect(screen.getByText(/No connection needed. Links to public records/)).toBeVisible();
@@ -403,8 +403,7 @@ describe("Integrations page, one Google sign-in (D262)", () => {
       ]),
     );
     renderRoute(PAGE);
-    expect(
-      await screen.findByRole("button", { name: "Connect Google (not available yet)" }),
-    ).toBeDisabled();
+    expect(await screen.findByText("Not available yet")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Connect Google/ })).toBeNull();
   });
 });

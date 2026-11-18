@@ -118,6 +118,20 @@ describe("Workflow progress", () => {
     expect(screen.getByText("2 of 7 done")).toBeInTheDocument();
   });
 
+  it("shows the next-step banner only on the next step's own tab", async () => {
+    mockFetch(
+      base(PI, ["view_lab"], {
+        [`GET ${P}/workflow-progress/`]: { body: progress("participants", ["funding", "ethics"]) },
+        [`GET ${P}/funding/`]: { body: [] },
+        [`GET ${P}/attachments/`]: { body: [] },
+      }),
+    );
+    renderRoute(`${W}/funding`);
+    expect(await screen.findByRole("link", { name: "Go to Participants" })).toBeInTheDocument();
+    expect(screen.queryByText("Do this next: Participants.")).toBeNull();
+    expect(screen.getByText("2 of 7 done")).toBeInTheDocument();
+  });
+
   it("opens on the last stage once everything is done", async () => {
     mockFetch(
       base(CONTRIB, ["view_lab"], {

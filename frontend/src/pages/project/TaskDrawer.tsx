@@ -103,7 +103,7 @@ export function TaskDrawer({
   }
 
   return (
-    <DetailPanel open onOpenChange={(o) => !o && onClose()} title={task.title}>
+    <DetailPanel open onOpenChange={(o) => !o && onClose()} title={canEdit ? "Task" : task.title}>
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 py-4">
         {canEdit ? (
           <>

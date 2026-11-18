@@ -156,7 +156,7 @@ export function WorkflowLayout(props: ProjectTabProps) {
           <p className="text-sm">
             {next && completed ? (
               <span className="font-semibold">Completed project. Steps below are optional.</span>
-            ) : next ? (
+            ) : next && (!open || open === next) ? (
               <>
                 <span className="font-semibold">
                   {canEdit ? "Do this next" : "Next step"}: {nameOf(next)}.

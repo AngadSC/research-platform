@@ -17,7 +17,7 @@ export function RoleName({
       {/* preventDefault stops Radix closing it again, so a tap on a phone opens it */}
       <TooltipTrigger
         type="button"
-        className="cursor-help underline decoration-dotted underline-offset-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="cursor-help focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         onPointerDown={(e) => e.preventDefault()}
         onClick={(e) => {
           e.preventDefault();

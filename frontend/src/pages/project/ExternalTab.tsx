@@ -196,7 +196,7 @@ function ExternalDialog({
   return (
     <>
       <RecordDialog
-        title={item ? "Edit item" : "Add item"}
+        title={item ? "Edit poster or talk" : "Add poster or talk"}
         fields={FIELDS}
         onClose={onClose}
         onSubmit={async (f) => {

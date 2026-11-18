@@ -36,6 +36,20 @@ describe("settings", () => {
     expect(screen.queryByLabelText("Name")).toBeNull();
   });
 
+  it("leaves the weekly training digest out for members", async () => {
+    mockFetch(base(["view_lab"]));
+    renderRoute("/settings#notifications");
+    const list = await screen.findByRole("list", { name: "Emailed notifications" });
+    expect(list).toHaveTextContent("Ethics approval expiring");
+    expect(list).not.toHaveTextContent("Weekly training digest");
+  });
+
+  it("lists the weekly training digest for lab admins", async () => {
+    mockFetch(base(["view_lab", "manage_lab"]));
+    renderRoute("/settings#notifications");
+    expect(await screen.findByText("Weekly training digest")).toBeInTheDocument();
+  });
+
   it("lays out the top bar and sidebar, saving each change to the account", async () => {
     const calls = mockFetch(base(["view_lab"]));
     renderRoute("/settings#layout");
