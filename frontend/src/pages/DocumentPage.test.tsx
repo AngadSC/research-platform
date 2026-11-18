@@ -61,6 +61,7 @@ const handlers = (perms: string[], extra: Record<string, unknown> = {}) => ({
   "GET /api/labs/lab1/projects/p1/folders/": { body: [] },
   "GET /api/labs/lab1/projects/p1/documents/": { body: [] },
   "GET /api/labs/lab1/documents/d1/": { body: doc(3) },
+  "GET /api/labs/lab1/documents/d1/comments/": { body: [] },
   ...extra,
 });
 const EDIT = ["view_project", "edit_content"];
@@ -460,5 +461,116 @@ describe("document tasks and focus", () => {
     );
     await userEvent.keyboard("{Escape}");
     expect(await screen.findByRole("button", { name: "Focus" })).toBeInTheDocument();
+  });
+});
+
+describe("document comments", () => {
+  const C = "/api/labs/lab1/documents/d1/comments/";
+  const comment = (id: string, author: typeof user, extra: Record<string, unknown> = {}) => ({
+    id,
+    parent: null,
+    author,
+    body: `Note ${id}`,
+    quote: "",
+    resolved_at: null,
+    resolved_by: null,
+    created_at: "2026-01-02T00:00:00Z",
+    ...extra,
+  });
+  const people = {
+    "GET /api/me/": { body: user },
+    "GET /api/labs/lab1/projects/p1/members/": {
+      body: [{ id: "m2", user: other, role: "contributor" }],
+    },
+  };
+
+  it("opens from the button and posts a comment with a mention", async () => {
+    const calls = mockFetch(
+      handlers(EDIT, { ...people, [`POST ${C}`]: { body: comment("c1", user) } }),
+    );
+    renderRoute(DOC);
+    await userEvent.click(await screen.findByRole("button", { name: "Comments, 0 open" }));
+    const panel = await screen.findByRole("complementary", { name: "Comments" });
+    expect(within(panel).getByText(/No open comments/)).toBeInTheDocument();
+    const box = within(panel).getByRole("textbox", { name: "Add a comment" });
+    await userEvent.type(box, "Please check @b");
+    await userEvent.keyboard("{Enter}");
+    await userEvent.type(box, "the methods");
+    await userEvent.click(within(panel).getByRole("button", { name: "Comment" }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "POST" && c.path === C)?.body).toEqual({
+        body: "Please check @[Bo](user:u2) the methods",
+        quote: "",
+      }),
+    );
+  });
+
+  it("replies, resolves and deletes, and keeps resolved threads folded", async () => {
+    const rows = [
+      comment("c1", other, { quote: "the intro" }),
+      comment("c2", user, { parent: "c1" }),
+      comment("c3", other, { resolved_at: "2026-01-03T00:00:00Z", resolved_by: user }),
+    ];
+    const calls = mockFetch(
+      handlers(EDIT, {
+        ...people,
+        [`GET ${C}`]: { body: rows },
+        [`POST ${C}`]: { body: comment("c4", user, { parent: "c1" }) },
+        [`PATCH ${C}c1/`]: { body: rows[0] },
+        [`DELETE ${C}c2/`]: { status: 204 },
+      }),
+    );
+    renderRoute(`${DOC}?comments=1`);
+    const panel = await screen.findByRole("complementary", { name: "Comments" });
+    expect(await within(panel).findByText("Note c1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Comments, 1 open" })).toBeInTheDocument();
+    expect(within(panel).getByText("the intro")).toBeInTheDocument();
+    expect(within(panel).queryByText("Note c3")).toBeNull();
+    await userEvent.click(within(panel).getByRole("button", { name: "Show resolved (1)" }));
+    expect(within(panel).getByText("Note c3")).toBeInTheDocument();
+
+    await userEvent.click(within(panel).getByRole("button", { name: "Reply" }));
+    await userEvent.type(within(panel).getByRole("textbox", { name: "Reply" }), "Fixed");
+    await userEvent.click(within(panel).getByRole("button", { name: "Reply" }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "POST" && c.path === C)?.body).toEqual({
+        body: "Fixed",
+        parent: "c1",
+      }),
+    );
+
+    await userEvent.click(within(panel).getByRole("button", { name: "Resolve comment by Bo" }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "PATCH" && c.path === `${C}c1/`)?.body).toEqual({
+        resolved: true,
+      }),
+    );
+
+    // Ada (an editor, not a lead) deletes her own reply but not Bo's comment
+    expect(within(panel).queryByRole("button", { name: "Delete comment by Bo" })).toBeNull();
+    await userEvent.click(within(panel).getByRole("button", { name: "Delete comment by Ada" }));
+    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+    await userEvent.click(within(panel).getByRole("button", { name: "Delete" }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === "DELETE" && c.path === `${C}c2/`)).toBe(true),
+    );
+  });
+
+  it("lets a viewer comment and resolve only their own", async () => {
+    mockFetch(
+      handlers(["view_project"], {
+        ...people,
+        [`GET ${C}`]: { body: [comment("c1", other), comment("c2", user)] },
+      }),
+    );
+    renderRoute(`${DOC}?comments=1`);
+    const panel = await screen.findByRole("complementary", { name: "Comments" });
+    await within(panel).findByText("Note c1");
+    expect(within(panel).getByRole("textbox", { name: "Add a comment" })).toBeInTheDocument();
+    expect(within(panel).getAllByRole("button", { name: /^Resolve/ })).toHaveLength(1);
+    expect(
+      within(panel).getByRole("button", { name: "Resolve comment by Ada" }),
+    ).toBeInTheDocument();
+    expect(within(panel).getAllByRole("button", { name: /^Delete/ })).toHaveLength(1);
   });
 });

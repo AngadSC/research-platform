@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router";
 import { markMine } from "@/hooks/liveRefresh";
 import { api } from "@/lib/api";
 import type {
+  DocumentComment,
   DocumentFull,
   DocumentRow,
   DocumentSaveInput,
@@ -178,4 +179,32 @@ export function useRestoreRevision(labId: string, id: string) {
       void qc.invalidateQueries({ queryKey: [...docKey(labId, id), "revisions"] });
     },
   });
+}
+
+/** Comments on a document (lab-wide ones too). Re-fetched every 15 seconds while visible. */
+export function useDocumentComments(labId: string, documentId: string) {
+  const qc = useQueryClient();
+  const url = `${base(labId)}/documents/${documentId}/comments/`;
+  const key = [...docKey(labId, documentId), "comments"];
+  const list = useQuery({
+    queryKey: key,
+    queryFn: () => api<DocumentComment[]>(url),
+    refetchInterval: 15_000,
+  });
+  const refresh = () => qc.invalidateQueries({ queryKey: key });
+  const create = useMutation({
+    mutationFn: (v: { body: string; quote?: string; parent?: string }) =>
+      api<DocumentComment>(url, { method: "POST", body: v }),
+    onSuccess: refresh,
+  });
+  const resolve = useMutation({
+    mutationFn: (v: { id: string; resolved: boolean }) =>
+      api<DocumentComment>(`${url}${v.id}/`, { method: "PATCH", body: { resolved: v.resolved } }),
+    onSuccess: refresh,
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => api(`${url}${id}/`, { method: "DELETE" }),
+    onSuccess: refresh,
+  });
+  return { list, create, resolve, remove };
 }

@@ -217,6 +217,26 @@ def can_reverse_usage(user, usage) -> bool:
     return usage.used_by_id == user.pk or can(user, Perm.EDIT_PROJECT, usage)
 
 
+def can_resolve_comment(user, comment) -> bool:
+    """Resolving or reopening a comment on a document: its author, or anyone who can edit the
+    document. Everyone who reads the document may comment (D206's rule for chat)."""
+    doc = comment.document
+    return can(user, Perm.VIEW_PROJECT, doc) and (
+        comment.author_id == user.pk or can(user, Perm.EDIT_CONTENT, doc)
+    )
+
+
+def can_remove_comment(user, comment) -> bool:
+    """Deleting a comment: its author, or a project lead, PI or lab admin. On a lab-wide document
+    (no project, D233) that is a PI or lab admin (`manage_lab`)."""
+    doc = comment.document
+    return can(user, Perm.VIEW_PROJECT, doc) and (
+        comment.author_id == user.pk
+        or can(user, Perm.EDIT_PROJECT, doc)
+        or can(user, Perm.MANAGE_LAB, doc)
+    )
+
+
 def can_change_meeting(user, meeting) -> bool:
     """Changing or deleting a meeting needs its organiser, or a PI or lab admin (`manage_lab`),
     who can still add lab content. Everyone else on it reads it. Seeing it at all needs being on

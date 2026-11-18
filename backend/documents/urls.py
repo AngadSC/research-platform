@@ -62,6 +62,16 @@ urlpatterns = [
         name="revision-restore",
     ),
     path(
+        L + "documents/<uuid:document_id>/comments/",
+        views.CommentListCreateView.as_view(),
+        name="comment-list",
+    ),
+    path(
+        L + "documents/<uuid:document_id>/comments/<uuid:comment_id>/",
+        views.CommentDetailView.as_view(),
+        name="comment-detail",
+    ),
+    path(
         L + "projects/<uuid:project_id>/attachments/",
         views.AttachmentListCreateView.as_view(),
         name="attachment-list",

@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from core.serializers import UserSerializer, no_control_chars
 from documents import services
-from documents.models import Attachment, Document, DocumentRevision, Folder
+from documents.models import Attachment, Document, DocumentComment, DocumentRevision, Folder
 
 NOTICE = "Do not upload participant identifiers. Upload only anonymized or aggregate data."
 
@@ -125,6 +125,35 @@ class RevisionSerializer(RevisionListSerializer):
     class Meta(RevisionListSerializer.Meta):
         fields = [*RevisionListSerializer.Meta.fields, "content"]
         read_only_fields = fields
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    author = UserSerializer(read_only=True)
+    resolved_by = UserSerializer(read_only=True, allow_null=True)
+
+    class Meta:
+        model = DocumentComment
+        fields = [
+            "id",
+            "parent",
+            "author",
+            "body",
+            "quote",
+            "resolved_at",
+            "resolved_by",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class CommentCreateSerializer(serializers.Serializer):
+    body = serializers.CharField(max_length=4000)
+    quote = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
+    parent = serializers.UUIDField(required=False, allow_null=True, default=None)
+
+
+class CommentResolveSerializer(serializers.Serializer):
+    resolved = serializers.BooleanField()
 
 
 class AttachmentSerializer(serializers.ModelSerializer):
