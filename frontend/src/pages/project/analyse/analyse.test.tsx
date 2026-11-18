@@ -458,6 +458,18 @@ describe("Analyse page", () => {
     expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
+  it("drops the empty state once a file from this computer is loaded", async () => {
+    setup(fakeEngine(), { files: [] });
+    const u = userEvent.setup();
+    expect(await screen.findByText("No data files in this project yet")).toBeInTheDocument();
+    await u.upload(
+      await screen.findByLabelText("From this computer"),
+      new File(["a,b"], "mine.csv"),
+    );
+    await screen.findByText(/6 rows/);
+    expect(screen.queryByText("No data files in this project yet")).toBeNull();
+  });
+
   it("says exactly what was saved when a step fails", async () => {
     vi.mocked(upload)
       .mockResolvedValueOnce({ id: "x1" } as never)

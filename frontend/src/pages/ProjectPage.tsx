@@ -233,7 +233,7 @@ export function ProjectPage() {
       <TabNav
         label="Project sections"
         tabs={projectSections(project.study_types).map(({ to, label }) => [to, label])}
-        className="mb-6 md:hidden"
+        className="mb-6 flex-nowrap overflow-x-auto md:hidden"
       />
       <ProjectDropZone
         labId={labId}

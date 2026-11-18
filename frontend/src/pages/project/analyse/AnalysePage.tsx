@@ -618,7 +618,7 @@ function StatsWorkspace({
 
   const picker = (
     <div className="grid gap-3">
-      {options.length === 0 && files.isFetched && datasets.isFetched && (
+      {options.length === 0 && !source && files.isFetched && datasets.isFetched && (
         <EmptyState
           icon={BarChart3}
           title="No data files in this project yet"

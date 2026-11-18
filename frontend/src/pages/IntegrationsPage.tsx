@@ -384,18 +384,16 @@ function ProviderCard({
   );
 }
 
-/** The button is always there, so people can see it exists; until the site has this service's app
- * details (see .env.example) it cannot be used. */
+/** Until the site has this service's app details (see .env.example) it cannot be connected, so
+ * there is no button, only a plain note. */
 function NotSetUp({ label }: { label: string }) {
   return (
-    <>
-      <span className="text-xs text-muted-foreground">Not available yet</span>
-      <span title="This service is not switched on for this site yet. Ask your lab admin to check back later.">
-        <Button disabled aria-label={`Connect ${label} (not available yet)`}>
-          Connect
-        </Button>
-      </span>
-    </>
+    <span
+      className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground"
+      title={`${label} is not switched on for this site yet. Ask your lab admin to check back later.`}
+    >
+      Not available yet
+    </span>
   );
 }
 

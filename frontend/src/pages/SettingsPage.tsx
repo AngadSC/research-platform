@@ -30,8 +30,9 @@ export const EMAILED = [
   "Project exported",
   "Integration needs attention",
   "Training expiring or expired",
-  "Weekly training digest (PI and lab admins)",
 ];
+/** Only the PI and lab admins get this one. */
+export const ADMIN_EMAILED = "Weekly training digest";
 export const IN_APP_ONLY = ["Task assigned", "Task unassigned", "Invitation accepted"];
 
 function useSetPreference() {
@@ -200,7 +201,7 @@ export function SettingsPage() {
                     description="Every notice appears in the app. These are also emailed."
                   >
                     <ul className="list-disc pl-5 text-sm" aria-label="Emailed notifications">
-                      {EMAILED.map((k) => (
+                      {(isAdmin ? [...EMAILED, ADMIN_EMAILED] : EMAILED).map((k) => (
                         <li key={k}>{k}</li>
                       ))}
                     </ul>

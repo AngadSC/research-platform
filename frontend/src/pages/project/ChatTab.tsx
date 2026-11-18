@@ -192,7 +192,7 @@ function MessageRow({
           >
             <Plus aria-hidden />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align={mine ? "end" : "start"} className="w-56">
+          <DropdownMenuContent align={mine ? "start" : "end"} className="w-56">
             <div role="group" aria-label="React" className="flex items-center gap-1 px-1 py-1">
               {QUICK_REACTIONS.map(([emoji, label]) => (
                 <DropdownMenuItem
