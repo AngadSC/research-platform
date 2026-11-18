@@ -220,20 +220,17 @@ def test_stalled_projects(world):
     assert block["items"][0]["days_idle"] == 31
 
 
-def test_unassigned_after_access_change(world):
-    lost = task(world, title="lost", assignee=None)
-    task(world, title="never assigned")  # no audit event: not an access change
-    done = task(world, title="finished", status=TaskStatus.DONE)
-    for t in (lost, done):
-        record(
-            AuditAction.TASK_UNASSIGNED,
-            actor=None,
-            actor_label="system",
-            lab=world["lab"],
-            target=t,
-        )
-    items = get(world)["attention"]["unassigned"]["items"]
-    assert [i["title"] for i in items] == ["lost"]
+def test_unassigned_counts_every_open_task_nobody_holds(world):
+    task(world, title="lost")
+    task(world, title="never assigned")
+    task(world, title="finished", status=TaskStatus.DONE)
+    task(world, title="held", assignee=world["member"])
+    data = get(world)
+    assert sorted(i["title"] for i in data["attention"]["unassigned"]["items"]) == [
+        "lost",
+        "never assigned",
+    ]
+    assert data["summary"]["unassigned_tasks"] == 2
 
 
 def test_integrations_in_error_or_expired(world):

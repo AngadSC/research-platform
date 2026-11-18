@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { localDateISO } from "@/lib/format";
+import { addDays } from "@/lib/snooze";
 import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
 
 const ago = (n: number) => localDateISO(new Date(Date.now() - n * 86_400_000));
@@ -121,7 +122,7 @@ const base = (body: unknown, perms = PI) => ({
   "GET /api/labs/lab1/projects/": { body: [] },
   "GET /api/labs/lab1/notifications/": { body: [] },
   "GET /api/labs/lab1/dashboard/": { body },
-  "GET /api/labs/lab1/training/expiring/": { status: 404, body: { detail: "Not found." } },
+  "GET /api/labs/lab1/training/compliance/": { status: 404, body: { detail: "Not found." } },
   "GET /api/labs/lab1/contributions/": { body: contributions() },
   "GET /api/labs/lab1/my-tasks/": { body: [] },
 });
@@ -151,7 +152,10 @@ describe("Dashboard", () => {
     expect(screen.getByText("Done in 30 days")).toBeInTheDocument();
     // kinds with nothing wrong are not listed, and training stays hidden without its endpoint
     expect(screen.queryByRole("region", { name: /Deadlines/ })).toBeNull();
-    expect(screen.queryByText("Training expiring")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Training needs attention/)).not.toBeInTheDocument();
+    // the overdue tasks are listed without opening the card
+    expect(within(overdue).getByRole("link", { name: "Order reagents" })).toBeVisible();
+    expect(within(overdue).queryByRole("link", { name: /Review/ })).toBeNull();
   });
 
   it("shows one All clear line when nothing is wrong", async () => {
@@ -189,30 +193,153 @@ describe("Dashboard", () => {
     expect(names()).toEqual(["Beta", "Alpha"]);
   });
 
-  it("shows the training card when the endpoint answers", async () => {
+  const cell = (status: string, days: number | null = null) => ({
+    status,
+    record: null,
+    completed_on: null,
+    expires_on: null,
+    days_left: days,
+    verified: false,
+  });
+  const compliance = {
+    requirements: [{ id: "r1", name: "Biosafety" }],
+    members: [
+      {
+        user: { id: "u2", email: "bo@uni.edu", display_name: "Bo" },
+        role: "member",
+        cells: { r1: cell("expiring", 26) },
+      },
+      {
+        user: { id: "u3", email: "cy@uni.edu", display_name: "Cy" },
+        role: "member",
+        cells: { r1: cell("missing") },
+      },
+      {
+        user: { id: "u4", email: "di@uni.edu", display_name: "Di" },
+        role: "member",
+        cells: { r1: cell("done", 300) },
+      },
+    ],
+    summary: { done: 1, expiring: 1, expired: 0, missing: 1 },
+  };
+
+  it("counts missing training too, not only what is expiring", async () => {
+    mockFetch({ ...base(dash()), "GET /api/labs/lab1/training/compliance/": { body: compliance } });
+    renderRoute("/labs/lab1/dashboard");
+    const card = await screen.findByRole("region", {
+      name: /Training needs attention \(expired, expiring or missing\)/,
+    });
+    expect(within(card).getByText("2")).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: "Biosafety · Bo" })).toHaveAttribute(
+      "href",
+      "/labs/lab1/training",
+    );
+    expect(within(card).getByText("No record yet")).toBeInTheDocument();
+    expect(within(card).queryByText(/Di/)).toBeNull();
+  });
+
+  it("lists low stock for people who manage inventory", async () => {
+    const perms = [...PI, "manage_inventory"];
     mockFetch({
-      ...base(dash()),
-      "GET /api/labs/lab1/training/expiring/": {
-        body: {
-          days: 60,
-          count: 1,
-          expired_count: 0,
-          items: [
-            {
-              user: { id: "u2", email: "bo@uni.edu", display_name: "Bo" },
-              requirement: { id: "r1", name: "Biosafety" },
-              status: "expiring",
-              expires_on: "2026-12-01",
-              days_left: 26,
-            },
-          ],
-        },
+      ...base(dash(), perms),
+      "GET /api/labs/lab1/": { body: { ...makeLab(perms), inventory_enabled: true } },
+      "GET /api/labs/lab1/inventory/": {
+        body: [
+          {
+            id: "i1",
+            name: "Pipette tips",
+            quantity: "2",
+            unit: "boxes",
+            low_stock_at: "5",
+            low: true,
+            owner: null,
+          },
+          {
+            id: "i2",
+            name: "Gloves",
+            quantity: "40",
+            unit: "boxes",
+            low_stock_at: "5",
+            low: false,
+            owner: null,
+          },
+        ],
       },
     });
     renderRoute("/labs/lab1/dashboard");
-    expect(await screen.findByRole("link", { name: "Biosafety · Bo" })).toHaveAttribute(
+    const card = await screen.findByRole("region", { name: /Low stock/ });
+    expect(within(card).getByRole("link", { name: "Pipette tips" })).toHaveAttribute(
       "href",
-      "/labs/lab1/training",
+      "/labs/lab1/inventory",
+    );
+    expect(within(card).queryByText("Gloves")).toBeNull();
+  });
+
+  it("narrows Needs attention to your own with Mine only", async () => {
+    const mine = dash() as { attention: Record<string, unknown> };
+    mine.attention.overdue_tasks = list(
+      [
+        {
+          id: "t1",
+          title: "Order reagents",
+          due_date: "2026-11-01",
+          days_overdue: 4,
+          project_id: "p2",
+          project_name: "Beta",
+          assignee: { id: "u1", name: "Ada" },
+        },
+        {
+          id: "t2",
+          title: "Fix the rig",
+          due_date: "2026-11-01",
+          days_overdue: 4,
+          project_id: "p2",
+          project_name: "Beta",
+          assignee: { id: "u9", name: "Zed" },
+        },
+      ],
+      2,
+    );
+    mockFetch({
+      ...base(mine),
+      "GET /api/me/": { body: { id: "u1", email: "ada@uni.edu", display_name: "Ada" } },
+    });
+    renderRoute("/labs/lab1/dashboard");
+    await screen.findByRole("link", { name: "Fix the rig" });
+    await userEvent.click(screen.getByRole("button", { name: "Mine only" }));
+    expect(screen.queryByRole("link", { name: "Fix the rig" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Order reagents" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Pilot REB/ })).toBeNull();
+  });
+
+  it("shows the next meeting with its time and a way in", async () => {
+    const starts = new Date(Date.now() + 2 * 3600_000).toISOString();
+    mockFetch({
+      ...base(dash()),
+      [`GET /api/labs/lab1/calendar/?from=${localDateISO()}&to=${addDays(localDateISO(), 30)}`]: {
+        body: [
+          {
+            kind: "meeting",
+            id: "m1",
+            title: "Lab meeting",
+            date: localDateISO(),
+            starts_at: starts,
+            ends_at: null,
+            join_url: "https://meet.example.test/abc",
+            notes: "",
+          },
+        ],
+      },
+    });
+    renderRoute("/labs/lab1/dashboard");
+    const section = await screen.findByRole("region", { name: "Next meeting" });
+    expect(within(section).getByRole("link", { name: "Lab meeting" })).toHaveAttribute(
+      "href",
+      "/labs/lab1/calendar",
+    );
+    expect(within(section).getByRole("link", { name: /Join call/ })).toHaveAttribute(
+      "href",
+      "https://meet.example.test/abc",
     );
   });
 

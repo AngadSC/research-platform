@@ -149,6 +149,10 @@ function Deadlines({
   const [editing, setEditing] = useState<Deadline | "new" | null>(
     canEdit && params.get("new") === "deadline" ? "new" : null,
   );
+  // soonest first; finished ones sink to the bottom
+  const rows = [...(list.data ?? [])].sort(
+    (a, b) => Number(a.done) - Number(b.done) || a.due_date.localeCompare(b.due_date),
+  );
   const cols: Column<Deadline>[] = [
     {
       key: "title",
@@ -227,7 +231,7 @@ function Deadlines({
         )}
         <DataTable
           columns={cols}
-          rows={list.data ?? []}
+          rows={rows}
           getRowKey={(d) => d.id}
           loading={list.isLoading}
           empty={

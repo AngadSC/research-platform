@@ -206,9 +206,11 @@ function Item({ item, config }: { item: TimelineItem; config?: AssistantConfig }
 
 export function Setup({
   config,
+  labId = "",
   onOpenSettings,
 }: {
   config: AssistantConfig;
+  labId?: string;
   /** The drawer closes itself so the Settings page behind it can be seen. */
   onOpenSettings?: () => void;
 }) {
@@ -223,6 +225,19 @@ export function Setup({
     );
   return (
     <div className="grid gap-3">
+      {!config.lab_key && (
+        <p className="text-sm font-medium">
+          Your lab admin can add an AI key in{" "}
+          <Link
+            to={`/labs/${labId}/admin#ai`}
+            className="underline underline-offset-2"
+            onClick={onOpenSettings}
+          >
+            Lab details
+          </Link>
+          , on the AI tab.
+        </p>
+      )}
       <ClaudeOption />
       <div className="grid justify-items-start gap-1 text-sm">
         <p className="text-muted-foreground">
@@ -236,11 +251,6 @@ export function Setup({
         >
           Set up a key
         </Link>
-        {!config.lab_key && (
-          <p className="text-xs text-muted-foreground">
-            Or ask your lab admin to add a lab key, so everyone can use the assistant.
-          </p>
-        )}
       </div>
     </div>
   );
@@ -516,7 +526,7 @@ function AssistantPanel({
         </div>
       )}
       {cfg && usable.length === 0 && (
-        <Setup config={cfg} onOpenSettings={docked ? undefined : onClose} />
+        <Setup config={cfg} labId={labId} onOpenSettings={docked ? undefined : onClose} />
       )}
       {cfg && usable.length > 0 && (
         <>

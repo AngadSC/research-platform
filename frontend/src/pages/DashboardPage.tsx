@@ -42,14 +42,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  useDashboard,
-  useTrainingExpiring,
-  type DashPerson,
-  type DashProject,
-} from "@/hooks/dashboard";
+import { NextMeeting } from "@/components/dashboard/NextMeeting";
+import { useDashboard, useLowStock, type DashPerson, type DashProject } from "@/hooks/dashboard";
 import { useMyTasks } from "@/hooks/projects";
-import { useLab } from "@/hooks/workspace";
+import { useCompliance } from "@/hooks/training";
+import { useLab, useMe } from "@/hooks/workspace";
+import type { InventoryItem } from "@/lib/api-types";
 import { digestOf } from "@/components/dashboard/MorningDigest";
 import { localDateISO } from "@/lib/format";
 import { roleLabel } from "@/lib/api-types";
@@ -94,11 +92,14 @@ function Card({
   shown,
   verb,
   hint,
+  defaultOpen,
   children,
 }: {
   id: string;
   title: string;
   tone: "red" | "amber";
+  /** Show the items without a click. */
+  defaultOpen?: boolean;
   total: number;
   shown: number;
   /** The one thing to do about it, and where. */
@@ -114,6 +115,7 @@ function Card({
   return (
     <details
       id={id}
+      open={defaultOpen || undefined}
       role="region"
       aria-labelledby={`${id}-title`}
       className="group/card rounded-lg border bg-card/60 px-4 py-3 open:bg-card"
@@ -183,6 +185,31 @@ function Item({
       </div>
       {badge}
     </li>
+  );
+}
+
+/** Stock at or below the alert level set on the item. */
+function LowStockCard({ base, items }: { base: string; items: InventoryItem[] }) {
+  return (
+    <Card
+      id="lowstock"
+      verb={{ label: "Open", to: `${base}/inventory` }}
+      hint="Items at or below the alert level set on the item."
+      title="Low stock"
+      tone="amber"
+      total={items.length}
+      shown={items.length}
+    >
+      {items.map((i) => (
+        <Item
+          key={i.id}
+          to={`${base}/inventory`}
+          title={i.name}
+          tone="amber"
+          meta={`${i.quantity} ${i.unit} left (alert at ${i.low_stock_at})`}
+        />
+      ))}
+    </Card>
   );
 }
 
@@ -665,7 +692,11 @@ export function DashboardPage() {
   const { data: lab, error: labError } = useLab(labId);
   const allowed = lab?.my_permissions.includes("manage_lab") ?? false;
   const { data, error, isLoading } = useDashboard(labId, allowed);
-  const training = useTrainingExpiring(labId, allowed);
+  const training = useCompliance(labId, allowed);
+  const me = useMe().data;
+  const [mine, setMine] = useState(false);
+  const lowOn = !!lab?.inventory_enabled && !!lab.my_permissions.includes("manage_inventory");
+  const lowStock = useLowStock(labId, lowOn);
   const base = `/labs/${labId}`;
   const layout = useHomeLayout(labId);
   const snooze = useSnooze(labId);
@@ -687,6 +718,7 @@ export function DashboardPage() {
           ) : undefined
         }
       />
+      {lab && <NextMeeting labId={labId} />}
       {lab && !allowed && <Today labId={labId} />}
     </>
   );
@@ -701,6 +733,14 @@ export function DashboardPage() {
     return (
       <>
         {header}
+        {lowStock.data && lowStock.data.length > 0 && (
+          <section aria-labelledby="attention" className="mb-6 grid gap-3">
+            <h2 id="attention" className="text-base font-medium">
+              Needs attention
+            </h2>
+            <LowStockCard base={base} items={lowStock.data} />
+          </section>
+        )}
         <section aria-labelledby="my-tasks" className="grid gap-3">
           <h2 id="my-tasks" className="text-base font-medium">
             My tasks
@@ -711,20 +751,56 @@ export function DashboardPage() {
       </>
     );
 
-  const a = data?.attention;
-  const tr = training.data;
+  // Training: everything that is expired, expiring or has no record (what the matrix shows).
+  const trainingItems = (training.data?.members ?? []).flatMap((m) =>
+    training.data!.requirements.flatMap((r) => {
+      const cell = m.cells[r.id];
+      return cell && ["expired", "expiring", "missing"].includes(cell.status)
+        ? [{ user: m.user, requirement: r, cell }]
+        : [];
+    }),
+  );
+  const rank = { expired: 0, missing: 1, expiring: 2 } as Record<string, number>;
+  trainingItems.sort((x, y) => rank[x.cell.status]! - rank[y.cell.status]!);
+
+  // "Mine only": my tasks, my integrations and training, and the projects I lead.
+  const raw = data?.attention;
+  const myId = me?.id;
+  const led = new Set(
+    (data?.projects ?? []).filter((p) => p.leads.some((l) => l.id === myId)).map((p) => p.id),
+  );
+  const pick = <T,>(g: { total: number; items: T[] }, keep: (i: T) => boolean) => {
+    if (!mine) return g;
+    const items = g.items.filter(keep);
+    return { total: items.length, items };
+  };
+  const inLed = (i: { project_id: string }) => led.has(i.project_id);
+  const a = raw && {
+    overdue_tasks: pick(raw.overdue_tasks, (t) => t.assignee?.id === myId),
+    ethics: pick(raw.ethics, () => false), // approvals belong to no one in particular
+    funding: pick(raw.funding, inLed),
+    deadlines: pick(raw.deadlines, inLed),
+    stalled: pick(raw.stalled, inLed),
+    unassigned: pick(raw.unassigned, inLed),
+    integrations: pick(raw.integrations, (i) => i.user.id === myId),
+    dmp: raw.dmp && pick(raw.dmp, inLed),
+  };
+  const trItems = mine ? trainingItems.filter((i) => i.user.id === myId) : trainingItems;
+  const lowItems = (lowStock.data ?? []).filter((i) => !mine || i.owner?.id === myId);
+  const tr = training.data && { count: trItems.length };
   const problems =
-    a &&
-    [
-      a.overdue_tasks,
-      a.ethics,
-      a.funding,
-      a.deadlines,
-      a.stalled,
-      a.unassigned,
-      a.integrations,
-      a.dmp ?? { total: 0 },
-    ].some((group) => group.total > 0);
+    (a &&
+      [
+        a.overdue_tasks,
+        a.ethics,
+        a.funding,
+        a.deadlines,
+        a.stalled,
+        a.unassigned,
+        a.integrations,
+        a.dmp ?? { total: 0 },
+      ].some((group) => group.total > 0)) ||
+    lowItems.length > 0;
 
   const homeSection = (id: HomeSection) =>
     id === "recent" ? (
@@ -753,7 +829,7 @@ export function DashboardPage() {
           <div className="grid gap-6">
             <GettingStarted labId={labId} />
             <YourPlate labId={labId} />
-            {!problems && !tr?.count ? (
+            {!problems && !tr?.count && !mine ? (
               <p
                 role="status"
                 className="flex items-center gap-2 text-sm font-medium text-success-text"
@@ -763,16 +839,29 @@ export function DashboardPage() {
               </p>
             ) : (
               <section aria-labelledby="attention" className="grid gap-3">
-                <h2 id="attention" className="text-base font-medium">
-                  Needs attention
-                </h2>
+                <div className="flex items-center justify-between gap-2">
+                  <h2 id="attention" className="text-base font-medium">
+                    Needs attention
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-pressed={mine}
+                    title="Show only what is yours: your tasks, your projects, your training"
+                    onClick={() => setMine((v) => !v)}
+                  >
+                    Mine only
+                  </Button>
+                </div>
+                {!problems && !tr?.count && (
+                  <p role="status" className="text-sm text-muted-foreground">
+                    Nothing of yours needs attention.
+                  </p>
+                )}
                 <div className="grid items-start gap-2 md:grid-cols-2">
                   <Card
                     id="overdue"
-                    verb={{
-                      label: "Review",
-                      to: `${base}/projects/${a.overdue_tasks.items[0]?.project_id}/tasks`,
-                    }}
+                    defaultOpen
                     hint="Tasks whose due date has passed and are not done."
                     title="Overdue tasks"
                     tone="red"
@@ -885,7 +974,7 @@ export function DashboardPage() {
                       label: "Assign",
                       to: `${base}/projects/${a.unassigned.items[0]?.project_id}/tasks`,
                     }}
-                    hint="Tasks that lost their assignee and have not been given a new one."
+                    hint="Open tasks with nobody assigned."
                     title="Tasks that need an owner"
                     tone="amber"
                     total={a.unassigned.total}
@@ -944,27 +1033,30 @@ export function DashboardPage() {
                       ))}
                     </Card>
                   )}
-                  {/* D174: fed by GET L/training/expiring/ (training app). Hidden if that call fails. */}
+                  {lowItems.length > 0 && <LowStockCard base={base} items={lowItems} />}
+                  {/* Everyone the matrix flags: expired, expiring or no record (D174). */}
                   {tr && (
                     <Card
                       id="training"
                       verb={{ label: "Review", to: `${base}/training` }}
-                      hint="Required trainings that have expired or expire within 30 days."
-                      title="Training expiring"
-                      tone={tr.expired_count > 0 ? "red" : "amber"}
-                      total={tr.count}
-                      shown={tr.items.length}
+                      hint="Required training that has expired, expires within 60 days, or has no record yet."
+                      title="Training needs attention (expired, expiring or missing)"
+                      tone={trItems.some((i) => i.cell.status !== "expiring") ? "red" : "amber"}
+                      total={trItems.length}
+                      shown={Math.min(trItems.length, 20)}
                     >
-                      {tr.items.slice(0, 20).map((i) => (
+                      {trItems.slice(0, 20).map((i) => (
                         <Item
                           key={`${i.user.id}-${i.requirement.id}`}
                           to={`${base}/training`}
                           title={`${i.requirement.name} · ${i.user.display_name || i.user.email}`}
-                          tone={i.status === "expired" ? "red" : "amber"}
+                          tone={i.cell.status === "expiring" ? "amber" : "red"}
                           meta={
-                            i.status === "expired"
-                              ? `Expired ${dueText(i.days_left, "ago")}`
-                              : `Expires ${dueText(i.days_left)}`
+                            i.cell.status === "missing"
+                              ? "No record yet"
+                              : i.cell.status === "expired"
+                                ? `Expired ${dueText(i.cell.days_left ?? 0, "ago")}`
+                                : `Expires ${dueText(i.cell.days_left ?? 0)}`
                           }
                         />
                       ))}

@@ -31,7 +31,7 @@ import {
   type Task,
   type TaskStatus,
 } from "@/lib/api-types";
-import { plural } from "@/lib/format";
+import { localDateISO, plural } from "@/lib/format";
 import { projectColorStyle } from "@/lib/projectColors";
 import { cn } from "@/lib/utils";
 import { TASK_TONES } from "@/lib/taskColors";
@@ -235,7 +235,16 @@ export default function TasksTab({ labId, projectId, project }: ProjectTabProps)
       (fStatus === "all" || t.status === fStatus) &&
       (fAssignee === "all" || (fAssignee === NONE ? !t.assignee : t.assignee?.id === fAssignee)),
   );
-  const listRows = TASK_STATUSES.flatMap((s) => visible.filter((t) => t.status === s.value));
+  // within each status, late ones lead (oldest first); the rest keep their board order
+  const today = localDateISO();
+  const late = (t: Task) => t.status !== "done" && !!t.due_date && t.due_date < today;
+  const listRows = TASK_STATUSES.flatMap((s) => {
+    const group = visible.filter((t) => t.status === s.value);
+    return [
+      ...group.filter(late).sort((a, b) => a.due_date!.localeCompare(b.due_date!)),
+      ...group.filter((t) => !late(t)),
+    ];
+  });
 
   const doMove: MoveFn = (task, status, index) =>
     move.mutate(

@@ -14,7 +14,7 @@ import { useMyTasks, usePatchTask } from "@/hooks/projects";
 import type { MyTask } from "@/lib/api-types";
 import { shortDate } from "@/lib/dashboard";
 import { localDateISO } from "@/lib/format";
-import { addDays, nextMonday } from "@/lib/snooze";
+import { addDays, dayStart, inThreeHours, isSnoozed, nextMonday } from "@/lib/snooze";
 import { projectColorStyle } from "@/lib/projectColors";
 import { cn } from "@/lib/utils";
 
@@ -90,10 +90,13 @@ function Row({ labId, task, today }: { labId: string; task: MyTask; today: strin
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => snooze(addDays(today, 1), "tomorrow")}>
+          <DropdownMenuItem onSelect={() => snooze(inThreeHours(), "later today")}>
+            Later today
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => snooze(dayStart(addDays(today, 1)), "tomorrow")}>
             Until tomorrow
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => snooze(monday, "Monday")}>
+          <DropdownMenuItem onSelect={() => snooze(dayStart(monday), "Monday")}>
             Until Monday
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -142,7 +145,7 @@ export function Today({ labId }: { labId: string }) {
   const recents = useRecents();
   const delight = useDelight();
   const today = localDateISO();
-  const open = (tasks ?? []).filter((t) => !t.snoozed_until || t.snoozed_until <= today);
+  const open = (tasks ?? []).filter((t) => !isSnoozed(t.snoozed_until));
   const overdue = open.filter((t) => t.due_date && t.due_date < today);
   const dueToday = open.filter((t) => t.due_date === today);
   const snoozed = (tasks ?? []).length - open.length;

@@ -215,7 +215,7 @@ class TaskInputSerializer(serializers.Serializer):
     description = serializers.CharField(allow_blank=True, required=False)
     assignee = serializers.UUIDField(allow_null=True, required=False)
     due_date = serializers.DateField(allow_null=True, required=False)
-    snoozed_until = serializers.DateField(allow_null=True, required=False)
+    snoozed_until = serializers.DateTimeField(allow_null=True, required=False)
     status = serializers.ChoiceField(choices=TaskStatus.choices, required=False)
     position = serializers.IntegerField(min_value=0, required=False)
 

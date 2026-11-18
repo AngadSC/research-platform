@@ -85,7 +85,8 @@ function CopyCitation({ labId, paperId }: { labId: string; paperId: string }) {
 function AiShortcuts({ labId, paper }: { labId: string; paper: PaperDetail }) {
   const { data: cfg } = useAssistantConfig(labId, true);
   if (!cfg) return null;
-  if (!cfg.can_use || !cfg.providers.some((p) => p.has_key)) return <Setup config={cfg} />;
+  if (!cfg.can_use || !cfg.providers.some((p) => p.has_key))
+    return <Setup config={cfg} labId={labId} />;
   const named = `the paper "${paper.title}" (paper_id ${paper.id})`;
   const source = paper.has_pdf
     ? `Read its PDF with read_paper (all pages)`

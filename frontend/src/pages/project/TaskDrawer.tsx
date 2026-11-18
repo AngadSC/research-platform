@@ -23,10 +23,9 @@ import {
   type TaskInput,
   type TaskStatus,
 } from "@/lib/api-types";
-import { shortDate } from "@/lib/dashboard";
 import { formErrors, type FormErrors } from "@/lib/forms";
 import { localDateISO } from "@/lib/format";
-import { nextMonday } from "@/lib/snooze";
+import { dayStart, isSnoozed, nextMonday, snoozeEnds } from "@/lib/snooze";
 import { TaskFiles } from "@/pages/project/TaskFiles";
 import { TaskThread } from "@/pages/project/TaskThread";
 
@@ -148,10 +147,10 @@ export function TaskDrawer({
                 )}
               </FormField>
               <div className="flex flex-wrap items-center gap-2 text-sm">
-                {task.snoozed_until && task.snoozed_until > localDateISO() ? (
+                {isSnoozed(task.snoozed_until) ? (
                   <>
                     <span className="text-muted-foreground">
-                      Snoozed until {shortDate(task.snoozed_until)}
+                      Snoozed until {snoozeEnds(task.snoozed_until!)}
                     </span>
                     <Button
                       type="button"
@@ -169,7 +168,7 @@ export function TaskDrawer({
                     size="sm"
                     onClick={() =>
                       void patch(
-                        { snoozed_until: nextMonday(localDateISO()) },
+                        { snoozed_until: dayStart(nextMonday(localDateISO())) },
                         "Snoozed until Monday",
                       )
                     }
