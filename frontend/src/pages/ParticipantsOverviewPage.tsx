@@ -42,7 +42,9 @@ export function ParticipantsOverviewPage() {
                     >
                       {p.name}
                     </Link>
-                    <span>{p.participants} participants</span>
+                    <span>
+                      {p.participants} {p.participants === 1 ? "participant" : "participants"}
+                    </span>
                     <span>{p.percent}% complete</span>
                     <Link
                       to={to(p.id, "?status=missing")}

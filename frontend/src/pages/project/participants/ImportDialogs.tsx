@@ -165,7 +165,7 @@ export function ImportWizard({ labId, projectId, onClose }: Props) {
             )}
             <div className="grid gap-3 sm:grid-cols-2">
               {select("Participant code", "code", false)}
-              {select("Group (for example home language)", "group")}
+              {select("Group (for example study arm)", "group")}
               {select("Cohort or site", "cohort")}
               {select("Enrolment status", "status")}
             </div>

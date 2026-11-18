@@ -37,7 +37,7 @@ export default function FundingTab(props: ProjectTabProps) {
       <EmptyState
         icon={Landmark}
         title="Funding is visible to PIs only"
-        description="Ask a PI on this project if you need to know how it is funded."
+        description="Ask your lab's PI if you need to know how this project is funded."
       />
     );
   }

@@ -1,5 +1,6 @@
-import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { Archive, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
+import { toast } from "sonner";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,7 +12,7 @@ import { StatusChip } from "@/pages/project/participants/StatusChip";
 import { RelativeTime } from "@/components/shared/RelativeTime";
 
 /** One participant: every data column as a checklist, grouped by type, with their history. */
-export default function ParticipantPage({ labId, projectId }: ProjectTabProps) {
+export default function ParticipantPage({ labId, projectId, project }: ProjectTabProps) {
   const { participantId = "" } = useParams();
   const navigate = useNavigate();
   const registry = useRegistry(labId, projectId);
@@ -21,13 +22,14 @@ export default function ParticipantPage({ labId, projectId }: ProjectTabProps) {
   const index = list.findIndex((p) => p.id === participantId);
   const p = list[index];
   const back = `/labs/${labId}/projects/${projectId}/participants`;
+  const canEdit = project.my_permissions.includes("edit_content");
 
   if (registry.participants.isLoading) return <Skeleton aria-label="Loading" className="h-48" />;
   if (!p)
     return (
       <EmptyState
         title="Participant not found"
-        description="They may have been archived."
+        description="They may have been archived. You can restore them from the participants page."
         action={
           <Button asChild>
             <Link to={back}>Back to participants</Link>
@@ -47,6 +49,23 @@ export default function ParticipantPage({ labId, projectId }: ProjectTabProps) {
     const next = list[index + d];
     if (next) void navigate(`${back}/${next.id}`);
   };
+  // D308: participants are archived, never deleted, so archiving offers Undo.
+  const archive = () =>
+    registry.archive.mutate(
+      { id: p.id, archived: true },
+      {
+        onSuccess: () => {
+          toast.success(`${p.code} archived`, {
+            action: {
+              label: "Undo",
+              onClick: () => registry.archive.mutate({ id: p.id, archived: false }),
+            },
+          });
+          void navigate(back);
+        },
+        onError: () => toast.error(`Couldn't archive ${p.code}`),
+      },
+    );
 
   return (
     <div className="grid gap-6">
@@ -57,6 +76,16 @@ export default function ParticipantPage({ labId, projectId }: ProjectTabProps) {
           </Link>
         </Button>
         <div className="ml-auto flex gap-2">
+          {canEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={registry.archive.isPending}
+              onClick={archive}
+            >
+              <Archive aria-hidden /> Archive
+            </Button>
+          )}
           <Button variant="outline" size="sm" disabled={index <= 0} onClick={() => step(-1)}>
             <ChevronLeft aria-hidden /> Previous
           </Button>

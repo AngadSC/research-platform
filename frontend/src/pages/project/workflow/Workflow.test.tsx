@@ -309,6 +309,7 @@ describe("Funding", () => {
     );
     const router = renderRoute(`${W}/funding`);
     expect(await screen.findByText("Funding is visible to PIs only")).toBeInTheDocument();
+    expect(screen.getByText(/Ask your lab's PI/)).toBeInTheDocument();
     expect(router.state.location.pathname).toBe(`${W}/funding`);
     const nav = await screen.findByRole("navigation", { name: "Workflow sections" });
     expect(within(nav).queryByRole("link", { name: /Funding/ })).toBeNull();

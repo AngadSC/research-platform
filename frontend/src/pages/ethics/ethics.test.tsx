@@ -112,6 +112,20 @@ describe("list", () => {
     expect(screen.getByText("active", { selector: "span[data-days]" })).toHaveClass("bg-warning");
   });
 
+  it("says plainly why a member can't open files on a lab-wide approval, and what to do", async () => {
+    mockFetch({
+      ...base(["view_lab", "view_ethics", "edit_ethics"]),
+      "GET /api/labs/lab1/ethics-approvals/ap1/": {
+        body: approval({ projects: [], can_view_files: false }),
+      },
+    });
+    renderRoute("/labs/lab1/ethics/ap1");
+    expect(
+      await screen.findByText(/Only the PI, lab admins and people on a project this approval/),
+    ).toHaveTextContent("edit the approval and link one of your projects");
+    expect(screen.queryByRole("button", { name: /upload file/i })).toBeNull();
+  });
+
   it("explains an empty list", async () => {
     mockFetch({
       ...base(["view_lab", "view_ethics"]),

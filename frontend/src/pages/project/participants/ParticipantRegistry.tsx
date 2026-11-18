@@ -23,7 +23,12 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { DEFAULT_VIEW, useViewPrefs, type RegistryView } from "@/hooks/viewPrefs";
 import { CustomizePanel } from "@/pages/project/participants/CustomizePanel";
-import { useLinkHealth, useReasons, useRegistry } from "@/hooks/participants";
+import {
+  useArchivedParticipants,
+  useLinkHealth,
+  useReasons,
+  useRegistry,
+} from "@/hooks/participants";
 import { usePatchTask } from "@/hooks/projects";
 import { useMe, useMembers } from "@/hooks/workspace";
 import { personName } from "@/lib/api-types";
@@ -46,7 +51,11 @@ import { formErrors } from "@/lib/forms";
 import { cn } from "@/lib/utils";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
 import { CellPanel } from "@/pages/project/participants/CellPanel";
-import { AddParticipantsDialog, ColumnsDialog } from "@/pages/project/participants/Dialogs";
+import {
+  AddParticipantsDialog,
+  ArchivedDialog,
+  ColumnsDialog,
+} from "@/pages/project/participants/Dialogs";
 import { RulesDialog } from "@/pages/project/participants/RulesDialog";
 import {
   ImportHistory,
@@ -74,6 +83,7 @@ const applies = (c: RegistryColumn, p: RegistryParticipant) =>
 export default function ParticipantRegistry({ labId, projectId, project }: ProjectTabProps) {
   const registry = useRegistry(labId, projectId);
   const reasons = useReasons(labId).data ?? [];
+  const archived = useArchivedParticipants(labId, projectId).data ?? [];
   const canEdit = project.my_permissions.includes("edit_content");
   const canColumns = project.my_permissions.includes("edit_project");
   const participants = useMemo(
@@ -129,6 +139,7 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
     | "rules"
     | "customize"
     | "template"
+    | "archived"
     | null
   >(null);
   const problemCount = useLinkHealth(labId, projectId).health.data?.counts;
@@ -400,6 +411,7 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
     ["Missing", summary.missing, () => setStatus("missing"), status === "missing"],
     ["Overdue", summary.overdue, () => setOverdueOnly(true), overdueOnly],
     ["Needs review", summary.review, () => setStatus("needs_review"), status === "needs_review"],
+    ["Archived", archived.length, () => setDialog("archived"), false],
   ];
 
   return (
@@ -411,7 +423,18 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
         <EmptyState
           icon={Users}
           title="No participants yet"
-          description="Add your participants by code, like P-001. Then add the data each one should have, and see at a glance who is missing what."
+          description={
+            canEdit
+              ? "Add your participants by code, like P-001. Then add the data each one should have, and see at a glance who is missing what."
+              : "Only project editors can add participants. Ask your project lead."
+          }
+          footer={
+            archived.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setDialog("archived")}>
+                Show {archived.length} archived
+              </Button>
+            )
+          }
           action={
             add ? (
               <div className="flex flex-wrap justify-center gap-2">
@@ -454,7 +477,7 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
                     )}
                   >
                     <span className="text-base font-semibold text-foreground">{value}</span>{" "}
-                    {label.toLowerCase()}
+                    {value === 1 && label === "Participants" ? "participant" : label.toLowerCase()}
                   </button>
                 </li>
               ))}
@@ -618,10 +641,14 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
             </div>
           )}
 
-          {allColumns.length === 0 ? (
+          {allColumns.length === 0 && (
             <EmptyState
               title="No data columns yet"
-              description="Add the pieces of data each participant should have, like a transcript or a questionnaire."
+              description={
+                canColumns
+                  ? "Add the pieces of data each participant should have, like a transcript or a questionnaire."
+                  : "Columns are the pieces of data each participant should have, like a transcript or a questionnaire. Only project leads can add them, so ask your project lead."
+              }
               action={
                 canColumns ? (
                   <div className="flex flex-wrap justify-center gap-2">
@@ -633,275 +660,270 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
                 ) : undefined
               }
             />
-          ) : (
-            <div className="flex flex-col items-start gap-4 lg:flex-row">
-              <div className="min-w-0 flex-1 self-stretch">
-                {/* Narrow screens: a list of participants, each opening into its checklist. */}
-                <ul className="grid gap-2 md:hidden" aria-label="Participants">
-                  {rows.map((p) => (
-                    <li key={p.id} className="rounded-lg border bg-card">
-                      <details>
-                        <summary className="flex min-h-11 cursor-pointer items-center justify-between px-3 py-2">
-                          <span className="font-medium">{p.code}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {
-                              completeness(
-                                columns.filter((c) => applies(c, p)).map((c) => cellOf(p, c)),
-                              ).percent
-                            }
-                            % complete
-                          </span>
-                        </summary>
-                        <ul className="grid gap-1 px-3 pb-3">
-                          {columns
-                            .filter((c) => applies(c, p))
-                            .map((c) => (
-                              <li key={c.id} className="flex items-center justify-between gap-2">
-                                <button
-                                  type="button"
-                                  className="min-h-10 flex-1 text-left text-sm"
-                                  onClick={() => setOpen({ p: p.id, c: c.id })}
-                                >
-                                  {c.name}
-                                </button>
-                                <StatusChip
-                                  status={statusOf(cellOf(p, c))}
-                                  files={cellOf(p, c)?.files.length}
-                                />
-                              </li>
-                            ))}
-                        </ul>
-                      </details>
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="hidden max-h-[70vh] overflow-auto rounded-lg border md:block">
-                  <table
-                    ref={grid}
-                    role="grid"
-                    aria-label="Participant data completeness"
-                    aria-rowcount={rows.length + 1}
-                    aria-colcount={columns.length + 2}
-                    className="w-full border-separate border-spacing-0 text-sm"
-                  >
-                    <thead>
-                      <tr>
-                        <th
-                          scope="col"
-                          className="sticky top-0 left-0 z-30 border-b border-r bg-background px-3 py-2 text-left font-medium"
-                        >
-                          Participant
-                        </th>
-                        {columns.map((c) => (
-                          <th
-                            key={c.id}
-                            scope="col"
-                            title={c.required ? undefined : "Optional"}
-                            className="sticky top-0 z-20 min-w-36 border-b bg-background px-3 py-2 text-left font-medium"
-                          >
-                            {c.name}
-                            {!c.required && (
-                              <span className="ml-1 text-xs font-normal text-muted-foreground">
-                                (optional)
-                              </span>
-                            )}
-                          </th>
-                        ))}
-                        {view.totals && (
-                          <th
-                            scope="col"
-                            className="sticky top-0 z-20 border-b bg-background px-3 py-2 text-left font-medium"
-                          >
-                            Done
-                          </th>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((p, r) => (
-                        <Fragment key={p.id}>
-                          <tr>
-                            <th
-                              scope="row"
-                              className="sticky left-0 z-10 border-b border-r bg-background px-3 py-1 text-left font-medium"
-                            >
+          )}
+          <div className="flex flex-col items-start gap-4 lg:flex-row">
+            <div className="min-w-0 flex-1 self-stretch">
+              {/* Narrow screens: a list of participants, each opening into its checklist. */}
+              <ul className="grid gap-2 md:hidden" aria-label="Participants">
+                {rows.map((p) => (
+                  <li key={p.id} className="rounded-lg border bg-card">
+                    <details>
+                      <summary className="flex min-h-11 cursor-pointer items-center justify-between px-3 py-2">
+                        <span className="font-medium">{p.code}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {
+                            completeness(
+                              columns.filter((c) => applies(c, p)).map((c) => cellOf(p, c)),
+                            ).percent
+                          }
+                          % complete
+                        </span>
+                      </summary>
+                      <ul className="grid gap-1 px-3 pb-3">
+                        {columns
+                          .filter((c) => applies(c, p))
+                          .map((c) => (
+                            <li key={c.id} className="flex items-center justify-between gap-2">
                               <button
                                 type="button"
-                                aria-expanded={expanded.has(p.id)}
-                                aria-label={`${expanded.has(p.id) ? "Hide" : "Show"} details for ${p.code}`}
-                                className="mr-1 inline-flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted"
-                                onClick={() =>
-                                  setExpanded((prev) => {
-                                    const next = new Set(prev);
-                                    if (!next.delete(p.id)) next.add(p.id);
-                                    return next;
-                                  })
-                                }
+                                className="min-h-10 flex-1 text-left text-sm"
+                                onClick={() => setOpen({ p: p.id, c: c.id })}
                               >
-                                <ChevronRight
-                                  aria-hidden
-                                  className={cn(
-                                    "size-4 transition-transform",
-                                    expanded.has(p.id) && "rotate-90",
-                                  )}
-                                />
+                                {c.name}
                               </button>
-                              <Link
-                                className="underline-offset-2 hover:underline"
-                                to={`/labs/${labId}/projects/${projectId}/participants/${p.id}`}
-                              >
-                                {p.code}
-                              </Link>
-                              {p.group && (
-                                <span className="block text-xs font-normal text-muted-foreground">
-                                  {p.group}
-                                </span>
-                              )}
-                            </th>
-                            {columns.map((c, ci) => {
-                              if (!applies(c, p))
-                                return (
-                                  <td
-                                    key={c.id}
-                                    className="border-b px-3 text-muted-foreground"
-                                    title={`${c.name} does not apply to ${p.group || "this group"}`}
-                                  >
-                                    <span aria-hidden>–</span>
-                                    <span className="sr-only">Does not apply to this group</span>
-                                  </td>
-                                );
-                              const cell = cellOf(p, c);
-                              const s = statusOf(cell);
-                              const reason = reasons.find((x) => x.id === cell?.reason)?.label;
-                              const isSel = selected.has(keyOf(p.id, c.id));
-                              return (
-                                <td
-                                  key={c.id}
-                                  role="gridcell"
-                                  aria-selected={isSel}
-                                  className="border-b p-0"
-                                >
-                                  <button
-                                    type="button"
-                                    data-cell={`${r}-${ci}`}
-                                    aria-label={`${p.code}, ${c.name}, ${STATUS[s].label}${
-                                      reason ? `, reason: ${reason}` : ""
-                                    }`}
-                                    tabIndex={r === 0 && ci === 0 ? 0 : -1}
-                                    onClick={(e) => pick(e, r, ci)}
-                                    onKeyDown={(e) => onKey(e, r, ci)}
-                                    className={cn(
-                                      "flex w-full items-center px-3 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset",
-                                      density === "compact" ? "py-0.5" : "py-2",
-                                      isSel && "bg-primary/10",
-                                    )}
-                                  >
-                                    <StatusChip status={s} files={cell?.files.length} />
-                                    {isOverdue(cell, today) && (
-                                      <span className="ml-1 text-xs text-danger-text">Overdue</span>
-                                    )}
-                                  </button>
-                                </td>
-                              );
-                            })}
-                            {view.totals && (
-                              <td className="border-b px-3 text-muted-foreground">
-                                {
-                                  completeness(
-                                    allColumns
-                                      .filter((c) => applies(c, p))
-                                      .map((c) => cellOf(p, c)),
-                                  ).percent
-                                }
-                                %
-                              </td>
-                            )}
-                          </tr>
-                          {expanded.has(p.id) && (
-                            <tr>
-                              <td
-                                colSpan={columns.length + 2}
-                                className="border-b bg-muted/40 px-3 py-2 text-sm"
-                              >
-                                <ParticipantDetail
-                                  participant={p}
-                                  columns={columns}
-                                  cellOf={(c) => cellOf(p, c)}
-                                  href={`/labs/${labId}/projects/${projectId}/participants/${p.id}`}
-                                />
-                              </td>
-                            </tr>
+                              <StatusChip
+                                status={statusOf(cellOf(p, c))}
+                                files={cellOf(p, c)?.files.length}
+                              />
+                            </li>
+                          ))}
+                      </ul>
+                    </details>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="hidden max-h-[70vh] overflow-auto rounded-lg border md:block">
+                <table
+                  ref={grid}
+                  role="grid"
+                  aria-label="Participant data completeness"
+                  aria-rowcount={rows.length + 1}
+                  aria-colcount={columns.length + 2}
+                  className="w-full border-separate border-spacing-0 text-sm"
+                >
+                  <thead>
+                    <tr>
+                      <th
+                        scope="col"
+                        className="sticky top-0 left-0 z-30 border-b border-r bg-background px-3 py-2 text-left font-medium"
+                      >
+                        Participant
+                      </th>
+                      {columns.map((c) => (
+                        <th
+                          key={c.id}
+                          scope="col"
+                          title={c.required ? undefined : "Optional"}
+                          className="sticky top-0 z-20 min-w-36 border-b bg-background px-3 py-2 text-left font-medium"
+                        >
+                          {c.name}
+                          {!c.required && (
+                            <span className="ml-1 text-xs font-normal text-muted-foreground">
+                              (optional)
+                            </span>
                           )}
-                        </Fragment>
+                        </th>
                       ))}
-                    </tbody>
-                    {view.totals && (
-                      <tfoot>
+                      {view.totals && (
+                        <th
+                          scope="col"
+                          className="sticky top-0 z-20 border-b bg-background px-3 py-2 text-left font-medium"
+                        >
+                          Done
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((p, r) => (
+                      <Fragment key={p.id}>
                         <tr>
                           <th
                             scope="row"
-                            className="sticky bottom-0 left-0 z-20 border-t border-r bg-background px-3 py-2 text-left font-medium"
+                            className="sticky left-0 z-10 border-b border-r bg-background px-3 py-1 text-left font-medium"
                           >
-                            Complete
-                          </th>
-                          {columns.map((c) => (
-                            <td
-                              key={c.id}
-                              className="sticky bottom-0 z-10 border-t bg-background px-3 py-2 text-muted-foreground"
+                            <button
+                              type="button"
+                              aria-expanded={expanded.has(p.id)}
+                              aria-label={`${expanded.has(p.id) ? "Hide" : "Show"} details for ${p.code}`}
+                              className="mr-1 inline-flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted"
+                              onClick={() =>
+                                setExpanded((prev) => {
+                                  const next = new Set(prev);
+                                  if (!next.delete(p.id)) next.add(p.id);
+                                  return next;
+                                })
+                              }
                             >
+                              <ChevronRight
+                                aria-hidden
+                                className={cn(
+                                  "size-4 transition-transform",
+                                  expanded.has(p.id) && "rotate-90",
+                                )}
+                              />
+                            </button>
+                            <Link
+                              className="underline-offset-2 hover:underline"
+                              to={`/labs/${labId}/projects/${projectId}/participants/${p.id}`}
+                            >
+                              {p.code}
+                            </Link>
+                            {p.group && (
+                              <span className="block text-xs font-normal text-muted-foreground">
+                                {p.group}
+                              </span>
+                            )}
+                          </th>
+                          {columns.map((c, ci) => {
+                            if (!applies(c, p))
+                              return (
+                                <td
+                                  key={c.id}
+                                  className="border-b px-3 text-muted-foreground"
+                                  title={`${c.name} does not apply to ${p.group || "this group"}`}
+                                >
+                                  <span aria-hidden>–</span>
+                                  <span className="sr-only">Does not apply to this group</span>
+                                </td>
+                              );
+                            const cell = cellOf(p, c);
+                            const s = statusOf(cell);
+                            const reason = reasons.find((x) => x.id === cell?.reason)?.label;
+                            const isSel = selected.has(keyOf(p.id, c.id));
+                            return (
+                              <td
+                                key={c.id}
+                                role="gridcell"
+                                aria-selected={isSel}
+                                className="border-b p-0"
+                              >
+                                <button
+                                  type="button"
+                                  data-cell={`${r}-${ci}`}
+                                  aria-label={`${p.code}, ${c.name}, ${STATUS[s].label}${
+                                    reason ? `, reason: ${reason}` : ""
+                                  }`}
+                                  tabIndex={r === 0 && ci === 0 ? 0 : -1}
+                                  onClick={(e) => pick(e, r, ci)}
+                                  onKeyDown={(e) => onKey(e, r, ci)}
+                                  className={cn(
+                                    "flex w-full items-center px-3 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset",
+                                    density === "compact" ? "py-0.5" : "py-2",
+                                    isSel && "bg-primary/10",
+                                  )}
+                                >
+                                  <StatusChip status={s} files={cell?.files.length} />
+                                  {isOverdue(cell, today) && (
+                                    <span className="ml-1 text-xs text-danger-text">Overdue</span>
+                                  )}
+                                </button>
+                              </td>
+                            );
+                          })}
+                          {view.totals && (
+                            <td className="border-b px-3 text-muted-foreground">
                               {
                                 completeness(
-                                  participants
-                                    .filter((p) => applies(c, p))
-                                    .map((p) => cellOf(p, c)),
+                                  allColumns.filter((c) => applies(c, p)).map((c) => cellOf(p, c)),
                                 ).percent
                               }
                               %
                             </td>
-                          ))}
-                          <td className="sticky bottom-0 z-10 border-t bg-background" />
+                          )}
                         </tr>
-                      </tfoot>
-                    )}
-                  </table>
-                </div>
-                {rows.length === 0 && (
-                  <EmptyState
-                    className="mt-3"
-                    title="No participants match"
-                    description="Try clearing a filter."
-                    action={
-                      <Button variant="outline" onClick={clear}>
-                        Clear filters
-                      </Button>
-                    }
-                  />
-                )}
-                {view.help && (
-                  <p className="mt-2 hidden text-xs text-muted-foreground md:block">
-                    Arrow keys move, Enter opens a cell, keys 1 to 7 set a status (
-                    {STATUSES.map((s) => `${s.key} ${s.label}`).join(", ")}). Shift-click selects a
-                    range.
-                  </p>
-                )}
+                        {expanded.has(p.id) && (
+                          <tr>
+                            <td
+                              colSpan={columns.length + 2}
+                              className="border-b bg-muted/40 px-3 py-2 text-sm"
+                            >
+                              <ParticipantDetail
+                                participant={p}
+                                columns={columns}
+                                cellOf={(c) => cellOf(p, c)}
+                                href={`/labs/${labId}/projects/${projectId}/participants/${p.id}`}
+                              />
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    ))}
+                  </tbody>
+                  {view.totals && (
+                    <tfoot>
+                      <tr>
+                        <th
+                          scope="row"
+                          className="sticky bottom-0 left-0 z-20 border-t border-r bg-background px-3 py-2 text-left font-medium"
+                        >
+                          Complete
+                        </th>
+                        {columns.map((c) => (
+                          <td
+                            key={c.id}
+                            className="sticky bottom-0 z-10 border-t bg-background px-3 py-2 text-muted-foreground"
+                          >
+                            {
+                              completeness(
+                                participants.filter((p) => applies(c, p)).map((p) => cellOf(p, c)),
+                              ).percent
+                            }
+                            %
+                          </td>
+                        ))}
+                        <td className="sticky bottom-0 z-10 border-t bg-background" />
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
               </div>
-              {openRow && openCol && (
-                <CellPanel
-                  key={`${openRow.id}:${openCol.id}:${open?.initial ?? ""}`}
-                  labId={labId}
-                  projectId={projectId}
-                  participant={openRow}
-                  column={openCol}
-                  cell={cellOf(openRow, openCol)}
-                  registry={registry}
-                  canEdit={canEdit}
-                  initialStatus={open?.initial}
-                  onClose={() => setOpen(undefined)}
+              {rows.length === 0 && (
+                <EmptyState
+                  className="mt-3"
+                  title="No participants match"
+                  description="Try clearing a filter."
+                  action={
+                    <Button variant="outline" onClick={clear}>
+                      Clear filters
+                    </Button>
+                  }
                 />
               )}
+              {view.help && columns.length > 0 && (
+                <p className="mt-2 hidden text-xs text-muted-foreground md:block">
+                  Arrow keys move, Enter opens a cell, keys 1 to 7 set a status (
+                  {STATUSES.map((s) => `${s.key} ${s.label}`).join(", ")}). Shift-click selects a
+                  range.
+                </p>
+              )}
             </div>
-          )}
+            {openRow && openCol && (
+              <CellPanel
+                key={`${openRow.id}:${openCol.id}:${open?.initial ?? ""}`}
+                labId={labId}
+                projectId={projectId}
+                participant={openRow}
+                column={openCol}
+                cell={cellOf(openRow, openCol)}
+                registry={registry}
+                canEdit={canEdit}
+                initialStatus={open?.initial}
+                onClose={() => setOpen(undefined)}
+              />
+            )}
+          </div>
         </>
       )}
 
@@ -1060,6 +1082,14 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
           view={view}
           onChange={updateView}
           onReset={resetView}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog === "archived" && (
+        <ArchivedDialog
+          registry={registry}
+          archived={archived}
+          canEdit={canEdit}
           onClose={() => setDialog(null)}
         />
       )}
