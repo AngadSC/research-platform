@@ -400,3 +400,48 @@ def test_onboarding_item_reports_training_done(world):
     assert api(u["pi"]).delete(url(lab, f"requirements/{spare.pk}/")).status_code == 204
     item = OnboardingItem.objects.for_lab(lab).get(pk=item.pk)
     assert OnboardingItemSerializer(item).data["training_requirement"] is None
+
+
+# ---------------------------------------------------------------- reminders
+
+
+def remind(client, lab, requirement, user=None):
+    body = {"requirement": str(requirement.pk), **({"user": str(user.pk)} if user else {})}
+    return client.post(url(lab, "reminders/"), body, "json")
+
+
+def test_remind_one_member_in_app_only(world, mailoutbox):
+    lab, u = world
+    r = req(lab)
+    resp = remind(api(u["pi"]), lab, r, u["ann"])
+    assert resp.status_code == 200 and resp.json() == {"asked": 1, "sent": 1}
+    n = Notification.objects.for_lab(lab).get(
+        recipient=u["ann"], kind=NotificationKind.TRAINING_REMINDER
+    )
+    assert r.name in n.title and n.target_id == r.pk
+    assert not Notification.objects.for_lab(lab).filter(recipient=u["bob"], kind=n.kind).exists()
+    assert remind(api(u["pi"]), lab, r, u["ann"]).json() == {"asked": 1, "sent": 0}  # same day
+    assert not mailoutbox
+    event = AuditEvent.objects.filter(action=AuditAction.TRAINING_REMINDER_SENT).first()
+    assert event.metadata["member"] == str(u["ann"].pk)
+
+
+def test_remind_all_only_reaches_missing_and_members_cannot_send(world):
+    lab, u = world
+    r = req(lab)
+    rec(lab, u["ann"], r, datetime.date.today())  # done: not nagged
+    resp = remind(api(u["admin"]), lab, r)
+    assert resp.json()["asked"] == 4  # pi, admin, bob, vic
+    assert not Notification.objects.for_lab(lab).filter(
+        recipient=u["ann"], kind=NotificationKind.TRAINING_REMINDER
+    )
+    assert remind(api(u["ann"]), lab, r).status_code == 403
+    assert remind(api(u["pi"]), lab, r, u["ann"]).status_code == 400  # nothing to renew
+
+
+def test_new_requirement_tells_who_it_applies_to(world):
+    lab, u = world
+    body = {"name": "Fire safety", "category": "safety", "applies_to": "roles", "roles": ["member"]}
+    assert api(u["pi"]).post(url(lab, "requirements/"), body, "json").status_code == 201
+    got = Notification.objects.for_lab(lab).filter(kind=NotificationKind.TRAINING_REMINDER)
+    assert {n.recipient for n in got} == {u["ann"], u["bob"]}

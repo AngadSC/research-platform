@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { useGettingStarted, useSetGettingStartedDismissed } from "@/hooks/dashboard";
 import { useCurrentLabId } from "@/hooks/crumbs";
 import { ClaudeSteps } from "@/pages/settings/AiAccessSections";
-import { FEEDBACK_URL, MOD_KEY, OPEN_TUTORIAL_EVENT } from "@/lib/constants";
+import { FEEDBACK_URL, OPEN_TUTORIAL_EVENT } from "@/lib/constants";
+import { SHORTCUTS } from "@/lib/shortcuts";
 
 const QUESTIONS = [
   [
@@ -74,15 +75,6 @@ const BASICS = [
     "my-work",
     "Go to My work",
   ],
-] as const;
-
-const SHORTCUTS = [
-  [`${MOD_KEY} K`, "Search, or jump to any page"],
-  [`${MOD_KEY} S`, "Save the document you are editing"],
-  ["/", "In a document, open the list of things to add"],
-  ["Up, Down, Enter", "Move through the search results and open one"],
-  [`${MOD_KEY} .`, "Open or close the assistant"],
-  ["Esc", "Close a dialog, menu or the side menu"],
 ] as const;
 
 function ShowChecklistAgain({ labId }: { labId: string }) {

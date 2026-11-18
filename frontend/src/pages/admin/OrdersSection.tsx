@@ -36,6 +36,16 @@ const qty = (o: InventoryOrder) => `${Number(o.quantity)} ${o.unit}`.trim();
 
 type Orders = ReturnType<typeof useOrders>;
 
+/** Enough to get back to twice the alert level; with no alert level, what was ordered last time. */
+export function suggestedQuantity(item: InventoryItem | null, last: InventoryOrder | undefined) {
+  if (item?.low_stock_at != null)
+    return Math.max(
+      1,
+      Math.round((Number(item.low_stock_at) * 2 - Number(item.quantity)) * 1e6) / 1e6,
+    );
+  return last ? Number(last.quantity) : 1;
+}
+
 function OrderDialog({
   reorder,
   last,
@@ -123,7 +133,7 @@ function OrderDialog({
                   type="number"
                   min="0.01"
                   step="any"
-                  defaultValue={last ? Number(last.quantity) : 1}
+                  defaultValue={suggestedQuantity(reorder, last)}
                 />
               )}
             </FormField>

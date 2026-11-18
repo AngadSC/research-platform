@@ -2,6 +2,7 @@ import { fireEvent, waitFor, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { localDateISO } from "@/lib/format";
+import { suggestedQuantity } from "@/pages/admin/OrdersSection";
 import {
   makeLab,
   mockFetch,
@@ -187,6 +188,81 @@ describe("admin area", () => {
     expect(calls.find((c) => c.method === "PATCH")!.body).not.toHaveProperty("quantity");
     await pickMenuItem("More for Ethanol", "Delete");
     expect(await screen.findByText("Mark the item as retired instead.")).toBeInTheDocument();
+  });
+
+  const stock = (name: string, quantity: string, extra: Record<string, unknown> = {}) => ({
+    id: `i-${name}`,
+    name,
+    category: "reagent",
+    location: "",
+    quantity,
+    unit: "mL",
+    low_stock_at: "5",
+    low: Number(quantity) <= 5,
+    owner: null,
+    serial_number: "",
+    purchase_date: null,
+    due_date: null,
+    status: "active",
+    notes: "",
+    ...extra,
+  });
+
+  it("filters to items at or below their alert level", async () => {
+    mockFetch(
+      base(["view_lab", "manage_inventory"], {
+        "GET /api/labs/lab1/inventory/?ordering=name": {
+          body: [stock("Ethanol", "2"), stock("Water", "50")],
+        },
+      }),
+    );
+    renderRoute("/labs/lab1/inventory");
+    expect(await screen.findByText("Water")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("checkbox", { name: "Low stock only" }));
+    expect(screen.queryByText("Water")).not.toBeInTheDocument();
+    expect(screen.getByText("Ethanol")).toBeInTheDocument();
+  });
+
+  it("closes the Use dialog after taking stock, and says who was told when it falls to the level", async () => {
+    const calls = mockFetch(
+      base(["view_lab", "manage_inventory"], {
+        "GET /api/labs/lab1/inventory/?ordering=name": { body: [stock("Ethanol", "8")] },
+        "GET /api/labs/lab1/inventory/i-Ethanol/usage/": { body: [] },
+        "GET /api/labs/lab1/projects/": { body: [] },
+        "POST /api/labs/lab1/inventory/i-Ethanol/usage/": { status: 201, body: {} },
+      }),
+    );
+    renderRoute("/labs/lab1/inventory");
+    await userEvent.click(await screen.findByRole("button", { name: "Use Ethanol" }));
+    await userEvent.type(await screen.findByLabelText("Amount used"), "4");
+    await userEvent.click(screen.getByRole("button", { name: /Take from stock/ }));
+    await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(
+      await screen.findByText(
+        "Now at or below the alert level. PIs, lab admins and the item's owner were notified.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("lists the CSV columns and links a template", async () => {
+    mockFetch(base(["view_lab", "manage_inventory"]));
+    renderRoute("/labs/lab1/inventory");
+    await userEvent.click(await screen.findByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/low_stock_at/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "Download template" })).toHaveAttribute(
+      "href",
+      "/inventory-template.csv",
+    );
+  });
+
+  it("suggests a reorder quantity from the alert level, at least 1", () => {
+    const item = (q: string, low: string | null) => ({ quantity: q, low_stock_at: low }) as never;
+    expect(suggestedQuantity(item("3", "10"), undefined)).toBe(17);
+    expect(suggestedQuantity(item("30", "10"), undefined)).toBe(1);
+    expect(suggestedQuantity(item("3", null), { quantity: "4.00" } as never)).toBe(4);
+    expect(suggestedQuantity(item("3", null), undefined)).toBe(1);
   });
 
   it("picks today's local date when a date field is double-clicked", async () => {

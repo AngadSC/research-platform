@@ -12,10 +12,11 @@ from documents.models import Attachment, Document
 from documents.services import create_document, save_document
 from documents.text import extract_text
 from ethics.models import EthicsApproval
-from labs.models import LabRole, Meeting
+from labs.models import InventoryItem, LabRole, Meeting
 from papers import services as paper_services
 from projects.models import ChatMessage, ProjectMembership, ProjectRole, Task
 from provenance import services as prov
+from training.models import TrainingRequirement
 
 pytestmark = pytest.mark.django_db
 WORD = "zebrafish"
@@ -148,6 +149,8 @@ def test_every_type_is_found_with_a_spa_url(w):
     attach(w, w.p1, f"{WORD} raw.csv")
     meeting(w, f"{WORD} sync", w.u["pi"])
     say(w, w.p1, "pi", f"the **{WORD}** ran")
+    InventoryItem.objects.create(lab=w.lab, name=f"{WORD} tank", category="equipment")
+    TrainingRequirement.objects.create(lab=w.lab, name=f"{WORD} safety", category="safety")
     hits = run(w, "pi")
     assert {h["type"] for h in hits} == {s.type for s in SPECS if s.type != "link"}
     by = {h["type"]: h for h in hits}
@@ -165,6 +168,20 @@ def test_every_type_is_found_with_a_spa_url(w):
     assert by["chat"]["url"] == f"/labs/{w.lab.pk}/projects/{w.p1.pk}/overview?chat=1"
     assert by["chat"]["snippet"] == (w.u["pi"].display_name or w.u["pi"].email)
     assert {h["type"] for h in run(w, "pi", types="task")} == {"task"}
+    assert by["inventory"]["url"] == f"/labs/{w.lab.pk}/inventory"
+    assert by["training"]["url"] == f"/labs/{w.lab.pk}/training"
+    assert not {"inventory", "training"} & set(AI_TYPES)
+
+
+def test_inventory_and_training_are_lab_scoped_and_follow_the_inventory_switch(w):
+    InventoryItem.objects.create(lab=w.lab, name=f"{WORD} tank", category="equipment")
+    InventoryItem.objects.create(lab=w.other, name=f"{WORD} secret tank", category="equipment")
+    TrainingRequirement.objects.create(lab=w.other, name=f"{WORD} secret", category="safety")
+    for who in ("pi", "viewer"):
+        assert titles(run(w, who, types="inventory,training")) == {f"{WORD} tank"}
+    w.lab.inventory_enabled = False
+    w.lab.save()
+    assert run(w, "pi", types="inventory") == []
 
 
 def test_other_lab_content_never_appears(w, make_project):

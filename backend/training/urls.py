@@ -28,6 +28,7 @@ urlpatterns = [
         name="record-certificate",
     ),
     path(L + "compliance/", views.ComplianceView.as_view(), name="compliance"),
+    path(L + "reminders/", views.ReminderView.as_view(), name="reminders"),
     path(L + "my/", views.MyTrainingView.as_view(), name="my-training"),
     path(L + "expiring/", views.ExpiringView.as_view(), name="expiring"),
 ]

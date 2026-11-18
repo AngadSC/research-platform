@@ -18,7 +18,7 @@ from documents.models import Attachment, Document
 from documents.services import lab_documents
 from ethics.models import EthicsApproval
 from integrations.models import ExternalLink
-from labs.models import Meeting
+from labs.models import InventoryItem, Meeting
 from papers.models import Paper, PaperNote
 from projects.models import ChatMessage, Project, Task
 from provenance.models import (
@@ -30,6 +30,7 @@ from provenance.models import (
     Result,
     ReviewItem,
 )
+from training.models import TrainingRequirement
 
 PER_TYPE = 8
 MAX_TOTAL = 40
@@ -145,6 +146,24 @@ SPECS = [
         lambda o: f"/labs/{o.lab_id}/papers/{o.pk}",
         perm=Perm.VIEW_LAB,
     ),
+    Spec(  # lab-wide; left out when the lab has inventory turned off. Never in AI tools.
+        "inventory",
+        InventoryItem,
+        "name",
+        ("location", "serial_number", "notes"),
+        lambda o: f"/labs/{o.lab_id}/inventory",
+        perm=Perm.VIEW_LAB,
+        ai=False,
+    ),
+    Spec(  # the lab's required trainings only; people's records are private and never searched
+        "training",
+        TrainingRequirement,
+        "name",
+        ("notes",),
+        lambda o: f"/labs/{o.lab_id}/training",
+        perm=Perm.VIEW_LAB,
+        ai=False,
+    ),
     Spec(
         "paper_note",
         PaperNote,
@@ -197,6 +216,8 @@ def search(user, lab, q: str, types=None, for_ai=False) -> list[dict]:
     hits: list[dict] = []
     for spec in SPECS:
         if (types and spec.type not in types) or (for_ai and not spec.ai):
+            continue
+        if spec.type == "inventory" and not lab.inventory_enabled:
             continue
         qs = scope(spec.model, user, lab)
         if spec.model is Document:  # D233: lab-wide documents have no project for scope() to check

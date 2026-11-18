@@ -12,7 +12,9 @@ from rest_framework.exceptions import APIException, PermissionDenied, Validation
 
 from audit.models import AuditAction as A
 from audit.services import record as audit
-from core.permissions import Perm, can
+from core.models import NotificationKind
+from core.notifications import notify
+from core.permissions import Perm, can, forget
 from documents import services as document_services
 from labs.models import LabMembership
 from projects.models import Project, ProjectMembership
@@ -84,6 +86,7 @@ def _save_requirement(req, data, lab):
 def create_requirement(*, lab, user, data, request=None):
     req = _save_requirement(TrainingRequirement(lab=lab), dict(data), lab)
     audit(A.TRAINING_REQUIREMENT_CREATED, actor=user, lab=lab, target=req, request=request)
+    _tell_new(req, actor=user)
     return req
 
 
@@ -100,6 +103,8 @@ def update_requirement(req, *, user, data, request=None):
         request=request,
         metadata={"changed": changed},
     )
+    if {"applies_to", "roles", "projects"} & set(changed):
+        _tell_new(req, actor=user)  # it may now apply to people it did not before
     return req
 
 
@@ -113,6 +118,74 @@ def delete_requirement(req, *, user, request=None):
             req.delete()
     except ProtectedError as exc:  # records exist (D175)
         raise InUse() from exc
+
+
+def _remind(req, rows, *, title, body, key) -> int:
+    """In-app only. One notice per person per `key`, so repeating it the same day adds nothing."""
+    sent = 0
+    for row in rows:
+        user = row["user"]
+        forget(user)
+        if user.is_active and can(user, Perm.VIEW_LAB, req.lab):
+            sent += notify(
+                lab=req.lab,
+                recipient=user,
+                kind=NotificationKind.TRAINING_REMINDER,
+                title=title,
+                body=body,
+                target=req,
+                dedupe_key=key,
+            )
+    return sent
+
+
+def _tell_new(req, *, actor):
+    """A training that now applies to people who have not done it: tell them once."""
+    rows = [
+        row
+        for row in compliance(req.lab, today=timezone.localdate())["members"]
+        if (cell := row["cells"].get(str(req.pk)))
+        and cell["status"] == MISSING
+        and row["user"].pk != actor.pk
+    ]
+    _remind(
+        req,
+        rows,
+        title=f"{req.name} training is now required of you",
+        body="Log it on the Training page once you have done it.",
+        key=f"training-new:{req.pk}",
+    )
+
+
+@transaction.atomic
+def send_reminders(req, *, actor, user=None, request=None) -> dict:
+    """Nudge one member (whose training is missing or expired), or with no `user` everyone whose
+    training is missing. One reminder per person per training per day. Audited with the counts."""
+    today = timezone.localdate()
+    wanted = (MISSING, EXPIRED) if user else (MISSING,)
+    rows = [
+        row
+        for row in compliance(req.lab, today=today, user=user)["members"]
+        if (cell := row["cells"].get(str(req.pk))) and cell["status"] in wanted
+    ]
+    if user and not rows:
+        raise ValidationError({"user": "This person has nothing to renew for this training."})
+    sent = _remind(
+        req,
+        rows,
+        title=f"Please log your {req.name} training",
+        body=f"{actor.display_name or actor.email} asked you to complete or renew {req.name}.",
+        key=f"training-remind:{req.pk}:{today.isoformat()}",
+    )
+    audit(
+        A.TRAINING_REMINDER_SENT,
+        actor=actor,
+        lab=req.lab,
+        target=req,
+        request=request,
+        metadata={"asked": len(rows), "sent": sent, **({"member": str(user.pk)} if user else {})},
+    )
+    return {"asked": len(rows), "sent": sent}
 
 
 # ---------------------------------------------------------------- records

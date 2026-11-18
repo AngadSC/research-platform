@@ -137,6 +137,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "labs:invite-list"):      "401 404      2  2     403  403     403     403     403",
     ("PATCH",  "labs:invite-detail"):    "401 404      2  2     403  403     403     403     403",
     ("DELETE", "labs:invite-detail"):    "401 404      2  2     403  403     403     403     403",
+    ("POST",   "labs:invite-resend"):    "401 404      2  2     403  403     403     403     403",
     ("GET",    "audit:audit-event-list"): "401 404      2  2     403  403     403     403     403",
     ("POST",   "labs:invite-preview"):   "2   2        2  2     2    2       2       2       2",
     ("POST",   "labs:invite-accept"):    "401 2        2  2     2    2       2       2       2",
@@ -555,6 +556,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "training:record-verify"): "401 404 2 2 403 403 403 403 403",
     ("GET",    "training:record-certificate"): "401 404 2 2 404 2 404 404 404",
     ("POST",   "training:record-certificate"): "401 404 2 2 404 2 404 404 404",
+    ("POST",   "training:reminders"): "401 404 2 2 403 403 403 403 403",
     ("GET",    "training:compliance"): "401 404 2 2 403 403 403 403 403",
     ("GET",    "training:my-training"): "401 404 2 2 2 2 2 2 2",
     ("GET",    "training:expiring"): "401 404 2 2 403 403 403 403 403",
@@ -1489,6 +1491,7 @@ PAYLOADS = {
     ("PATCH", "labs:lab-detail"): lambda user, w: {"name": "Renamed Lab"},
     ("PATCH", "labs:member-detail"): lambda user, w: {"role": "viewer"},
     ("PATCH", "labs:invite-detail"): lambda user, w: {"role": "viewer"},
+    ("POST", "labs:invite-resend"): lambda user, w: {},
     ("POST", "labs:invite-list"): lambda user, w: {
         "email": f"new{next(_n)}@example.com",
         "role": "member",
@@ -1797,6 +1800,9 @@ PAYLOADS = {
     },
     ("PATCH", "training:record-detail"): lambda user, w: {"notes": "Edited"},
     ("POST", "training:record-verify"): lambda user, w: {},
+    ("POST", "training:reminders"): lambda user, w: {
+        "requirement": str(w.a["trainingrequirement_id"])
+    },
     ("POST", "training:record-certificate"): lambda user, w: {
         "file": SimpleUploadedFile("up.pdf", b"%PDF-1.4 upload", content_type="application/pdf"),
         "acknowledged_notice": "true",

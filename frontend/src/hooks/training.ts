@@ -74,6 +74,13 @@ export function useTrainingMutations(labId: string) {
       mutationFn: (id: string) => api(`${base(labId)}/records/${id}/`, { method: "DELETE" }),
       onSuccess: done,
     }),
+    remind: useMutation({
+      mutationFn: (v: { requirement: string; user: string | null }) =>
+        api<{ asked: number; sent: number }>(`${base(labId)}/reminders/`, {
+          method: "POST",
+          ...body(v.user ? v : { requirement: v.requirement }),
+        }),
+    }),
     verify: useMutation({
       mutationFn: (id: string) =>
         api<TrainingRecord>(`${base(labId)}/records/${id}/verify/`, { method: "POST" }),

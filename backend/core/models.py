@@ -158,6 +158,7 @@ class NotificationKind(models.TextChoices):
     # Run 5 (training, D178)
     TRAINING_EXPIRY = "training_expiry"
     TRAINING_DIGEST = "training_digest"
+    TRAINING_REMINDER = "training_reminder"  # a manager nudged you, or a new training applies
     # D260: someone @mentioned you in a chat message or task update
     MENTION = "mention"
     # Walkthrough fixes: added to a project or role changed, project archived, document owner

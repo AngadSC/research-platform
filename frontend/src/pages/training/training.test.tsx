@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ComplianceMatrix } from "@/components/training/ComplianceMatrix";
@@ -73,6 +73,21 @@ describe("ComplianceMatrix", () => {
     expect(screen.queryByRole("button", { name: /^Verify/ })).not.toBeInTheDocument();
   });
 
+  it("offers Remind on Missing and Expired cells and Remind all missing, only when allowed", async () => {
+    const onRemind = vi.fn();
+    const { rerender } = render(<ComplianceMatrix data={DATA} onRemind={onRemind} />);
+    await userEvent.click(screen.getByRole("button", { name: "Remind Bob about TCPS 2" }));
+    expect(onRemind).toHaveBeenLastCalledWith("r2", "u2");
+    await userEvent.click(screen.getByRole("button", { name: "Remind Bob about WHMIS" }));
+    expect(onRemind).toHaveBeenLastCalledWith("r1", "u2");
+    expect(screen.queryByRole("button", { name: /Remind all missing for WHMIS/ })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Remind all missing for TCPS 2" }));
+    expect(onRemind).toHaveBeenLastCalledWith("r2", null);
+    expect(screen.queryByRole("button", { name: /Remind Ann/ })).toBeNull(); // not missing
+    rerender(<ComplianceMatrix data={DATA} />);
+    expect(screen.queryByRole("button", { name: /^Remind/ })).toBeNull();
+  });
+
   it("says so when nothing is required", () => {
     render(<ComplianceMatrix data={{ ...DATA, requirements: [] }} />);
     expect(screen.getByText("No required trainings yet.")).toBeInTheDocument();
@@ -123,6 +138,27 @@ describe("My training", () => {
       "href",
       "/api/labs/lab1/training/records/rec1/certificate/",
     );
+  });
+
+  it("Log completion preselects that training", async () => {
+    mockFetch(
+      handlers({
+        "GET /api/labs/lab1/training/my/": { body: { ...mine, members: [DATA.members[1]] } },
+      }),
+    );
+    renderRoute("/labs/lab1/training");
+    const required = await screen.findByRole("list", { name: "Required trainings" });
+    await userEvent.click(
+      within(required).getByRole("button", { name: "Log completion of TCPS 2" }),
+    );
+    expect(screen.getByLabelText("Training")).toHaveValue("r2");
+  });
+
+  it("opens with the training from ?log= chosen", async () => {
+    mockFetch(handlers());
+    renderRoute("/labs/lab1/training?log=r1");
+    await screen.findByRole("list", { name: "Required trainings" });
+    await waitFor(() => expect(screen.getByLabelText("Training")).toHaveValue("r1"));
   });
 
   it("adds the lab-wide section for a manager only", async () => {

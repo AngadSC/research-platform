@@ -19,6 +19,8 @@ const TYPE_LABELS: Record<string, string> = {
   chat: "Chat",
   paper: "Papers",
   paper_note: "Paper notes",
+  inventory: "Inventory",
+  training: "Trainings",
 };
 
 /** Hits grouped by type, in the order the server sent them. */

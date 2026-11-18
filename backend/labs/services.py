@@ -2,6 +2,7 @@
 write actions record their audit event in the same transaction."""
 
 import datetime
+import secrets
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
@@ -21,6 +22,7 @@ from core.tenancy import by_secret
 from integrations.services import revoke_member_accounts
 from labs.admin_services import apply_starter_resources, institution_for, revoke_calendar_feed
 from labs.models import (
+    INVITE_TTL,
     CalendarFeedToken,
     ChatSource,
     Invite,
@@ -204,6 +206,45 @@ def change_invite_role(*, invite, by, role, request=None) -> Invite:
         target=invite,
         request=request,
         metadata={"email": invite.email, "old_role": old, "new_role": role},
+    )
+    return invite
+
+
+@transaction.atomic
+def resend_invite(*, invite, by, request=None) -> Invite:
+    """Email the invite again. Only a hash of the token is stored (D37), so the old link cannot
+    be rebuilt: this swaps in a fresh token and a fresh expiry, and the old link stops working."""
+    invite = (
+        Invite.objects.for_lab(invite.lab_id)
+        .select_for_update(of=("self",))
+        .select_related("lab", "invited_by")
+        .filter(pk=invite.pk, accepted_at__isnull=True, revoked_at__isnull=True)
+        .first()
+    )
+    if invite is None:
+        raise Http404
+    _require_pi_for_pi_role(by, invite.lab, invite.role)
+    token = secrets.token_urlsafe(32)
+    invite.token_hash = hash_token(token)
+    invite.expires_at = timezone.now() + INVITE_TTL
+    invite.save(update_fields=["token_hash", "expires_at", "updated_at"])
+    record(
+        AuditAction.MEMBERSHIP_INVITE_RESENT,
+        actor=by,
+        lab=invite.lab,
+        target=invite,
+        request=request,
+        metadata={"email": invite.email, "role": invite.role},
+    )
+    send_email(
+        "invite",
+        invite.email,
+        {
+            "inviter": invite.invited_by.display_name or invite.invited_by.email,
+            "lab": invite.lab.name,
+            "role": invite.role,
+            "url": f"{settings.FRONTEND_URL}/invite/{token}",
+        },
     )
     return invite
 

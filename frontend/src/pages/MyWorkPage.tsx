@@ -5,6 +5,7 @@ import { StatusPill } from "@/components/training/ComplianceMatrix";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCalendar } from "@/hooks/admin";
 import { useMyTasks } from "@/hooks/projects";
@@ -108,7 +109,19 @@ function MyTrainings({ labId }: { labId: string }) {
                 </p>
               )}
             </div>
-            <StatusPill status={cell.status} />
+            <div className="flex items-center gap-2">
+              <StatusPill status={cell.status} />
+              {cell.status !== "done" && (
+                <Button variant="outline" size="sm" asChild>
+                  <Link
+                    to={`/labs/${labId}/training?log=${r.id}`}
+                    aria-label={`Log completion of ${r.name}`}
+                  >
+                    Log completion
+                  </Link>
+                </Button>
+              )}
+            </div>
           </li>
         );
       })}

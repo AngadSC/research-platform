@@ -1,6 +1,6 @@
 import { FileText, Plus } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState, GettingStartedLink } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
@@ -32,6 +32,20 @@ export function LabDocumentsPage() {
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
   const canAdd = lab?.my_permissions.includes("contribute_lab") ?? false;
   const open = (id: string) => void navigate(`/labs/${labId}/documents/${id}`);
+  // the command palette's "New lab document" lands here with ?new=1
+  const [params, setParams] = useSearchParams();
+  const newFromLink = canAdd && params.get("new") === "1";
+  const closeAdd = () => {
+    setAdding(false);
+    if (newFromLink)
+      setParams(
+        (p) => {
+          p.delete("new");
+          return p;
+        },
+        { replace: true },
+      );
+  };
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -93,7 +107,7 @@ export function LabDocumentsPage() {
           />
         }
       />
-      <Dialog open={adding} onOpenChange={setAdding}>
+      <Dialog open={adding || newFromLink} onOpenChange={(o) => !o && closeAdd()}>
         <DialogContent>
           <DialogTitle className="text-base font-semibold">New lab document</DialogTitle>
           <DialogDescription className="sr-only">Name the document.</DialogDescription>
@@ -111,7 +125,7 @@ export function LabDocumentsPage() {
             </FormField>
             <FormError message={errors.form} />
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setAdding(false)}>
+              <Button type="button" variant="outline" onClick={closeAdd}>
                 Cancel
               </Button>
               <Button type="submit" disabled={create.isPending}>

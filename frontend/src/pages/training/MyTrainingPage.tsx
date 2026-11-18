@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from "react";
-import { useParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { StatusPill } from "@/components/training/ComplianceMatrix";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -36,6 +36,15 @@ export function MyTrainingPage() {
   const { createRecord, removeRecord, uploadCertificate } = useTrainingMutations(labId);
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
   const fileRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  // "Log completion" on a card (here or on My work, via ?log=) preselects that training
+  const [params] = useSearchParams();
+  const [chosen, setChosen] = useState(params.get("log") ?? "");
+  const logIt = (id: string) => {
+    setChosen(id);
+    formRef.current?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+    formRef.current?.querySelector<HTMLInputElement>("[name=completed_on]")?.focus();
+  };
   const [driveCert, setDriveCert] = useState<PickedFile | null>(null);
   const row = mine.data?.members[0];
   const records = all.filter((r) => r.user.id === row?.user.id); // managers receive everyone's
@@ -62,6 +71,7 @@ export function MyTrainingPage() {
       setErrors({ fields: {} });
       setDriveCert(null);
       form.reset();
+      setChosen("");
       toast.success("Training recorded");
     } catch (err) {
       setErrors(formErrors(err, ["requirement", "completed_on", "expires_on", "notes"]));
@@ -117,6 +127,16 @@ export function MyTrainingPage() {
                       {r.notes && <p className="text-sm text-muted-foreground">{r.notes}</p>}
                     </div>
                     <StatusPill status={cell.status} />
+                    {cell.status !== "done" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        aria-label={`Log completion of ${r.name}`}
+                        onClick={() => logIt(r.id)}
+                      >
+                        Log completion
+                      </Button>
+                    )}
                   </li>
                 );
               })}
@@ -129,6 +149,7 @@ export function MyTrainingPage() {
           description="Add the date you finished and, if you have it, your certificate. A PI or lab admin can then verify it."
         >
           <form
+            ref={formRef}
             onSubmit={add}
             noValidate
             aria-label="Log a training"
@@ -136,7 +157,12 @@ export function MyTrainingPage() {
           >
             <FormField label="Training" error={errors.fields.requirement}>
               {(p) => (
-                <NativeSelect {...p} name="requirement" defaultValue="">
+                <NativeSelect
+                  {...p}
+                  name="requirement"
+                  value={chosen}
+                  onChange={(e) => setChosen(e.target.value)}
+                >
                   <option value="">Choose...</option>
                   {requirements.map((r) => (
                     <option key={r.id} value={r.id}>
