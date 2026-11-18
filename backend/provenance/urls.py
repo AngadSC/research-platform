@@ -33,6 +33,7 @@ urlpatterns = [
         views.ManuscriptDetailView.as_view(),
         name="manuscript-detail",
     ),
+    path(_L + "funding/", views.FundingOverviewView.as_view(), name="funding-overview"),
     path(_P + "funding/", views.FundingListCreateView.as_view(), name="funding-list"),
     path(
         _L + "funding/<uuid:fundingrecord_id>/",

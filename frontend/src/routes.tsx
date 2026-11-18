@@ -3,6 +3,8 @@ import { useLabs } from "@/hooks/workspace";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { ProtectedLayout } from "@/components/layout/ProtectedLayout";
 import { AuditLogPage } from "@/pages/AuditLogPage";
+import { FundingPage } from "@/pages/FundingPage";
+import { TeamTasksPage } from "@/pages/TeamTasksPage";
 import { AcceptInvitePage } from "@/pages/AcceptInvitePage";
 import {
   CheckEmailPage,
@@ -375,6 +377,12 @@ export const routes: RouteObject[] = [
                 handle: { crumb: "Retention review" },
               },
               { path: "audit-log", element: <AuditLogPage />, handle: { crumb: "Audit log" } },
+              { path: "funding", element: <FundingPage />, handle: { crumb: "Funding" } },
+              {
+                path: "team-tasks",
+                element: <TeamTasksPage />,
+                handle: { crumb: "Team tasks" },
+              },
               { path: "admin", element: <AdminPage />, handle: { crumb: "Lab details" } },
               // Guessable addresses for pages that live elsewhere.
               { path: "settings", element: <LabSettingsRedirect /> },

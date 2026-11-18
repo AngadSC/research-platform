@@ -5,6 +5,7 @@ import type {
   ExternalOutput,
   ExternalOutputInput,
   Funding,
+  FundingOverview,
   FundingInput,
   InstitutionResource,
   RecruitmentEntry,
@@ -117,3 +118,11 @@ export function useInstitutionLinks(
     enabled: !!labId,
   });
 }
+
+/** Every award in the lab, for PIs only (the server answers 403 to anyone else). */
+export const useLabFunding = (labId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ["labs", labId, "funding-overview"],
+    queryFn: () => api<FundingOverview[]>(`${lab(labId)}/funding/`),
+    enabled,
+  });

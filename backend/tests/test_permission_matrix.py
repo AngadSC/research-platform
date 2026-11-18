@@ -161,6 +161,8 @@ MATRIX: dict[tuple[str, str], str] = {
     ("DELETE", "projects:deadline-detail"): "401 404 2 2 2 403 403 404 403",
     # My tasks: your own, filtered to projects you can see, so nonproj gets a 2 with no P1 rows.
     ("GET", "projects:my-tasks"): "401 404 2 2 2 2 2 2 2",
+    # Team table on Home: one member's tasks, pi and lab_admin only (manage_lab).
+    ("GET", "projects:team-tasks"): "401 404 2 2 403 403 403 403 403",
     ("GET", "projects:task-list"): "401 404 2 2 2 2 2 404 2",
     ("POST", "projects:task-list"): "401 404 2 2 2 2 403 404 403",
     ("GET", "projects:task-detail"): "401 404 2 2 2 2 2 404 2",
@@ -309,6 +311,8 @@ MATRIX: dict[tuple[str, str], str] = {
     # acting persona, who can view P1 (anon and outsiders never get that far).
     # Funding is the exception (D226): PIs only. Every other persona gets 403 on the project's
     # list, and 404 on a record, because a record they may not see does not exist for them.
+    # Lab-wide funding table (D226): PIs only, and a lab admin gets 403 like the project's list.
+    ("GET",    "provenance:funding-overview"): "401 404 2 403 403 403 403 403 403",
     ("GET",    "provenance:funding-list"): "401 404 2 403 403 403 403 404 403",
     ("POST",   "provenance:funding-list"): "401 404 2 403 403 403 403 404 403",
     ("GET",    "provenance:funding-detail"): "401 404 2 404 404 404 404 404 404",

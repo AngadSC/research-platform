@@ -43,7 +43,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { NextMeeting } from "@/components/dashboard/NextMeeting";
-import { useDashboard, useLowStock, type DashPerson, type DashProject } from "@/hooks/dashboard";
+import { TeamTable } from "@/components/dashboard/TeamTable";
+import { useDashboard, useLowStock, type DashProject } from "@/hooks/dashboard";
 import { useMyTasks } from "@/hooks/projects";
 import { useCompliance } from "@/hooks/training";
 import { useLab, useMe } from "@/hooks/workspace";
@@ -571,53 +572,6 @@ function ProjectTable({
   );
 }
 
-function PeopleTable({ people }: { people: DashPerson[] }) {
-  const rows = [...people].sort(
-    (a, b) => b.overdue_tasks - a.overdue_tasks || a.name.localeCompare(b.name),
-  );
-  return (
-    <div className="rounded-lg border">
-      <Table>
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead>Member</TableHead>
-            <TableHead>Role</TableHead>
-            <TableHead className="text-right">Open</TableHead>
-            <TableHead className="text-right">Overdue</TableHead>
-            <TableHead className="text-right">Done in 30 days</TableHead>
-            <TableHead>Last active</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((p) => (
-            <TableRow key={p.user_id}>
-              <TableCell className="font-medium">{p.name}</TableCell>
-              <TableCell>{roleLabel(p.role)}</TableCell>
-              <TableCell className="text-right tabular-nums">{p.open_tasks}</TableCell>
-              <TableCell
-                className={cn(
-                  "text-right tabular-nums",
-                  p.overdue_tasks > 0 && "font-semibold text-danger-text",
-                )}
-              >
-                {p.overdue_tasks}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">{p.done_last_30_days}</TableCell>
-              <TableCell>
-                {p.last_active_at ? (
-                  <RelativeTime value={p.last_active_at} />
-                ) : (
-                  <span className="text-muted-foreground">No activity yet</span>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
-
 function DashboardSkeleton() {
   return (
     <div aria-busy="true" aria-label="Loading dashboard" className="grid gap-8">
@@ -806,12 +760,12 @@ export function DashboardPage() {
     id === "recent" ? (
       <Recents hide={["project"]} />
     ) : id === "people" && data ? (
-      <Disclosure title="People" hint={`${data.people.length} in the lab`}>
+      <Disclosure title="Team" hint={`${data.people.length} in the lab`}>
         <p className="mb-3 text-xs text-muted-foreground">
           Task counts only, from tasks assigned to each person. Done in 30 days counts tasks last
           marked done in that time.
         </p>
-        <PeopleTable people={data.people} />
+        <TeamTable labId={labId} people={data.people} training={training.data} />
       </Disclosure>
     ) : id === "activity" && data ? (
       <Disclosure title="Activity" hint="Who has been working, by day" defaultOpen>

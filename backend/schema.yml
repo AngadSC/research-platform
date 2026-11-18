@@ -3550,6 +3550,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/FormRead'
           description: ''
+  /api/labs/{lab_id}/funding/:
+    get:
+      operationId: labs_funding_list
+      description: |-
+        Every award in the lab, for PIs only (D226). Same filter as the project's Funding tab
+        (`visible_to` -> `FundingRecord.visible_rows`); no notes and no grant letter, one query.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FundingOverview'
+          description: ''
   /api/labs/{lab_id}/funding/{fundingrecord_id}/:
     get:
       operationId: labs_funding_retrieve
@@ -11471,6 +11497,52 @@ paths:
               schema:
                 $ref: '#/components/schemas/TaskPost'
           description: ''
+  /api/labs/{lab_id}/team-tasks/:
+    get:
+      operationId: labs_team_tasks_list
+      description: |-
+        One member's tasks across the lab, for the Home team table's counts. PIs and lab admins
+        only; the rows still go through `visible_to`, so nothing is shown that they couldn't open.
+        `show` uses the same definitions as the dashboard's counts: overdue, in_progress or open.
+      parameters:
+      - in: query
+        name: assignee
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: show
+        schema:
+          enum:
+          - overdue
+          - in_progress
+          - open
+          type: string
+          default: open
+          minLength: 1
+        description: |-
+          * `overdue` - overdue
+          * `in_progress` - in_progress
+          * `open` - open
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MyTask'
+          description: ''
   /api/labs/{lab_id}/training/compliance/:
     get:
       operationId: labs_training_compliance_retrieve
@@ -14431,6 +14503,8 @@ components:
           type: integer
         overdue_tasks:
           type: integer
+        in_progress_tasks:
+          type: integer
         done_last_30_days:
           type: integer
         last_active_at:
@@ -14439,6 +14513,7 @@ components:
           nullable: true
       required:
       - done_last_30_days
+      - in_progress_tasks
       - last_active_at
       - name
       - open_tasks
@@ -16223,6 +16298,64 @@ components:
           nullable: true
       required:
       - funder
+    FundingOverview:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        project_id:
+          type: string
+          format: uuid
+          readOnly: true
+        project_name:
+          type: string
+          readOnly: true
+        funder:
+          type: string
+          readOnly: true
+        program:
+          type: string
+          readOnly: true
+        award_number:
+          type: string
+          readOnly: true
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+        currency:
+          type: string
+          readOnly: true
+        start_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        end_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/Status1eeEnum'
+          readOnly: true
+      required:
+      - amount
+      - award_number
+      - currency
+      - end_date
+      - funder
+      - id
+      - program
+      - project_id
+      - project_name
+      - start_date
+      - status
     GettingStarted:
       type: object
       properties:
@@ -20487,6 +20620,15 @@ components:
           maxItems: 6
         template:
           $ref: '#/components/schemas/TemplateEnum'
+        lead:
+          type: string
+          format: uuid
+        members:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
       required:
       - name
     ProjectMembership:

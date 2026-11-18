@@ -19,7 +19,7 @@ import { localDateISO } from "@/lib/format";
 /** The parts of Home that can be hidden or moved, in their default order. */
 export const HOME_SECTIONS = [
   { id: "recent", label: "Recent documents and files" },
-  { id: "people", label: "People" },
+  { id: "people", label: "Team" },
   { id: "activity", label: "Activity" },
 ] as const;
 export type HomeSection = (typeof HOME_SECTIONS)[number]["id"];

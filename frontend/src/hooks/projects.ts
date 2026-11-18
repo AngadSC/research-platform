@@ -316,3 +316,12 @@ export function useTaskLinks(labId: string, projectId: string, taskId: string) {
   });
   return { attach, detach };
 }
+
+/** One member's open tasks across the lab, for PIs and lab admins (the Team table's counts). */
+export function useTeamTasks(labId: string, assignee: string, show: string) {
+  return useQuery({
+    queryKey: ["labs", labId, "team-tasks", assignee, show],
+    queryFn: () => api<MyTask[]>(`${base(labId)}/team-tasks/?assignee=${assignee}&show=${show}`),
+    enabled: !!labId && !!assignee,
+  });
+}

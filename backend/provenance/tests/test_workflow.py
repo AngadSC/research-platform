@@ -4,11 +4,14 @@ from datetime import date
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from rest_framework.test import APIClient
 
 from audit.models import AuditEvent
 from labs.models import LabRole
-from projects.models import DeadlinePriority, ProjectDeadline, ProjectRole
+from projects.models import DeadlinePriority, Project, ProjectDeadline, ProjectRole
 from provenance.models import FundingRecord, RecruitmentEntry, ReviewItem
 from provenance.tests.test_provenance import World
 
@@ -542,3 +545,58 @@ def test_an_archived_project_takes_no_uploads_or_new_talks(w):
     assert w.client().post(folders, {"name": "F"}, format="json").status_code == 400
     talk = post(w, "external-list", {"title": "Poster", "kind": "poster"})
     assert talk.status_code == 400 and "archived" in talk.json()["detail"]
+
+
+def test_lab_funding_overview_is_pi_only_and_one_query_per_page(make_lab, make_user, join):
+    lab = make_lab("A")
+    pi, admin, other_pi = make_user(), make_user(), make_user()
+    join(pi, lab, "pi")
+    join(admin, lab, "lab_admin")
+    lab_b = make_lab("B")
+    join(other_pi, lab_b, "pi")
+    for name in ("P1", "P2", "P3"):
+        p = Project.objects.create(lab=lab, name=name, created_by=pi)
+        FundingRecord.objects.create(
+            lab=lab,
+            project=p,
+            funder="Example Fund",
+            amount=1000,
+            end_date=date(2030, 1, 1),
+            created_by=pi,
+        )
+    pb = Project.objects.create(lab=lab_b, name="Secret", created_by=other_pi)
+    FundingRecord.objects.create(lab=lab_b, project=pb, funder="Hidden", created_by=other_pi)
+    url = f"/api/labs/{lab.pk}/funding/"
+
+    def get(user):
+        c = APIClient()
+        c.force_login(user)
+        return c.get(url)
+
+    client = APIClient()
+    client.force_login(pi)
+    with CaptureQueriesContext(connection) as three:
+        r = client.get(url)
+    assert r.status_code == 200
+    for name in ("P4", "P5"):  # more rows must not mean more queries
+        p = Project.objects.create(lab=lab, name=name, created_by=pi)
+        FundingRecord.objects.create(lab=lab, project=p, funder="Another", created_by=pi)
+    with CaptureQueriesContext(connection) as five:
+        assert len(client.get(url).json()) == 5
+    assert len(five) == len(three)
+    assert sorted(x["project_name"] for x in r.json()) == ["P1", "P2", "P3"]
+    assert set(r.json()[0]) == {
+        "id",
+        "project_id",
+        "project_name",
+        "funder",
+        "program",
+        "award_number",
+        "amount",
+        "currency",
+        "start_date",
+        "end_date",
+        "status",
+    }
+    assert get(admin).status_code == 403
+    assert get(other_pi).status_code == 404
