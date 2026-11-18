@@ -58,7 +58,9 @@ export function useDraftReport(a: Args) {
   const { uploadFile } = useAttachments(a.labId, a.projectId);
   const me = useMe().data?.id;
   const meId = useRef(me);
-  meId.current = me;
+  useEffect(() => {
+    meId.current = me;
+  });
   const qc = useQueryClient();
   const [draftId, setDraftId] = useState<string>();
   const [state, setState] = useState<DraftState>("idle");

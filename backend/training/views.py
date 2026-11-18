@@ -19,7 +19,6 @@ from core.permissions import Perm
 from core.views import LabScopedViewMixin
 from documents.serializers import AttachmentSerializer, AttachmentUploadSerializer
 from documents.views import download_response
-from labs.models import LabMembership
 from training import services
 from training.models import TrainingRecord, TrainingRequirement
 from training.serializers import (
@@ -256,12 +255,7 @@ class ReminderView(LabScopedViewMixin, generics.GenericAPIView):
         req = services.get_requirement(request.lab, data["requirement"])
         member = None
         if data.get("user"):
-            membership = (
-                LabMembership.objects.for_lab(request.lab)
-                .select_related("user")
-                .filter(user_id=data["user"])
-                .first()
-            )
+            membership = services.get_membership(request.lab, data["user"])
             if membership is None:
                 raise ValidationError({"user": "This person is not a member of the lab."})
             member = membership.user

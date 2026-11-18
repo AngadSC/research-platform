@@ -772,6 +772,16 @@ describe("Report tabs", () => {
       extra: {
         [`GET ${P}/analyses/`]: {
           body: [
+            // someone else's draft on the same file and test is never taken over
+            {
+              id: "theirs",
+              title: "data.csv (in progress)",
+              description:
+                "In progress: Independent t-test on data.csv\n\nInput file: data.csv\n\nStatus: In progress",
+              code_attachment: { id: "py-theirs" },
+              datasets: [],
+              ran_by: { id: "u2" },
+            },
             {
               id: "old",
               title: "data.csv (in progress)",
@@ -779,9 +789,11 @@ describe("Report tabs", () => {
                 "In progress: Independent t-test on data.csv\n\nInput file: data.csv\n\nStatus: In progress",
               code_attachment: { id: "py-old" },
               datasets: [],
+              ran_by: { id: "u1" },
             },
           ],
         },
+        "GET /api/me/": { body: { id: "u1" } },
         "PATCH /api/labs/lab1/analyses/old/": { body: { id: "old" } },
       } as never,
     });

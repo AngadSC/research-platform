@@ -57,6 +57,11 @@ def get_requirement(lab, pk):
     return req
 
 
+def get_membership(lab, user_id):
+    """The lab membership of `user_id`, or None (views never query by lab themselves, D49)."""
+    return LabMembership.objects.for_lab(lab).select_related("user").filter(user_id=user_id).first()
+
+
 def _projects(lab, ids):
     found = list(Project.objects.for_lab(lab).filter(pk__in=ids, deleted_at__isnull=True))
     if len(found) != len(set(ids)):
