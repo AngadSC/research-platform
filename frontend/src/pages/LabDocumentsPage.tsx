@@ -1,6 +1,8 @@
 import { FileText, Plus } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
+import { BulkBar, reportBulk, runEach, useSelection } from "@/components/shared/bulk";
+import { ConfirmDelete } from "@/components/shared/ConfirmDelete";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState, GettingStartedLink } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
@@ -10,7 +12,7 @@ import { RelativeTime } from "@/components/shared/RelativeTime";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { useCreateDocument, useDocuments } from "@/hooks/documents";
+import { useCreateDocument, useDeleteDocument, useDocuments } from "@/hooks/documents";
 import { useLab } from "@/hooks/workspace";
 import { personName, type DocumentRow } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
@@ -28,6 +30,21 @@ export function LabDocumentsPage() {
   const { data: lab } = useLab(labId);
   const docs = useDocuments(labId, "");
   const create = useCreateDocument(labId, "");
+  const remove = useDeleteDocument(labId, "");
+  const rows = docs.data ?? [];
+  const selection = useSelection(rows.map((d) => d.id));
+  const [deleting, setDeleting] = useState(false);
+  const picked = rows.filter((d) => selection.has(d.id));
+  async function deletePicked() {
+    const r = await runEach(
+      picked,
+      (d) => remove.mutateAsync(d.id),
+      (d) => d.title,
+    );
+    reportBulk("Deleted", "document", picked.length, r);
+    selection.clear();
+    setDeleting(false);
+  }
   const [adding, setAdding] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
   const canAdd = lab?.my_permissions.includes("contribute_lab") ?? false;
@@ -79,9 +96,18 @@ export function LabDocumentsPage() {
         description="The lab manual, protocols and SOPs. Everyone in the lab can read these."
         actions={(docs.data?.length ?? 0) > 0 ? addButton : undefined}
       />
+      {canAdd && (
+        <BulkBar selection={selection}>
+          <Button variant="outline" size="sm" onClick={() => setDeleting(true)}>
+            Delete
+          </Button>
+        </BulkBar>
+      )}
       <DataTable
         columns={COLUMNS}
-        rows={docs.data ?? []}
+        rows={rows}
+        selection={canAdd ? selection : undefined}
+        selectLabel={(d) => `Select ${d.title}`}
         getRowKey={(d) => d.id}
         loading={docs.isLoading}
         onRowClick={(d) => open(d.id)}
@@ -106,6 +132,15 @@ export function LabDocumentsPage() {
             }
           />
         }
+      />
+      <ConfirmDelete
+        open={deleting}
+        name={`${picked.length} ${picked.length === 1 ? "document" : "documents"}`}
+        noun={picked.length === 1 ? "document" : "documents"}
+        description="They leave the lab's list. Anyone with a link to one will no longer find it."
+        pending={remove.isPending}
+        onConfirm={() => void deletePicked()}
+        onClose={() => setDeleting(false)}
       />
       <Dialog open={adding || newFromLink} onOpenChange={(o) => !o && closeAdd()}>
         <DialogContent>

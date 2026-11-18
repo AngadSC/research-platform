@@ -1,3 +1,4 @@
+import { BulkBar, SelectBox, useSelection } from "@/components/shared/bulk";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { TrainingCompliance } from "@/lib/api-types";
@@ -19,12 +20,38 @@ export function ComplianceMatrix({
   data,
   onVerify,
   onRemind,
+  onBulkRemind,
+  onBulkVerify,
 }: {
   data: TrainingCompliance;
   onVerify?: (recordId: string) => void;
   onRemind?: (requirementId: string, userId: string | null) => void;
+  /** Members ticked in the first column; each pair is one missing or expired training. */
+  onBulkRemind?: (pairs: { requirement: string; user: string; label: string }[]) => Promise<void>;
+  /** Unverified records of the ticked members. */
+  onBulkVerify?: (records: { id: string; label: string }[]) => Promise<void>;
 }) {
   const { requirements, members, summary } = data;
+  const selection = useSelection(members.map((m) => m.user.id));
+  const chosen = members.filter((m) => selection.has(m.user.id));
+  const pairs = chosen.flatMap((m) =>
+    requirements
+      .filter((r) => ["missing", "expired"].includes(m.cells[r.id]?.status ?? ""))
+      .map((r) => ({
+        requirement: r.id,
+        user: m.user.id,
+        label: `${m.user.display_name || m.user.email} (${r.name})`,
+      })),
+  );
+  const records = chosen.flatMap((m) =>
+    requirements.flatMap((r) => {
+      const c = m.cells[r.id];
+      return c?.record && !c.verified
+        ? [{ id: c.record, label: `${m.user.display_name || m.user.email} (${r.name})` }]
+        : [];
+    }),
+  );
+  const finish = (p: Promise<void> | undefined) => void p?.then(selection.clear);
   if (requirements.length === 0 || members.length === 0)
     return <p className="text-sm text-muted-foreground">No required trainings yet.</p>;
   return (
@@ -33,12 +60,47 @@ export function ComplianceMatrix({
         {summary.done} done, {summary.expiring} expiring within 60 days, {summary.expired} expired,{" "}
         {summary.missing} missing
       </p>
+      <BulkBar selection={selection}>
+        {onBulkRemind && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pairs.length === 0}
+            title={
+              pairs.length === 0 ? "Nothing is missing or expired for these people" : undefined
+            }
+            onClick={() => finish(onBulkRemind(pairs))}
+          >
+            Remind about missing training
+          </Button>
+        )}
+        {onBulkVerify && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={records.length === 0}
+            title={records.length === 0 ? "No unverified records for these people" : undefined}
+            onClick={() => finish(onBulkVerify(records))}
+          >
+            Verify selected records
+          </Button>
+        )}
+      </BulkBar>
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/40 text-left">
               <th scope="col" className={`${STICKY} z-10 bg-muted px-3 py-2 font-medium`}>
-                Member
+                <span className="flex items-center gap-2">
+                  {(onBulkRemind || onBulkVerify) && (
+                    <SelectBox
+                      checked={selection.all}
+                      label="Select all members"
+                      onToggle={selection.toggleAll}
+                    />
+                  )}
+                  Member
+                </span>
               </th>
               {requirements.map((r) => (
                 <th key={r.id} scope="col" className="min-w-40 px-3 py-2 font-medium">
@@ -65,7 +127,16 @@ export function ComplianceMatrix({
                   scope="row"
                   className={`${STICKY} bg-background px-3 py-2 text-left font-medium`}
                 >
-                  {m.user.display_name || m.user.email}
+                  <span className="flex items-center gap-2">
+                    {(onBulkRemind || onBulkVerify) && (
+                      <SelectBox
+                        checked={selection.has(m.user.id)}
+                        label={`Select ${m.user.display_name || m.user.email}`}
+                        onToggle={(shift) => selection.toggle(m.user.id, shift)}
+                      />
+                    )}
+                    {m.user.display_name || m.user.email}
+                  </span>
                 </th>
                 {requirements.map((r) => {
                   const cell = m.cells[r.id];

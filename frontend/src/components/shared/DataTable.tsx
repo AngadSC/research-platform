@@ -1,4 +1,5 @@
 import type { KeyboardEvent, ReactNode } from "react";
+import { SelectBox, type Selection } from "@/components/shared/bulk";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -24,6 +25,10 @@ interface DataTableProps<T> {
   /** Shown instead of the table when there are no rows (use <EmptyState>). */
   empty?: ReactNode;
   onRowClick?: (row: T) => void;
+  /** Adds a checkbox column (and a select-all in the header). */
+  selection?: Selection;
+  /** What the checkboxes are called for screen readers, e.g. "item". */
+  selectLabel?: (row: T) => string;
 }
 
 /** Column classes that drop a lower-value column when the content area (not the viewport) is
@@ -40,6 +45,8 @@ export function DataTable<T>({
   loading,
   empty,
   onRowClick,
+  selection,
+  selectLabel,
 }: DataTableProps<T>) {
   if (!loading && rows.length === 0 && empty) return <>{empty}</>;
 
@@ -55,6 +62,15 @@ export function DataTable<T>({
       <Table aria-busy={loading || undefined}>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
+            {selection && (
+              <TableHead className="w-8">
+                <SelectBox
+                  checked={selection.all}
+                  label="Select all rows"
+                  onToggle={selection.toggleAll}
+                />
+              </TableHead>
+            )}
             {columns.map((c) => (
               <TableHead key={c.key} className={c.className}>
                 {c.header}
@@ -66,6 +82,7 @@ export function DataTable<T>({
           {loading
             ? Array.from({ length: SKELETON_ROWS }, (_, i) => (
                 <TableRow key={i} data-testid="skeleton-row">
+                  {selection && <TableCell />}
                   {columns.map((c) => (
                     <TableCell key={c.key}>
                       <Skeleton className="h-4 w-3/4" />
@@ -85,6 +102,15 @@ export function DataTable<T>({
                       : undefined
                   }
                 >
+                  {selection && (
+                    <TableCell>
+                      <SelectBox
+                        checked={selection.has(getRowKey(row))}
+                        label={selectLabel?.(row) ?? "Select row"}
+                        onToggle={(shift) => selection.toggle(getRowKey(row), shift)}
+                      />
+                    </TableCell>
+                  )}
                   {columns.map((c) => (
                     <TableCell key={c.key} className={c.className}>
                       {c.cell(row)}
