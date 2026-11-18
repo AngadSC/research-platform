@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { useRegistry } from "@/hooks/participants";
-import type { RegistryColumn } from "@/lib/api-types";
+import type { RegistryColumn, RegistryParticipant } from "@/lib/api-types";
 import { formErrors } from "@/lib/forms";
 import { CATEGORIES, CODES_ONLY, parseCodes } from "@/lib/participants";
 import { NativeSelect } from "@/pages/project/workflow/parts";
@@ -72,7 +72,7 @@ export function AddParticipantsDialog({
           </FormField>
           <FormField
             label="Group (optional)"
-            hint="For example a home language. Applies to every code above."
+            hint="For example a study arm or cohort, like Control or Wave 1. Applies to every code above."
             error={errors.fields.group}
           >
             {(p) => (
@@ -94,6 +94,60 @@ export function AddParticipantsDialog({
             </Button>
           </div>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Archived participants are kept, never deleted (D308); editors can bring them back. */
+export function ArchivedDialog({
+  registry,
+  archived,
+  canEdit,
+  onClose,
+}: {
+  registry: Registry;
+  archived: RegistryParticipant[];
+  canEdit: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogTitle>Archived participants</DialogTitle>
+        <DialogDescription>
+          Archived participants are kept with their data but left out of the list and the counts.
+        </DialogDescription>
+        {archived.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No archived participants.</p>
+        ) : (
+          <ul className="grid max-h-80 divide-y overflow-auto rounded-lg border">
+            {archived.map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                <span className="font-medium">{p.code}</span>
+                {canEdit && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={registry.archive.isPending}
+                    aria-label={`Restore ${p.code}`}
+                    onClick={() =>
+                      registry.archive.mutate(
+                        { id: p.id, archived: false },
+                        {
+                          onSuccess: () => toast.success(`${p.code} restored`),
+                          onError: () => toast.error(`Couldn't restore ${p.code}`),
+                        },
+                      )
+                    }
+                  >
+                    Restore
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </DialogContent>
     </Dialog>
   );

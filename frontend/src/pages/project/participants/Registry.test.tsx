@@ -99,6 +99,8 @@ function world(
       ],
     },
     "GET /api/labs/lab1/participant-reasons/": { body: REASONS },
+    [`GET ${P}/participants/?archived=1`]: { body: [] },
+    [`GET ${P}/participants/a/events/`]: { body: [] },
     ...extra,
   });
 }
@@ -211,6 +213,43 @@ describe("participant matrix", () => {
     renderRoute("/labs/lab1/projects/p1/participants");
     expect(await screen.findByText("No participants yet")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Add participants/ })).toBeInTheDocument();
+  });
+
+  it("lists participants before any columns exist, and tells a non-lead who adds columns", async () => {
+    world(["view_project", "edit_content"], {
+      [`GET ${P}/participants/`]: { body: [person("a", "P999")] },
+      [`GET ${P}/participant-components/`]: { body: [] },
+      [`GET ${P}/participant-cells/`]: { body: [] },
+    });
+    renderRoute("/labs/lab1/projects/p1/participants");
+    expect(await screen.findByText("No data columns yet")).toBeInTheDocument();
+    expect(screen.getByRole("grid")).toHaveTextContent("P999");
+    expect(screen.getByText(/Only project leads can add them/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add columns" })).toBeNull();
+    expect(
+      within(screen.getByRole("list", { name: "Summary" })).getByRole("button", {
+        name: "1 participant",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("archives from a participant's page with Undo, and restores from the archived list", async () => {
+    const calls = world(undefined, {
+      [`POST ${P}/participants/a/archive/`]: { body: person("a", "P-001") },
+      [`POST ${P}/participants/z/restore/`]: { body: person("z", "P-009") },
+      [`GET ${P}/participants/?archived=1`]: { body: [person("z", "P-009")] },
+    });
+    renderRoute("/labs/lab1/projects/p1/participants/a");
+    await userEvent.click(await screen.findByRole("button", { name: /Archive/ }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === "POST" && c.path.endsWith("/a/archive/"))).toBe(true),
+    );
+    expect(await screen.findByText("P-001 archived")).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "1 archived" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Restore P-009" }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === "POST" && c.path.endsWith("/z/restore/"))).toBe(true),
+    );
   });
 
   it("pasting codes adds them in one go and shows a refusal without echoing it", async () => {

@@ -200,8 +200,12 @@ export function EthicsDetailPage() {
           )}
         </div>
         {!a.can_view_files ? (
+          // D48: files need a linked project you are on, or the PI or lab admin role.
           <p className="text-sm text-muted-foreground">
-            You can&apos;t open files for this approval. Ask the PI or a lab admin.
+            Only the PI, lab admins and people on a project this approval covers can open its files.
+            {canEdit &&
+              a.projects.length === 0 &&
+              " To add files, edit the approval and link one of your projects."}
           </p>
         ) : a.attachments.length === 0 ? (
           <p className="text-sm text-muted-foreground">No documents attached yet.</p>

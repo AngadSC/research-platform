@@ -152,6 +152,14 @@ export function useRegistry(labId: string, projectId: string) {
   };
 }
 
+/** Archived participants (never deleted, D308), for the registry's "archived" view. */
+export function useArchivedParticipants(labId: string, projectId: string) {
+  return useQuery({
+    queryKey: [...keys(labId, projectId), "archived"],
+    queryFn: () => api<RegistryParticipant[]>(`${root(labId, projectId)}/participants/?archived=1`),
+  });
+}
+
 export function useReasons(labId: string) {
   return useQuery({
     queryKey: ["labs", labId, "participant-reasons"],

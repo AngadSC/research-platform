@@ -111,7 +111,7 @@ class ParticipantModel(LabScopedModel):
 
 class Participant(ParticipantModel):
     code = models.CharField(max_length=40)
-    group = models.CharField(max_length=100, blank=True)  # e.g. a home language
+    group = models.CharField(max_length=100, blank=True)  # e.g. a study arm or cohort
     cohort = models.CharField(max_length=100, blank=True)
     enrolment_status = models.CharField(
         max_length=16, choices=EnrolmentStatus.choices, default=EnrolmentStatus.ENROLLED
