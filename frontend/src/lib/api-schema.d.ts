@@ -1100,6 +1100,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/documents/{document_id}/pin/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Visible to anyone who can see the document (404 if not), then edit_project: the project's
+         *     lead, or manage_lab for a lab document (403 for everyone else).
+         */
+        post: operations["labs_documents_pin_create"];
+        /**
+         * @description Visible to anyone who can see the document (404 if not), then edit_project: the project's
+         *     lead, or manage_lab for a lab document (403 for everyone else).
+         */
+        delete: operations["labs_documents_pin_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description Visible to anyone who can see the document (404 if not), then edit_project: the project's
+         *     lead, or manage_lab for a lab document (403 for everyone else).
+         */
+        patch: operations["labs_documents_pin_partial_update"];
+        trace?: never;
+    };
     "/api/labs/{lab_id}/documents/{document_id}/revisions/": {
         parameters: {
             query?: never;
@@ -2066,6 +2094,43 @@ export interface paths {
         put?: never;
         /** @description D321: add or take away your emoji on a message. Whoever can read the chat can react. */
         post: operations["labs_messages_reactions_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/my-onboarding/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The new-member checklist with the signed-in person's own ticks (D346). */
+        get: operations["labs_my_onboarding_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/my-onboarding/{onboardingitem_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Tick or untick one of your own items. Only for yourself, and not for items that a
+         *     training record ticks.
+         */
+        post: operations["labs_my_onboarding_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4458,6 +4523,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/start-here/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        get: operations["labs_start_here_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/subjects/{subject_id}/": {
         parameters: {
             query?: never;
@@ -5093,6 +5178,8 @@ export interface components {
          *     * `document.restored` - Document Restored
          *     * `document.deleted` - Document Deleted
          *     * `document.owner_changed` - Document Owner Changed
+         *     * `document.pinned` - Document Pinned
+         *     * `document.unpinned` - Document Unpinned
          *     * `attachment.uploaded` - Attachment Uploaded
          *     * `attachment.downloaded` - Attachment Downloaded
          *     * `attachment.deleted` - Attachment Deleted
@@ -5244,7 +5331,7 @@ export interface components {
          *     * `file_link.created` - File Link Created
          * @enum {string}
          */
-        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.invite_resent" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.created" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "notebook.created" | "notebook.updated" | "notebook.deleted" | "notebook.locked" | "notebook.exported" | "subject.created" | "subject.updated" | "subject.deleted" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "google_chat.linked" | "google_chat.unlinked" | "google_chat.imported" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "participant.created" | "participant.updated" | "participant.archived" | "participant.restored" | "participant_component.created" | "participant_component.updated" | "participant_component.deleted" | "participant_cell.changed" | "participant_file.added" | "participant_file.changed" | "participant_file.removed" | "participant_reason.changed" | "participant.identifier_blocked" | "participant.imported" | "participant.import_undone" | "participant.files_matched" | "participant.links_checked" | "participant.tasks_created" | "participant_rule.saved" | "participant_rule.archived" | "participant_set.locked" | "participant_flow.exported" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "training.reminded" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
+        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.invite_resent" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.created" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "document.pinned" | "document.unpinned" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "notebook.created" | "notebook.updated" | "notebook.deleted" | "notebook.locked" | "notebook.exported" | "subject.created" | "subject.updated" | "subject.deleted" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "google_chat.linked" | "google_chat.unlinked" | "google_chat.imported" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "participant.created" | "participant.updated" | "participant.archived" | "participant.restored" | "participant_component.created" | "participant_component.updated" | "participant_component.deleted" | "participant_cell.changed" | "participant_file.added" | "participant_file.changed" | "participant_file.removed" | "participant_reason.changed" | "participant.identifier_blocked" | "participant.imported" | "participant.import_undone" | "participant.files_matched" | "participant.links_checked" | "participant.tasks_created" | "participant_rule.saved" | "participant_rule.archived" | "participant_set.locked" | "participant_flow.exported" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "training.reminded" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
         /**
          * @description * `read` - Read
          *     * `write` - Write
@@ -6100,6 +6187,12 @@ export interface components {
             results?: string[];
             datasets?: string[];
         };
+        /**
+         * @description * `up` - up
+         *     * `down` - down
+         * @enum {string}
+         */
+        DirectionEnum: "up" | "down";
         Dmp: {
             readonly exists: boolean;
             readonly data_description: string;
@@ -7286,6 +7379,23 @@ export interface components {
              */
             output: number;
         };
+        /** @description One checklist line as the signed-in member sees it: only their own tick, nobody else's. */
+        MyOnboarding: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly title: string;
+            readonly description: string;
+            /** Format: uri */
+            readonly url: string;
+            readonly required: boolean;
+            readonly done: boolean;
+            /** @description Ticked by a current training record, so it cannot be ticked by hand. */
+            readonly by_training: boolean;
+            readonly training_requirement_name: string;
+        };
+        MyOnboardingTick: {
+            done: boolean;
+        };
         MyTask: {
             /** Format: uuid */
             readonly id: string;
@@ -8022,6 +8132,9 @@ export interface components {
              */
             video?: components["schemas"]["VideoEnum"] | components["schemas"]["BlankEnum"];
         };
+        PatchedMove: {
+            direction?: components["schemas"]["DirectionEnum"];
+        };
         PatchedNoteInput: {
             body?: string;
         };
@@ -8221,6 +8334,16 @@ export interface components {
             access_token: string;
             expires_in: number;
             scope: string;
+        };
+        Pin: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** Format: uuid */
+            project: string | null;
+            readonly project_name: string;
+            embed_url: string;
+            readonly can_manage: boolean;
         };
         Policy: {
             ai_policy: components["schemas"]["AiPolicyEnum"];
@@ -10177,6 +10300,8 @@ export interface operations {
                  *     * `document.restored` - Document Restored
                  *     * `document.deleted` - Document Deleted
                  *     * `document.owner_changed` - Document Owner Changed
+                 *     * `document.pinned` - Document Pinned
+                 *     * `document.unpinned` - Document Unpinned
                  *     * `attachment.uploaded` - Attachment Uploaded
                  *     * `attachment.downloaded` - Attachment Downloaded
                  *     * `attachment.deleted` - Attachment Deleted
@@ -10327,7 +10452,7 @@ export interface operations {
                  *     * `dataset.participant_flag_changed` - Dataset Participant Flag Changed
                  *     * `file_link.created` - File Link Created
                  */
-                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.invite_resent" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.created" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "notebook.created" | "notebook.updated" | "notebook.deleted" | "notebook.locked" | "notebook.exported" | "subject.created" | "subject.updated" | "subject.deleted" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "google_chat.linked" | "google_chat.unlinked" | "google_chat.imported" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "participant.created" | "participant.updated" | "participant.archived" | "participant.restored" | "participant_component.created" | "participant_component.updated" | "participant_component.deleted" | "participant_cell.changed" | "participant_file.added" | "participant_file.changed" | "participant_file.removed" | "participant_reason.changed" | "participant.identifier_blocked" | "participant.imported" | "participant.import_undone" | "participant.files_matched" | "participant.links_checked" | "participant.tasks_created" | "participant_rule.saved" | "participant_rule.archived" | "participant_set.locked" | "participant_flow.exported" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "training.reminded" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
+                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.invite_resent" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.created" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "document.pinned" | "document.unpinned" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "notebook.created" | "notebook.updated" | "notebook.deleted" | "notebook.locked" | "notebook.exported" | "subject.created" | "subject.updated" | "subject.deleted" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "google_chat.linked" | "google_chat.unlinked" | "google_chat.imported" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "participant.created" | "participant.updated" | "participant.archived" | "participant.restored" | "participant_component.created" | "participant_component.updated" | "participant_component.deleted" | "participant_cell.changed" | "participant_file.added" | "participant_file.changed" | "participant_file.removed" | "participant_reason.changed" | "participant.identifier_blocked" | "participant.imported" | "participant.import_undone" | "participant.files_matched" | "participant.links_checked" | "participant.tasks_created" | "participant_rule.saved" | "participant_rule.archived" | "participant_set.locked" | "participant_flow.exported" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "training.reminded" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created";
                 actor?: string;
                 /** @description Leave out views, downloads and other reads. */
                 changes_only?: boolean;
@@ -11382,6 +11507,75 @@ export interface operations {
                 "application/json": components["schemas"]["DocumentOwner"];
                 "application/x-www-form-urlencoded": components["schemas"]["DocumentOwner"];
                 "multipart/form-data": components["schemas"]["DocumentOwner"];
+            };
+        };
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_documents_pin_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_documents_pin_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_documents_pin_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedMove"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedMove"];
+                "multipart/form-data": components["schemas"]["PatchedMove"];
             };
         };
         responses: {
@@ -13011,6 +13205,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChatMessage"];
+                };
+            };
+        };
+    };
+    labs_my_onboarding_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyOnboarding"][];
+                };
+            };
+        };
+    };
+    labs_my_onboarding_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                onboardingitem_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MyOnboardingTick"];
+                "application/x-www-form-urlencoded": components["schemas"]["MyOnboardingTick"];
+                "multipart/form-data": components["schemas"]["MyOnboardingTick"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyOnboarding"];
                 };
             };
         };
@@ -17048,6 +17291,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchResults"];
+                };
+            };
+        };
+    };
+    labs_start_here_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pin"][];
                 };
             };
         };

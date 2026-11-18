@@ -1168,6 +1168,8 @@ paths:
           - document.restored
           - document.deleted
           - document.owner_changed
+          - document.pinned
+          - document.unpinned
           - attachment.uploaded
           - attachment.downloaded
           - attachment.deleted
@@ -1348,6 +1350,8 @@ paths:
           * `document.restored` - Document Restored
           * `document.deleted` - Document Deleted
           * `document.owner_changed` - Document Owner Changed
+          * `document.pinned` - Document Pinned
+          * `document.unpinned` - Document Unpinned
           * `attachment.uploaded` - Attachment Uploaded
           * `attachment.downloaded` - Attachment Downloaded
           * `attachment.deleted` - Attachment Deleted
@@ -2890,6 +2894,93 @@ paths:
             schema:
               $ref: '#/components/schemas/DocumentOwner'
         required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/documents/{document_id}/pin/:
+    post:
+      operationId: labs_documents_pin_create
+      description: |-
+        Visible to anyone who can see the document (404 if not), then edit_project: the project's
+        lead, or manage_lab for a lab document (403 for everyone else).
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+    patch:
+      operationId: labs_documents_pin_partial_update
+      description: |-
+        Visible to anyone who can see the document (404 if not), then edit_project: the project's
+        lead, or manage_lab for a lab document (403 for everyone else).
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMove'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMove'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMove'
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+    delete:
+      operationId: labs_documents_pin_destroy
+      description: |-
+        Visible to anyone who can see the document (404 if not), then edit_project: the project's
+        lead, or manage_lab for a lab document (403 for everyone else).
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
       security:
       - sessionAuth: []
       responses:
@@ -5064,6 +5155,73 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ChatMessage'
+          description: ''
+  /api/labs/{lab_id}/my-onboarding/:
+    get:
+      operationId: labs_my_onboarding_list
+      description: The new-member checklist with the signed-in person's own ticks
+        (D346).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MyOnboarding'
+          description: ''
+  /api/labs/{lab_id}/my-onboarding/{onboardingitem_id}/:
+    post:
+      operationId: labs_my_onboarding_create
+      description: |-
+        Tick or untick one of your own items. Only for yourself, and not for items that a
+        training record ticks.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: onboardingitem_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MyOnboardingTick'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MyOnboardingTick'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MyOnboardingTick'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyOnboarding'
           description: ''
   /api/labs/{lab_id}/my-tasks/:
     get:
@@ -10994,6 +11152,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/SearchResults'
           description: ''
+  /api/labs/{lab_id}/start-here/:
+    get:
+      operationId: labs_start_here_list
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pin'
+          description: ''
   /api/labs/{lab_id}/subjects/{subject_id}/:
     patch:
       operationId: labs_subjects_partial_update
@@ -12483,6 +12667,8 @@ components:
       - document.restored
       - document.deleted
       - document.owner_changed
+      - document.pinned
+      - document.unpinned
       - attachment.uploaded
       - attachment.downloaded
       - attachment.deleted
@@ -12662,6 +12848,8 @@ components:
         * `document.restored` - Document Restored
         * `document.deleted` - Document Deleted
         * `document.owner_changed` - Document Owner Changed
+        * `document.pinned` - Document Pinned
+        * `document.unpinned` - Document Unpinned
         * `attachment.uploaded` - Attachment Uploaded
         * `attachment.downloaded` - Attachment Downloaded
         * `attachment.deleted` - Attachment Deleted
@@ -14964,6 +15152,14 @@ components:
           maxItems: 200
       required:
       - title
+    DirectionEnum:
+      enum:
+      - up
+      - down
+      type: string
+      description: |-
+        * `up` - up
+        * `down` - down
     Dmp:
       type: object
       properties:
@@ -18064,6 +18260,55 @@ components:
       - input
       - label
       - output
+    MyOnboarding:
+      type: object
+      description: 'One checklist line as the signed-in member sees it: only their
+        own tick, nobody else''s.'
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        url:
+          type: string
+          format: uri
+          readOnly: true
+        required:
+          type: boolean
+          readOnly: true
+        done:
+          type: boolean
+          readOnly: true
+        by_training:
+          type: boolean
+          readOnly: true
+          description: Ticked by a current training record, so it cannot be ticked
+            by hand.
+        training_requirement_name:
+          type: string
+          readOnly: true
+      required:
+      - by_training
+      - description
+      - done
+      - id
+      - required
+      - title
+      - training_requirement_name
+      - url
+    MyOnboardingTick:
+      type: object
+      properties:
+        done:
+          type: boolean
+      required:
+      - done
     MyTask:
       type: object
       properties:
@@ -19883,6 +20128,11 @@ components:
           oneOf:
           - $ref: '#/components/schemas/VideoEnum'
           - $ref: '#/components/schemas/BlankEnum'
+    PatchedMove:
+      type: object
+      properties:
+        direction:
+          $ref: '#/components/schemas/DirectionEnum'
     PatchedNoteInput:
       type: object
       properties:
@@ -20345,6 +20595,33 @@ components:
       - access_token
       - expires_in
       - scope
+    Pin:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        project:
+          type: string
+          format: uuid
+          nullable: true
+        project_name:
+          type: string
+          readOnly: true
+        embed_url:
+          type: string
+        can_manage:
+          type: boolean
+          readOnly: true
+      required:
+      - can_manage
+      - embed_url
+      - id
+      - project
+      - project_name
+      - title
     Policy:
       type: object
       properties:

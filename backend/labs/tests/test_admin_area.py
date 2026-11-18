@@ -356,3 +356,45 @@ def test_inventory_search_sort_and_csv_export(world):
     text = r.content.decode()
     assert text.startswith("Name,Category") and "'=cmd" in text and "Pipette" not in text
     assert AuditAction.INVENTORY_EXPORTED in actions()
+
+
+# ---------------------------------------------------------------- your own onboarding (D346)
+
+
+def test_members_see_and_tick_only_their_own_items(world):
+    lab, users = world
+    item = api(users["pi"]).post(
+        url(lab, "onboarding-items/"),
+        {"kind": "new_member", "title": "Read the SOP", "url": "https://example.test/sop"},
+        format="json",
+    )
+    assert item.status_code == 201
+    api(users["pi"]).post(
+        url(lab, "onboarding-items/"), {"kind": "departing", "title": "Hand back keys"}
+    )
+    rows = api(users["member"]).get(url(lab, "my-onboarding/")).json()
+    assert [(r["title"], r["done"]) for r in rows] == [("Read the SOP", False)]
+    assert "completed_user_ids" not in rows[0]
+    tick = url(lab, f"my-onboarding/{item.json()['id']}/")
+    assert api(users["member"]).post(tick, {"done": True}, format="json").json()["done"] is True
+    # the viewer's list, and the manager's full view, are not changed by the member's tick
+    assert api(users["viewer"]).get(url(lab, "my-onboarding/")).json()[0]["done"] is False
+    full = api(users["pi"]).get(url(lab, "onboarding-items/")).json()
+    ticked = next(r for r in full if r["title"] == "Read the SOP")
+    assert ticked["completed_user_ids"] == [str(users["member"].pk)]
+    assert AuditAction.ONBOARDING_COMPLETION_CHANGED in actions()
+    assert api(users["member"]).post(tick, {"done": False}, format="json").json()["done"] is False
+
+
+def test_an_item_ticked_by_training_cannot_be_ticked_by_hand(world):
+    from training.models import TrainingRequirement
+
+    lab, users = world
+    req = TrainingRequirement.objects.create(lab=lab, name="Safety", category="safety")
+    item = api(users["pi"]).post(
+        url(lab, "onboarding-items/"),
+        {"kind": "new_member", "title": "Safety", "training_requirement": str(req.pk)},
+        format="json",
+    )
+    tick = url(lab, f"my-onboarding/{item.json()['id']}/")
+    assert api(users["member"]).post(tick, {"done": True}, format="json").status_code == 400

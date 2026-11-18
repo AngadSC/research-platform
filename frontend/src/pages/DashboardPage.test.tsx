@@ -125,6 +125,8 @@ const base = (body: unknown, perms = PI) => ({
   "GET /api/labs/lab1/training/compliance/": { status: 404, body: { detail: "Not found." } },
   "GET /api/labs/lab1/contributions/": { body: contributions() },
   "GET /api/labs/lab1/my-tasks/": { body: [] },
+  "GET /api/labs/lab1/start-here/": { body: [] },
+  "GET /api/labs/lab1/my-onboarding/": { body: [] },
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -424,6 +426,66 @@ describe("Dashboard", () => {
     expect(screen.getByText("Overdue")).toBeInTheDocument();
     expect(calls.some((c) => c.path.endsWith("/dashboard/"))).toBe(false);
     expect(calls.some((c) => c.path.includes("/contributions/"))).toBe(false);
+  });
+
+  it("gives a new member Start here, their onboarding with ticks, and their projects", async () => {
+    const item = (over: Record<string, unknown>) => ({
+      id: "o1",
+      title: "Read the SOP",
+      description: "",
+      url: "https://example.test/sop",
+      required: true,
+      done: false,
+      by_training: false,
+      training_requirement_name: "",
+      ...over,
+    });
+    const calls = mockFetch({
+      ...base(dash(), ["view_lab", "create_project"]),
+      "GET /api/labs/lab1/projects/": {
+        body: [{ id: "p1", name: "Alpha", status: "active", updated_at: "2026-11-01T00:00:00Z" }],
+      },
+      "GET /api/labs/lab1/start-here/": {
+        body: [
+          {
+            id: "d1",
+            title: "Lab manual",
+            project: null,
+            project_name: "",
+            embed_url: "",
+            can_manage: false,
+          },
+        ],
+      },
+      "GET /api/labs/lab1/my-onboarding/": {
+        body: [item({}), item({ id: "o2", title: "Badge", url: "" })],
+      },
+      "POST /api/labs/lab1/my-onboarding/o1/": { body: item({ done: true }) },
+    });
+    renderRoute("/labs/lab1");
+    expect(await screen.findByRole("link", { name: "Lab manual" })).toHaveAttribute(
+      "href",
+      "/labs/lab1/documents/d1",
+    );
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull(); // not a manager
+    expect(await screen.findByRole("heading", { name: "Your projects" })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Alpha" }).length).toBeGreaterThan(1); // + sidebar
+    expect(screen.getByText("0 of 2 done")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute(
+      "href",
+      "https://example.test/sop",
+    );
+    await userEvent.click(screen.getByRole("checkbox", { name: "Read the SOP" }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "POST")?.body).toEqual({ done: true }),
+    );
+  });
+
+  it("does not show a manager the member onboarding card", async () => {
+    const calls = mockFetch(base(dash()));
+    renderRoute("/labs/lab1");
+    await screen.findByRole("heading", { name: "Needs attention" });
+    expect(calls.some((c) => c.path.includes("/my-onboarding/"))).toBe(false);
   });
 
   it("counts a past-due deadline as overdue and says how late it is", async () => {

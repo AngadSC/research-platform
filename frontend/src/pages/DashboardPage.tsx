@@ -15,7 +15,10 @@ import { ContributionGraph } from "@/components/dashboard/ContributionGraph";
 import { GettingStarted } from "@/components/dashboard/GettingStarted";
 import { MorningDigest } from "@/components/dashboard/MorningDigest";
 import { ParticipantCards } from "@/components/dashboard/ParticipantCards";
+import { MyOnboarding } from "@/components/dashboard/MyOnboarding";
+import { StartHere } from "@/components/dashboard/StartHere";
 import { Today } from "@/components/dashboard/Today";
+import { YourProjects } from "@/components/dashboard/YourProjects";
 import { FormError } from "@/components/shared/FormError";
 import { Hint } from "@/components/shared/Hint";
 import {
@@ -718,6 +721,12 @@ export function DashboardPage() {
           ) : undefined
         }
       />
+      {lab && (
+        <div className="mb-6 grid gap-4 empty:hidden md:grid-cols-2 md:[&>*:only-child]:col-span-2">
+          <StartHere labId={labId} />
+          <MyOnboarding labId={labId} enabled={!allowed} />
+        </div>
+      )}
       {lab && <NextMeeting labId={labId} />}
       {lab && !allowed && <Today labId={labId} />}
     </>
@@ -747,6 +756,7 @@ export function DashboardPage() {
           </h2>
           <MyTasksList labId={labId} />
         </section>
+        <YourProjects labId={labId} />
         {extras}
       </>
     );

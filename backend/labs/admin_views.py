@@ -9,6 +9,7 @@ from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -26,6 +27,8 @@ from labs.admin_serializers import (
     InventoryOrderInputSerializer,
     InventoryOrderSerializer,
     InventorySerializer,
+    MyOnboardingSerializer,
+    MyOnboardingTickSerializer,
     OnboardingItemInputSerializer,
     OnboardingItemSerializer,
     ResourceInputSerializer,
@@ -172,6 +175,48 @@ class OnboardingCompletionView(OnboardingMixin, generics.GenericAPIView):
         data = _body(CompletionInputSerializer, request)
         svc.set_completion(
             item, member=data["user"], done=data["done"], by=request.user, request=request
+        )
+        return self.out(item)
+
+
+class MyOnboardingView(OnboardingMixin, generics.GenericAPIView):
+    """The new-member checklist with the signed-in person's own ticks (D346)."""
+
+    serializer_class = MyOnboardingSerializer
+    perms = {"GET": Perm.VIEW_LAB}
+
+    @extend_schema(responses=MyOnboardingSerializer(many=True))
+    def get(self, request, lab_id):
+        qs = (
+            self.get_queryset()
+            .filter(kind="new_member")
+            .select_related("training_requirement")
+            .order_by("order", "created_at", "id")
+        )
+        return Response(self.get_serializer(qs, many=True).data)
+
+
+class MyOnboardingTickView(OnboardingMixin, generics.GenericAPIView):
+    """Tick or untick one of your own items. Only for yourself, and not for items that a
+    training record ticks."""
+
+    serializer_class = MyOnboardingSerializer
+    lookup_url_kwarg = "onboardingitem_id"
+    perms = {"POST": Perm.VIEW_LAB}
+
+    def get_queryset(self):
+        return (
+            super().get_queryset().filter(kind="new_member").select_related("training_requirement")
+        )
+
+    @extend_schema(request=MyOnboardingTickSerializer, responses=MyOnboardingSerializer)
+    def post(self, request, lab_id, onboardingitem_id):
+        item = self.get_object()
+        data = _body(MyOnboardingTickSerializer, request)
+        if item.training_requirement_id:
+            raise ValidationError({"detail": "This one ticks itself when your training is done."})
+        svc.set_completion(
+            item, member=request.user, done=data["done"], by=request.user, request=request
         )
         return self.out(item)
 

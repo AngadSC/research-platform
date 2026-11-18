@@ -112,7 +112,11 @@ PROJECT_ROLE_PERMS: dict[str, frozenset[Perm]] = {
 }
 PROJECT_PERMS = frozenset().union(*PROJECT_ROLE_PERMS.values())
 _ETHICS_MAP = {_P.VIEW_PROJECT: _P.VIEW_ETHICS, _P.EDIT_CONTENT: _P.EDIT_ETHICS}
-_LAB_WIDE_MAP = {_P.VIEW_PROJECT: _P.VIEW_LAB, _P.EDIT_CONTENT: _P.CONTRIBUTE_LAB}  # D233
+_LAB_WIDE_MAP = {  # D233; "pin for everyone" (edit_project) needs manage_lab on a lab document
+    _P.VIEW_PROJECT: _P.VIEW_LAB,
+    _P.EDIT_CONTENT: _P.CONTRIBUTE_LAB,
+    _P.EDIT_PROJECT: _P.MANAGE_LAB,
+}
 _IMPLICIT_LEADS = (LabRole.PI, LabRole.LAB_ADMIN)
 
 

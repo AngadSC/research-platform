@@ -224,6 +224,12 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "documents:attachment-edit-in-google"): "401 404 2 2 2 2 403 404 403",  # B3
     ("POST",   "documents:project-drive-export"): "401 404 2 2 2 403 403 404 403",  # stats to Drive
     ("POST",   "documents:document-move"): "401 404 2 2 2 2 403 404 403",
+    # Start here (D346): anyone in the lab reads the list; pinning for everyone needs
+    # edit_project on the document's project (its lead, a PI or lab admin)
+    ("GET",    "documents:start-here"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "documents:document-pin"): "401 404 2 2 2 403 403 404 403",
+    ("PATCH",  "documents:document-pin"): "401 404 2 2 2 403 403 404 403",
+    ("DELETE", "documents:document-pin"): "401 404 2 2 2 403 403 404 403",
     # Handover: a new owner for a document needs manage_project_members on its project (D251)
     # document-owner: the matrix document is the PI's, so a lead is refused (403)
     ("POST",   "documents:document-owner"): "401 404 2 2 403 403 403 404 403",
@@ -481,6 +487,9 @@ MATRIX: dict[tuple[str, str], str] = {
     ("PATCH",  "labs:onboarding-detail"): "401 404 2 2 403 403 403 403 403",
     ("DELETE", "labs:onboarding-detail"): "401 404 2 2 403 403 403 403 403",
     ("POST",   "labs:onboarding-completion"): "401 404 2 2 403 403 403 403 403",
+    # your own checklist and your own ticks: any member (D346)
+    ("GET",    "labs:my-onboarding"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "labs:my-onboarding-tick"): "401 404 2 2 2 2 2 2 2",
     ("GET",    "labs:inventory-list"): "401 404 2 2 2 2 2 2 2",
     ("POST",   "labs:inventory-list"): "401 404 2 2 2 2 2 2 403",
     ("GET",    "labs:inventory-export"): "401 404 2 2 2 2 2 2 2",
@@ -1543,6 +1552,8 @@ PAYLOADS = {
         "acknowledged_notice": "true",
     },
     ("POST", "documents:document-move"): lambda user, w: {"folder": None},
+    ("POST", "documents:document-pin"): lambda user, w: {},
+    ("PATCH", "documents:document-pin"): lambda user, w: {"direction": "down"},
     ("POST", "documents:document-owner"): lambda user, w: {"owner": str(w.user_ids["contrib"])},
     ("POST", "documents:attachment-move"): lambda user, w: {"folder": None},
     ("POST", "documents:project-drive-export"): lambda user, w: {
@@ -1723,6 +1734,7 @@ PAYLOADS = {
     ("PATCH", "labs:resource-detail"): lambda user, w: {"title": "Edited resource"},
     ("POST", "labs:onboarding-list"): lambda user, w: {"kind": "new_member", "title": "New item"},
     ("PATCH", "labs:onboarding-detail"): lambda user, w: {"required": False},
+    ("POST", "labs:my-onboarding-tick"): lambda user, w: {"done": True},
     ("POST", "labs:onboarding-completion"): lambda user, w: {
         "user": str(w.user_ids["contrib"]),
         "done": True,

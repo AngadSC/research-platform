@@ -38,6 +38,8 @@ class AuditAction(models.TextChoices):
     DOCUMENT_RESTORED = "document.restored"
     DOCUMENT_DELETED = "document.deleted"
     DOCUMENT_OWNER_CHANGED = "document.owner_changed"
+    DOCUMENT_PINNED = "document.pinned"  # pinned for everyone (Start here)
+    DOCUMENT_UNPINNED = "document.unpinned"
     ATTACHMENT_UPLOADED = "attachment.uploaded"
     ATTACHMENT_DOWNLOADED = "attachment.downloaded"
     ATTACHMENT_DELETED = "attachment.deleted"
