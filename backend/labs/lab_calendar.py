@@ -75,6 +75,9 @@ class CalendarItemSerializer(serializers.Serializer):
         allow_null=True, help_text="Meetings with a call: only this person may change it (D254)."
     )
     attendees = serializers.ListField(child=serializers.UUIDField())
+    organiser = serializers.UUIDField(
+        allow_null=True, help_text="Meetings: who added it. Only they or a lab admin may change it."
+    )
 
 
 class LabEventSerializer(serializers.ModelSerializer):
@@ -235,6 +238,7 @@ def _item(
         "video_provider": "",
         "call_owner": None,
         "attendees": attendees,
+        "organiser": None,
     }
 
 
@@ -251,7 +255,9 @@ def _meeting_item(m):
         join_url=m.join_url,
         attendees=[u.pk for u in m.attendees.all()],
     )
-    item.update(video_provider=m.video_provider, call_owner=_call_owner(m))
+    item.update(
+        video_provider=m.video_provider, call_owner=_call_owner(m), organiser=m.created_by_id
+    )
     return item
 
 
@@ -400,7 +406,8 @@ class MeetingCreateView(MeetingMixin, generics.GenericAPIView):
 
 
 class MeetingDetailView(MeetingMixin, generics.GenericAPIView):
-    """Anyone on the meeting who may add lab content can change it; it is a 404 for anyone else."""
+    """Its organiser or a lab admin on it may change it (`can_change_meeting`); everyone else on
+    it gets a 403, and anyone not on it a 404."""
 
     lookup_url_kwarg = "meeting_id"
     perms = {"PATCH": Perm.CONTRIBUTE_LAB, "DELETE": Perm.CONTRIBUTE_LAB}

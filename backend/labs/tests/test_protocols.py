@@ -226,6 +226,32 @@ def test_an_item_a_protocol_uses_cannot_be_deleted(world):
     assert InventoryItem.objects.for_lab(lab).filter(pk=item.pk).exists()
 
 
+def test_an_item_whose_uses_were_all_undone_can_be_deleted(world):
+    lab, pi, member, _, item = world
+    detail = reverse(
+        "labs:inventory-detail", kwargs={"lab_id": lab.pk, "inventoryitem_id": item.pk}
+    )
+
+    def log_use():
+        body = {"amount": "1", "unit": "mL", "request_id": str(uuid.uuid4())}
+        return api(member).post(_item_use_url(world), body, "json").json()["id"]
+
+    undone, kept = log_use(), log_use()
+    undo = reverse(
+        "labs:inventory-item-usage-reverse", kwargs={"lab_id": lab.pk, "itemusage_id": undone}
+    )
+    assert api(member).post(undo).status_code == 200
+    assert api(pi).delete(detail).status_code == 409  # one real use is still on record
+    undo_kept = reverse(
+        "labs:inventory-item-usage-reverse", kwargs={"lab_id": lab.pk, "itemusage_id": kept}
+    )
+    assert api(member).post(undo_kept).status_code == 200
+    assert api(pi).delete(detail).status_code == 204
+    assert not InventoryItem.objects.for_lab(lab).filter(pk=item.pk).exists()
+    assert not InventoryUsage.objects.for_lab(lab).exists()
+    assert AuditEvent.objects.filter(action="inventory.used").count() == 2  # history stays
+
+
 def test_turning_inventory_off_blocks_every_inventory_endpoint(world):
     lab, pi, _, project, item = world
     make_protocol(world)

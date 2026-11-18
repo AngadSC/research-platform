@@ -166,6 +166,7 @@ class NotificationKind(models.TextChoices):
     DOCUMENT_OWNER = "document_owner"
     DATASET_CONTROLLER = "dataset_controller"  # a dataset handed to you
     LOW_STOCK = "low_stock"  # D331: an inventory item fell to its alert level
+    MEETING_INVITE = "meeting_invite"  # someone put you on a meeting
 
 
 class Notification(LabScopedModel):

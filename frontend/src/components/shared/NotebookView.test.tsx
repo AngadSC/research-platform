@@ -65,6 +65,22 @@ describe("NotebookView", () => {
     ]);
   });
 
+  it("asks before deleting an entry, naming it", async () => {
+    const calls = mockFetch({
+      [SESSION]: signedIn,
+      "GET /api/labs/lab1/notebook/": { body: [entry()] },
+      "DELETE /api/labs/lab1/notebook/e1/": { status: 204 },
+    });
+    show();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Delete Western blot, day 1" }),
+    );
+    expect(await screen.findByText("Delete Western blot, day 1?")).toBeInTheDocument();
+    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+    await userEvent.click(screen.getByRole("button", { name: "Delete entry" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "DELETE")).toBe(true));
+  });
+
   it("adds an entry", async () => {
     const calls = mockFetch({
       [SESSION]: signedIn,

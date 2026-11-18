@@ -49,6 +49,17 @@ def test_any_lab_member_reads_even_without_a_project(world):
     assert rows[0]["project"] is None
 
 
+def test_creating_a_lab_document_is_audited(world):
+    lab, _, people, _ = world
+    body = {"title": "Safety rules", "content": []}
+    response = client(people["member"]).post(f"/api/labs/{lab.pk}/lab-documents/", body, "json")
+    assert response.status_code == 201
+    event = AuditEvent.objects.get(
+        action=AuditAction.DOCUMENT_CREATED, target_id=response.json()["id"]
+    )
+    assert (event.lab, event.actor, event.target_repr) == (lab, people["member"], "Safety rules")
+
+
 def test_another_labs_document_is_a_404(world):
     lab, other, people, doc = world
     assert client(people["outsider"]).get(url(lab, doc)).status_code == 404

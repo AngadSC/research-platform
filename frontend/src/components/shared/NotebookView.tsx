@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { ConfirmDelete } from "@/components/shared/ConfirmDelete";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
@@ -339,6 +340,7 @@ export function NotebookView({
 }) {
   const nb = useNotebook(labId, projectId);
   const [editing, setEditing] = useState<NotebookEntry | null>(null);
+  const [deleting, setDeleting] = useState<NotebookEntry | null>(null);
   const [adding, setAdding] = useState(false);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -485,13 +487,7 @@ export function NotebookView({
                       size="sm"
                       aria-label={`Delete ${e.title}`}
                       className="text-danger-text hover:bg-danger/10 hover:text-danger-text"
-                      onClick={() => {
-                        if (window.confirm("Delete this entry?"))
-                          nb.remove.mutate(e.id, {
-                            onSuccess: () => toast.success("Deleted"),
-                            onError: fail,
-                          });
-                      }}
+                      onClick={() => setDeleting(e)}
                     >
                       <Trash2 aria-hidden /> Delete
                     </Button>
@@ -539,6 +535,24 @@ export function NotebookView({
           }}
         />
       )}
+      <ConfirmDelete
+        open={!!deleting}
+        name={deleting?.title ?? ""}
+        noun="entry"
+        description="The entry is removed from the notebook."
+        pending={nb.remove.isPending}
+        onClose={() => setDeleting(null)}
+        onConfirm={() =>
+          deleting &&
+          nb.remove.mutate(deleting.id, {
+            onSuccess: () => {
+              toast.success("Deleted");
+              setDeleting(null);
+            },
+            onError: fail,
+          })
+        }
+      />
     </div>
   );
 }

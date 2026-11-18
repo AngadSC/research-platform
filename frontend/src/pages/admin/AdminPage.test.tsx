@@ -124,6 +124,11 @@ describe("admin area", () => {
       done: true,
     });
     expect(screen.getByRole("link", { name: /Handover for Bob/ })).toBeInTheDocument();
+    // deleting an item asks first
+    await userEvent.click(screen.getByRole("button", { name: "Delete Read the data policy" }));
+    expect(await screen.findByText("Delete Read the data policy?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete item" })).toBeInTheDocument();
+    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
   });
 
   it("lets a member edit inventory but a viewer only read it", async () => {

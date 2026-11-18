@@ -62,8 +62,43 @@ describe("audit log", () => {
     const row = screen.getByText("Added an institution resource").closest("tr")!;
     expect(row).toHaveTextContent("—");
     await userEvent.click(screen.getByText("Added an institution resource"));
-    expect(await screen.findByText("Target type")).toBeInTheDocument();
+    expect(await screen.findByText("Invite")).toBeInTheDocument(); // the target's kind
     expect(screen.queryByText(/institution_resource/)).not.toBeInTheDocument();
+  });
+
+  it("names the target's kind and shows amounts in words, without ids", async () => {
+    mockFetch({
+      ...base(["view_audit_log"]),
+      [EVENTS]: {
+        body: {
+          next: null,
+          results: [
+            {
+              ...ev(1),
+              action: "inventory.used",
+              target_type: "labs.InventoryItem",
+              target_label: "Ethanol 70%",
+              metadata: {
+                amount: "8.000000",
+                unit: "bottles",
+                deducted: "8.000000",
+                usage: "f7a0464b-0e94-4f8b-8b8f-0c40db095284",
+                changed: ["quantity", "low_stock_at"],
+              },
+            },
+          ],
+        },
+      },
+    });
+    renderRoute("/labs/lab1/audit-log");
+    await userEvent.click(await screen.findByText("Took stock from an inventory item"));
+    const panel = await screen.findByRole("dialog");
+    expect(panel).toHaveTextContent("Inventory itemEthanol 70%");
+    expect(panel).toHaveTextContent("Amount8 bottles");
+    expect(panel).toHaveTextContent("Changedquantity, low stock at");
+    expect(panel).not.toHaveTextContent("Labs.InventoryItem");
+    expect(panel).not.toHaveTextContent("f7a0464b");
+    expect(panel).not.toHaveTextContent("Deducted");
   });
 
   it("names old membership targets by role instead of showing their id", async () => {

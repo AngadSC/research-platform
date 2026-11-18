@@ -125,6 +125,29 @@ describe("My training", () => {
     );
   });
 
+  it("asks before deleting a record, and a verified one can't be deleted here", async () => {
+    const calls = mockFetch(
+      handlers({ "DELETE /api/labs/lab1/training/records/rec1/": { status: 204 } }),
+    );
+    renderRoute("/labs/lab1/training");
+    await userEvent.click(await screen.findByRole("button", { name: "Delete WHMIS record" }));
+    expect(await screen.findByText("Delete your WHMIS record?")).toBeInTheDocument();
+    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+    await userEvent.click(screen.getByRole("button", { name: "Delete record" }));
+    await expect.poll(() => calls.some((c) => c.method === "DELETE")).toBe(true);
+  });
+
+  it("keeps Delete off a record a PI verified", async () => {
+    const verified = {
+      ...record,
+      verified_at: "2030-01-02T00:00:00Z",
+      verified_by: user("u9", "Pi"),
+    };
+    mockFetch(handlers({ "GET /api/labs/lab1/training/records/": { body: [verified] } }));
+    renderRoute("/labs/lab1/training");
+    expect(await screen.findByRole("button", { name: "Delete WHMIS record" })).toBeDisabled();
+  });
+
   it("adds the lab-wide section for a manager only", async () => {
     const manager = makeLab(["view_lab", "manage_lab", "manage_training"]);
     const calls = mockFetch(

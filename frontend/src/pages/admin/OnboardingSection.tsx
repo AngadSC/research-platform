@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
+import { ConfirmDelete } from "@/components/shared/ConfirmDelete";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ export function OnboardingSection({ labId }: { labId: string }) {
   const trainings = useTrainingRequirements(labId).data ?? [];
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
   const [who, setWho] = useState("");
+  const [deleting, setDeleting] = useState<OnboardingItem | null>(null);
   const person = who || members[0]?.user.id || "";
   const items = list.data ?? [];
   const member = members.find((m) => m.user.id === person);
@@ -130,9 +132,7 @@ export function OnboardingSection({ labId }: { labId: string }) {
                   variant="ghost"
                   size="sm"
                   aria-label={`Delete ${i.title}`}
-                  onClick={() =>
-                    remove.mutate(i.id, { onError: () => toast.error("Could not delete.") })
-                  }
+                  onClick={() => setDeleting(i)}
                 >
                   Delete
                 </Button>
@@ -205,6 +205,21 @@ export function OnboardingSection({ labId }: { labId: string }) {
           Add item
         </Button>
       </form>
+      <ConfirmDelete
+        open={!!deleting}
+        name={deleting?.title ?? ""}
+        noun="item"
+        description="It comes off the checklist for everyone, along with who has ticked it."
+        pending={remove.isPending}
+        onClose={() => setDeleting(null)}
+        onConfirm={() =>
+          deleting &&
+          remove.mutate(deleting.id, {
+            onSuccess: () => setDeleting(null),
+            onError: () => toast.error("Could not delete."),
+          })
+        }
+      />
     </Section>
   );
 }

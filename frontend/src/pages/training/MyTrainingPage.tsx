@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { useParams } from "react-router";
 import { toast } from "sonner";
 import { StatusPill } from "@/components/training/ComplianceMatrix";
+import { ConfirmDelete } from "@/components/shared/ConfirmDelete";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
@@ -25,6 +26,7 @@ import { useLab } from "@/hooks/workspace";
 import { GraduationCap } from "lucide-react";
 import { DriveLogo, FromDriveButton } from "@/components/shared/FromDriveButton";
 import { attachFromDrive, type PickedFile } from "@/lib/drive";
+import type { TrainingRecord } from "@/lib/api-types";
 
 /** Training: what the lab requires of me, where I stand, and a way to log a completion. */
 export function MyTrainingPage() {
@@ -37,6 +39,7 @@ export function MyTrainingPage() {
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
   const fileRef = useRef<HTMLInputElement>(null);
   const [driveCert, setDriveCert] = useState<PickedFile | null>(null);
+  const [deleting, setDeleting] = useState<TrainingRecord | null>(null);
   const row = mine.data?.members[0];
   const records = all.filter((r) => r.user.id === row?.user.id); // managers receive everyone's
   const required = mine.data?.requirements.filter((r) => row?.cells[r.id]) ?? [];
@@ -225,9 +228,7 @@ export function MyTrainingPage() {
                     size="sm"
                     aria-label={`Delete ${r.requirement_name} record`}
                     disabled={!!r.verified_at}
-                    onClick={() =>
-                      removeRecord.mutate(r.id, { onError: () => toast.error("Could not delete.") })
-                    }
+                    onClick={() => setDeleting(r)}
                   >
                     Delete
                   </Button>
@@ -237,6 +238,21 @@ export function MyTrainingPage() {
           )}
         </Section>
       </div>
+      <ConfirmDelete
+        open={!!deleting}
+        name={`your ${deleting?.requirement_name ?? ""} record`}
+        noun="record"
+        description="It no longer counts towards your training."
+        pending={removeRecord.isPending}
+        onClose={() => setDeleting(null)}
+        onConfirm={() =>
+          deleting &&
+          removeRecord.mutate(deleting.id, {
+            onSuccess: () => setDeleting(null),
+            onError: () => toast.error("Could not delete."),
+          })
+        }
+      />
     </>
   );
 }

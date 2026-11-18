@@ -2,17 +2,19 @@
 
 import csv
 import io
+import uuid
 
 from django.db import DataError, IntegrityError, transaction
 from django.db.models import F, ProtectedError
 from django.utils import timezone
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from audit.models import AuditAction as A
 from audit.services import record
 from core.institution_starters import NATIONAL_RESOURCES, STARTER_RESOURCES, match_institution
-from core.models import Institution, User
-from core.permissions import calendar_feeds_of
+from core.models import Institution, NotificationKind, User
+from core.notifications import notify
+from core.permissions import calendar_feeds_of, can_change_meeting
 from documents.services import Conflict
 from labs import low_stock
 from labs.admin_serializers import InventoryInputSerializer
@@ -21,6 +23,7 @@ from labs.models import (
     InstitutionResource,
     InventoryItem,
     InventoryOrder,
+    InventoryUsage,
     LabEvent,
     LabMembership,
     Meeting,
@@ -263,8 +266,13 @@ def update_inventory_item(obj, *, user, data, request=None):
 
 @transaction.atomic
 def delete_inventory_item(obj, *, user, request=None):
+    """Uses that were all undone took nothing, so they go with the item (their audit events stay).
+    A live use, or one recorded meanwhile, still blocks it through PROTECT."""
     try:
         with transaction.atomic():
+            InventoryUsage.objects.for_lab(obj.lab_id).filter(
+                item=obj, reversed_at__isnull=False
+            ).delete()
             _delete(obj, A.INVENTORY_ITEM_DELETED, user=user, request=request)
     except ProtectedError as exc:
         raise Conflict(
@@ -435,14 +443,55 @@ def update_inventory_order(order, *, user, data, request=None):
     order = InventoryOrder.objects.for_lab(order.lab_id).select_for_update().get(pk=order.pk)
     data = _with_item(order.lab, data)
     was_received = order.status == OrderStatus.RECEIVED
-    if was_received and any(k != "notes" and getattr(order, k) != v for k, v in data.items()):
+    cancelling = was_received and data.get("status") == OrderStatus.CANCELLED
+    frozen = [k for k, v in data.items() if k not in ("notes", "status") and getattr(order, k) != v]
+    if was_received and (frozen or data.get("status", order.status) not in _AFTER_RECEIVED):
         raise ValidationError(
-            {"status": "This order was received and added to stock; only its notes can change."}
+            {
+                "status": "This order was received and added to stock; only its notes can change, "
+                "or it can be cancelled."
+            }
         )
     order = _update(order, A.INVENTORY_ORDER_UPDATED, user=user, data=data, request=request)
     if order.status == OrderStatus.RECEIVED and not was_received:
         _add_to_stock(order, user=user, request=request)
+    if cancelling:
+        _take_from_stock(order, user=user, request=request)
     return order
+
+
+_AFTER_RECEIVED = (OrderStatus.RECEIVED, OrderStatus.CANCELLED)
+
+
+def _take_from_stock(order, *, user, request):
+    """Cancelling a received order (D217: never deleted) takes back what receiving it added,
+    under the same row lock, and only if that much is still in stock."""
+    if order.item_id is None:
+        return
+    items = InventoryItem.objects.for_lab(order.lab_id).filter(pk=order.item_id)
+    if not items.filter(quantity__gte=order.quantity).update(
+        quantity=F("quantity") - order.quantity, updated_at=timezone.now()
+    ):
+        item = items.first()
+        raise ValidationError(
+            {
+                "status": f"Only {item.quantity.normalize():f} {item.unit} of {item.name} is "
+                f"left, so this order's {order.quantity.normalize():f} {order.unit} can't be "
+                "taken back out. Correct the item's quantity first. Nothing was changed."
+            }
+        )
+    record(
+        A.INVENTORY_ITEM_UPDATED,
+        actor=user,
+        lab=order.lab,
+        target=order.item,
+        request=request,
+        metadata={
+            "changed": ["quantity"],
+            "order": str(order.pk),
+            "removed": str(order.quantity),
+        },
+    )
 
 
 # ---------------------------------------------------------------- calendar events
@@ -485,12 +534,30 @@ def _check_meeting_times(starts_at, ends_at):
         raise ValidationError({"ends_at": "The meeting must end after it starts."})
 
 
-def _set_attendees(meeting, ids):
+def _set_attendees(meeting, ids, *, by):
     wanted = set(ids)
     members = LabMembership.objects.for_lab(meeting.lab_id).filter(user_id__in=wanted)
     if members.count() != len(wanted):
         raise ValidationError({"attendees": "Everyone on a meeting must be a member of the lab."})
+    before = set(meeting.attendees.values_list("pk", flat=True))
     meeting.attendees.set(wanted | {meeting.created_by_id})
+    name = by.display_name or by.email
+    for user in User.objects.filter(pk__in=wanted - before - {by.pk}, is_active=True):
+        notify(  # in-app only: MEETING_INVITE is not an email kind
+            lab=meeting.lab,
+            recipient=user,
+            kind=NotificationKind.MEETING_INVITE,
+            title=f"{name} added you to a meeting: {meeting.title}",
+            target=meeting,
+            dedupe_key=f"meeting_invite:{meeting.pk}:{uuid.uuid4()}",
+        )
+
+
+def _check_can_change_meeting(meeting, user):
+    if not can_change_meeting(user, meeting):
+        raise PermissionDenied(
+            "Only the person who added this meeting or a lab admin can change it."
+        )
 
 
 def _attendee_emails(lab, ids) -> set[str]:
@@ -527,7 +594,7 @@ def create_meeting(*, lab, user, data, request=None):
             data={**fields, "created_by": user},
             request=request,
         )
-        _set_attendees(meeting, data.get("attendees", []))
+        _set_attendees(meeting, data.get("attendees", []), by=user)
     except Exception:
         if video:
             video_calendar.delete_call(draft, quiet=True)
@@ -539,6 +606,7 @@ def create_meeting(*, lab, user, data, request=None):
 def update_meeting(obj, *, user, data, request=None):
     from labs import video_calendar
 
+    _check_can_change_meeting(obj, user)
     video_calendar.check_can_change(obj, user)
     data = {k: v for k, v in data.items() if k != "video"}  # a call is chosen when made
     if obj.video_provider and "join_url" in data:
@@ -549,7 +617,7 @@ def update_meeting(obj, *, user, data, request=None):
             setattr(obj, key, value)
     _save(obj)
     if "attendees" in data:
-        _set_attendees(obj, data["attendees"])
+        _set_attendees(obj, data["attendees"], by=user)
     if obj.video_provider and data.keys() & {"title", "starts_at", "ends_at", "attendees"}:
         ids = obj.attendees.values_list("pk", flat=True)
         video_calendar.update_call(obj, _attendee_emails(obj.lab, ids))  # raises: rolled back
@@ -568,6 +636,7 @@ def update_meeting(obj, *, user, data, request=None):
 def delete_meeting(obj, *, user, request=None):
     from labs import video_calendar
 
+    _check_can_change_meeting(obj, user)
     video_calendar.check_can_change(obj, user)
     video_calendar.delete_call(obj)  # Google or Zoom first: a refusal keeps the meeting here
     _delete(obj, A.MEETING_DELETED, user=user, request=request)

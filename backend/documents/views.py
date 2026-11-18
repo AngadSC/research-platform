@@ -118,7 +118,7 @@ class DocumentListCreateView(DocumentMixin, generics.GenericAPIView):
         data = dict(ser.validated_data)
         folder = self.resolve_folder(data.pop("folder", None))
         doc = services.create_document(
-            project=self.project, user=request.user, folder=folder, **data
+            project=self.project, user=request.user, folder=folder, request=request, **data
         )
         return Response(DocumentSerializer(doc).data, status=status.HTTP_201_CREATED)
 
@@ -147,7 +147,7 @@ class LabDocumentListCreateView(LabScopedViewMixin, generics.GenericAPIView):
         ser.is_valid(raise_exception=True)
         data = dict(ser.validated_data)
         data.pop("folder", None)  # folders belong to a project
-        doc = services.create_document(lab=request.lab, user=request.user, **data)
+        doc = services.create_document(lab=request.lab, user=request.user, request=request, **data)
         return Response(DocumentSerializer(doc).data, status=status.HTTP_201_CREATED)
 
 

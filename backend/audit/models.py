@@ -32,6 +32,7 @@ class AuditAction(models.TextChoices):
     PROJECT_ARCHIVED = "project.archived"
     PROJECT_DELETED = "project.deleted"
     PROJECT_EXPORTED = "project.exported"
+    DOCUMENT_CREATED = "document.created"
     DOCUMENT_VIEWED = "document.viewed"
     DOCUMENT_RESTORED = "document.restored"
     DOCUMENT_DELETED = "document.deleted"

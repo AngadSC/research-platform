@@ -273,6 +273,44 @@ def test_a_received_order_is_frozen_except_notes(world, stocked):
     assert client.patch(target, {"notes": "Arrived damp"}, "json").status_code == 200
 
 
+def test_cancelling_a_received_order_takes_its_stock_back_out(world, stocked):
+    lab, u, *_ = world
+    order = order_of(lab, u["member"], stocked)
+    target = url(lab, f"inventory/orders/{order.pk}/")
+    assert api(u["member"]).patch(target, {"status": "received"}, "json").status_code == 200
+    assert quantity(stocked) == 8
+    assert api(u["viewer"]).patch(target, {"status": "cancelled"}, "json").status_code == 403
+    r = api(u["member"]).patch(target, {"status": "cancelled"}, "json")
+    assert r.status_code == 200 and r.json()["status"] == "cancelled"
+    assert quantity(stocked) == 5
+    event = AuditEvent.objects.filter(action=AuditAction.INVENTORY_ITEM_UPDATED).latest(
+        "occurred_at"
+    )
+    assert event.metadata["removed"] == "3.00"
+    assert AuditEvent.objects.filter(action=AuditAction.INVENTORY_ORDER_UPDATED).count() == 2
+    # a repeat changes nothing
+    assert api(u["member"]).patch(target, {"status": "cancelled"}, "json").status_code == 200
+    assert quantity(stocked) == 5
+
+
+def test_a_received_order_whose_stock_was_used_cannot_be_cancelled(world, stocked):
+    lab, u, *_ = world
+    order = order_of(lab, u["member"], stocked, status="received")  # never added: 5 in stock
+    InventoryItem.objects.for_lab(lab).filter(pk=stocked.pk).update(quantity=2)
+    target = url(lab, f"inventory/orders/{order.pk}/")
+    r = api(u["member"]).patch(target, {"status": "cancelled"}, "json")
+    assert r.status_code == 400 and "can't be taken back out" in str(r.json())
+    assert quantity(stocked) == 2
+    assert InventoryOrder.objects.for_lab(lab).get(pk=order.pk).status == "received"
+
+
+def test_cancelling_a_received_order_with_no_item_changes_only_its_status(world):
+    lab, u, *_ = world
+    order = order_of(lab, u["member"], status="received")
+    target = url(lab, f"inventory/orders/{order.pk}/")
+    assert api(u["member"]).patch(target, {"status": "cancelled"}, "json").status_code == 200
+
+
 def test_creating_an_order_as_received_adds_to_stock(world, stocked):
     lab, u, *_ = world
     body = {"name": "Tips", "quantity": "2", "status": "received", "item": str(stocked.pk)}

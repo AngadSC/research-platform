@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 
 import pytest
+from django.core import mail
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -14,7 +15,8 @@ from rest_framework.test import APIClient
 from assistant.services import revoke_all
 from assistant.tests.reauth import sign_in
 from audit.models import AuditAction, AuditEvent
-from core.models import User
+from core.models import Notification, NotificationKind, User
+from core.notifications import notification_url, visible_notifications
 from ethics.models import EthicsApproval
 from labs import lab_calendar
 from labs.models import CalendarFeedToken, LabMembership, LabRole, Meeting, hash_token
@@ -114,6 +116,61 @@ def test_someone_not_on_a_meeting_gets_404_to_change_it(world):
     meeting = make_meeting(lab, u["member"])
     target = url(lab, f"calendar/meetings/{meeting.pk}/")
     assert api(u["pi"]).patch(target, {"notes": "x"}, "json").status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("organiser", "editor", "allowed"),
+    [
+        ("member", "member", True),  # the organiser
+        ("member", "pi", True),  # a PI on it
+        ("member", "admin", True),  # a lab admin on it
+        ("pi", "member", False),  # another member on it: read only
+        ("member", "viewer", False),
+    ],
+)
+def test_only_the_organiser_or_a_lab_admin_changes_a_meeting(
+    world, make_user, join, organiser, editor, allowed
+):
+    lab, u, *_ = world
+    u["admin"] = make_user()
+    join(u["admin"], lab, LabRole.LAB_ADMIN)
+    meeting = make_meeting(lab, u[organiser], *(p for n, p in u.items() if n != organiser))
+    target = url(lab, f"calendar/meetings/{meeting.pk}/")
+    client = api(u[editor])
+    assert client.patch(target, {"notes": "x"}, "json").status_code == (200 if allowed else 403)
+    assert client.delete(target).status_code == (204 if allowed else 403)
+    assert Meeting.objects.for_lab(lab).filter(pk=meeting.pk).exists() is not allowed
+    if not allowed:
+        assert not AuditEvent.objects.filter(action=AuditAction.MEETING_UPDATED).exists()
+
+
+def test_the_calendar_names_a_meetings_organiser(world):
+    lab, u, *_ = world
+    make_meeting(lab, u["member"], u["viewer"])
+    [item] = [i for i in calendar(u["viewer"], lab) if i["kind"] == "meeting"]
+    assert item["organiser"] == str(u["member"].pk)
+
+
+def test_people_added_to_a_meeting_are_told_in_the_app(world, make_user, join):
+    lab, u, *_ = world
+    client = api(u["member"])
+    body = meeting_body(attendees=[str(u["viewer"].pk), str(u["member"].pk)])
+    meeting_id = client.post(url(lab, "calendar/meetings/"), body, "json").json()["id"]
+    [notice] = Notification.objects.for_lab(lab).filter(kind=NotificationKind.MEETING_INVITE)
+    assert notice.recipient == u["viewer"]  # never the organiser themself
+    assert notice.title.endswith("added you to a meeting: Group meeting")
+    assert notification_url(notice, u["viewer"]).endswith("/calendar?view=mine-agenda")
+    # adding the PI later tells only the PI; nothing is emailed
+    target = url(lab, f"calendar/meetings/{meeting_id}/")
+    everyone = [str(u[n].pk) for n in ("member", "viewer", "pi")]
+    assert client.patch(target, {"attendees": everyone}, "json").status_code == 200
+    assert Notification.objects.for_lab(lab).filter(recipient=u["pi"]).count() == 1
+    assert Notification.objects.for_lab(lab).filter(recipient=u["viewer"]).count() == 1
+    assert mail.outbox == []
+    # taken off the meeting again: the notice no longer shows
+    assert client.patch(target, {"attendees": []}, "json").status_code == 200
+    pi_notices = Notification.objects.for_lab(lab).filter(recipient=u["pi"])
+    assert visible_notifications(u["pi"], lab, pi_notices) == []
 
 
 @pytest.mark.parametrize(

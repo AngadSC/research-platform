@@ -47,6 +47,7 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "project.archived": "Archived a project",
   "project.deleted": "Deleted a project",
   "project.exported": "Exported a project",
+  "document.created": "Created a document",
   "document.viewed": "Viewed a document",
   "document.restored": "Restored a document",
   "document.deleted": "Deleted a document",
@@ -201,7 +202,34 @@ const humanKey = (k: string) => k.replace(/_/g, " ").replace(/^./, (c) => c.toUp
 const actionLabel = (a: string) =>
   ACTIONS[a as AuditEvent["action"]] ?? humanKey(a.replace(".", " "));
 const who = (e: AuditEvent) => e.actor?.display_name || e.actor?.email || "System";
-const show = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v));
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isId = (v: unknown): boolean =>
+  (typeof v === "string" && UUID.test(v)) || (Array.isArray(v) && v.length > 0 && v.every(isId));
+/** "labs.InventoryItem" reads "Inventory item". */
+const typeWord = (t: string) =>
+  humanKey((t.split(".").pop() ?? t).replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase());
+/** "8.000000" reads "8"; lists read as words. */
+const show = (v: unknown): string => {
+  if (typeof v === "string") return /^-?\d+\.\d+$/.test(v) ? String(Number(v)) : v;
+  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (Array.isArray(v))
+    return v.map((x) => (typeof x === "string" ? x.replace(/_/g, " ") : show(x))).join(", ");
+  return JSON.stringify(v);
+};
+
+/** The event's details as a reader wants them: ids left out (the target already names the
+ * thing), an amount with its unit, and what left the item only when it differs from that. */
+function details(meta: Record<string, unknown>): [string, string][] {
+  const unit = typeof meta.unit === "string" && "amount" in meta ? meta.unit : "";
+  return Object.entries(meta)
+    .filter(
+      ([k, v]) => !isId(v) && !(k === "unit" && unit) && !(k === "deducted" && v === meta.amount),
+    )
+    .map(([k, v]) => [
+      k === "deducted" ? "Taken off the item" : humanKey(k),
+      k === "amount" && unit ? `${show(v)} ${unit}` : show(v),
+    ]);
+}
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -223,7 +251,10 @@ function When({ value }: { value: string }) {
 }
 
 function EventDetails({ e }: { e: AuditEvent }) {
-  const meta = e.metadata && typeof e.metadata === "object" ? Object.entries(e.metadata) : [];
+  const meta =
+    e.metadata && typeof e.metadata === "object" && !Array.isArray(e.metadata)
+      ? details(e.metadata as Record<string, unknown>)
+      : [];
   return (
     <dl className="grid gap-4 py-4">
       <Field label="When">
@@ -231,14 +262,15 @@ function EventDetails({ e }: { e: AuditEvent }) {
       </Field>
       <Field label="Who">{who(e)}</Field>
       <Field label="Action">{actionLabel(e.action)}</Field>
-      <Field label="Target">{cleanTarget(e.target_label)}</Field>
-      {e.target_type && <Field label="Target type">{humanKey(e.target_type)}</Field>}
+      <Field label={e.target_type ? typeWord(e.target_type) : "Target"}>
+        {cleanTarget(e.target_label)}
+      </Field>
       {meta.length > 0 && (
         <Field label="Details">
           <dl className="grid gap-2 rounded-md border p-3">
             {meta.map(([k, v]) => (
-              <Field key={k} label={humanKey(k)}>
-                {show(v)}
+              <Field key={k} label={k}>
+                {v}
               </Field>
             ))}
           </dl>

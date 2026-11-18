@@ -217,6 +217,15 @@ def can_reverse_usage(user, usage) -> bool:
     return usage.used_by_id == user.pk or can(user, Perm.EDIT_PROJECT, usage)
 
 
+def can_change_meeting(user, meeting) -> bool:
+    """Changing or deleting a meeting needs its organiser, or a PI or lab admin (`manage_lab`),
+    who can still add lab content. Everyone else on it reads it. Seeing it at all needs being on
+    it (D230), which the view's queryset checks first."""
+    if not can(user, Perm.CONTRIBUTE_LAB, meeting):
+        return False
+    return meeting.created_by_id == user.pk or can(user, Perm.MANAGE_LAB, meeting)
+
+
 def member_change_refusal(user, membership, new_role=None) -> str | None:
     """Why `user`, who holds manage_project_members, may not remove `membership` (`new_role`
     None) or change its role to `new_role`; None when they may. PIs and lab admins may change

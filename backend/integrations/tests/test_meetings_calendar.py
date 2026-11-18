@@ -273,10 +273,11 @@ def test_only_the_person_whose_account_holds_the_call_can_change_it(transport, l
         f"{zoom.API}/users/me/meetings",
         response(201, {"id": 1, "join_url": "https://zoom.us/j/1"}),
     )
-    body = meeting_body(video="zoom", attendees=[str(users["member"].pk)])
+    # a lab admin on the meeting could otherwise change it; the call still holds them back
+    body = meeting_body(video="zoom", attendees=[str(users["lab_admin"].pk)])
     meeting_id = api(users["pi"]).post(f"/api/labs/{lab.pk}/calendar/meetings/", body, "json")
     url = f"/api/labs/{lab.pk}/calendar/meetings/{meeting_id.json()['id']}/"
-    member = api(users["member"])
+    member = api(users["lab_admin"])
     assert member.patch(url, {"title": "Mine now"}, "json").status_code == 403
     assert member.delete(url).status_code == 403
     assert Meeting.objects.for_lab(lab).get().title == "Weekly sync"
@@ -292,12 +293,12 @@ def test_a_disconnected_organiser_leaves_a_plain_meeting(transport, lab_users):
     )
     r = api(users["pi"]).post(
         f"/api/labs/{lab.pk}/calendar/meetings/",
-        meeting_body(video="zoom", attendees=[str(users["member"].pk)]),
+        meeting_body(video="zoom", attendees=[str(users["lab_admin"].pk)]),
         "json",
     )
     ConnectedAccount.objects.for_lab(lab).filter(pk=account.pk).update(status=AccountStatus.REVOKED)
     url = f"/api/labs/{lab.pk}/calendar/meetings/{r.json()['id']}/"
-    assert api(users["member"]).patch(url, {"title": "Ours"}, "json").status_code == 200
+    assert api(users["lab_admin"]).patch(url, {"title": "Ours"}, "json").status_code == 200
     assert transport.sent("PATCH", f"{zoom.API}/meetings/1") == []
 
 

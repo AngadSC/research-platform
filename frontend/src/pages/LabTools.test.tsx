@@ -149,6 +149,78 @@ describe("meetings and my work", () => {
       .toBe(true);
   });
 
+  const people = ["u1", "u2", "u3"].map((id, i) => ({
+    id: `m${i}`,
+    role: "member",
+    user: { id, email: `${id}@uni.edu`, display_name: ["Ada", "Bob", "Cy"][i] },
+  }));
+  const meetingPage = (perms: string[], body: unknown[], extra: Record<string, unknown> = {}) =>
+    base(perms, {
+      [`GET ${L}/calendar/?${range}`]: { body },
+      [`GET ${L}/members/`]: { body: people },
+      "GET /api/me/": { body: { id: "u1", email: "u1@uni.edu" } },
+      [`GET ${L}/video-options/`]: {
+        body: {
+          google_meet: false,
+          zoom: false,
+          google_meet_available: false,
+          zoom_available: false,
+        },
+      },
+      ...extra,
+    });
+
+  it("shows someone else's meeting read only, with no Save or Delete", async () => {
+    const theirs = { ...meeting, organiser: "u2", attendees: ["u1", "u2"], notes: "Bring data" };
+    mockFetch(meetingPage(["view_lab", "contribute_lab"], [theirs]));
+    renderRoute("/labs/lab1/calendar");
+    await userEvent.click(await screen.findByRole("button", { name: /Thesis check-in/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      await within(dialog).findByText("Added by Bob. Only they or a lab admin can change it."),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText("Ada, Bob")).toBeInTheDocument();
+    expect(within(dialog).getByText("Bring data")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("lets a lab admin change a meeting someone else added", async () => {
+    const theirs = { ...meeting, organiser: "u2", attendees: ["u1", "u2"] };
+    mockFetch(meetingPage(["view_lab", "contribute_lab", "manage_lab"], [theirs]));
+    renderRoute("/labs/lab1/calendar");
+    await userEvent.click(await screen.findByRole("button", { name: /Thesis check-in/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByRole("button", { name: "Save" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Delete" })).toBeInTheDocument();
+  });
+
+  it("puts the whole lab on a new meeting in one tick", async () => {
+    const calls = mockFetch(
+      meetingPage(["view_lab", "contribute_lab"], [], {
+        [`POST ${L}/calendar/meetings/`]: { status: 201, body: meeting },
+      }),
+    );
+    renderRoute("/labs/lab1/calendar");
+    await userEvent.click(await screen.findByRole("button", { name: /Add meeting/ }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.type(within(dialog).getByLabelText("Title"), "Lab meeting");
+    const whole = await within(dialog).findByRole("checkbox", { name: "Whole lab" });
+    await userEvent.click(whole);
+    for (const name of ["Ada", "Bob", "Cy"])
+      expect(within(dialog).getByRole("checkbox", { name })).toBeChecked();
+    await userEvent.click(within(dialog).getByRole("checkbox", { name: "Cy" }));
+    expect(whole).not.toBeChecked();
+    await userEvent.click(whole);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await expect
+      .poll(
+        () => (calls.find((c) => c.method === "POST")?.body as { attendees?: string[] })?.attendees,
+      )
+      .toEqual(["u1", "u2", "u3"]);
+  });
+
   it("makes a secret link once and shows both calendar addresses", async () => {
     let active = false;
     mockFetch(
@@ -330,5 +402,24 @@ describe("orders", () => {
     await expect
       .poll(() => calls.find((c) => c.method === "PATCH")?.body)
       .toEqual({ status: "received" });
+  });
+
+  it("cancels a received order after saying what comes off the stock", async () => {
+    const received = { ...order, status: "received" };
+    const calls = mockFetch(
+      inventory(["view_lab", "manage_inventory"], {
+        [`GET ${L}/inventory/orders/`]: { body: [received] },
+        [`PATCH ${L}/inventory/orders/o1/`]: { body: { ...order, status: "cancelled" } },
+      }),
+    );
+    renderRoute("/labs/lab1/inventory");
+    await userEvent.click(await screen.findByRole("button", { name: "Cancel order: Tips" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("this takes 3 box back off Tips");
+    expect(calls.some((c) => c.method === "PATCH")).toBe(false);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel order" }));
+    await expect
+      .poll(() => calls.find((c) => c.method === "PATCH")?.body)
+      .toEqual({ status: "cancelled" });
   });
 });

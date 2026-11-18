@@ -1162,6 +1162,7 @@ paths:
           - project.archived
           - project.deleted
           - project.exported
+          - document.created
           - document.viewed
           - document.restored
           - document.deleted
@@ -1339,6 +1340,7 @@ paths:
           * `project.archived` - Project Archived
           * `project.deleted` - Project Deleted
           * `project.exported` - Project Exported
+          * `document.created` - Document Created
           * `document.viewed` - Document Viewed
           * `document.restored` - Document Restored
           * `document.deleted` - Document Deleted
@@ -1913,8 +1915,9 @@ paths:
   /api/labs/{lab_id}/calendar/meetings/{meeting_id}/:
     patch:
       operationId: labs_calendar_meetings_partial_update
-      description: Anyone on the meeting who may add lab content can change it; it
-        is a 404 for anyone else.
+      description: |-
+        Its organiser or a lab admin on it may change it (`can_change_meeting`); everyone else on
+        it gets a 403, and anyone not on it a 404.
       parameters:
       - in: path
         name: lab_id
@@ -1952,8 +1955,9 @@ paths:
           description: ''
     delete:
       operationId: labs_calendar_meetings_destroy
-      description: Anyone on the meeting who may add lab content can change it; it
-        is a 404 for anyone else.
+      description: |-
+        Its organiser or a lab admin on it may change it (`can_change_meeting`); everyone else on
+        it gets a 403, and anyone not on it a 404.
       parameters:
       - in: path
         name: lab_id
@@ -12405,6 +12409,7 @@ components:
       - project.archived
       - project.deleted
       - project.exported
+      - document.created
       - document.viewed
       - document.restored
       - document.deleted
@@ -12581,6 +12586,7 @@ components:
         * `project.archived` - Project Archived
         * `project.deleted` - Project Deleted
         * `project.exported` - Project Exported
+        * `document.created` - Document Created
         * `document.viewed` - Document Viewed
         * `document.restored` - Document Restored
         * `document.deleted` - Document Deleted
@@ -13297,6 +13303,12 @@ components:
           items:
             type: string
             format: uuid
+        organiser:
+          type: string
+          format: uuid
+          nullable: true
+          description: 'Meetings: who added it. Only they or a lab admin may change
+            it.'
       required:
       - attendees
       - call_owner
@@ -13308,6 +13320,7 @@ components:
       - join_url
       - kind
       - notes
+      - organiser
       - project_color
       - project_id
       - project_name
@@ -18176,6 +18189,7 @@ components:
       - document_owner
       - dataset_controller
       - low_stock
+      - meeting_invite
       type: string
       description: |-
         * `ethics_expiry` - Ethics Expiry
@@ -18194,6 +18208,7 @@ components:
         * `document_owner` - Document Owner
         * `dataset_controller` - Dataset Controller
         * `low_stock` - Low Stock
+        * `meeting_invite` - Meeting Invite
     NullEnum:
       enum:
       - null

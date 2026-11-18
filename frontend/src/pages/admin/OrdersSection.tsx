@@ -197,18 +197,23 @@ export function OrdersSection({
   const { list, create, update, refreshStock } = useOrders(labId);
   const [adding, setAdding] = useState(false);
   const [receiving, setReceiving] = useState<InventoryOrder>();
+  const [cancelling, setCancelling] = useState<InventoryOrder>();
   const orders = list.data ?? [];
 
   function setStatus(order: InventoryOrder, status: OrderStatus) {
+    const wasReceived = order.status === "received";
     update.mutate(
       { id: order.id, status },
       {
         onSuccess: () => {
-          toast.success("Order updated");
-          if (status === "received") void refreshStock();
+          toast.success(status === "cancelled" ? "Order cancelled" : "Order updated");
+          if (status === "received" || wasReceived) void refreshStock();
         },
         onError: (e) => toast.error(formErrors(e, []).form ?? "Could not update the order."),
-        onSettled: () => setReceiving(undefined),
+        onSettled: () => {
+          setReceiving(undefined);
+          setCancelling(undefined);
+        },
       },
     );
   }
@@ -257,16 +262,23 @@ export function OrdersSection({
       key: "actions",
       header: "Actions",
       className: "text-right",
-      cell: (o) =>
-        o.url ? (
-          <Button variant="outline" size="sm" asChild>
-            <a href={o.url} target="_blank" rel="noopener noreferrer">
-              Place order<span className="sr-only">: {o.name}</span>
-            </a>
-          </Button>
-        ) : (
-          "-"
-        ),
+      cell: (o) => (
+        <div className="flex justify-end gap-2">
+          {o.url && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={o.url} target="_blank" rel="noopener noreferrer">
+                Place order<span className="sr-only">: {o.name}</span>
+              </a>
+            </Button>
+          )}
+          {canEdit && o.status === "received" && (
+            <Button variant="outline" size="sm" onClick={() => setCancelling(o)}>
+              Cancel order<span className="sr-only">: {o.name}</span>
+            </Button>
+          )}
+          {!o.url && !(canEdit && o.status === "received") && "-"}
+        </div>
+      ),
     },
   ];
 
@@ -316,6 +328,30 @@ export function OrdersSection({
               onClick={() => receiving && setStatus(receiving, "received")}
             >
               Mark received
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!cancelling} onOpenChange={(o) => !o && setCancelling(undefined)}>
+        <DialogContent>
+          <DialogTitle className="text-base font-semibold">
+            Cancel the order for {cancelling?.name}?
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            {cancelling?.item
+              ? `It was received, so this takes ${qty(cancelling)} back off ${cancelling.item_name}. The order stays in the list as cancelled.`
+              : "The order stays in the list as cancelled."}
+          </DialogDescription>
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button variant="outline">Keep it</Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              disabled={update.isPending}
+              onClick={() => cancelling && setStatus(cancelling, "cancelled")}
+            >
+              Cancel order
             </Button>
           </div>
         </DialogContent>

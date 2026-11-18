@@ -106,6 +106,7 @@ def create_document(
     embed_url="",
     folder=None,
     contains_participant_data=False,
+    request=None,
 ) -> Document:
     """A non-empty `embed_url` makes a document that frames an outside file (documents.embed).
     `lab` instead of `project` makes a lab-wide document (D233). A flagged folder flags it."""
@@ -128,6 +129,7 @@ def create_document(
     DocumentRevision.objects.create(
         document=doc, version=1, title=title, content=content, created_by=user
     )
+    record(AuditAction.DOCUMENT_CREATED, actor=user, lab=doc.lab, target=doc, request=request)
     return doc
 
 

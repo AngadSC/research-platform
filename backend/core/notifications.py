@@ -84,6 +84,9 @@ def _still_allowed(user, lab, n) -> bool:
                 or any(can(user, Perm.EDIT_PROJECT, p) for p in approval.projects.all())
             )
         )
+    if n.kind == NotificationKind.MEETING_INVITE:  # D230: only while still on the meeting
+        meeting = apps.get_model("labs", "Meeting").objects.for_lab(lab).filter(pk=n.target_id)
+        return meeting.filter(attendees=user).exists() and can(user, Perm.VIEW_LAB, lab)
     if n.kind in _ABOUT_PROJECT_ITEMS:  # D142, D260: the reader must still see the project
         model = _PROJECT_TARGETS.get(n.target_type.lower())
         if model is not None:
@@ -209,6 +212,8 @@ def notification_url(n, user) -> str:
         return f"{lab}/settings/integrations"
     if n.kind == NotificationKind.LOW_STOCK:
         return f"{lab}/inventory"
+    if n.kind == NotificationKind.MEETING_INVITE:
+        return f"{lab}/calendar?view=mine-agenda"
     if n.kind == NotificationKind.MENTION and n.dedupe_key.startswith("mention:labchat:"):
         return f"{lab}/chat"
     if target == "ethics.ethicsapproval" and n.target_id:

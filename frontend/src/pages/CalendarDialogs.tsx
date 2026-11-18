@@ -19,9 +19,10 @@ import { ReauthCancelled } from "@/hooks/auth";
 import { useConnect } from "@/hooks/integrations";
 import { useGoogleSync, useVideoOptions } from "@/hooks/meetings";
 import { useReauth } from "@/hooks/reauth";
-import { useMe, useMembers } from "@/hooks/workspace";
-import type { CalendarItem } from "@/lib/api-types";
+import { useLab, useMe, useMembers } from "@/hooks/workspace";
+import { personName, type CalendarItem } from "@/lib/api-types";
 import { toLocalInput } from "@/lib/calendar";
+import { plural, when } from "@/lib/format";
 import { formErrors, type FormErrors } from "@/lib/forms";
 import { formValue } from "@/pages/admin/common";
 
@@ -116,7 +117,7 @@ function nextHour() {
   return [start, new Date(start.getTime() + 3_600_000)] as const;
 }
 
-/** Add or change a meeting. The Join button stays usable for people who cannot edit. */
+/** Add or change a meeting. Anyone who cannot change it sees it read only, Join button and all. */
 export function MeetingDialog({
   labId,
   meeting,
@@ -132,14 +133,25 @@ export function MeetingDialog({
 }) {
   const members = useMembers(labId).data ?? [];
   const me = useMe().data;
+  const isAdmin = !!useLab(labId).data?.my_permissions.includes("manage_lab");
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
   const [confirming, setConfirming] = useState(false);
   const [video, setVideo] = useState<Video>(meeting?.join_url ? "link" : "");
+  const [people, setPeople] = useState<string[]>(meeting?.attendees ?? []);
+  const everyone = members.map((m) => m.user.id);
+  const wholeLab = everyone.length > 0 && everyone.every((id) => people.includes(id));
   const call = meeting?.video_provider as "" | "google_meet" | "zoom" | undefined;
   const callOwner = call ? members.find((m) => m.user.id === meeting?.call_owner)?.user : undefined;
   // D254: a call on someone else's account changes only through them.
   const lockedByCall = !!call && !!meeting?.call_owner && meeting.call_owner !== me?.id;
-  const editable = canEdit && !lockedByCall;
+  // Only the organiser or a PI or lab admin may change a meeting; the others on it read it.
+  const mayChange = !meeting || meeting.organiser === me?.id || isAdmin;
+  const editable = canEdit && mayChange && !lockedByCall;
+  const organiser = members.find((m) => m.user.id === meeting?.organiser)?.user;
+  const nameOf = (id: string) => {
+    const user = members.find((m) => m.user.id === id)?.user;
+    return user ? personName(user) : null;
+  };
   const [start, end] = nextHour();
   const { create, update, remove } = actions;
 
@@ -156,7 +168,7 @@ export function MeetingDialog({
       ends_at: new Date(v("ends_at")).toISOString(),
       ...(call ? {} : { join_url: video === "link" ? v("join_url") : "" }),
       notes: v("notes"),
-      attendees: fd.getAll("attendees").map(String),
+      attendees: people,
       ...(!meeting && (video === "google_meet" || video === "zoom") ? { video } : {}),
     };
     try {
@@ -177,8 +189,9 @@ export function MeetingDialog({
           {meeting ? meeting.title : "Add a meeting"}
         </DialogTitle>
         <DialogDescription className="text-sm text-muted-foreground">
-          A meeting with people and a time. For a lab date, like a deadline or holiday, use Add
-          event.
+          {meeting && !editable
+            ? `Added by ${organiser ? personName(organiser) : "someone in the lab"}.${lockedByCall ? "" : " Only they or a lab admin can change it."}`
+            : "A meeting with people and a time. For a lab date, like a deadline or holiday, use Add event."}
         </DialogDescription>
         {call && (
           <p className="text-sm text-muted-foreground">
@@ -194,119 +207,177 @@ export function MeetingDialog({
             </a>
           </Button>
         )}
-        <form onSubmit={submit} noValidate className="grid gap-3">
-          <fieldset disabled={!editable} className="grid gap-3">
-            <FormField label="Title" error={f.title}>
-              {(p) => <Input maxLength={200} {...p} name="title" defaultValue={meeting?.title} />}
-            </FormField>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <FormField label="Starts" error={f.starts_at}>
-                {(p) => (
-                  <Input
-                    {...p}
-                    name="starts_at"
-                    type="datetime-local"
-                    defaultValue={toLocalInput(
-                      meeting?.starts_at ? new Date(meeting.starts_at) : start,
-                    )}
-                  />
-                )}
-              </FormField>
-              <FormField label="Ends" error={f.ends_at}>
-                {(p) => (
-                  <Input
-                    {...p}
-                    name="ends_at"
-                    type="datetime-local"
-                    defaultValue={toLocalInput(meeting?.ends_at ? new Date(meeting.ends_at) : end)}
-                  />
-                )}
-              </FormField>
-            </div>
-            {!call && (
-              <VideoChoice
-                labId={labId}
-                value={meeting && video !== "link" && video !== "" ? "" : video}
-                onChange={setVideo}
-                error={f.video}
-              />
-            )}
-            {!call && video === "link" && (
-              <FormField
-                label="Zoom or Google Meet link"
-                hint="Paste the link from your invitation. It starts with https://"
-                error={f.join_url}
-              >
-                {(p) => (
-                  <Input maxLength={500} {...p} name="join_url" defaultValue={meeting?.join_url} />
-                )}
-              </FormField>
-            )}
-            <fieldset className="grid gap-1">
-              <legend className="text-sm font-medium">People on this meeting</legend>
-              <p className="text-xs text-muted-foreground">
-                Only the people on a meeting can see it. Whoever added it always stays on it.
-              </p>
-              <div className="grid max-h-40 gap-1 overflow-y-auto rounded-md border p-2">
-                {members.map((m) => {
-                  const id = `meeting-person-${m.user.id}`;
-                  return (
-                    <div key={m.user.id} className="flex items-center gap-2 text-sm">
-                      <input
-                        id={id}
-                        type="checkbox"
-                        name="attendees"
-                        value={m.user.id}
-                        defaultChecked={meeting?.attendees.includes(m.user.id)}
-                      />
-                      <Label htmlFor={id} className="font-normal">
-                        {m.user.display_name || m.user.email}
-                      </Label>
-                    </div>
-                  );
-                })}
+        {meeting && !editable ? (
+          <div className="grid gap-4">
+            <dl className="grid gap-3 text-sm">
+              <div className="grid gap-0.5">
+                <dt className="text-xs text-muted-foreground">When</dt>
+                <dd>
+                  {meeting.starts_at && when(meeting.starts_at)}
+                  {meeting.ends_at && ` to ${when(meeting.ends_at)}`}
+                </dd>
               </div>
-              <FormError message={f.attendees} />
-            </fieldset>
-            <FormField label="Notes" error={f.notes}>
-              {(p) => (
-                <Textarea
-                  maxLength={5000}
-                  {...p}
-                  name="notes"
-                  rows={3}
-                  defaultValue={meeting?.notes}
+              <div className="grid gap-0.5">
+                <dt className="text-xs text-muted-foreground">People on this meeting</dt>
+                <dd>
+                  {meeting.attendees.map(nameOf).filter(Boolean).join(", ") ||
+                    plural(meeting.attendees.length, "person", "people")}
+                </dd>
+              </div>
+              {meeting.notes && (
+                <div className="grid gap-0.5">
+                  <dt className="text-xs text-muted-foreground">Notes</dt>
+                  <dd className="break-words whitespace-pre-wrap">{meeting.notes}</dd>
+                </div>
+              )}
+            </dl>
+            <div className="flex justify-end">
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  Close
+                </Button>
+              </DialogClose>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={submit} noValidate className="grid gap-3">
+            <fieldset className="grid gap-3">
+              <FormField label="Title" error={f.title}>
+                {(p) => <Input maxLength={200} {...p} name="title" defaultValue={meeting?.title} />}
+              </FormField>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <FormField label="Starts" error={f.starts_at}>
+                  {(p) => (
+                    <Input
+                      {...p}
+                      name="starts_at"
+                      type="datetime-local"
+                      defaultValue={toLocalInput(
+                        meeting?.starts_at ? new Date(meeting.starts_at) : start,
+                      )}
+                    />
+                  )}
+                </FormField>
+                <FormField label="Ends" error={f.ends_at}>
+                  {(p) => (
+                    <Input
+                      {...p}
+                      name="ends_at"
+                      type="datetime-local"
+                      defaultValue={toLocalInput(
+                        meeting?.ends_at ? new Date(meeting.ends_at) : end,
+                      )}
+                    />
+                  )}
+                </FormField>
+              </div>
+              {!call && (
+                <VideoChoice
+                  labId={labId}
+                  value={meeting && video !== "link" && video !== "" ? "" : video}
+                  onChange={setVideo}
+                  error={f.video}
                 />
               )}
-            </FormField>
-          </fieldset>
-          <FormError message={errors.form} />
-          <div className="flex justify-end gap-2">
-            {editable && meeting && (
-              <Button
-                type="button"
-                variant="outline"
-                className="mr-auto"
-                disabled={remove.isPending}
-                onClick={() => setConfirming(true)}
-              >
-                Delete
-              </Button>
-            )}
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                {editable ? "Cancel" : "Close"}
-              </Button>
-            </DialogClose>
-            {editable && (
-              <Button type="submit" disabled={create.isPending || update.isPending}>
-                {!meeting && (video === "google_meet" || video === "zoom")
-                  ? `Save and make the ${CALL_NAME[video]} call`
-                  : "Save"}
-              </Button>
-            )}
-          </div>
-        </form>
+              {!call && video === "link" && (
+                <FormField
+                  label="Zoom or Google Meet link"
+                  hint="Paste the link from your invitation. It starts with https://"
+                  error={f.join_url}
+                >
+                  {(p) => (
+                    <Input
+                      maxLength={500}
+                      {...p}
+                      name="join_url"
+                      defaultValue={meeting?.join_url}
+                    />
+                  )}
+                </FormField>
+              )}
+              <fieldset className="grid gap-1">
+                <legend className="text-sm font-medium">People on this meeting</legend>
+                <p className="text-xs text-muted-foreground">
+                  Only the people on a meeting can see it. Whoever added it always stays on it.
+                </p>
+                <div className="grid max-h-40 gap-1 overflow-y-auto rounded-md border p-2">
+                  {members.length > 1 && (
+                    <div className="flex items-center gap-2 border-b pb-1 text-sm">
+                      <input
+                        id="meeting-whole-lab"
+                        type="checkbox"
+                        checked={wholeLab}
+                        onChange={(e) => setPeople(e.target.checked ? everyone : [])}
+                      />
+                      <Label htmlFor="meeting-whole-lab">Whole lab</Label>
+                    </div>
+                  )}
+                  {members.map((m) => {
+                    const id = `meeting-person-${m.user.id}`;
+                    return (
+                      <div key={m.user.id} className="flex items-center gap-2 text-sm">
+                        <input
+                          id={id}
+                          type="checkbox"
+                          value={m.user.id}
+                          checked={people.includes(m.user.id)}
+                          onChange={(e) =>
+                            setPeople((p) =>
+                              e.target.checked
+                                ? [...p, m.user.id]
+                                : p.filter((x) => x !== m.user.id),
+                            )
+                          }
+                        />
+                        <Label htmlFor={id} className="font-normal">
+                          {m.user.display_name || m.user.email}
+                        </Label>
+                      </div>
+                    );
+                  })}
+                </div>
+                <FormError message={f.attendees} />
+              </fieldset>
+              <FormField label="Notes" error={f.notes}>
+                {(p) => (
+                  <Textarea
+                    maxLength={5000}
+                    {...p}
+                    name="notes"
+                    rows={3}
+                    defaultValue={meeting?.notes}
+                  />
+                )}
+              </FormField>
+            </fieldset>
+            <FormError message={errors.form} />
+            <div className="flex justify-end gap-2">
+              {editable && meeting && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mr-auto"
+                  disabled={remove.isPending}
+                  onClick={() => setConfirming(true)}
+                >
+                  Delete
+                </Button>
+              )}
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  {editable ? "Cancel" : "Close"}
+                </Button>
+              </DialogClose>
+              {editable && (
+                <Button type="submit" disabled={create.isPending || update.isPending}>
+                  {!meeting && (video === "google_meet" || video === "zoom")
+                    ? `Save and make the ${CALL_NAME[video]} call`
+                    : "Save"}
+                </Button>
+              )}
+            </div>
+          </form>
+        )}
         {meeting && (
           <Dialog open={confirming} onOpenChange={setConfirming}>
             <DialogContent>

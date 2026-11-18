@@ -516,11 +516,12 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "labs:labevent-list"): "401 404 2 2 2 2 2 2 403",
     ("PATCH",  "labs:labevent-detail"): "401 404 2 2 2 2 2 2 403",
     ("DELETE", "labs:labevent-detail"): "401 404 2 2 2 2 2 2 403",
-    # D230: everyone is on the fixture meeting, so reaching it needs only the write permission;
-    # someone not on it gets a 404 (test_meetings_feeds.py).
+    # D230: everyone is on the fixture meeting, which contrib added. Changing it needs its
+    # organiser or a PI or lab admin (`can_change_meeting`); the others on it read it. Someone
+    # not on it gets a 404 (test_meetings_feeds.py).
     ("POST",   "labs:meeting-list"): "401 404 2 2 2 2 2 2 403",
-    ("PATCH",  "labs:meeting-detail"): "401 404 2 2 2 2 2 2 403",
-    ("DELETE", "labs:meeting-detail"): "401 404 2 2 2 2 2 2 403",
+    ("PATCH",  "labs:meeting-detail"): "401 404 2 2 403 2 403 403 403",
+    ("DELETE", "labs:meeting-detail"): "401 404 2 2 403 2 403 403 403",
     # D231: your own feed link, for any member. The .ics URL takes a token, not a session: anon
     # has none (401); outsider holds a real one but is not in the lab (404).
     ("GET",    "labs:calendar-feed"): "401 404 2 2 2 2 2 2 2",
