@@ -22,7 +22,7 @@ export function CommandDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
-} & Pick<React.ComponentProps<typeof CommandPrimitive>, "value" | "onValueChange">) {
+} & Pick<React.ComponentProps<typeof CommandPrimitive>, "value" | "onValueChange" | "filter">) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="top-[20%] translate-y-0 gap-0 overflow-hidden p-0">

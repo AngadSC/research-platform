@@ -21,9 +21,11 @@ from labs.admin_serializers import InventoryInputSerializer
 from labs.models import (
     CalendarFeedToken,
     InstitutionResource,
+    InventoryCategory,
     InventoryItem,
     InventoryOrder,
     InventoryUsage,
+    InventoryStatus,
     LabEvent,
     LabMembership,
     Meeting,
@@ -289,6 +291,7 @@ _IMPORT_FIELDS = {
     "location",
     "quantity",
     "unit",
+    "low_stock_at",
     "serial_number",
     "purchase_date",
     "due_date",
@@ -346,6 +349,9 @@ def read_inventory_file(lab, upload) -> dict:
         data = {k: v for k, v in data.items() if v or k in ("name", "category")}
         ser = InventoryInputSerializer(data=data)
         errors = {} if ser.is_valid() else {k: str(v[0]) for k, v in ser.errors.items()}
+        for field, choices in (("category", InventoryCategory), ("status", InventoryStatus)):
+            if field in errors and "valid choice" in errors[field]:
+                errors[field] = "Use one of: " + ", ".join(choices.values) + "."
         name = data.get("name", "")
         warnings = []
         if name.casefold() in existing | seen:

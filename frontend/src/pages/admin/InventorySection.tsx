@@ -1,5 +1,6 @@
 import { MoreMenu } from "@/components/shared/MoreMenu";
 import { useState, type FormEvent, type MouseEvent } from "react";
+import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -16,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { inventoryExportUrl, useInventory } from "@/hooks/admin";
+import { useIsPhone } from "@/hooks/media";
 import { ImportInventory } from "./ImportInventory";
 import { UseStockDialog } from "./UseStockDialog";
 import { Minus, TriangleAlert } from "lucide-react";
@@ -259,6 +261,17 @@ function ItemDialog({
   );
 }
 
+function LowBadge({ item: i }: { item: InventoryItem }) {
+  return (
+    <span
+      title={`At or below the alert level of ${trimNumber(i.low_stock_at ?? 0)} ${i.unit}`}
+      className="inline-flex items-center gap-1 rounded-full bg-warning/25 px-2 py-0.5 text-xs font-semibold text-warning-text"
+    >
+      <TriangleAlert aria-hidden className="size-3" /> Low
+    </span>
+  );
+}
+
 export function InventorySection({
   labId,
   canEdit,
@@ -272,12 +285,57 @@ export function InventorySection({
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
   const [ordering, setOrdering] = useState("name");
+  const [lowOnly, setLowOnly] = useState(false);
   const query = { q, category, ordering };
   const { list, remove, create, update } = useInventory(labId, query);
+  const rows = (list.data ?? []).filter((i) => !lowOnly || i.low);
+  const phone = useIsPhone();
   const [editing, setEditing] = useState<InventoryItem | null>(null);
   const [adding, setAdding] = useState(false);
+  // the command palette's "Add inventory item" lands here with ?add=1
+  const [params, setParams] = useSearchParams();
+  const addFromLink = canEdit && params.get("add") === "1";
+  const clearAdd = () =>
+    setParams(
+      (p) => {
+        p.delete("add");
+        return p;
+      },
+      { replace: true },
+    );
   const [usingId, setUsing] = useState<string | null>(null);
   const using = (list.data ?? []).find((i) => i.id === usingId) ?? null;
+
+  const actions = (i: InventoryItem) => (
+    <div className="flex justify-end gap-1">
+      {i.category !== "equipment" && i.category !== "software_licence" && (
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label={`Use ${i.name}`}
+          title="Log what you used; it comes off the stock"
+          onClick={() => setUsing(i.id)}
+        >
+          <Minus aria-hidden /> Use
+        </Button>
+      )}
+      <MoreMenu
+        label={`More for ${i.name}`}
+        items={[
+          onReorder && { label: "Reorder", onSelect: () => onReorder(i) },
+          { label: "Edit", onSelect: () => setEditing(i) },
+          {
+            label: "Delete",
+            onSelect: () =>
+              remove.mutate(i.id, {
+                onSuccess: () => toast.success("Item deleted"),
+                onError: (e) => toast.error(formErrors(e, []).form ?? "Could not delete the item."),
+              }),
+          },
+        ]}
+      />
+    </div>
+  );
 
   const cols: Column<InventoryItem>[] = [
     { key: "name", header: "Name", cell: (i) => <span className="font-medium">{i.name}</span> },
@@ -289,14 +347,7 @@ export function InventorySection({
       cell: (i) => (
         <span className="inline-flex items-center gap-2">
           {`${trimNumber(i.quantity)} ${i.unit}`.trim()}
-          {i.low && (
-            <span
-              title={`At or below the alert level of ${trimNumber(i.low_stock_at ?? 0)} ${i.unit}`}
-              className="inline-flex items-center gap-1 rounded-full bg-warning/25 px-2 py-0.5 text-xs font-semibold text-warning-text"
-            >
-              <TriangleAlert aria-hidden className="size-3" /> Low
-            </span>
-          )}
+          {i.low && <LowBadge item={i} />}
         </span>
       ),
     },
@@ -313,37 +364,7 @@ export function InventorySection({
             key: "actions",
             header: "Actions",
             className: "text-right",
-            cell: (i: InventoryItem) => (
-              <div className="flex justify-end gap-1">
-                {i.category !== "equipment" && i.category !== "software_licence" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    aria-label={`Use ${i.name}`}
-                    title="Log what you used; it comes off the stock"
-                    onClick={() => setUsing(i.id)}
-                  >
-                    <Minus aria-hidden /> Use
-                  </Button>
-                )}
-                <MoreMenu
-                  label={`More for ${i.name}`}
-                  items={[
-                    onReorder && { label: "Reorder", onSelect: () => onReorder(i) },
-                    { label: "Edit", onSelect: () => setEditing(i) },
-                    {
-                      label: "Delete",
-                      onSelect: () =>
-                        remove.mutate(i.id, {
-                          onSuccess: () => toast.success("Item deleted"),
-                          onError: (e) =>
-                            toast.error(formErrors(e, []).form ?? "Could not delete the item."),
-                        }),
-                    },
-                  ]}
-                />
-              </div>
-            ),
+            cell: actions,
           },
         ]
       : []),
@@ -389,6 +410,15 @@ export function InventorySection({
             )}
           </FormField>
         </div>
+        <label className="flex h-9 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={lowOnly}
+            onChange={(e) => setLowOnly(e.target.checked)}
+            className="size-4"
+          />
+          Low stock only
+        </label>
         <Button variant="ghost" asChild>
           <a href={inventoryExportUrl(labId, query)} download="inventory.csv">
             Export CSV
@@ -397,32 +427,66 @@ export function InventorySection({
         {canEdit && <ImportInventory labId={labId} />}
         {canEdit && <Button onClick={() => setAdding(true)}>Add item</Button>}
       </div>
-      <DataTable
-        columns={cols}
-        rows={list.data ?? []}
-        getRowKey={(i) => i.id}
-        loading={list.isLoading}
-        empty={
-          <EmptyState
-            title="No inventory items"
-            description={
-              canEdit
-                ? "Items you add will appear here."
-                : "Only people who manage inventory can add items. Ask a PI or lab admin."
-            }
-          />
-        }
-      />
+      {phone && !list.isLoading && rows.length > 0 ? (
+        <ul className="grid gap-2" aria-label="Inventory items">
+          {rows.map((i) => (
+            <li key={i.id} className="grid gap-2 rounded-lg border p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-medium">{i.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {[nameOf(CATEGORIES, i.category), i.location].filter(Boolean).join(" · ")}
+                  </p>
+                </div>
+                <span className="flex shrink-0 items-center gap-2 text-sm">
+                  {`${trimNumber(i.quantity)} ${i.unit}`.trim()}
+                  {i.low && <LowBadge item={i} />}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {[
+                  nameOf(STATUSES, i.status),
+                  i.owner && (i.owner.display_name || i.owner.email),
+                  i.due_date && `Due ${i.due_date}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              {canEdit && actions(i)}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <DataTable
+          columns={cols}
+          rows={rows}
+          getRowKey={(i) => i.id}
+          loading={list.isLoading}
+          empty={
+            <EmptyState
+              title={lowOnly ? "Nothing is low" : "No inventory items"}
+              description={
+                lowOnly
+                  ? "No item is at or below its alert level."
+                  : canEdit
+                    ? "Items you add will appear here."
+                    : "Only people who manage inventory can add items. Ask a PI or lab admin."
+              }
+            />
+          }
+        />
+      )}
       {using && <UseStockDialog labId={labId} item={using} onClose={() => setUsing(null)} />}
       <ItemDialog
         labId={labId}
         create={create}
         update={update}
         item={editing}
-        open={adding || !!editing}
+        open={adding || addFromLink || !!editing}
         onClose={() => {
           setAdding(false);
           setEditing(null);
+          if (addFromLink) clearAdd();
         }}
       />
     </Section>

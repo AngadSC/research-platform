@@ -10,6 +10,9 @@ export const OPEN_TUTORIAL_EVENT = "open-tutorial";
 /** Where the Help page's feedback link goes. Swap it for a form or mailto: if you get one. */
 export const FEEDBACK_URL = "https://github.com/AngadSC/research-platform/issues/new";
 
+/** Window event that opens the keyboard cheat sheet (the "?" key and the palette fire it). */
+export const OPEN_SHORTCUTS_EVENT = "open-shortcuts";
+
 export const OPEN_QUICK_CAPTURE_EVENT = "open-quick-capture";
 /** Open quick capture with `text` already written in it (D321: a task from a chat message). */
 export const openQuickCapture = (text?: string) =>

@@ -1,6 +1,18 @@
 import { MobileTabBar } from "@/components/layout/MobileTabBar";
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Menu, PanelLeft, Pin, PinOff, Plus, Search } from "lucide-react";
+import {
+  Boxes,
+  FileText,
+  Keyboard,
+  Menu,
+  PanelLeft,
+  Pin,
+  PinOff,
+  Plus,
+  Search,
+  UserPlus,
+  Video,
+} from "lucide-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { Breadcrumbs, type Crumb } from "@/components/shared/Breadcrumbs";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,13 +35,20 @@ import { useRegisterCommands, type Command } from "@/lib/commands";
 import { CommandPalette } from "./CommandPalette";
 import { navItems } from "@/lib/nav";
 import { shortcutId } from "@/lib/layout";
-import { APP_NAME, MOD_KEY, OPEN_QUICK_CAPTURE_EVENT, OPEN_SEARCH_EVENT } from "@/lib/constants";
+import {
+  APP_NAME,
+  MOD_KEY,
+  OPEN_QUICK_CAPTURE_EVENT,
+  OPEN_SEARCH_EVENT,
+  OPEN_SHORTCUTS_EVENT,
+} from "@/lib/constants";
 import { useMe } from "@/hooks/workspace";
 import { useAccountTheme } from "@/lib/theme";
 import { AssistantDrawer } from "@/components/assistant/AssistantDrawer";
 import { NamePrompt } from "./NamePrompt";
 import { GoogleEditorHost } from "@/components/shared/GoogleEditorPanel";
 import { QuickCapture } from "./QuickCapture";
+import { ShortcutsDialog } from "./ShortcutsDialog";
 import { greeting } from "@/lib/greeting";
 import { WeatherChip } from "./WeatherChip";
 import { NotificationBell } from "./NotificationBell";
@@ -137,6 +156,7 @@ export function AppShell() {
   const layout = useLayout();
   const { pins } = usePins();
   const labPerms = labs?.find((l) => l.id === labId);
+  const perms = useMemo(() => labPerms?.my_permissions ?? [], [labPerms?.my_permissions]);
   const shortcuts = navItems(labId, labPerms?.my_permissions, labPerms?.inventory_enabled).filter(
     (n) => n.to !== "/settings" && !n.to.endsWith("/notifications"),
   );
@@ -232,8 +252,59 @@ export function AppShell() {
         group: "Labs",
         onSelect: () => void navigate("/labs/new"),
       },
+      {
+        id: "help:shortcuts",
+        label: "Keyboard shortcuts",
+        group: "Actions",
+        icon: Keyboard,
+        onSelect: () => window.dispatchEvent(new Event(OPEN_SHORTCUTS_EVENT)),
+      },
+      ...(labId
+        ? [
+            ...(perms.includes("manage_members")
+              ? [
+                  {
+                    id: "members:invite",
+                    label: "Invite member",
+                    icon: UserPlus,
+                    to: "members?invite=1",
+                  },
+                ]
+              : []),
+            ...(perms.includes("manage_inventory") && labPerms?.inventory_enabled
+              ? [
+                  {
+                    id: "inventory:new",
+                    label: "Add inventory item",
+                    icon: Boxes,
+                    to: "inventory?add=1",
+                  },
+                ]
+              : []),
+            ...(perms.includes("contribute_lab")
+              ? [
+                  {
+                    id: "lab-document:new",
+                    label: "New lab document",
+                    icon: FileText,
+                    to: "documents?new=1",
+                  },
+                  {
+                    id: "meeting:new",
+                    label: "New meeting",
+                    icon: Video,
+                    to: "calendar?new=meeting",
+                  },
+                ]
+              : []),
+          ].map(({ to, ...c }) => ({
+            ...c,
+            group: "Actions",
+            onSelect: () => void navigate(`/labs/${labId}/${to}`),
+          }))
+        : []),
     ],
-    [navigate, labId, labs, projects],
+    [navigate, labId, labs, projects, perms, labPerms?.inventory_enabled],
   );
   useRegisterCommands(commands);
 
@@ -319,6 +390,7 @@ export function AppShell() {
       </div>
       <MobileTabBar labId={labId} onMore={() => setNavOpen(true)} />
       <QuickCapture />
+      <ShortcutsDialog />
       <GoogleEditorHost />
       <CommandPalette labId={labId} recents={recents} onGo={(url) => void navigate(url)} />
       <Tutorial />

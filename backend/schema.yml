@@ -1152,6 +1152,7 @@ paths:
           - membership.invite_revoked
           - membership.invite_accepted
           - membership.invite_role_changed
+          - membership.invite_resent
           - membership.role_changed
           - membership.removed
           - project_membership.added
@@ -1299,6 +1300,7 @@ paths:
           - training_record.updated
           - training_record.verified
           - training_record.deleted
+          - training.reminded
           - dmp.created
           - dmp.updated
           - dmp.approved
@@ -1330,6 +1332,7 @@ paths:
           * `membership.invite_revoked` - Membership Invite Revoked
           * `membership.invite_accepted` - Membership Invite Accepted
           * `membership.invite_role_changed` - Membership Invite Role Changed
+          * `membership.invite_resent` - Membership Invite Resent
           * `membership.role_changed` - Membership Role Changed
           * `membership.removed` - Membership Removed
           * `project_membership.added` - Project Membership Added
@@ -1477,6 +1480,7 @@ paths:
           * `training_record.updated` - Training Record Updated
           * `training_record.verified` - Training Record Verified
           * `training_record.deleted` - Training Record Deleted
+          * `training.reminded` - Training Reminder Sent
           * `dmp.created` - Dmp Created
           * `dmp.updated` - Dmp Updated
           * `dmp.approved` - Dmp Approved
@@ -4656,6 +4660,35 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/invites/{invite_id}/resend/:
+    post:
+      operationId: labs_invites_resend_create
+      description: Email an open invite again. The link in the new email replaces
+        the old one.
+      parameters:
+      - in: path
+        name: invite_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invite'
+          description: ''
   /api/labs/{lab_id}/lab-documents/:
     get:
       operationId: labs_lab_documents_list
@@ -10949,7 +10982,7 @@ paths:
           type: string
         description: 'Comma-separated: project, task, document, dataset, analysis,
           result, decision, manuscript, funding, review, ethics, link, file, meeting,
-          chat, paper, paper_note'
+          chat, paper, inventory, training, paper_note'
       tags:
       - labs
       security:
@@ -11777,6 +11810,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/TrainingRecord'
           description: ''
+  /api/labs/{lab_id}/training/reminders/:
+    post:
+      operationId: labs_training_reminders_create
+      description: Remind a member (or everyone whose training is missing) in the
+        app. Needs manage_training.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReminderInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReminderInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReminderInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReminderResult'
+          description: ''
   /api/labs/{lab_id}/training/requirements/:
     get:
       operationId: labs_training_requirements_list
@@ -12399,6 +12467,7 @@ components:
       - membership.invite_revoked
       - membership.invite_accepted
       - membership.invite_role_changed
+      - membership.invite_resent
       - membership.role_changed
       - membership.removed
       - project_membership.added
@@ -12546,6 +12615,7 @@ components:
       - training_record.updated
       - training_record.verified
       - training_record.deleted
+      - training.reminded
       - dmp.created
       - dmp.updated
       - dmp.approved
@@ -12576,6 +12646,7 @@ components:
         * `membership.invite_revoked` - Membership Invite Revoked
         * `membership.invite_accepted` - Membership Invite Accepted
         * `membership.invite_role_changed` - Membership Invite Role Changed
+        * `membership.invite_resent` - Membership Invite Resent
         * `membership.role_changed` - Membership Role Changed
         * `membership.removed` - Membership Removed
         * `project_membership.added` - Project Membership Added
@@ -12723,6 +12794,7 @@ components:
         * `training_record.updated` - Training Record Updated
         * `training_record.verified` - Training Record Verified
         * `training_record.deleted` - Training Record Deleted
+        * `training.reminded` - Training Reminder Sent
         * `dmp.created` - Dmp Created
         * `dmp.updated` - Dmp Updated
         * `dmp.approved` - Dmp Approved
@@ -18183,6 +18255,7 @@ components:
       - task_post
       - training_expiry
       - training_digest
+      - training_reminder
       - mention
       - project_role
       - project_archived
@@ -18202,6 +18275,7 @@ components:
         * `task_post` - Task Post
         * `training_expiry` - Training Expiry
         * `training_digest` - Training Digest
+        * `training_reminder` - Training Reminder
         * `mention` - Mention
         * `project_role` - Project Role
         * `project_archived` - Project Archived
@@ -20929,6 +21003,31 @@ components:
         recommended_model:
           type: string
           nullable: true
+    ReminderInput:
+      type: object
+      properties:
+        requirement:
+          type: string
+          format: uuid
+        user:
+          type: string
+          format: uuid
+          description: One member; leave out to remind everyone whose training is
+            missing.
+      required:
+      - requirement
+    ReminderResult:
+      type: object
+      properties:
+        asked:
+          type: integer
+          description: People who needed a reminder.
+        sent:
+          type: integer
+          description: New reminders; fewer when some were reminded today.
+      required:
+      - asked
+      - sent
     Resource:
       type: object
       properties:

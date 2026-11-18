@@ -26,7 +26,7 @@ export function TrainingSection({ labId }: { labId: string }) {
   const compliance = useCompliance(labId);
   const requirements = useTrainingRequirements(labId).data ?? [];
   const projects = useProjects(labId).data ?? [];
-  const { createRequirement, removeRequirement, verify } = useTrainingMutations(labId);
+  const { createRequirement, removeRequirement, verify, remind } = useTrainingMutations(labId);
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
   const [deleting, setDeleting] = useState<{ id: string; name: string } | null>(null);
   const [deleteError, setDeleteError] = useState<string>();
@@ -77,6 +77,22 @@ export function TrainingSection({ labId }: { labId: string }) {
               onSuccess: () => toast.success("Record verified"),
               onError: () => toast.error("Could not verify."),
             })
+          }
+          onRemind={(requirement, user) =>
+            remind.mutate(
+              { requirement, user },
+              {
+                onSuccess: ({ sent }) =>
+                  toast.success(
+                    sent === 0
+                      ? "Already reminded today."
+                      : user
+                        ? "Reminder sent."
+                        : `Reminded ${sent} ${sent === 1 ? "person" : "people"}.`,
+                  ),
+                onError: () => toast.error("Could not send the reminder."),
+              },
+            )
           }
         />
       ) : (

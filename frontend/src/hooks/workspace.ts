@@ -110,6 +110,12 @@ export function useUpdateInvite(labId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["labs", labId, "invites"] }),
   });
 }
+export function useResendInvite(labId: string) {
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<Invite>(`/api/labs/${labId}/invites/${id}/resend/`, { method: "POST" }),
+  });
+}
 export function useRevokeInvite(labId: string) {
   const qc = useQueryClient();
   return useMutation({

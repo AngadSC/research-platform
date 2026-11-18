@@ -80,6 +80,24 @@ export function ImportInventory({ labId }: { labId: string }) {
             rows, 1 MB at most. Nothing is added until you confirm, and if any row has a problem
             nothing is added at all.
           </DialogDescription>
+          <div className="grid gap-1 text-sm">
+            <p>
+              <span className="font-medium">Columns:</span> name, category, location, quantity,
+              unit, low_stock_at (the alert level), serial_number, purchase_date, due_date, status,
+              notes. Only name and category are required.
+            </p>
+            <p className="text-muted-foreground">
+              Category is one of equipment, reagent, consumable, software_licence or other. Dates
+              look like 2026-01-31.{" "}
+              <a
+                href="/inventory-template.csv"
+                download="inventory-template.csv"
+                className="underline underline-offset-2"
+              >
+                Download template
+              </a>
+            </p>
+          </div>
           <FormField label="CSV file">
             {(p) => (
               <Input

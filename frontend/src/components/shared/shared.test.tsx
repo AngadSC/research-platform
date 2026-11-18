@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { CommandPalette } from "@/components/layout/CommandPalette";
+import { ShortcutsDialog } from "@/components/layout/ShortcutsDialog";
 import { DetailPanel } from "@/components/shared/DetailPanel";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormField } from "@/components/shared/FormField";
@@ -75,6 +76,49 @@ describe("CommandPalette", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("Test action")).toBeInTheDocument();
     unregister();
+  });
+});
+
+describe("CommandPalette matching", () => {
+  it("does not match an entry only because its letters are scattered through it", async () => {
+    const unregister = registerCommands([
+      {
+        id: "p1",
+        label: "Go to project Pilot Attention Study",
+        group: "Projects",
+        onSelect: () => {},
+      },
+      { id: "i1", label: "Add inventory item", group: "Actions", onSelect: () => {} },
+    ]);
+    wrap(<CommandPalette />);
+    act(() => {
+      fireEvent.keyDown(document, { key: "k", ctrlKey: true });
+    });
+    await userEvent.type(screen.getByRole("combobox"), "pipette");
+    expect(screen.queryByText("Go to project Pilot Attention Study")).not.toBeInTheDocument();
+    await userEvent.clear(screen.getByRole("combobox"));
+    await userEvent.type(screen.getByRole("combobox"), "inventory add");
+    expect(screen.getByText("Add inventory item")).toBeInTheDocument();
+    unregister();
+  });
+});
+
+describe("Keyboard cheat sheet", () => {
+  it("opens on ? outside a field, not while typing in one", async () => {
+    render(
+      <>
+        <ShortcutsDialog />
+        <input aria-label="Box" />
+      </>,
+    );
+    await userEvent.type(screen.getByLabelText("Box"), "?");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    act(() => {
+      fireEvent.keyDown(document.body, { key: "?" });
+    });
+    const dialog = screen.getByRole("dialog", { name: "Keyboard shortcuts" });
+    expect(dialog).toHaveTextContent("Add a task");
   });
 });
 

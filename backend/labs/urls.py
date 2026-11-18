@@ -24,6 +24,11 @@ urlpatterns = [
         views.MemberDetailView.as_view(),
         name="member-detail",
     ),
+    path(
+        "labs/<uuid:lab_id>/invites/<uuid:invite_id>/resend/",
+        views.InviteResendView.as_view(),
+        name="invite-resend",
+    ),
     path("labs/<uuid:lab_id>/invites/", views.InviteListCreateView.as_view(), name="invite-list"),
     path(
         "labs/<uuid:lab_id>/invites/<uuid:invite_id>/",

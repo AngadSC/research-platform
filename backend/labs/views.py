@@ -413,6 +413,25 @@ class InviteDetailView(LabScopedViewMixin, generics.GenericAPIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class InviteResendView(LabScopedViewMixin, generics.GenericAPIView):
+    """Email an open invite again. The link in the new email replaces the old one."""
+
+    model = Invite
+    serializer_class = InviteSerializer
+    lookup_url_kwarg = "invite_id"
+    perms = {"POST": Perm.MANAGE_MEMBERS}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "invites"
+
+    def get_queryset(self):
+        return super().get_queryset().filter(accepted_at__isnull=True, revoked_at__isnull=True)
+
+    @extend_schema(request=None, responses=InviteSerializer)
+    def post(self, request, lab_id, invite_id):
+        invite = services.resend_invite(invite=self.get_object(), by=request.user, request=request)
+        return Response(self.get_serializer(invite).data)
+
+
 class InvitePreviewView(generics.GenericAPIView):
     serializer_class = TokenSerializer
     perms = {"POST": Perm.PUBLIC}

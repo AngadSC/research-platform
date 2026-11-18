@@ -22,6 +22,7 @@ class AuditAction(models.TextChoices):
     MEMBERSHIP_INVITE_REVOKED = "membership.invite_revoked"
     MEMBERSHIP_INVITE_ACCEPTED = "membership.invite_accepted"
     MEMBERSHIP_INVITE_ROLE_CHANGED = "membership.invite_role_changed"
+    MEMBERSHIP_INVITE_RESENT = "membership.invite_resent"
     MEMBERSHIP_ROLE_CHANGED = "membership.role_changed"
     MEMBERSHIP_REMOVED = "membership.removed"
     PROJECT_MEMBERSHIP_ADDED = "project_membership.added"
@@ -178,6 +179,7 @@ class AuditAction(models.TextChoices):
     TRAINING_RECORD_UPDATED = "training_record.updated"
     TRAINING_RECORD_VERIFIED = "training_record.verified"
     TRAINING_RECORD_DELETED = "training_record.deleted"
+    TRAINING_REMINDER_SENT = "training.reminded"
     # Run 5 (data management plan, D180-D186)
     DMP_CREATED = "dmp.created"
     DMP_UPDATED = "dmp.updated"

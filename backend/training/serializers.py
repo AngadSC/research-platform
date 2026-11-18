@@ -141,3 +141,16 @@ class ExpiringSerializer(serializers.Serializer):
     count = serializers.IntegerField()
     expired_count = serializers.IntegerField()
     items = ExpiringItemSerializer(many=True)
+
+
+class ReminderInputSerializer(serializers.Serializer):
+    requirement = serializers.UUIDField()
+    user = serializers.UUIDField(
+        required=False,
+        help_text="One member; leave out to remind everyone whose training is missing.",
+    )
+
+
+class ReminderResultSerializer(serializers.Serializer):
+    asked = serializers.IntegerField(help_text="People who needed a reminder.")
+    sent = serializers.IntegerField(help_text="New reminders; fewer when some were reminded today.")

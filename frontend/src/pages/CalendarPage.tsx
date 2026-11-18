@@ -413,6 +413,19 @@ export function CalendarPage() {
   const [dialog, setDialog] = useState<{ kind: "event" | "meeting"; item?: CalendarItem } | null>(
     null,
   );
+  // the command palette's "New meeting" lands here with ?new=meeting
+  const meetingFromLink = canEdit && params.get("new") === "meeting";
+  const closeDialog = () => {
+    setDialog(null);
+    if (meetingFromLink)
+      setParams(
+        (p) => {
+          p.delete("new");
+          return p;
+        },
+        { replace: true },
+      );
+  };
   const [subscribing, setSubscribing] = useState(false);
   const [googleOpen, setGoogleOpen] = useState(false);
   const google = useGoogleSync(labId).status.data;
@@ -651,12 +664,12 @@ export function CalendarPage() {
         update={update}
         remove={remove}
       />
-      {dialog?.kind === "meeting" && (
+      {(dialog?.kind === "meeting" || meetingFromLink) && (
         <MeetingDialog
           labId={labId}
-          meeting={dialog.item}
+          meeting={dialog?.item}
           canEdit={canEdit}
-          onClose={() => setDialog(null)}
+          onClose={closeDialog}
           actions={meetings}
         />
       )}

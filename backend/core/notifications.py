@@ -206,7 +206,11 @@ def notification_url(n, user) -> str:
     target = n.target_type.lower()
     if n.kind == NotificationKind.RETENTION_DUE:
         return f"{lab}/retention"
-    if n.kind in (NotificationKind.TRAINING_EXPIRY, NotificationKind.TRAINING_DIGEST):
+    if n.kind in (
+        NotificationKind.TRAINING_EXPIRY,
+        NotificationKind.TRAINING_DIGEST,
+        NotificationKind.TRAINING_REMINDER,
+    ):
         return f"{lab}/training"
     if n.kind == NotificationKind.INTEGRATION_ISSUE:
         return f"{lab}/settings/integrations"

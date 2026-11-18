@@ -324,6 +324,21 @@ def test_a_clean_file_imports_every_row_and_warns_about_duplicates(world):
     assert AuditEvent.objects.filter(action="inventory.imported").count() == 1
 
 
+def test_import_reads_alert_level_and_names_the_valid_categories(world):
+    csv_text = "Name,Category,Low stock at\nTips,consumable,20\nGel,pets,1\n"
+    body = post_import(world, csv_text).json()
+    assert body["ignored_columns"] == [] and body["valid"] == 1
+    assert (
+        "equipment, reagent, consumable, software_licence, other"
+        in body["rows"][1]["errors"]["category"]
+    )
+    csv_text = "Name,Category,Low_stock_at,Location\nTips,consumable,20,Shelf 2\n"
+    post_import(world, csv_text, commit=True)
+    tips = InventoryItem.objects.for_lab(world[0]).get(name="Tips")
+    assert (tips.low_stock_at, tips.location) == (20, "Shelf 2")
+    assert AuditEvent.objects.get(action="inventory.imported").metadata["rows"] == 1
+
+
 def test_limits_and_unreadable_files(world):
     too_many = "Name,Category\n" + "".join(f"Item {i},other\n" for i in range(1001))
     assert "Too many rows" in str(post_import(world, too_many).json())

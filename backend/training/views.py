@@ -19,10 +19,13 @@ from core.permissions import Perm
 from core.views import LabScopedViewMixin
 from documents.serializers import AttachmentSerializer, AttachmentUploadSerializer
 from documents.views import download_response
+from labs.models import LabMembership
 from training import services
 from training.models import TrainingRecord, TrainingRequirement
 from training.serializers import (
     ExpiringSerializer,
+    ReminderInputSerializer,
+    ReminderResultSerializer,
     TrainingComplianceSerializer,
     TrainingRecordCreateSerializer,
     TrainingRecordSerializer,
@@ -239,6 +242,31 @@ class ComplianceView(LabScopedViewMixin, generics.GenericAPIView):
     @extend_schema(responses=TrainingComplianceSerializer)
     def get(self, request, lab_id):
         return Response(TrainingComplianceSerializer(services.compliance(request.lab)).data)
+
+
+class ReminderView(LabScopedViewMixin, generics.GenericAPIView):
+    """Remind a member (or everyone whose training is missing) in the app. Needs manage_training."""
+
+    serializer_class = ReminderResultSerializer
+    perms = {"POST": Perm.MANAGE_TRAINING}
+
+    @extend_schema(request=ReminderInputSerializer, responses=ReminderResultSerializer)
+    def post(self, request, lab_id):
+        data = _body(ReminderInputSerializer, request)
+        req = services.get_requirement(request.lab, data["requirement"])
+        member = None
+        if data.get("user"):
+            membership = (
+                LabMembership.objects.for_lab(request.lab)
+                .select_related("user")
+                .filter(user_id=data["user"])
+                .first()
+            )
+            if membership is None:
+                raise ValidationError({"user": "This person is not a member of the lab."})
+            member = membership.user
+        result = services.send_reminders(req, actor=request.user, user=member, request=request)
+        return Response(ReminderResultSerializer(result).data)
 
 
 class MyTrainingView(LabScopedViewMixin, generics.GenericAPIView):

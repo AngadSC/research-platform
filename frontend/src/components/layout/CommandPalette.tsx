@@ -27,6 +27,16 @@ interface Props {
  * repeat a search group's heading ("Projects", "Documents"). */
 const GO_TO_GROUPS = new Set(["Navigate", "Projects", "Documents", "Research", "Workflow"]);
 
+/** Every word typed must appear in the entry, so "pipette" cannot reach "Pilot Attention Study"
+ * through scattered letters, as cmdk's own loose matching allows. A phrase match ranks first. */
+export function matches(value: string, search: string): number {
+  const v = value.toLowerCase();
+  const q = search.toLowerCase().trim();
+  if (!q) return 1;
+  if (v.includes(q)) return 1;
+  return q.split(/\s+/).every((w) => v.includes(w)) ? 0.5 : 0;
+}
+
 /** Opens on Cmd/Ctrl+K; Cmd/Ctrl+F stays the browser's own find. Add entries with useRegisterCommands (see lib/commands.ts). */
 export function CommandPalette({ labId, onGo, recents: recentItems = [] }: Props) {
   const [open, setOpen] = useState(false);
@@ -118,6 +128,7 @@ export function CommandPalette({ labId, onGo, recents: recentItems = [] }: Props
       open={open}
       value={selected}
       onValueChange={setSelected}
+      filter={matches}
       onOpenChange={(o) => {
         setOpen(o);
         if (!o) setText("");

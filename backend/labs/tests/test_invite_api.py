@@ -212,3 +212,27 @@ def test_expired_invite_role_cannot_be_changed(setup):
     resp = api(pi).patch(f"/api/labs/{lab.pk}/invites/{data['id']}/", {"role": "pi"}, "json")
     assert resp.status_code == 404
     assert Invite.objects.for_lab(lab).get(pk=data["id"]).role == "member"
+
+
+def test_resend_rotates_the_token_and_emails_again(setup):
+    lab, pi, invitee = setup
+    data, old = send_invite(lab, pi)
+    mail.outbox.clear()
+    with TestCase.captureOnCommitCallbacks(execute=True):
+        resp = api(pi).post(f"/api/labs/{lab.pk}/invites/{data['id']}/resend/")
+    assert resp.status_code == 200, resp.content
+    new = mail.outbox[0].body.split("/invite/")[1].split()[0]
+    assert new != old
+    assert api(invitee).post(CREATE, {"token": old}, "json").status_code == 404  # old link is dead
+    assert api(invitee).post(CREATE, {"token": new}, "json").status_code == 200
+    assert events(AuditAction.MEMBERSHIP_INVITE_RESENT).filter(actor=pi).count() == 1
+    assert not any(new in str(e.metadata) for e in AuditEvent.objects.all())
+
+
+def test_resend_needs_manage_members(setup, make_user, join):
+    lab, pi, _ = setup
+    data, _ = send_invite(lab, pi)
+    member = make_user()
+    join(member, lab, LabRole.MEMBER)
+    assert api(member).post(f"/api/labs/{lab.pk}/invites/{data['id']}/resend/").status_code == 403
+    assert not events(AuditAction.MEMBERSHIP_INVITE_RESENT).exists()

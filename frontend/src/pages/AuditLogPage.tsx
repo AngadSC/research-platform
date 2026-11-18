@@ -37,6 +37,7 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "membership.invite_revoked": "Revoked an invitation",
   "membership.invite_accepted": "Accepted an invitation",
   "membership.invite_role_changed": "Changed an invitation's role",
+  "membership.invite_resent": "Sent an invitation again",
   "membership.role_changed": "Changed a member's role",
   "membership.removed": "Removed a member",
   "project_membership.added": "Added someone to a project",
@@ -180,6 +181,7 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "training_record.updated": "Updated a training record",
   "training_record.verified": "Verified a training record",
   "training_record.deleted": "Deleted a training record",
+  "training.reminded": "Sent a training reminder",
   "dmp.created": "Added a data management plan",
   "dmp.updated": "Updated a data management plan",
   "dmp.approved": "Approved a data management plan",
@@ -201,6 +203,13 @@ const humanKey = (k: string) => k.replace(/_/g, " ").replace(/^./, (c) => c.toUp
 // An action newer than this page still reads as words, never as a code.
 const actionLabel = (a: string) =>
   ACTIONS[a as AuditEvent["action"]] ?? humanKey(a.replace(".", " "));
+/** The action in words; an import says how many items it added. */
+const actionText = (e: AuditEvent) => {
+  const rows = (e.metadata as { rows?: unknown } | null)?.rows;
+  if (e.action === "inventory.imported" && typeof rows === "number")
+    return `Imported ${rows} ${rows === 1 ? "item" : "items"}`;
+  return actionLabel(e.action);
+};
 const who = (e: AuditEvent) => e.actor?.display_name || e.actor?.email || "System";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isId = (v: unknown): boolean =>
@@ -261,7 +270,7 @@ function EventDetails({ e }: { e: AuditEvent }) {
         <When value={e.created_at} />
       </Field>
       <Field label="Who">{who(e)}</Field>
-      <Field label="Action">{actionLabel(e.action)}</Field>
+      <Field label="Action">{actionText(e)}</Field>
       <Field label={e.target_type ? typeWord(e.target_type) : "Target"}>
         {cleanTarget(e.target_label)}
       </Field>
@@ -287,7 +296,7 @@ const columns: Column<AuditEvent>[] = [
     cell: (e) => <When value={e.created_at} />,
   },
   { key: "who", header: "Who", cell: who },
-  { key: "action", header: "Action", cell: (e) => actionLabel(e.action) },
+  { key: "action", header: "Action", cell: (e) => actionText(e) },
   { key: "target", header: "Target", cell: (e) => cleanTarget(e.target_label) },
 ];
 
@@ -466,7 +475,7 @@ export function AuditLogPage() {
       <DetailPanel
         open={!!open}
         onOpenChange={(o) => !o && setOpen(null)}
-        title={open ? actionLabel(open.action) : "Event"}
+        title={open ? actionText(open) : "Event"}
         description={open ? who(open) : undefined}
       >
         {open && <EventDetails e={open} />}

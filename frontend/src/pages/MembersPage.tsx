@@ -2,7 +2,7 @@ import { Disclosure } from "@/components/shared/Disclosure";
 import { UserPlus } from "lucide-react";
 import { RelativeTime } from "@/components/shared/RelativeTime";
 import { useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { DataTable, HIDE_NARROW, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -32,6 +32,7 @@ import {
   useMe,
   useMembers,
   useRemoveMember,
+  useResendInvite,
   useRevokeInvite,
   useUpdateInvite,
   useUpdateMember,
@@ -75,6 +76,7 @@ function RoleSelect({
 
 function InviteForm({ labId }: { labId: string }) {
   const create = useCreateInvite(labId);
+  const asked = useSearchParams()[0].get("invite") === "1"; // the palette's "Invite member"
   const [role, setRole] = useState<Role>("member");
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
 
@@ -98,12 +100,27 @@ function InviteForm({ labId }: { labId: string }) {
   }
 
   return (
-    <Disclosure card title="Invite someone" className="mb-6">
+    <Disclosure
+      key={String(asked)}
+      card
+      title="Invite someone"
+      className="mb-6"
+      defaultOpen={asked}
+    >
       <form onSubmit={submit} noValidate aria-label="Invite someone" className="grid gap-3">
         <div className="flex flex-wrap items-start gap-3">
           <div className="w-72">
             <FormField label="Email" error={errors.fields.email}>
-              {(p) => <Input maxLength={254} {...p} name="email" type="email" autoComplete="off" />}
+              {(p) => (
+                <Input
+                  maxLength={254}
+                  {...p}
+                  name="email"
+                  type="email"
+                  autoComplete="off"
+                  autoFocus={asked}
+                />
+              )}
             </FormField>
           </div>
           <div className="w-40">
@@ -180,6 +197,7 @@ export function MembersPage() {
   const update = useUpdateMember(labId);
   const remove = useRemoveMember(labId);
   const revoke = useRevokeInvite(labId);
+  const resend = useResendInvite(labId);
   const updateInvite = useUpdateInvite(labId);
   const [removing, setRemoving] = useState<Membership | null>(null);
   const [revoking, setRevoking] = useState<Invite | null>(null);
@@ -287,20 +305,49 @@ export function MembersPage() {
         />
       ),
     },
+    {
+      key: "invited",
+      header: "Invited",
+      cell: (i) => (
+        <span>
+          {i.invited_by.display_name || i.invited_by.email}{" "}
+          <span className="text-muted-foreground">
+            <RelativeTime value={i.created_at} />
+          </span>
+        </span>
+      ),
+    },
     { key: "expires", header: "Expires", cell: (i) => <RelativeTime value={i.expires_at} /> },
     {
       key: "actions",
       header: "Actions",
       className: "text-right",
       cell: (i) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label={`Revoke invitation for ${i.email}`}
-          onClick={() => setRevoking(i)}
-        >
-          Revoke
-        </Button>
+        <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={`Resend invitation to ${i.email}`}
+            title="Email it again with a new link. The old link stops working."
+            disabled={resend.isPending}
+            onClick={() =>
+              resend.mutate(i.id, {
+                onSuccess: () => toast.success(`Invitation sent again to ${i.email}`),
+                onError: fail,
+              })
+            }
+          >
+            Resend
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={`Revoke invitation for ${i.email}`}
+            onClick={() => setRevoking(i)}
+          >
+            Revoke
+          </Button>
+        </div>
       ),
     },
   ];

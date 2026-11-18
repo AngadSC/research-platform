@@ -20,6 +20,9 @@ import { formErrors, type FormErrors } from "@/lib/forms";
 import { compatibleUnits, convert, trimNumber } from "@/lib/units";
 import { NativeSelect } from "./common";
 
+export const ALERT_TOAST =
+  "Now at or below the alert level. PIs, lab admins and the item's owner were notified.";
+
 /** "I used 10 mL of the water": takes it off the item's stock, converting units, and keeps a
  * log anyone can read and the person (or an inventory manager) can undo. */
 export function UseStockDialog({
@@ -38,7 +41,7 @@ export function UseStockDialog({
   const [project, setProject] = useState("");
   const [note, setNote] = useState("");
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
-  const [requestId, setRequestId] = useState(() => crypto.randomUUID());
+  const [requestId] = useState(() => crypto.randomUUID()); // a new one each time the dialog opens
   if (!item) return null;
 
   const units = compatibleUnits(item.unit);
@@ -46,6 +49,9 @@ export function UseStockDialog({
   const n = Number(amount);
   const leaves = Number.isFinite(n) && n > 0 ? convert(n, chosen, item.unit) : null;
   const after = leaves === null ? null : Number(item.quantity) - leaves;
+  const level = item.low_stock_at == null ? null : Number(item.low_stock_at);
+  const crossesAlert =
+    level !== null && after !== null && Number(item.quantity) > level && after <= level;
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -55,9 +61,9 @@ export function UseStockDialog({
       {
         onSuccess: () => {
           toast.success(`Took ${amount} ${chosen} of ${item!.name}`);
-          setAmount("");
-          setNote("");
-          setRequestId(crypto.randomUUID());
+          // The server tells the PIs, lab admins and the item's owner when stock falls to the level.
+          if (crossesAlert) toast.warning(ALERT_TOAST);
+          onClose();
         },
         onError: (err) => setErrors(formErrors(err, ["amount", "unit", "project", "note"])),
       },
