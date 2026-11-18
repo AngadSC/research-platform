@@ -1,4 +1,4 @@
-import { Archive, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { Archive, ArrowLeft, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -66,6 +66,26 @@ export default function ParticipantPage({ labId, projectId, project }: ProjectTa
         onError: () => toast.error(`Couldn't archive ${p.code}`),
       },
     );
+  // One click for the common case, like recording that a consent form came in. Anything that
+  // needs a reason (Missing and the like) is set from the grid's cell panel.
+  const markComplete = (componentId: string, name: string) => {
+    const cell = cellOf(componentId);
+    const undo = { status: statusOf(cell), reason: cell?.reason ?? null };
+    registry.setCell.mutate(
+      { participant: p.id, component: componentId, patch: { status: "complete" } },
+      {
+        onSuccess: () =>
+          toast.success(`${p.code}: ${name} complete`, {
+            action: {
+              label: "Undo",
+              onClick: () =>
+                registry.setCell.mutate({ participant: p.id, component: componentId, patch: undo }),
+            },
+          }),
+        onError: () => toast.error(`Couldn't update ${name}`),
+      },
+    );
+  };
 
   return (
     <div className="grid gap-6">
@@ -121,6 +141,13 @@ export default function ParticipantPage({ labId, projectId, project }: ProjectTa
         </div>
       </header>
 
+      {columns.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No data columns yet, so there is nothing to record here. Project leads add columns on the
+          participants page.
+        </p>
+      )}
+
       {CATEGORIES.map(([cat, catLabel]) => {
         const inCat = columns.filter((c) => c.category === cat);
         if (!inCat.length) return null;
@@ -135,6 +162,16 @@ export default function ParticipantPage({ labId, projectId, project }: ProjectTa
                   <li key={c.id} className="flex flex-wrap items-center gap-3 px-3 py-2">
                     <span className="min-w-40 flex-1 font-medium">{c.name}</span>
                     <StatusChip status={statusOf(cell)} files={cell?.files.length} />
+                    {canEdit && statusOf(cell) !== "complete" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        aria-label={`Mark ${c.name} complete`}
+                        onClick={() => markComplete(c.id, c.name)}
+                      >
+                        <Check aria-hidden /> Mark complete
+                      </Button>
+                    )}
                     {reason && <span className="text-sm text-muted-foreground">{reason}</span>}
                     {cell?.due_date && (
                       <span className="text-sm text-muted-foreground">Due {cell.due_date}</span>

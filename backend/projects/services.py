@@ -16,6 +16,7 @@ from core.notifications import notify, notify_mentions
 from core.permissions import Perm, can, forget, member_change_refusal, project_role, users_with
 from core.retention import audit_retention, guard_retention, retention_changes
 from labs.models import LabChatMessage, LabChatReadState, LabMembership, LabRole
+from participants.services import add_default_columns
 from projects import templates
 from projects.models import (
     ChatMessage,
@@ -56,6 +57,7 @@ def create_project(*, lab, user, data, request=None) -> Project:
     forget(user)
     if template:
         templates.apply(template, project, user)
+    add_default_columns(project)
     record(
         AuditAction.PROJECT_CREATED,
         actor=user,

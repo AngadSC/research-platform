@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { completeness, parseCodes } from "@/lib/participants";
@@ -249,6 +249,25 @@ describe("participant matrix", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Restore P-009" }));
     await waitFor(() =>
       expect(calls.some((c) => c.method === "POST" && c.path.endsWith("/z/restore/"))).toBe(true),
+    );
+  });
+
+  it("a contributor ticks off a column on the participant's page in one click, with Undo", async () => {
+    const calls = world(["view_project", "edit_content"], {
+      [`PATCH ${P}/participants/a/cells/tr/`]: { body: cell("a", "tr", "complete") },
+    });
+    renderRoute("/labs/lab1/projects/p1/participants/a");
+    expect(await screen.findByRole("heading", { name: "P-001" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mark Transcript complete" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Mark Translation complete" }));
+    const toast = (await screen.findByText("P-001: Translation complete")).closest("li")!;
+    expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ status: "complete" });
+    fireEvent.click(within(toast).getByRole("button", { name: "Undo" }));
+    await waitFor(() =>
+      expect(calls.filter((c) => c.method === "PATCH").at(-1)?.body).toEqual({
+        status: "not_started",
+        reason: null,
+      }),
     );
   });
 

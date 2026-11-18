@@ -717,6 +717,8 @@ describe("Report tabs", () => {
     await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
     await screen.findByText(/6 rows, 3 columns/);
     await u.click(screen.getByRole("button", { name: "Independent t-test" }));
+    // choosing an option is what makes the report worth keeping
+    await u.selectOptions(screen.getByLabelText("Outcome (numbers)"), "score");
     await waitFor(
       () =>
         expect(calls.some((c) => c.method === "POST" && c.path === `${P}/analyses/`)).toBe(true),
@@ -728,7 +730,6 @@ describe("Report tabs", () => {
     expect(draft.description).toContain("Status: In progress");
     expect(screen.getByRole("tab", { name: /In progress/ })).toBeInTheDocument();
 
-    await u.selectOptions(screen.getByLabelText("Outcome (numbers)"), "score");
     await u.selectOptions(screen.getByLabelText("Groups"), "arm");
     await u.click(screen.getByRole("button", { name: "Run" }));
     // no click on Save: a result of a project file is kept as soon as it is shown
@@ -741,6 +742,66 @@ describe("Report tabs", () => {
     expect(done.description).not.toContain("In progress");
     expect(calls.filter((c) => c.method === "POST" && c.path === `${P}/analyses/`)).toHaveLength(1);
     expect(await screen.findByRole("tab", { name: /Finished/ })).toBeInTheDocument();
+  });
+
+  it("makes nothing when a test is only looked at, and brings its options into view", async () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    const calls = setup(fakeEngine(), {
+      extra: { [`GET ${P}/analyses/`]: { body: [] } } as never,
+    });
+    const u = userEvent.setup();
+    await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
+    await screen.findByText(/6 rows, 3 columns/);
+    await u.click(screen.getByRole("button", { name: "Independent t-test" }));
+    await waitFor(() =>
+      expect(
+        scroll.mock.contexts.some((el) => (el as Element).getAttribute("aria-label") === "Options"),
+      ).toBe(true),
+    );
+    await waitFor(() => expect(calls.some((c) => c.path === `${P}/analyses/`)).toBe(true), {
+      timeout: 4000,
+    });
+    await new Promise((r) => setTimeout(r, 500));
+    expect(calls.filter((c) => c.method !== "GET")).toHaveLength(0);
+    expect(screen.queryByRole("tab", { name: /In progress/ })).toBeNull();
+  });
+
+  it("carries on with an earlier visit's in-progress report on the same file and test", async () => {
+    const calls = setup(fakeEngine(), {
+      extra: {
+        [`GET ${P}/analyses/`]: {
+          body: [
+            {
+              id: "old",
+              title: "data.csv (in progress)",
+              description:
+                "In progress: Independent t-test on data.csv\n\nInput file: data.csv\n\nStatus: In progress",
+              code_attachment: { id: "py-old" },
+              datasets: [],
+            },
+          ],
+        },
+        "PATCH /api/labs/lab1/analyses/old/": { body: { id: "old" } },
+      } as never,
+    });
+    const u = userEvent.setup();
+    await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
+    await screen.findByText(/6 rows, 3 columns/);
+    await u.click(screen.getByRole("button", { name: "Independent t-test" }));
+    expect(
+      await screen.findByRole("tab", { name: /In progress/ }, { timeout: 4000 }),
+    ).toBeVisible();
+    await u.selectOptions(screen.getByLabelText("Outcome (numbers)"), "score");
+    await waitFor(() => expect(calls.some((c) => c.method === "PATCH")).toBe(true), {
+      timeout: 4000,
+    });
+    const patch = calls.find((c) => c.method === "PATCH")!;
+    expect(patch.path).toBe("/api/labs/lab1/analyses/old/");
+    expect((patch.body as Record<string, string>).code_attachment).toBe("py-old");
+    // no second report and no second in-progress .py file
+    expect(calls.filter((c) => c.method === "POST")).toHaveLength(0);
+    expect(upload).not.toHaveBeenCalled();
   });
 
   it("does not save a file from this computer by itself", async () => {
