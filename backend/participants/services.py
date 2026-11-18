@@ -16,6 +16,7 @@ from documents.services import Conflict
 from participants import identifiers
 from participants.models import (
     REASON_KIND,
+    Category,
     CellStatus,
     CellTask,
     Component,
@@ -239,6 +240,21 @@ def _unique_key(project, base):
     while key in taken:
         key, n = f"{base}-{n}", n + 1
     return key
+
+
+def add_default_columns(project) -> None:
+    """A study of people starts with a Consent form column, so anyone who can edit the project
+    records consent without waiting for a lead to add columns. Leads can rename or delete it.
+    The caller's transaction and audit event cover it (as with project templates)."""
+    if "human" in project.study_types:
+        Component.objects.create(
+            lab=project.lab,
+            project=project,
+            name="Consent form",
+            key="consent-form",
+            category=Category.CONSENT,
+            template_origin="default",
+        )
 
 
 @transaction.atomic

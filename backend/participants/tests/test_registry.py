@@ -2,8 +2,8 @@ import pytest
 
 from audit.models import AuditAction, AuditEvent
 from labs.models import LabRole
-from participants.models import Participant, ParticipantEvent
-from projects.models import ProjectRole
+from participants.models import Component, Participant, ParticipantEvent
+from projects.models import ProjectMembership, ProjectRole
 
 pytestmark = pytest.mark.django_db
 
@@ -248,3 +248,54 @@ def test_reasons_are_seeded_and_a_lead_can_add_one(w):
         "json",
     )
     assert dup.status_code == 400
+
+
+def test_a_new_study_of_people_starts_with_a_consent_column_contributors_fill(w):
+    from projects.services import create_project
+
+    people = create_project(lab=w.lab, user=w.pi, data={"name": "Consent (FAKE)"})
+    mice = create_project(
+        lab=w.lab, user=w.pi, data={"name": "Mice (FAKE)", "study_types": ["animal"]}
+    )
+    assert list(Component.objects.for_lab(w.lab).filter(project=mice)) == []
+    (consent,) = Component.objects.for_lab(w.lab).filter(project=people)
+    assert (consent.name, consent.category) == ("Consent form", "consent")
+    # a contributor (not a lead) records consent, and it shows in the participant's history
+    contributor = w.make_user()
+    w.join(contributor, w.lab, LabRole.MEMBER)
+    ProjectMembership.objects.create(
+        lab=w.lab, project=people, user=contributor, role=ProjectRole.CONTRIBUTOR
+    )
+    base = f"/api/labs/{w.lab.pk}/projects/{people.pk}"
+    c = w.client(contributor)
+    (p,) = c.post(f"{base}/participants/", {"codes": ["P101"]}, "json").json()
+    url = f"{base}/participants/{p['id']}/cells/{consent.pk}/"
+    r = c.patch(url, {"status": "complete"}, "json")
+    assert r.status_code == 200 and r.json()["status"] == "complete"
+    assert (
+        ParticipantEvent.objects.for_lab(w.lab)
+        .filter(participant_id=p["id"], component=consent, to_value="complete")
+        .exists()
+    )
+
+
+def test_existing_studies_without_columns_get_the_consent_column(w):
+    from importlib import import_module
+
+    from django.db import connection
+    from django.db.migrations.loader import MigrationLoader
+
+    w.column()  # P1's lead set columns up already: left alone
+    mice = w.other.__class__.objects.create(
+        lab=w.lab, name="Mice (FAKE)", created_by=w.pi, study_types=["animal"]
+    )
+    apps = MigrationLoader(connection).project_state().apps
+    import_module("participants.migrations.0005_default_consent_column").add_consent_column(
+        apps, None
+    )
+    names = lambda project: list(  # noqa: E731
+        Component.objects.for_lab(w.lab).filter(project=project).values_list("name", flat=True)
+    )
+    assert names(w.project) == ["Transcript"]
+    assert names(w.other) == ["Consent form"]
+    assert names(mice) == []

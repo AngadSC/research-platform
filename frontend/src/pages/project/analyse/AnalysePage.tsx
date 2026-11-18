@@ -469,6 +469,16 @@ function StatsWorkspace({
   const [testId, setTestId] = useState("");
   const test = TESTS.find((t) => t.id === testId);
   const [values, setValues] = useState<ParamValues>({});
+  // the options as the test was picked, so an untouched test doesn't make a report by itself
+  const [pickedKey, setPickedKey] = useState("{}");
+  const [picks, setPicks] = useState(0);
+  const optionsRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!picks) return;
+    // the options sit below a long list of tests: bring them into view when one is picked
+    const calm = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    optionsRef.current?.scrollIntoView?.({ behavior: calm ? "auto" : "smooth", block: "nearest" });
+  }, [picks]);
   const [tried, setTried] = useState(false);
   const [runError, setRunError] = useState<string>();
   const [runs, setRuns] = useState<Run[]>([]);
@@ -542,9 +552,10 @@ function StatsWorkspace({
     }
   }
 
-  // The report is kept in the project's Analysis list from the moment a test is chosen, until the
-  // first result is saved (ResultCard then finishes the same record). Data that may identify
-  // participants is never kept without the user's say-so, so those reports are saved by hand.
+  // The report is kept in the project's Analysis list once an option is changed (or an earlier
+  // visit's report on the same input and test is picked up), until the first result is saved
+  // (ResultCard then finishes the same record). Data that may identify participants is never
+  // kept without the user's say-so, so those reports are saved by hand.
   const draft = useDraftReport({
     labId,
     projectId,
@@ -554,6 +565,7 @@ function StatsWorkspace({
     inputName: source?.name ?? "",
     datasetId: source?.datasetId,
     options: values,
+    changed: valuesKey !== pickedKey,
   });
   const autoSave = canSave ? { draftId: draft.draftId } : undefined;
   const unsavedRuns = runs.some((r) => !r.saved);
@@ -586,6 +598,8 @@ function StatsWorkspace({
       if (cats.length === 1) v.group = cats[0]!.name;
     }
     setValues(v);
+    setPickedKey(JSON.stringify(v));
+    setPicks((n) => n + 1);
     setTried(false);
     setPreview(undefined);
     setPreviewError(undefined);
@@ -689,7 +703,11 @@ function StatsWorkspace({
 
   const optionsPanel =
     test && shape ? (
-      <section aria-label="Options" className="grid gap-4 rounded-xl border bg-card p-4">
+      <section
+        ref={optionsRef}
+        aria-label="Options"
+        className="grid scroll-mt-24 gap-4 rounded-xl border bg-card p-4"
+      >
         <div>
           <h3 className="font-semibold">{test.label}</h3>
           <p className="text-xs text-muted-foreground">{test.help}</p>
@@ -839,7 +857,7 @@ function StatsWorkspace({
     >
       <PageHeader
         title="Statistics"
-        description="Runs on your computer. Your data is not sent anywhere unless you save it."
+        description="Runs on your computer. Reports on project files are kept in the project's Analysis list as you work. Files from this computer and data marked as identifying participants are never saved unless you choose to."
         actions={
           <IconAction
             label="Focus mode"

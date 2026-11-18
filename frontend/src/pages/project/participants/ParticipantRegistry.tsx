@@ -444,7 +444,8 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
                     Import from a sheet
                   </Button>
                 )}
-                {canColumns && allColumns.length === 0 && (
+                {/* A new study of people starts with only the default Consent form column. */}
+                {canColumns && allColumns.every((c) => c.template_origin === "default") && (
                   <Button variant="outline" onClick={() => setDialog("template")}>
                     Start from a template
                   </Button>
