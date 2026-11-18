@@ -40,7 +40,9 @@ export function useCrumbs(): Crumb[] {
     "@record": { kind: "record", loaded: !!rec },
     "@approval": { kind: "approval", loaded: !!approval },
   };
-  return matches.flatMap((m) => {
+  const lab = useCurrentLabId();
+  const inLab = matches.some((m) => m.params.labId);
+  const trail = matches.flatMap((m) => {
     let crumb = (m.handle as { crumb?: string } | undefined)?.crumb;
     const item = crumb ? named[crumb] : undefined;
     if (crumb === "@lab") crumb = labs?.find((l) => l.id === m.params.labId)?.name ?? "Lab";
@@ -54,6 +56,16 @@ export function useCrumbs(): Crumb[] {
       ? [{ label: crumb, to: m.pathname, kind: item?.kind, pending: item && !item.loaded }]
       : [];
   });
+  // Settings and Help sit outside the lab, but you came from one: keep it in the trail.
+  const labName = labs?.find((l) => l.id === lab)?.name;
+  if (!inLab && lab && labName && trail.length > 1)
+    trail.splice(1, 0, {
+      label: labName,
+      to: `/labs/${lab}/dashboard`,
+      kind: undefined,
+      pending: undefined,
+    });
+  return trail;
 }
 
 /** The project id from the matched route, if the current page is inside a project. */

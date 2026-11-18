@@ -1,4 +1,5 @@
-import { Navigate, type RouteObject } from "react-router";
+import { Navigate, useParams, type RouteObject } from "react-router";
+import { useLabs } from "@/hooks/workspace";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { ProtectedLayout } from "@/components/layout/ProtectedLayout";
 import { AuditLogPage } from "@/pages/AuditLogPage";
@@ -69,6 +70,15 @@ import { PrivacyPage, TermsPage } from "@/pages/landing/pages/LegalPages";
 import { PricingPage } from "@/pages/landing/pages/PricingPage";
 import { StudentsPage } from "@/pages/landing/pages/StudentsPage";
 import { WorkflowPage } from "@/pages/landing/pages/WorkflowPage";
+
+/** /labs/<lab>/settings: lab admins get Lab details; everyone else gets their own Settings. */
+function LabSettingsRedirect() {
+  const { labId } = useParams();
+  const { data: labs } = useLabs();
+  if (!labs) return null;
+  const canManage = labs.find((l) => l.id === labId)?.my_permissions.includes("manage_lab");
+  return <Navigate to={canManage ? "../admin" : "/settings"} relative="path" replace />;
+}
 
 export const routes: RouteObject[] = [
   {
@@ -367,7 +377,7 @@ export const routes: RouteObject[] = [
               { path: "audit-log", element: <AuditLogPage />, handle: { crumb: "Audit log" } },
               { path: "admin", element: <AdminPage />, handle: { crumb: "Lab details" } },
               // Guessable addresses for pages that live elsewhere.
-              { path: "settings", element: <Navigate to="../admin" replace /> },
+              { path: "settings", element: <LabSettingsRedirect /> },
               { path: "integrations", element: <Navigate to="../settings/integrations" replace /> },
               { path: "inventory", element: <InventoryPage />, handle: { crumb: "Inventory" } },
               { path: "chat", element: <LabChatPage />, handle: { crumb: "Lab chat" } },

@@ -37,7 +37,8 @@ export function QuickCapture() {
   const here = useCurrentProjectId();
   const me = useMe().data;
   const qc = useQueryClient();
-  const { data: projects = [] } = useProjects(labId);
+  const { data: all = [] } = useProjects(labId);
+  const projects = useMemo(() => all.filter((p) => p.status !== "archived"), [all]);
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [picked, setPicked] = useState("");
@@ -67,7 +68,10 @@ export function QuickCapture() {
 
   const parsed = useMemo(() => parseCapture(text, projects), [text, projects]);
   const fallback =
-    projects.find((p) => p.id === here) ?? projects.find((p) => p.id === readLast()) ?? projects[0];
+    projects.find((p) => p.id === here) ??
+    projects.find((p) => p.id === readLast()) ??
+    projects.find((p) => p.status === "active") ??
+    projects[0];
   const project = parsed.project ?? projects.find((p) => p.id === picked) ?? fallback;
   const unmatched = !!parsed.projectQuery && !parsed.project;
 

@@ -238,7 +238,9 @@ function SlimProject({
               className="size-2.5 rounded-full bg-(--project)"
               style={projectColorStyle(project.color)}
             />
-            <span className="truncate">{project.name}</span>
+            <span className="truncate" title={project.name}>
+              {project.name}
+            </span>
           </DropdownMenuLabel>
           {projectSections(project.study_types).map(({ to, label, icon: Icon }) => (
             <DropdownMenuItem
@@ -296,7 +298,9 @@ function ProjectItem({
           )}
         >
           <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-(--project)" />
-          <span className="truncate">{project.name}</span>
+          <span className="truncate" title={project.name}>
+            {project.name}
+          </span>
           {project.status === "archived" && (
             <span className="shrink-0 rounded bg-muted px-1 text-[10px] font-normal text-muted-foreground">
               Archived
@@ -508,6 +512,7 @@ export function Sidebar({
   return (
     <aside
       id="app-sidebar"
+      data-drawer={open ? "open" : undefined}
       className={cn(
         "glass glass--strong shrink-0 flex-col gap-4 overflow-hidden rounded-2xl md:m-3 md:mr-0 print:hidden",
         slim ? "w-[4.5rem] p-2" : "w-64 p-4",
@@ -718,7 +723,7 @@ export function Sidebar({
                 )}
                 {adminGroup.length > 0 && (
                   <GroupFlyout
-                    label="Admin"
+                    label={adminGroup.some((i) => i.admin) ? "Admin" : "Lab resources"}
                     icon={SlidersHorizontal}
                     items={adminGroup}
                     slim={slim}

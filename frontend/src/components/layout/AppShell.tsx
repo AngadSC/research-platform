@@ -289,7 +289,7 @@ export function AppShell() {
             >
               <PanelLeft aria-hidden />
             </Button>
-            <span className="text-sm font-semibold md:hidden">{APP_NAME}</span>
+            <span className="hidden text-sm font-semibold sm:inline md:hidden">{APP_NAME}</span>
             {barOrder.map((id, i) => {
               const part = barParts[id];
               if (!part) return null;
@@ -306,7 +306,7 @@ export function AppShell() {
           <main
             id="main"
             tabIndex={-1}
-            className="@container outline-none min-h-0 flex-1 overflow-y-auto pt-[4.75rem] pb-20 md:pb-0 print:overflow-visible print:pt-0"
+            className="@container outline-none min-h-0 flex-1 overflow-y-auto pt-[4.75rem] pb-[calc(5rem+var(--tutorial-pad,0px))] md:pb-[var(--tutorial-pad,1.5rem)] print:overflow-visible print:pt-0"
           >
             <div className="px-4 py-4 md:px-8 print:px-0">
               <div className="mb-4 print:hidden">

@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { useCurrentLabId } from "@/hooks/crumbs";
@@ -82,6 +82,7 @@ export function Tutorial() {
   const labId = useCurrentLabId();
   const [step, setStep] = useState(readStep);
   const heading = useRef<HTMLHeadingElement>(null);
+  const card = useRef<HTMLElement>(null);
   const opener = useRef<Element | null>(null);
 
   const go = useCallback(
@@ -112,11 +113,22 @@ export function Tutorial() {
     if (step !== null) heading.current?.focus(); // keyboard and screen-reader users follow along
   }, [step]);
 
+  // Leave room under the page for the card, so the last rows can scroll clear of it.
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    if (step === null) return undefined;
+    root.style.setProperty("--tutorial-pad", `${(card.current?.offsetHeight ?? 200) + 24}px`);
+    return () => {
+      root.style.removeProperty("--tutorial-pad");
+    };
+  }, [step]);
+
   const current = step === null ? undefined : STEPS[step];
   if (step === null || !current) return null;
   const last = step === STEPS.length - 1;
   return (
     <section
+      ref={card}
       role="dialog"
       aria-modal="false"
       aria-label="Tutorial"

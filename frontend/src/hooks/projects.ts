@@ -124,6 +124,7 @@ export function useMyTasks(labId: string) {
   return useQuery({
     queryKey: ["labs", labId, "my-tasks"],
     queryFn: () => api<MyTask[]>(`${base(labId)}/my-tasks/`),
+    enabled: !!labId, // pages outside a lab have no tasks to ask for
   });
 }
 

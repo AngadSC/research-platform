@@ -42,7 +42,7 @@ export function DropdownMenuContent({
       <M.Content
         sideOffset={sideOffset}
         className={cn(
-          "glass glass--strong glass-in z-50 min-w-48 rounded-lg p-1.5 text-popover-foreground",
+          "glass glass--strong glass--solid glass-in z-50 min-w-48 rounded-lg p-1.5 text-popover-foreground",
           className,
         )}
         {...props}

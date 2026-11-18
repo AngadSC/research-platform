@@ -101,6 +101,15 @@ describe("tutorial and help", () => {
     await userEvent.click(within(tour).getByRole("button", { name: "Close tutorial" }));
     expect(screen.queryByRole("dialog", { name: "Tutorial" })).toBeNull();
     expect(localStorage.getItem("tutorial-step")).toBeNull();
+    expect(document.documentElement.style.getPropertyValue("--tutorial-pad")).toBe("");
+  });
+
+  it("leaves room under the page while the tour is open", async () => {
+    mockFetch(help());
+    renderRoute("/help");
+    await userEvent.click(await screen.findByRole("button", { name: "Take the tour" }));
+    await screen.findByRole("dialog", { name: "Tutorial" });
+    expect(document.documentElement.style.getPropertyValue("--tutorial-pad")).toMatch(/px$/);
   });
 
   it("offers the dismissed checklist again and lists shortcuts", async () => {
