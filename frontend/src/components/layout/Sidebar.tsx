@@ -34,6 +34,7 @@ import { useCurrentLabId, useCurrentProjectId } from "@/hooks/crumbs";
 import { useLayout, usePins, useSidebarOrder } from "@/hooks/preferences";
 import { useMyTasks, useProjects } from "@/hooks/projects";
 import { localDateISO } from "@/lib/format";
+import { isSnoozed } from "@/lib/snooze";
 import { useLabs } from "@/hooks/workspace";
 import type { Lab, Project } from "@/lib/api-types";
 import { navItems, projectSections, type NavItem } from "@/lib/nav";
@@ -458,7 +459,7 @@ export function Sidebar({
   const unread = useUnreadCount(labId);
   const today = localDateISO();
   const lateTasks = (useMyTasks(labId ?? "").data ?? []).filter(
-    (t) => t.due_date && t.due_date < today,
+    (t) => t.due_date && t.due_date < today && !isSnoozed(t.snoozed_until),
   );
   const overdueMine = lateTasks.length;
   const lateIn = (id: string) => lateTasks.filter((t) => t.project === id).length;

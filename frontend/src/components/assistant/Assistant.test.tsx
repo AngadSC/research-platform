@@ -231,7 +231,11 @@ describe("assistant panel", () => {
       "href",
       "/settings#ai",
     );
-    expect(screen.getByText(/ask your lab admin to add a lab key/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Lab details" })).toHaveAttribute(
+      "href",
+      "/labs/lab1/admin#ai",
+    );
+    expect(screen.getByText(/Your lab admin can add an AI key in/)).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
   });
 

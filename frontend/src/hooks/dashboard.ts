@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { components } from "@/lib/api-schema";
+import type { InventoryItem } from "@/lib/api-types";
 
 export type Dashboard = components["schemas"]["Dashboard"];
 export type DashProject = components["schemas"]["DashProject"];
@@ -59,5 +60,15 @@ export function useContributions(labId: string | undefined, userId?: string) {
       ),
     enabled: !!labId,
     placeholderData: (previous) => previous,
+  });
+}
+
+/** Inventory at or below its alert level, for people who manage inventory. */
+export function useLowStock(labId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ["labs", labId, "inventory", "low"],
+    queryFn: async () =>
+      (await api<InventoryItem[]>(`/api/labs/${labId}/inventory/`)).filter((i) => i.low),
+    enabled: !!labId && enabled,
   });
 }

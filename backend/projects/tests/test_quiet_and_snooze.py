@@ -101,10 +101,12 @@ def test_snooze_is_a_task_field_you_can_set(world):
     client = APIClient()
     client.force_authenticate(student)
     resp = client.patch(
-        f"/api/labs/{lab.pk}/tasks/{t.pk}/", {"snoozed_until": "2027-03-08"}, format="json"
+        f"/api/labs/{lab.pk}/tasks/{t.pk}/",
+        {"snoozed_until": "2027-03-08T09:30:00Z"},
+        format="json",
     )
     assert resp.status_code == 200
-    assert resp.json()["snoozed_until"] == "2027-03-08"
+    assert resp.json()["snoozed_until"] == "2027-03-08T09:30:00Z"
     mine = client.get(f"/api/labs/{lab.pk}/my-tasks/").json()
-    assert mine[0]["snoozed_until"] == "2027-03-08"
+    assert mine[0]["snoozed_until"] == "2027-03-08T09:30:00Z"
     assert mine[0]["project_color"]

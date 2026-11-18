@@ -80,8 +80,29 @@ describe("Today", () => {
     await userEvent.click(await screen.findByRole("menuitem", { name: "Until Monday" }));
     await waitFor(() => expect(calls.some((c) => c.path.endsWith("/tasks/b/"))).toBe(true));
     expect(calls.find((c) => c.path.endsWith("/tasks/b/"))!.body).toMatchObject({
-      snoozed_until: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      snoozed_until: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
     });
+  });
+
+  it("snoozes for three hours with Later today, and lets you unsnooze from the list", async () => {
+    const calls = mockFetch(
+      handlers([t("a", "Due thing", today), t("s", "Resting thing", today, addDays(today, 3))], {
+        "PATCH /api/labs/lab1/tasks/a/": { body: {} },
+        "PATCH /api/labs/lab1/tasks/s/": { body: {} },
+      }),
+    );
+    renderRoute("/labs/lab1/dashboard");
+    await userEvent.click(await screen.findByRole("button", { name: 'Snooze "Due thing"' }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Later today" }));
+    await waitFor(() => expect(calls.some((c) => c.path.endsWith("/tasks/a/"))).toBe(true));
+    const sent = (
+      calls.find((c) => c.path.endsWith("/tasks/a/"))!.body as { snoozed_until: string }
+    ).snoozed_until;
+    expect(new Date(sent).getTime() - Date.now()).toBeGreaterThan(2.9 * 3600_000);
+    // the list shows it as snoozed and not overdue, with a way back
+    await userEvent.click(await screen.findByRole("button", { name: 'Unsnooze "Resting thing"' }));
+    await waitFor(() => expect(calls.some((c) => c.path.endsWith("/tasks/s/"))).toBe(true));
+    expect(calls.find((c) => c.path.endsWith("/tasks/s/"))!.body).toEqual({ snoozed_until: null });
   });
 
   it("opens the morning digest in the app, with what is due and what is coming", async () => {

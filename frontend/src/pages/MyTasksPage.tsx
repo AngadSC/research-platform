@@ -4,17 +4,19 @@ import { DueChip } from "@/components/dashboard/DueChip";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
-import { useMyTasks } from "@/hooks/projects";
+import { useMyTasks, usePatchTask } from "@/hooks/projects";
 import { useLab } from "@/hooks/workspace";
 import { taskStatusLabel, type MyTask } from "@/lib/api-types";
 import { shortDate } from "@/lib/dashboard";
 import { formErrors } from "@/lib/forms";
-import { localDateISO } from "@/lib/format";
+import { Button } from "@/components/ui/button";
+import { isSnoozed, snoozeEnds } from "@/lib/snooze";
 
 /** Your open tasks across the lab, soonest due first. On My work, and on Home for members. */
 export function MyTasksList({ labId }: { labId: string }) {
   const { data, isLoading, error } = useMyTasks(labId);
   const viewer = useLab(labId).data?.my_role === "viewer";
+  const patch = usePatchTask(labId);
   const cols: Column<MyTask>[] = [
     {
       key: "title",
@@ -29,7 +31,28 @@ export function MyTasksList({ labId }: { labId: string }) {
       ),
     },
     { key: "project", header: "Project", cell: (t) => t.project_name },
-    { key: "status", header: "Status", cell: (t) => taskStatusLabel(t.status) },
+    {
+      key: "status",
+      header: "Status",
+      cell: (t) =>
+        isSnoozed(t.snoozed_until) ? (
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="text-muted-foreground">
+              Snoozed until {snoozeEnds(t.snoozed_until!)}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Unsnooze "${t.title}"`}
+              onClick={() => patch.mutate({ id: t.id, patch: { snoozed_until: null } })}
+            >
+              Unsnooze
+            </Button>
+          </span>
+        ) : (
+          taskStatusLabel(t.status)
+        ),
+    },
     {
       key: "due",
       header: "Due",
@@ -39,12 +62,7 @@ export function MyTasksList({ labId }: { labId: string }) {
         ) : (
           <span className="flex flex-wrap items-center gap-2">
             {shortDate(t.due_date)}
-            <DueChip due={t.due_date} status={t.status} />
-            {t.snoozed_until && t.snoozed_until > localDateISO() && (
-              <span className="text-xs text-muted-foreground">
-                Snoozed until {shortDate(t.snoozed_until)}
-              </span>
-            )}
+            {!isSnoozed(t.snoozed_until) && <DueChip due={t.due_date} status={t.status} />}
           </span>
         ),
     },

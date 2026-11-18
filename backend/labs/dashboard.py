@@ -12,7 +12,7 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import generics, serializers
 from rest_framework.response import Response
 
-from audit.models import AuditAction, AuditEvent
+from audit.models import AuditEvent
 from core.permissions import Perm, visible_projects
 from core.views import LabScopedViewMixin
 from ethics.models import ApprovalStatus, EthicsApproval
@@ -282,13 +282,8 @@ def build_dashboard(user, lab) -> dict:
     overdue_top = list(
         tasks.filter(late).select_related("assignee").order_by("due_date", "id")[:LIMIT]
     )
-    unassigned_qs = tasks.filter(
-        not_done,
-        assignee__isnull=True,
-        pk__in=AuditEvent.objects.filter(lab=lab, action=AuditAction.TASK_UNASSIGNED).values(
-            "target_id"
-        ),
-    ).order_by("due_date", "created_at")
+    # every open task nobody holds, however it got that way
+    unassigned_qs = tasks.filter(not_done, assignee__isnull=True).order_by("due_date", "created_at")
     unassigned = list(unassigned_qs)
 
     broken = list(

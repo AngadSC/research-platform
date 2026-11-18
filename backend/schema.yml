@@ -18002,7 +18002,7 @@ components:
           nullable: true
         snoozed_until:
           type: string
-          format: date
+          format: date-time
           readOnly: true
           nullable: true
         status:
@@ -20120,7 +20120,7 @@ components:
           nullable: true
         snoozed_until:
           type: string
-          format: date
+          format: date-time
           nullable: true
         status:
           $ref: '#/components/schemas/TaskStatusEnum'
@@ -21771,7 +21771,7 @@ components:
           nullable: true
         snoozed_until:
           type: string
-          format: date
+          format: date-time
           readOnly: true
           nullable: true
         status:
@@ -21906,7 +21906,7 @@ components:
           nullable: true
         snoozed_until:
           type: string
-          format: date
+          format: date-time
           nullable: true
         status:
           $ref: '#/components/schemas/TaskStatusEnum'

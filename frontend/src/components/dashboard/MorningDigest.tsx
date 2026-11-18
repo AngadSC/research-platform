@@ -10,12 +10,12 @@ import { daysFromToday, dueText, shortDate } from "@/lib/dashboard";
 import { localDateISO } from "@/lib/format";
 import { greeting } from "@/lib/greeting";
 import { plural } from "@/lib/format";
-import { addDays } from "@/lib/snooze";
+import { addDays, isSnoozed } from "@/lib/snooze";
 import { projectColorStyle } from "@/lib/projectColors";
 
 /** Your tasks sorted for the morning. Snoozed ones are resting until their day. */
 export function digestOf(tasks: MyTask[], today: string) {
-  const awake = tasks.filter((t) => !t.snoozed_until || t.snoozed_until <= today);
+  const awake = tasks.filter((t) => !isSnoozed(t.snoozed_until));
   const week = addDays(today, 7);
   return {
     overdue: awake.filter((t) => t.due_date && t.due_date < today),
@@ -124,7 +124,7 @@ export function MorningDigest({ labId }: { labId: string }) {
   const summary = isLoading
     ? "Loading"
     : due === 0
-      ? "Nothing due today"
+      ? "Nothing new due today"
       : [
           d.today.length + todayDl.length && `${d.today.length + todayDl.length} due today`,
           d.overdue.length + lateDl.length && `${d.overdue.length + lateDl.length} overdue`,

@@ -7248,7 +7248,7 @@ export interface components {
             readonly title: string;
             /** Format: date */
             readonly due_date: string | null;
-            /** Format: date */
+            /** Format: date-time */
             readonly snoozed_until: string | null;
             readonly status: components["schemas"]["TaskStatusEnum"];
         };
@@ -8113,7 +8113,7 @@ export interface components {
             assignee?: string | null;
             /** Format: date */
             due_date?: string | null;
-            /** Format: date */
+            /** Format: date-time */
             snoozed_until?: string | null;
             status?: components["schemas"]["TaskStatusEnum"];
             position?: number;
@@ -8760,7 +8760,7 @@ export interface components {
             readonly assignee: components["schemas"]["User"];
             /** Format: date */
             readonly due_date: string | null;
-            /** Format: date */
+            /** Format: date-time */
             readonly snoozed_until: string | null;
             readonly status: components["schemas"]["TaskStatusEnum"];
             readonly position: number;
@@ -8809,7 +8809,7 @@ export interface components {
             assignee?: string | null;
             /** Format: date */
             due_date?: string | null;
-            /** Format: date */
+            /** Format: date-time */
             snoozed_until?: string | null;
             status?: components["schemas"]["TaskStatusEnum"];
             position?: number;

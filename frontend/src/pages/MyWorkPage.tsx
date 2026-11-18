@@ -12,6 +12,7 @@ import { useMyTraining } from "@/hooks/training";
 import { shortDate } from "@/lib/dashboard";
 import { dayText } from "@/lib/ethics";
 import { localDateISO } from "@/lib/format";
+import { isSnoozed } from "@/lib/snooze";
 import { formErrors } from "@/lib/forms";
 import { Section } from "@/pages/admin/common";
 import { MyTasksList } from "@/pages/MyTasksPage";
@@ -119,7 +120,9 @@ function MyTrainings({ labId }: { labId: string }) {
 /** Everything of yours that is already late, first on the page. Nothing renders when all is on time. */
 function OverdueNow({ labId }: { labId: string }) {
   const today = localDateISO();
-  const tasks = (useMyTasks(labId).data ?? []).filter((t) => t.due_date && t.due_date < today);
+  const tasks = (useMyTasks(labId).data ?? []).filter(
+    (t) => t.due_date && t.due_date < today && !isSnoozed(t.snoozed_until),
+  );
   const { list } = useCalendar(labId, addDays(-30), addDays(0), true);
   const deadlines = (list.data ?? []).filter(
     (i) => i.kind === "deadline" && !i.done && i.date < today,
