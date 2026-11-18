@@ -182,11 +182,13 @@ function SlimProject({
   labId,
   project,
   isCurrent,
+  overdue = 0,
   onNavigate,
 }: {
   labId: string;
   project: Project;
   isCurrent: boolean;
+  overdue?: number;
   onNavigate: () => void;
 }) {
   const navigate = useNavigate();
@@ -214,11 +216,12 @@ function SlimProject({
             void navigate(`${base}/overview`);
           }}
           className={cn(
-            "grid size-8 place-items-center rounded-lg text-xs font-semibold text-(--project) hover:bg-[color-mix(in_srgb,var(--project)_18%,transparent)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            "relative grid size-8 place-items-center rounded-lg text-xs font-semibold text-(--project) hover:bg-[color-mix(in_srgb,var(--project)_18%,transparent)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
             isCurrent && "bg-[color-mix(in_srgb,var(--project)_22%,transparent)]",
           )}
         >
           {project.name.slice(0, 1).toUpperCase()}
+          <UnreadBadge count={overdue} noun="overdue task" className="absolute -top-1 -right-1" />
         </DropdownMenuTrigger>
         <DropdownMenuContent
           side="right"
@@ -261,12 +264,15 @@ function ProjectItem({
   project,
   isCurrent,
   unread,
+  overdue = 0,
   onNavigate,
 }: {
   labId: string;
   project: Project;
   isCurrent: boolean;
   unread: number;
+  /** Your own overdue tasks in this project. */
+  overdue?: number;
   onNavigate: () => void;
 }) {
   const { pins, toggle: togglePin } = usePins();
@@ -296,7 +302,8 @@ function ProjectItem({
               Archived
             </span>
           )}
-          <UnreadBadge count={unread} noun="message" className="ml-auto shrink-0" />
+          <UnreadBadge count={overdue} noun="overdue task" className="ml-auto shrink-0" />
+          <UnreadBadge count={unread} noun="message" className="shrink-0" />
         </NavLink>
         <button
           type="button"
@@ -446,9 +453,11 @@ export function Sidebar({
   const current = labs.find((l) => l.id === labId);
   const unread = useUnreadCount(labId);
   const today = localDateISO();
-  const overdueMine = (useMyTasks(labId ?? "").data ?? []).filter(
+  const lateTasks = (useMyTasks(labId ?? "").data ?? []).filter(
     (t) => t.due_date && t.due_date < today,
-  ).length;
+  );
+  const overdueMine = lateTasks.length;
+  const lateIn = (id: string) => lateTasks.filter((t) => t.project === id).length;
   const done = projects.filter((p) => p.status === "completed" && p.id !== projectId);
   const layout = useLayout();
   const slim = layout.compact && !open; // the drawer below md always shows words
@@ -630,6 +639,7 @@ export function Sidebar({
                                   labId={labId!}
                                   project={p}
                                   isCurrent={p.id === projectId}
+                                  overdue={lateIn(p.id)}
                                   onNavigate={onClose}
                                 />
                               ))}
@@ -645,6 +655,7 @@ export function Sidebar({
                                   project={p}
                                   isCurrent={p.id === projectId}
                                   unread={chatUnread[p.id] ?? 0}
+                                  overdue={lateIn(p.id)}
                                   onNavigate={onClose}
                                 />
                               ))}
@@ -662,6 +673,7 @@ export function Sidebar({
                                         project={p}
                                         isCurrent={false}
                                         unread={chatUnread[p.id] ?? 0}
+                                        overdue={lateIn(p.id)}
                                         onNavigate={onClose}
                                       />
                                     ))}

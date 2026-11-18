@@ -334,3 +334,21 @@ def test_query_count_is_flat(world, make_user, join):
     populate(8)
     assert count() == small
     assert small <= 25
+
+
+def test_a_past_due_deadline_counts_as_overdue_and_turns_the_project_red(world):
+    ProjectDeadline.objects.create(
+        lab=world["lab"], project=world["project"], title="Missed", due_date=days(-4)
+    )
+    ProjectDeadline.objects.create(
+        lab=world["lab"], project=world["project"], title="Later", due_date=days(3)
+    )
+    ProjectDeadline.objects.create(
+        lab=world["lab"], project=world["project"], title="Done", due_date=days(-2), done=True
+    )
+    (row,) = get(world)["projects"]
+    assert row["overdue_deadlines"] == 1 and row["overdue_tasks"] == 0
+    assert row["next_deadline"]["title"] == "Missed"
+    assert row["health"] == "red" and "1 overdue deadline" in row["health_reasons"]
+    # the late one is not also reported as "within 14 days" on the health line
+    assert "Deadline within 14 days" in row["health_reasons"]

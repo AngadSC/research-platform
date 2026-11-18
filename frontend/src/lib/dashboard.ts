@@ -22,6 +22,17 @@ export function dueText(days: number, noun = "overdue"): string {
 }
 
 export const HEALTH_LABEL = { red: "At risk", amber: "Watch", green: "Healthy" } as const;
+/** What puts a project in each state, shown beside the word so nobody has to guess. */
+export const HEALTH_RULE = {
+  red: "At risk: a task or deadline is overdue, or its funding has ended.",
+  amber:
+    "Watch: a deadline is within 14 days, funding ends within 90 days, or nothing has happened for 30 days.",
+  green: "Healthy: none of the above.",
+} as const;
+
+/** Everything late in a project: tasks and deadlines together. */
+export const overdueTotal = (p: { overdue_tasks: number; overdue_deadlines?: number }) =>
+  p.overdue_tasks + (p.overdue_deadlines ?? 0);
 const HEALTH_RANK = { red: 0, amber: 1, green: 2 } as const;
 const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
 
@@ -49,7 +60,7 @@ export function sortValue(p: DashProject, key: SortKey): string | number {
     case "open":
       return p.open_tasks;
     case "overdue":
-      return p.overdue_tasks;
+      return overdueTotal(p);
     case "in_progress":
       return p.in_progress_tasks;
     case "deadline":

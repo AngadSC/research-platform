@@ -40,6 +40,7 @@ export function NotificationBell({ labId }: { labId: string }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={`Notifications, ${total} unread`}
+        title="Notifications"
         className="relative rounded-md p-1.5 text-muted-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4"
       >
         <Bell aria-hidden />

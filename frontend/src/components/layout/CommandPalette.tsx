@@ -36,6 +36,26 @@ export function CommandPalette({ labId, onGo, recents: recentItems = [] }: Props
   const assistantReady = useAssistantReady(open ? labId : undefined);
   const ask = text.trim();
   const recents = recentItems.slice(0, 5);
+  // the last few searches, kept in this browser, offered again when the box is empty
+  const searchKey = `recent-searches:${labId ?? ""}`;
+  const [pastSearches, setPastSearches] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(searchKey) ?? "[]") as string[];
+    } catch {
+      return [];
+    }
+  });
+  const rememberSearch = (q: string) => {
+    const t = q.trim();
+    if (t.length < 2) return;
+    const next = [t, ...pastSearches.filter((x) => x !== t)].slice(0, 5);
+    setPastSearches(next);
+    try {
+      localStorage.setItem(searchKey, JSON.stringify(next));
+    } catch {
+      // not remembered, nothing else is lost
+    }
+  };
   const { hits, loading, error } = useLabSearch(open ? labId : undefined, text);
 
   // The palette opens from a shortcut or an event, not a dialog trigger, so the dialog has nothing
@@ -104,13 +124,22 @@ export function CommandPalette({ labId, onGo, recents: recentItems = [] }: Props
       }}
     >
       <CommandInput
-        placeholder={`Search everything in this lab, or run an action (${MOD_KEY} K)`}
+        placeholder={`Search projects, papers, people and files, or run an action (${MOD_KEY} K)`}
         value={text}
         onValueChange={setText}
       />
       <CommandList>
         {hits.length === 0 && (
           <CommandEmpty>{loading ? "Searching..." : "No matches."}</CommandEmpty>
+        )}
+        {!ask && pastSearches.length > 0 && (
+          <CommandGroup heading="Recent searches">
+            {pastSearches.map((q) => (
+              <CommandItem key={q} value={`past search ${q}`} onSelect={() => setText(q)}>
+                <span className="truncate">{q}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
         )}
         {!ask && recents.length > 0 && (
           <CommandGroup heading="Recent">
@@ -137,6 +166,7 @@ export function CommandPalette({ labId, onGo, recents: recentItems = [] }: Props
                 value={`hit:${h.type}:${h.id}`}
                 forceMount
                 onSelect={() => {
+                  rememberSearch(text);
                   setOpen(false);
                   setText("");
                   onGo?.(h.url);

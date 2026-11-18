@@ -5885,6 +5885,8 @@ export interface components {
             leads: components["schemas"]["PersonRef"][];
             open_tasks: number;
             overdue_tasks: number;
+            /** @description Unfinished deadlines whose date has passed. */
+            overdue_deadlines: number;
             in_progress_tasks: number;
             next_deadline: components["schemas"]["DashNextDeadline"] | null;
             /** Format: date-time */

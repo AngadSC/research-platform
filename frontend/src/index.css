@@ -61,7 +61,7 @@
   --secondary: #1f1f23;
   --secondary-foreground: #fafafa;
   --muted: #1f1f23;
-  --muted-foreground: #a1a1aa; /* 7.6:1 on bg */
+  --muted-foreground: #b4b4be; /* 9.6:1 on bg: timestamps and hints stay readable */
   --accent: #1f1f23;
   --accent-foreground: #fafafa;
   --success: #4ade80;
@@ -156,19 +156,27 @@ html[data-project-theme] {
   --muted: color-mix(in srgb, var(--project) 8%, #ffffff);
   --border: color-mix(in srgb, var(--project) 20%, #e4e4e7);
   --sidebar: color-mix(in srgb, var(--project) 8%, #ffffff);
-  --mesh: radial-gradient(80rem 44rem at 6% -16%, color-mix(in srgb, var(--project) 22%, transparent), transparent 65%);
+  --mesh: radial-gradient(
+    80rem 44rem at 6% -16%,
+    color-mix(in srgb, var(--project) 22%, transparent),
+    transparent 65%
+  );
 }
 html.dark[data-project-theme] {
   --background: color-mix(in srgb, var(--project) 9%, #09090b);
   --foreground: color-mix(in srgb, var(--project) 8%, #fafafa);
-  --muted-foreground: color-mix(in srgb, var(--project) 14%, #a1a1aa);
+  --muted-foreground: color-mix(in srgb, var(--project) 12%, #b4b4be);
   --primary: color-mix(in srgb, var(--project) 92%, #ffffff);
   --accent: color-mix(in srgb, var(--project) 14%, #111113);
   --secondary: color-mix(in srgb, var(--project) 10%, #111113);
   --muted: color-mix(in srgb, var(--project) 10%, #111113);
   --border: color-mix(in srgb, var(--project) 22%, #27272a);
   --sidebar: color-mix(in srgb, var(--project) 8%, #0d0d10);
-  --mesh: radial-gradient(80rem 44rem at 6% -16%, color-mix(in srgb, var(--project) 26%, transparent), transparent 65%);
+  --mesh: radial-gradient(
+    80rem 44rem at 6% -16%,
+    color-mix(in srgb, var(--project) 26%, transparent),
+    transparent 65%
+  );
 }
 html[data-project-theme] main h1,
 html[data-project-theme] main h2 {

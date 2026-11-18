@@ -89,6 +89,9 @@ class DashProjectSerializer(serializers.Serializer):
     leads = PersonRefSerializer(many=True)
     open_tasks = serializers.IntegerField()
     overdue_tasks = serializers.IntegerField()
+    overdue_deadlines = serializers.IntegerField(
+        help_text="Unfinished deadlines whose date has passed."
+    )
     in_progress_tasks = serializers.IntegerField()
     next_deadline = DashNextDeadlineSerializer(allow_null=True)
     last_activity_at = serializers.DateTimeField(allow_null=True)
@@ -245,6 +248,13 @@ def build_dashboard(user, lab) -> dict:
         .order_by("project_id", "due_date", "id")
         .distinct("project_id")
     }
+    late_deadlines = {
+        r["project_id"]: r["n"]
+        for r in ProjectDeadline.objects.visible_to(user, lab)
+        .filter(done=False, due_date__lt=today)
+        .values("project_id")
+        .annotate(n=Count("id"))
+    }
     soon = list(
         ProjectDeadline.objects.visible_to(user, lab)
         .filter(done=False, due_date__lte=today + timedelta(days=DEADLINE_DAYS))
@@ -307,10 +317,11 @@ def build_dashboard(user, lab) -> dict:
     # ---- project rows, health, stalled
     rows, stalled = [], []
     stale_before = now - timedelta(days=STALLED_DAYS)
-    soon_ids = {d.project_id for d in soon}
+    soon_ids = {d.project_id for d in soon if d.due_date >= today}
     for p in projects:
         c = counts.get(p.pk, {})
         overdue = c.get("overdue", 0)
+        late_dl = late_deadlines.get(p.pk, 0)
         f = covering.get(p.pk)
         activity = p.last_activity_at or p.created_at
         is_stalled = p.status in (ProjectStatus.PLANNING, ProjectStatus.ACTIVE) and (
@@ -330,6 +341,8 @@ def build_dashboard(user, lab) -> dict:
         if live:
             if overdue:
                 red.append(f"{overdue} overdue task{'s' if overdue != 1 else ''}")
+            if late_dl:
+                red.append(f"{late_dl} overdue deadline{'s' if late_dl != 1 else ''}")
             if f and f.end_date < today:
                 red.append("Funding has ended")
             elif f and (f.end_date - today).days <= FUNDING_DAYS:
@@ -347,6 +360,7 @@ def build_dashboard(user, lab) -> dict:
                 "leads": leads.get(p.pk, []),
                 "open_tasks": c.get("open", 0),
                 "overdue_tasks": overdue,
+                "overdue_deadlines": late_dl,
                 "in_progress_tasks": c.get("in_progress", 0),
                 "next_deadline": nd
                 and {

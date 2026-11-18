@@ -2,10 +2,11 @@ import { ChevronRight, Sun } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { useCalendar } from "@/hooks/admin";
 import { useMyTasks } from "@/hooks/projects";
 import { useMe } from "@/hooks/workspace";
 import type { MyTask } from "@/lib/api-types";
-import { shortDate } from "@/lib/dashboard";
+import { daysFromToday, dueText, shortDate } from "@/lib/dashboard";
 import { localDateISO } from "@/lib/format";
 import { greeting } from "@/lib/greeting";
 import { plural } from "@/lib/format";
@@ -53,6 +54,59 @@ function List({ labId, title, tasks }: { labId: string; title: string; tasks: My
   );
 }
 
+function DeadlineList({
+  labId,
+  title,
+  items,
+  today,
+}: {
+  labId: string;
+  title: string;
+  items: {
+    id: string;
+    title: string;
+    date: string;
+    project_id: string | null;
+    project_name: string | null;
+  }[];
+  today: string;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <section aria-label={title} className="grid gap-1">
+      <h3 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+        {title} · {items.length}
+      </h3>
+      <ul className="grid gap-1">
+        {items.map((i) => (
+          <li key={i.id}>
+            <Link
+              to={
+                i.project_id
+                  ? `/labs/${labId}/projects/${i.project_id}/overview`
+                  : `/labs/${labId}/calendar`
+              }
+              className="block rounded-md bg-muted/40 px-3 py-2 text-sm hover:bg-muted"
+            >
+              <span className="block font-medium break-words">{i.title}</span>
+              <span
+                className={
+                  i.date < today
+                    ? "block text-xs font-medium text-danger-text"
+                    : "block text-xs text-muted-foreground"
+                }
+              >
+                {i.project_name} · {shortDate(i.date)}
+                {i.date < today && ` · ${dueText(daysFromToday(i.date))}`}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** A card on Home that opens the morning digest in the app: what is due, what is overdue and what
  * is coming this week. It is read here, not sent by email. */
 export function MorningDigest({ labId }: { labId: string }) {
@@ -61,14 +115,19 @@ export function MorningDigest({ labId }: { labId: string }) {
   const { data: tasks, isLoading } = useMyTasks(labId);
   const today = localDateISO();
   const d = digestOf(tasks ?? [], today);
-  const due = d.today.length + d.overdue.length;
+  // project deadlines count too: a missed one is as overdue as a missed task
+  const { list: cal } = useCalendar(labId, addDays(today, -30), addDays(today, 7), true);
+  const dl = (cal.data ?? []).filter((i) => i.kind === "deadline" && !i.done);
+  const lateDl = dl.filter((i) => i.date < today);
+  const todayDl = dl.filter((i) => i.date === today);
+  const due = d.today.length + d.overdue.length + lateDl.length + todayDl.length;
   const summary = isLoading
     ? "Loading"
     : due === 0
       ? "Nothing due today"
       : [
-          d.today.length && `${d.today.length} due today`,
-          d.overdue.length && `${d.overdue.length} overdue`,
+          d.today.length + todayDl.length && `${d.today.length + todayDl.length} due today`,
+          d.overdue.length + lateDl.length && `${d.overdue.length + lateDl.length} overdue`,
         ]
           .filter(Boolean)
           .join(" · ");
@@ -98,7 +157,9 @@ export function MorningDigest({ labId }: { labId: string }) {
               : `${plural(due, "thing")} need${due === 1 ? "s" : ""} you today.`}
           </DialogDescription>
           <div className="grid gap-4">
+            <DeadlineList labId={labId} title="Overdue deadlines" items={lateDl} today={today} />
             <List labId={labId} title="Overdue" tasks={d.overdue} />
+            <DeadlineList labId={labId} title="Deadlines due today" items={todayDl} today={today} />
             <List labId={labId} title="Due today" tasks={d.today} />
             <List labId={labId} title="Coming up this week" tasks={d.soon} />
             {due + d.soon.length === 0 && (

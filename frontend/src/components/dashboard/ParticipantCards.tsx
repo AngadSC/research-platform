@@ -54,12 +54,19 @@ export function ParticipantCards({
   if (compact) return mine.length > 0 ? waiting : null;
   if (percentsAllZero && missing === 0 && overdue === 0 && mine.length === 0)
     return (
-      <p className="text-sm text-muted-foreground">
-        Participant data: not started on any project.{" "}
-        <Link to={`/labs/${labId}/participants`} className="underline underline-offset-2">
-          Open participants
+      <section aria-label="Participant data" className="glass rounded-2xl p-4">
+        <h2 className="text-sm font-semibold">Participant data</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Not started yet. Add participants by code (like P-001) in a project, then list the data
+          each one should have, and this card shows who is missing what.
+        </p>
+        <Link
+          to={`/labs/${labId}/participants`}
+          className="mt-2 inline-block text-sm font-medium text-primary underline-offset-2 hover:underline"
+        >
+          Set up participants →
         </Link>
-      </p>
+      </section>
     );
   return (
     <div

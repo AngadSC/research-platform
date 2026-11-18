@@ -36,7 +36,8 @@ export const TOPBAR_BUILTIN: TopbarItem[] = [
 ];
 
 /** What a person sees until they change it. */
-export const TOPBAR_DEFAULT = ["greeting", "pin", "search", "task", "assistant", "weather", "bell"];
+// Weather is there to add from Settings > Layout, but is not on by default.
+export const TOPBAR_DEFAULT = ["greeting", "pin", "search", "task", "assistant", "bell"];
 
 /** The part of a lab link that names the page: `/labs/<id>/my-work` is "my-work". */
 export const navKey = (to: string) => to.replace(/^\/labs\/[^/]+\//, "");

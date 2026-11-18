@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { StatsLink } from "@/components/shared/StatsLink";
 import { ApprovalBadge, ExpiryText } from "@/components/ethics/ApprovalBadge";
 import { useAssistantReady } from "@/hooks/assistant";
@@ -144,7 +144,11 @@ function Deadlines({
   canEdit: boolean;
 }) {
   const { list, create, update, remove } = useDeadlines(labId, projectId);
-  const [editing, setEditing] = useState<Deadline | "new" | null>(null);
+  // ?new=deadline (from Home) opens the form straight away, if this person may add one
+  const [params] = useSearchParams();
+  const [editing, setEditing] = useState<Deadline | "new" | null>(
+    canEdit && params.get("new") === "deadline" ? "new" : null,
+  );
   const cols: Column<Deadline>[] = [
     {
       key: "title",

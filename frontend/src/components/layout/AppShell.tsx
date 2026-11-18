@@ -163,6 +163,7 @@ export function AppShell() {
         variant="secondary"
         size="sm"
         aria-label="Search"
+        title="Search projects, papers, people and files"
         onClick={() => window.dispatchEvent(new Event(OPEN_SEARCH_EVENT))}
       >
         <Search aria-hidden />

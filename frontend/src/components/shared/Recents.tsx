@@ -28,14 +28,16 @@ const PROJECT_IN_URL = /^\/labs\/[^/]+\/projects\/([^/?#]+)/;
 
 /** What the user opened lately. Nothing to show means no section at all, not an empty one. Each
  * item takes its project's colour, so a project is recognisable at a glance. */
-export function Recents() {
-  const recents = useRecents().slice(0, SHOWN);
+export function Recents({ hide = [] }: { hide?: RecentKind[] }) {
+  const recents = useRecents()
+    .filter((r) => !hide.includes(r.kind))
+    .slice(0, SHOWN);
   const { data: projects = [] } = useProjects(useCurrentLabId());
   if (recents.length === 0) return null;
   return (
-    <section aria-labelledby="recents" className="mb-8 grid gap-3">
-      <h2 id="recents" className="text-base font-semibold">
-        Recent
+    <section aria-labelledby="recents" className="grid gap-3">
+      <h2 id="recents" className="text-base font-medium">
+        {hide.length ? "Recent documents and files" : "Recent"}
       </h2>
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {recents.map((r, i) => {

@@ -38,6 +38,7 @@ describe("getting started", () => {
     mockFetch(home({ steps, dismissed: false }));
     renderRoute("/labs/lab1/dashboard");
     const card = await screen.findByRole("region", { name: "Get your lab set up" });
+    await userEvent.click(within(card).getByText("Show all steps"));
     expect(within(card).getByText("1 of 3 done. These tick themselves as you go.")).toBeVisible();
     expect(within(card).getByRole("link", { name: "New project" })).toHaveAttribute(
       "href",
@@ -62,19 +63,12 @@ describe("getting started", () => {
     expect(calls.find((c) => c.method === "POST")?.body).toEqual({ dismissed: true });
   });
 
-  it("leaves a way back once dismissed", async () => {
-    const calls = mockFetch(
-      home(
-        { steps, dismissed: true },
-        { [`POST ${L}/getting-started/`]: { body: { steps, dismissed: false } } },
-      ),
-    );
+  it("shows nothing on Home once dismissed (Help brings it back)", async () => {
+    mockFetch(home({ steps, dismissed: true }));
     renderRoute("/labs/lab1/dashboard");
-    await userEvent.click(await screen.findByRole("button", { name: "Show getting started" }));
-    await waitFor(() =>
-      expect(calls.find((c) => c.method === "POST")?.body).toEqual({ dismissed: false }),
-    );
-    expect(await screen.findByRole("region", { name: "Get your lab set up" })).toBeVisible();
+    await screen.findByRole("heading", { name: "Home" });
+    expect(screen.queryByRole("region", { name: "Get your lab set up" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Show getting started" })).toBeNull();
   });
 
   it("is hidden once every step is done", async () => {

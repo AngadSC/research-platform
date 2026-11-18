@@ -14378,6 +14378,9 @@ components:
           type: integer
         overdue_tasks:
           type: integer
+        overdue_deadlines:
+          type: integer
+          description: Unfinished deadlines whose date has passed.
         in_progress_tasks:
           type: integer
         next_deadline:
@@ -14418,6 +14421,7 @@ components:
       - name
       - next_deadline
       - open_tasks
+      - overdue_deadlines
       - overdue_tasks
       - status
     DashStalled:

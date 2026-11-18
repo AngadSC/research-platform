@@ -122,7 +122,7 @@ export function WorkflowLayout(props: ProjectTabProps) {
                         isActive
                           ? "text-primary underline decoration-2 underline-offset-4"
                           : notNeeded
-                            ? "text-muted-foreground/70 hover:text-foreground"
+                            ? "text-muted-foreground hover:text-foreground"
                             : isNext
                               ? "text-foreground"
                               : "text-muted-foreground hover:text-foreground",

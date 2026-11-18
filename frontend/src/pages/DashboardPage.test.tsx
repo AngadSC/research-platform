@@ -298,4 +298,66 @@ describe("Dashboard", () => {
     expect(calls.some((c) => c.path.endsWith("/dashboard/"))).toBe(false);
     expect(calls.some((c) => c.path.includes("/contributions/"))).toBe(false);
   });
+
+  it("counts a past-due deadline as overdue and says how late it is", async () => {
+    mockFetch(
+      base(
+        dash({
+          projects: [
+            project({
+              id: "p3",
+              name: "Paper 2",
+              overdue_deadlines: 1,
+              health: "red",
+              health_reasons: ["1 overdue deadline"],
+              next_deadline: {
+                id: "d1",
+                title: "Submit draft",
+                due_date: ago(4),
+                priority: "high",
+              },
+            }),
+          ],
+        }),
+      ),
+    );
+    renderRoute("/labs/lab1");
+    const row = (await screen.findByRole("link", { name: "Paper 2" })).closest("tr")!;
+    expect(within(row).getByText("4 days overdue", { exact: false })).toBeInTheDocument();
+    expect(within(row).getByTitle(/1 overdue deadlines/)).toHaveTextContent("1");
+  });
+
+  it("keeps completed projects out of the table until asked for", async () => {
+    mockFetch(
+      base(
+        dash({
+          projects: [
+            project({ name: "Live one" }),
+            project({ id: "p9", name: "OILERS", status: "completed" }),
+          ],
+        }),
+      ),
+    );
+    renderRoute("/labs/lab1");
+    await screen.findByRole("link", { name: "Live one" });
+    expect(screen.queryByRole("link", { name: "OILERS" })).toBeNull();
+    await userEvent.click(
+      screen.getByRole("button", { name: /Show completed and archived \(1\)/ }),
+    );
+    expect(await screen.findByRole("link", { name: "OILERS" })).toBeInTheDocument();
+  });
+
+  it("snoozes a kind of problem and brings it back on request", async () => {
+    mockFetch(base(dash()));
+    renderRoute("/labs/lab1");
+    const card = await screen.findByRole("region", { name: /Ethics approvals/ });
+    expect(within(card).getByRole("link", { name: /Renew/ })).toHaveAttribute(
+      "href",
+      "/labs/lab1/ethics",
+    );
+    await userEvent.click(within(card).getByRole("button", { name: "Snooze for a week" }));
+    expect(screen.queryByRole("region", { name: /Ethics approvals/ })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Show them again" }));
+    expect(await screen.findByRole("region", { name: /Ethics approvals/ })).toBeInTheDocument();
+  });
 });
