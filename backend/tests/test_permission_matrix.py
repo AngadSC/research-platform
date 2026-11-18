@@ -45,8 +45,6 @@ from labs.models import (  # admin area (Run 4)
     InventoryItem,
     InventoryOrder,
     InventoryUsage,
-    NotebookEntry,
-    Subject,
     Invite,
     Lab,
     LabChatMessage,
@@ -54,9 +52,11 @@ from labs.models import (  # admin area (Run 4)
     LabMembership,
     LabRole,
     Meeting,
+    NotebookEntry,
     OnboardingItem,
     Protocol,
     ProtocolReagent,
+    Subject,
 )
 from papers import services as paper_services  # paper library
 from participants import imports as participant_imports  # participant registry

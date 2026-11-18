@@ -255,7 +255,7 @@ describe("document page", () => {
     ).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Stay" }));
     expect(router.state.location.pathname).toBe(DOC);
- }, 20000);
+  }, 20000);
 
   it("keeps History, Retention, Linked files and Delete behind one menu", async () => {
     const calls = mockFetch(
