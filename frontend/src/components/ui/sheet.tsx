@@ -22,7 +22,7 @@ export function SheetContent({
       <SheetPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[3px]" />
       <SheetPrimitive.Content
         className={cn(
-          "glass glass--strong glass--float glass-slide-in fixed inset-y-3 right-3 z-50 flex h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] max-w-md flex-col gap-4 rounded-[var(--radius-dialog)] p-6",
+          "glass glass--strong glass--solid glass--float glass-slide-in fixed inset-y-3 right-3 z-50 flex h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] max-w-md flex-col gap-4 rounded-[var(--radius-dialog)] p-6",
           className,
         )}
         {...returnFocus}

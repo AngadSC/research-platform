@@ -835,7 +835,7 @@ function StatsWorkspace({
       role="tabpanel"
       id={`report-panel-${tabId}`}
       aria-labelledby={`report-tab-${tabId}`}
-      className="grid gap-6 pb-24 md:pb-8"
+      className="grid gap-6 pb-8"
     >
       <PageHeader
         title="Statistics"

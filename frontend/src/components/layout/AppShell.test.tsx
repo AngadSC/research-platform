@@ -37,6 +37,32 @@ const patches = (calls: ReturnType<typeof mockFetch>) =>
 describe("app shell", () => {
   beforeEach(() => localStorage.clear());
 
+  it("sends a lab admin from /settings to Lab details", async () => {
+    const perms = ["view_lab", "manage_lab"];
+    mockFetch({
+      ...world({}),
+      "GET /api/labs/": { body: [makeLab(perms)] },
+      [`GET ${L}/`]: { body: makeLab(perms) },
+    });
+    const router = renderRoute("/labs/lab1/settings");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/labs/lab1/admin"));
+  });
+
+  it("does not ask for tasks when there is no lab", async () => {
+    const calls = mockFetch({ ...world({}), "GET /api/labs/": { body: [] } });
+    renderRoute("/settings");
+    await screen.findByRole("heading", { name: "Settings" });
+    expect(calls.some((c) => c.path.includes("labs//"))).toBe(false);
+  });
+
+  it("keeps the lab in the Settings breadcrumb", async () => {
+    mockFetch(world({}));
+    renderRoute("/settings");
+    const crumbs = await screen.findByRole("navigation", { name: "Breadcrumb" });
+    await within(crumbs).findByRole("link", { name: makeLab([]).name });
+    expect(within(crumbs).getByText("Settings")).toBeInTheDocument();
+  });
+
   it("asks for a name when there is none, and cannot be dismissed without one", async () => {
     const nameless = { id: "u1", email: "jgogia@uni.edu", display_name: "", preferences: {} };
     const calls = mockFetch({
@@ -92,7 +118,8 @@ describe("app shell", () => {
       expect(router.state.location.pathname).toBe("/labs/lab1/settings/integrations"),
     );
     await router.navigate("/labs/lab1/settings");
-    await waitFor(() => expect(router.state.location.pathname).toBe("/labs/lab1/admin"));
+    // a member has no Lab details: their own Settings is the page
+    await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
     await router.navigate("/nowhere");
     expect(await screen.findByRole("link", { name: /^Back to / })).toHaveAttribute(
       "href",
@@ -230,7 +257,7 @@ describe("app shell", () => {
     const groups = within(screen.getByRole("navigation", { name: "Lab and admin" }));
     expect(groups.getByRole("button", { name: "Lab details, pages" })).toBeInTheDocument();
     const user = userEvent.setup();
-    groups.getByRole("button", { name: "Admin, pages" }).focus();
+    groups.getByRole("button", { name: "Lab resources, pages" }).focus();
     await user.keyboard("{Enter}");
     expect(await screen.findByRole("menuitem", { name: "Inventory" })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Audit log" })).toBeNull();

@@ -57,4 +57,17 @@ describe("quick capture", () => {
     expect(screen.getByRole("button", { name: "Add task" })).toBeDisabled();
     expect(calls.some((c) => c.method === "POST")).toBe(false);
   });
+
+  it("never offers an archived project, and starts on an active one", async () => {
+    setup({
+      "GET /api/labs/lab1/projects/": {
+        body: [{ ...proj("p0", "Old study"), status: "archived" }, proj("p2", "Thesis")],
+      },
+    });
+    renderRoute("/labs/lab1/dashboard");
+    await userEvent.click(await screen.findByRole("button", { name: "Add a task" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("Thesis")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Old study")).toBeNull();
+  });
 });

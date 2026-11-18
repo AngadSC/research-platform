@@ -101,7 +101,7 @@
 :root {
   --glass-bg: color-mix(in srgb, var(--card) 88%, transparent);
   --glass-bg-strong: color-mix(in srgb, var(--card) 82%, transparent);
-  --glass-bg-solid: color-mix(in srgb, var(--card) 94%, transparent);
+  --glass-bg-solid: color-mix(in srgb, var(--card) 100%, transparent);
   --glass-bg-input: color-mix(in srgb, var(--foreground) 4%, var(--card) 70%);
   --glass-border: rgb(24 24 40 / 0.08);
   --glass-edge-shadow: rgb(24 24 27 / 0.04);
@@ -127,7 +127,7 @@
 .dark {
   --glass-bg: color-mix(in srgb, var(--card) 55%, transparent);
   --glass-bg-strong: color-mix(in srgb, var(--card) 78%, transparent);
-  --glass-bg-solid: color-mix(in srgb, var(--card) 92%, transparent);
+  --glass-bg-solid: color-mix(in srgb, var(--card) 100%, transparent);
   --glass-bg-input: color-mix(in srgb, var(--foreground) 6%, var(--card) 60%);
   --glass-border: rgb(255 255 255 / 0.08);
   --glass-edge-shadow: rgb(0 0 0 / 0.4);
@@ -228,6 +228,14 @@ body::after {
     background: var(--glass-bg-solid);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+  /* The sidebar is a drawer below md: opaque there, glass beside the page on desktop. */
+  @media (max-width: 767px) {
+    #app-sidebar[data-drawer="open"] {
+      background: var(--glass-bg-solid);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
   }
   /* Floating layers sit higher. */
   .glass--float {
