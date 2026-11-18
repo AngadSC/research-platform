@@ -24,8 +24,8 @@ from labs.models import (
     InventoryCategory,
     InventoryItem,
     InventoryOrder,
-    InventoryUsage,
     InventoryStatus,
+    InventoryUsage,
     LabEvent,
     LabMembership,
     Meeting,
@@ -475,6 +475,7 @@ def _take_from_stock(order, *, user, request):
     if order.item_id is None:
         return
     items = InventoryItem.objects.for_lab(order.lab_id).filter(pk=order.item_id)
+    before = items.values_list("quantity", flat=True).first()
     if not items.filter(quantity__gte=order.quantity).update(
         quantity=F("quantity") - order.quantity, updated_at=timezone.now()
     ):
@@ -486,6 +487,7 @@ def _take_from_stock(order, *, user, request):
                 "taken back out. Correct the item's quantity first. Nothing was changed."
             }
         )
+    low_stock.check(order.item_id, order.lab_id, before=before)
     record(
         A.INVENTORY_ITEM_UPDATED,
         actor=user,

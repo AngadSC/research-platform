@@ -279,7 +279,7 @@ def test_a_new_study_of_people_starts_with_a_consent_column_contributors_fill(w)
     )
 
 
-def test_existing_studies_without_columns_get_the_consent_column(w):
+def test_existing_studies_with_participants_but_no_columns_get_the_consent_column(w):
     from importlib import import_module
 
     from django.db import connection
@@ -289,6 +289,11 @@ def test_existing_studies_without_columns_get_the_consent_column(w):
     mice = w.other.__class__.objects.create(
         lab=w.lab, name="Mice (FAKE)", created_by=w.pi, study_types=["animal"]
     )
+    # older projects all default to a study of people: only ones with participants get the column
+    untracked = w.other.__class__.objects.create(
+        lab=w.lab, name="Survey (FAKE)", created_by=w.pi, study_types=["human"]
+    )
+    Participant.objects.create(lab=w.lab, project=w.other, code="P900", created_by=w.pi)
     apps = MigrationLoader(connection).project_state().apps
     import_module("participants.migrations.0005_default_consent_column").add_consent_column(
         apps, None
@@ -299,3 +304,4 @@ def test_existing_studies_without_columns_get_the_consent_column(w):
     assert names(w.project) == ["Transcript"]
     assert names(w.other) == ["Consent form"]
     assert names(mice) == []
+    assert names(untracked) == []

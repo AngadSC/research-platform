@@ -278,7 +278,8 @@ function DocumentEditor({
         content: content.current,
         base_version: baseVersion,
         autosave,
-        ...(keepalive && { keepalive }),
+        // browsers refuse a keepalive request over 64 KiB, so a long document saves normally
+        ...(keepalive && sentBaseline.length < 60_000 && { keepalive }),
         ...(canRetention && {
           retain_until: retention.current.until || null,
           retention_note: retention.current.note,
@@ -360,7 +361,7 @@ function DocumentEditor({
     if (!dirty) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
     const onHide = () => {
-      if (document.visibilityState === "hidden") void flush(true, true);
+      if (document.visibilityState === "hidden") void flush(true);
     };
     const onPageHide = () => void flush(true, true);
     window.addEventListener("beforeunload", warn);

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAttachments } from "@/hooks/projects";
+import { useMe } from "@/hooks/workspace";
 import { root } from "@/hooks/research";
 import { api } from "@/lib/api";
 import type { Analysis } from "@/lib/api-types";
@@ -34,10 +35,12 @@ const summary = (testLabel: string, inputName: string) =>
   `In progress: ${testLabel} on ${inputName}\n`;
 
 /** An in-progress report from an earlier visit on the same input and test, to carry on with. */
-async function findDraft(c: Args): Promise<Analysis | undefined> {
+async function findDraft(c: Args, me?: string): Promise<Analysis | undefined> {
+  if (!me) return undefined;
   const list = await api<Analysis[]>(`/api/labs/${c.labId}/projects/${c.projectId}/analyses/`);
   return list.find(
     (a) =>
+      a.ran_by?.id === me &&
       isInProgress(a.description) &&
       a.description.startsWith(summary(c.testLabel, c.inputName)) &&
       a.datasets[0]?.id === c.datasetId,
@@ -53,6 +56,9 @@ async function findDraft(c: Args): Promise<Analysis | undefined> {
  */
 export function useDraftReport(a: Args) {
   const { uploadFile } = useAttachments(a.labId, a.projectId);
+  const me = useMe().data?.id;
+  const meId = useRef(me);
+  meId.current = me;
   const qc = useQueryClient();
   const [draftId, setDraftId] = useState<string>();
   const [state, setState] = useState<DraftState>("idle");
@@ -79,7 +85,7 @@ export function useDraftReport(a: Args) {
         if (!draftRef.current && lookedFor.current !== which) {
           lookedFor.current = which;
           // best effort: if the list can't be read, a new report is made as before
-          const found = await findDraft(c).catch(() => undefined);
+          const found = await findDraft(c, meId.current).catch(() => undefined);
           if (found) {
             draftRef.current = found.id;
             codeId.current = found.code_attachment?.id;

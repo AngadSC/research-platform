@@ -162,7 +162,7 @@ export default function ParticipantPage({ labId, projectId, project }: ProjectTa
                   <li key={c.id} className="flex flex-wrap items-center gap-3 px-3 py-2">
                     <span className="min-w-40 flex-1 font-medium">{c.name}</span>
                     <StatusChip status={statusOf(cell)} files={cell?.files.length} />
-                    {canEdit && statusOf(cell) !== "complete" && (
+                    {canEdit && !["complete", "excluded"].includes(statusOf(cell)) && (
                       <Button
                         variant="outline"
                         size="sm"
