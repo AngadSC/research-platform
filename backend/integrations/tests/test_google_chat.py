@@ -47,13 +47,13 @@ def api(user):
     return client
 
 
-def connect_chat(transport, user, lab, sub, email):
+def connect_chat(transport, user, lab, sub, email, scopes=SCOPES):
     request = make_request(user)
     url = services.start_connect(request, lab, "google_chat")
     query = parse_qs(urlsplit(url).query)
     assert set(query["scope"][0].split()) == set(google_chat.PROVIDER.scopes)
     assert query["client_id"] == ["gc-client"]  # its own Google app, not Drive's (D315)
-    transport.on("POST", google_chat.PROVIDER.token_url, token_reply("gc-at", "gc-rt", SCOPES))
+    transport.on("POST", google_chat.PROVIDER.token_url, token_reply("gc-at", "gc-rt", scopes))
     transport.on(
         "GET", google_chat.PROVIDER.identity_url, response(200, {"sub": sub, "email": email})
     )
@@ -76,6 +76,36 @@ def test_connect_names_the_account_by_google_user_id(transport, lab_users):
     assert account.provider == "google_chat"
     assert account.external_account_id == "2002"
     assert account.external_email == "member@example.test"
+
+
+CORE = " ".join(["openid", google_chat.EMAIL, google_chat.MESSAGES, google_chat.SPACES])
+
+
+def test_connects_without_the_optional_membership_and_directory_scopes(transport, lab_users):
+    lab, u = lab_users
+    account = connect_chat(transport, u["member"], lab, "2002", "member@example.test", CORE)
+    assert account.status == AccountStatus.ACTIVE and account.skipped == []
+    assert set(account.granted_scopes) == set(CORE.split())
+
+
+@pytest.mark.parametrize(
+    "missing", ["openid", google_chat.EMAIL, google_chat.MESSAGES, google_chat.SPACES]
+)
+def test_a_declined_core_scope_connects_nothing(transport, lab_users, missing):
+    lab, u = lab_users
+    granted = " ".join(x for x in SCOPES.split() if x != missing)
+    with pytest.raises(services.OAuthError) as err:
+        connect_chat(transport, u["member"], lab, "2002", "member@example.test", granted)
+    assert err.value.code == "scope_not_granted"
+    assert not transport.sent("GET", google_chat.PROVIDER.identity_url)
+
+
+def test_a_scope_chat_did_not_ask_for_is_refused(transport, lab_users):
+    lab, u = lab_users
+    extra = f"{CORE} https://www.googleapis.com/auth/drive.file"
+    with pytest.raises(services.OAuthError) as err:
+        connect_chat(transport, u["member"], lab, "2002", "member@example.test", extra)
+    assert err.value.code == "unexpected_scope"
 
 
 def test_spaces_and_link_need_manage_lab_integrations(transport, lab_users):
@@ -154,14 +184,24 @@ def test_a_member_with_google_chat_posts_as_themselves(transport, linked):
     assert message.external_id == f"{SPACE}/messages/m1"
 
 
-def test_a_member_without_google_chat_is_posted_by_the_link_with_their_name(transport, linked):
+def test_a_member_without_google_chat_is_posted_by_the_link_with_name_and_email(transport, linked):
     lab, u, _, _ = linked
     u["member"].display_name = "Robin Example"
     u["member"].save()
     transport.on("POST", MESSAGES, _posted(f"{SPACE}/messages/m2"))
     lab_services.post_lab_message(lab=lab, by=u["member"], body="hello")
     (call,) = transport.sent("POST", MESSAGES)
-    assert call["json"] == {"text": f"*Robin Example ({u['member'].email})* via LabBench: hello"}
+    assert call["json"] == {"text": f"*Robin Example ({u['member'].email})* via labbenchos: hello"}
+
+
+def test_a_member_with_no_name_is_relayed_by_email(transport, linked):
+    lab, u, _, _ = linked
+    u["member"].display_name = ""
+    u["member"].save()
+    transport.on("POST", MESSAGES, _posted(f"{SPACE}/messages/m2"))
+    lab_services.post_lab_message(lab=lab, by=u["member"], body="hello")
+    (call,) = transport.sent("POST", MESSAGES)
+    assert call["json"] == {"text": f"*{u['member'].email}* via labbenchos: hello"}
 
 
 def test_a_member_not_in_the_space_falls_back_to_the_link(transport, linked):
@@ -170,7 +210,7 @@ def test_a_member_not_in_the_space_falls_back_to_the_link(transport, linked):
     transport.on("POST", MESSAGES, response(403, {}), _posted(f"{SPACE}/messages/m3"))
     message = lab_services.post_lab_message(lab=lab, by=u["member"], body="hello")
     calls = transport.sent("POST", MESSAGES)
-    assert len(calls) == 2 and calls[1]["json"]["text"].endswith("via LabBench: hello")
+    assert len(calls) == 2 and calls[1]["json"]["text"].endswith("via labbenchos: hello")
     message.refresh_from_db()
     assert message.external_id == f"{SPACE}/messages/m3"
 
@@ -293,6 +333,23 @@ def test_poll_names_strangers_from_the_directory(transport, linked):
     assert call["params"]["resourceNames"] == ["people/9"]
 
 
+def test_without_the_optional_scopes_senders_and_group_chats_still_work(transport, lab_users):
+    """No directory or membership call is made (the fake transport fails any unexpected one)."""
+    lab, u = lab_users
+    connect_chat(transport, u["lab_admin"], lab, "1001", "admin@example.test", CORE)
+    transport.on("GET", f"{API}/{SPACE}", response(200, {"name": SPACE, "displayName": "Lab"}))
+    sync.link_space(lab=lab, by=u["lab_admin"], space=SPACE)
+    transport.on("GET", MESSAGES, response(200, {"messages": [_google("g1", "hi")]}))
+    sync.poll_all()
+    assert LabChatMessage.objects.for_lab(lab).get().external_author == sync.UNKNOWN_SENDER
+    group = {"name": "spaces/GRP1", "spaceType": "GROUP_CHAT"}
+    transport.on("GET", f"{API}/spaces", response(200, {"spaces": [group]}))
+    [row] = sync.list_spaces(lab, u["lab_admin"])
+    assert row["display_name"] == "Group chat" and row["members"] == []
+    asked = [url for _, url, _ in transport.calls]
+    assert not [x for x in asked if "people.googleapis.com" in x or x.endswith("/members")]
+
+
 THREAD = f"{SPACE}/threads/T1"
 
 
@@ -393,7 +450,7 @@ def test_a_display_name_cannot_pass_for_someone_else_in_google(transport, linked
     transport.on("POST", MESSAGES, _posted(f"{SPACE}/messages/m5"))
     lab_services.post_lab_message(lab=lab, by=u["member"], body="hi")
     (call,) = transport.sent("POST", MESSAGES)
-    assert call["json"]["text"] == f"*Prof. Alice says ({u['member'].email})* via LabBench: hi"
+    assert call["json"]["text"] == (f"*Prof. Alice says ({u['member'].email})* via labbenchos: hi")
 
 
 def test_a_google_account_shared_by_two_members_credits_neither(transport, linked):

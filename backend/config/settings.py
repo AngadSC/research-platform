@@ -332,6 +332,7 @@ SOCIALACCOUNT_PROVIDERS = {
     "google": {
         "SCOPE": ["openid", "email", "profile"],
         "AUTH_PARAMS": {"access_type": "online"},
+        "OAUTH_PKCE_ENABLED": True,  # S256 code challenge on sign-in, as integrations use (D65)
         "APPS": (
             [{"client_id": GOOGLE_CLIENT_ID, "secret": os.environ.get("GOOGLE_CLIENT_SECRET", "")}]
             if GOOGLE_CLIENT_ID

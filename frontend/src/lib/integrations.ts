@@ -9,10 +9,11 @@ export const CONNECT_ERRORS: Record<string, string> = {
   invalid_scope: "That permission is not available.",
   unknown_provider: "That service is not available.",
   provider_not_configured: "This service is not set up for your institution yet.",
-  scope_not_granted: "Allow every requested permission to connect.",
+  scope_not_granted:
+    "Nothing was connected, because a permission it needs was not allowed. Connect again and tick it on Google's screen.",
   identity_failed: "We could not confirm which account you connected. Try again.",
   identity_forbidden:
-    "Google would not tell us which account this is, so nothing was connected. Whoever runs this site needs to check the Google project: the Drive API and Calendar API must be on, and the three permissions added to its consent screen.",
+    "Google would not tell us which account this is, so nothing was connected. Whoever runs this site needs to check the Google project: the Drive API and Calendar API must be on, and every permission this site asks for added to its consent screen.",
   unexpected_scope: "The service granted more access than we asked for. Try again.",
   other_account_connected: "Another account is already connected. Disconnect it first.",
 };

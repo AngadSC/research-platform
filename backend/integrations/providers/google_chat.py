@@ -13,6 +13,9 @@ can be picked; `chat.memberships.readonly` names an unnamed group chat by its me
 gives an app signed in as a person only the sender's number (D320);
 `openid` and `userinfo.email` name the account. The `sub` that names it is the same number Google
 Chat uses for the sender (`users/<sub>`), which is how a message from Google finds its author here.
+The membership and directory scopes are optional: a person may decline them and still connect.
+`labs/google_chat.py` then skips those calls, an unnamed group chat is named by kind and date,
+and a sender with no name from either lookup shows as "Someone on Google Chat".
 
 D315: its own Google OAuth app (`INTEGRATION_GOOGLE_CHAT_CLIENT_ID`), not Drive's. Google revokes a
 whole grant per app, so sharing Drive's app would let "disconnect Google Chat" break Drive and
@@ -47,6 +50,7 @@ PROVIDER = Provider(
     writes=frozenset({"chat_messages"}),
     link_targets=frozenset(),
     scopes=("openid", EMAIL, MESSAGES, SPACES, MEMBERSHIPS, DIRECTORY),
+    optional_scopes=(MEMBERSHIPS, DIRECTORY),
     authorize_url="https://accounts.google.com/o/oauth2/v2/auth",
     token_url="https://oauth2.googleapis.com/token",
     revoke_url="https://oauth2.googleapis.com/revoke",

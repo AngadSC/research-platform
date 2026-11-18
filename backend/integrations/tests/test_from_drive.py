@@ -12,7 +12,7 @@ from audit.models import AuditAction, AuditEvent
 from documents.models import Attachment
 from ethics.models import EthicsApproval
 from integrations import registry, services
-from integrations.providers import google_drive
+from integrations.providers import google_calendar, google_drive
 from integrations.tests.conftest import make_request, token_reply
 from integrations.tests.fake import response
 from papers import services as paper_services
@@ -72,6 +72,11 @@ def connect_drive(transport, user, lab):
         google_drive.PROVIDER.identity_url,
         response(200, {"user": {"permissionId": "p1", "emailAddress": "a@uni.edu"}}),
     )
+    transport.on(  # Calendar, in the same grant, names the account by OpenID userinfo
+        "GET",
+        google_calendar.IDENTITY_URL,
+        response(200, {"sub": "1", "email": "pi@example.org"}),
+    )
     return services.complete_connect(request, state=state, code="code")
 
 
@@ -105,6 +110,25 @@ def test_a_project_file_from_drive_takes_drive_own_name_and_link(transport, worl
     assert body["notice_acknowledged_at"] is None and body["size_bytes"] == 0
     event = AuditEvent.objects.get(action=AuditAction.ATTACHMENT_UPLOADED)
     assert event.metadata["source"] == "google_drive"
+    assert body["contains_participant_data"] is False
+
+
+def test_a_drive_file_said_to_identify_participants_is_marked(transport, world):
+    """The participant question asked after picking (item 12) stores its answer as the mark, so
+    AI tools never read the file."""
+    from assistant.privacy import is_flagged
+
+    lab, users, project = world
+    connect_drive(transport, users["member"], lab)
+    transport.on("GET", FILE_URL, response(200, drive_file()))
+    r = api(users["member"]).post(
+        files_url(lab, project),
+        {"drive_file_id": FILE_ID, "contains_participant_data": "true"},
+        format="multipart",
+    )
+    assert r.status_code == 201, r.content
+    assert r.json()["contains_participant_data"] is True
+    assert is_flagged(Attachment.objects.for_lab(lab).get(pk=r.json()["id"]))
 
 
 def test_opening_a_drive_file_goes_to_drive_and_is_audited(transport, world):

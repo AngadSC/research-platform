@@ -182,10 +182,13 @@ def complete_connect(request, *, state, code="", error="") -> ConnectedAccount:
         },
     )
     access = tokens["access_token"]
-    members = registry.bundle_of(provider)  # D262: just this provider, unless it shares a grant
     allowed = set(registry.bundle_scopes(provider))
     granted = sorted(set(str(tokens.get("scope", "")).split()) or entry["scopes"])
-    if not set(entry["scopes"]) <= set(granted):
+    # Partial grants: each member of the bundle (D262) connects when every scope it needs was
+    # granted, and is skipped otherwise; the person is told which. A member's optional scopes
+    # may be missing. Nothing connects when no member has what it needs.
+    members = [m for m in registry.bundle_of(provider) if m.required_scopes <= set(granted)]
+    if not members:
         raise OAuthError("scope_not_granted")  # the user unticked a scope on the consent screen
     if not set(granted) <= allowed:
         raise OAuthError("unexpected_scope")  # D78: a merged grant; discarded, not stored
@@ -212,7 +215,7 @@ def complete_connect(request, *, state, code="", error="") -> ConnectedAccount:
     # A discarded token (any failure above or below) is never stored. It is not revoked at the
     # provider either: the same grant may back this person's account in another lab (D68).
     stored = {}
-    with transaction.atomic():  # all of the bundle or none of it
+    with transaction.atomic():  # every member that was granted, or none of them
         for member, external_id, email in identities:
             stored[member.name] = _store_account(
                 request,
@@ -225,7 +228,10 @@ def complete_connect(request, *, state, code="", error="") -> ConnectedAccount:
                 refresh=tokens.get("refresh_token") or None,
                 expires_at=_expiry(tokens),
             )
-    return stored[provider.name]
+    account = stored.get(provider.name) or stored[members[0].name]
+    # What the callback tells the person was left out (the redirect's `skipped`).
+    account.skipped = [m.name for m in registry.bundle_of(provider) if m.name not in stored]
+    return account
 
 
 @sensitive_variables("access", "refresh")
@@ -443,15 +449,19 @@ def key_rejected(account) -> None:
 
 
 def _grant_used_elsewhere(row) -> bool:
-    """D68: another active row (any user, any lab) holds the same external account. Revoking at
-    the provider would revoke the whole grant and break that connection too."""
+    """D68: another active row (any user, any lab) holds the same grant. Revoking at the provider
+    would revoke the whole grant and break that connection too. Services bundled on one OAuth
+    client (D262) share one grant but name the account differently (Drive by permissionId,
+    Calendar by email), so a bundle sibling counts when either the id or the email matches.
+    Rows already revoked, including the ones being revoked in this same call, never count."""
+    provider = registry.PROVIDERS.get(row.provider)
+    names = [m.name for m in registry.bundle_of(provider)] if provider else [row.provider]
+    same = Q(external_account_id=row.external_account_id)
+    if row.external_email:
+        same |= Q(external_email__iexact=row.external_email)
     return any(
         ConnectedAccount.objects.for_lab(lab)
-        .filter(
-            provider=row.provider,
-            external_account_id=row.external_account_id,
-            status=AccountStatus.ACTIVE,
-        )
+        .filter(same, provider__in=names, status=AccountStatus.ACTIVE)
         .exclude(pk=row.pk)
         .exists()
         for lab in Lab.objects.all()
@@ -508,29 +518,24 @@ def disconnect(account, *, actor, request=None) -> None:
         row.status = AccountStatus.REVOKED
         row.clear_tokens()
         row.save()
-        revoked_at_provider = _revoke_at_provider(row, token)
-        action = AuditAction.INTEGRATION_DISCONNECTED if own else AuditAction.INTEGRATION_REVOKED
-        audit.record(
-            action,
-            actor=actor,
-            lab=row.lab,
-            target=row,
-            request=request,
-            metadata={"provider": row.provider, "provider_revoked": revoked_at_provider},
-        )
-        # D262: the same sign-in also backs the services it is bundled with (the same person's
-        # account at the same address), so they go too. The grant is already revoked above.
-        for sibling in _bundle_rows(row):
+        siblings = _bundle_rows(row)
+        for sibling in siblings:
             sibling.status = AccountStatus.REVOKED
             sibling.clear_tokens()
             sibling.save()
+        # after the siblings: the same-lab ones being revoked here must not block the revoke
+        revoked_at_provider = _revoke_at_provider(row, token)
+        action = AuditAction.INTEGRATION_DISCONNECTED if own else AuditAction.INTEGRATION_REVOKED
+        # D262: the same sign-in also backs the services it is bundled with (the same person's
+        # account at the same address), so they go too.
+        for each in (row, *siblings):
             audit.record(
                 action,
                 actor=actor,
-                lab=sibling.lab,
-                target=sibling,
+                lab=each.lab,
+                target=each,
                 request=request,
-                metadata={"provider": sibling.provider, "provider_revoked": revoked_at_provider},
+                metadata={"provider": each.provider, "provider_revoked": revoked_at_provider},
             )
     account.refresh_from_db()
 

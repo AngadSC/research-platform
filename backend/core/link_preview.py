@@ -104,7 +104,7 @@ def _fetch(url, host) -> dict:
             "GET",
             url,
             provider=provider,
-            headers={"Accept": "text/html", "User-Agent": "LabBench link preview"},
+            headers={"Accept": "text/html", "User-Agent": "labbenchos link preview"},
         )
     kind = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
     if resp.status_code != 200 or kind not in ("text/html", "application/xhtml+xml"):

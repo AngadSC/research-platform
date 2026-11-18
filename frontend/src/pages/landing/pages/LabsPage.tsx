@@ -136,7 +136,7 @@ const FAQS = [
   },
   {
     q: "Do we have to move our files?",
-    a: "No. Keep files in Google Drive, OneDrive, Dropbox, GitHub or wherever they are, and link them to the project. labbenchos reads titles and modified dates, and tells you when a linked file changes or disappears.",
+    a: "No. Keep files in Google Drive, OneDrive, Dropbox, GitHub or wherever they are, and link them to the project. labbenchos checks titles and modified dates, tells you when a linked file changes or disappears, and reads a file only when you ask the assistant to.",
   },
   {
     q: "Is anything ever deleted automatically?",

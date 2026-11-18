@@ -26,6 +26,7 @@ from labs import admin_services as svc
 from labs import video_calendar
 from labs.models import (
     CalendarFeedToken,
+    GoogleCalendarSync,
     InventoryItem,
     InventoryStatus,
     LabEvent,
@@ -488,6 +489,10 @@ class GoogleCalendarSyncView(LabScopedViewMixin, generics.GenericAPIView):
             return Response(_sync_data(None))
         ser = GoogleCalendarSyncInputSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
+        if sync._state.adding:  # the first change the person makes: only now is the row made
+            sync, _ = GoogleCalendarSync.objects.for_lab(request.lab).get_or_create(
+                lab=request.lab, account=sync.account, defaults={"user": request.user}
+            )
         for key, value in ser.validated_data.items():
             setattr(sync, key, value)
         sync.save()
@@ -505,8 +510,8 @@ class GoogleCalendarSyncRunView(LabScopedViewMixin, generics.GenericAPIView):
     @extend_schema(request=None, responses=SyncResultSerializer)
     def post(self, request, lab_id):
         sync = video_calendar.sync_for(request.lab, request.user)
-        if sync is None:
-            return Response({**_sync_data(None), "added": 0, "changed": 0, "removed": 0})
+        if sync is None or sync._state.adding:  # not connected, or sync never turned on
+            return Response({**_sync_data(sync), "added": 0, "changed": 0, "removed": 0})
         counts = video_calendar.push(sync)
         return Response({**_sync_data(sync), **counts})
 

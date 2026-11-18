@@ -14,7 +14,7 @@ from audit.models import AuditEvent
 from integrations import jobs, registry, services
 from integrations.http import AccountUnavailable, IntegrationError
 from integrations.models import AccountStatus, ConnectedAccount, ExternalLink
-from integrations.providers import google_drive
+from integrations.providers import google_calendar, google_drive
 from integrations.tests.fake import response
 from projects.models import ProjectMembership
 from provenance.models import DatasetRecord
@@ -82,6 +82,11 @@ def connect_drive(client, lab, transport, *, access="gd-access", ext_id="perm-1"
     transport.on("POST", DRIVE.token_url, response(200, {**body, "scope": GRANT}))
     who = {"user": {"permissionId": ext_id, "emailAddress": "pi@example.org"}}
     transport.on("GET", DRIVE.identity_url, response(200, who))
+    transport.on(  # Calendar, in the same grant, names the account by OpenID userinfo
+        "GET",
+        google_calendar.IDENTITY_URL,
+        response(200, {"sub": "1", "email": "pi@example.org"}),
+    )
     state = parse_qs(urlsplit(url).query)["state"][0]
     cb = client.get("/api/integrations/oauth/callback/", {"state": state, "code": "c"})
     assert cb.status_code == 302 and "connected=google_drive" in cb["Location"], cb["Location"]

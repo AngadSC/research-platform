@@ -360,6 +360,9 @@ describe("Integrations page, one Google sign-in (D262)", () => {
     expect(screen.getAllByRole("button", { name: /^Connect/ })).toHaveLength(1);
     expect(screen.queryByText("Google Calendar and Meet")).toBeNull();
     expect(screen.queryByRole("heading", { name: "File storage" })).toBeNull();
+    // What each connection lets labbenchos do, next to Connect (Google verification).
+    expect(screen.getByText(/^Only files you pick or that labbenchos creates/)).toBeVisible();
+    expect(screen.getByText(/labbenchos calendar stays off until you turn it on/)).toBeVisible();
   });
 
   it("connects through the first service, which asks Google for all of it", async () => {

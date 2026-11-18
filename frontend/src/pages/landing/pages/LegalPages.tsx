@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { CONTACT_EMAILS } from "../content";
 
-const UPDATED = "November 12, 2026";
+const UPDATED = "November 17, 2026";
 
 function Contact() {
   return (
@@ -63,39 +63,181 @@ export function PrivacyPage() {
 
       <h2>Google sign-in and Google services</h2>
       <p>
+        Each person connects their own Google account, in a lab&rsquo;s Integrations settings, and
+        chooses which services to connect: Drive, Calendar and Meet, or Google Chat. This section
+        covers everything labbenchos does with data from Google.
+      </p>
+
+      <h3>Signing in with Google</h3>
+      <p>
         If you sign in with Google, we receive your name, email address and Google account ID (the{" "}
         <code>openid</code>, <code>email</code> and <code>profile</code> permissions). We use them
-        only to create your account and sign you in.
+        only to create your account and sign you in. Signing in does not give us access to anything
+        else in your Google account.
       </p>
-      <p>If you choose to connect Google in a lab, we also ask for:</p>
+
+      <h3>Google Drive</h3>
       <ul>
         <li>
-          <strong>Google Drive</strong> (<code>drive.file</code>): access only to the files you pick
-          or that labbenchos creates, so you can link, open and edit them from your lab, and, when
-          you ask, make a Google copy of a Word, Excel or PowerPoint file in your Drive. If you ask
-          the AI assistant about a Drive file, we read that file with your own connection and send
-          it to your AI provider (see below). We cannot see the rest of your Drive.
+          <strong>Permission:</strong> <code>drive.file</code>. We can reach only the files you pick
+          in Google&rsquo;s file picker and the files labbenchos creates for you. We cannot see the
+          rest of your Drive.
         </li>
         <li>
-          <strong>Google Calendar and Meet</strong> (<code>calendar.events</code> and{" "}
-          <code>calendar.app.created</code>): to show your events, create meetings with a Meet link
-          when you ask, and keep one separate labbenchos calendar for your tasks and deadlines.
+          <strong>Linking a file:</strong> we store its title, type, link and version. Everyone who
+          can see the project sees the title and the link. Opening the file still needs their own
+          access in Google. When you link a file to a project, we ask whether it identifies
+          participants.
+        </li>
+        <li>
+          <strong>Daily check:</strong> once a day, for files linked to a project as links, we use
+          the connection of the person who linked each one to read its title, version and
+          last-modified time, to tell the project when it changes or disappears. In a
+          project&rsquo;s participant tracker, &ldquo;Check links now&rdquo; reads a linked Drive
+          file&rsquo;s title, type and last-modified time when someone asks for it, using their own
+          connection. Neither check reads what is in the file.
+        </li>
+        <li>
+          <strong>Copies in your Drive:</strong> &ldquo;Edit in Google&rdquo; uploads a copy of a
+          Word, Excel or PowerPoint file from the project to your own Drive as a Google Doc, Sheet
+          or Slides file. &ldquo;Send to Google Sheets&rdquo; and &ldquo;Send picture to Google
+          Drive&rdquo; on statistics results put a copy of that result in your Drive. These copies
+          are yours.
+        </li>
+        <li>
+          <strong>The AI assistant:</strong> it reads a Drive file&rsquo;s contents only when you
+          ask it to, using your own connection, and sends them to your AI provider (see below) to
+          answer you. The same applies when you use labbenchos from an AI app such as Claude or
+          ChatGPT (an MCP connector): the contents go to that app. If you ask Claude to analyse a
+          Drive file with code, a copy of the file goes to Anthropic&rsquo;s code sandbox, under
+          your or your lab&rsquo;s Anthropic account (see below).
+        </li>
+        <li>
+          <strong>Participant data:</strong> a file or folder marked &ldquo;Identifies
+          participants&rdquo; is never read for, or given to, any AI tool.
         </li>
       </ul>
+
+      <h3>Google Calendar and Meet</h3>
+      <ul>
+        <li>
+          <strong>Permissions:</strong> <code>calendar.events</code> to add, change and remove
+          meetings on your main calendar and to show you your own events, and{" "}
+          <code>calendar.app.created</code> to manage one separate calendar that labbenchos creates.
+          We also receive your email address (<code>openid</code>, <code>email</code>) to know which
+          Google account you connected.
+        </li>
+        <li>
+          <strong>Meetings:</strong> when you schedule a lab meeting with a Google Meet call, we
+          create the event on your primary calendar with its title, times and the email addresses of
+          the lab members you invite as guests. We store the event&rsquo;s ID and its Meet link, and
+          update or delete the event when you change or cancel the meeting here.
+        </li>
+        <li>
+          <strong>Your own events:</strong> when you open the labbenchos calendar, we read your
+          primary calendar&rsquo;s events for the dates shown, so you can see them next to your
+          lab&rsquo;s. Only you see them, we do not store them, and you can turn this off.
+        </li>
+        <li>
+          <strong>The labbenchos calendar (optional):</strong> it is off until you turn it on. Then
+          we create a calendar named &ldquo;labbenchos: <em>your lab</em>&rdquo; in your account and
+          keep your meetings, your tasks with due dates and your projects&rsquo; deadlines on it
+          (titles, times, the project name and any join link), updated about every 15 minutes.
+        </li>
+        <li>
+          <strong>After you disconnect:</strong> we stop reading and changing your calendar.
+          Meetings already created, and the labbenchos calendar with its events, stay in your Google
+          Calendar until you delete them there.
+        </li>
+      </ul>
+
+      <h3>Google Chat</h3>
+      <ul>
+        <li>
+          <strong>Permissions:</strong> see which conversations (spaces, group chats and direct
+          messages) you are in (<code>chat.spaces.readonly</code>); read, post and delete messages,
+          deleting only messages labbenchos posted (<code>chat.messages</code>); and, if you allow
+          them, see who is in a conversation (<code>chat.memberships.readonly</code>) and look up
+          names and photos in your organisation&rsquo;s Google directory (
+          <code>directory.readonly</code>). We also receive your Google account ID and email address
+          (<code>openid</code>, <code>email</code>) to recognise your own messages.
+        </li>
+        <li>
+          <strong>Syncing a chat:</strong> a PI or lab administrator can link the lab chat, and a
+          project lead a project&rsquo;s chat, to one Google Chat conversation they are in. We then
+          read new messages in that conversation about every 15 seconds, using their connection, and
+          store each message&rsquo;s text, time and sender. Attachments are not copied, and messages
+          from apps and bots are skipped.
+        </li>
+        <li>
+          <strong>Posting:</strong> messages written in a synced chat are posted to the
+          conversation. If you have connected Google Chat and are in the conversation, they are
+          posted as you. Otherwise they are posted through the connection of the person who linked
+          it, starting with your name and email address and followed by &ldquo;via
+          labbenchos&rdquo;. Anyone in the conversation, including people outside your lab, can see
+          them.
+        </li>
+        <li>
+          <strong>Deleting:</strong> when a message we posted is deleted in labbenchos, we delete it
+          in Google Chat too. A message deleted in Google Chat stays in labbenchos until its author,
+          a lab administrator or the project lead removes it here.
+        </li>
+        <li>
+          <strong>Importing:</strong> whoever may link a chat can also copy one thread, or a
+          conversation&rsquo;s latest messages (up to 1000), into it, read with their own
+          connection. Nothing is sent back to Google.
+        </li>
+        <li>
+          <strong>Names and photos:</strong> a sender who has connected Google Chat in the lab
+          appears as that lab member. Anyone else who wrote in the conversation, including people
+          outside the lab, appears with their name and a link to their profile photo, taken from
+          your organisation&rsquo;s directory or from the conversation and saved with the message.
+          Directory lookups are kept for a day.
+        </li>
+        <li>
+          <strong>Who sees it:</strong> messages synced or imported into the lab chat are visible to
+          everyone in the lab; in a project&rsquo;s chat, to everyone who can see the project.
+          Everyone in that chat also sees the name of the linked conversation.
+        </li>
+        <li>Google Chat messages are never given to the AI assistant or to AI apps.</li>
+      </ul>
+
+      <h3>How we use Google data</h3>
       <p>
         labbenchos&rsquo;s use and transfer to any other app of information received from Google
         APIs will adhere to the{" "}
         <a href="https://developers.google.com/terms/api-services-user-data-policy">
           Google API Services User Data Policy
         </a>
-        , including the Limited Use requirements. We do not sell Google user data, use it for
-        advertising, or use it to train AI models. People do not read it unless you ask us to for
-        support, it is needed for security, or the law requires it.
+        , including the Limited Use requirements. We use Google data only to provide the features
+        described above, and send it to an AI provider only to answer a request you make. We do not
+        sell it or use it for advertising. We do not use Google Workspace data to develop, improve
+        or train generalized artificial intelligence or machine-learning models. People do not read
+        it unless you ask us to for support, it is needed for security, or the law requires it.
       </p>
-      <p>
-        You can disconnect Google at any time in labbenchos, or remove our access from your{" "}
-        <a href="https://myaccount.google.com/permissions">Google account settings</a>.
-      </p>
+
+      <h3>Keeping and deleting Google data</h3>
+      <ul>
+        <li>
+          Access tokens are stored encrypted. When you disconnect, or leave a lab, we delete them
+          and revoke our access at Google, unless the same Google account is still connected
+          elsewhere in labbenchos.
+        </li>
+        <li>
+          Disconnecting stops all reading and writing. What was already saved in labbenchos stays,
+          as lab content, until it is deleted: linked files&rsquo; titles and links, meetings and
+          their Meet links, and synced or imported Chat messages with their senders&rsquo; names.
+          Stopping a chat&rsquo;s sync works the same way. What labbenchos put in your Google
+          account (copies in Drive, calendar events, posted messages) stays there until you delete
+          it.
+        </li>
+        <li>
+          You can disconnect at any time in Integrations, or remove our access from your{" "}
+          <a href="https://myaccount.google.com/permissions">Google account settings</a>. To have
+          Google data deleted from labbenchos, delete it in the app, ask your lab&rsquo;s
+          administrators, or contact us at <Contact />.
+        </li>
+      </ul>
 
       <h2>Other connected services and AI</h2>
       <p>

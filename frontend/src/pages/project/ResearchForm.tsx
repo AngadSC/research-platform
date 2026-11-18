@@ -309,10 +309,12 @@ export function ResearchForm({
                       </Button>
                       <FromDriveButton
                         labId={labId}
-                        onPick={async (file) => {
+                        participant={false}
+                        onPick={async (file, participant) => {
                           const a = await attachFromDrive(
                             `/api/labs/${labId}/projects/${projectId}/attachments/`,
                             file.id,
+                            { contains_participant_data: participant },
                           );
                           setV((p) => ({
                             ...p,
@@ -345,10 +347,12 @@ export function ResearchForm({
                       <FromDriveButton
                         labId={labId}
                         quiet
-                        onPick={async (file) => {
+                        participant={false}
+                        onPick={async (file, participant) => {
                           const a = await attachFromDrive(
                             `/api/labs/${labId}/projects/${projectId}/attachments/`,
                             file.id,
+                            { contains_participant_data: participant },
                           );
                           await qc.invalidateQueries({ queryKey: root(labId) });
                           set(f.name, a.id);
@@ -524,10 +528,12 @@ export function ResultSetForm({
         <FromDriveButton
           labId={labId}
           label="Figure from Drive"
-          onPick={async (file) => {
+          participant={false}
+          onPick={async (file, participant) => {
             const a = await attachFromDrive(
               `/api/labs/${labId}/projects/${projectId}/attachments/`,
               file.id,
+              { contains_participant_data: participant },
             );
             addRow({
               title: titleFrom(a.original_filename),

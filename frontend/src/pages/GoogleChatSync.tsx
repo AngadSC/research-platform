@@ -224,9 +224,13 @@ function PickSpaceDialog({
           <DialogTitle className="text-base font-semibold">Sync with Google Chat</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             Messages sent from now on appear in both places. Pick a space, a group chat or a direct
-            message; each can feed only one chat here. Members who connect Google Chat post there as
-            themselves; everyone else is posted through your connection, with their name first.
-            Google Chat works only with Google Workspace accounts.
+            message; each can feed only one chat here.{" "}
+            {projectId ? "Everyone who can see this project" : "Everyone in the lab"} sees the
+            conversation&rsquo;s name and its new messages, with each sender&rsquo;s name and photo.
+            Members who connect Google Chat post there as themselves. For members who have not,
+            their messages are posted through your connection with their name and email, as
+            &ldquo;Name (email) via labbenchos&rdquo;. Google Chat works only with Google Workspace
+            accounts.
           </DialogDescription>
           {!connected ? (
             <p className="text-sm">

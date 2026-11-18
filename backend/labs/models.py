@@ -610,9 +610,12 @@ class GoogleCalendarSync(LabScopedModel):
         "integrations.ConnectedAccount", on_delete=models.CASCADE, related_name="+"
     )
     show_google_events = models.BooleanField(default=True)  # Google into the app (D256)
-    push_meetings = models.BooleanField(default=True)  # the app into Google (D255)
-    push_tasks = models.BooleanField(default=True)
-    push_deadlines = models.BooleanField(default=True)
+    # The app into Google (D255): off until the person turns it on, and the row itself is made
+    # only then (Google verification readiness, item 4). Migration 0022 switched off the rows
+    # that were auto-created with push on.
+    push_meetings = models.BooleanField(default=False)
+    push_tasks = models.BooleanField(default=False)
+    push_deadlines = models.BooleanField(default=False)
     app_calendar_id = models.CharField(max_length=1024, blank=True)
     last_synced_at = models.DateTimeField(null=True, blank=True)
     last_error = models.CharField(max_length=200, blank=True)
