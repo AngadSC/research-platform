@@ -221,6 +221,28 @@ export function SettingsPage() {
                 </div>
               ),
             },
+            ...(lab
+              ? [
+                  {
+                    id: "integrations",
+                    label: "Integrations",
+                    content: (
+                      <Section
+                        title="Integrations"
+                        description="Connect your Google Drive, calendar and other accounts."
+                        defaultOpen
+                      >
+                        <Link
+                          className="text-sm font-medium underline-offset-4 hover:underline"
+                          to={`/labs/${lab.id}/settings/integrations`}
+                        >
+                          Open Integrations
+                        </Link>
+                      </Section>
+                    ),
+                  },
+                ]
+              : []),
             {
               id: "ai",
               label: "AI",

@@ -457,6 +457,7 @@ export function Sidebar({
       to !== "/settings" &&
       to !== "/help" &&
       !to.endsWith("/notifications") && // each has its own menu
+      !to.endsWith("/settings/integrations") && // lives in Settings
       !layout.hidden.includes(keyOf(to)),
   );
   const order = useSidebarOrder();

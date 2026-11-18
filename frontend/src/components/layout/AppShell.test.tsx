@@ -221,8 +221,8 @@ describe("app shell", () => {
       "My notebook",
       "Calendar",
       "Lab chat",
-      "Integrations", // every member connects their own accounts
     ]);
+    expect(main.queryByRole("link", { name: "Integrations" })).toBeNull(); // it is in Settings
     for (const moved of ["Training", "Members", "Participants", "Papers", "Inventory"])
       expect(main.queryByRole("link", { name: moved })).toBeNull();
     expect(main.queryByRole("link", { name: "Notifications" })).toBeNull();
