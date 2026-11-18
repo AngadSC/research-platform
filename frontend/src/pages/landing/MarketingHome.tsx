@@ -116,25 +116,6 @@ function Hero() {
   );
 }
 
-function Trust() {
-  return (
-    <section className="lb-trust" aria-label="Customers">
-      <div className="lb-wrap lb-trust-inner">
-        <p style={{ fontSize: 15, color: "#4A5260", fontWeight: 500 }}>
-          Trusted by research groups at
-        </p>
-        <div className="lb-trust-logos">
-          {[1, 2, 3, 4].map((n) => (
-            <span key={n} className="lb-trust-logo">
-              [Institution logo]
-            </span>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function Platform() {
   return (
     <section id="d-platform" className="lb-wrap lb-section">
@@ -411,14 +392,6 @@ function Pricing() {
 function Closing() {
   return (
     <section className="lb-wrap" style={{ paddingBottom: 112 }}>
-      <figure className="lb-quote">
-        <blockquote>
-          &ldquo;[Customer quote from a real PI or lab manager goes here.]&rdquo;
-        </blockquote>
-        <figcaption>
-          <strong>[Name]</strong> · [Role], [Lab / Institution]
-        </figcaption>
-      </figure>
       <div className="lb-cta">
         <h2 className="lb-h2">See your lab in labbenchos.</h2>
         <p>Tell us about your lab or institution and we&rsquo;ll walk you through it.</p>
@@ -440,7 +413,6 @@ export function MarketingHome() {
   return (
     <MarketingShell>
       <Hero />
-      <Trust />
       <Platform />
       <Workflow />
       <Integrations />

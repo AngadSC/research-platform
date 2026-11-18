@@ -369,8 +369,9 @@ function IntegrationWall() {
         )}
       </div>
       <p className="lbp-small" style={{ marginTop: 18 }}>
-        labbenchos reads details such as titles and modified dates. It never copies your data out of
-        these services.
+        labbenchos checks linked files&rsquo; titles and modified dates. It reads a file&rsquo;s
+        contents only when you ask the assistant to, and copies files into a service only when you
+        ask, for example to edit in Google.
       </p>
     </div>
   );
