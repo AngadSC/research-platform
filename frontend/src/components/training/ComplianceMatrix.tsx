@@ -1,4 +1,5 @@
 import { BulkBar, SelectBox, useSelection } from "@/components/shared/bulk";
+import { RelativeTime } from "@/components/shared/RelativeTime";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { TrainingCompliance } from "@/lib/api-types";
@@ -175,6 +176,11 @@ export function ComplianceMatrix({
                           >
                             Remind
                           </Button>
+                        )}
+                        {onRemind && cell.reminded_at && (
+                          <span className="basis-full text-xs text-muted-foreground">
+                            Reminded <RelativeTime value={cell.reminded_at} />
+                          </span>
                         )}
                         {cell.record && !cell.verified && onVerify && (
                           <Button

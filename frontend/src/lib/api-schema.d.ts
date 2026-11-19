@@ -9380,6 +9380,11 @@ export interface components {
             expires_on: string | null;
             days_left: number | null;
             verified: boolean;
+            /**
+             * Format: date-time
+             * @description When a manager last sent a reminder about this training.
+             */
+            reminded_at: string | null;
         };
         TrainingCompliance: {
             requirements: components["schemas"]["TrainingRequirement"][];

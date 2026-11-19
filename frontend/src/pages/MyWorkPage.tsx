@@ -104,9 +104,11 @@ function MyTrainings({ labId }: { labId: string }) {
               >
                 {r.name}
               </Link>
-              {cell.expires_on && (
+              {(cell.expires_on || cell.record) && (
                 <p className="text-xs text-muted-foreground">
-                  {cell.status === "expired" ? "Expired" : "Expires"} {dayText(cell.expires_on)}
+                  {cell.expires_on
+                    ? `${cell.status === "expired" ? "Expired" : "Expires"} ${dayText(cell.expires_on)}`
+                    : "Doesn't expire"}
                 </p>
               )}
             </div>

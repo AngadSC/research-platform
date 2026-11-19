@@ -122,9 +122,9 @@ export function LabDocumentsPage() {
             description={
               canAdd
                 ? "Write something the whole lab needs, such as a lab manual or an SOP."
-                : "Only lab members who can edit can add documents. Ask a PI or lab admin."
+                : "Nothing here yet. Ask a lab manager to add the lab manual and SOPs."
             }
-            footer={<GettingStartedLink labId={labId} />}
+            footer={canAdd ? <GettingStartedLink labId={labId} /> : undefined}
             why="Keeping them here means new members find the current version, not a copy in someone's email."
             action={addButton}
             secondary={

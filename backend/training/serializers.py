@@ -105,6 +105,9 @@ class TrainingCellSerializer(serializers.Serializer):
     expires_on = serializers.DateField(allow_null=True)
     days_left = serializers.IntegerField(allow_null=True)
     verified = serializers.BooleanField()
+    reminded_at = serializers.DateTimeField(
+        allow_null=True, help_text="When a manager last sent a reminder about this training."
+    )
 
 
 class TrainingComplianceMemberSerializer(serializers.Serializer):

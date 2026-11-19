@@ -74,7 +74,7 @@ function RoleSelect({
   );
 }
 
-function InviteForm({ labId }: { labId: string }) {
+function InviteForm({ labId, noPending }: { labId: string; noPending: boolean }) {
   const create = useCreateInvite(labId);
   const asked = useSearchParams()[0].get("invite") === "1"; // the palette's "Invite member"
   const [role, setRole] = useState<Role>("member");
@@ -101,11 +101,11 @@ function InviteForm({ labId }: { labId: string }) {
 
   return (
     <Disclosure
-      key={String(asked)}
+      key={String(asked || noPending)}
       card
       title="Invite someone"
       className="mb-6"
-      defaultOpen={asked}
+      defaultOpen={asked || noPending}
     >
       <form onSubmit={submit} noValidate aria-label="Invite someone" className="grid gap-3">
         <div className="flex flex-wrap items-start gap-3">
@@ -355,7 +355,7 @@ export function MembersPage() {
   return (
     <>
       <PageHeader title="Members" description={lab ? `People in ${lab.name}.` : undefined} />
-      {canManage && <InviteForm labId={labId} />}
+      {canManage && <InviteForm labId={labId} noPending={invites.data?.length === 0} />}
       <details className="mb-6 rounded-md border px-3 py-2 text-sm">
         <summary className="cursor-pointer font-medium">What each role can do</summary>
         <dl className="mt-2 grid gap-1.5">

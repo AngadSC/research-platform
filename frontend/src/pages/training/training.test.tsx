@@ -73,6 +73,13 @@ describe("ComplianceMatrix", () => {
     expect(screen.queryByRole("button", { name: /^Verify/ })).not.toBeInTheDocument();
   });
 
+  it("says when someone was last reminded", () => {
+    const data = structuredClone(DATA);
+    data.members[1]!.cells.r2!.reminded_at = new Date(Date.now() - 2 * 86400_000).toISOString();
+    render(<ComplianceMatrix data={data} onRemind={vi.fn()} />);
+    expect(screen.getByText("2 days ago")).toBeInTheDocument();
+  });
+
   it("offers Remind on Missing and Expired cells and Remind all missing, only when allowed", async () => {
     const onRemind = vi.fn();
     const { rerender } = render(<ComplianceMatrix data={DATA} onRemind={onRemind} />);

@@ -114,8 +114,9 @@ export function OnboardingSection({ labId }: { labId: string }) {
                       i.title
                     )}{" "}
                     <span className="text-xs font-normal text-muted-foreground">
-                      {i.required ? "Required" : "Optional"} · {i.completed_user_ids.length} of{" "}
-                      {members.length} done
+                      {i.required ? "Required" : "Optional"} ·{" "}
+                      {new Set([...i.completed_user_ids, ...i.training_done_user_ids]).size} of{" "}
+                      {members.length} people done
                     </span>
                   </div>
                   {i.description && (
@@ -124,7 +125,8 @@ export function OnboardingSection({ labId }: { labId: string }) {
                   {i.training_requirement_name && (
                     <p className="text-xs text-muted-foreground">
                       Ticks itself once {i.training_requirement_name} training is recorded and not
-                      expired. {i.training_done_user_ids.length} of {members.length} done that way.
+                      expired. For {i.training_done_user_ids.length} of {members.length} people that
+                      has happened.
                     </p>
                   )}
                 </div>
