@@ -128,6 +128,28 @@ class DocumentRevision(LabScopedModel):
         return f"{self.title} v{self.version}"
 
 
+class PinnedDocument(LabScopedModel):
+    """A document pinned for everyone who can see it: "Start here" on Home. Lab documents are
+    pinned by people who manage the lab, project documents by the project's lead."""
+
+    document = models.OneToOneField(Document, on_delete=models.CASCADE, related_name="pin")
+    pinned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    order = models.PositiveIntegerField(default=0)
+
+    lab_parents = ("document",)
+    permission_domain = "project"
+    project_path = "document__project"
+
+    @property
+    def lab_wide(self) -> bool:
+        return self.document.lab_wide
+
+    def __str__(self):
+        return f"pin {self.document_id}"
+
+
 class Attachment(LabScopedModel):
     """D38, D175: exactly one owner, a project, an ethics approval, a training record or a paper
     (DB check). Project views see only project-owned files; ethics files are served through the

@@ -111,6 +111,51 @@ class OnboardingItemSerializer(serializers.ModelSerializer):
         return done_user_ids(item.lab, item.training_requirement)
 
 
+class MyOnboardingSerializer(serializers.ModelSerializer):
+    """One checklist line as the signed-in member sees it: only their own tick, nobody else's."""
+
+    done = serializers.SerializerMethodField()
+    by_training = serializers.SerializerMethodField(
+        help_text="Ticked by a current training record, so it cannot be ticked by hand."
+    )
+    training_requirement_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OnboardingItem
+        fields = [
+            "id",
+            "title",
+            "description",
+            "url",
+            "required",
+            "done",
+            "by_training",
+            "training_requirement_name",
+        ]
+        read_only_fields = fields
+
+    def _me(self):
+        return self.context["request"].user
+
+    def get_by_training(self, item) -> bool:
+        if item.training_requirement is None:
+            return False
+        from training.services import done_user_ids
+
+        return str(self._me().pk) in done_user_ids(item.lab, item.training_requirement)
+
+    def get_done(self, item) -> bool:
+        mine = any(c.user_id == self._me().pk for c in item.completions.all())
+        return mine or self.get_by_training(item)
+
+    def get_training_requirement_name(self, item) -> str:
+        return item.training_requirement.name if item.training_requirement else ""
+
+
+class MyOnboardingTickSerializer(serializers.Serializer):
+    done = serializers.BooleanField()
+
+
 class OnboardingItemInputSerializer(serializers.Serializer):
     kind = serializers.ChoiceField(choices=OnboardingKind.choices)
     title = serializers.CharField(max_length=200, validators=[no_control_chars])

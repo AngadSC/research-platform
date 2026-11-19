@@ -6,6 +6,7 @@ import { ConflictDialog } from "@/components/documents/ConflictDialog";
 import { StaleDocumentBanner } from "@/components/documents/StaleDocumentBanner";
 import { RevisionsPanel } from "@/components/documents/RevisionsPanel";
 import { LinkedFiles } from "@/components/shared/LinkedFiles";
+import { PinForEveryoneItem } from "@/components/shared/PinForEveryoneItem";
 import {
   MARKED_TOAST,
   ParticipantBadge,
@@ -183,6 +184,7 @@ function DocumentEditor({
   canEdit,
   canDelete,
   canRetention,
+  canPin = false,
   onReload,
 }: {
   doc: DocumentFull;
@@ -193,6 +195,8 @@ function DocumentEditor({
   canDelete: boolean;
   /** view_retention: without it the retention fields are read-only and never sent (D55). */
   canRetention: boolean;
+  /** manage_lab for a lab document, edit_project for a project one: pin for everyone. */
+  canPin?: boolean;
   onReload: () => Promise<void>;
 }) {
   const navigate = useNavigate();
@@ -551,6 +555,7 @@ function DocumentEditor({
                 {markLabel(flagged)}
               </DropdownMenuItem>
             )}
+            {canPin && <PinForEveryoneItem labId={labId} docId={doc.id} />}
             {projectId && (
               <>
                 <DropdownMenuItem onSelect={() => setPanel("retention")}>
@@ -762,6 +767,7 @@ export default function DocumentPage() {
       canEdit={owner.my_permissions.includes(projectId ? "edit_content" : "contribute_lab")}
       canDelete={owner.my_permissions.includes(projectId ? "edit_content" : "manage_lab")}
       canRetention={!!projectId && owner.my_permissions.includes("view_retention")}
+      canPin={owner.my_permissions.includes(projectId ? "edit_project" : "manage_lab")}
       onReload={reload}
     />
   );

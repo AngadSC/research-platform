@@ -60,6 +60,12 @@ urlpatterns = [
         av.OnboardingDetailView.as_view(),
         name="onboarding-detail",
     ),
+    path("labs/<uuid:lab_id>/my-onboarding/", av.MyOnboardingView.as_view(), name="my-onboarding"),
+    path(
+        "labs/<uuid:lab_id>/my-onboarding/<uuid:onboardingitem_id>/",
+        av.MyOnboardingTickView.as_view(),
+        name="my-onboarding-tick",
+    ),
     path(
         "labs/<uuid:lab_id>/onboarding-items/<uuid:onboardingitem_id>/completions/",
         av.OnboardingCompletionView.as_view(),

@@ -1,6 +1,7 @@
 import { FileText, Plus } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
+import { StartHere } from "@/components/dashboard/StartHere";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState, GettingStartedLink } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
@@ -79,6 +80,9 @@ export function LabDocumentsPage() {
         description="The lab manual, protocols and SOPs. Everyone in the lab can read these."
         actions={(docs.data?.length ?? 0) > 0 ? addButton : undefined}
       />
+      <div className="mb-4 empty:hidden">
+        <StartHere labId={labId} labOnly />
+      </div>
       <DataTable
         columns={COLUMNS}
         rows={docs.data ?? []}

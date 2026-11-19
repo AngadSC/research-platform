@@ -1,6 +1,6 @@
 from django.urls import path
 
-from documents import form_views, views
+from documents import form_views, pins, views
 
 app_name = "documents"
 L = "labs/<uuid:lab_id>/"
@@ -25,6 +25,12 @@ urlpatterns = [
         L + "documents/<uuid:document_id>/",
         views.DocumentDetailView.as_view(),
         name="document-detail",
+    ),
+    path(L + "start-here/", pins.StartHereView.as_view(), name="start-here"),
+    path(
+        L + "documents/<uuid:document_id>/pin/",
+        pins.DocumentPinView.as_view(),
+        name="document-pin",
     ),
     path(
         L + "documents/<uuid:document_id>/move/",
