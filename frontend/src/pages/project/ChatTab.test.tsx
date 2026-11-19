@@ -243,4 +243,25 @@ describe("project sidebar dropdown", () => {
       "https://lh3.googleusercontent.com/a/lee=s64",
     );
   });
+
+  it("offers people who are only in the linked Google Chat space for @mentions", async () => {
+    const w = world([msg("1", lee, "Hi")], ["edit_content"]);
+    mockFetch({
+      ...w,
+      [`GET ${P}/chat/google/`]: {
+        body: {
+          bridge: { space_name: "Atlas team", linked_by: lee },
+          configured: true,
+          connected: false,
+          can_manage: false,
+        },
+      },
+      [`GET ${P}/chat/google/people/`]: { body: [{ id: "777", name: "Dana Example" }] },
+      [`GET ${P}/members/`]: { body: [{ id: "m1", user: ada, role: "lead" }] },
+    });
+    renderRoute("/labs/lab1/projects/p1/chat");
+    const box = await screen.findByRole("textbox", { name: /message/i });
+    await userEvent.type(box, "@Dan");
+    expect(await screen.findByRole("option", { name: /Dana Example/ })).toBeInTheDocument();
+  });
 });

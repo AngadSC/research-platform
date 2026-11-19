@@ -177,6 +177,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST", "projects:chatmessage-reactions"): "401 404 2 2 2 2 2 404 2",
     # D325: a project chat's Google Chat link. Anyone on the project sees it; edit_project links.
     ("GET", "projects:project-google-chat"): "401 404 2 2 2 2 2 404 2",
+    ("GET", "projects:project-google-chat-people"): "401 404 2 2 2 2 2 404 2",
     ("PUT", "projects:project-google-chat"): "401 404 2 2 2 403 403 404 403",
     # D327: listing conversations and importing into the project chat need edit_project too.
     ("GET", "projects:project-google-chat-spaces"): "401 404 2 2 2 403 403 404 403",
@@ -505,6 +506,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "labs:labchat-reactions"): "401 404 2 2 2 2 2 2 2",  # D321
     ("GET",    "labs:link-preview"): "401 404 2 2 2 2 2 2 2",  # D322, the fetch patched out
     ("GET",    "labs:google-chat"): "401 404 2 2 2 2 2 2 2",
+    ("GET",    "labs:google-chat-people"): "401 404 2 2 2 2 2 2 2",
     ("PUT",    "labs:google-chat"): "401 404 2 2 403 403 403 403 403",
     ("DELETE", "labs:google-chat"): "401 404 2 2 403 403 403 403 403",
     ("GET",    "labs:google-chat-spaces"): "401 404 2 2 403 403 403 403 403",

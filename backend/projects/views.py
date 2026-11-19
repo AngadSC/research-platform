@@ -18,6 +18,7 @@ from labs.serializers import (
     GoogleChatImportInputSerializer,
     GoogleChatImportResultSerializer,
     GoogleChatLinkInputSerializer,
+    GoogleChatPersonSerializer,
     GoogleChatSpaceSerializer,
     GoogleChatStatusSerializer,
     GoogleChatThreadSerializer,
@@ -453,6 +454,22 @@ class ProjectGoogleChatView(ProjectScopedMixin, generics.GenericAPIView):
             lab=request.lab, by=request.user, project=self.project, request=request
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ProjectGoogleChatPeopleView(ProjectScopedMixin, generics.GenericAPIView):
+    """The people in this project chat's Google Chat conversation who can be @mentioned."""
+
+    model = ChatMessage
+    serializer_class = GoogleChatPersonSerializer
+    nested = True
+    pagination_class = None
+    perms = {"GET": Perm.VIEW_PROJECT}
+
+    @extend_schema(responses=GoogleChatPersonSerializer(many=True))
+    def get(self, request, lab_id, project_id):
+        bridge = google_chat.bridge_for(request.lab, self.project)
+        rows = google_chat.space_people(bridge) if bridge else []
+        return Response(GoogleChatPersonSerializer(rows, many=True).data)
 
 
 class ProjectGoogleChatSpacesView(ProjectScopedMixin, generics.GenericAPIView):

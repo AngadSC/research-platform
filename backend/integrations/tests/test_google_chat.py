@@ -713,3 +713,53 @@ def test_profile_pictures_come_in_for_strangers_and_members(transport, linked):
     assert rows["g1"].external_avatar == pic
     # the member's message keeps their account as author, with Google's picture as a fallback
     assert rows["g2"].author == u["member"] and rows["g2"].external_avatar == pic
+
+
+def test_mentions_become_real_google_mentions_where_google_can_name_them(transport, linked):
+    lab, u, *_ = linked
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    transport.on("POST", MESSAGES, _posted(f"{SPACE}/messages/m9"))
+    member = f"@[Member](user:{u['member'].pk})"  # connected: Google can name them
+    pi = f"@[Pat](user:{u['pi'].pk})"  # not connected: plain text
+    dana = "@[Dana](gchat:777)"  # only in the Google space
+    lab_services.post_lab_message(lab=lab, by=u["member"], body=f"{member} {pi} {dana}")
+    (call,) = transport.sent("POST", MESSAGES)
+    assert call["json"] == {"text": "<users/2002> @Pat <users/777>"}
+
+
+def test_a_google_mention_notifies_no_one_here_and_is_shown_as_a_name(transport, linked):
+    from core.models import Notification
+
+    lab, u, *_ = linked
+    transport.on("POST", MESSAGES, _posted(f"{SPACE}/messages/m8"))
+    message = lab_services.post_lab_message(lab=lab, by=u["member"], body="hi @[Dana](gchat:777)")
+    assert message.body == "hi @[Dana](gchat:777)"
+    assert not Notification.objects.for_lab(lab).filter(kind="mention").exists()
+
+
+def test_the_space_people_list_leaves_out_members_connected_here(transport, linked):
+    lab, u, *_ = linked
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    transport.on(
+        "GET",
+        f"{API}/{SPACE}/members",
+        response(
+            200,
+            {
+                "memberships": [
+                    {"member": {"name": "users/2002", "displayName": "Member Example"}},
+                    {"member": {"name": "users/777", "displayName": "Dana Example"}},
+                    {"member": {"name": "users/555", "displayName": "A Bot", "type": "BOT"}},
+                    {"member": {"name": "users/not-a-number", "displayName": "Odd"}},
+                ]
+            },
+        ),
+    )
+    url = reverse("labs:google-chat-people", args=[lab.pk])
+    assert api(u["viewer"]).get(url).json() == [{"id": "777", "name": "Dana Example"}]
+
+
+def test_no_space_people_without_a_link(transport, lab_users):
+    lab, u = lab_users
+    url = reverse("labs:google-chat-people", args=[lab.pk])
+    assert api(u["viewer"]).get(url).json() == []

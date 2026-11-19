@@ -50,7 +50,9 @@ LOCK_SECONDS = 60
 UNKNOWN_SENDER = "Someone on Google Chat"
 INBOUND_PER_HOUR = 300  # per lab: a busy or hostile space can't flood the lab chat
 
-_MENTION = re.compile(r"@\[([^\]\n]+)\]\(user:[0-9a-fA-F-]{36}\)")
+_MENTION = re.compile(r"@\[([^\]\n]+)\]\(user:([0-9a-fA-F-]{36})\)")
+# Someone who is in the Google Chat space but has no account here (picked from its member list).
+_GOOGLE_MENTION = re.compile(r"@\[([^\]\n]+)\]\(gchat:([0-9]{1,40})\)")
 _BOLD = re.compile(r"\*\*(.+?)\*\*", re.S)
 
 
@@ -197,6 +199,25 @@ def _people_for(account, space, ids) -> dict[str, dict[str, str]]:
             if uid in ids and uid not in people:
                 people[uid] = person
     return people
+
+
+def space_people(bridge) -> list[dict[str, str]]:
+    """The people in a linked conversation who could be @mentioned from here, for the composer:
+    Google id and name. Members who have connected Google Chat here are left out, since they are
+    mentioned as the lab member they are. Names come from the conversation's own member list."""
+    if not _usable(bridge):
+        return []
+    mine = set(_authors(bridge.lab, bridge.project))
+    try:
+        people = member_map(bridge.account, bridge.space)
+    except (AccountUnavailable, IntegrationError):
+        return []
+    rows = [
+        {"id": uid, "name": p["name"]}
+        for uid, p in people.items()
+        if uid not in mine and re.fullmatch(r"[0-9]{1,40}", uid)
+    ]
+    return sorted(rows, key=lambda r: r["name"].lower())[:200]
 
 
 def _members_label(names: list[str]) -> str:
@@ -360,10 +381,25 @@ def _fail(bridge, message) -> None:
 # ---------------------------------------------------------------- out: the lab chat to Google
 
 
-def to_google_text(body: str) -> str:
-    """Our stored markdown, as Google Chat writes it: mentions as plain "@Name", bold in single
-    asterisks. Everything else (italics, strike, code, links) reads fine as it is."""
-    return _BOLD.sub(r"*\1*", _MENTION.sub(r"@\1", body))
+def to_google_text(body: str, google_ids: dict[str, str] | None = None) -> str:
+    """Our stored markdown, as Google Chat writes it, bold in single asterisks. Mentions become
+    real Google mentions (`<users/ID>`) for anyone Google can name: people picked from the
+    conversation's own members, and lab members with a connected Google Chat account
+    (`google_ids`: lab user id -> Google id). Anyone else stays a plain "@Name". Everything else
+    (italics, strike, code, links) reads fine as it is."""
+    ids = google_ids or {}
+
+    def member(m):
+        gid = ids.get(m[2].lower())
+        return f"<users/{gid}>" if gid else f"@{m[1]}"
+
+    text = _GOOGLE_MENTION.sub(lambda m: f"<users/{m[2]}>", body)
+    return _BOLD.sub(r"*\1*", _MENTION.sub(member, text))
+
+
+def _google_ids(lab, project=None) -> dict[str, str]:
+    """Lab user id (lower case) -> that member's Google id, for those with Google Chat connected."""
+    return {str(user.pk).lower(): gid for gid, user in _authors(lab, project).items()}
 
 
 def queue_relay(message) -> None:
@@ -424,7 +460,7 @@ def relay(message) -> bool:
     if not _usable(bridge):
         _fail(bridge, "The Google Chat connection that set this up is no longer active.")
         return False
-    text = to_google_text(message.body)
+    text = to_google_text(message.body, _google_ids(message.lab, getattr(message, "project", None)))
     name = None
     try:
         mine = own_account(message.lab, message.author) if message.author_id else None

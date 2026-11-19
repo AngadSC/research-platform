@@ -151,6 +151,11 @@ class GoogleChatStatusSerializer(serializers.Serializer):
     can_manage = serializers.BooleanField(help_text="You may link or unlink this chat.")
 
 
+class GoogleChatPersonSerializer(serializers.Serializer):
+    id = serializers.CharField(help_text="Google's number for them, used to mention them.")
+    name = serializers.CharField()
+
+
 class GoogleChatSpaceSerializer(serializers.Serializer):
     name = serializers.CharField()
     display_name = serializers.CharField()

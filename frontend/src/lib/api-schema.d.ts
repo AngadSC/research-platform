@@ -778,6 +778,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/chat/google/people/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The people in the linked Google Chat space who can be @mentioned in the lab chat. Whoever can
+         *     read the chat sees them, as they already read what those people wrote.
+         */
+        get: operations["labs_chat_google_people_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/chat/google/spaces/": {
         parameters: {
             query?: never;
@@ -2770,6 +2790,23 @@ export interface paths {
         put?: never;
         /** @description D327: copy a Google Chat thread or conversation into this project's chat, as messages. */
         post: operations["labs_projects_chat_google_import_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/chat/google/people/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The people in this project chat's Google Chat conversation who can be @mentioned. */
+        get: operations["labs_projects_chat_google_people_list"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6552,6 +6589,11 @@ export interface components {
         };
         GoogleChatLinkInput: {
             space: string;
+        };
+        GoogleChatPerson: {
+            /** @description Google's number for them, used to mention them. */
+            id: string;
+            name: string;
         };
         GoogleChatSpace: {
             name: string;
@@ -10739,6 +10781,27 @@ export interface operations {
             };
         };
     };
+    labs_chat_google_people_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleChatPerson"][];
+                };
+            };
+        };
+    };
     labs_chat_google_spaces_list: {
         parameters: {
             query?: never;
@@ -14234,6 +14297,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GoogleChatImportResult"];
+                };
+            };
+        };
+    };
+    labs_projects_chat_google_people_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleChatPerson"][];
                 };
             };
         };

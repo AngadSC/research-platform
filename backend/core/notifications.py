@@ -119,6 +119,9 @@ def visible_notifications(user, lab, qs, limit=100) -> list:
 
 # D260: `@[Display Name](user:<uuid>)` is what the composer stores for a mention.
 MENTION_TOKEN = re.compile(r"@\[([^\]\n]{1,100})\]\(user:([0-9a-fA-F-]{36})\)")
+# A mention of someone who is only in the linked Google Chat space: `@[Name](gchat:<google id>)`.
+# It notifies no one here; it is shown as "@Name" and sent to Google as a real mention.
+GCHAT_MENTION_TOKEN = re.compile(r"@\[([^\]\n]{1,100})\]\(gchat:[0-9]{1,40}\)")
 MAX_MENTIONS = 20
 
 
@@ -147,7 +150,9 @@ def notify_mentions(*, lab, author, body, where, perm, target, key) -> None:
             recipient=user,
             kind=NotificationKind.MENTION,
             title=f"{name} mentioned you in {where}"[:200],
-            body=MENTION_TOKEN.sub(lambda m: f"@{m[1]}", body)[:200],
+            body=GCHAT_MENTION_TOKEN.sub(
+                lambda m: f"@{m[1]}", MENTION_TOKEN.sub(lambda m: f"@{m[1]}", body)
+            )[:200],
             target=target if target._meta.label != "labs.Lab" else None,
             dedupe_key=f"mention:{key}",
         )
@@ -159,6 +164,7 @@ _EXPIRES = re.compile(r"expires (?:today|in \d+ days?)$")
 _MARKS = [  # the composer's simple markdown (D260), as plain words
     (re.compile(r"^\s*```.*$", re.M), ""),
     (MENTION_TOKEN, r"@\1"),
+    (GCHAT_MENTION_TOKEN, r"@\1"),
     (re.compile(r"\[([^\]\n]+)\]\((?:https?://|mailto:)[^\s)]+\)"), r"\1"),
     (re.compile(r"\*\*([^*\n]+)\*\*"), r"\1"),
     (re.compile(r"~~([^~\n]+)~~"), r"\1"),

@@ -188,6 +188,11 @@ urlpatterns = [
     path("labs/<uuid:lab_id>/chat/google/", views.GoogleChatView.as_view(), name="google-chat"),
     path("labs/<uuid:lab_id>/link-preview/", views.LinkPreviewView.as_view(), name="link-preview"),
     path(
+        "labs/<uuid:lab_id>/chat/google/people/",
+        views.GoogleChatPeopleView.as_view(),
+        name="google-chat-people",
+    ),
+    path(
         "labs/<uuid:lab_id>/chat/google/spaces/",
         views.GoogleChatSpacesView.as_view(),
         name="google-chat-spaces",
