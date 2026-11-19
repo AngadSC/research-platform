@@ -86,6 +86,9 @@ export function ComplianceMatrix({
           </Button>
         )}
       </BulkBar>
+      <p className="text-xs text-muted-foreground sm:hidden">
+        Swipe sideways to see every training.
+      </p>
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
           <thead>
