@@ -167,7 +167,9 @@ def test_every_type_is_found_with_a_spa_url(w):
     assert by["chat"]["title"] == f"the {WORD} ran"  # markdown marks dropped
     assert by["chat"]["url"] == f"/labs/{w.lab.pk}/projects/{w.p1.pk}/overview?chat=1"
     assert by["chat"]["snippet"] == (w.u["pi"].display_name or w.u["pi"].email)
-    assert {h["type"] for h in run(w, "pi", types="task")} == {"task"}
+    tasks = run(w, "pi", types="task")
+    assert {h["type"] for h in tasks} == {"task"}
+    assert all(h["url"].endswith(f"/tasks?task={h['id']}") for h in tasks)
     assert by["inventory"]["url"] == f"/labs/{w.lab.pk}/inventory"
     assert by["training"]["url"] == f"/labs/{w.lab.pk}/training"
     assert not {"inventory", "training"} & set(AI_TYPES)

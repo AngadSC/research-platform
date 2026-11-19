@@ -59,6 +59,19 @@ describe("Today", () => {
     );
   });
 
+  it("does not continue into an archived project", async () => {
+    mockFetch(
+      handlers([], {
+        "GET /api/labs/lab1/projects/": {
+          body: [{ id: "p1", name: "Old", status: "archived", updated_at: "2026-01-01T00:00:00Z" }],
+        },
+      }),
+    );
+    renderRoute("/labs/lab1/dashboard");
+    await screen.findByText("You are all caught up.");
+    expect(screen.queryByRole("link", { name: /Continue where you left off/ })).toBeNull();
+  });
+
   it("says all caught up when nothing is due", async () => {
     mockFetch(handlers([t("d", "Later thing", addDays(today, 5))]));
     renderRoute("/labs/lab1/dashboard");

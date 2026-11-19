@@ -7,7 +7,7 @@ import { ConflictDialog } from "@/components/documents/ConflictDialog";
 import { StaleDocumentBanner } from "@/components/documents/StaleDocumentBanner";
 import { RevisionsPanel } from "@/components/documents/RevisionsPanel";
 import { LinkedFiles } from "@/components/shared/LinkedFiles";
-import { PinForEveryoneItem } from "@/components/shared/PinForEveryoneItem";
+import { PinForEveryoneItem, PinnedMarker } from "@/components/shared/PinForEveryoneItem";
 import {
   MARKED_TOAST,
   ParticipantBadge,
@@ -525,6 +525,7 @@ function DocumentEditor({
             void flush(true);
           }}
         />
+        {canPin && <PinnedMarker labId={labId} docId={doc.id} />}
         {flagged && (
           <span className="shrink-0 pt-2.5">
             <ParticipantBadge />

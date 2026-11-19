@@ -118,6 +118,9 @@ class MyOnboardingSerializer(serializers.ModelSerializer):
     by_training = serializers.SerializerMethodField(
         help_text="Ticked by a current training record, so it cannot be ticked by hand."
     )
+    training_linked = serializers.SerializerMethodField(
+        help_text="Ticks itself from training records, so it cannot be ticked by hand."
+    )
     training_requirement_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -130,6 +133,7 @@ class MyOnboardingSerializer(serializers.ModelSerializer):
             "required",
             "done",
             "by_training",
+            "training_linked",
             "training_requirement_name",
         ]
         read_only_fields = fields
@@ -143,6 +147,9 @@ class MyOnboardingSerializer(serializers.ModelSerializer):
         from training.services import done_user_ids
 
         return str(self._me().pk) in done_user_ids(item.lab, item.training_requirement)
+
+    def get_training_linked(self, item) -> bool:
+        return item.training_requirement_id is not None
 
     def get_done(self, item) -> bool:
         mine = any(c.user_id == self._me().pk for c in item.completions.all())

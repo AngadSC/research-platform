@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 import type { MyOnboardingItem, StartHerePin } from "@/lib/api-types";
 
@@ -24,7 +25,13 @@ export function usePinForEveryone(labId: string) {
       if (v.action === "unpin") return api(url, { method: "DELETE" });
       return api(url, { method: "PATCH", body: { direction: v.action } });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: pinsKey(labId) }),
+    // Toasts live here, not on mutate(): the menu item that calls it closes and unmounts first.
+    onSuccess: (_, v) => {
+      void qc.invalidateQueries({ queryKey: pinsKey(labId) });
+      if (v.action === "pin") toast("Pinned for everyone");
+      if (v.action === "unpin") toast("Unpinned");
+    },
+    onError: () => toast.error("Could not change that."),
   });
 }
 

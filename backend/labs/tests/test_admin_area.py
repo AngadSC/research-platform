@@ -399,6 +399,8 @@ def test_an_item_ticked_by_training_cannot_be_ticked_by_hand(world):
     )
     tick = url(lab, f"my-onboarding/{item.json()['id']}/")
     assert api(users["member"]).post(tick, {"done": True}, format="json").status_code == 400
+    mine = api(users["member"]).get(url(lab, "my-onboarding/")).json()[0]
+    assert mine["training_linked"] is True and mine["by_training"] is False
 
 
 def test_only_a_cancelled_order_can_be_deleted(make_lab, make_user, join):

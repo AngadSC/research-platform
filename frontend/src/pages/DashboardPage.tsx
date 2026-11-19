@@ -750,7 +750,7 @@ export function DashboardPage() {
       />
       {lab && (
         <div className="mb-6 grid gap-4 empty:hidden md:grid-cols-2 md:[&>*:only-child]:col-span-2">
-          <StartHere labId={labId} />
+          <StartHere labId={labId} canPin={allowed} />
           <MyOnboarding labId={labId} enabled={!allowed} />
         </div>
       )}

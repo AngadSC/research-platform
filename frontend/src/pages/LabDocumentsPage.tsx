@@ -98,7 +98,11 @@ export function LabDocumentsPage() {
         actions={(docs.data?.length ?? 0) > 0 ? addButton : undefined}
       />
       <div className="mb-4 empty:hidden">
-        <StartHere labId={labId} labOnly />
+        <StartHere
+          labId={labId}
+          labOnly
+          canPin={lab?.my_permissions.includes("manage_lab") ?? false}
+        />
       </div>
       {canAdd && (
         <BulkBar selection={selection}>
