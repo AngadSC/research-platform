@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { reportBulk, runEach } from "@/components/shared/bulk";
 import { ComplianceMatrix } from "@/components/training/ComplianceMatrix";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
@@ -77,6 +78,36 @@ export function TrainingSection({ labId }: { labId: string }) {
               onSuccess: () => toast.success("Record verified"),
               onError: () => toast.error("Could not verify."),
             })
+          }
+          onBulkRemind={async (pairs) => {
+            let sent = 0;
+            const r = await runEach(
+              pairs,
+              async (p) => {
+                sent += (await remind.mutateAsync({ requirement: p.requirement, user: p.user }))
+                  .sent;
+              },
+              (p) => p.label,
+            );
+            if (r.failed.length) reportBulk("Reminded", "person", pairs.length, r);
+            else
+              toast.success(
+                sent === pairs.length
+                  ? `Sent ${sent} ${sent === 1 ? "reminder" : "reminders"}.`
+                  : `Sent ${sent} of ${pairs.length}. The rest were already reminded today.`,
+              );
+          }}
+          onBulkVerify={async (records) =>
+            reportBulk(
+              "Verified",
+              "record",
+              records.length,
+              await runEach(
+                records,
+                (r) => verify.mutateAsync(r.id),
+                (r) => r.label,
+              ),
+            )
           }
           onRemind={(requirement, user) =>
             remind.mutate(

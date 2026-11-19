@@ -3,6 +3,8 @@ import { useState, type FormEvent, type MouseEvent } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/shared/DataTable";
+import { BulkBar, SelectBox, reportBulk, runEach, useSelection } from "@/components/shared/bulk";
+import { ConfirmDelete } from "@/components/shared/ConfirmDelete";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
@@ -26,7 +28,28 @@ import { useMembers } from "@/hooks/workspace";
 import type { InventoryInput, InventoryItem } from "@/lib/api-types";
 import { localDateISO } from "@/lib/format";
 import { formErrors, type FormErrors } from "@/lib/forms";
+import { saveBlob } from "@/lib/exportFiles";
 import { formValue, NativeSelect, Section } from "./common";
+
+const csvCell = (v: unknown) => {
+  const t = v == null ? "" : String(v);
+  const safe = /^[=+\-@\t\r]/.test(t) ? `'${t}` : t; // a leading = + - @ makes Excel run the cell
+  return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+};
+function exportRows(items: InventoryItem[]) {
+  const head = ["Name", "Category", "Location", "Quantity", "Unit", "Owner", "Serial number"];
+  head.push("Purchase date", "Due date", "Status", "Notes");
+  const lines = items.map((i) =>
+    [i.name, i.category, i.location, i.quantity, i.unit, i.owner?.display_name || i.owner?.email]
+      .concat([i.serial_number, i.purchase_date, i.due_date, i.status, i.notes] as string[])
+      .map(csvCell)
+      .join(","),
+  );
+  saveBlob(
+    new Blob([[head.join(","), ...lines].join("\r\n")], { type: "text/csv;charset=utf-8" }),
+    "inventory-selected.csv",
+  );
+}
 
 export const CATEGORIES = [
   { value: "equipment", label: "Equipment" },
@@ -303,6 +326,15 @@ export function InventorySection({
       },
       { replace: true },
     );
+  const selection = useSelection(rows.map((i) => i.id));
+  const [selecting, setSelecting] = useState(false); // phones: the cards get checkboxes
+  const [bulk, setBulk] = useState<"alert" | "delete" | null>(null);
+  const picked = rows.filter((i) => selection.has(i.id));
+  const bulkEach = async (past: string, run: (i: InventoryItem) => Promise<unknown>) => {
+    reportBulk(past, "item", picked.length, await runEach(picked, run, (i) => i.name));
+    selection.clear();
+    setBulk(null);
+  };
   const [usingId, setUsing] = useState<string | null>(null);
   const using = (list.data ?? []).find((i) => i.id === usingId) ?? null;
 
@@ -427,12 +459,56 @@ export function InventorySection({
         {canEdit && <ImportInventory labId={labId} />}
         {canEdit && <Button onClick={() => setAdding(true)}>Add item</Button>}
       </div>
+      {phone && rows.length > 0 && (
+        <Button
+          variant="outline"
+          className="justify-self-start"
+          aria-pressed={selecting}
+          onClick={() => {
+            setSelecting(!selecting);
+            selection.clear();
+          }}
+        >
+          {selecting ? "Done selecting" : "Select"}
+        </Button>
+      )}
+      <BulkBar selection={selection}>
+        {canEdit && (
+          <>
+            <Button variant="outline" size="sm" onClick={() => setBulk("alert")}>
+              Set alert level
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                void bulkEach("Retired", (i) => update.mutateAsync({ id: i.id, status: "retired" }))
+              }
+            >
+              Retire
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setBulk("delete")}>
+              Delete
+            </Button>
+          </>
+        )}
+        <Button variant="outline" size="sm" onClick={() => exportRows(picked)}>
+          Export selected
+        </Button>
+      </BulkBar>
       {phone && !list.isLoading && rows.length > 0 ? (
         <ul className="grid gap-2" aria-label="Inventory items">
           {rows.map((i) => (
             <li key={i.id} className="grid gap-2 rounded-lg border p-3">
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
+                {selecting && (
+                  <SelectBox
+                    checked={selection.has(i.id)}
+                    label={`Select ${i.name}`}
+                    onToggle={(shift) => selection.toggle(i.id, shift)}
+                  />
+                )}
+                <div className="min-w-0 flex-1">
                   <p className="font-medium">{i.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {[nameOf(CATEGORIES, i.category), i.location].filter(Boolean).join(" · ")}
@@ -461,6 +537,8 @@ export function InventorySection({
           columns={cols}
           rows={rows}
           getRowKey={(i) => i.id}
+          selection={selection}
+          selectLabel={(i) => `Select ${i.name}`}
           loading={list.isLoading}
           empty={
             <EmptyState
@@ -476,6 +554,48 @@ export function InventorySection({
           }
         />
       )}
+      <ConfirmDelete
+        open={bulk === "delete"}
+        name={`${picked.length} ${picked.length === 1 ? "item" : "items"}`}
+        noun={picked.length === 1 ? "item" : "items"}
+        description="Items still used by a protocol or a record of use can't be deleted; they stay, and you'll see which. Mark them retired instead."
+        onConfirm={() => void bulkEach("Deleted", (i) => remove.mutateAsync(i.id))}
+        onClose={() => setBulk(null)}
+      />
+      <Dialog open={bulk === "alert"} onOpenChange={(o) => !o && setBulk(null)}>
+        <DialogContent>
+          <DialogTitle className="text-base font-semibold">
+            Set alert level for {picked.length} {picked.length === 1 ? "item" : "items"}
+          </DialogTitle>
+          <DialogDescription className="sr-only">Low stock alert level</DialogDescription>
+          <form
+            noValidate
+            className="grid gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const v = formValue(new FormData(e.currentTarget), "level");
+              void bulkEach("Updated", (i) =>
+                update.mutateAsync({ id: i.id, low_stock_at: v || null }),
+              );
+            }}
+          >
+            <FormField
+              label="Alert me at or below"
+              hint="Leave empty to turn the alert off for these items."
+            >
+              {(p) => <Input {...p} name="level" type="number" min="0" step="any" />}
+            </FormField>
+            <div className="flex justify-end gap-2">
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button type="submit">Save</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
       {using && <UseStockDialog labId={labId} item={using} onClose={() => setUsing(null)} />}
       <ItemDialog
         labId={labId}
