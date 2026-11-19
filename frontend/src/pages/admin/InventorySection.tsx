@@ -350,17 +350,19 @@ export function InventorySection({
 
   const actions = (i: InventoryItem) => (
     <div className="flex justify-end gap-1">
-      {i.category !== "equipment" && i.category !== "software_licence" && (
-        <Button
-          variant="outline"
-          size="sm"
-          aria-label={`Use ${i.name}`}
-          title="Log what you used; it comes off the stock"
-          onClick={() => setUsing(i.id)}
-        >
-          <Minus aria-hidden /> Use
-        </Button>
-      )}
+      {i.status !== "retired" &&
+        i.category !== "equipment" &&
+        i.category !== "software_licence" && (
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label={`Use ${i.name}`}
+            title="Log what you used; it comes off the stock"
+            onClick={() => setUsing(i.id)}
+          >
+            <Minus aria-hidden /> Use
+          </Button>
+        )}
       <MoreMenu
         label={`More for ${i.name}`}
         items={[
@@ -389,7 +391,7 @@ export function InventorySection({
       cell: (i) => (
         <span className="inline-flex items-center gap-2">
           {`${trimNumber(i.quantity)} ${i.unit}`.trim()}
-          {i.low && <LowBadge item={i} />}
+          {i.low && i.status !== "retired" && <LowBadge item={i} />}
           <WeeksLeft item={i} />
         </span>
       ),
@@ -527,7 +529,7 @@ export function InventorySection({
                 </div>
                 <span className="flex shrink-0 items-center gap-2 text-sm">
                   {`${trimNumber(i.quantity)} ${i.unit}`.trim()}
-                  {i.low && <LowBadge item={i} />}
+                  {i.low && i.status !== "retired" && <LowBadge item={i} />}
                   <WeeksLeft item={i} />
                 </span>
               </div>

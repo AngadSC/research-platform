@@ -215,6 +215,16 @@ describe("participant matrix", () => {
     expect(screen.getByRole("button", { name: /Add participants/ })).toBeInTheDocument();
   });
 
+  it("says so when every participant is archived", async () => {
+    world(undefined, {
+      [`GET ${P}/participants/`]: { body: [] },
+      [`GET ${P}/participants/?archived=1`]: { body: [person("z", "P-009"), person("y", "P-008")] },
+    });
+    renderRoute("/labs/lab1/projects/p1/participants");
+    expect(await screen.findByText("All 2 participants are archived.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show 2 archived" })).toBeInTheDocument();
+  });
+
   it("lists participants before any columns exist, and tells a non-lead who adds columns", async () => {
     world(["view_project", "edit_content"], {
       [`GET ${P}/participants/`]: { body: [person("a", "P999")] },

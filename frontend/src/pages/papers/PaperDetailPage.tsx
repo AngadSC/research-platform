@@ -381,10 +381,6 @@ export function PaperDetailPage() {
 
         <CopyCitation labId={labId} paperId={paper.id} />
 
-        <Section title="Use the AI assistant">
-          <AiShortcuts labId={labId} paper={paper} />
-        </Section>
-
         <Section title={`Notes (${paper.notes.length})`} description="Every member can read these.">
           {canContribute && (
             <form onSubmit={submitNote} className="grid gap-2">
@@ -422,6 +418,10 @@ export function PaperDetailPage() {
               ))}
             </ul>
           )}
+        </Section>
+
+        <Section title="Use the AI assistant">
+          <AiShortcuts labId={labId} paper={paper} />
         </Section>
       </div>
 

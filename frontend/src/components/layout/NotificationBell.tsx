@@ -86,7 +86,9 @@ export function NotificationBell({ labId }: { labId: string }) {
                 <Link to={n.url} onClick={() => one.mutate(n.id)}>
                   <span className="font-medium">{n.title}</span>
                   {n.body && (
-                    <span className="line-clamp-2 text-xs text-muted-foreground">{n.body}</span>
+                    <span className="line-clamp-2 whitespace-pre-line text-xs text-muted-foreground">
+                      {n.body}
+                    </span>
                   )}
                 </Link>
               </DropdownMenuItem>
