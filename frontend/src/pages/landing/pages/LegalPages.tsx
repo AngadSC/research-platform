@@ -127,21 +127,27 @@ export function PrivacyPage() {
       <ul>
         <li>
           <strong>Permissions:</strong> <code>calendar.events</code> to add, change and remove
-          meetings on your main calendar and to show you your own events, and{" "}
-          <code>calendar.app.created</code> to manage one separate calendar that labbenchos creates.
-          We also receive your email address (<code>openid</code>, <code>email</code>) to know which
-          Google account you connected.
+          meetings on your main calendar, to show you your own events and to send your answer to an
+          invitation, and <code>calendar.app.created</code> to manage one separate calendar that
+          labbenchos creates. We also receive your email address (<code>openid</code>,{" "}
+          <code>email</code>) to know which Google account you connected.
         </li>
         <li>
           <strong>Meetings:</strong> when you schedule a lab meeting with a Google Meet call, we
           create the event on your primary calendar with its title, times and the email addresses of
-          the lab members you invite as guests. We store the event&rsquo;s ID and its Meet link, and
-          update or delete the event when you change or cancel the meeting here.
+          the lab members you invite as guests, plus any other email addresses you type in as
+          guests. When you add guests by email, Google emails them the invitation with the Meet
+          link. We store the event&rsquo;s ID, its Meet link and the guests&rsquo; email addresses
+          (only you and the people on the meeting see them), and update or delete the event when you
+          change or cancel the meeting here.
         </li>
         <li>
           <strong>Your own events:</strong> when you open the labbenchos calendar, we read your
           primary calendar&rsquo;s events for the dates shown, so you can see them next to your
-          lab&rsquo;s. Only you see them, we do not store them, and you can turn this off.
+          lab&rsquo;s, with who is invited and how they answered. Only you see them, we do not store
+          them, and you can turn this off. If you accept, decline or answer &ldquo;maybe&rdquo; to
+          an invitation here, we change only your own answer on that event, and Google tells its
+          organiser.
         </li>
         <li>
           <strong>The labbenchos calendar (optional):</strong> it is off until you turn it on. Then
@@ -212,7 +218,10 @@ export function PrivacyPage() {
           appears as that lab member. Anyone else who wrote in the conversation, including people
           outside the lab, appears with their name and a link to their profile photo, taken from
           your organisation&rsquo;s directory or from the conversation and saved with the message.
-          Directory lookups are kept for a day.
+          Directory lookups are kept for a day. When a conversation is linked we also read who is in
+          it (if that permission was allowed), so people can @mention them, and the emoji reactions
+          on recent messages with the names of the people who reacted, so they show here. Recent
+          messages&rsquo; reactions are re-read every few minutes.
         </li>
         <li>
           <strong>Who sees it:</strong> messages synced or imported into the lab chat are visible to
@@ -333,7 +342,11 @@ export function PrivacyPage() {
 
       <h2>Who else handles your data</h2>
       <ul>
-        <li>Our hosting provider, which runs our servers in Canada.</li>
+        <li>
+          Our hosting provider, which runs our one server in Canada. Your account, lab content and
+          everything else are stored in our database on that server, and uploaded files on its disk.
+          We do not use a separate cloud file store.
+        </li>
         <li>Postmark, which sends our emails (sign-up confirmations, invitations, notices).</li>
         <li>Services you or your lab choose to connect, as described above.</li>
       </ul>
@@ -346,13 +359,11 @@ export function PrivacyPage() {
       <p>
         We keep your account while it is open. Lab content is kept for as long as the lab keeps it,
         under the lab&rsquo;s retention settings. When an account or lab is deleted, we delete its
-        data from the live system.{" "}
-        {/* OWNER DECISION (backups): docs/DEPLOY.md records "Backups: none" for the live server, and
-        nothing in deploy/ makes or prunes backups. Confirm on the server; once backups exist,
-        replace the next sentence with how long they are kept (DEPLOY.md section 8 suggests 14
-        daily and 8 weekly copies). */}
-        We do not keep backup copies of the database at the moment, so data deleted from the live
-        system is gone.
+        data from the live database and file store.{" "}
+        {/* Owner confirmed (18 Nov 2026): no backups, by choice. If backups are added, state their
+        retention here before they start. */}
+        We do not make backups, so data deleted from the live database and file store is gone. If we
+        add backups, we will update this policy to say how long they are kept first.
       </p>
 
       <h2>Your choices</h2>

@@ -25,7 +25,7 @@ def clear_revoked(apps, schema_editor):
 class Migration(migrations.Migration):
     dependencies = [
         ("integrations", "0004_webhook"),
-        ("labs", "0023_calendar_push_off_by_default"),
+        ("labs", "0024_calendar_push_off_by_default"),
     ]
 
     operations = [migrations.RunPython(clear_revoked, migrations.RunPython.noop)]

@@ -795,25 +795,28 @@ def _repair_names(bridge, authors, model, where, before) -> None:
     """Messages that came in as "Someone on Google Chat" get their real name once Google will give
     it (a reconnect that grants the directory, say). Looks at the latest 1000 messages, at most
     once an hour per conversation, and only when there is something to fix."""
-    unknown = list(
-        model.objects.for_lab(bridge.lab_id)
-        .filter(
-            **where,
-            source=ChatSource.GOOGLE_CHAT,
-            external_author=UNKNOWN_SENDER,
-            created_at__lt=before,  # not the ones this very poll just brought in
+    unknown = (
+        list(
+            model.objects.for_lab(bridge.lab_id)
+            .filter(
+                **where,
+                source=ChatSource.GOOGLE_CHAT,
+                external_author=UNKNOWN_SENDER,
+                created_at__lt=before,  # not the ones this very poll just brought in
+            )
+            .values_list("pk", "external_id")[:1000]
         )
-        .values_list("pk", "external_id")[:1000]
-    ) + list(
-        model.objects.for_lab(bridge.lab_id)
-        .filter(
-            **where,
-            source=ChatSource.GOOGLE_CHAT,
-            external_avatar="",
-            created_at__lt=before,
+        + list(
+            model.objects.for_lab(bridge.lab_id)
+            .filter(
+                **where,
+                source=ChatSource.GOOGLE_CHAT,
+                external_avatar="",
+                created_at__lt=before,
+            )
+            .exclude(external_author=UNKNOWN_SENDER)
+            .values_list("pk", "external_id")[:1000]
         )
-        .exclude(external_author=UNKNOWN_SENDER)
-        .values_list("pk", "external_id")[:1000]
     )
     if not unknown or not cache.add(f"gchat-repair:{bridge.pk}", 1, 3600):
         return
