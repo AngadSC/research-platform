@@ -30,7 +30,9 @@ export function NotificationsPage() {
           >
             {n.title}
           </Link>
-          {n.body && <span className="text-xs text-muted-foreground">{n.body}</span>}
+          {n.body && (
+            <span className="whitespace-pre-line text-xs text-muted-foreground">{n.body}</span>
+          )}
         </div>
       ),
     },

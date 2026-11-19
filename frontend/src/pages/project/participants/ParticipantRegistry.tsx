@@ -422,11 +422,19 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
       {participants.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="No participants yet"
+          title={
+            archived.length > 0
+              ? `All ${archived.length} ${archived.length === 1 ? "participant is" : "participants are"} archived.`
+              : "No participants yet"
+          }
           description={
-            canEdit
-              ? "Add your participants by code, like P-001. Then add the data each one should have, and see at a glance who is missing what."
-              : "Only project editors can add participants. Ask your project lead."
+            archived.length > 0
+              ? canEdit
+                ? "Show them to restore one, or add a new participant."
+                : "Anyone who can see this project can see its participants. Only project editors can add them."
+              : canEdit
+                ? "Add your participants by code, like P-001. Then add the data each one should have, and see at a glance who is missing what."
+                : "Anyone who can see this project can see its participants. Only project editors can add them."
           }
           footer={
             archived.length > 0 && (

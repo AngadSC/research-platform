@@ -57,7 +57,11 @@ export function useDeleteProject(labId: string, projectId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => api(`${base(labId)}/projects/${projectId}/`, { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["labs", labId, "projects"] }),
+    // Drop the deleted project's own queries so nothing refetches it (404s); refresh only the list.
+    onSuccess: () => {
+      qc.removeQueries({ queryKey: pKey(labId, projectId) });
+      return qc.invalidateQueries({ queryKey: ["labs", labId, "projects"], exact: true });
+    },
   });
 }
 

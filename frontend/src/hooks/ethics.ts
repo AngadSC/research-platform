@@ -43,7 +43,11 @@ export function useDeleteApproval(labId: string, id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => api(`${base(labId)}/ethics-approvals/${id}/`, { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: root(labId) }),
+    // Drop the deleted approval's queries so nothing refetches it (404s); refresh only the list.
+    onSuccess: () => {
+      qc.removeQueries({ queryKey: [...root(labId), id] });
+      return qc.invalidateQueries({ queryKey: root(labId), exact: true });
+    },
   });
 }
 
