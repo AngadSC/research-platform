@@ -145,6 +145,7 @@ export function LabDocumentsPage() {
         open={deleting}
         name={`${picked.length} ${picked.length === 1 ? "document" : "documents"}`}
         noun={picked.length === 1 ? "document" : "documents"}
+        items={picked.map((d) => d.title)}
         description="They leave the lab's list. Anyone with a link to one will no longer find it."
         pending={remove.isPending}
         onConfirm={() => void deletePicked()}

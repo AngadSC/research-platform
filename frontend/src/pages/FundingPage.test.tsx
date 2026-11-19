@@ -17,6 +17,8 @@ const award = (over: Record<string, unknown>) => ({
   award_number: "A-1",
   amount: "50000.00",
   currency: "CAD",
+  spent: null,
+  report_due: null,
   start_date: iso(-300),
   end_date: iso(400),
   status: "active",
@@ -48,6 +50,38 @@ describe("Lab funding page", () => {
     const totals = screen.getByLabelText("Totals");
     expect(totals).toHaveTextContent("CA$100,000.00"); // declined awards are not counted
     expect(totals).toHaveTextContent("$1,000.00");
+  });
+
+  it("shows what is left and flags a report due within 30 days first", async () => {
+    setup(
+      ["view_lab", "access_funding"],
+      [award({ spent: "20000.00", report_due: iso(10) }), award({ id: "f2", project_name: "B" })],
+    );
+    renderRoute("/labs/lab1/funding");
+    expect(await screen.findByText("Report due in 10 days")).toBeInTheDocument();
+    expect(screen.getByText("CA$30,000.00")).toBeInTheDocument();
+  });
+
+  it("lets a PI pick a project and go to its Funding step", async () => {
+    mockFetch({
+      [SESSION]: signedIn,
+      "GET /api/labs/": { body: [makeLab(["view_lab", "access_funding"])] },
+      "GET /api/labs/lab1/": { body: makeLab(["view_lab", "access_funding"]) },
+      "GET /api/labs/lab1/funding/": { body: [] },
+      "GET /api/labs/lab1/projects/": {
+        body: [
+          { id: "p1", name: "Memory study", status: "active" },
+          { id: "p2", name: "Sleep study", status: "active" },
+        ],
+      },
+    });
+    renderRoute("/labs/lab1/funding");
+    await userEvent.click((await screen.findAllByRole("button", { name: "Add funding" }))[0]!);
+    await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Project" }), "p2");
+    expect(screen.getByRole("link", { name: "Continue" })).toHaveAttribute(
+      "href",
+      "/labs/lab1/projects/p2/workflow/funding?new=1",
+    );
   });
 
   it("can show only awards ending within 90 days", async () => {

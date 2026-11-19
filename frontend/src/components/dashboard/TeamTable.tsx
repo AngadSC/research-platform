@@ -60,7 +60,7 @@ export function TeamTable({
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead>Member</TableHead>
-            <TableHead>Role</TableHead>
+            <TableHead className="hidden sm:table-cell">Role</TableHead>
             <TableHead className="text-right">Overdue</TableHead>
             <TableHead className="text-right">In progress</TableHead>
             <TableHead className="text-right">Open</TableHead>
@@ -74,8 +74,15 @@ export function TeamTable({
             const n = attention.get(p.user_id);
             return (
               <TableRow key={p.user_id}>
-                <TableCell className="font-medium">{p.name}</TableCell>
-                <TableCell>{roleLabel(p.role)}</TableCell>
+                <TableCell className="font-medium">
+                  <Link
+                    to={`/labs/${labId}/team-tasks?assignee=${p.user_id}&show=open`}
+                    className="underline-offset-2 hover:underline"
+                  >
+                    {p.name}
+                  </Link>
+                </TableCell>
+                <TableCell className="hidden sm:table-cell">{roleLabel(p.role)}</TableCell>
                 <TableCell className="text-right tabular-nums">
                   {tasks(p, "overdue", p.overdue_tasks, true)}
                 </TableCell>

@@ -16870,6 +16870,17 @@ components:
         currency:
           type: string
           readOnly: true
+        spent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+        report_due:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
         start_date:
           type: string
           format: date
@@ -16921,6 +16932,8 @@ components:
       - notes
       - program
       - project
+      - report_due
+      - spent
       - start_date
       - status
       - updated_at
@@ -16944,6 +16957,15 @@ components:
         currency:
           type: string
           pattern: ^[A-Z]{3}$
+        spent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          nullable: true
+        report_due:
+          type: string
+          format: date
+          nullable: true
         start_date:
           type: string
           format: date
@@ -16998,6 +17020,17 @@ components:
         currency:
           type: string
           readOnly: true
+        spent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+        report_due:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
         start_date:
           type: string
           format: date
@@ -17022,6 +17055,8 @@ components:
       - program
       - project_id
       - project_name
+      - report_due
+      - spent
       - start_date
       - status
     GettingStarted:
@@ -20615,6 +20650,15 @@ components:
         currency:
           type: string
           pattern: ^[A-Z]{3}$
+        spent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          nullable: true
+        report_due:
+          type: string
+          format: date
+          nullable: true
         start_date:
           type: string
           format: date
