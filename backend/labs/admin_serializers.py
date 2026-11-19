@@ -181,6 +181,17 @@ class InventorySerializer(serializers.ModelSerializer):
     def get_low(self, item) -> bool:
         return item.low_stock_at is not None and item.quantity <= item.low_stock_at
 
+    weeks_left = serializers.SerializerMethodField(
+        help_text="About how many weeks the stock lasts at the last 8 weeks' use; null with "
+        "fewer than 2 uses in that time."
+    )
+
+    def get_weeks_left(self, item) -> int | None:
+        taken = getattr(item, "recent_taken", None)
+        if (getattr(item, "recent_uses", None) or 0) < 2 or not taken:
+            return None
+        return round(float(item.quantity) / (float(taken) / 8))
+
     class Meta:
         model = InventoryItem
         fields = [
@@ -192,6 +203,7 @@ class InventorySerializer(serializers.ModelSerializer):
             "unit",
             "low_stock_at",
             "low",
+            "weeks_left",
             "owner",
             "serial_number",
             "purchase_date",

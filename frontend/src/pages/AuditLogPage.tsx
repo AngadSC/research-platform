@@ -119,6 +119,7 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "protocol.deleted": "Deleted a protocol",
   "inventory_order.created": "Added an order",
   "inventory_order.updated": "Updated an order",
+  "inventory_order.deleted": "Deleted an order",
   "lab_event.created": "Added a calendar event",
   "lab_event.updated": "Updated a calendar event",
   "meeting.created": "Added a meeting",

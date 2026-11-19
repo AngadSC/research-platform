@@ -112,6 +112,7 @@ class AuditAction(models.TextChoices):
     PROTOCOL_DELETED = "protocol.deleted"
     INVENTORY_ORDER_CREATED = "inventory_order.created"
     INVENTORY_ORDER_UPDATED = "inventory_order.updated"
+    INVENTORY_ORDER_DELETED = "inventory_order.deleted"
     LAB_EVENT_CREATED = "lab_event.created"
     LAB_EVENT_UPDATED = "lab_event.updated"
     LAB_EVENT_DELETED = "lab_event.deleted"

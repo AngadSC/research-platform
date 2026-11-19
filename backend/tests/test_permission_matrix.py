@@ -514,6 +514,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "labs:order-list"): "401 404 2 2 2 2 2 2 403",
     ("GET",    "labs:order-export"): "401 404 2 2 2 2 2 2 2",
     ("PATCH",  "labs:order-detail"): "401 404 2 2 2 2 2 2 403",
+    ("DELETE", "labs:order-detail"): "401 404 2 2 2 2 2 2 403",
     # --- end admin area (Run 4) ---
     # --- lab chat and calendar ---
     # Lab chat is D206 for the whole lab: every member reads and posts, the lab viewer included.
@@ -949,7 +950,7 @@ def _lab_tool_fixtures(lab, user, inv, tag, attendees=()):
         "meeting_id": meeting.pk,
         "event_id": "gevent1",  # a Google event id; nobody in the fixture has Google connected
         "inventoryorder_id": InventoryOrder.objects.create(
-            lab=lab, item=inv, name=f"Order {tag}", requested_by=user
+            lab=lab, item=inv, name=f"Order {tag}", requested_by=user, status="cancelled"
         ).pk,
         "labchatmessage_id": LabChatMessage.objects.create(
             lab=lab, author=user, body=f"Lab chat {tag}"

@@ -222,8 +222,38 @@ def test_an_item_a_protocol_uses_cannot_be_deleted(world):
     lab, pi, _, _, item = world
     make_protocol(world)
     url = reverse("labs:inventory-detail", kwargs={"lab_id": lab.pk, "inventoryitem_id": item.pk})
-    assert api(pi).delete(url).status_code == 409
+    r = api(pi).delete(url)
+    assert r.status_code == 409
+    assert "protocol 'PCR'" in r.json()["detail"]
     assert InventoryItem.objects.for_lab(lab).filter(pk=item.pk).exists()
+
+
+def test_a_refused_delete_counts_the_live_uses(world):
+    lab, pi, member, _, item = world
+    for _ in range(2):
+        body = {"amount": "1", "unit": "mL", "request_id": str(uuid.uuid4())}
+        assert api(member).post(_item_use_url(world), body, "json").status_code == 201
+    url = reverse("labs:inventory-detail", kwargs={"lab_id": lab.pk, "inventoryitem_id": item.pk})
+    r = api(pi).delete(url)
+    assert r.status_code == 409 and "2 recorded uses" in r.json()["detail"]
+
+
+def test_weeks_left_needs_two_uses_and_reads_the_last_eight_weeks(world):
+    lab, pi, member, _, item = world
+    listing = reverse("labs:inventory-list", kwargs={"lab_id": lab.pk})
+
+    def weeks():
+        return api(pi).get(listing).json()[0]["weeks_left"]
+
+    def log_use():
+        body = {"amount": "1", "unit": "mL", "request_id": str(uuid.uuid4())}
+        assert api(member).post(_item_use_url(world), body, "json").status_code == 201
+
+    assert weeks() is None
+    log_use()
+    assert weeks() is None  # one use is not a rate
+    log_use()  # 2 mL in 8 weeks = 0.25 mL a week; 8 mL left
+    assert weeks() == 32
 
 
 def test_an_item_whose_uses_were_all_undone_can_be_deleted(world):

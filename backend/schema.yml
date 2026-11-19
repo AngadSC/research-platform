@@ -1238,6 +1238,7 @@ paths:
           - protocol.deleted
           - inventory_order.created
           - inventory_order.updated
+          - inventory_order.deleted
           - lab_event.created
           - lab_event.updated
           - lab_event.deleted
@@ -1425,6 +1426,7 @@ paths:
           * `protocol.deleted` - Protocol Deleted
           * `inventory_order.created` - Inventory Order Created
           * `inventory_order.updated` - Inventory Order Updated
+          * `inventory_order.deleted` - Inventory Order Deleted
           * `lab_event.created` - Lab Event Created
           * `lab_event.updated` - Lab Event Updated
           * `lab_event.deleted` - Lab Event Deleted
@@ -4859,6 +4861,31 @@ paths:
               schema:
                 $ref: '#/components/schemas/InventoryOrder'
           description: ''
+    delete:
+      operationId: labs_inventory_orders_destroy
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: inventoryorder_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/inventory/orders/export/:
     get:
       operationId: labs_inventory_orders_export_retrieve
@@ -13103,6 +13130,7 @@ components:
       - protocol.deleted
       - inventory_order.created
       - inventory_order.updated
+      - inventory_order.deleted
       - lab_event.created
       - lab_event.updated
       - lab_event.deleted
@@ -13289,6 +13317,7 @@ components:
         * `protocol.deleted` - Protocol Deleted
         * `inventory_order.created` - Inventory Order Created
         * `inventory_order.updated` - Inventory Order Updated
+        * `inventory_order.deleted` - Inventory Order Deleted
         * `lab_event.created` - Lab Event Created
         * `lab_event.updated` - Lab Event Updated
         * `lab_event.deleted` - Lab Event Deleted
@@ -17531,6 +17560,12 @@ components:
           type: boolean
           readOnly: true
           description: Stock is at or below its alert level.
+        weeks_left:
+          type: integer
+          nullable: true
+          readOnly: true
+          description: About how many weeks the stock lasts at the last 8 weeks' use;
+            null with fewer than 2 uses in that time.
         owner:
           allOf:
           - $ref: '#/components/schemas/User'
@@ -17580,6 +17615,7 @@ components:
       - status
       - unit
       - updated_at
+      - weeks_left
     InventoryImportInput:
       type: object
       properties:

@@ -422,4 +422,37 @@ describe("orders", () => {
       .poll(() => calls.find((c) => c.method === "PATCH")?.body)
       .toEqual({ status: "cancelled" });
   });
+  it("deletes a cancelled order after asking, and only cancelled ones offer it", async () => {
+    const cancelled = { ...order, status: "cancelled" };
+    const calls = mockFetch(
+      inventory(["view_lab", "manage_inventory"], {
+        [`GET ${L}/inventory/orders/`]: {
+          body: [cancelled, { ...order, id: "o2", name: "Gloves" }],
+        },
+        [`DELETE ${L}/inventory/orders/o1/`]: { status: 204 },
+      }),
+    );
+    renderRoute("/labs/lab1/inventory");
+    expect(await screen.findByRole("button", { name: "Delete: Tips" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete: Gloves" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Delete: Tips" }));
+    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+    await userEvent.click(await screen.findByRole("button", { name: "Delete order" }));
+    await expect.poll(() => calls.some((c) => c.method === "DELETE")).toBe(true);
+  });
+
+  it("shows about how many weeks an item has left, and nothing without a rate", async () => {
+    mockFetch(
+      inventory(["view_lab"], {
+        [`GET ${L}/inventory/?ordering=name`]: {
+          body: [
+            { ...item, weeks_left: 3 },
+            { ...item, id: "i2", name: "Gloves", weeks_left: null },
+          ],
+        },
+      }),
+    );
+    renderRoute("/labs/lab1/inventory");
+    expect((await screen.findAllByText("about 3 weeks left")).length).toBeGreaterThan(0);
+  });
 });
