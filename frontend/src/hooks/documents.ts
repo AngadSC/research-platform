@@ -12,8 +12,10 @@ import {
   type Folder,
   type Revision,
   type RevisionRow,
+  type User,
 } from "@/lib/api-types";
 
+type Me = User & { preferences?: { recents?: { url: string }[] } };
 const base = (labId: string) => `/api/labs/${labId}`;
 const listKey = (labId: string, projectId: string) =>
   ["labs", labId, "projects", projectId, "documents"] as const;
@@ -59,7 +61,23 @@ export function useDeleteDocument(labId: string, projectId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api(`${base(labId)}/documents/${id}/`, { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: listKey(labId, projectId) }),
+    onSuccess: (_, id) => {
+      // Drop it from Recents now, so the cached list can never be saved back with it in.
+      qc.setQueryData<Me>(["me"], (m) => {
+        const recents = m?.preferences?.recents;
+        return m && recents
+          ? {
+              ...m,
+              preferences: {
+                ...m.preferences,
+                recents: recents.filter((r) => !r.url.includes(id)),
+              },
+            }
+          : m;
+      });
+      void qc.invalidateQueries({ queryKey: ["me"] });
+      return qc.invalidateQueries({ queryKey: listKey(labId, projectId) });
+    },
   });
 }
 

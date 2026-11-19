@@ -426,3 +426,22 @@ def test_only_a_cancelled_order_can_be_deleted(make_lab, make_user, join):
     assert api(member).delete(link).status_code == 204
     assert not InventoryOrder.objects.for_lab(lab).filter(pk=order.pk).exists()
     assert AuditEvent.objects.filter(action="inventory_order.deleted").count() == 1
+
+
+def test_inventory_audit_lists_only_fields_that_changed(world):
+    lab, u = world
+    body = {"name": "Tips", "category": "consumable", "quantity": "5.00", "location": "B12"}
+    r = api(u["member"]).post(url(lab, "inventory/"), body, "json")
+    iid = r.json()["id"]
+    path = url(lab, f"inventory/{iid}/")
+    kind = AuditAction.INVENTORY_ITEM_UPDATED
+
+    # The edit form sends everything back; only the quantity differs.
+    form = {**body, "quantity": "4", "notes": "", "location": "B12"}
+    assert api(u["member"]).patch(path, form, "json").status_code == 200
+    event = AuditEvent.objects.filter(action=kind).get()
+    assert event.metadata["changed"] == ["quantity"]
+
+    # Nothing differs (4 vs "4.00"): no new event.
+    assert api(u["member"]).patch(path, {**form, "quantity": "4.00"}, "json").status_code == 200
+    assert AuditEvent.objects.filter(action=kind).count() == 1
