@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from audit.models import AuditAction, AuditEvent
@@ -482,3 +483,13 @@ def test_matrix_reminded_at_ignores_the_automatic_new_training_notice(world):
     d = services.compliance(lab, today=TODAY)
     cell = next(m for m in d["members"] if m["user"] == u["ann"])["cells"][str(r.pk)]
     assert cell["reminded_at"] is None
+
+
+def test_requirement_delete_audit_counts_what_was_purged(world):
+    lab, u = world
+    r = req(lab, "Purge me")
+    rec(lab, u["ann"], r, TODAY)
+    TrainingRecord.objects.for_lab(lab).filter(requirement=r).update(deleted_at=timezone.now())
+    assert api(u["pi"]).delete(url(lab, f"requirements/{r.pk}/")).status_code == 204
+    event = AuditEvent.objects.get(action=AuditAction.TRAINING_REQUIREMENT_DELETED)
+    assert event.metadata == {"records_purged": 1, "certificates_purged": 0}

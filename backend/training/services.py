@@ -3,6 +3,7 @@ Writes audit in the same transaction."""
 
 import calendar
 import datetime
+import logging
 
 from django.db import IntegrityError, transaction
 from django.db.models import Max, ProtectedError
@@ -20,6 +21,8 @@ from documents.models import Attachment
 from labs.models import LabMembership
 from projects.models import Project, ProjectMembership
 from training.models import AppliesTo, ComplianceStatus, TrainingRecord, TrainingRequirement
+
+logger = logging.getLogger(__name__)
 
 EXPIRING_DAYS = 60  # D177: "expiring" means within 60 days
 DONE, EXPIRING, EXPIRED, MISSING = (
@@ -123,10 +126,18 @@ def delete_requirement(req, *, user, request=None):
         with transaction.atomic():
             if req.records.filter(deleted_at__isnull=True).exists():
                 raise InUse()
-            audit(
-                A.TRAINING_REQUIREMENT_DELETED, actor=user, lab=req.lab, target=req, request=request
-            )  # before: the name survives in target_repr
             gone = Attachment.objects.for_lab(req.lab).filter(training_record__requirement=req)
+            audit(
+                A.TRAINING_REQUIREMENT_DELETED,
+                actor=user,
+                lab=req.lab,
+                target=req,
+                request=request,
+                metadata={
+                    "records_purged": req.records.count(),
+                    "certificates_purged": gone.count(),
+                },
+            )  # before: the name survives in target_repr
             old_keys = list(gone.values_list("storage_key", flat=True))
             gone.delete()
             req.records.all().delete()
@@ -135,7 +146,10 @@ def delete_requirement(req, *, user, request=None):
     except ProtectedError as exc:
         raise InUse() from exc
     for key in old_keys:
-        document_services.lab_files().delete(key)
+        try:
+            document_services.lab_files().delete(key)
+        except Exception:  # the rows are gone already; an orphan file must not fail the delete
+            logger.warning("Could not delete a training certificate file after requirement delete")
 
 
 def _remind(req, rows, *, title, body, key) -> int:

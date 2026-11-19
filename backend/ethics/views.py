@@ -1,5 +1,6 @@
 import uuid
 
+from django.db.models import Prefetch
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, status
@@ -27,7 +28,18 @@ class ApprovalMixin(LabScopedViewMixin):
             .get_queryset()
             .filter(deleted_at__isnull=True)
             .select_related("created_by")
-            .prefetch_related("projects", "renewals", "attachments", "attachments__uploaded_by")
+            .prefetch_related(
+                "projects",
+                # renewals the viewer cannot see must not leak their status
+                Prefetch(
+                    "renewals",
+                    queryset=EthicsApproval.objects.visible_to(
+                        self.request.user, self.request.lab
+                    ).filter(deleted_at__isnull=True),
+                ),
+                "attachments",
+                "attachments__uploaded_by",
+            )
         )
 
     def body(self, *, partial=False):

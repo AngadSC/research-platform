@@ -64,7 +64,7 @@ class PaperListCreateView(PaperMixin, generics.GenericAPIView):
         qs = self.get_queryset().select_related("added_by")
         q = request.query_params.get("q", "").strip()[:MAX_Q]
         if q:
-            notes = PaperNote.visible_rows(PaperNote.objects.filter(lab=request.lab), None, None)
+            notes = PaperNote.objects.visible_to(request.user, request.lab)
             hits = match(Paper.objects.filter(lab=request.lab), SEARCH_FIELDS, q).values("pk")
             noted = match(notes, ("body",), q).values("paper_id")
             qs = qs.filter(Q(pk__in=hits) | Q(pk__in=noted))

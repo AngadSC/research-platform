@@ -7,7 +7,14 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from audit.models import AuditAction
 from audit.services import record
-from core.permissions import Perm, can, can_edit_ethics, visible_projects
+from core.permissions import (
+    _IMPLICIT_LEADS,
+    Perm,
+    can,
+    can_edit_ethics,
+    lab_role,
+    visible_projects,
+)
 from documents import services as document_services
 from ethics.models import ApprovalStatus, EthicsApproval
 
@@ -102,6 +109,11 @@ def _renewal_defaults(user, lab, old_id, data):
         editable = [p.pk for p in old.projects.all() if can(user, Perm.EDIT_CONTENT, p)]
         data["projects"] = list(
             visible_projects(user, lab).filter(pk__in=editable).values_list("pk", flat=True)
+        )
+    if data["restricted"] and not data["projects"] and lab_role(user, lab) not in _IMPLICIT_LEADS:
+        raise ValidationError(
+            "You can't renew this restricted approval because you can't edit its projects. "
+            "Ask a PI."
         )
     return old
 

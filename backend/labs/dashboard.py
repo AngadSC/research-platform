@@ -281,7 +281,7 @@ def build_dashboard(user, lab) -> dict:
         # a pending or active renewal on file settles it
         .exclude(
             Exists(
-                EthicsApproval.objects.filter(
+                EthicsApproval.objects.visible_to(user, lab).filter(
                     renews=OuterRef("pk"),
                     deleted_at__isnull=True,
                     status__in=[ApprovalStatus.PENDING, ApprovalStatus.ACTIVE],

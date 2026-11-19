@@ -578,3 +578,32 @@ def test_start_renewal_rules(w):
     # PATCH cannot re-point an approval at another one
     r = api(w.u["pi"]).patch(detail_url(w, old), {"renews": str(hidden.pk)}, "json")
     assert r.status_code == 200 and r.json()["renews"] is None
+
+
+def test_hidden_renewal_does_not_leak_its_status(w):
+    old = make_approval(w, days=13)
+    new = make_approval(w, days=400, status=ApprovalStatus.PENDING, projects=[w.p2])
+    EthicsApproval.objects.for_lab(w.lab).filter(pk=new.pk).update(renews=old, restricted=True)
+    assert api(w.u["pi"]).get(detail_url(w, old)).json()["renewal_status"] == "pending"
+    member = api(w.u["contrib"]).get(detail_url(w, old))
+    assert member.status_code == 200 and member.json()["renewal_status"] is None
+    from core.permissions import visible_projects  # Home asks the same visible query
+
+    assert not EthicsApproval.objects.visible_to(w.u["contrib"], w.lab).filter(pk=new.pk).exists()
+    assert visible_projects(w.u["contrib"], w.lab).filter(pk=w.p1.pk).exists()
+
+
+def test_restricted_renewal_needs_a_project_the_user_can_edit(w):
+    old = make_approval(w, days=13, projects=[w.p1])
+    EthicsApproval.objects.for_lab(w.lab).filter(pk=old.pk).update(restricted=True)
+    list_url = url("ethics:approval-list", w)
+    # a lab admin sees restricted approvals without a project link, so renewing is fine
+    assert api(w.u["admin"]).post(list_url, {"renews": str(old.pk)}, "json").status_code == 201
+    # a member who can see the copy but not edit its project is refused with a plain message
+    ProjectMembership.objects.for_lab(w.lab).filter(project=w.p1, user=w.u["contrib"]).update(
+        role=ProjectRole.VIEWER
+    )
+    r = api(w.u["contrib"]).post(list_url, {"renews": str(old.pk)}, "json")
+    assert r.status_code in (400, 403), r.content
+    if r.status_code == 400:
+        assert "Ask a PI" in str(r.json())
