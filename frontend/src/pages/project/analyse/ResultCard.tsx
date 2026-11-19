@@ -16,6 +16,7 @@ import { useAttachments } from "@/hooks/projects";
 import { useSaveRecord } from "@/hooks/research";
 import type { Analysis, ResearchResult } from "@/lib/api-types";
 import { formErrors } from "@/lib/forms";
+import { effectLabel } from "@/lib/stats/effectLabel";
 import { fileSafe, saveBlob, svgFile, tableCsv, tableTsv, XLSX_TYPE } from "@/lib/exportFiles";
 import { recordPath } from "@/lib/workflow";
 import { googleEditor } from "@/lib/googleFiles";
@@ -50,6 +51,10 @@ async function copy(text: string, what: string) {
 }
 
 const fileStem = (r: StatsResult) => cleanName(r.title);
+const tableStem = (r: StatsResult, t: StatsTable) => {
+  const [a, b] = [fileSafe(r.title), fileSafe(t.title)];
+  return r.tables.length < 2 ? a : b.startsWith(a) ? b : `${a}-${b}`;
+};
 // Only long text may break anywhere: on every cell it would split short numbers too.
 const wrapLong = (v: unknown) =>
   typeof v === "string" && v.length > 30 && "min-w-48 [overflow-wrap:anywhere]";
@@ -133,6 +138,7 @@ export function ResultCard({
     // once per result: the mutations and callbacks are rebuilt on every render
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSave !== undefined, canSave, saved, run.flagged]);
+  const effect = effectLabel(result);
   const sheet = saved?.copy && googleEditor(saved.copy);
   const getEngine = useGetEngine();
   const drive = useDriveExport(labId, projectId);
@@ -166,7 +172,7 @@ export function ResultCard({
   const failed = (what: string) => () => toast.error(`Could not make ${what}. Try again.`);
 
   function tableItems(t: StatsTable) {
-    const stem = `${fileStem(result)}-${fileSafe(t.title)}`;
+    const stem = tableStem(result, t);
     return {
       here: [
         { label: "Copy to paste", run: () => copy(tableTsv(t), "Table") },
@@ -288,6 +294,8 @@ export function ResultCard({
           onClick={() => void copy(result.summary, "Summary")}
         />
       </div>
+
+      {effect && <p className="text-sm text-muted-foreground">Effect size {effect}.</p>}
 
       {result.warnings.length > 0 && (
         <ul className="grid gap-1 rounded-md border border-primary/40 bg-primary/10 p-3 text-sm">

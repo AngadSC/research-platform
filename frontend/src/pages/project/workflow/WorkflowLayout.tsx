@@ -92,6 +92,8 @@ export function WorkflowLayout(props: ProjectTabProps) {
             {shownSections(project).map(([key, name]) => {
               const stage = stages.find((s) => s.key === key);
               const isNext = key === next;
+              // The ring marks the page shown; the next step is only bold and linked below.
+              const isHere = key === (open ?? next);
               // Three different things: finished, skipped on purpose, and the one to do now.
               const notNeeded = !!stage?.marked && !stage.recorded;
               const finished = !!stage?.done && !notNeeded;
@@ -137,9 +139,11 @@ export function WorkflowLayout(props: ProjectTabProps) {
                           ? "btn-primary-glass border-primary bg-primary text-primary-foreground"
                           : notNeeded
                             ? "border-dashed border-muted-foreground/40 bg-muted text-muted-foreground"
-                            : isNext
+                            : isHere
                               ? "border-primary bg-background shadow-[0_0_14px_var(--primary-glow)] ring-4 ring-primary/30"
-                              : "border-border bg-background",
+                              : isNext
+                                ? "border-primary bg-background"
+                                : "border-border bg-background",
                       )}
                     >
                       {finished && <Check strokeWidth={3} />}
@@ -175,7 +179,7 @@ export function WorkflowLayout(props: ProjectTabProps) {
           <div className="flex flex-wrap gap-2">
             {canEdit && next && next !== open && (
               <Button size="sm" asChild>
-                <Link to={next}>Go to {nameOf(next)}</Link>
+                <Link to={next}>Next: {nameOf(next)}</Link>
               </Button>
             )}
             {canEdit && openStage && (!openStage.done || openStage.marked) && (

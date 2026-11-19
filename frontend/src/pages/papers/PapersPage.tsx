@@ -232,6 +232,30 @@ export function PaperDialog({
                   />
                 )}
               </FormField>
+              {file && (
+                <>
+                  <p
+                    role="note"
+                    className="rounded-md border border-primary/40 bg-primary/10 p-3 text-sm font-medium"
+                  >
+                    {NOTICE}
+                  </p>
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={ack}
+                      onChange={(e) => setAck(e.target.checked)}
+                      className="mt-0.5"
+                    />
+                    I confirm this file contains no participant identifiers
+                  </label>
+                  {!ack && (
+                    <p role="status" className="text-sm text-muted-foreground">
+                      Tick the box above to confirm the file has no participant identifiers.
+                    </p>
+                  )}
+                </>
+              )}
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <FromDriveButton
                   labId={labId}
@@ -253,25 +277,6 @@ export function PaperDialog({
                   </span>
                 )}
               </div>
-              {file && (
-                <>
-                  <p
-                    role="note"
-                    className="rounded-md border border-primary/40 bg-primary/10 p-3 text-sm font-medium"
-                  >
-                    {NOTICE}
-                  </p>
-                  <label className="flex items-start gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={ack}
-                      onChange={(e) => setAck(e.target.checked)}
-                      className="mt-0.5"
-                    />
-                    I confirm this file contains no participant identifiers
-                  </label>
-                </>
-              )}
             </>
           )}
           <FormError message={errors.form} />

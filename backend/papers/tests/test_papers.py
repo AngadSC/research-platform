@@ -154,6 +154,13 @@ def test_list_search_finds_title_author_and_journal(w):
     assert len(c.get(url(w.lab, "papers/")).json()) == 2
 
 
+def test_list_search_finds_note_text(w):
+    services.add_note(w.paper, author=w.u.ann, body="Contradicts the mitochondria claim")
+    rows = api(w.u.vic).get(url(w.lab, "papers/"), {"q": "mitochondria"}).json()
+    assert [r["id"] for r in rows] == [str(w.paper.pk)]
+    assert api(w.u.out).get(url(w.other, "papers/"), {"q": "mitochondria"}).json() == []
+
+
 def test_cross_lab_ids_are_unknown(w):
     c = api(w.u.out)  # the pi of the other lab
     for path in (

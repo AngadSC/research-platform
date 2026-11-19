@@ -2,6 +2,7 @@
 and edits. A paper's PDF is served only through its paper (D175): `Attachment.visible_to` filters
 by project, so the project file routes 404 on it, and this route only ever finds its own file."""
 
+from django.db.models import Q
 from django.http import Http404
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, status
@@ -63,7 +64,10 @@ class PaperListCreateView(PaperMixin, generics.GenericAPIView):
         qs = self.get_queryset().select_related("added_by")
         q = request.query_params.get("q", "").strip()[:MAX_Q]
         if q:
-            qs = match(qs, SEARCH_FIELDS, q)
+            notes = PaperNote.visible_rows(PaperNote.objects.filter(lab=request.lab), None, None)
+            hits = match(Paper.objects.filter(lab=request.lab), SEARCH_FIELDS, q).values("pk")
+            noted = match(notes, ("body",), q).values("paper_id")
+            qs = qs.filter(Q(pk__in=hits) | Q(pk__in=noted))
         # ponytail: newest 200 with search narrowing them; add paging if a library outgrows that
         return Response(
             self.get_serializer(qs.order_by("-created_at", "pk")[:LIST_LIMIT], many=True).data
