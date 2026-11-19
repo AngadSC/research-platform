@@ -228,6 +228,20 @@ def test_an_item_a_protocol_uses_cannot_be_deleted(world):
     assert InventoryItem.objects.for_lab(lab).filter(pk=item.pk).exists()
 
 
+def test_a_refused_delete_hides_protocols_in_projects_you_cannot_see(world, make_project):
+    from labs.admin_services import _blockers
+    from labs.models import Protocol, ProtocolReagent
+
+    lab, pi, member, _, item = world
+    make_protocol(world)  # PCR, in the project the member is on
+    secret = make_project(lab, "Secret")
+    p = Protocol.objects.create(lab=lab, project=secret, name="Hidden", created_by=pi)
+    ProtocolReagent.objects.create(lab=lab, protocol=p, item=item, amount=1, unit="mL")
+    seen = _blockers(item, member)
+    assert "'PCR'" in seen and "1 other protocol" in seen and "Hidden" not in seen
+    assert "'Hidden'" in _blockers(item, pi)
+
+
 def test_a_refused_delete_counts_the_live_uses(world):
     lab, pi, member, _, item = world
     for _ in range(2):

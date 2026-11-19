@@ -14,7 +14,7 @@ from audit.services import record
 from core.institution_starters import NATIONAL_RESOURCES, STARTER_RESOURCES, match_institution
 from core.models import Institution, NotificationKind, User
 from core.notifications import notify
-from core.permissions import calendar_feeds_of, can_change_meeting
+from core.permissions import calendar_feeds_of, can_change_meeting, visible_projects
 from documents.services import Conflict
 from labs import low_stock
 from labs.admin_serializers import InventoryInputSerializer
@@ -279,13 +279,22 @@ def delete_inventory_item(obj, *, user, request=None):
             ).delete()
             _delete(obj, A.INVENTORY_ITEM_DELETED, user=user, request=request)
     except ProtectedError as exc:
-        raise Conflict(_blockers(obj)) from exc
+        raise Conflict(_blockers(obj, user)) from exc
 
 
-def _blockers(item):
+def _blockers(item, user):
     """Say what still points at the item, so the person knows what to remove."""
     lines = ProtocolReagent.objects.for_lab(item.lab_id).filter(item=item)
-    names = sorted({n for n in lines.values_list("protocol__name", flat=True)})
+    seen = visible_projects(user, item.lab_id).values("pk")
+    names = sorted(
+        {
+            n
+            for n in lines.filter(protocol__project__in=seen).values_list(
+                "protocol__name", flat=True
+            )
+        }
+    )
+    hidden = lines.exclude(protocol__project__in=seen).values("protocol").distinct().count()
     uses = (
         InventoryUsage.objects.for_lab(item.lab_id)
         .filter(item=item, reversed_at__isnull=True)
@@ -296,6 +305,8 @@ def _blockers(item):
         parts.append(
             ("protocol " if len(names) == 1 else "protocols ") + ", ".join(f"'{n}'" for n in names)
         )
+    if hidden:
+        parts.append(f"{hidden} other {'protocol' if hidden == 1 else 'protocols'}")
     if uses:
         parts.append(f"{uses} recorded {'use' if uses == 1 else 'uses'}")
     what = " and ".join(parts) or "a protocol or a record of use"

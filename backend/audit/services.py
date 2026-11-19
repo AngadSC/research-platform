@@ -61,6 +61,21 @@ def record(
 UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 
+# The only labels the server writes with a user id in them (TrainingRecord and chat __str__);
+# anything else, such as a task title, is user-typed and never resolved.
+_LABEL_ID_RE = re.compile(
+    rf"^(?:(?P<a>{UUID_RE.pattern}):|Message from (?P<b>{UUID_RE.pattern})$)", re.S
+)
+_LABEL_ID_TARGETS = {"training.TrainingRecord", "projects.ChatMessage", "labs.LabChatMessage"}
+
+
+def label_user_id(e) -> str | None:
+    if e.target_type not in _LABEL_ID_TARGETS:
+        return None
+    m = _LABEL_ID_RE.match(e.target_repr or "")
+    return (m.group("a") or m.group("b")) if m else None
+
+
 def person_id(e):
     m = e.metadata if isinstance(e.metadata, dict) else {}
     return m.get("user_id") or m.get("person")
@@ -75,9 +90,13 @@ def label_context(events, user, lab) -> dict:
 
     # Only ids this lab's own events stored, so everyone named was in the lab at the time.
     people = {str(pid) for e in events if (pid := person_id(e))}
-    for e in events:  # ids that older labels embed ("<user id>: <requirement> ...")
-        people.update(UUID_RE.findall(e.target_repr or ""))
     names = {str(u.pk): u.display_name or u.email for u in User.objects.filter(pk__in=people)}
+    # Ids that server-written labels embed: resolved only for people in this lab.
+    embedded = {i for e in events if (i := label_user_id(e))}
+    names |= {
+        str(u.pk): u.display_name or u.email
+        for u in User.objects.filter(pk__in=embedded, labmembership__lab=lab)
+    }
     project_ids = {e.project_id for e in events if e.project_id}
     projects = {
         p.pk: p.name for p in visible_projects(user, lab).filter(pk__in=project_ids).only("name")

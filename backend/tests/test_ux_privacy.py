@@ -251,6 +251,18 @@ def test_audit_names_whose_chat_message_it_was_and_keeps_its_text_out(w):
     assert b"secret words" not in resp.content
 
 
+def test_a_task_titled_with_another_labs_user_id_is_not_resolved(w):
+    from projects import services as project_services
+
+    task = project_services.create_task(
+        project=w.project, by=w.pi, data={"title": f"{w.outsider.pk}: x"}
+    )
+    record(AuditAction.TASK_DELETED, actor=w.pi, lab=w.lab, target=task)
+    resp = audit_list(w, "pi")
+    assert w.outsider.email.encode() not in resp.content
+    assert str(w.outsider.pk) in [e["target_label"] for e in resp.json()["results"]][0]
+
+
 def test_task_changes_are_audited_without_the_update_text(w):
     from projects import services as project_services
 

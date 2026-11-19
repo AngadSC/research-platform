@@ -455,3 +455,20 @@ def test_matrix_cell_shows_when_a_manager_last_reminded(world):
     assert mine(cell())["reminded_at"] is None
     services.send_reminders(r, actor=u["bob"], user=u["ann"])
     assert mine(cell())["reminded_at"] is not None
+
+
+def test_matrix_reminded_at_ignores_the_automatic_new_training_notice(world):
+    lab, u = world
+    r = req(lab)
+    Notification.objects.create(
+        lab=lab,
+        recipient=u["ann"],
+        kind=NotificationKind.TRAINING_REMINDER,
+        title="New",
+        target_type=r._meta.label,
+        target_id=r.pk,
+        dedupe_key=f"training-new:{r.pk}",
+    )
+    d = services.compliance(lab, today=TODAY)
+    cell = next(m for m in d["members"] if m["user"] == u["ann"])["cells"][str(r.pk)]
+    assert cell["reminded_at"] is None

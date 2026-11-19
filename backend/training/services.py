@@ -351,7 +351,9 @@ def compliance(lab, *, today=None, window=EXPIRING_DAYS, user=None):
         (uid, tid): at
         for uid, tid, at in Notification.objects.for_lab(lab)
         .filter(
-            kind=NotificationKind.TRAINING_REMINDER, recipient__in=[m.user for m in memberships]
+            kind=NotificationKind.TRAINING_REMINDER,
+            dedupe_key__startswith="training-remind:",  # not the automatic "new training" notice
+            recipient__in=[m.user for m in memberships],
         )
         .values("recipient_id", "target_id")
         .annotate(at=Max("created_at"))
