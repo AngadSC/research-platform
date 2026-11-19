@@ -159,6 +159,9 @@ class LabChatMessage(LabScopedModel):
     # The Google Chat message (`spaces/<id>/messages/<id>`) this one is, either way; "" if none.
     external_id = models.CharField(max_length=255, blank=True)
     reactions = models.JSONField(default=dict, blank=True)  # {emoji: [user id, ...]}, D321
+    # Reactions made in Google Chat: {emoji: how many}. Google gives counts, not people, so they
+    # are kept apart from `reactions` and added to them when read.
+    external_reactions = models.JSONField(default=dict, blank=True)
 
     class Meta(LabScopedModel.Meta):
         indexes = [models.Index(fields=["lab", "created_at"], name="labchat_recent_idx")]

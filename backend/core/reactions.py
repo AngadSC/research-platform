@@ -59,12 +59,39 @@ def toggle(queryset, pk, user, emoji):
     return message
 
 
-def summary(reactions, user) -> list[dict]:
+def summary(reactions, user, external=None) -> list[dict]:
     """What a reader sees: each emoji, how many, and whether they are one of them. In the order
-    the emoji were first used."""
+    the emoji were first used. `external` is Google Chat's `{emoji: count}`, added to the people
+    here; "mine" only ever means a reaction made here."""
     uid = str(getattr(user, "pk", ""))
-    return [
-        {"emoji": emoji, "count": len(people), "mine": uid in people}
-        for emoji, people in (reactions or {}).items()
-        if people
+    local = {e: list(p) for e, p in (reactions or {}).items() if p}
+    out = [
+        {
+            "emoji": emoji,
+            "count": len(people) + int((external or {}).get(emoji, 0)),
+            "mine": uid in people,
+        }
+        for emoji, people in local.items()
     ]
+    out += [
+        {"emoji": emoji, "count": int(n), "mine": False}
+        for emoji, n in (external or {}).items()
+        if emoji not in local and int(n) > 0
+    ]
+    return out
+
+
+def clean_external(summaries) -> dict[str, int]:
+    """Google's `emojiReactionSummaries` as `{emoji: count}`: only ordinary (Unicode) emoji that
+    pass `clean_emoji`, counts kept to a sane size, at most MAX_KINDS of them. Custom emoji have no
+    text to show, so they are left out."""
+    out: dict[str, int] = {}
+    for item in summaries if isinstance(summaries, list) else []:
+        try:
+            emoji = clean_emoji((item.get("emoji") or {}).get("unicode"))
+            count = int(item.get("reactionCount") or 0)
+        except (ValidationError, AttributeError, TypeError, ValueError):
+            continue
+        if count > 0 and (emoji in out or len(out) < MAX_KINDS):
+            out[emoji] = min(count, 9999)
+    return out

@@ -63,7 +63,10 @@ const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { tim
 const authorKey = (m: ChatMessage) => m.author?.id ?? `google:${m.external_author ?? ""}`;
 /** The person to show: a member, or a stand-in for someone in Google Chat with no account here. */
 const shownAuthor = (m: ChatMessage) =>
-  m.author ?? {
+  // a member with no picture here wears their Google Chat one, where Google has one
+  (m.author && !m.author.avatar_url && m.external_avatar
+    ? { ...m.author, avatar_url: m.external_avatar }
+    : m.author) ?? {
     id: authorKey(m),
     email: "",
     display_name: m.external_author || "Google Chat",

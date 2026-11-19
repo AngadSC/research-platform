@@ -222,4 +222,25 @@ describe("project sidebar dropdown", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(nav.queryByRole("link", { name: "Tasks" })).toBeNull();
   });
+
+  it("shows Google Chat reactions and a Google picture for someone with none here", async () => {
+    mockFetch(
+      world([
+        {
+          ...msg("1", lee, "From Google"),
+          source: "google_chat",
+          external_author: "",
+          external_avatar: "https://lh3.googleusercontent.com/a/lee=s64",
+          reactions: [{ emoji: "\u{1F44D}", count: 3, mine: false }],
+        },
+      ]),
+    );
+    renderRoute("/labs/lab1/projects/p1/chat");
+    const log = await screen.findByRole("log", { name: "Messages" });
+    expect(await within(log).findByText("From Google")).toBeInTheDocument();
+    expect(within(log).getByRole("button", { name: /3\. Add yours/ })).toBeInTheDocument();
+    expect(log.querySelector("img")?.getAttribute("src")).toBe(
+      "https://lh3.googleusercontent.com/a/lee=s64",
+    );
+  });
 });
