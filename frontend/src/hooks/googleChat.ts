@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { GOOGLE_ID } from "@/lib/composerFormat";
 import type { GoogleChatSpace, GoogleChatStatus } from "@/lib/api-types";
 
 /** The lab chat's link, or with `projectId` that project chat's (D318, D325). */
@@ -51,5 +52,20 @@ export function useGoogleChatSpaces(labId: string, enabled: boolean, projectId?:
     queryFn: () => api<GoogleChatSpace[]>(spacesUrl(labId, projectId)),
     enabled,
     retry: false,
+  });
+}
+
+/** The people in the linked conversation who have no account here, to @mention. Their ids carry
+ * the `g:` mark that makes the composer store them as Google mentions. */
+export function useGoogleChatPeople(labId: string, enabled: boolean, projectId?: string) {
+  return useQuery({
+    queryKey: [...key(labId, projectId), "people"],
+    queryFn: async () =>
+      (await api<{ id: string; name: string }[]>(`${base(labId, projectId)}people/`)).map((p) => ({
+        id: `${GOOGLE_ID}${p.id}`,
+        name: p.name,
+      })),
+    enabled,
+    staleTime: 5 * 60 * 1000,
   });
 }

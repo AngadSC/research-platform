@@ -118,4 +118,9 @@ describe("Markdown", () => {
     expect(container.querySelector("b")).toBeNull();
     expect(container.querySelectorAll("a")).toHaveLength(0);
   });
+
+  it("shows a Google Chat mention as a chip, and ignores a forged one", () => {
+    const { container } = render(<Markdown text="hi @[Dana](gchat:777) and @[Eve](gchat:x1)" />);
+    expect(container).toHaveTextContent("hi @Dana and @[Eve](gchat:x1)");
+  });
 });

@@ -21,6 +21,7 @@ from labs.serializers import (
     GoogleChatImportInputSerializer,
     GoogleChatImportResultSerializer,
     GoogleChatLinkInputSerializer,
+    GoogleChatPersonSerializer,
     GoogleChatSpaceSerializer,
     GoogleChatStatusSerializer,
     GoogleChatThreadSerializer,
@@ -270,6 +271,22 @@ class GoogleChatView(LabScopedViewMixin, generics.GenericAPIView):
     def delete(self, request, lab_id):
         google_chat.unlink_space(lab=request.lab, by=request.user, request=request)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class GoogleChatPeopleView(LabScopedViewMixin, generics.GenericAPIView):
+    """The people in the linked Google Chat space who can be @mentioned in the lab chat. Whoever can
+    read the chat sees them, as they already read what those people wrote."""
+
+    model = GoogleChatBridge
+    serializer_class = GoogleChatPersonSerializer
+    pagination_class = None
+    perms = {"GET": Perm.VIEW_LAB}
+
+    @extend_schema(responses=GoogleChatPersonSerializer(many=True))
+    def get(self, request, lab_id):
+        bridge = google_chat.bridge_for(request.lab)
+        rows = google_chat.space_people(bridge) if bridge else []
+        return Response(GoogleChatPersonSerializer(rows, many=True).data)
 
 
 class GoogleChatSpacesView(LabScopedViewMixin, generics.GenericAPIView):

@@ -122,9 +122,17 @@ export const mentionName = (name: string) => name.replace(/[[\]\n]/g, "").trim()
 
 /** The stored form of a mention: `@[Name](user:<id>)`. It is what is saved and what notifies the
  * person; the text box shows only `@Name` (D295). */
-export const mentionToken = (name: string, id: string) => `@[${mentionName(name)}](user:${id})`;
+export const mentionToken = (name: string, id: string) =>
+  id.startsWith(GOOGLE_ID)
+    ? `@[${mentionName(name)}](gchat:${id.slice(GOOGLE_ID.length)})`
+    : `@[${mentionName(name)}](user:${id})`;
 
-const STORED_MENTION = /@\[([^\]\n]{1,100})\]\(user:([0-9a-fA-F-]{36})\)/g;
+/** A person who is only in the linked Google Chat space has an id that starts with this; the
+ * stored form is `@[Name](gchat:<google id>)`. It notifies no one here and becomes a real mention
+ * in Google. */
+export const GOOGLE_ID = "g:";
+
+const STORED_MENTION = /@\[([^\]\n]{1,100})\]\((?:user:([0-9a-fA-F-]{36})|gchat:([0-9]{1,40}))\)/g;
 
 /** Stored text as the box shows it: every `@[Name](user:<id>)` becomes just `@Name`. */
 export const toDisplay = (stored: string) =>
@@ -143,7 +151,7 @@ export function nameIndex(people: { id: string; name: string }[], stored: string
     index.set(key, seen === undefined || seen === id ? id : null);
   };
   for (const p of people) add(p.name, p.id);
-  for (const m of stored.matchAll(STORED_MENTION)) add(m[1]!, m[2]!);
+  for (const m of stored.matchAll(STORED_MENTION)) add(m[1]!, m[2] ?? `${GOOGLE_ID}${m[3]}`);
   return index;
 }
 

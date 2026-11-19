@@ -294,7 +294,9 @@ class ReactionsMixin(serializers.Serializer):
         from core.reactions import summary
 
         request = self.context.get("request")
-        return summary(obj.reactions, getattr(request, "user", None))
+        return summary(
+            obj.reactions, getattr(request, "user", None), getattr(obj, "external_reactions", None)
+        )
 
 
 class ChatMessageSerializer(ReactionsMixin, serializers.ModelSerializer):

@@ -181,6 +181,8 @@ class ChatMessage(LabScopedModel):
     )
     body = models.TextField()
     reactions = models.JSONField(default=dict, blank=True)  # {emoji: [user id, ...]}, D321
+    # Reactions made in Google Chat: {emoji: how many}, added to `reactions` when read.
+    external_reactions = models.JSONField(default=dict, blank=True)
     source = models.CharField(max_length=16, choices=ChatSource.choices, default=ChatSource.APP)
     external_author = models.CharField(max_length=200, blank=True)
     external_avatar = models.CharField(max_length=500, blank=True)

@@ -10,7 +10,8 @@ Celery beat) and new messages are added to the chat (D316).
 
 Every call goes through `integrations.http.send` with a connected account, so the host allow-list,
 token refresh, timeouts and the account's status rules all apply. Nothing but message text and
-the sender goes either way: no attachments, reactions or edits.
+the sender goes either way, plus the emoji reactions people put on messages in Google (shown with
+the message, as counts, and kept up to date). No attachments, edits, or reactions sent back.
 """
 
 import logging
@@ -28,6 +29,7 @@ from rest_framework.exceptions import ValidationError
 from audit.models import AuditAction
 from audit.services import record
 from core.permissions import Perm, can, lab_role, require
+from core.reactions import clean_external
 from integrations.http import AccountUnavailable, IntegrationError, interactive, send
 from integrations.models import AccountStatus, ConnectedAccount
 from integrations.providers import google_chat
@@ -48,7 +50,9 @@ LOCK_SECONDS = 60
 UNKNOWN_SENDER = "Someone on Google Chat"
 INBOUND_PER_HOUR = 300  # per lab: a busy or hostile space can't flood the lab chat
 
-_MENTION = re.compile(r"@\[([^\]\n]+)\]\(user:[0-9a-fA-F-]{36}\)")
+_MENTION = re.compile(r"@\[([^\]\n]+)\]\(user:([0-9a-fA-F-]{36})\)")
+# Someone who is in the Google Chat space but has no account here (picked from its member list).
+_GOOGLE_MENTION = re.compile(r"@\[([^\]\n]+)\]\(gchat:([0-9]{1,40})\)")
 _BOLD = re.compile(r"\*\*(.+?)\*\*", re.S)
 
 
@@ -205,6 +209,25 @@ def _people_for(account, space, ids) -> dict[str, dict[str, str]]:
             if uid in ids and uid not in people:
                 people[uid] = person
     return people
+
+
+def space_people(bridge) -> list[dict[str, str]]:
+    """The people in a linked conversation who could be @mentioned from here, for the composer:
+    Google id and name. Members who have connected Google Chat here are left out, since they are
+    mentioned as the lab member they are. Names come from the conversation's own member list."""
+    if not _usable(bridge):
+        return []
+    mine = set(_authors(bridge.lab, bridge.project))
+    try:
+        people = member_map(bridge.account, bridge.space)
+    except (AccountUnavailable, IntegrationError):
+        return []
+    rows = [
+        {"id": uid, "name": p["name"]}
+        for uid, p in people.items()
+        if uid not in mine and re.fullmatch(r"[0-9]{1,40}", uid)
+    ]
+    return sorted(rows, key=lambda r: r["name"].lower())[:200]
 
 
 def _members_label(names: list[str]) -> str:
@@ -368,10 +391,25 @@ def _fail(bridge, message) -> None:
 # ---------------------------------------------------------------- out: the lab chat to Google
 
 
-def to_google_text(body: str) -> str:
-    """Our stored markdown, as Google Chat writes it: mentions as plain "@Name", bold in single
-    asterisks. Everything else (italics, strike, code, links) reads fine as it is."""
-    return _BOLD.sub(r"*\1*", _MENTION.sub(r"@\1", body))
+def to_google_text(body: str, google_ids: dict[str, str] | None = None) -> str:
+    """Our stored markdown, as Google Chat writes it, bold in single asterisks. Mentions become
+    real Google mentions (`<users/ID>`) for anyone Google can name: people picked from the
+    conversation's own members, and lab members with a connected Google Chat account
+    (`google_ids`: lab user id -> Google id). Anyone else stays a plain "@Name". Everything else
+    (italics, strike, code, links) reads fine as it is."""
+    ids = google_ids or {}
+
+    def member(m):
+        gid = ids.get(m[2].lower())
+        return f"<users/{gid}>" if gid else f"@{m[1]}"
+
+    text = _GOOGLE_MENTION.sub(lambda m: f"<users/{m[2]}>", body)
+    return _BOLD.sub(r"*\1*", _MENTION.sub(member, text))
+
+
+def _google_ids(lab, project=None) -> dict[str, str]:
+    """Lab user id (lower case) -> that member's Google id, for those with Google Chat connected."""
+    return {str(user.pk).lower(): gid for gid, user in _authors(lab, project).items()}
 
 
 def queue_relay(message) -> None:
@@ -433,7 +471,7 @@ def relay(message) -> bool:
     if not _usable(bridge):
         _fail(bridge, "The Google Chat connection that set this up is no longer active.")
         return False
-    text = to_google_text(message.body)
+    text = to_google_text(message.body, _google_ids(message.lab, getattr(message, "project", None)))
     name = None
     try:
         mine = own_account(message.lab, message.author) if message.author_id else None
@@ -507,6 +545,8 @@ def from_google_text(message: dict) -> str:
 
 
 NAME_CACHE = 24 * 3600
+REACTION_REFRESH_SECONDS = 120  # per link: how often reactions on recent messages are re-read
+REACTION_WINDOW = 100  # the latest messages whose reactions are re-read
 
 
 def _photo_url(value) -> str:
@@ -650,12 +690,14 @@ def poll(bridge) -> int:
     authors = _authors(bridge.lab, bridge.project)
     model = _model(bridge)
     where = {"project": bridge.project} if bridge.project_id else {}
-    strangers = {
+    # Names and pictures for everyone who wrote: a member's Google picture is the fallback when
+    # they have none here, and a stranger's is all there is.
+    senders = {
         str((i.get("sender") or {}).get("name", "")).removeprefix("users/")
         for i in items
         if isinstance(i, dict) and isinstance(i.get("sender"), dict)
-    } - set(authors)
-    people = _people_for(bridge.account, bridge.space, strangers)
+    }
+    people = _people_for(bridge.account, bridge.space, senders)
     added = 0
     cursor = bridge.cursor
     room = INBOUND_PER_HOUR - (
@@ -705,6 +747,8 @@ def poll(bridge) -> int:
                 person.get("name") or sender.get("displayName") or UNKNOWN_SENDER
             )[:200]
             external_avatar = person.get("photo", "")
+        elif not echoed:
+            external_avatar = people.get(user_id, {}).get("photo", "")
         try:
             with transaction.atomic():
                 model.objects.create(
@@ -716,6 +760,7 @@ def poll(bridge) -> int:
                     body=body,
                     source=ChatSource.GOOGLE_CHAT,
                     external_id=name,
+                    external_reactions=clean_external(item.get("emojiReactionSummaries")),
                 )
             added += 1
         except IntegrityError:
@@ -724,6 +769,7 @@ def poll(bridge) -> int:
         cursor=cursor, last_polled_at=timezone.now(), last_error=paused
     )
     _repair_names(bridge, authors, model, where, started)
+    refresh_reactions(bridge, model, where)
     return added
 
 
@@ -757,6 +803,16 @@ def _repair_names(bridge, authors, model, where, before) -> None:
             created_at__lt=before,  # not the ones this very poll just brought in
         )
         .values_list("pk", "external_id")[:1000]
+    ) + list(
+        model.objects.for_lab(bridge.lab_id)
+        .filter(
+            **where,
+            source=ChatSource.GOOGLE_CHAT,
+            external_avatar="",
+            created_at__lt=before,
+        )
+        .exclude(external_author=UNKNOWN_SENDER)
+        .values_list("pk", "external_id")[:1000]
     )
     if not unknown or not cache.add(f"gchat-repair:{bridge.pk}", 1, 3600):
         return
@@ -776,12 +832,47 @@ def _repair_names(bridge, authors, model, where, before) -> None:
     ids = {uid for ext, uid in sender_of.items() if uid} - set(authors)
     people = _people_for(bridge.account, bridge.space, ids)
     for pk, ext in unknown:
-        person = people.get(sender_of.get(ext, ""), {})
-        if person.get("name"):
-            fix = {"external_author": person["name"][:200]}
-            if person.get("photo"):
-                fix["external_avatar"] = person["photo"]
+        uid = sender_of.get(ext, "")
+        person = people.get(uid, {})
+        if not person.get("name"):
+            continue
+        # a member's own name stays theirs (it comes from their account); only the picture is added
+        fix = {} if uid in authors else {"external_author": person["name"][:200]}
+        if person.get("photo"):
+            fix["external_avatar"] = person["photo"]
+        if fix:
             model.objects.for_lab(bridge.lab_id).filter(pk=pk).update(**fix)
+
+
+def refresh_reactions(bridge, model, where) -> int:
+    """People react after a message arrives, and the poll only reads messages newer than its
+    cursor, so every couple of minutes the latest few are read again and their reaction counts
+    brought up to date. Returns how many messages changed. Best effort: a failure changes nothing.
+    """
+    if not cache.add(f"gchat-reactions:{bridge.pk}", 1, REACTION_REFRESH_SECONDS):
+        return 0
+    try:
+        items = _messages(
+            bridge.account,
+            bridge.space,
+            params={"pageSize": REACTION_WINDOW, "orderBy": "createTime DESC"},
+        )
+    except ValidationError:
+        return 0
+    now = {
+        str(i.get("name", "")): clean_external(i.get("emojiReactionSummaries"))
+        for i in items
+        if str(i.get("name", "")).startswith(bridge.space + "/messages/")
+    }
+    if not now:
+        return 0
+    changed = 0
+    rows = model.objects.for_lab(bridge.lab_id).filter(**where, external_id__in=list(now))
+    for pk, ext, have in rows.values_list("pk", "external_id", "external_reactions"):
+        if (have or {}) != now[ext]:
+            model.objects.for_lab(bridge.lab_id).filter(pk=pk).update(external_reactions=now[ext])
+            changed += 1
+    return changed
 
 
 def poll_all() -> int:
@@ -908,13 +999,18 @@ def import_messages(*, lab, user, space, thread="", project=None, request=None) 
         for i in items
         if isinstance(i.get("sender"), dict)
     }
-    people = _people_for(account, space, ids - set(authors))
+    people = _people_for(account, space, ids)
     known = {
         ext: (pk, who, pic)
         for ext, pk, who, pic in model.objects.for_lab(lab)
         .filter(**where, external_id__in=[str(i.get("name", "")) for i in items])
         .values_list("external_id", "pk", "external_author", "external_avatar")
     }
+    known_reacts = dict(
+        model.objects.for_lab(lab)
+        .filter(**where, external_id__in=list(known))
+        .values_list("external_id", "external_reactions")
+    )
     imported = skipped = 0
     now = timezone.now()
     for item in items:
@@ -936,8 +1032,11 @@ def import_messages(*, lab, user, space, thread="", project=None, request=None) 
             fix = {}
             if who in ("", UNKNOWN_SENDER) and person.get("name") and uid not in authors:
                 fix["external_author"] = person["name"]
-            if not pic and person.get("photo") and uid not in authors:
+            if not pic and person.get("photo"):
                 fix["external_avatar"] = person["photo"]
+            reacts = clean_external(item.get("emojiReactionSummaries"))
+            if reacts != (known_reacts.get(name) or {}):
+                fix["external_reactions"] = reacts
             if fix:
                 model.objects.for_lab(lab).filter(pk=pk).update(**fix)
             skipped += 1
@@ -953,10 +1052,11 @@ def import_messages(*, lab, user, space, thread="", project=None, request=None) 
                     lab=lab,
                     author=author,
                     external_author="" if author else (person.get("name") or UNKNOWN_SENDER)[:200],
-                    external_avatar="" if author else person.get("photo", ""),
+                    external_avatar=person.get("photo", ""),
                     body=body,
                     source=ChatSource.GOOGLE_CHAT,
                     external_id=name,
+                    external_reactions=clean_external(item.get("emojiReactionSummaries")),
                 )
                 # Its own time, never later than now (created_at is set on create).
                 model.objects.for_lab(lab).filter(pk=row.pk).update(created_at=min(created, now))

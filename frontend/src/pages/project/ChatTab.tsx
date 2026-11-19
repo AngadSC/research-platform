@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/auth";
-import { useGoogleChat } from "@/hooks/googleChat";
+import { useGoogleChat, useGoogleChatPeople } from "@/hooks/googleChat";
 import { useMentionPeople } from "@/hooks/mentions";
 import { CHAT_PAGE_SIZE, fetchOlderMessages, useChat } from "@/hooks/chat";
 import { personName, type ChatMessage } from "@/lib/api-types";
@@ -51,7 +51,7 @@ const PINNED_PX = 80; // this close to the bottom still counts as reading the la
 /** A message as a screen reader should hear it: mentions as "@Name", without the stored id. */
 const spoken = (body: string) =>
   body
-    .replace(/@\[([^\]\n]+)\]\(user:[0-9a-fA-F-]{36}\)/g, "@$1")
+    .replace(/@\[([^\]\n]+)\]\((?:user:[0-9a-fA-F-]{36}|gchat:[0-9]{1,40})\)/g, "@$1")
     .replace(/[*_~`]/g, "")
     .slice(0, 40);
 
@@ -63,7 +63,10 @@ const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { tim
 const authorKey = (m: ChatMessage) => m.author?.id ?? `google:${m.external_author ?? ""}`;
 /** The person to show: a member, or a stand-in for someone in Google Chat with no account here. */
 const shownAuthor = (m: ChatMessage) =>
-  m.author ?? {
+  // a member with no picture here wears their Google Chat one, where Google has one
+  (m.author && !m.author.avatar_url && m.external_avatar
+    ? { ...m.author, avatar_url: m.external_avatar }
+    : m.author) ?? {
     id: authorKey(m),
     email: "",
     display_name: m.external_author || "Google Chat",
@@ -97,7 +100,7 @@ const ACTION_BUTTON =
 /** A message as a task title: plain text, mentions as names, first line, at most 200 characters. */
 export const taskText = (body: string) =>
   body
-    .replace(/@\[([^\]\n]+)\]\(user:[0-9a-fA-F-]{36}\)/g, "$1")
+    .replace(/@\[([^\]\n]+)\]\((?:user:[0-9a-fA-F-]{36}|gchat:[0-9]{1,40})\)/g, "$1")
     .replace(/[*_~`#]/g, "")
     .split("\n")
     .map((l) => l.trim())
@@ -286,7 +289,13 @@ export function ChatPanel({
 }) {
   const { email } = useAuth();
   const { messages, send, remove, react, markRead } = useChat(labId, projectId);
-  const people = useMentionPeople(labId, projectId);
+  const members = useMentionPeople(labId, projectId);
+  // with a Google Chat conversation linked, people who are only there can be mentioned too
+  const googlePeople = useGoogleChatPeople(labId, !!alsoSentTo, projectId).data;
+  const people = useMemo(
+    () => members && [...members, ...(googlePeople ?? [])],
+    [members, googlePeople],
+  );
   const [draft, setDraft] = useState("");
   const [older, setOlder] = useState<ChatMessage[]>([]);
   const [olderExhausted, setOlderExhausted] = useState(false);

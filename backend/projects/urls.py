@@ -43,6 +43,11 @@ urlpatterns = [
     path(_P + "messages/read/", views.ChatReadView.as_view(), name="chatmessage-read"),
     path(_P + "chat/google/", views.ProjectGoogleChatView.as_view(), name="project-google-chat"),
     path(
+        _P + "chat/google/people/",
+        views.ProjectGoogleChatPeopleView.as_view(),
+        name="project-google-chat-people",
+    ),
+    path(
         _P + "chat/google/spaces/",
         views.ProjectGoogleChatSpacesView.as_view(),
         name="project-google-chat-spaces",

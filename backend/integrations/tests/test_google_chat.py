@@ -257,7 +257,8 @@ def test_poll_brings_in_new_messages_once(transport, linked):
     assert rows["g1"].author is None and rows["g1"].external_author == sync.UNKNOWN_SENDER
     assert rows["g2"].author == u["member"] and rows["g2"].source == ChatSource.GOOGLE_CHAT
     assert "@[" not in rows["g5"].body  # can't draw a mention chip or notify anyone here
-    (call,) = transport.sent("GET", MESSAGES)
+    # one read for what is new (it has a time filter), one for the reactions on the latest few
+    (call,) = [c for c in transport.sent("GET", MESSAGES) if "filter" in c["params"]]
     assert call["params"]["filter"].startswith('createTime > "')
     bridge.refresh_from_db()
     assert bridge.cursor == "2099-01-01T00:00:01.123456Z" and bridge.last_error == ""
@@ -657,3 +658,165 @@ def test_importing_a_whole_group_chat(transport, lab_users):
         .values_list("body", flat=True)
     )
     assert bodies == ["first", "second"]
+
+
+def _reacts(**counts):
+    return {
+        "emojiReactionSummaries": [
+            {"emoji": {"unicode": e}, "reactionCount": n} for e, n in counts.items()
+        ]
+    }
+
+
+def test_reactions_from_google_show_with_the_message_and_keep_up_to_date(transport, linked):
+    lab, u, *_ = linked
+    transport.on(
+        "GET",
+        MESSAGES,
+        response(
+            200,
+            {
+                "messages": [
+                    _google(
+                        "g1",
+                        "hi",
+                        emojiReactionSummaries=[
+                            {"emoji": {"unicode": "👍"}, "reactionCount": 2},
+                            {"emoji": {"customEmoji": {"uid": "x"}}, "reactionCount": 5},
+                            {"emoji": {"unicode": "<b>"}, "reactionCount": 1},  # not an emoji
+                        ],
+                    )
+                ]
+            },
+        ),
+    )
+    sync.poll_all()
+    message = LabChatMessage.objects.for_lab(lab).get()
+    assert message.external_reactions == {"👍": 2}  # custom and non-emoji left out
+    (row,) = api(u["member"]).get(reverse("labs:labchat-list", args=[lab.pk])).json()
+    assert row["reactions"] == [{"emoji": "👍", "count": 2, "mine": False}]
+
+    # someone adds a heart later; the message is older than the cursor, but is read again
+    from django.core.cache import cache
+
+    cache.clear()
+    transport.on(
+        "GET",
+        MESSAGES,
+        response(200, {"messages": [_google("g1", "hi", **_reacts(**{"👍": 2, "❤️": 1}))]}),
+    )
+    sync.poll_all()
+    message.refresh_from_db()
+    assert message.external_reactions == {"👍": 2, "❤️": 1}
+
+
+def test_a_reaction_made_here_adds_to_the_ones_from_google(transport, linked):
+    from core import reactions
+
+    lab, u, *_ = linked
+    transport.on(
+        "GET", MESSAGES, response(200, {"messages": [_google("g1", "hi", **_reacts(**{"👍": 2}))]})
+    )
+    sync.poll_all()
+    message = LabChatMessage.objects.for_lab(lab).get()
+    reactions.toggle(LabChatMessage.objects.for_lab(lab), message.pk, u["member"], "👍")
+    message.refresh_from_db()
+    assert reactions.summary(message.reactions, u["member"], message.external_reactions) == [
+        {"emoji": "👍", "count": 3, "mine": True}
+    ]
+    assert reactions.summary(message.reactions, u["pi"], message.external_reactions) == [
+        {"emoji": "👍", "count": 3, "mine": False}
+    ]
+
+
+def test_profile_pictures_come_in_for_strangers_and_members(transport, linked):
+    lab, u, *_ = linked
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    pic = "https://lh3.googleusercontent.com/a/photo=s64"
+    transport.on(
+        "GET",
+        PEOPLE,
+        response(
+            200,
+            {
+                "responses": [
+                    {
+                        "person": {
+                            "resourceName": f"people/{i}",
+                            "names": [{"displayName": n}],
+                            "photos": [{"url": pic}],
+                        }
+                    }
+                    for i, n in (("9", "Dana Example"), ("2002", "Member Example"))
+                ]
+            },
+        ),
+    )
+    transport.on(
+        "GET",
+        MESSAGES,
+        response(
+            200,
+            {
+                "messages": [
+                    _google("g1", "from a stranger"),
+                    _google("g2", "from the member", sender="users/2002"),
+                ]
+            },
+        ),
+    )
+    sync.poll_all()
+    rows = {m.external_id.rsplit("/", 1)[1]: m for m in LabChatMessage.objects.for_lab(lab)}
+    assert rows["g1"].external_avatar == pic
+    # the member's message keeps their account as author, with Google's picture as a fallback
+    assert rows["g2"].author == u["member"] and rows["g2"].external_avatar == pic
+
+
+def test_mentions_become_real_google_mentions_where_google_can_name_them(transport, linked):
+    lab, u, *_ = linked
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    transport.on("POST", MESSAGES, _posted(f"{SPACE}/messages/m9"))
+    member = f"@[Member](user:{u['member'].pk})"  # connected: Google can name them
+    pi = f"@[Pat](user:{u['pi'].pk})"  # not connected: plain text
+    dana = "@[Dana](gchat:777)"  # only in the Google space
+    lab_services.post_lab_message(lab=lab, by=u["member"], body=f"{member} {pi} {dana}")
+    (call,) = transport.sent("POST", MESSAGES)
+    assert call["json"] == {"text": "<users/2002> @Pat <users/777>"}
+
+
+def test_a_google_mention_notifies_no_one_here_and_is_shown_as_a_name(transport, linked):
+    from core.models import Notification
+
+    lab, u, *_ = linked
+    transport.on("POST", MESSAGES, _posted(f"{SPACE}/messages/m8"))
+    message = lab_services.post_lab_message(lab=lab, by=u["member"], body="hi @[Dana](gchat:777)")
+    assert message.body == "hi @[Dana](gchat:777)"
+    assert not Notification.objects.for_lab(lab).filter(kind="mention").exists()
+
+
+def test_the_space_people_list_leaves_out_members_connected_here(transport, linked):
+    lab, u, *_ = linked
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    transport.on(
+        "GET",
+        f"{API}/{SPACE}/members",
+        response(
+            200,
+            {
+                "memberships": [
+                    {"member": {"name": "users/2002", "displayName": "Member Example"}},
+                    {"member": {"name": "users/777", "displayName": "Dana Example"}},
+                    {"member": {"name": "users/555", "displayName": "A Bot", "type": "BOT"}},
+                    {"member": {"name": "users/not-a-number", "displayName": "Odd"}},
+                ]
+            },
+        ),
+    )
+    url = reverse("labs:google-chat-people", args=[lab.pk])
+    assert api(u["viewer"]).get(url).json() == [{"id": "777", "name": "Dana Example"}]
+
+
+def test_no_space_people_without_a_link(transport, lab_users):
+    lab, u = lab_users
+    url = reverse("labs:google-chat-people", args=[lab.pk])
+    assert api(u["viewer"]).get(url).json() == []

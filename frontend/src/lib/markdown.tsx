@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
  * made clickable. */
 const INLINE = new RegExp(
   `(${[
-    String.raw`@\[[^\]\n]+\]\(user:[0-9a-fA-F-]{36}\)`,
+    String.raw`@\[[^\]\n]+\]\((?:user:[0-9a-fA-F-]{36}|gchat:[0-9]{1,40})\)`,
     String.raw`\*\*[^*\n]+\*\*`,
     String.raw`~~[^~\n]+~~`,
     String.raw`\*[^*\n]+\*`,

@@ -2119,6 +2119,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/GoogleChatImportResult'
           description: ''
+  /api/labs/{lab_id}/chat/google/people/:
+    get:
+      operationId: labs_chat_google_people_list
+      description: |-
+        The people in the linked Google Chat space who can be @mentioned in the lab chat. Whoever can
+        read the chat sees them, as they already read what those people wrote.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GoogleChatPerson'
+          description: ''
   /api/labs/{lab_id}/chat/google/spaces/:
     get:
       operationId: labs_chat_google_spaces_list
@@ -6869,6 +6895,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GoogleChatImportResult'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/chat/google/people/:
+    get:
+      operationId: labs_projects_chat_google_people_list
+      description: The people in this project chat's Google Chat conversation who
+        can be @mentioned.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GoogleChatPerson'
           description: ''
   /api/labs/{lab_id}/projects/{project_id}/chat/google/spaces/:
     get:
@@ -16338,6 +16395,17 @@ components:
           maxLength: 120
       required:
       - space
+    GoogleChatPerson:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Google's number for them, used to mention them.
+        name:
+          type: string
+      required:
+      - id
+      - name
     GoogleChatSpace:
       type: object
       properties:

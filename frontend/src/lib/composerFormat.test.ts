@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyMention,
+  GOOGLE_ID,
   cleanUrl,
   codeBlock,
   insertLink,
@@ -81,6 +82,23 @@ describe("mentions", () => {
   it("keeps brackets in a name from breaking the token", () => {
     expect(mentionToken("A [x](y)", "u")).toBe("@[A x(y)](user:u)");
     expect(mentionToken("Lee Lead (FAKE)", "u")).toBe("@[Lee Lead (FAKE)](user:u)");
+  });
+});
+
+describe("mentioning people who are only in Google Chat", () => {
+  const dana = { id: `${GOOGLE_ID}777`, name: "Dana Example" };
+
+  it("stores them as a Google mention and shows just the name", () => {
+    expect(mentionToken("Dana Example", dana.id)).toBe("@[Dana Example](gchat:777)");
+    const index = nameIndex([ada, dana], "");
+    const stored = toStored("hi @Dana Example and @Ada Lovelace", index);
+    expect(stored).toBe(`hi @[Dana Example](gchat:777) and ${mentionToken("Ada Lovelace", ID_A)}`);
+    expect(toDisplay(stored)).toBe("hi @Dana Example and @Ada Lovelace");
+  });
+
+  it("is lossless, and keeps a mention of someone no longer in the list", () => {
+    const stored = "ask @[Dana Example](gchat:777) now";
+    expect(toStored(toDisplay(stored), nameIndex([], stored))).toBe(stored);
   });
 });
 
