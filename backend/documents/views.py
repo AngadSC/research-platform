@@ -13,7 +13,8 @@ from rest_framework.throttling import ScopedRateThrottle
 from assistant.privacy import ai_visible, set_flag
 from audit.models import AuditAction
 from audit.services import record
-from core.permissions import Perm, can_view_ethics_files, require, visible_projects
+from core.permissions import Perm, can_view_ethics_files, require, users_with, visible_projects
+from core.serializers import UserSerializer
 from core.tenancy import project_of
 from core.views import LabScopedViewMixin
 from documents import services
@@ -334,6 +335,18 @@ class CommentListCreateView(CommentMixin, generics.GenericAPIView):
             request=request,
         )
         return Response(self.get_serializer(comment).data, status=status.HTTP_201_CREATED)
+
+
+class CommentPeopleView(CommentMixin, generics.GenericAPIView):
+    """Who can be @mentioned in a comment: the active people who can read this document, which is
+    exactly who a mention would notify (D354), without the asker."""
+
+    perms = {"GET": Perm.VIEW_PROJECT}
+
+    @extend_schema(responses=UserSerializer(many=True))
+    def get(self, request, lab_id, document_id):
+        users = users_with(Perm.VIEW_PROJECT, self.get_document()).exclude(pk=request.user.pk)
+        return Response(UserSerializer(users.order_by("display_name", "email"), many=True).data)
 
 
 class CommentDetailView(CommentMixin, generics.GenericAPIView):

@@ -201,6 +201,7 @@ export function applyMention(
   at: { start: number; query: string },
   name: string,
 ): Edit {
-  const end = at.start + 1 + at.query.length;
+  let end = at.start + 1 + at.query.length;
+  if (value[end] === " ") end++; // the space already there is the one the mention adds
   return insertText(value, at.start, end, `@${mentionName(name)} `);
 }

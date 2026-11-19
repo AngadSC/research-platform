@@ -226,7 +226,7 @@ function DocumentEditor({
   const [quote, setQuote] = useState("");
   const editorBox = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!showComments || doc.embed_url) return;
+    if (doc.embed_url) return; // kept while the panel is shut too: select first, then open it
     const onSelect = () => {
       const sel = document.getSelection();
       const text = sel?.toString().replace(/\s+/g, " ").trim() ?? "";
@@ -235,7 +235,7 @@ function DocumentEditor({
     };
     document.addEventListener("selectionchange", onSelect);
     return () => document.removeEventListener("selectionchange", onSelect);
-  }, [showComments, doc.embed_url]);
+  }, [doc.embed_url]);
   useEffect(() => {
     if (!focus) return;
     const onKey = (e: KeyboardEvent) => {
@@ -667,7 +667,6 @@ function DocumentEditor({
           <CommentsPanel
             labId={labId}
             documentId={doc.id}
-            people={people}
             canEdit={canEdit}
             canModerate={canModerate}
             quote={quote}

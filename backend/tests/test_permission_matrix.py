@@ -223,6 +223,7 @@ MATRIX: dict[tuple[str, str], str] = {
     # project lead (PIs and lab admins lead every project).
     ("GET",    "documents:comment-list"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "documents:comment-list"): "401 404 2 2 2 2 2 404 2",
+    ("GET",    "documents:comment-people"): "401 404 2 2 2 2 2 404 2",
     ("PATCH",  "documents:comment-detail"): "401 404 2 2 2 2 403 404 403",
     ("DELETE", "documents:comment-detail"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:attachment-list"): "401 404 2 2 2 2 2 404 2",

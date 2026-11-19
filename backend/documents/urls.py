@@ -73,6 +73,11 @@ urlpatterns = [
         name="comment-list",
     ),
     path(
+        L + "documents/<uuid:document_id>/comment-people/",
+        views.CommentPeopleView.as_view(),
+        name="comment-people",
+    ),
+    path(
         L + "documents/<uuid:document_id>/comments/<uuid:comment_id>/",
         views.CommentDetailView.as_view(),
         name="comment-detail",

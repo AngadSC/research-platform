@@ -2949,6 +2949,38 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/documents/{document_id}/comment-people/:
+    get:
+      operationId: labs_documents_comment_people_list
+      description: |-
+        Who can be @mentioned in a comment: the active people who can read this document, which is
+        exactly who a mention would notify (D354), without the asker.
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+          description: ''
   /api/labs/{lab_id}/documents/{document_id}/comments/:
     get:
       operationId: labs_documents_comments_list

@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { makeLab, mockFetch, renderRoute, SESSION, signedIn, pickMenuItem } from "@/test/utils";
@@ -14,11 +14,14 @@ vi.mock("@/components/documents/RichEditor", () => ({
     label: string;
     onChange?: (b: unknown[]) => void;
   }) => (
-    <textarea
-      aria-label={label}
-      readOnly={!editable}
-      onChange={(e) => onChange?.([{ type: "paragraph", content: e.target.value }])}
-    />
+    <div>
+      <p>Quotable sentence here.</p>
+      <textarea
+        aria-label={label}
+        readOnly={!editable}
+        onChange={(e) => onChange?.([{ type: "paragraph", content: e.target.value }])}
+      />
+    </div>
   ),
 }));
 
@@ -479,9 +482,7 @@ describe("document comments", () => {
   });
   const people = {
     "GET /api/me/": { body: user },
-    "GET /api/labs/lab1/projects/p1/members/": {
-      body: [{ id: "m2", user: other, role: "contributor" }],
-    },
+    "GET /api/labs/lab1/documents/d1/comment-people/": { body: [other] },
   };
 
   it("opens from the button and posts a comment with a mention", async () => {
@@ -572,5 +573,54 @@ describe("document comments", () => {
       within(panel).getByRole("button", { name: "Resolve comment by Ada" }),
     ).toBeInTheDocument();
     expect(within(panel).getAllByRole("button", { name: /^Delete/ })).toHaveLength(1);
+  });
+
+  it("quotes the text selected before the comment box was clicked, and the quote can be cleared", async () => {
+    const calls = mockFetch(
+      handlers(EDIT, { ...people, [`POST ${C}`]: { body: comment("c1", user) } }),
+    );
+    renderRoute(`${DOC}?comments=1`);
+    const panel = await screen.findByRole("complementary", { name: "Comments" });
+    const sentence = await screen.findByText("Quotable sentence here.");
+    document.getSelection()!.selectAllChildren(sentence);
+    act(() => document.dispatchEvent(new Event("selectionchange")));
+    const box = within(panel).getByRole("textbox", { name: "Add a comment" });
+    await userEvent.click(box); // the selection is lost here
+    expect(within(panel).getByText("Quotable sentence here.")).toBeInTheDocument();
+    await userEvent.type(box, "Why?");
+    await userEvent.click(within(panel).getByRole("button", { name: "Comment" }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "POST" && c.path === C)?.body).toEqual({
+        body: "Why?",
+        quote: "Quotable sentence here.",
+      }),
+    );
+    expect(within(panel).queryByRole("button", { name: "Remove quote" })).toBeNull();
+  });
+
+  it("offers the people who can read the document, picks one by click, focuses a reply", async () => {
+    const calls = mockFetch(
+      handlers(EDIT, {
+        ...people,
+        [`GET ${C}`]: { body: [comment("c1", other)] },
+        [`POST ${C}`]: { body: comment("c2", user) },
+      }),
+    );
+    renderRoute(`${DOC}?comments=1`);
+    const panel = await screen.findByRole("complementary", { name: "Comments" });
+    await userEvent.click(await within(panel).findByRole("button", { name: "Reply" }));
+    const reply = within(panel).getByRole("textbox", { name: "Reply" });
+    expect(reply).toHaveFocus();
+    const box = within(panel).getByRole("textbox", { name: "Add a comment" });
+    await userEvent.type(box, "Hi @b");
+    await userEvent.click(await screen.findByRole("option", { name: "Bo" }));
+    await userEvent.type(box, "ok");
+    await userEvent.click(within(panel).getByRole("button", { name: "Comment" }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "POST" && c.path === C)?.body).toEqual({
+        body: "Hi @[Bo](user:u2) ok",
+        quote: "",
+      }),
+    );
   });
 });

@@ -174,3 +174,31 @@ def test_comments_go_with_their_document(w):
     assert client(p["pi"]).get(comments_url(lab, doc)).status_code == 404
     qs = Notification.objects.for_lab(lab).filter(recipient=p["student"])
     assert visible_notifications(p["student"], lab, qs) == []
+
+
+def test_deleting_removes_every_notice_about_it_and_its_replies(w):
+    lab, _, doc, p = w
+    top = post(p["pi"], lab, doc, f"Look {mention(p['viewer'])}").json()
+    reply = post(p["student"], lab, doc, f"Done {mention(p['lead'])}", parent=top["id"]).json()
+    mine = Notification.objects.for_lab(lab)
+    assert mine.filter(dedupe_key=f"mention:doccomment:{reply['id']}").exists()
+    assert mine.filter(dedupe_key__startswith=f"doccomment:{reply['id']}:").exists()  # the starter
+    # a reply alone takes only its own notices
+    assert client(p["student"]).delete(comments_url(lab, doc, reply)).status_code == 204
+    assert not mine.filter(dedupe_key__contains=reply["id"]).exists()
+    assert mine.filter(dedupe_key=f"mention:doccomment:{top['id']}").exists()
+    assert client(p["pi"]).delete(comments_url(lab, doc, top)).status_code == 204
+    assert not mine.filter(dedupe_key__contains="doccomment").exists()
+
+
+def test_people_to_mention_are_those_who_can_read_it_but_not_you(w, join, make_user):
+    lab, _, doc, p = w
+    url = reverse("documents:comment-people", kwargs={"lab_id": lab.pk, "document_id": doc.pk})
+    ids = {r["id"] for r in client(p["student"]).get(url).json()}
+    # the PI reads every project document; the member who is not on the project does not
+    assert ids == {str(p[n].pk) for n in ("pi", "lead", "viewer")}
+    assert client(p["outside"]).get(url).status_code == 404
+    manual = services.create_document(lab=lab, user=p["student"], title="Manual", content=[])
+    url = reverse("documents:comment-people", kwargs={"lab_id": lab.pk, "document_id": manual.pk})
+    ids = {r["id"] for r in client(p["student"]).get(url).json()}
+    assert ids == {str(p[n].pk) for n in ("pi", "lead", "viewer", "outside")}

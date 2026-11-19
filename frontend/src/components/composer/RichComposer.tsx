@@ -100,6 +100,8 @@ export function RichComposer({
   enterToSend = false,
   submitLabel,
   submitting = false,
+  menuBelow = false,
+  autoFocus = false,
   className,
   footer,
 }: {
@@ -116,6 +118,9 @@ export function RichComposer({
   /** Shows a Send button with this label. */
   submitLabel?: string;
   submitting?: boolean;
+  /** Open the @ list under the box, for a box near the top of a scrolling panel. */
+  menuBelow?: boolean;
+  autoFocus?: boolean;
   className?: string;
   footer?: ReactNode;
 }) {
@@ -386,6 +391,7 @@ export function RichComposer({
           aria-activedescendant={listOpen ? optionId(current) : undefined}
           value={text}
           maxLength={maxLength}
+          autoFocus={autoFocus}
           rows={rows}
           placeholder={placeholder}
           onChange={(e) => {
@@ -405,7 +411,10 @@ export function RichComposer({
             id={`${uid}-people`}
             role="listbox"
             aria-label="People you can mention"
-            className="absolute right-2 bottom-full left-2 z-20 mb-1 max-h-48 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+            className={cn(
+              "absolute right-2 left-2 z-20 max-h-48 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md",
+              menuBelow ? "top-full mt-1" : "bottom-full mb-1",
+            )}
           >
             {matches.map((p, i) => (
               <li

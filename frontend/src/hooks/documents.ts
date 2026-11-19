@@ -1,15 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { markMine } from "@/hooks/liveRefresh";
+import type { Person } from "@/components/composer/RichComposer";
 import { api } from "@/lib/api";
-import type {
-  DocumentComment,
-  DocumentFull,
-  DocumentRow,
-  DocumentSaveInput,
-  Folder,
-  Revision,
-  RevisionRow,
+import {
+  personName,
+  type DocumentComment,
+  type DocumentFull,
+  type DocumentRow,
+  type DocumentSaveInput,
+  type Folder,
+  type Revision,
+  type RevisionRow,
 } from "@/lib/api-types";
 
 const base = (labId: string) => `/api/labs/${labId}`;
@@ -179,6 +181,18 @@ export function useRestoreRevision(labId: string, id: string) {
       void qc.invalidateQueries({ queryKey: [...docKey(labId, id), "revisions"] });
     },
   });
+}
+
+/** Who can be @mentioned in a document's comments: everyone who can read it, but you. */
+export function useCommentPeople(labId: string, documentId: string): Person[] | undefined {
+  const { data } = useQuery({
+    queryKey: [...docKey(labId, documentId), "comment-people"],
+    queryFn: () =>
+      api<{ id: string; email: string; display_name?: string }[]>(
+        `${base(labId)}/documents/${documentId}/comment-people/`,
+      ),
+  });
+  return data?.map((u) => ({ id: u.id, name: personName(u) }));
 }
 
 /** Comments on a document (lab-wide ones too). Re-fetched every 15 seconds while visible. */

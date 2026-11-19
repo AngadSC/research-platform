@@ -79,6 +79,10 @@ describe("mentions", () => {
     expect(e.value).toBe("hi @Ada Lovelace ");
     expect(e.start).toBe(e.value.length);
   });
+  it("does not double the space when one already follows", () => {
+    const e = applyMention("hi @ad there", { start: 3, query: "ad" }, "Ada");
+    expect(e.value).toBe("hi @Ada there");
+  });
   it("keeps brackets in a name from breaking the token", () => {
     expect(mentionToken("A [x](y)", "u")).toBe("@[A x(y)](user:u)");
     expect(mentionToken("Lee Lead (FAKE)", "u")).toBe("@[Lee Lead (FAKE)](user:u)");

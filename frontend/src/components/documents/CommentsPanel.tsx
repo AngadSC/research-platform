@@ -5,7 +5,7 @@ import { RichComposer, type Person } from "@/components/composer/RichComposer";
 import { RelativeTime } from "@/components/shared/RelativeTime";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useDocumentComments } from "@/hooks/documents";
+import { useCommentPeople, useDocumentComments } from "@/hooks/documents";
 import { useMe } from "@/hooks/workspace";
 import { personName, type DocumentComment } from "@/lib/api-types";
 import { formErrors } from "@/lib/forms";
@@ -25,6 +25,7 @@ function Composer({
   onSend,
   pending,
   rows,
+  autoFocus,
 }: {
   label: string;
   submitLabel: string;
@@ -32,6 +33,7 @@ function Composer({
   onSend: (body: string) => Promise<unknown>;
   pending: boolean;
   rows?: number;
+  autoFocus?: boolean;
 }) {
   const [text, setText] = useState("");
   const submit = (e: FormEvent) => {
@@ -48,6 +50,8 @@ function Composer({
         onChange={setText}
         maxLength={4000}
         rows={rows}
+        autoFocus={autoFocus}
+        menuBelow
         people={people}
         submitLabel={submitLabel}
         submitting={pending}
@@ -118,7 +122,6 @@ function Comment({
 export function CommentsPanel({
   labId,
   documentId,
-  people,
   canEdit,
   canModerate,
   quote,
@@ -129,7 +132,6 @@ export function CommentsPanel({
 }: {
   labId: string;
   documentId: string;
-  people?: Person[];
   /** Can edit the document: resolves anyone's comment. */
   canEdit: boolean;
   /** A project lead, or a PI or lab admin: deletes anyone's comment. */
@@ -144,6 +146,7 @@ export function CommentsPanel({
 }) {
   const { list, create, resolve, remove } = useDocumentComments(labId, documentId);
   const me = useMe().data?.id;
+  const people = useCommentPeople(labId, documentId);
   const [replying, setReplying] = useState<string>();
   const [showResolved, setShowResolved] = useState(false);
   const box = useRef<HTMLElement>(null);
@@ -209,6 +212,7 @@ export function CommentsPanel({
             label="Reply"
             submitLabel="Reply"
             rows={1}
+            autoFocus
             people={people}
             pending={create.isPending}
             onSend={(body) =>

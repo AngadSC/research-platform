@@ -1116,6 +1116,26 @@ export interface paths {
         patch: operations["labs_documents_partial_update"];
         trace?: never;
     };
+    "/api/labs/{lab_id}/documents/{document_id}/comment-people/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Who can be @mentioned in a comment: the active people who can read this document, which is
+         *     exactly who a mention would notify (D354), without the asker.
+         */
+        get: operations["labs_documents_comment_people_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/documents/{document_id}/comments/": {
         parameters: {
             query?: never;
@@ -11833,6 +11853,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Document"];
+                };
+            };
+        };
+    };
+    labs_documents_comment_people_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"][];
                 };
             };
         };
