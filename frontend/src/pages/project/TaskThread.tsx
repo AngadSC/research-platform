@@ -120,9 +120,15 @@ export function TaskThread({
   const [text, setText] = useState("");
   const end = useRef<HTMLDivElement>(null);
   const count = list.data?.length ?? 0;
+  // Follow new posts, but not on open: that would scroll the task dialog past its title.
+  const seen = useRef<number | null>(null);
+  const loaded = list.isSuccess;
   useEffect(() => {
-    end.current?.scrollIntoView?.({ block: "nearest" });
-  }, [count]);
+    if (!loaded) return;
+    if (seen.current !== null && count > seen.current)
+      end.current?.scrollIntoView?.({ block: "nearest" });
+    seen.current = count;
+  }, [count, loaded]);
 
   function submit(e: FormEvent) {
     e.preventDefault();

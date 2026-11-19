@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
 
 // Radix Select and Dropdown want these in jsdom.
@@ -107,6 +107,16 @@ describe("task drawer", () => {
     );
     expect(within(drawer).getByRole("link", { name: /raw\.csv/ })).toBeInTheDocument();
     expect(await within(drawer).findByText("Plates arrived")).toBeInTheDocument();
+  });
+
+  it("opens at the top: loading the thread does not scroll the dialog", async () => {
+    const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
+    mockFetch(base(["view_project", "edit_content"], [post("x1", grace, "Plates arrived")]));
+    renderRoute("/labs/lab1/projects/p1/tasks?view=list");
+    await userEvent.click(await screen.findByRole("cell", { name: "Run assay" }));
+    expect(await screen.findByText("Plates arrived")).toBeInTheDocument();
+    expect(scroll).not.toHaveBeenCalled();
+    scroll.mockRestore();
   });
 
   it("stops the title at the server's 300-character limit", async () => {

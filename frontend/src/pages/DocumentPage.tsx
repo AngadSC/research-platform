@@ -500,16 +500,22 @@ function DocumentEditor({
     >
       {dialog}
       <div className="flex items-start gap-2">
-        <Input
+        <Textarea
           aria-label="Title"
           value={title}
           readOnly={!canEdit}
           maxLength={300}
+          rows={1}
           placeholder="Untitled document"
-          className="h-auto flex-1 rounded-sm border-0 bg-transparent px-0 py-1 text-3xl font-semibold focus-visible:ring-1 focus-visible:ring-border"
+          // Wraps instead of clipping on a phone, and grows with the text.
+          className="field-sizing-content min-h-0 flex-1 resize-none rounded-sm border-0 bg-transparent px-0 py-1 text-3xl font-semibold [overflow-wrap:anywhere] shadow-none focus-visible:ring-1 focus-visible:ring-border"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.preventDefault();
+          }}
           onChange={(e) => {
-            setTitle(e.target.value);
-            titleRef.current = e.target.value;
+            const v = e.target.value.replace(/\s*\n\s*/g, " ");
+            setTitle(v);
+            titleRef.current = v;
             schedule();
           }}
           onBlur={() => {
