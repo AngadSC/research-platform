@@ -264,4 +264,26 @@ describe("project sidebar dropdown", () => {
     await userEvent.type(box, "@Dan");
     expect(await screen.findByRole("option", { name: /Dana Example/ })).toBeInTheDocument();
   });
+
+  it("shows who reacted when you hover a reaction", async () => {
+    mockFetch(
+      world([
+        {
+          ...msg("1", lee, "Look"),
+          reactions: [
+            { emoji: "\u{1F44D}", count: 3, mine: false, people: ["Ada Example", "Dana Example"] },
+          ],
+        },
+      ]),
+    );
+    renderRoute("/labs/lab1/projects/p1/chat");
+    const log = await screen.findByRole("log", { name: "Messages" });
+    const chip = await within(log).findByRole("button", {
+      name: /Ada Example, Dana Example and 1 other/,
+    });
+    await userEvent.hover(chip);
+    expect(
+      (await screen.findAllByText(/Ada Example, Dana Example and 1 other/))[0],
+    ).toBeInTheDocument();
+  });
 });

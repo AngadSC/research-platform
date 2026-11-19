@@ -589,9 +589,9 @@ def test_migration_switches_push_off_for_existing_rows(transport, lab_users):
         push_tasks=True,
         push_deadlines=True,
     )
-    node = ("labs", "0023_calendar_push_off_by_default")
+    node = ("labs", "0024_calendar_push_off_by_default")
     apps = MigrationExecutor(connection).loader.project_state(node).apps
-    import_module("labs.migrations.0023_calendar_push_off_by_default").push_off(apps, None)
+    import_module("labs.migrations.0024_calendar_push_off_by_default").push_off(apps, None)
     row.refresh_from_db()
     assert not (row.push_meetings or row.push_tasks or row.push_deadlines)
 
@@ -697,3 +697,155 @@ def test_a_calendar_api_that_is_not_switched_on_is_named_not_hidden(transport, l
     assert r.status_code == 400
     assert "enable the Calendar API" in r.json()["video"][0]
     assert Meeting.objects.for_lab(lab).count() == 0
+
+
+# ---------------------------------------------------------------- guests, answers, event details
+
+
+def test_guests_by_email_go_to_google_with_the_invitation_and_nowhere_else(transport, lab_users):
+    lab, users = lab_users
+    connect_google(transport, users["pi"], lab)
+    transport.on(
+        "POST",
+        EVENTS,
+        response(200, {"id": "ev9", "hangoutLink": "https://meet.google.com/abc-defg-hij"}),
+    )
+    body = meeting_body(
+        video="google_meet",
+        attendees=[str(users["member"].pk)],
+        guests=["Friend@Gmail.com", "friend@gmail.com", users["member"].email.upper()],
+    )
+    r = api(users["pi"]).post(f"/api/labs/{lab.pk}/calendar/meetings/", body, "json")
+    assert r.status_code == 201, r.content
+    assert r.json()["guest_emails"] == ["friend@gmail.com"]  # lower case, once, no members
+    [sent] = transport.sent("POST", EVENTS)
+    assert sent["params"]["sendUpdates"] == "all"  # Google sends the guest their invitation
+    assert {a["email"] for a in sent["json"]["attendees"]} == {
+        users["pi"].email,
+        users["member"].email,
+        "friend@gmail.com",
+    }
+    assert "PRIVATE NOTES" not in json.dumps(sent["json"])
+    row = api(users["pi"]).get(
+        f"/api/labs/{lab.pk}/calendar/", {"from": "2030-03-01", "to": "2030-03-31"}
+    )
+    (item,) = [i for i in row.json() if i["kind"] == "meeting"]
+    assert item["guests"] == ["friend@gmail.com"]
+
+
+def test_guests_need_a_google_meet_call(transport, lab_users):
+    lab, users = lab_users
+    r = api(users["pi"]).post(
+        f"/api/labs/{lab.pk}/calendar/meetings/",
+        meeting_body(guests=["friend@gmail.com"]),
+        "json",
+    )
+    assert r.status_code == 400 and "guests" in r.json()
+    r = api(users["pi"]).post(
+        f"/api/labs/{lab.pk}/calendar/meetings/", meeting_body(guests=["not-an-email"]), "json"
+    )
+    assert r.status_code == 400
+
+
+def test_a_meeting_without_guests_still_sends_no_google_mail(transport, lab_users):
+    lab, users = lab_users
+    connect_google(transport, users["pi"], lab)
+    transport.on(
+        "POST", EVENTS, response(200, {"id": "ev1", "hangoutLink": "https://meet.google.com/a-b-c"})
+    )
+    api(users["pi"]).post(
+        f"/api/labs/{lab.pk}/calendar/meetings/", meeting_body(video="google_meet"), "json"
+    )
+    assert transport.sent("POST", EVENTS)[0]["params"]["sendUpdates"] == "none"
+
+
+def test_people_on_a_meeting_answer_it_and_others_cannot(transport, lab_users):
+    lab, users = lab_users
+    meeting = Meeting.objects.create(
+        lab=lab,
+        title="Sync",
+        starts_at=START,
+        ends_at=START + datetime.timedelta(hours=1),
+        created_by=users["pi"],
+    )
+    meeting.attendees.set([users["pi"], users["member"]])
+    url = f"/api/labs/{lab.pk}/calendar/meetings/{meeting.pk}/answer/"
+    r = api(users["member"]).put(url, {"status": "maybe"}, "json")
+    assert r.status_code == 200 and r.json()["responses"] == {str(users["member"].pk): "maybe"}
+    api(users["pi"]).put(url, {"status": "accepted"}, "json")
+    api(users["member"]).put(url, {"status": "declined"}, "json")
+    meeting.refresh_from_db()
+    assert meeting.responses == {
+        str(users["pi"].pk): "accepted",
+        str(users["member"].pk): "declined",
+    }
+    assert api(users["pi"]).put(url, {"status": "later"}, "json").status_code == 400
+    assert api(users["viewer"]).put(url, {"status": "accepted"}, "json").status_code == 404
+
+
+def test_your_google_events_carry_who_is_invited_and_your_answer(transport, lab_users):
+    lab, users = lab_users
+    connect_google(transport, users["pi"], lab)
+    transport.on(
+        "GET",
+        EVENTS,
+        response(
+            200,
+            {
+                "items": [
+                    {
+                        "id": "g1",
+                        "summary": "Scheduling Team",
+                        "start": {"dateTime": "2030-03-05T09:00:00Z"},
+                        "end": {"dateTime": "2030-03-05T10:00:00Z"},
+                        "recurringEventId": "r1",
+                        "location": "Room 4",
+                        "organizer": {"email": "boss@uni.edu"},
+                        "attendees": [
+                            {
+                                "email": "boss@uni.edu",
+                                "organizer": True,
+                                "responseStatus": "accepted",
+                            },
+                            {"email": "pi@uni.edu", "self": True, "responseStatus": "needsAction"},
+                            {"email": "room@resource", "resource": True},
+                            {"email": "x@y.z", "responseStatus": "weird"},
+                        ],
+                    }
+                ]
+            },
+        ),
+    )
+    q = {"from": "2030-03-01", "to": "2030-03-31"}
+    (row,) = api(users["pi"]).get(f"/api/labs/{lab.pk}/calendar/google/events/", q).json()
+    assert row["repeats"] is True and row["location"] == "Room 4"
+    assert row["organizer"] == "boss@uni.edu" and row["my_status"] == "needsAction"
+    assert [(a["email"], a["status"]) for a in row["attendees"]] == [
+        ("boss@uni.edu", "accepted"),
+        ("pi@uni.edu", "needsAction"),
+        ("x@y.z", "needsAction"),  # an unknown answer is "no reply", never passed through
+    ]
+
+
+def test_accepting_a_google_invitation_changes_only_your_own_answer(transport, lab_users):
+    lab, users = lab_users
+    connect_google(transport, users["pi"], lab)
+    event = {
+        "id": "g1",
+        "attendees": [
+            {"email": "boss@uni.edu", "organizer": True, "responseStatus": "accepted"},
+            {"email": "pi@uni.edu", "self": True, "responseStatus": "needsAction"},
+        ],
+    }
+    transport.on("GET", f"{EVENTS}/g1", response(200, event))
+    transport.on("PATCH", f"{EVENTS}/g1", response(200, event))
+    url = f"/api/labs/{lab.pk}/calendar/google/events/g1/answer/"
+    r = api(users["pi"]).post(url, {"status": "declined"}, "json")
+    assert r.status_code == 200 and r.json() == {"id": "g1", "my_status": "declined"}
+    [sent] = transport.sent("PATCH", f"{EVENTS}/g1")
+    assert sent["params"] == {"sendUpdates": "all"}
+    answers = {a["email"]: a["responseStatus"] for a in sent["json"]["attendees"]}
+    assert answers == {"boss@uni.edu": "accepted", "pi@uni.edu": "declined"}
+    assert api(users["pi"]).post(url, {"status": "later"}, "json").status_code == 400
+    # someone with no Google connection cannot answer
+    assert api(users["member"]).post(url, {"status": "accepted"}, "json").status_code == 404

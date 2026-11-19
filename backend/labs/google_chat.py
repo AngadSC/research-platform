@@ -29,7 +29,7 @@ from rest_framework.exceptions import ValidationError
 from audit.models import AuditAction
 from audit.services import record
 from core.permissions import Perm, can, lab_role, require
-from core.reactions import clean_external
+from core.reactions import clean_emoji, clean_external
 from integrations.http import AccountUnavailable, IntegrationError, interactive, send
 from integrations.models import AccountStatus, ConnectedAccount
 from integrations.providers import google_chat
@@ -189,7 +189,9 @@ def member_map(account, space) -> dict[str, dict[str, str]]:
             p = (m.get("member") or {}) if isinstance(m, dict) else {}
             uid = str(p.get("name", "")).removeprefix("users/")
             name = "".join(c for c in str(p.get("displayName", "")) if c.isprintable())[:200]
-            if uid and name and p.get("type", "HUMAN") == "HUMAN":
+            if uid and p.get("type", "HUMAN") == "HUMAN":
+                # Google often sends only the id on a membership; the name then comes from the
+                # directory (`_people_for`), so the member still counts as being in the space.
                 out[uid] = {"name": name, "photo": ""}
         token = str(data.get("nextPageToken", "")) if isinstance(data, dict) else ""
         if not token:
@@ -206,7 +208,7 @@ def _people_for(account, space, ids) -> dict[str, dict[str, str]]:
     people = dict(google_people(account, ids))
     if any(i not in people for i in ids):
         for uid, person in member_map(account, space).items():
-            if uid in ids and uid not in people:
+            if uid in ids and uid not in people and person.get("name"):
                 people[uid] = person
     return people
 
@@ -219,14 +221,12 @@ def space_people(bridge) -> list[dict[str, str]]:
         return []
     mine = set(_authors(bridge.lab, bridge.project))
     try:
-        people = member_map(bridge.account, bridge.space)
+        members = member_map(bridge.account, bridge.space)
+        ids = {uid for uid in members if uid not in mine and re.fullmatch(r"[0-9]{1,40}", uid)}
+        named = _people_for(bridge.account, bridge.space, ids)
     except (AccountUnavailable, IntegrationError):
         return []
-    rows = [
-        {"id": uid, "name": p["name"]}
-        for uid, p in people.items()
-        if uid not in mine and re.fullmatch(r"[0-9]{1,40}", uid)
-    ]
+    rows = [{"id": uid, "name": p["name"]} for uid, p in named.items() if uid in ids]
     return sorted(rows, key=lambda r: r["name"].lower())[:200]
 
 
@@ -547,6 +547,7 @@ def from_google_text(message: dict) -> str:
 NAME_CACHE = 24 * 3600
 REACTION_REFRESH_SECONDS = 120  # per link: how often reactions on recent messages are re-read
 REACTION_WINDOW = 100  # the latest messages whose reactions are re-read
+REACTION_LOOKUPS = 20  # messages per run whose reactors are looked up (one Google call each)
 
 
 def _photo_url(value) -> str:
@@ -829,7 +830,7 @@ def _repair_names(bridge, authors, model, where, before) -> None:
         for i in items
         if isinstance(i.get("sender"), dict)
     }
-    ids = {uid for ext, uid in sender_of.items() if uid} - set(authors)
+    ids = {uid for ext, uid in sender_of.items() if uid}
     people = _people_for(bridge.account, bridge.space, ids)
     for pk, ext in unknown:
         uid = sender_of.get(ext, "")
@@ -867,12 +868,64 @@ def refresh_reactions(bridge, model, where) -> int:
     if not now:
         return 0
     changed = 0
+    asked = 0
     rows = model.objects.for_lab(bridge.lab_id).filter(**where, external_id__in=list(now))
     for pk, ext, have in rows.values_list("pk", "external_id", "external_reactions"):
-        if (have or {}) != now[ext]:
-            model.objects.for_lab(bridge.lab_id).filter(pk=pk).update(external_reactions=now[ext])
-            changed += 1
+        have = have or {}
+        fresh = now[ext]
+        counts = {e: _external_count(v) for e, v in have.items()}
+        named = all(isinstance(v, dict) for v in have.values())
+        if counts == fresh and (named or not fresh):
+            continue  # same counts, and the people are already known
+        value = dict(fresh)
+        if fresh and asked < REACTION_LOOKUPS:
+            asked += 1
+            value = _reactors(bridge, ext, fresh) or value
+        model.objects.for_lab(bridge.lab_id).filter(pk=pk).update(external_reactions=value)
+        changed += 1
     return changed
+
+
+def _external_count(value) -> int:
+    return int(value.get("count") or 0) if isinstance(value, dict) else int(value or 0)
+
+
+def _reactors(bridge, message_name, counts) -> dict | None:
+    """`{emoji: {"count", "by": [names]}}` for one message, from Google's list of its reactions.
+    Names come from the lab member a Google id belongs to, else the directory or the space's
+    members; anyone Google will not name is left out of `by` (the count still includes them).
+    None when Google would not say, so the counts alone are kept."""
+    try:
+        resp = send(
+            "GET",
+            f"{API}/{quote(message_name, safe='/')}/reactions",
+            provider=PROVIDER,
+            account=bridge.account,
+            params={"pageSize": 200},
+        )
+        rows = resp.json().get("reactions", []) if resp.status_code == 200 else None
+    except (AccountUnavailable, IntegrationError, ValueError, AttributeError):
+        return None
+    if not isinstance(rows, list):
+        return None
+    pairs = []
+    for r in rows:
+        try:
+            emoji = clean_emoji((r.get("emoji") or {}).get("unicode"))
+            uid = str((r.get("user") or {}).get("name", "")).removeprefix("users/")
+        except (ValidationError, AttributeError):
+            continue
+        if emoji in counts and uid:
+            pairs.append((emoji, uid))
+    authors = _authors(bridge.lab, bridge.project)
+    people = _people_for(bridge.account, bridge.space, {u for _, u in pairs} - set(authors))
+    out = {e: {"count": n, "by": []} for e, n in counts.items()}
+    for emoji, uid in pairs:
+        who = authors.get(uid)
+        name = (who.display_name or who.email) if who else people.get(uid, {}).get("name", "")
+        if name and name not in out[emoji]["by"] and len(out[emoji]["by"]) < 30:
+            out[emoji]["by"].append(name[:100])
+    return out
 
 
 def poll_all() -> int:

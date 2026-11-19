@@ -2,6 +2,7 @@ import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Rss } from "luci
 import { useMemo, useState, type FormEvent } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
+import { GoogleCardBody, HoverCard, ItemCardBody } from "@/components/calendar/EventCard";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
 import { MoreMenu } from "@/components/shared/MoreMenu";
@@ -57,7 +58,6 @@ function Entry({
   onOpen: (item: CalendarItem) => void;
 }) {
   const href = calendarHref(labId, item);
-  const label = [KIND[item.kind], item.project_name, item.title].filter(Boolean).join(": ");
   const content = (
     <>
       <span
@@ -86,17 +86,20 @@ function Entry({
     item.project_color &&
       "border-l-[3px] border-(--project) bg-[color-mix(in_srgb,var(--project)_14%,transparent)]",
   );
+  const trigger = href ? (
+    <Link to={href} className={className}>
+      {content}
+    </Link>
+  ) : (
+    <button type="button" className={className} onClick={() => onOpen(item)}>
+      {content}
+    </button>
+  );
   return (
     <li style={item.project_color ? projectColorStyle(item.project_color) : undefined}>
-      {href ? (
-        <Link to={href} title={label} className={className}>
-          {content}
-        </Link>
-      ) : (
-        <button type="button" title={label} className={className} onClick={() => onOpen(item)}>
-          {content}
-        </button>
-      )}
+      <HoverCard trigger={trigger}>
+        <ItemCardBody labId={labId} item={item} onOpen={onOpen} />
+      </HoverCard>
     </li>
   );
 }
@@ -157,7 +160,7 @@ function Agenda({
           {fromGoogle.length > 0 && (
             <ul className="mb-1 grid gap-1">
               {fromGoogle.map((e) => (
-                <GoogleEntry key={`google:${e.id}`} event={e} />
+                <GoogleEntry key={`google:${e.id}`} labId={labId} event={e} />
               ))}
             </ul>
           )}
@@ -185,15 +188,21 @@ function Agenda({
                   style={item.project_color ? projectColorStyle(item.project_color) : undefined}
                   className={cn(item.project_color && "border-l-4 border-(--project)")}
                 >
-                  {href ? (
-                    <Link to={href} className={cls}>
-                      {row}
-                    </Link>
-                  ) : (
-                    <button type="button" className={cls} onClick={() => onOpen(item)}>
-                      {row}
-                    </button>
-                  )}
+                  <HoverCard
+                    trigger={
+                      href ? (
+                        <Link to={href} className={cls}>
+                          {row}
+                        </Link>
+                      ) : (
+                        <button type="button" className={cls} onClick={() => onOpen(item)}>
+                          {row}
+                        </button>
+                      )
+                    }
+                  >
+                    <ItemCardBody labId={labId} item={item} onOpen={onOpen} />
+                  </HoverCard>
                 </li>
               );
             })}
@@ -205,7 +214,7 @@ function Agenda({
 }
 
 /** One of your own Google events (D256): only you see it, and it opens in Google Calendar. */
-function GoogleEntry({ event }: { event: GoogleEvent }) {
+function GoogleEntry({ labId, event }: { labId: string; event: GoogleEvent }) {
   const time = event.starts_at
     ? `${new Date(event.starts_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })} `
     : "";
@@ -221,23 +230,26 @@ function GoogleEntry({ event }: { event: GoogleEvent }) {
   );
   const className =
     "flex w-full items-start gap-1.5 rounded border border-dashed px-1 py-0.5 text-left text-xs text-muted-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
+  const trigger =
+    event.url || event.join_url ? (
+      <a
+        href={event.url || event.join_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={className}
+      >
+        {content}
+      </a>
+    ) : (
+      <span tabIndex={0} className={className}>
+        {content}
+      </span>
+    );
   return (
     <li>
-      {event.url || event.join_url ? (
-        <a
-          href={event.url || event.join_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={`Your Google Calendar: ${event.title}`}
-          className={className}
-        >
-          {content}
-        </a>
-      ) : (
-        <span title={`Your Google Calendar: ${event.title}`} className={className}>
-          {content}
-        </span>
-      )}
+      <HoverCard trigger={trigger}>
+        <GoogleCardBody labId={labId} event={event} />
+      </HoverCard>
     </li>
   );
 }
@@ -631,7 +643,7 @@ export function CalendarPage() {
                   {onDay.length + fromGoogle.length > 0 && (
                     <ul className="mt-1 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
                       {fromGoogle.map((e) => (
-                        <GoogleEntry key={`google:${e.id}`} event={e} />
+                        <GoogleEntry key={`google:${e.id}`} labId={labId} event={e} />
                       ))}
                       {onDay.map((item) => (
                         <Entry

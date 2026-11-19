@@ -14,7 +14,7 @@ def push_off(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("labs", "0022_google_chat_reactions"),
+        ("labs", "0023_meeting_guests_and_answers"),
     ]
 
     operations = [

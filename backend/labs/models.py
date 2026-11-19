@@ -285,6 +285,11 @@ class Meeting(LabScopedModel):
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
     )
     attendees = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="+")
+    # People with no account here, invited by email to a Google Meet call: lower-case addresses.
+    # Google sends them the invitation; only the people on the meeting see the list.
+    guest_emails = models.JSONField(default=list, blank=True)
+    # Each attendee's answer: {user id: "accepted" | "maybe" | "declined"}. No entry: no reply.
+    responses = models.JSONField(default=dict, blank=True)
     # D254: a call the app made on someone's own Google or Zoom account. Only that person can
     # change or remove such a meeting, since the change is made with their account.
     video_provider = models.CharField(max_length=20, choices=VideoProvider.choices, blank=True)
@@ -614,7 +619,7 @@ class GoogleCalendarSync(LabScopedModel):
     )
     show_google_events = models.BooleanField(default=True)  # Google into the app (D256)
     # The app into Google (D255): off until the person turns it on, and the row itself is made
-    # only then (Google verification readiness, item 4). Migration 0022 switched off the rows
+    # only then (Google verification readiness, item 4). Migration 0024 switched off the rows
     # that were auto-created with push on.
     push_meetings = models.BooleanField(default=False)
     push_tasks = models.BooleanField(default=False)

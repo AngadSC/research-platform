@@ -1858,6 +1858,45 @@ paths:
                 items:
                   $ref: '#/components/schemas/GoogleEvent'
           description: ''
+  /api/labs/{lab_id}/calendar/google/events/{event_id}/answer/:
+    post:
+      operationId: labs_calendar_google_events_answer_create
+      description: Accept, maybe or decline one of your own Google Calendar invitations.
+      parameters:
+      - in: path
+        name: event_id
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleAnswerInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GoogleAnswerInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GoogleAnswerInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleAnswerResult'
+          description: ''
   /api/labs/{lab_id}/calendar/google/sync/:
     post:
       operationId: labs_calendar_google_sync_create
@@ -1982,6 +2021,47 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/calendar/meetings/{meeting_id}/answer/:
+    put:
+      operationId: labs_calendar_meetings_answer_update
+      description: Your own answer to a meeting you are on. A 404 for anyone not on
+        it.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: meeting_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnswerInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AnswerInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AnswerInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+          description: ''
   /api/labs/{lab_id}/calendar/video-options/:
     get:
       operationId: labs_calendar_video_options_retrieve
@@ -13011,6 +13091,23 @@ components:
       required:
       - id
       - title
+    AnswerInput:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/AnswerInputStatusEnum'
+      required:
+      - status
+    AnswerInputStatusEnum:
+      enum:
+      - accepted
+      - maybe
+      - declined
+      type: string
+      description: |-
+        * `accepted` - accepted
+        * `maybe` - maybe
+        * `declined` - declined
     ApprovalDecision:
       type: object
       properties:
@@ -13438,6 +13535,17 @@ components:
           nullable: true
           description: 'Meetings: who added it. Only they or a lab admin may change
             it.'
+        guests:
+          type: array
+          items:
+            type: string
+          description: 'Meetings: people invited by email (Google Meet).'
+        responses:
+          type: object
+          additionalProperties:
+            type: string
+          description: 'Meetings: each attendee''s answer (accepted, maybe, declined),
+            by user id.'
       required:
       - attendees
       - call_owner
@@ -13445,6 +13553,7 @@ components:
       - done
       - end_date
       - ends_at
+      - guests
       - id
       - join_url
       - kind
@@ -13453,6 +13562,7 @@ components:
       - project_color
       - project_id
       - project_name
+      - responses
       - starts_at
       - title
       - video_provider
@@ -16299,6 +16409,64 @@ components:
           type: boolean
       required:
       - dismissed
+    GoogleAnswerInput:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/GoogleAnswerInputStatusEnum'
+      required:
+      - status
+    GoogleAnswerInputStatusEnum:
+      enum:
+      - accepted
+      - tentative
+      - declined
+      type: string
+      description: |-
+        * `accepted` - accepted
+        * `tentative` - tentative
+        * `declined` - declined
+    GoogleAnswerResult:
+      type: object
+      properties:
+        id:
+          type: string
+        my_status:
+          type: string
+      required:
+      - id
+      - my_status
+    GoogleAttendee:
+      type: object
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/GoogleAttendeeStatusEnum'
+        organizer:
+          type: boolean
+        self:
+          type: boolean
+      required:
+      - email
+      - name
+      - organizer
+      - self
+      - status
+    GoogleAttendeeStatusEnum:
+      enum:
+      - accepted
+      - declined
+      - tentative
+      - needsAction
+      type: string
+      description: |-
+        * `accepted` - accepted
+        * `declined` - declined
+        * `tentative` - tentative
+        * `needsAction` - needsAction
     GoogleCalendarSync:
       type: object
       properties:
@@ -16504,12 +16672,34 @@ components:
         url:
           type: string
           description: The event in Google Calendar; may be empty.
+        location:
+          type: string
+        description:
+          type: string
+        organizer:
+          type: string
+        attendees:
+          type: array
+          items:
+            $ref: '#/components/schemas/GoogleAttendee'
+        my_status:
+          type: string
+          description: 'Your answer: accepted, declined, tentative, needsAction; empty
+            if not invited.'
+        repeats:
+          type: boolean
       required:
+      - attendees
       - date
+      - description
       - end_date
       - ends_at
       - id
       - join_url
+      - location
+      - my_status
+      - organizer
+      - repeats
       - starts_at
       - title
       - url
@@ -17987,13 +18177,19 @@ components:
           type: string
           nullable: true
           readOnly: true
+        guest_emails:
+          readOnly: true
+        responses:
+          readOnly: true
       required:
       - attendees
       - call_owner
       - ends_at
+      - guest_emails
       - id
       - join_url
       - notes
+      - responses
       - starts_at
       - title
       - video_provider
@@ -18025,6 +18221,15 @@ components:
             type: string
             format: uuid
           maxItems: 500
+        guests:
+          type: array
+          items:
+            type: string
+            format: email
+            maxLength: 254
+          description: Email addresses of people with a Google account, invited to
+            a Google Meet call.
+          maxItems: 50
         video:
           description: |-
             Make a Google Meet or Zoom call on your own account (D254). Only on create.
@@ -19942,6 +20147,15 @@ components:
             type: string
             format: uuid
           maxItems: 500
+        guests:
+          type: array
+          items:
+            type: string
+            format: email
+            maxLength: 254
+          description: Email addresses of people with a Google account, invited to
+            a Google Meet call.
+          maxItems: 50
         video:
           description: |-
             Make a Google Meet or Zoom call on your own account (D254). Only on create.
@@ -20891,10 +21105,16 @@ components:
           type: integer
         mine:
           type: boolean
+        people:
+          type: array
+          items:
+            type: string
+          description: Who reacted, by name, as far as known.
       required:
       - count
       - emoji
       - mine
+      - people
     ReactionInput:
       type: object
       properties:

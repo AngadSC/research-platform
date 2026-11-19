@@ -29,6 +29,8 @@ export function UserAvatar({
         src={url}
         alt=""
         aria-hidden
+        // Google picture addresses are not always served to a page that sends a referrer
+        referrerPolicy="no-referrer"
         onError={() => setFailed(url)}
         className={cn(base, "bg-muted object-cover", className)}
       />

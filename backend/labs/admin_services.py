@@ -32,6 +32,7 @@ from labs.models import (
     OnboardingCompletion,
     OnboardingItem,
     OrderStatus,
+    VideoProvider,
 )
 
 DETAIL_FIELDS = [
@@ -573,20 +574,38 @@ def _attendee_emails(lab, ids) -> set[str]:
     return {m.user.email for m in members if m.user.email}
 
 
+def _guests(emails, members: set[str]) -> list[str]:
+    """Guest addresses as stored: lower case, once each, and not a lab member (they are on the
+    meeting already)."""
+    mine = {e.lower() for e in members}
+    out: list[str] = []
+    for e in emails or []:
+        e = e.strip().lower()
+        if e and e not in mine and e not in out:
+            out.append(e)
+    return out
+
+
 @transaction.atomic
 def create_meeting(*, lab, user, data, request=None):
     from labs import video_calendar
 
     video = data.get("video") or ""
-    fields = {k: v for k, v in data.items() if k not in ("attendees", "video")}
+    fields = {k: v for k, v in data.items() if k not in ("attendees", "video", "guests")}
     _check_meeting_times(fields["starts_at"], fields["ends_at"])
     attendees = {*data.get("attendees", []), user.pk}
+    guests = _guests(data.get("guests"), _attendee_emails(lab, attendees))
+    if guests and video != VideoProvider.GOOGLE_MEET:
+        raise ValidationError({"guests": "Inviting people by email needs a Google Meet call."})
+    fields["guest_emails"] = guests
     if video:
         # D254: the call is made first, on the organiser's own account. If anything after it
         # fails, it is removed again, so Google or Zoom never keeps a meeting the app lost.
         account = video_calendar.account_for_new_call(lab, user, video)
         draft = Meeting(lab=lab, created_by=user, **fields)
-        video_calendar.create_call(draft, video, account, _attendee_emails(lab, attendees))
+        video_calendar.create_call(
+            draft, video, account, _attendee_emails(lab, attendees) | set(guests)
+        )
         fields.update(
             join_url=draft.join_url,
             external_id=draft.external_id,
@@ -611,12 +630,29 @@ def create_meeting(*, lab, user, data, request=None):
 
 
 @transaction.atomic
+def respond_to_meeting(meeting, *, user, status):
+    """Record `user`'s answer to a meeting they are on. Under a row lock, so two answers at once
+    both land. Only the person's own answer changes."""
+    row = Meeting.objects.for_lab(meeting.lab_id).select_for_update().get(pk=meeting.pk)
+    responses = dict(row.responses or {})
+    responses[str(user.pk)] = status
+    row.responses = responses
+    row.save(update_fields=["responses", "updated_at"])
+    return row
+
+
+@transaction.atomic
 def update_meeting(obj, *, user, data, request=None):
     from labs import video_calendar
 
     _check_can_change_meeting(obj, user)
     video_calendar.check_can_change(obj, user)
     data = {k: v for k, v in data.items() if k != "video"}  # a call is chosen when made
+    if "guests" in data:
+        if data["guests"] and obj.video_provider != VideoProvider.GOOGLE_MEET:
+            raise ValidationError({"guests": "Inviting people by email needs a Google Meet call."})
+        ids = data.get("attendees") or list(obj.attendees.values_list("pk", flat=True))
+        data["guest_emails"] = _guests(data.pop("guests"), _attendee_emails(obj.lab, ids))
     if obj.video_provider and "join_url" in data:
         data.pop("join_url")  # the app's own link stays (D254)
     _check_meeting_times(data.get("starts_at", obj.starts_at), data.get("ends_at", obj.ends_at))
@@ -626,9 +662,16 @@ def update_meeting(obj, *, user, data, request=None):
     _save(obj)
     if "attendees" in data:
         _set_attendees(obj, data["attendees"], by=user)
-    if obj.video_provider and data.keys() & {"title", "starts_at", "ends_at", "attendees"}:
+    if obj.video_provider and data.keys() & {
+        "title",
+        "starts_at",
+        "ends_at",
+        "attendees",
+        "guest_emails",
+    }:
         ids = obj.attendees.values_list("pk", flat=True)
-        video_calendar.update_call(obj, _attendee_emails(obj.lab, ids))  # raises: rolled back
+        emails = _attendee_emails(obj.lab, ids) | set(obj.guest_emails)
+        video_calendar.update_call(obj, emails)  # raises: rolled back
     record(
         A.MEETING_UPDATED,
         actor=user,

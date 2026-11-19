@@ -79,6 +79,13 @@ class CalendarItemSerializer(serializers.Serializer):
     organiser = serializers.UUIDField(
         allow_null=True, help_text="Meetings: who added it. Only they or a lab admin may change it."
     )
+    guests = serializers.ListField(
+        child=serializers.CharField(), help_text="Meetings: people invited by email (Google Meet)."
+    )
+    responses = serializers.DictField(
+        child=serializers.CharField(),
+        help_text="Meetings: each attendee's answer (accepted, maybe, declined), by user id.",
+    )
 
 
 class LabEventSerializer(serializers.ModelSerializer):
@@ -119,6 +126,8 @@ class MeetingSerializer(serializers.ModelSerializer):
             "attendees",
             "video_provider",
             "call_owner",
+            "guest_emails",
+            "responses",
         ]
         read_only_fields = fields
 
@@ -137,6 +146,12 @@ class MeetingInputSerializer(serializers.Serializer):
     )
     notes = serializers.CharField(max_length=5000, allow_blank=True, required=False)
     attendees = serializers.ListField(child=serializers.UUIDField(), max_length=500, required=False)
+    guests = serializers.ListField(
+        child=serializers.EmailField(max_length=254),
+        max_length=50,
+        required=False,
+        help_text="Email addresses of people with a Google account, invited to a Google Meet call.",
+    )
     video = serializers.ChoiceField(
         choices=VideoProvider.choices,
         required=False,
@@ -150,6 +165,27 @@ def _call_owner(meeting):
     return str(account.user_id) if meeting.video_provider and account is not None else None
 
 
+class GoogleAttendeeSerializer(serializers.Serializer):
+    email = serializers.CharField()
+    name = serializers.CharField()
+    status = serializers.ChoiceField(choices=["accepted", "declined", "tentative", "needsAction"])
+    organizer = serializers.BooleanField()
+    self = serializers.BooleanField()
+
+
+class AnswerInputSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=["accepted", "maybe", "declined"])
+
+
+class GoogleAnswerInputSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=["accepted", "tentative", "declined"])
+
+
+class GoogleAnswerResultSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    my_status = serializers.CharField()
+
+
 class GoogleEventSerializer(serializers.Serializer):
     """One of your own Google Calendar events, read live and never stored (D256)."""
 
@@ -161,6 +197,14 @@ class GoogleEventSerializer(serializers.Serializer):
     ends_at = serializers.DateTimeField(allow_null=True)
     join_url = serializers.CharField()
     url = serializers.CharField(help_text="The event in Google Calendar; may be empty.")
+    location = serializers.CharField()
+    description = serializers.CharField()
+    organizer = serializers.CharField()
+    attendees = GoogleAttendeeSerializer(many=True)
+    my_status = serializers.CharField(
+        help_text="Your answer: accepted, declined, tentative, needsAction; empty if not invited."
+    )
+    repeats = serializers.BooleanField()
 
 
 class GoogleCalendarSyncSerializer(serializers.Serializer):
@@ -240,6 +284,8 @@ def _item(
         "call_owner": None,
         "attendees": attendees,
         "organiser": None,
+        "guests": [],
+        "responses": {},
     }
 
 
@@ -257,7 +303,11 @@ def _meeting_item(m):
         attendees=[u.pk for u in m.attendees.all()],
     )
     item.update(
-        video_provider=m.video_provider, call_owner=_call_owner(m), organiser=m.created_by_id
+        video_provider=m.video_provider,
+        call_owner=_call_owner(m),
+        organiser=m.created_by_id,
+        guests=list(m.guest_emails or []),
+        responses=dict(m.responses or {}),
     )
     return item
 
@@ -406,6 +456,22 @@ class MeetingCreateView(MeetingMixin, generics.GenericAPIView):
         return Response(self.get_serializer(meeting).data, status=status.HTTP_201_CREATED)
 
 
+class MeetingAnswerView(MeetingMixin, generics.GenericAPIView):
+    """Your own answer to a meeting you are on. A 404 for anyone not on it."""
+
+    lookup_url_kwarg = "meeting_id"
+    perms = {"PUT": Perm.VIEW_LAB}
+
+    @extend_schema(request=AnswerInputSerializer, responses=MeetingSerializer)
+    def put(self, request, lab_id, meeting_id):
+        ser = AnswerInputSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        meeting = svc.respond_to_meeting(
+            self.get_object(), user=request.user, status=ser.validated_data["status"]
+        )
+        return Response(self.get_serializer(meeting).data)
+
+
 class MeetingDetailView(MeetingMixin, generics.GenericAPIView):
     """Its organiser or a lab admin on it may change it (`can_change_meeting`); everyone else on
     it gets a 403, and anyone not on it a 404."""
@@ -468,6 +534,22 @@ class GoogleEventsView(LabScopedViewMixin, generics.GenericAPIView):
             request.lab, request.user, ser.validated_data["from"], ser.validated_data["to"]
         )
         return Response(self.get_serializer(rows, many=True).data)
+
+
+class GoogleEventAnswerView(LabScopedViewMixin, generics.GenericAPIView):
+    """Accept, maybe or decline one of your own Google Calendar invitations."""
+
+    serializer_class = GoogleAnswerInputSerializer
+    perms = {"POST": Perm.VIEW_LAB}
+
+    @extend_schema(request=GoogleAnswerInputSerializer, responses=GoogleAnswerResultSerializer)
+    def post(self, request, lab_id, event_id):
+        ser = GoogleAnswerInputSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        out = video_calendar.respond_to_google_event(
+            request.lab, request.user, event_id, ser.validated_data["status"]
+        )
+        return Response(out)
 
 
 class GoogleCalendarSyncView(LabScopedViewMixin, generics.GenericAPIView):

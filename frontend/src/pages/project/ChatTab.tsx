@@ -33,6 +33,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/auth";
 import { useGoogleChat, useGoogleChatPeople } from "@/hooks/googleChat";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMentionPeople } from "@/hooks/mentions";
 import { CHAT_PAGE_SIZE, fetchOlderMessages, useChat } from "@/hooks/chat";
 import { personName, type ChatMessage } from "@/lib/api-types";
@@ -86,6 +87,20 @@ const standaloneGoogleLinks = (body: string) =>
     .split("\n")
     .map((line) => parseGoogleLink(line)?.url)
     .filter((u): u is string => !!u);
+
+/** Who reacted, as far as known: "Ada, Lee and 2 others". Google gives names for the people it
+ * can name; the rest are only in the count. */
+function reactorsText(r: { count: number; people?: string[] }) {
+  const names = r.people ?? [];
+  const shown = names.slice(0, 8);
+  const more = r.count - shown.length;
+  if (shown.length === 0) return `${r.count} ${r.count === 1 ? "person" : "people"}`;
+  const list =
+    shown.length > 1 ? `${shown.slice(0, -1).join(", ")} and ${shown.at(-1)}` : shown[0]!;
+  return more > 0 ? `${shown.join(", ")} and ${more} ${more === 1 ? "other" : "others"}` : list;
+}
+const whoReacted = (r: { count: number; people?: string[] }) =>
+  r.people?.length ? `: ${reactorsText(r)}` : "";
 
 /** D321: the four quick reactions; the picker has the rest. */
 export const QUICK_REACTIONS: [emoji: string, name: string][] = [
@@ -165,23 +180,33 @@ function MessageRow({
           <ul aria-label="Reactions" className="mt-1 flex flex-wrap gap-1">
             {reactions.map((r) => (
               <li key={r.emoji}>
-                <button
-                  type="button"
-                  aria-pressed={r.mine}
-                  aria-label={`${r.emoji} ${r.count}${r.mine ? ", including you" : ""}. ${r.mine ? "Remove yours" : "Add yours"}`}
-                  onClick={() => onReact(r.emoji)}
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                    r.mine
-                      ? "border-primary/50 bg-primary/10 text-foreground"
-                      : "bg-card hover:bg-accent",
-                  )}
-                >
-                  <span aria-hidden>{r.emoji}</span>
-                  <span aria-hidden className="tabular-nums">
-                    {r.count}
-                  </span>
-                </button>
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-pressed={r.mine}
+                        aria-label={`${r.emoji} ${r.count}${r.mine ? ", including you" : ""}${whoReacted(r)}. ${r.mine ? "Remove yours" : "Add yours"}`}
+                        onClick={() => onReact(r.emoji)}
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                          r.mine
+                            ? "border-primary/50 bg-primary/10 text-foreground"
+                            : "bg-card hover:bg-accent",
+                        )}
+                      >
+                        <span aria-hidden>{r.emoji}</span>
+                        <span aria-hidden className="tabular-nums">
+                          {r.count}
+                        </span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-64">
+                      <span className="mr-1">{r.emoji}</span>
+                      {reactorsText(r)}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </li>
             ))}
           </ul>
