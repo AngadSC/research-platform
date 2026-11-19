@@ -247,8 +247,29 @@ def test_split_disconnect_leaves_the_other_service_alone(split, transport, lab_u
     got = rows(lab, users["pi"])
     assert got[gone].status == AccountStatus.REVOKED
     assert got[kept].status == AccountStatus.ACTIVE and got[kept].access_token_ct
-    revoked = [kw["data"]["token"] for kw in transport.sent("POST", REVOKE)]
-    assert revoked == ["gd-at-rt" if gone == "google_drive" else "gc-at-rt"]
+    # Same person and address: the pair counts as sharing a grant (a row from before the split
+    # may), so the provider revoke is skipped. Conservative by design.
+    assert transport.sent("POST", REVOKE) == []
+
+
+def test_a_pre_split_calendar_row_still_counts_a_drive_row_as_sharing_its_grant(
+    settings, transport, lab_users, make_lab, join
+):
+    lab, users = lab_users
+    other = make_lab("Other")
+    join(users["pi"], other, "pi")
+    connect(  # before the split: one grant for both
+        transport, users["pi"], lab, "google_calendar", " ".join(registry.bundle_scopes(CAL)), "old"
+    )
+    connect(transport, users["pi"], other, "google_drive", DRIVE_SCOPES, "gd-at")
+    settings.INTEGRATION_CLIENTS = {
+        **settings.INTEGRATION_CLIENTS,
+        "google_calendar": {"client_id": "gc-client", "client_secret": "gc-secret"},
+    }
+    transport.on("POST", REVOKE, response(200, {}))
+    services.disconnect(rows(lab, users["pi"])["google_calendar"], actor=users["pi"])
+    assert transport.sent("POST", REVOKE) == []
+    assert rows(other, users["pi"])["google_drive"].status == AccountStatus.ACTIVE
 
 
 # ---------------------------------------------------------------- the Picker token's scope

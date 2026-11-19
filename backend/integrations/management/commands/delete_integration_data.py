@@ -4,16 +4,18 @@ verification item 10; the privacy policy points here). Run by the operator:
     python manage.py delete_integration_data --email person@example.test [--lab <uuid>]
         [--chat-name "Exact Name"] [--dry-run]
 
-For the person (their labbenchos account, by its email addresses, and any connected account at
-that address, whoever connected it): every connected account is revoked as on disconnect (tokens
-wiped and revoked at the provider, best effort, unless another lab still uses the grant) and then
-anonymised for good; their Google Calendar settings and push records are deleted; Google Chat
-links made with their connection are removed; the Google profile picture saved on chat messages
-they wrote in Google is cleared, as are their cached directory entries. `--chat-name` (with
-`--lab`) also deletes the Google Chat messages stored under exactly that sender name, for someone
-with no account here. Lab records stay: linked items' titles and links, meetings and their links,
-and the text of chat messages written by lab members. One `integration.data_deleted` audit event
-per lab changed. `--dry-run` reports the counts and changes nothing.
+For the person (their labbenchos account, matched by its primary or verified email addresses):
+every connected account they own is revoked as on disconnect (tokens wiped and revoked at the
+provider, best effort, unless another lab or user still uses the grant) and then anonymised for
+good; their Google Calendar settings and push records are deleted; Google Chat links made with
+their connection are removed; the Google profile picture saved on chat messages linked to their
+account is cleared, as are their cached directory entries. Google connections at that address made
+by another labbenchos user are never touched: they are listed as "skipped (connected by another
+user)", by id, for the operator to follow up. `--chat-name` (with `--lab`) also deletes the Google
+Chat messages stored under exactly that sender name (not blank, not the placeholder), whether or
+not the person has an account. Lab records stay: linked items' titles and links, meetings and their
+links, and the text of chat messages written by lab members. One `integration.data_deleted` audit
+event per lab changed. `--dry-run` reports the counts and changes nothing.
 """
 
 from allauth.account.models import EmailAddress
@@ -27,6 +29,7 @@ from audit.models import AuditAction
 from core.models import User
 from integrations import services
 from integrations.models import AccountStatus, ConnectedAccount
+from labs.google_chat import UNKNOWN_SENDER
 from labs.models import ChatSource, GoogleCalendarSync, GoogleChatBridge, Lab, LabChatMessage
 from projects.models import ChatMessage
 
@@ -50,6 +53,13 @@ class Command(BaseCommand):
         email = email.strip()
         if "@" not in email:
             raise CommandError("Give a full email address.")
+        if chat_name is not None and chat_name.strip().casefold() in (
+            "",
+            UNKNOWN_SENDER.casefold(),
+        ):
+            raise CommandError(
+                "--chat-name must be a real sender name, not blank or the placeholder."
+            )
         if chat_name and not lab:
             raise CommandError("--chat-name needs --lab: a name is only matched in one lab.")
         labs = Lab.objects.filter(pk=lab) if lab else Lab.objects.all()
@@ -58,7 +68,11 @@ class Command(BaseCommand):
         users = list(
             User.objects.filter(
                 Q(email__iexact=email)
-                | Q(pk__in=EmailAddress.objects.filter(email__iexact=email).values("user"))
+                | Q(
+                    pk__in=EmailAddress.objects.filter(email__iexact=email, verified=True).values(
+                        "user"
+                    )
+                )
             )
         )
         totals = {}
@@ -77,17 +91,24 @@ class Command(BaseCommand):
             self.stdout.write("Dry run: nothing was changed.")
 
     def _lab(self, lab, email, users, chat_name) -> dict:
-        rows = list(
-            ConnectedAccount.objects.for_lab(lab)
-            .select_for_update()
+        live_rows = ConnectedAccount.objects.for_lab(lab).exclude(
+            external_account_id__startswith="deleted:"
+        )
+        rows = list(live_rows.select_for_update().filter(user__in=users))
+        # Google connections at this address made by someone else are theirs: listed, not touched.
+        skipped = list(
+            live_rows.filter(provider__startswith="google_")
             .filter(
-                Q(user__in=users)
-                | Q(external_email__iexact=email)
+                Q(external_email__iexact=email)
                 | Q(external_account_id__iexact=email)  # Google Calendar is named by the email
                 | Q(external_account_id=services.retired_id(email))
             )
-            .exclude(external_account_id__startswith="deleted:")
+            .exclude(user__in=users)
+            .values_list("pk", flat=True)
         )
+        if skipped:
+            ids = ", ".join(str(i) for i in skipped)
+            self.stdout.write(f"{lab.name}: skipped (connected by another user): {ids}")
         calendars = GoogleCalendarSync.objects.for_lab(lab).filter(account__in=rows).count()
         bridges = GoogleChatBridge.objects.for_lab(lab).filter(account__in=rows)
         counts = {"accounts": len(rows), "calendar_settings": calendars}

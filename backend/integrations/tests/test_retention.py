@@ -2,12 +2,15 @@
 call goes through the fake transport; nothing leaves the process."""
 
 import importlib
+from io import StringIO
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-from django.core.management import call_command
+from allauth.account.models import EmailAddress
+from django.core.management import CommandError, call_command
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from audit.models import AuditAction, AuditEvent
@@ -315,6 +318,7 @@ def test_a_deletion_request_anonymises_that_person_only_and_audits_each_lab(
     transport, requester, django_capture_on_commit_callbacks
 ):
     lab, other, u, kept = requester
+    EmailAddress.objects.create(user=u["pi"], email="pi@example.test", verified=True)
     with django_capture_on_commit_callbacks(execute=True):
         call_command("delete_integration_data", email="PI@example.test")  # their Google address
     mine = [*rows(lab, u["pi"]).values(), *rows(other, u["pi"]).values()]
@@ -351,6 +355,62 @@ def test_a_deletion_request_by_account_email_clears_their_chat_pictures_and_a_na
     assert {r.status for r in rows(lab, u["pi"]).values()} == {AccountStatus.REVOKED}
     # --lab keeps it to that lab
     assert {r.status for r in rows(other, u["pi"]).values()} == {AccountStatus.ACTIVE}
+
+
+def test_another_users_connection_at_the_same_address_is_listed_and_never_touched(
+    transport, requester, django_capture_on_commit_callbacks
+):
+    lab, other, u, kept = requester
+    theirs = kept  # the member's own Google connections, at the same address as the PI's
+    for account in theirs.values():
+        account.external_email = u["pi"].email
+        account.save()
+    chat = ConnectedAccount.objects.create(
+        lab=lab,
+        user=u["member"],
+        provider="google_chat",
+        external_account_id="2002",
+        external_email=u["pi"].email,
+        connected_at=timezone.now(),
+    )
+    GoogleChatBridge.objects.for_lab(
+        lab
+    ).delete()  # one link per lab: the member's replaces the PI's
+    bridge = GoogleChatBridge.objects.create(
+        lab=lab, account=chat, created_by=u["member"], space="spaces/BBBB", cursor="x"
+    )
+    out = StringIO()
+    with django_capture_on_commit_callbacks(execute=True):
+        call_command("delete_integration_data", email=u["pi"].email, lab=str(lab.pk), stdout=out)
+    for account in [*theirs.values(), chat]:
+        account.refresh_from_db()
+        assert account.status == AccountStatus.ACTIVE and account.external_email
+        assert str(account.pk) in out.getvalue()
+    assert "skipped (connected by another user)" in out.getvalue()
+    assert GoogleChatBridge.objects.for_lab(lab).filter(pk=bridge.pk).exists()
+    assert {r.status for r in rows(lab, u["pi"]).values()} == {AccountStatus.REVOKED}
+
+
+def test_only_verified_email_addresses_pick_the_person(transport, requester):
+    lab, other, u, kept = requester
+    EmailAddress.objects.create(user=u["member"], email="other@example.test", verified=False)
+    out = StringIO()
+    call_command("delete_integration_data", email="other@example.test", stdout=out)
+    assert "Nothing found" in out.getvalue()
+    assert {a.status for a in kept.values()} == {AccountStatus.ACTIVE}
+    EmailAddress.objects.filter(email="other@example.test").update(verified=True)
+    out = StringIO()
+    call_command("delete_integration_data", email="other@example.test", dry_run=True, stdout=out)
+    assert "accounts 2" in out.getvalue()
+
+
+@pytest.mark.parametrize("name", ["", "   ", "Someone on Google Chat", " someone on google chat "])
+def test_a_blank_or_placeholder_chat_name_is_refused(requester, name):
+    lab = requester[0]
+    with pytest.raises(CommandError):
+        call_command(
+            "delete_integration_data", email="pi@example.test", lab=str(lab.pk), chat_name=name
+        )
 
 
 def test_revoked_rows_from_before_are_cleared_by_the_migration(transport, lab_users):

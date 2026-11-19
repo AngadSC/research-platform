@@ -285,7 +285,10 @@ export function PrivacyPage() {
         </li>
         <li>
           You can disconnect at any time in Integrations, or remove our access from your{" "}
-          <a href="https://myaccount.google.com/permissions">Google account settings</a>.
+          <a href="https://myaccount.google.com/permissions">Google account settings</a>. If you
+          remove it in Google, the connection shows here as needing to reconnect and our tokens are
+          wiped, but the details described above stay until you disconnect it, or the lab removes
+          it, which deletes them.
         </li>
       </ul>
 
@@ -297,26 +300,30 @@ export function PrivacyPage() {
       <ul>
         <li>
           remove every connection you have, deleting the tokens and revoking our access at Google
-          (unless that Google account is still connected by someone else in labbenchos);
+          (unless that Google account is still connected by someone else in labbenchos). We only
+          change connections made by your own labbenchos account: one that someone else made with
+          the same Google address is not touched;
         </li>
         <li>
           delete the Google email address, permissions and account ID we hold for those connections,
-          leaving no code that could match them again;
+          leaving no code that could match them again (the audit log entries described above are
+          kept as security records);
         </li>
         <li>delete your calendar settings and our list of what we put on your calendar;</li>
         <li>remove links to Google Chat conversations made with your connection;</li>
         <li>
-          remove your Google profile photo link from chat messages you wrote in Google Chat.
-          Directory lookups of your name expire within a day.
+          remove your Google profile photo link from chat messages linked to your labbenchos
+          account. Directory lookups of your name expire within a day.
         </li>
       </ul>
       <p>
-        If you have no labbenchos account but your messages were copied in from a Google Chat
-        conversation, tell us the name they appear under and the lab, and we will delete the
-        messages stored under that name in that lab. Lab records, such as linked files&rsquo; titles
-        and links, meetings, and messages you wrote in labbenchos, belong to the lab: ask its
-        administrators about them. If a lab still has a conversation linked, what you write there
-        later is copied in again; leave the conversation or ask the lab to unlink it to stop that.
+        Messages copied in from a Google Chat conversation without a link to your labbenchos account
+        are stored under the name they appear under. Whether or not you have an account, tell us
+        that name and the lab, and we will delete the messages stored under that name in that lab.
+        Lab records, such as linked files&rsquo; titles and links, meetings, and messages you wrote
+        in labbenchos, belong to the lab: ask its administrators about them. If a lab still has a
+        conversation linked, what you write there later is copied in again; leave the conversation
+        or ask the lab to unlink it to stop that.
       </p>
 
       <h2>Other connected services and AI</h2>

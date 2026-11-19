@@ -458,7 +458,10 @@ def _grant_used_elsewhere(row) -> bool:
     Rows already revoked, including the ones being revoked in this same call, never count.
     `row` is the snapshot `_retire` took before clearing the id and email."""
     provider = registry.PROVIDERS.get(row.provider)
-    names = [m.name for m in registry.bundle_of(provider)] if provider else [row.provider]
+    # The static bundle, not `bundle_of`: a row connected before the optional Calendar client was
+    # set still holds the whole grant. Conservative: a revoke may be skipped, never one that a
+    # connection still needs.
+    names = [provider.name, *provider.bundle] if provider else [row.provider]
     same = Q(external_account_id=row.external_account_id)
     if row.external_email:
         same |= Q(external_email__iexact=row.external_email)
