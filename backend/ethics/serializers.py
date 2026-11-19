@@ -22,6 +22,9 @@ class EthicsApprovalSerializer(serializers.ModelSerializer):
     projects = serializers.SerializerMethodField()
     attachments = serializers.SerializerMethodField()
     can_view_files = serializers.SerializerMethodField()
+    renewal_status = serializers.ChoiceField(
+        choices=[ApprovalStatus.PENDING, ApprovalStatus.ACTIVE], read_only=True, allow_null=True
+    )
 
     class Meta:
         model = EthicsApproval
@@ -34,6 +37,8 @@ class EthicsApprovalSerializer(serializers.ModelSerializer):
             "expiry_date",
             "status",
             "restricted",
+            "renews",
+            "renewal_status",
             "projects",
             "attachments",
             "can_view_files",
@@ -70,11 +75,26 @@ class EthicsApprovalSerializer(serializers.ModelSerializer):
 
 
 class EthicsApprovalInputSerializer(serializers.Serializer):
-    approval_number = serializers.CharField(max_length=100, validators=[no_control_chars])
-    board = serializers.CharField(max_length=200, validators=[no_control_chars])
-    title = serializers.CharField(max_length=300, validators=[no_control_chars])
+    # number, board and title may be left out only when `renews` fills them from the old approval
+    approval_number = serializers.CharField(
+        max_length=100, validators=[no_control_chars], required=False
+    )
+    board = serializers.CharField(max_length=200, validators=[no_control_chars], required=False)
+    title = serializers.CharField(max_length=300, validators=[no_control_chars], required=False)
     projects = serializers.ListField(child=serializers.UUIDField(), required=False)
     approval_date = serializers.DateField(required=False, allow_null=True)
     expiry_date = serializers.DateField(required=False, allow_null=True)
     status = serializers.ChoiceField(choices=ApprovalStatus.choices, required=False)
     restricted = serializers.BooleanField(required=False)
+    renews = serializers.UUIDField(required=False)  # create only: start a renewal of this one
+
+    def validate(self, attrs):
+        if not self.partial and not attrs.get("renews"):
+            missing = {
+                f: "This field is required."
+                for f in ("approval_number", "board", "title")
+                if f not in attrs
+            }
+            if missing:
+                raise serializers.ValidationError(missing)
+        return attrs

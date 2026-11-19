@@ -61,21 +61,25 @@ export function EthicsListPage() {
       key: "n",
       header: "Number",
       cell: (a) => (
-        <span className="font-medium">
-          {a.approval_number}
-          {a.restricted && <RestrictedBadge />}
-        </span>
+        <div className="grid">
+          <span className="font-medium">
+            {a.approval_number}
+            {a.restricted && <RestrictedBadge />}
+          </span>
+          <span className="text-xs text-muted-foreground sm:hidden">{a.title}</span>
+        </div>
       ),
     },
-    { key: "t", header: "Title", cell: (a) => a.title },
-    { key: "b", header: "Board", cell: (a) => a.board },
+    // below sm the title moves under the number and the board is dropped, so Status fits
+    { key: "t", header: "Title", cell: (a) => a.title, className: "hidden sm:table-cell" },
+    { key: "b", header: "Board", cell: (a) => a.board, className: "hidden sm:table-cell" },
     {
       key: "e",
       header: "Expires",
       cell: (a) => (
         <div className="grid">
           <span>{dayText(a.expiry_date)}</span>
-          <ExpiryText expiry={a.expiry_date} />
+          <ExpiryText expiry={a.expiry_date} status={a.status} renewal={a.renewal_status} />
         </div>
       ),
     },
@@ -129,6 +133,7 @@ export function EthicsDetailPage() {
   const { data: a, error } = useApproval(labId, approvalId);
   const send = useApprovalUpload(labId, approvalId);
   const del = useDeleteApproval(labId, approvalId);
+  const renew = useSaveApproval(labId);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   if (error) return <FormError message={formErrors(error, []).form} />;
@@ -142,6 +147,29 @@ export function EthicsDetailPage() {
         actions={
           canEdit && (
             <>
+              {a.status !== "pending" && !a.renewal_status && (
+                <Button
+                  variant="outline"
+                  disabled={renew.isPending}
+                  onClick={() =>
+                    renew.mutate(
+                      { renews: a.id },
+                      {
+                        onSuccess: (r) => {
+                          toast.success(
+                            "Renewal started. Add the new number and dates when the board replies.",
+                          );
+                          void navigate(`/labs/${labId}/ethics/${r.id}/edit`);
+                        },
+                        onError: (e) =>
+                          toast.error(formErrors(e, []).form ?? "Something went wrong."),
+                      },
+                    )
+                  }
+                >
+                  Start renewal
+                </Button>
+              )}
               <IconAction label="Edit" icon={<Pencil aria-hidden />} variant="outline" to="edit" />
               <IconAction
                 label="Delete"
@@ -161,7 +189,7 @@ export function EthicsDetailPage() {
         <Fact label="Expires on">{dayText(a.expiry_date)}</Fact>
         {a.expiry_date && (
           <Fact label="Time left">
-            <ExpiryText expiry={a.expiry_date} />
+            <ExpiryText expiry={a.expiry_date} status={a.status} renewal={a.renewal_status} />
           </Fact>
         )}
       </dl>

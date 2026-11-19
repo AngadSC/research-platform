@@ -142,6 +142,17 @@ def test_ethics_window_and_restricted(world):
     assert items[0]["expired"] is True and items[1]["expired"] is False
 
 
+def test_ethics_with_a_renewal_on_file_is_not_listed(world):
+    mk = lambda n, d, **kw: EthicsApproval.objects.create(  # noqa: E731
+        lab=world["lab"], approval_number=n, board="REB", title=n, created_by=world["pi"], **kw
+    )
+    old, rejected = (mk(n, days(10), approval_date=days(-400), expiry_date=days(10)) for n in "ab")
+    mk("a2", None, renews=old, status="pending")
+    mk("b2", None, renews=rejected, status="withdrawn")
+    items = get(world)["attention"]["ethics"]["items"]
+    assert [i["title"] for i in items] == ["b"]
+
+
 def test_restricted_ethics_hidden_from_non_leads_by_rule(world):
     # the endpoint is closed to members, so the rule is checked on the query it relies on
     from ethics.models import EthicsApproval as E

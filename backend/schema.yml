@@ -3447,7 +3447,6 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/EthicsApprovalInput'
-        required: true
       security:
       - sessionAuth: []
       responses:
@@ -16115,6 +16114,17 @@ components:
         restricted:
           type: boolean
           readOnly: true
+        renews:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        renewal_status:
+          readOnly: true
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/RenewalStatusEnum'
+          - $ref: '#/components/schemas/NullEnum'
         projects:
           type: array
           items:
@@ -16151,6 +16161,8 @@ components:
       - expiry_date
       - id
       - projects
+      - renewal_status
+      - renews
       - restricted
       - status
       - title
@@ -16184,10 +16196,9 @@ components:
           $ref: '#/components/schemas/ApprovalStatusEnum'
         restricted:
           type: boolean
-      required:
-      - approval_number
-      - board
-      - title
+        renews:
+          type: string
+          format: uuid
     Event:
       type: object
       properties:
@@ -20579,6 +20590,9 @@ components:
           $ref: '#/components/schemas/ApprovalStatusEnum'
         restricted:
           type: boolean
+        renews:
+          type: string
+          format: uuid
     PatchedExternalOutputInput:
       type: object
       properties:
@@ -22110,6 +22124,14 @@ components:
       required:
       - asked
       - sent
+    RenewalStatusEnum:
+      enum:
+      - pending
+      - active
+      type: string
+      description: |-
+        * `pending` - pending
+        * `active` - active
     Resource:
       type: object
       properties:

@@ -4,6 +4,7 @@ import { plural } from "@/lib/format";
 
 export const WARN_DAYS = 60;
 export const URGENT_DAYS = 7;
+export const EXPIRY_WARNING_DAYS = 30;
 export const APPROVAL_STATUSES: { value: ApprovalStatus; label: string }[] = [
   { value: "pending", label: "Pending" },
   { value: "active", label: "Active" },
@@ -25,12 +26,17 @@ export function relativeDays(days: number): string {
   return days > 0 ? `in ${plural(days, "day")}` : `${plural(-days, "day")} ago`;
 }
 
-/** Warn within 60 days; red within 7 days or once expired. Withdrawn approvals stay neutral. */
+/** The status pill: red once expired, green while active, neutral otherwise. Running out soon
+ * is said by `expiryWarning`, not by the pill. */
 export function expiryTone(days: number, status: string): BadgeVariant {
-  if (status === "withdrawn") return "secondary";
-  if (status === "expired" || days < 0 || days <= URGENT_DAYS) return "destructive";
-  if (days <= WARN_DAYS) return "warning";
+  if (status === "expired" || (status === "active" && days < 0)) return "destructive";
   return status === "active" ? "success" : "secondary";
+}
+
+/** Shown beside an active approval that runs out within 30 days; red within 7. */
+export function expiryWarning(days: number, status: string): BadgeVariant | null {
+  if (status !== "active" || days < 0 || days > EXPIRY_WARNING_DAYS) return null;
+  return days <= URGENT_DAYS ? "destructive" : "warning";
 }
 
 export const dayText = (iso: string | null) =>
