@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { ConfirmDelete } from "@/components/shared/ConfirmDelete";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormError } from "@/components/shared/FormError";
@@ -204,10 +205,11 @@ export function OrdersSection({
   reorder: InventoryItem | null;
   onReorderClose: () => void;
 }) {
-  const { list, create, update, refreshStock } = useOrders(labId);
+  const { list, create, update, remove, refreshStock } = useOrders(labId);
   const [adding, setAdding] = useState(false);
   const [receiving, setReceiving] = useState<InventoryOrder>();
   const [cancelling, setCancelling] = useState<InventoryOrder>();
+  const [deleting, setDeleting] = useState<InventoryOrder>();
   const orders = list.data ?? [];
 
   function setStatus(order: InventoryOrder, status: OrderStatus) {
@@ -236,7 +238,8 @@ export function OrdersSection({
         <div className="min-w-32">
           <span className="font-medium">{o.name}</span>
           <p className="text-xs text-muted-foreground">
-            {[o.vendor, o.catalog_number].filter(Boolean).join(" · ") || o.item_name}
+            {[o.vendor, o.catalog_number].filter(Boolean).join(" · ") ||
+              (o.item_name !== o.name ? o.item_name : "")}
           </p>
         </div>
       ),
@@ -286,7 +289,12 @@ export function OrdersSection({
               Cancel order<span className="sr-only">: {o.name}</span>
             </Button>
           )}
-          {!o.url && !(canEdit && o.status === "received") && "-"}
+          {canEdit && o.status === "cancelled" && (
+            <Button variant="outline" size="sm" onClick={() => setDeleting(o)}>
+              Delete<span className="sr-only">: {o.name}</span>
+            </Button>
+          )}
+          {!o.url && !(canEdit && (o.status === "received" || o.status === "cancelled")) && "-"}
         </div>
       ),
     },
@@ -342,6 +350,22 @@ export function OrdersSection({
           </div>
         </DialogContent>
       </Dialog>
+      <ConfirmDelete
+        open={!!deleting}
+        name={`the order for ${deleting?.name ?? ""}`}
+        noun="order"
+        description="It is removed from the list for good. The item's stock is not affected."
+        pending={remove.isPending}
+        onClose={() => setDeleting(undefined)}
+        onConfirm={() =>
+          deleting &&
+          remove.mutate(deleting.id, {
+            onSuccess: () => toast.success("Order deleted"),
+            onError: (e) => toast.error(formErrors(e, []).form ?? "Could not delete the order."),
+            onSettled: () => setDeleting(undefined),
+          })
+        }
+      />
       <Dialog open={!!cancelling} onOpenChange={(o) => !o && setCancelling(undefined)}>
         <DialogContent>
           <DialogTitle className="text-base font-semibold">

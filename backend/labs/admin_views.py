@@ -2,8 +2,10 @@
 and inventory are here."""
 
 import csv
+from datetime import timedelta
 
-from django.db.models import Q
+from django.db.models import Count, DecimalField, OuterRef, Q, Subquery, Sum
+from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
@@ -35,7 +37,13 @@ from labs.admin_serializers import (
     ResourceSerializer,
     StartersLoadedSerializer,
 )
-from labs.models import InstitutionResource, InventoryItem, InventoryOrder, OnboardingItem
+from labs.models import (
+    InstitutionResource,
+    InventoryItem,
+    InventoryOrder,
+    InventoryUsage,
+    OnboardingItem,
+)
 
 
 def _body(serializer_class, request, partial=False):
@@ -259,6 +267,9 @@ def _filtered(qs, params):
     return qs.order_by(order, "id")
 
 
+USE_WEEKS = 8
+
+
 class InventoryMixin(LabScopedViewMixin):
     model = InventoryItem
     serializer_class = InventorySerializer
@@ -266,7 +277,28 @@ class InventoryMixin(LabScopedViewMixin):
     needs_inventory = True  # D227: HasPerm answers 403 while the lab has inventory turned off
 
     def get_queryset(self):
-        return super().get_queryset().select_related("owner")
+        # What the last 8 weeks of (not undone) uses took, for "about N weeks left".
+        uses = (
+            InventoryUsage.objects.filter(
+                item=OuterRef("pk"),
+                reversed_at__isnull=True,
+                created_at__gte=timezone.now() - timedelta(weeks=USE_WEEKS),
+            )
+            .order_by()
+            .values("item")
+        )
+        return (
+            super()
+            .get_queryset()
+            .select_related("owner")
+            .annotate(
+                recent_uses=Subquery(uses.annotate(n=Count("pk")).values("n")),
+                recent_taken=Subquery(
+                    uses.annotate(t=Sum(Coalesce("deducted", "amount"))).values("t"),
+                    output_field=DecimalField(),
+                ),
+            )
+        )
 
     def out(self, obj, code=status.HTTP_200_OK):
         return Response(self.get_serializer(self.get_queryset().get(pk=obj.pk)).data, status=code)
@@ -436,7 +468,12 @@ class OrderExportView(OrderMixin, generics.GenericAPIView):
 
 class OrderDetailView(OrderMixin, generics.GenericAPIView):
     lookup_url_kwarg = "inventoryorder_id"
-    perms = {"PATCH": Perm.MANAGE_INVENTORY}
+    perms = {"PATCH": Perm.MANAGE_INVENTORY, "DELETE": Perm.MANAGE_INVENTORY}
+
+    @extend_schema(responses={204: None})
+    def delete(self, request, lab_id, inventoryorder_id):
+        svc.delete_inventory_order(self.get_object(), user=request.user, request=request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(request=InventoryOrderInputSerializer, responses=InventoryOrderSerializer)
     def patch(self, request, lab_id, inventoryorder_id):

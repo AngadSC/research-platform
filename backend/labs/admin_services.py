@@ -32,6 +32,7 @@ from labs.models import (
     OnboardingCompletion,
     OnboardingItem,
     OrderStatus,
+    ProtocolReagent,
     VideoProvider,
 )
 
@@ -278,10 +279,30 @@ def delete_inventory_item(obj, *, user, request=None):
             ).delete()
             _delete(obj, A.INVENTORY_ITEM_DELETED, user=user, request=request)
     except ProtectedError as exc:
-        raise Conflict(
-            "A protocol or a record of use still points at this item. Remove it from the "
-            "protocol first, or mark the item as retired instead."
-        ) from exc
+        raise Conflict(_blockers(obj)) from exc
+
+
+def _blockers(item):
+    """Say what still points at the item, so the person knows what to remove."""
+    lines = ProtocolReagent.objects.for_lab(item.lab_id).filter(item=item)
+    names = sorted({n for n in lines.values_list("protocol__name", flat=True)})
+    uses = (
+        InventoryUsage.objects.for_lab(item.lab_id)
+        .filter(item=item, reversed_at__isnull=True)
+        .count()
+    )
+    parts = []
+    if names:
+        parts.append(
+            ("protocol " if len(names) == 1 else "protocols ") + ", ".join(f"'{n}'" for n in names)
+        )
+    if uses:
+        parts.append(f"{uses} recorded {'use' if uses == 1 else 'uses'}")
+    what = " and ".join(parts) or "a protocol or a record of use"
+    return (
+        f"This item can't be deleted: it is still in {what}. Undo the uses and take it out of "
+        "the protocols first, or mark the item as retired instead."
+    )
 
 
 IMPORT_MAX_BYTES = 1024 * 1024
@@ -465,6 +486,16 @@ def update_inventory_order(order, *, user, data, request=None):
     if cancelling:
         _take_from_stock(order, user=user, request=request)
     return order
+
+
+@transaction.atomic
+def delete_inventory_order(order, *, user, request=None):
+    """D217 amended: only a cancelled order goes. Cancelling a received one already took its
+    stock back, so nothing else depends on the row."""
+    order = InventoryOrder.objects.for_lab(order.lab_id).select_for_update().get(pk=order.pk)
+    if order.status != OrderStatus.CANCELLED:
+        raise ValidationError({"status": "Only a cancelled order can be deleted. Cancel it first."})
+    _delete(order, A.INVENTORY_ORDER_DELETED, user=user, request=request)
 
 
 _AFTER_RECEIVED = (OrderStatus.RECEIVED, OrderStatus.CANCELLED)

@@ -284,6 +284,16 @@ function ItemDialog({
   );
 }
 
+/** "about 3 weeks left", from the server's rate over the last 8 weeks; nothing without one. */
+function WeeksLeft({ item: i }: { item: InventoryItem }) {
+  if (i.weeks_left == null) return null;
+  const text =
+    i.weeks_left < 1
+      ? "less than a week left"
+      : `about ${i.weeks_left} ${i.weeks_left === 1 ? "week" : "weeks"} left`;
+  return <span className="text-xs text-muted-foreground">{text}</span>;
+}
+
 function LowBadge({ item: i }: { item: InventoryItem }) {
   return (
     <span
@@ -380,6 +390,7 @@ export function InventorySection({
         <span className="inline-flex items-center gap-2">
           {`${trimNumber(i.quantity)} ${i.unit}`.trim()}
           {i.low && <LowBadge item={i} />}
+          <WeeksLeft item={i} />
         </span>
       ),
     },
@@ -517,6 +528,7 @@ export function InventorySection({
                 <span className="flex shrink-0 items-center gap-2 text-sm">
                   {`${trimNumber(i.quantity)} ${i.unit}`.trim()}
                   {i.low && <LowBadge item={i} />}
+                  <WeeksLeft item={i} />
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">

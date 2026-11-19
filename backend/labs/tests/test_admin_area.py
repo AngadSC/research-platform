@@ -3,6 +3,7 @@ Permissions and cross-lab ids are in tests/test_permission_matrix.py."""
 
 import pytest
 from django.core.management import call_command
+from django.urls import reverse
 from rest_framework.test import APIClient
 
 from audit.models import AuditAction, AuditEvent
@@ -398,3 +399,22 @@ def test_an_item_ticked_by_training_cannot_be_ticked_by_hand(world):
     )
     tick = url(lab, f"my-onboarding/{item.json()['id']}/")
     assert api(users["member"]).post(tick, {"done": True}, format="json").status_code == 400
+
+
+def test_only_a_cancelled_order_can_be_deleted(make_lab, make_user, join):
+    from labs.models import InventoryOrder
+
+    lab, other = make_lab("Order Lab"), make_lab("Other Lab")
+    member, viewer, outsider = make_user(), make_user(), make_user()
+    join(member, lab, LabRole.MEMBER)
+    join(viewer, lab, LabRole.VIEWER)
+    join(outsider, other, LabRole.PI)
+    order = InventoryOrder.objects.create(lab=lab, name="Tips", requested_by=member)
+    link = reverse("labs:order-detail", kwargs={"lab_id": lab.pk, "inventoryorder_id": order.pk})
+    assert api(member).delete(link).status_code == 400  # still requested
+    InventoryOrder.objects.for_lab(lab).filter(pk=order.pk).update(status="cancelled")
+    assert api(viewer).delete(link).status_code == 403
+    assert api(outsider).delete(link).status_code == 404
+    assert api(member).delete(link).status_code == 204
+    assert not InventoryOrder.objects.for_lab(lab).filter(pk=order.pk).exists()
+    assert AuditEvent.objects.filter(action="inventory_order.deleted").count() == 1
