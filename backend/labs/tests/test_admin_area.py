@@ -445,3 +445,9 @@ def test_inventory_audit_lists_only_fields_that_changed(world):
     # Nothing differs (4 vs "4.00"): no new event.
     assert api(u["member"]).patch(path, {**form, "quantity": "4.00"}, "json").status_code == 200
     assert AuditEvent.objects.filter(action=kind).count() == 1
+
+    # Text that only looks numeric still changes ("1.10" -> "1.1" is a different shelf).
+    assert api(u["member"]).patch(path, {**form, "location": "1.10"}, "json").status_code == 200
+    assert api(u["member"]).patch(path, {**form, "location": "1.1"}, "json").status_code == 200
+    assert InventoryItem.objects.for_lab(lab).get(pk=iid).location == "1.1"
+    assert AuditEvent.objects.filter(action=kind).count() == 3

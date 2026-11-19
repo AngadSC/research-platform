@@ -3,7 +3,6 @@
 import csv
 import io
 import uuid
-from decimal import Decimal, InvalidOperation
 
 from django.db import DataError, IntegrityError, transaction
 from django.db.models import F, ProtectedError
@@ -150,13 +149,9 @@ def _create(model, created, *, lab, user, data, request):
 
 
 def _same(old, new) -> bool:
-    """Equal once Decimal/int, date/str and ""/None are normalised (an edit form sends them all)."""
-    if old == new or (not old and not new and old != 0 and new != 0):
-        return True
-    try:
-        return Decimal(str(old)) == Decimal(str(new))
-    except InvalidOperation:
-        return str(old) == str(new)
+    """Equal values, or both empty ("" and None: an edit form sends either). Validated data
+    already has Decimal and date types, so plain == handles 4 vs 4.000000."""
+    return old == new or (old in (None, "") and new in (None, ""))
 
 
 def _update(obj, updated, *, user, data, request, extra=None):
