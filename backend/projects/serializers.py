@@ -278,6 +278,9 @@ class ReactionSerializer(serializers.Serializer):
     emoji = serializers.CharField()
     count = serializers.IntegerField()
     mine = serializers.BooleanField()
+    people = serializers.ListField(
+        child=serializers.CharField(), help_text="Who reacted, by name, as far as known."
+    )
 
 
 class ReactionInputSerializer(serializers.Serializer):
@@ -295,8 +298,28 @@ class ReactionsMixin(serializers.Serializer):
 
         request = self.context.get("request")
         return summary(
-            obj.reactions, getattr(request, "user", None), getattr(obj, "external_reactions", None)
+            obj.reactions,
+            getattr(request, "user", None),
+            getattr(obj, "external_reactions", None),
+            self._reactor_names(obj),
         )
+
+    def _reactor_names(self, obj) -> dict[str, str]:
+        """Lab user id -> name for everyone who reacted, one query for the whole page of messages
+        rather than one per message."""
+        from core.models import User
+
+        cache = self.context.setdefault("_reactor_names", {})
+        page = getattr(getattr(self, "parent", None), "instance", None)
+        batch = list(page) if isinstance(page, (list, tuple)) else [obj]
+        need = {
+            uid for m in batch for people in (m.reactions or {}).values() for uid in people
+        } - set(cache)
+        if need:
+            for u in User.objects.filter(pk__in=need):
+                cache[str(u.pk)] = u.display_name or u.email
+            cache.update({uid: "" for uid in need if uid not in cache})
+        return cache
 
 
 class ChatMessageSerializer(ReactionsMixin, serializers.ModelSerializer):

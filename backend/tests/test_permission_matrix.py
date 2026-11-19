@@ -522,6 +522,8 @@ MATRIX: dict[tuple[str, str], str] = {
     # someone not on it gets a 404 (test_meetings_feeds.py).
     ("POST",   "labs:meeting-list"): "401 404 2 2 2 2 2 2 403",
     ("PATCH",  "labs:meeting-detail"): "401 404 2 2 2 2 2 2 403",
+    # your own answer to a meeting you are on: any lab member who is on it (all are, here)
+    ("PUT",    "labs:meeting-answer"): "401 404 2 2 2 2 2 2 2",
     ("DELETE", "labs:meeting-detail"): "401 404 2 2 2 2 2 2 403",
     # D231: your own feed link, for any member. The .ics URL takes a token, not a session: anon
     # has none (401); outsider holds a real one but is not in the lab (404).
@@ -536,6 +538,8 @@ MATRIX: dict[tuple[str, str], str] = {
     ("PATCH",  "labs:calendar-google"): "401 404 2 2 2 2 2 2 2",
     ("POST",   "labs:calendar-google-sync"): "401 404 2 2 2 2 2 2 2",
     ("GET",    "labs:calendar-google-events"): "401 404 2 2 2 2 2 2 2",
+    # answering a Google invitation needs your own Google connection: none here, so no such event
+    ("POST",   "labs:calendar-google-event-answer"): "401 404 404 404 404 404 404 404 404",
     ("GET",    "labs:calendar-video-options"): "401 404 2 2 2 2 2 2 2",
     # --- end lab chat and calendar ---
     # --- training (Run 5, D175-D179) ---
@@ -920,6 +924,7 @@ def _lab_tool_fixtures(lab, user, inv, tag, attendees=()):
     meeting.attendees.set([user, *attendees])
     return {
         "meeting_id": meeting.pk,
+        "event_id": "gevent1",  # a Google event id; nobody in the fixture has Google connected
         "inventoryorder_id": InventoryOrder.objects.create(
             lab=lab, item=inv, name=f"Order {tag}", requested_by=user
         ).pk,
@@ -1773,6 +1778,8 @@ PAYLOADS = {
         "ends_at": "2030-02-01T11:00:00Z",
     },
     ("PATCH", "labs:meeting-detail"): lambda user, w: {"notes": "Edited"},
+    ("PUT", "labs:meeting-answer"): lambda user, w: {"status": "accepted"},
+    ("POST", "labs:calendar-google-event-answer"): lambda user, w: {"status": "accepted"},
     ("POST", "labs:calendar-feed"): lambda user, w: {},
     ("PATCH", "labs:calendar-google"): lambda user, w: {"push_tasks": False},
     ("POST", "labs:calendar-google-sync"): lambda user, w: {},

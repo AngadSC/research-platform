@@ -54,16 +54,22 @@ afterEach(() => {
 });
 
 describe("Calendar page", () => {
-  it("shows the full title on hover in the month grid", async () => {
+  it("shows the full title and details on hover in the month grid", async () => {
     mockFetch(handlers(["view_lab"]));
     renderRoute("/labs/lab1/calendar");
-    expect(await screen.findByTitle(`Lab event: Pilot: ${LONG}`)).toBeTruthy();
+    const entry = await screen.findByRole("button", { name: (n) => n.includes("Recruit 12") });
+    await userEvent.hover(entry);
+    // the card repeats the whole title (the entry itself is cut short) with its kind
+    await waitFor(() => expect(screen.getAllByText(LONG).length).toBeGreaterThan(1), {
+      timeout: 3000,
+    });
+    expect(screen.getAllByText(/Lab event/).length).toBeGreaterThan(0);
   });
 
   it("switches to the agenda, keeps it in the URL, and groups by day", async () => {
     mockFetch(handlers(["view_lab"]));
     const router = renderRoute("/labs/lab1/calendar");
-    await screen.findByTitle(`Lab event: Pilot: ${LONG}`);
+    await screen.findByRole("button", { name: (n) => n.includes("Recruit 12") });
     await userEvent.click(screen.getByRole("button", { name: "Agenda" }));
     expect(router.state.location.search).toBe("?view=agenda");
     const days = await screen.findAllByRole("heading", { level: 3 });

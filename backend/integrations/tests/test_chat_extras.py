@@ -36,22 +36,27 @@ def test_anything_else_is_refused(value):
         reactions.clean_emoji(value)
 
 
+def _counts(reactions):
+    """The emoji, count and "mine" of each reaction; who reacted is tested with the names."""
+    return [{k: v for k, v in r.items() if k != "people"} for r in reactions]
+
+
 def test_reacting_toggles_and_counts_each_person_once(lab_users):
     lab, u = lab_users
     message = LabChatMessage.objects.create(lab=lab, author=u["member"], body="hi")
     url = reverse("labs:labchat-reactions", args=[lab.pk, message.pk])
 
     body = api(u["viewer"]).post(url, {"emoji": THUMBS}, format="json").json()
-    assert body["reactions"] == [{"emoji": THUMBS, "count": 1, "mine": True}]
+    assert _counts(body["reactions"]) == [{"emoji": THUMBS, "count": 1, "mine": True}]
     body = api(u["pi"]).post(url, {"emoji": THUMBS}, format="json").json()
-    assert body["reactions"] == [{"emoji": THUMBS, "count": 2, "mine": True}]
+    assert _counts(body["reactions"]) == [{"emoji": THUMBS, "count": 2, "mine": True}]
 
     # Others see the count, not themselves in it.
     (row,) = api(u["member"]).get(reverse("labs:labchat-list", args=[lab.pk])).json()
-    assert row["reactions"] == [{"emoji": THUMBS, "count": 2, "mine": False}]
+    assert _counts(row["reactions"]) == [{"emoji": THUMBS, "count": 2, "mine": False}]
 
     body = api(u["viewer"]).post(url, {"emoji": THUMBS}, format="json").json()
-    assert body["reactions"] == [{"emoji": THUMBS, "count": 1, "mine": False}]
+    assert _counts(body["reactions"]) == [{"emoji": THUMBS, "count": 1, "mine": False}]
     api(u["pi"]).post(url, {"emoji": THUMBS}, format="json")
     message.refresh_from_db()
     assert message.reactions == {}

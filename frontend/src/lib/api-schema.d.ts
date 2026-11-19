@@ -658,6 +658,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/calendar/google/events/{event_id}/answer/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Accept, maybe or decline one of your own Google Calendar invitations. */
+        post: operations["labs_calendar_google_events_answer_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/calendar/google/sync/": {
         parameters: {
             query?: never;
@@ -711,6 +728,23 @@ export interface paths {
         head?: never;
         /** @description Anyone on the meeting who may add lab content can change it; it is a 404 for anyone else. */
         patch: operations["labs_calendar_meetings_partial_update"];
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/calendar/meetings/{meeting_id}/answer/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Your own answer to a meeting you are on. A 404 for anyone not on it. */
+        put: operations["labs_calendar_meetings_answer_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/labs/{lab_id}/calendar/video-options/": {
@@ -5297,6 +5331,16 @@ export interface components {
             readonly id: string;
             readonly title: string;
         };
+        AnswerInput: {
+            status: components["schemas"]["AnswerInputStatusEnum"];
+        };
+        /**
+         * @description * `accepted` - accepted
+         *     * `maybe` - maybe
+         *     * `declined` - declined
+         * @enum {string}
+         */
+        AnswerInputStatusEnum: "accepted" | "maybe" | "declined";
         ApprovalDecision: {
             /** @description Tool call id -> true to approve, false to decline. Every waiting call. */
             decisions: {
@@ -5483,6 +5527,12 @@ export interface components {
              */
             call_owner: string | null;
             attendees: string[];
+            /** @description Meetings: people invited by email (Google Meet). */
+            guests: string[];
+            /** @description Meetings: each attendee's answer (accepted, maybe, declined), by user id. */
+            responses: {
+                [key: string]: string;
+            };
         };
         /**
          * @description * `event` - event
@@ -6552,6 +6602,35 @@ export interface components {
         GettingStartedInput: {
             dismissed: boolean;
         };
+        GoogleAnswerInput: {
+            status: components["schemas"]["GoogleAnswerInputStatusEnum"];
+        };
+        /**
+         * @description * `accepted` - accepted
+         *     * `tentative` - tentative
+         *     * `declined` - declined
+         * @enum {string}
+         */
+        GoogleAnswerInputStatusEnum: "accepted" | "tentative" | "declined";
+        GoogleAnswerResult: {
+            id: string;
+            my_status: string;
+        };
+        GoogleAttendee: {
+            email: string;
+            name: string;
+            status: components["schemas"]["GoogleAttendeeStatusEnum"];
+            organizer: boolean;
+            self: boolean;
+        };
+        /**
+         * @description * `accepted` - accepted
+         *     * `declined` - declined
+         *     * `tentative` - tentative
+         *     * `needsAction` - needsAction
+         * @enum {string}
+         */
+        GoogleAttendeeStatusEnum: "accepted" | "declined" | "tentative" | "needsAction";
         GoogleCalendarSync: {
             connected: boolean;
             email: string;
@@ -6642,6 +6721,13 @@ export interface components {
             join_url: string;
             /** @description The event in Google Calendar; may be empty. */
             url: string;
+            location: string;
+            description: string;
+            organizer: string;
+            attendees: components["schemas"]["GoogleAttendee"][];
+            /** @description Your answer: accepted, declined, tentative, needsAction; empty if not invited. */
+            my_status: string;
+            repeats: boolean;
         };
         Grant: {
             /** Format: uuid */
@@ -7218,6 +7304,8 @@ export interface components {
             readonly attendees: string[];
             readonly video_provider: components["schemas"]["VideoProviderEnum"];
             readonly call_owner: string | null;
+            readonly guest_emails: unknown;
+            readonly responses: unknown;
         };
         MeetingInput: {
             title: string;
@@ -7228,6 +7316,8 @@ export interface components {
             join_url?: string;
             notes?: string;
             attendees?: string[];
+            /** @description Email addresses of people with a Google account, invited to a Google Meet call. */
+            guests?: string[];
             /**
              * @description Make a Google Meet or Zoom call on your own account (D254). Only on create.
              *
@@ -8006,6 +8096,8 @@ export interface components {
             join_url?: string;
             notes?: string;
             attendees?: string[];
+            /** @description Email addresses of people with a Google account, invited to a Google Meet call. */
+            guests?: string[];
             /**
              * @description Make a Google Meet or Zoom call on your own account (D254). Only on create.
              *
@@ -8404,6 +8496,8 @@ export interface components {
             emoji: string;
             count: number;
             mine: boolean;
+            /** @description Who reacted, by name, as far as known. */
+            people: string[];
         };
         ReactionInput: {
             emoji: string;
@@ -10568,6 +10662,34 @@ export interface operations {
             };
         };
     };
+    labs_calendar_google_events_answer_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleAnswerInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["GoogleAnswerInput"];
+                "multipart/form-data": components["schemas"]["GoogleAnswerInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleAnswerResult"];
+                };
+            };
+        };
+    };
     labs_calendar_google_sync_create: {
         parameters: {
             query?: never;
@@ -10652,6 +10774,34 @@ export interface operations {
                 "application/json": components["schemas"]["PatchedMeetingInput"];
                 "application/x-www-form-urlencoded": components["schemas"]["PatchedMeetingInput"];
                 "multipart/form-data": components["schemas"]["PatchedMeetingInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Meeting"];
+                };
+            };
+        };
+    };
+    labs_calendar_meetings_answer_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                meeting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["AnswerInput"];
+                "multipart/form-data": components["schemas"]["AnswerInput"];
             };
         };
         responses: {

@@ -59,25 +59,34 @@ def toggle(queryset, pk, user, emoji):
     return message
 
 
-def summary(reactions, user, external=None) -> list[dict]:
-    """What a reader sees: each emoji, how many, and whether they are one of them. In the order
-    the emoji were first used. `external` is Google Chat's `{emoji: count}`, added to the people
-    here; "mine" only ever means a reaction made here."""
+def _external(value) -> tuple[int, list[str]]:
+    """One emoji's Google Chat reactions: a bare count (all Google first gave), or
+    `{"count": n, "by": [names]}` once the people are known."""
+    if isinstance(value, dict):
+        return int(value.get("count") or 0), [str(n) for n in value.get("by") or []]
+    return int(value or 0), []
+
+
+def summary(reactions, user, external=None, names=None) -> list[dict]:
+    """What a reader sees: each emoji, how many, whether they are one of them, and who (names,
+    from `names`, a lab user id -> name map, plus the people Google named). In the order the emoji
+    were first used. `external` is Google Chat's reactions, added to the people here; "mine" only
+    ever means a reaction made here."""
     uid = str(getattr(user, "pk", ""))
+    names = names or {}
+    external = external or {}
     local = {e: list(p) for e, p in (reactions or {}).items() if p}
-    out = [
-        {
-            "emoji": emoji,
-            "count": len(people) + int((external or {}).get(emoji, 0)),
-            "mine": uid in people,
-        }
-        for emoji, people in local.items()
-    ]
-    out += [
-        {"emoji": emoji, "count": int(n), "mine": False}
-        for emoji, n in (external or {}).items()
-        if emoji not in local and int(n) > 0
-    ]
+    out = []
+    for emoji, people in local.items():
+        count, by = _external(external.get(emoji))
+        who = [names[p] for p in people if names.get(p)] + by
+        out.append(
+            {"emoji": emoji, "count": len(people) + count, "mine": uid in people, "people": who}
+        )
+    for emoji, value in external.items():
+        count, by = _external(value)
+        if emoji not in local and count > 0:
+            out.append({"emoji": emoji, "count": count, "mine": False, "people": by})
     return out
 
 

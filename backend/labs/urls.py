@@ -240,6 +240,11 @@ urlpatterns = [
         name="calendar-google-sync",
     ),
     path(
+        "labs/<uuid:lab_id>/calendar/google/events/<str:event_id>/answer/",
+        lab_calendar.GoogleEventAnswerView.as_view(),
+        name="calendar-google-event-answer",
+    ),
+    path(
         "labs/<uuid:lab_id>/calendar/google/events/",
         lab_calendar.GoogleEventsView.as_view(),
         name="calendar-google-events",
@@ -253,6 +258,11 @@ urlpatterns = [
         "labs/<uuid:lab_id>/calendar/meetings/",
         lab_calendar.MeetingCreateView.as_view(),
         name="meeting-list",
+    ),
+    path(
+        "labs/<uuid:lab_id>/calendar/meetings/<uuid:meeting_id>/answer/",
+        lab_calendar.MeetingAnswerView.as_view(),
+        name="meeting-answer",
     ),
     path(
         "labs/<uuid:lab_id>/calendar/meetings/<uuid:meeting_id>/",

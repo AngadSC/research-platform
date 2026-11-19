@@ -69,3 +69,26 @@ const localDay = (stamp: string) => {
   const d = new Date(stamp);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
+
+/** Your own answer to a meeting you are on (accept, maybe, decline). */
+export function useAnswerMeeting(labId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string; status: "accepted" | "maybe" | "declined" }) =>
+      api(`${base(labId)}/meetings/${v.id}/answer/`, { method: "PUT", body: { status: v.status } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["labs", labId, "calendar"] }),
+  });
+}
+
+/** Your own answer to a Google Calendar invitation, made on your Google calendar. */
+export function useAnswerGoogleEvent(labId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string; status: "accepted" | "tentative" | "declined" }) =>
+      api(`${base(labId)}/google/events/${encodeURIComponent(v.id)}/answer/`, {
+        method: "POST",
+        body: { status: v.status },
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["labs", labId, "google-events"] }),
+  });
+}

@@ -19,7 +19,7 @@ from urllib.parse import quote, urlsplit
 from django.conf import settings
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
 from integrations.http import AccountUnavailable, IntegrationError, send
 from integrations.models import AccountStatus, ConnectedAccount
@@ -129,6 +129,12 @@ def _zoom_link(data) -> str:
     return link if host == "zoom.us" or host.endswith(".zoom.us") else ""
 
 
+def _notify(meeting) -> str:
+    """Google sends invitations only when there are guests by email: members are told here, and
+    the meeting reaches their calendar without a message (D254)."""
+    return "all" if meeting.guest_emails else "none"
+
+
 def create_call(meeting, provider, account, emails) -> None:
     """Make the call on `account` and fill in the meeting's link (not saved here)."""
     if provider == VideoProvider.GOOGLE_MEET:
@@ -143,7 +149,7 @@ def create_call(meeting, provider, account, emails) -> None:
             account,
             "POST",
             f"{GCAL}/calendars/primary/events",
-            params={"conferenceDataVersion": 1, "sendUpdates": "none"},
+            params={"conferenceDataVersion": 1, "sendUpdates": _notify(meeting)},
             json=body,
         ).json()
         meeting.external_id, meeting.join_url = str(data.get("id", "")), _meet_link(data)
@@ -165,7 +171,7 @@ def update_call(meeting, emails) -> None:
             account,
             "PATCH",
             f"{GCAL}/calendars/primary/events/{quote(meeting.external_id, safe='')}",
-            params={"sendUpdates": "none"},
+            params={"sendUpdates": _notify(meeting)},
             json=_meet_body(meeting, emails),
         )
     else:
@@ -264,6 +270,8 @@ def google_events(lab, user, start: date, end: date) -> list[dict]:
             continue
         last = parse_date(str(end_.get("date") or ""))  # all-day end is exclusive
         link = str(e.get("htmlLink") or "")
+        attendees = _attendees(e)
+        me = next((a for a in attendees if a["self"]), None)
         out.append(
             {
                 "id": str(e.get("id", ""))[:1024],
@@ -276,9 +284,67 @@ def google_events(lab, user, start: date, end: date) -> list[dict]:
                 "ends_at": ends_at,
                 "join_url": _meet_link(e),
                 "url": link if (urlsplit(link).hostname or "") == "www.google.com" else "",
+                "location": _clean(e.get("location"), 200),
+                "description": _clean(e.get("description"), 600),
+                "organizer": _clean((e.get("organizer") or {}).get("email"), 200),
+                "attendees": attendees,
+                "my_status": me["status"] if me else "",
+                "repeats": bool(e.get("recurringEventId")),
             }
         )
     return out
+
+
+_STATUS = {"accepted", "declined", "tentative", "needsAction"}
+
+
+def _clean(value, limit) -> str:
+    """Text from Google for a card: printable, no markup shown as such, cut to `limit`."""
+    text = "".join(c for c in str(value or "") if c.isprintable() or c in "\n").strip()
+    return text[:limit]
+
+
+def _attendees(event) -> list[dict]:
+    """Who Google says is invited, with their answers; at most 50. Only the person's own calendar
+    is read, so this is what they would see in Google."""
+    rows = []
+    for a in event.get("attendees") or []:
+        if not isinstance(a, dict) or not a.get("email") or a.get("resource"):
+            continue
+        status = str(a.get("responseStatus") or "needsAction")
+        rows.append(
+            {
+                "email": _clean(a["email"], 200),
+                "name": _clean(a.get("displayName"), 200),
+                "status": status if status in _STATUS else "needsAction",
+                "organizer": bool(a.get("organizer")),
+                "self": bool(a.get("self")),
+            }
+        )
+    return rows[:50]
+
+
+def respond_to_google_event(lab, user, event_id: str, status: str) -> dict:
+    """Answer an invitation on the person's own Google calendar (accept, maybe or decline), as
+    they would in Google. Only their own answer changes; the organiser is told by Google."""
+    sync = sync_for(lab, user)
+    if sync is None:  # no Google calendar of theirs here: there is no such event for them
+        raise NotFound("That event is not on a Google calendar connected here.")
+    url = f"{GCAL}/calendars/primary/events/{quote(event_id, safe='')}"
+    event = _call(sync.account, "GET", url).json()
+    attendees = [a for a in (event.get("attendees") or []) if isinstance(a, dict)]
+    mine = next((a for a in attendees if a.get("self")), None)
+    if mine is None:
+        raise ValidationError({"status": ["You are not on this event's guest list."]})
+    mine["responseStatus"] = status
+    _call(
+        sync.account,
+        "PATCH",
+        url,
+        params={"sendUpdates": "all"},
+        json={"attendees": attendees},
+    )
+    return {"id": event_id, "my_status": status}
 
 
 # ---------------------------------------------------------------- the app into Google (D255)

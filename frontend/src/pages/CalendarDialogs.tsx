@@ -17,7 +17,7 @@ import { RelativeTime } from "@/components/shared/RelativeTime";
 import { useCalendar, useCalendarFeed } from "@/hooks/admin";
 import { ReauthCancelled } from "@/hooks/auth";
 import { useConnect } from "@/hooks/integrations";
-import { useGoogleSync, useVideoOptions } from "@/hooks/meetings";
+import { useAnswerMeeting, useGoogleSync, useVideoOptions } from "@/hooks/meetings";
 import { useReauth } from "@/hooks/reauth";
 import { useMe, useMembers } from "@/hooks/workspace";
 import type { CalendarItem } from "@/lib/api-types";
@@ -25,7 +25,20 @@ import { toLocalInput } from "@/lib/calendar";
 import { formErrors, type FormErrors } from "@/lib/forms";
 import { formValue } from "@/pages/admin/common";
 
-const KNOWN = ["title", "starts_at", "ends_at", "join_url", "notes", "attendees", "video"];
+const KNOWN = [
+  "title",
+  "starts_at",
+  "ends_at",
+  "join_url",
+  "notes",
+  "attendees",
+  "video",
+  "guests",
+];
+
+const EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
+/** The addresses typed in the guest box: separated by commas, spaces or new lines. */
+const addressesIn = (text: string) => text.split(/[\s,;]+/).filter(Boolean);
 
 type Video = "" | "link" | "google_meet" | "zoom";
 const CALL_NAME = { google_meet: "Google Meet", zoom: "Zoom" } as const;
@@ -109,6 +122,57 @@ function VideoChoice({
   );
 }
 
+const ANSWERS = [
+  ["accepted", "Accept"],
+  ["maybe", "Maybe"],
+  ["declined", "Decline"],
+] as const;
+
+/** Your own answer to a meeting you are on, and how everyone has answered so far. */
+function MyAnswer({
+  labId,
+  meeting,
+  meId,
+}: {
+  labId: string;
+  meeting: CalendarItem;
+  meId: string;
+}) {
+  const answer = useAnswerMeeting(labId);
+  const responses = (meeting.responses ?? {}) as Record<string, string>;
+  const mine = responses[meId] ?? "";
+  const count = (s: string) => Object.values(responses).filter((r) => r === s).length;
+  return (
+    <section aria-label="Your answer" className="grid gap-1.5 rounded-md border p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium">Your answer</span>
+        {ANSWERS.map(([status, label]) => (
+          <Button
+            key={status}
+            type="button"
+            size="sm"
+            variant={mine === status ? "secondary" : "outline"}
+            aria-pressed={mine === status}
+            disabled={answer.isPending}
+            onClick={() =>
+              answer.mutate(
+                { id: meeting.id, status },
+                { onError: () => toast.error("Could not save your answer.") },
+              )
+            }
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {count("accepted")} accepted, {count("maybe")} maybe, {count("declined")} declined of{" "}
+        {meeting.attendees.length + (meeting.guests?.length ?? 0)} invited.
+      </p>
+    </section>
+  );
+}
+
 /** The next whole hour, and the hour after it: what a new meeting starts as. */
 function nextHour() {
   const start = new Date();
@@ -140,6 +204,8 @@ export function MeetingDialog({
   // D254: a call on someone else's account changes only through them.
   const lockedByCall = !!call && !!meeting?.call_owner && meeting.call_owner !== me?.id;
   const editable = canEdit && !lockedByCall;
+  // guests are invited through a Google Meet call: a new one being made, or one already made
+  const meetCall = video === "google_meet" || call === "google_meet";
   const [start, end] = nextHour();
   const { create, update, remove } = actions;
 
@@ -150,6 +216,14 @@ export function MeetingDialog({
     if (!v("title")) return setErrors({ fields: { title: "Enter a title" } });
     if (!v("starts_at")) return setErrors({ fields: { starts_at: "Pick when it starts" } });
     if (!v("ends_at")) return setErrors({ fields: { ends_at: "Pick when it ends" } });
+    const guests = addressesIn(v("guests"));
+    const bad = guests.filter((g) => !EMAIL.test(g));
+    if (meetCall && bad.length)
+      return setErrors({
+        fields: {
+          guests: `This does not look like an email address: ${bad.slice(0, 3).join(", ")}`,
+        },
+      });
     const body = {
       title: v("title"),
       starts_at: new Date(v("starts_at")).toISOString(),
@@ -158,6 +232,7 @@ export function MeetingDialog({
       notes: v("notes"),
       attendees: fd.getAll("attendees").map(String),
       ...(!meeting && (video === "google_meet" || video === "zoom") ? { video } : {}),
+      ...(meetCall ? { guests } : {}),
     };
     try {
       if (meeting) await update.mutateAsync({ id: meeting.id, ...body });
@@ -193,6 +268,9 @@ export function MeetingDialog({
               Join meeting
             </a>
           </Button>
+        )}
+        {meeting && me?.id && meeting.attendees.includes(me.id) && (
+          <MyAnswer labId={labId} meeting={meeting} meId={me.id} />
         )}
         <form onSubmit={submit} noValidate className="grid gap-3">
           <fieldset disabled={!editable} className="grid gap-3">
@@ -268,6 +346,23 @@ export function MeetingDialog({
               </div>
               <FormError message={f.attendees} />
             </fieldset>
+            {meetCall && (
+              <FormField
+                label="Invite anyone with a Google account"
+                hint="Type their email addresses, separated by commas. Google emails each one the invitation with the Meet link. Only you and the people above see this list."
+                error={f.guests}
+              >
+                {(p) => (
+                  <Textarea
+                    {...p}
+                    name="guests"
+                    rows={2}
+                    placeholder="friend@gmail.com, colleague@university.edu"
+                    defaultValue={(meeting?.guests ?? []).join(", ")}
+                  />
+                )}
+              </FormField>
+            )}
             <FormField label="Notes" error={f.notes}>
               {(p) => (
                 <Textarea

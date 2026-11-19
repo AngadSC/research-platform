@@ -637,7 +637,7 @@ def test_reactions_from_google_show_with_the_message_and_keep_up_to_date(transpo
     message = LabChatMessage.objects.for_lab(lab).get()
     assert message.external_reactions == {"👍": 2}  # custom and non-emoji left out
     (row,) = api(u["member"]).get(reverse("labs:labchat-list", args=[lab.pk])).json()
-    assert row["reactions"] == [{"emoji": "👍", "count": 2, "mine": False}]
+    assert row["reactions"] == [{"emoji": "👍", "count": 2, "mine": False, "people": []}]
 
     # someone adds a heart later; the message is older than the cursor, but is read again
     from django.core.cache import cache
@@ -664,11 +664,12 @@ def test_a_reaction_made_here_adds_to_the_ones_from_google(transport, linked):
     message = LabChatMessage.objects.for_lab(lab).get()
     reactions.toggle(LabChatMessage.objects.for_lab(lab), message.pk, u["member"], "👍")
     message.refresh_from_db()
-    assert reactions.summary(message.reactions, u["member"], message.external_reactions) == [
-        {"emoji": "👍", "count": 3, "mine": True}
+    names = {str(u["member"].pk): "Member Example"}
+    assert reactions.summary(message.reactions, u["member"], message.external_reactions, names) == [
+        {"emoji": "👍", "count": 3, "mine": True, "people": ["Member Example"]}
     ]
-    assert reactions.summary(message.reactions, u["pi"], message.external_reactions) == [
-        {"emoji": "👍", "count": 3, "mine": False}
+    assert reactions.summary(message.reactions, u["pi"], message.external_reactions, names) == [
+        {"emoji": "👍", "count": 3, "mine": False, "people": ["Member Example"]}
     ]
 
 
@@ -763,3 +764,108 @@ def test_no_space_people_without_a_link(transport, lab_users):
     lab, u = lab_users
     url = reverse("labs:google-chat-people", args=[lab.pk])
     assert api(u["viewer"]).get(url).json() == []
+
+
+def test_space_people_are_named_from_the_directory_when_google_sends_only_ids(transport, linked):
+    lab, u, *_ = linked
+    transport.on(
+        "GET",
+        f"{API}/{SPACE}/members",
+        response(
+            200,
+            {"memberships": [{"member": {"name": "users/777"}}, {"member": {"name": "users/888"}}]},
+        ),
+    )
+    transport.on("GET", PEOPLE, _people(("777", "Dana Example"), ("888", "Eli Example")))
+    url = reverse("labs:google-chat-people", args=[lab.pk])
+    assert api(u["viewer"]).get(url).json() == [
+        {"id": "777", "name": "Dana Example"},
+        {"id": "888", "name": "Eli Example"},
+    ]
+
+
+def test_repair_gives_members_their_google_picture_too(transport, linked):
+    from django.core.cache import cache
+
+    lab, u, *_ = linked
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    transport.on(
+        "GET", MESSAGES, response(200, {"messages": [_google("g2", "hi", sender="users/2002")]})
+    )
+    sync.poll_all()  # no directory answer yet: the message comes in without a picture
+    message = LabChatMessage.objects.for_lab(lab).get()
+    assert message.external_avatar == ""
+    pic = "https://lh3.googleusercontent.com/a/photo=s64"
+    transport.on(
+        "GET",
+        PEOPLE,
+        response(
+            200,
+            {
+                "responses": [
+                    {
+                        "person": {
+                            "resourceName": "people/2002",
+                            "names": [{"displayName": "Member Example"}],
+                            "photos": [{"url": pic}],
+                        }
+                    }
+                ]
+            },
+        ),
+    )
+    cache.clear()
+    sync.poll_all()
+    message.refresh_from_db()
+    assert message.external_avatar == pic and message.author == u["member"]
+
+
+def test_who_reacted_in_google_is_looked_up_and_shown_by_name(transport, linked):
+    lab, u, *_ = linked
+    connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    u["member"].display_name = "Member Example"
+    u["member"].save()
+    transport.on("GET", PEOPLE, _people(("777", "Dana Example")))
+    transport.on(
+        "GET",
+        MESSAGES,
+        response(200, {"messages": [_google("g1", "hi", **_reacts(**{"👍": 2}))]}),
+    )
+    transport.on(
+        "GET",
+        f"{API}/{SPACE}/messages/g1/reactions",
+        response(
+            200,
+            {
+                "reactions": [
+                    {"emoji": {"unicode": "👍"}, "user": {"name": "users/2002", "type": "HUMAN"}},
+                    {"emoji": {"unicode": "👍"}, "user": {"name": "users/777", "type": "HUMAN"}},
+                ]
+            },
+        ),
+    )
+    sync.poll_all()
+    message = LabChatMessage.objects.for_lab(lab).get()
+    assert message.external_reactions == {
+        "👍": {"count": 2, "by": ["Member Example", "Dana Example"]}
+    }
+    (row,) = api(u["viewer"]).get(reverse("labs:labchat-list", args=[lab.pk])).json()
+    assert row["reactions"] == [
+        {"emoji": "👍", "count": 2, "mine": False, "people": ["Member Example", "Dana Example"]}
+    ]
+
+
+def test_people_who_reacted_here_are_named_for_everyone_who_reads(transport, linked):
+    lab, u, *_ = linked
+    u["member"].display_name = "Member Example"
+    u["member"].save()
+    transport.on("GET", MESSAGES, response(200, {"messages": [_google("g1", "hi")]}))
+    sync.poll_all()
+    message = LabChatMessage.objects.for_lab(lab).get()
+    api(u["member"]).post(
+        reverse("labs:labchat-reactions", args=[lab.pk, message.pk]), {"emoji": "❤️"}, format="json"
+    )
+    (row,) = api(u["viewer"]).get(reverse("labs:labchat-list", args=[lab.pk])).json()
+    assert row["reactions"] == [
+        {"emoji": "❤️", "count": 1, "mine": False, "people": ["Member Example"]}
+    ]
