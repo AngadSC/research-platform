@@ -150,6 +150,38 @@ class PinnedDocument(LabScopedModel):
         return f"pin {self.document_id}"
 
 
+class DocumentComment(LabScopedModel):
+    """A comment on a document, or a reply to one (`parent`; one level only, services). Removal is
+    a real delete, as in chat (D206). Comments never reach AI tools: no tool or AI search reads
+    them, and a notice about one is hidden from AI when its document is marked (D287)."""
+
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="comments")
+    parent = models.ForeignKey(
+        "self", on_delete=models.CASCADE, null=True, blank=True, related_name="replies"
+    )
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    body = models.TextField()
+    quote = models.CharField(max_length=500, blank=True)  # the text selected when commenting
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+
+    lab_parents = ("document", "parent")
+    permission_domain = "project"
+    project_path = "document__project"
+
+    @property
+    def lab_wide(self) -> bool:
+        return self.document.lab_wide
+
+    class Meta(LabScopedModel.Meta):
+        indexes = [models.Index(fields=["document", "created_at"], name="doccomment_doc_idx")]
+
+    def __str__(self):
+        return f"{self.author_id}: {self.body[:40]}"
+
+
 class Attachment(LabScopedModel):
     """D38, D175: exactly one owner, a project, an ethics approval, a training record or a paper
     (DB check). Project views see only project-owned files; ethics files are served through the

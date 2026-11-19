@@ -18,12 +18,12 @@ from rest_framework.exceptions import APIException, PermissionDenied, Validation
 from audit.models import AuditAction
 from audit.services import record
 from core.models import NotificationKind, User
-from core.notifications import notify
-from core.permissions import Perm, can, lab_role
+from core.notifications import MENTION_TOKEN, notify, notify_mentions
+from core.permissions import Perm, can, can_remove_comment, can_resolve_comment, lab_role
 from core.retention import audit_retention, guard_retention, retention_changes
 from core.serializers import UserSerializer
 from documents import embed
-from documents.models import Attachment, Document, DocumentRevision, Folder
+from documents.models import Attachment, Document, DocumentComment, DocumentRevision, Folder
 from labs.models import LabRole
 
 MAX_CONTENT_BYTES = 1024 * 1024
@@ -622,3 +622,83 @@ def delete_folder(folder) -> None:
         child.contains_participant_data = child.contains_participant_data or flagged
         child.save(update_fields=["parent", "contains_participant_data", "updated_at"])
     folder.delete()
+
+
+# ---------------------------------------------------------------- comments
+
+
+@transaction.atomic
+def add_comment(doc, *, user, body, quote="", parent=None, request=None) -> DocumentComment:
+    """A comment, or a reply to one (`parent`, a top-level comment on `doc`). Everyone who can read
+    the document may comment. Tells the people @mentioned (D260), the document's owner and, for a
+    reply, whoever started the thread, each once and only if they can still read the document."""
+    if parent is not None and (parent.document_id != doc.pk or parent.parent_id is not None):
+        raise ValidationError({"parent": "Reply to a comment on this document."})
+    comment = DocumentComment.objects.create(
+        lab=doc.lab, document=doc, parent=parent, author=user, body=body, quote=quote
+    )
+    record(
+        AuditAction.DOCUMENT_COMMENTED,
+        actor=user,
+        lab=doc.lab,
+        target=doc,
+        request=request,
+        metadata={"comment": str(comment.pk)},
+    )
+    notify_mentions(
+        lab=doc.lab,
+        author=user,
+        body=body,
+        where=f"a comment on {doc.title}",
+        perm=Perm.VIEW_PROJECT,
+        target=doc,
+        key=f"doccomment:{comment.pk}",
+    )
+    told = {str(user.pk), *(m.lower() for _, m in MENTION_TOKEN.findall(body))}
+    name = user.display_name or user.email
+    text = MENTION_TOKEN.sub(lambda m: f"@{m[1]}", body)[:200]
+    people = [(doc.created_by, f"{name} commented on {doc.title}")]
+    if parent is not None:
+        people.insert(0, (parent.author, f"{name} replied to your comment on {doc.title}"))
+    for person, title in people:
+        if str(person.pk) in told or not can(person, Perm.VIEW_PROJECT, doc):
+            continue
+        told.add(str(person.pk))
+        notify(
+            lab=doc.lab,
+            recipient=person,
+            kind=NotificationKind.DOCUMENT_COMMENT,
+            title=title[:200],
+            body=text,
+            target=doc,
+            dedupe_key=f"doccomment:{comment.pk}:{person.pk}",
+        )
+    return comment
+
+
+def resolve_comment(comment, *, user, resolved: bool) -> DocumentComment:
+    if not can_resolve_comment(user, comment):
+        raise PermissionDenied
+    if comment.parent_id is not None:
+        raise ValidationError({"resolved": "Resolve the comment the reply belongs to."})
+    comment.resolved_at = timezone.now() if resolved else None
+    comment.resolved_by = user if resolved else None
+    comment.save(update_fields=["resolved_at", "resolved_by", "updated_at"])
+    return comment
+
+
+@transaction.atomic
+def delete_comment(comment, *, user, request=None) -> None:
+    """A real delete, replies included, as in chat (D206): something written by mistake is gone.
+    The audit event keeps who wrote it and never the text."""
+    if not can_remove_comment(user, comment):
+        raise PermissionDenied
+    record(
+        AuditAction.DOCUMENT_COMMENT_DELETED,
+        actor=user,
+        lab=comment.lab,
+        target=comment.document,
+        request=request,
+        metadata={"comment": str(comment.pk), "author": str(comment.author_id)},
+    )
+    comment.delete()

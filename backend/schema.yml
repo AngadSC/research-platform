@@ -1170,6 +1170,8 @@ paths:
           - document.owner_changed
           - document.pinned
           - document.unpinned
+          - document.commented
+          - document.comment_deleted
           - attachment.uploaded
           - attachment.downloaded
           - attachment.deleted
@@ -1353,6 +1355,8 @@ paths:
           * `document.owner_changed` - Document Owner Changed
           * `document.pinned` - Document Pinned
           * `document.unpinned` - Document Unpinned
+          * `document.commented` - Document Commented
+          * `document.comment_deleted` - Document Comment Deleted
           * `attachment.uploaded` - Attachment Uploaded
           * `attachment.downloaded` - Attachment Downloaded
           * `attachment.deleted` - Attachment Deleted
@@ -2912,6 +2916,153 @@ paths:
       description: Routes under `documents/<document_id>/`, and the project's document
         collection.
       parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/documents/{document_id}/comments/:
+    get:
+      operationId: labs_documents_comments_list
+      description: Oldest first; a reply names its comment in `parent`.
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+          description: ''
+    post:
+      operationId: labs_documents_comments_create
+      description: |-
+        Comments live and die with their document: a deleted or invisible one is a 404 first.
+        Everyone who can read the document reads and writes comments, viewers included (as in chat,
+        D206); resolving and deleting are narrowed in services through core.permissions.
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CommentCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CommentCreate'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+          description: ''
+  /api/labs/{lab_id}/documents/{document_id}/comments/{comment_id}/:
+    patch:
+      operationId: labs_documents_comments_partial_update
+      description: 'Resolve or reopen a comment: its author, or anyone who can edit
+        the document.'
+      parameters:
+      - in: path
+        name: comment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCommentResolve'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCommentResolve'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCommentResolve'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+          description: ''
+    delete:
+      operationId: labs_documents_comments_destroy
+      description: Its author, a project lead, a PI or a lab admin.
+      parameters:
+      - in: path
+        name: comment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
       - in: path
         name: document_id
         schema:
@@ -12880,6 +13031,8 @@ components:
       - document.owner_changed
       - document.pinned
       - document.unpinned
+      - document.commented
+      - document.comment_deleted
       - attachment.uploaded
       - attachment.downloaded
       - attachment.deleted
@@ -13062,6 +13215,8 @@ components:
         * `document.owner_changed` - Document Owner Changed
         * `document.pinned` - Document Pinned
         * `document.unpinned` - Document Unpinned
+        * `document.commented` - Document Commented
+        * `document.comment_deleted` - Document Comment Deleted
         * `attachment.uploaded` - Attachment Uploaded
         * `attachment.downloaded` - Attachment Downloaded
         * `attachment.deleted` - Attachment Deleted
@@ -14129,6 +14284,67 @@ components:
         * `red` - Red
         * `lime` - Lime
         * `brown` - Brown
+    Comment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        parent:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        author:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        body:
+          type: string
+          readOnly: true
+        quote:
+          type: string
+          readOnly: true
+        resolved_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        resolved_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - author
+      - body
+      - created_at
+      - id
+      - parent
+      - quote
+      - resolved_at
+      - resolved_by
+    CommentCreate:
+      type: object
+      properties:
+        body:
+          type: string
+          maxLength: 4000
+        quote:
+          type: string
+          default: ''
+          maxLength: 500
+        parent:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - body
     CompletionInput:
       type: object
       properties:
@@ -18922,6 +19138,7 @@ components:
       - dataset_controller
       - low_stock
       - meeting_invite
+      - document_comment
       type: string
       description: |-
         * `ethics_expiry` - Ethics Expiry
@@ -18942,6 +19159,7 @@ components:
         * `dataset_controller` - Dataset Controller
         * `low_stock` - Low Stock
         * `meeting_invite` - Meeting Invite
+        * `document_comment` - Document Comment
     NullEnum:
       enum:
       - null
@@ -20021,6 +20239,11 @@ components:
           type: string
           maxLength: 1000
         verified:
+          type: boolean
+    PatchedCommentResolve:
+      type: object
+      properties:
+        resolved:
           type: boolean
     PatchedComponentInput:
       type: object

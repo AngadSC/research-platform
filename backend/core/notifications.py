@@ -91,6 +91,8 @@ def _still_allowed(user, lab, n) -> bool:
         model = _PROJECT_TARGETS.get(n.target_type.lower())
         if model is not None:
             target = apps.get_model(model).objects.for_lab(lab).filter(pk=n.target_id).first()
+            if getattr(target, "deleted_at", None) is not None:  # gone with its document
+                return False
             return target is not None and can(user, Perm.VIEW_PROJECT, target)
         if n.kind == NotificationKind.TASK_POST:
             return False
@@ -111,6 +113,7 @@ _ABOUT_PROJECT_ITEMS = (
     NotificationKind.PROJECT_ARCHIVED,
     NotificationKind.DOCUMENT_OWNER,
     NotificationKind.DATASET_CONTROLLER,
+    NotificationKind.DOCUMENT_COMMENT,
 )
 
 
@@ -197,7 +200,11 @@ def live_title(n) -> str:
 
 def live_body(n) -> str:
     """Bodies quoting a message (mentions, task updates) as plain text, without markdown marks."""
-    if n.kind not in (NotificationKind.MENTION, NotificationKind.TASK_POST):
+    if n.kind not in (
+        NotificationKind.MENTION,
+        NotificationKind.TASK_POST,
+        NotificationKind.DOCUMENT_COMMENT,
+    ):
         return n.body
     text = n.body
     for pattern, repl in _MARKS:
@@ -241,10 +248,13 @@ def notification_url(n, user) -> str:
         doc = (
             apps.get_model("documents", "Document")
             .objects.for_lab(n.lab_id)
-            .filter(pk=n.target_id, deleted_at__isnull=True, project__isnull=False)
+            .filter(pk=n.target_id, deleted_at__isnull=True)
         ).first()
         if doc is not None and can(user, Perm.VIEW_PROJECT, doc):
-            return f"{lab}/projects/{doc.project_id}/documents/{doc.pk}"
+            # a mention in a document is always in a comment: documents themselves don't notify
+            comments = n.kind in (NotificationKind.MENTION, NotificationKind.DOCUMENT_COMMENT)
+            where = f"/projects/{doc.project_id}" if doc.project_id else ""  # D233: lab-wide
+            return f"{lab}{where}/documents/{doc.pk}" + ("?comments=1" if comments else "")
     if target == "provenance.datasetrecord" and n.target_id:
         ds = (
             apps.get_model("provenance", "DatasetRecord")

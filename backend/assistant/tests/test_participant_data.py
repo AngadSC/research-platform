@@ -201,3 +201,29 @@ def test_a_datasets_mark_cannot_come_off_while_its_file_is_marked(world):
     privacy.set_flag(file, False, user=world.u.pi)  # unmarking the file leaves the dataset alone
     ds.refresh_from_db()
     assert ds.contains_participant_data
+
+
+# ---------------------------------------------------------------- comments on documents
+
+
+def test_comments_never_reach_ai_tools(world, ctx, flagged):
+    """Comments are not in AI search or any tool, marked document or not. A notice about one on a
+    marked document (its own box or its folder's) says nothing about it; elsewhere it reads like a
+    chat mention (D260)."""
+    pi, contrib, a = world.u.pi, world.u.contrib, str(world.lab_a.pk)
+    for doc in (world.a1.doc, flagged["own"], flagged["inside"]):
+        document_services.add_comment(doc, user=contrib, body=f"Comment {MARK} on {doc.title}")
+    c = ctx(pi, world.lab_a)
+    for name, args in [
+        ("search", {"lab_id": a, "query": MARK}),
+        ("search", {"lab_id": a, "query": "Comment"}),
+        ("get_document", {"lab_id": a, "document_id": str(world.a1.doc.pk)}),
+        ("project_overview", {"lab_id": a, "project_id": str(world.p1.pk)}),
+        ("handover_report", {"lab_id": a, "person": "me"}),
+    ]:
+        assert MARK not in run(c, name, **args), name
+    out = tools.call(c, "my_notifications", {"lab_id": a})["notifications"]
+    hidden = [n for n in out if n["kind"] == "document_comment" and not n["body"]]
+    assert len(hidden) == 2  # the pi owns all three; two are marked
+    assert len(out) == 3
+    assert sum(MARK in json.dumps(n) for n in out) == 1  # only the unmarked document's comment

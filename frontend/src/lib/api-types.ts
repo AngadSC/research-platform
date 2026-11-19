@@ -75,6 +75,7 @@ export type Folder = Schemas["Folder"];
 export type DocumentConflict = Schemas["Conflict"];
 export type RevisionRow = Schemas["RevisionList"];
 export type Revision = Schemas["Revision"];
+export type DocumentComment = Schemas["Comment"];
 export type Lineage = Schemas["Lineage"];
 export type LineageNode = Schemas["LineageNode"];
 export type LineageEdge = Schemas["LineageEdge"];

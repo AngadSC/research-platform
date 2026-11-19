@@ -21,6 +21,9 @@ from documents.models import Attachment, Document, DocumentRevision, Folder
 from documents.serializers import (
     AttachmentSerializer,
     AttachmentUploadSerializer,
+    CommentCreateSerializer,
+    CommentResolveSerializer,
+    CommentSerializer,
     ConflictSerializer,
     DocumentCreateSerializer,
     DocumentListSerializer,
@@ -281,6 +284,77 @@ class RevisionRestoreView(RevisionMixin, generics.GenericAPIView):
     def post(self, request, lab_id, document_id, version):
         doc = services.restore_revision(self.get_object(), user=request.user, request=request)
         return Response(self.get_serializer(doc).data)
+
+
+# ---------------------------------------------------------------- comments
+
+
+class CommentMixin(DocumentMixin):
+    """Comments live and die with their document: a deleted or invisible one is a 404 first.
+    Everyone who can read the document reads and writes comments, viewers included (as in chat,
+    D206); resolving and deleting are narrowed in services through core.permissions."""
+
+    serializer_class = CommentSerializer
+    pagination_class = None
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "chat"
+
+    def get_throttles(self):  # writing only; reading is not rate limited
+        return super().get_throttles() if self.request.method == "POST" else []
+
+    def get_queryset(self):
+        return self.get_document().comments.select_related("author", "resolved_by")
+
+
+class CommentListCreateView(CommentMixin, generics.GenericAPIView):
+    perms = {"GET": Perm.VIEW_PROJECT, "POST": Perm.VIEW_PROJECT}
+
+    @extend_schema(responses=CommentSerializer(many=True))
+    def get(self, request, lab_id, document_id):
+        """Oldest first; a reply names its comment in `parent`."""
+        qs = self.get_queryset().order_by("created_at", "id")
+        return Response(self.get_serializer(qs, many=True).data)
+
+    @extend_schema(request=CommentCreateSerializer, responses={201: CommentSerializer})
+    def post(self, request, lab_id, document_id):
+        ser = CommentCreateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        data = dict(ser.validated_data)
+        parent = None
+        if data["parent"] is not None:
+            parent = self.get_queryset().filter(pk=data["parent"]).first()
+            if parent is None:
+                raise ValidationError({"parent": "That comment does not exist."})
+        comment = services.add_comment(
+            self.get_document(),
+            user=request.user,
+            body=data["body"],
+            quote=data["quote"],
+            parent=parent,
+            request=request,
+        )
+        return Response(self.get_serializer(comment).data, status=status.HTTP_201_CREATED)
+
+
+class CommentDetailView(CommentMixin, generics.GenericAPIView):
+    lookup_url_kwarg = "comment_id"
+    perms = {"PATCH": Perm.VIEW_PROJECT, "DELETE": Perm.VIEW_PROJECT}
+
+    @extend_schema(request=CommentResolveSerializer, responses=CommentSerializer)
+    def patch(self, request, lab_id, document_id, comment_id):
+        """Resolve or reopen a comment: its author, or anyone who can edit the document."""
+        ser = CommentResolveSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        comment = services.resolve_comment(
+            self.get_object(), user=request.user, resolved=ser.validated_data["resolved"]
+        )
+        return Response(self.get_serializer(comment).data)
+
+    @extend_schema(responses={204: None})
+    def delete(self, request, lab_id, document_id, comment_id):
+        """Its author, a project lead, a PI or a lab admin."""
+        services.delete_comment(self.get_object(), user=request.user, request=request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 # ---------------------------------------------------------------- attachments

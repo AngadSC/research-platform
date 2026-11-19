@@ -1,7 +1,8 @@
-import { ListPlus, Maximize2, Minimize2, MoreHorizontal } from "lucide-react";
+import { ListPlus, Maximize2, MessageSquare, Minimize2, MoreHorizontal } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
+import { CommentsPanel } from "@/components/documents/CommentsPanel";
 import { ConflictDialog } from "@/components/documents/ConflictDialog";
 import { StaleDocumentBanner } from "@/components/documents/StaleDocumentBanner";
 import { RevisionsPanel } from "@/components/documents/RevisionsPanel";
@@ -37,6 +38,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   useDeleteDocument,
   useDocument,
+  useDocumentComments,
   useParticipantFlag,
   useSaveDocument,
 } from "@/hooks/documents";
@@ -183,6 +185,7 @@ function DocumentEditor({
   projectId,
   canEdit,
   canDelete,
+  canModerate,
   canRetention,
   canPin = false,
   onReload,
@@ -193,6 +196,8 @@ function DocumentEditor({
   projectId: string;
   canEdit: boolean;
   canDelete: boolean;
+  /** Deletes anyone's comment: a project lead, or for a lab-wide document a PI or lab admin. */
+  canModerate: boolean;
   /** view_retention: without it the retention fields are read-only and never sent (D55). */
   canRetention: boolean;
   /** manage_lab for a lab document, edit_project for a project one: pin for everyone. */
@@ -203,15 +208,34 @@ function DocumentEditor({
   // Focus mode lives in the address, so a reload or a shared link keeps it.
   const [params, setParams] = useSearchParams();
   const focus = params.get("focus") === "1";
-  const setFocus = (on: boolean) =>
+  const showComments = params.get("comments") === "1"; // notifications link here
+  const setFlag = (name: string, on: boolean) =>
     setParams(
       (p) => {
-        if (on) p.set("focus", "1");
-        else p.delete("focus");
+        if (on) p.set(name, "1");
+        else p.delete(name);
         return p;
       },
       { replace: true },
     );
+  const setFocus = (on: boolean) => setFlag("focus", on);
+  const openComments = (useDocumentComments(labId, doc.id).list.data ?? []).filter(
+    (c) => !c.parent && !c.resolved_at,
+  ).length;
+  // Text selected in the document is quoted by the next comment.
+  const [quote, setQuote] = useState("");
+  const editorBox = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showComments || doc.embed_url) return;
+    const onSelect = () => {
+      const sel = document.getSelection();
+      const text = sel?.toString().replace(/\s+/g, " ").trim() ?? "";
+      if (text && sel?.anchorNode && editorBox.current?.contains(sel.anchorNode))
+        setQuote(text.slice(0, 500));
+    };
+    document.addEventListener("selectionchange", onSelect);
+    return () => document.removeEventListener("selectionchange", onSelect);
+  }, [showComments, doc.embed_url]);
   useEffect(() => {
     if (!focus) return;
     const onKey = (e: KeyboardEvent) => {
@@ -522,6 +546,18 @@ function DocumentEditor({
           {focus ? <Minimize2 aria-hidden /> : <Maximize2 aria-hidden />}
           {focus ? "Exit focus" : "Focus"}
         </Button>
+        <Button
+          variant={showComments ? "secondary" : "outline"}
+          size="sm"
+          className="mt-1 shrink-0"
+          aria-pressed={showComments}
+          aria-label={`Comments, ${openComments} open`}
+          onClick={() => setFlag("comments", !showComments)}
+        >
+          <MessageSquare aria-hidden />
+          Comments
+          {openComments > 0 && <span className="tabular-nums">{openComments}</span>}
+        </Button>
         {doc.embed_url && doc.embed_open_url && (
           <Button variant="outline" size="sm" asChild className="mt-1 shrink-0">
             <a href={doc.embed_open_url} target="_blank" rel="noopener noreferrer">
@@ -584,38 +620,58 @@ function DocumentEditor({
         dirty={dirty}
         onReload={() => void reload()}
       />
-      {doc.embed_url ? (
-        <iframe
-          title={doc.title}
-          src={doc.embed_url}
-          // Google and Office need scripts, same-origin storage and forms; sign-in prompts and
-          // links open in a new, unsandboxed tab.
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
-          referrerPolicy="no-referrer"
-          className={cn("w-full flex-1 rounded-md border-0", focus ? "min-h-0" : FILL_HEIGHT)}
-        />
-      ) : (
-        <Suspense
-          fallback={<Skeleton className={cn("w-full flex-1", focus ? "min-h-0" : FILL_HEIGHT)} />}
-        >
-          <RichEditor
-            initialContent={initial}
-            editable={canEdit}
-            label="Document content"
+      <div className="flex flex-1 flex-col gap-4 lg:flex-row">
+        <div ref={editorBox} className="flex min-w-0 flex-1 flex-col">
+          {doc.embed_url ? (
+            <iframe
+              title={doc.title}
+              src={doc.embed_url}
+              // Google and Office need scripts, same-origin storage and forms; sign-in prompts and
+              // links open in a new, unsandboxed tab.
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+              referrerPolicy="no-referrer"
+              className={cn("w-full flex-1 rounded-md border-0", focus ? "min-h-0" : FILL_HEIGHT)}
+            />
+          ) : (
+            <Suspense
+              fallback={
+                <Skeleton className={cn("w-full flex-1", focus ? "min-h-0" : FILL_HEIGHT)} />
+              }
+            >
+              <RichEditor
+                initialContent={initial}
+                editable={canEdit}
+                label="Document content"
+                people={people}
+                className={cn(
+                  "flex-1 rounded-none border-0 bg-transparent py-0",
+                  focus
+                    ? "[&_.bn-editor]:min-h-[calc(100dvh-5rem)]"
+                    : "[&_.bn-editor]:min-h-[calc(100dvh-16rem)]", // the whole area takes the click
+                )}
+                onChange={(b) => {
+                  content.current = b;
+                  if (JSON.stringify(b) !== baseline.current) schedule();
+                }}
+              />
+            </Suspense>
+          )}
+        </div>
+        {showComments && (
+          <CommentsPanel
+            labId={labId}
+            documentId={doc.id}
             people={people}
-            className={cn(
-              "flex-1 rounded-none border-0 bg-transparent py-0",
-              focus
-                ? "[&_.bn-editor]:min-h-[calc(100dvh-5rem)]"
-                : "[&_.bn-editor]:min-h-[calc(100dvh-16rem)]", // the whole area takes the click
-            )}
-            onChange={(b) => {
-              content.current = b;
-              if (JSON.stringify(b) !== baseline.current) schedule();
-            }}
+            canEdit={canEdit}
+            canModerate={canModerate}
+            quote={quote}
+            canQuote={!doc.embed_url}
+            onClearQuote={() => setQuote("")}
+            onClose={() => setFlag("comments", false)}
+            className="lg:sticky lg:top-0 lg:max-h-[calc(100dvh-8rem)] lg:w-80 lg:shrink-0 lg:overflow-y-auto"
           />
-        </Suspense>
-      )}
+        )}
+      </div>
       <ConflictDialog
         conflict={conflict}
         labId={labId}
@@ -766,6 +822,7 @@ export default function DocumentPage() {
       projectId={projectId}
       canEdit={owner.my_permissions.includes(projectId ? "edit_content" : "contribute_lab")}
       canDelete={owner.my_permissions.includes(projectId ? "edit_content" : "manage_lab")}
+      canModerate={owner.my_permissions.includes(projectId ? "edit_project" : "manage_lab")}
       canRetention={!!projectId && owner.my_permissions.includes("view_retention")}
       canPin={owner.my_permissions.includes(projectId ? "edit_project" : "manage_lab")}
       onReload={reload}

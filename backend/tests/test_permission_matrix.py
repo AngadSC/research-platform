@@ -30,7 +30,7 @@ from assistant.tests.reauth import sign_in  # AI access (Run 5)
 from core import link_preview  # link previews (D322)
 from core.models import Institution, Notification, NotificationKind, User
 from documents import services as document_services  # documents/attachments (Phase 3)
-from documents.models import Attachment  # file links (VISION S1)
+from documents.models import Attachment, DocumentComment  # file links (VISION S1); comments
 from ethics.models import EthicsApproval  # ethics (Phase 5)
 from integrations import http as integrations_http  # integrations (Run 2)
 from integrations import registry, webhooks
@@ -218,6 +218,13 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "documents:revision-list"): "401 404 2 2 2 2 2 404 2",
     ("GET",    "documents:revision-detail"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "documents:revision-restore"): "401 404 2 2 2 2 403 404 403",
+    # Comments: whoever reads the document reads and writes them, viewers too (D206's rule). The
+    # comment is contrib's: resolving needs its author or an editor; deleting, its author or a
+    # project lead (PIs and lab admins lead every project).
+    ("GET",    "documents:comment-list"): "401 404 2 2 2 2 2 404 2",
+    ("POST",   "documents:comment-list"): "401 404 2 2 2 2 2 404 2",
+    ("PATCH",  "documents:comment-detail"): "401 404 2 2 2 2 403 404 403",
+    ("DELETE", "documents:comment-detail"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:attachment-list"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "documents:attachment-list"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:attachment-detail"): "401 404 2 2 2 2 2 404 2",
@@ -1232,6 +1239,9 @@ def build_world():
     # --- documents/attachments (Phase 3): Lab A fixtures ---
     doc_a, attachment_a = _doc_fixtures(lab_a, p1, users["pi"], "lab-a")
     task_a.documents.add(doc_a)  # task thread and links (Run 4)
+    comment_a = DocumentComment.objects.create(  # comments: by contrib, like chat_a
+        lab=lab_a, document=doc_a, author=users["contrib"], body="Comment lab-a"
+    )
     task_a.attachments.add(attachment_a)
     post_a = TaskPost.objects.create(lab=lab_a, task=task_a, author=users["pi"], body="Post lab-a")
     # --- end documents/attachments (Phase 3) ---
@@ -1284,6 +1294,9 @@ def build_world():
     # --- documents/attachments (Phase 3): Lab B mirror ---
     doc_b, attachment_b = _doc_fixtures(lab_b, p1_b, secret_pi, "LAB-B-SECRET")
     task_b.documents.add(doc_b)  # task thread and links (Run 4)
+    comment_b = DocumentComment.objects.create(
+        lab=lab_b, document=doc_b, author=secret_pi, body="Comment LAB-B-SECRET"
+    )
     task_b.attachments.add(attachment_b)
     post_b = TaskPost.objects.create(
         lab=lab_b, task=task_b, author=secret_pi, body="Post LAB-B-SECRET"
@@ -1326,6 +1339,7 @@ def build_world():
             "taskpost_id": post_a.pk,
             # --- documents/attachments (Phase 3) ---
             "document_id": doc_a.pk,
+            "comment_id": comment_a.pk,
             "version": 1,
             "attachment_id": attachment_a.pk,
             "folder_id": _folder_fixture(p1, users["pi"], "lab-a").pk,
@@ -1364,6 +1378,7 @@ def build_world():
             "taskpost_id": post_b.pk,
             # --- documents/attachments (Phase 3) ---
             "document_id": doc_b.pk,
+            "comment_id": comment_b.pk,
             "version": 1,
             "attachment_id": attachment_b.pk,
             "folder_id": _folder_fixture(p1_b, secret_pi, "LAB-B-SECRET").pk,
@@ -1399,6 +1414,7 @@ def build_world():
             "Post LAB-B-SECRET",  # task thread (Run 4)
             # --- documents/attachments (Phase 3): titles, filename and the file's bytes ---
             "Doc LAB-B-SECRET",
+            "Comment LAB-B-SECRET",
             "Folder LAB-B-SECRET",
             "file-LAB-B-SECRET.pdf",
             "bytes of LAB-B-SECRET",
@@ -1558,6 +1574,8 @@ PAYLOADS = {
         "base_version": 2,
     },
     ("POST", "documents:revision-restore"): lambda user, w: {},
+    ("POST", "documents:comment-list"): lambda user, w: {"body": "Looks good"},
+    ("PATCH", "documents:comment-detail"): lambda user, w: {"resolved": True},
     ("POST", "documents:attachment-list"): lambda user, w: {
         "file": SimpleUploadedFile("up.pdf", b"%PDF-1.4 upload", content_type="application/pdf"),
         "acknowledged_notice": "true",
