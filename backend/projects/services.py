@@ -48,6 +48,7 @@ def next_project_color(lab) -> str:
 def create_project(*, lab, user, data, request=None) -> Project:
     data = dict(data)
     template = data.pop("template", "")
+    lead, members = data.pop("lead", None), data.pop("members", [])
     changes = retention_changes(Project(), data)
     guard_retention(user, lab, changes)
     data = {"color": next_project_color(lab), **data}
@@ -55,6 +56,13 @@ def create_project(*, lab, user, data, request=None) -> Project:
     audit_retention(user, lab, project, changes, request)
     ProjectMembership.objects.create(lab=lab, project=project, user=user, role=ProjectRole.LEAD)
     forget(user)
+    # the creator is the lead, so they may add people; add_member checks each is in the lab
+    team = {who: ProjectRole.CONTRIBUTOR for who in members}
+    if lead:
+        team[lead] = ProjectRole.LEAD
+    for who, role in team.items():
+        if who != user.pk:
+            add_member(project=project, by=user, user_id=who, role=role, request=request)
     if template:
         templates.apply(template, project, user)
     add_default_columns(project)

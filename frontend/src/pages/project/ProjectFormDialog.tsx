@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useParams } from "react-router";
 import { toast } from "sonner";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
@@ -13,8 +14,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useMe, useMembers } from "@/hooks/workspace";
 import {
   PROJECT_STATUSES,
+  personName,
   type Project,
   type ProjectInput,
   type ProjectStatus,
@@ -24,41 +27,55 @@ import { PROJECT_COLORS, projectColorStyle } from "@/lib/projectColors";
 import { STUDY_TYPES } from "@/lib/nav";
 
 const BLANK = "blank";
-const TEMPLATES: { value: NonNullable<ProjectInput["template"]>; label: string; help: string }[] = [
+// `tasks` is how many tasks the template makes (kept in step with projects/templates.py by a
+// backend test).
+const TEMPLATES: {
+  value: NonNullable<ProjectInput["template"]>;
+  label: string;
+  help: string;
+  tasks: number;
+}[] = [
   {
     value: "honours_thesis",
     label: "Honours thesis",
     help: "A plan from proposal to final thesis, with deadlines over about nine months.",
+    tasks: 9,
   },
   {
     value: "survey_study",
     label: "Survey study",
     help: "A plan from writing the survey to reporting results, over about six months.",
+    tasks: 9,
   },
   {
     value: "experiment",
     label: "Experiment or pilot study",
     help: "A plan from design and pilot to running sessions and writing up, over about six months.",
+    tasks: 9,
   },
   {
     value: "secondary_data_analysis",
     label: "Secondary data analysis",
     help: "A plan for working with existing data. The Participants step is marked as not needed.",
+    tasks: 8,
   },
   {
     value: "thesis_chapter",
     label: "Thesis chapter",
     help: "A plan for one chapter from outline to final draft, with a Drafts folder and more.",
+    tasks: 7,
   },
   {
     value: "ra_onboarding",
     label: "RA onboarding",
     help: "Your first month in a lab: training, access, meeting people and agreeing goals.",
+    tasks: 8,
   },
   {
     value: "conference_poster",
     label: "Poster for a conference",
     help: "From the poster rules to printing and practising your talk, with a folder for the files.",
+    tasks: 8,
   },
 ];
 
@@ -72,13 +89,84 @@ interface Props {
   onSave: (v: ProjectInput) => Promise<unknown>;
 }
 
+/** Optional starting team for a new project. You stay a lead; template tasks stay unassigned. */
+function TeamPickers(props: {
+  labId: string;
+  lead: string;
+  members: string[];
+  onLead: (id: string) => void;
+  onMembers: (ids: string[]) => void;
+}) {
+  const myId = useMe().data?.id;
+  const people = (useMembers(props.labId).data ?? []).filter(
+    (m) => m.user.id !== myId && m.role !== "viewer", // viewers can't be given project work
+  );
+  if (people.length === 0) return null;
+  return (
+    <>
+      <FormField label="Lead" hint="Optional. You stay a lead too.">
+        {(p) => (
+          <Select
+            value={props.lead || "none"}
+            onValueChange={(v) => props.onLead(v === "none" ? "" : v)}
+          >
+            <SelectTrigger {...p}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Just me</SelectItem>
+              {people.map((m) => (
+                <SelectItem key={m.user.id} value={m.user.id}>
+                  {personName(m.user)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </FormField>
+      <fieldset className="grid gap-2">
+        <legend className="text-sm font-medium">Members</legend>
+        <p className="text-xs text-muted-foreground">Optional. They join as contributors.</p>
+        <div className="grid max-h-32 gap-1.5 overflow-y-auto sm:grid-cols-2">
+          {people
+            .filter((m) => m.user.id !== props.lead)
+            .map((m) => (
+              <label
+                key={m.user.id}
+                className="flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/10"
+              >
+                <input
+                  type="checkbox"
+                  checked={props.members.includes(m.user.id)}
+                  onChange={(e) =>
+                    props.onMembers(
+                      e.target.checked
+                        ? [...props.members, m.user.id]
+                        : props.members.filter((v) => v !== m.user.id),
+                    )
+                  }
+                />
+                {personName(m.user)}
+              </label>
+            ))}
+        </div>
+      </fieldset>
+    </>
+  );
+}
+
 /** Create or edit a project. Throws from onSave are shown inline. */
 export function ProjectFormDialog({ open, onOpenChange, project, canRetention, onSave }: Props) {
   const [status, setStatus] = useState<ProjectStatus>(project?.status ?? "planning");
+  const { labId = "" } = useParams();
   const [template, setTemplate] = useState<string>(BLANK);
+  const [lead, setLead] = useState("");
+  const [members, setMembers] = useState<string[]>([]);
   const [studyTypes, setStudyTypes] = useState<string[]>(project?.study_types ?? ["human"]);
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
   const [moreOpen, setMoreOpen] = useState(!!(project?.retain_until || project?.retention_note));
+
+  const chosen = project ? undefined : TEMPLATES.find((t) => t.value === template);
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -96,6 +184,8 @@ export function ProjectFormDialog({ open, onOpenChange, project, canRetention, o
         study_types: studyTypes as NonNullable<ProjectInput["study_types"]>,
         start_date: String(f.get("start_date") ?? "") || null,
         ...(template !== BLANK && { template: template as ProjectInput["template"] }),
+        ...(!project && lead && { lead }),
+        ...(!project && members.length > 0 && { members: members.filter((m) => m !== lead) }),
         ...(canRetention && {
           retain_until: String(f.get("retain_until") ?? "") || null,
           retention_note: String(f.get("retention_note") ?? ""),
@@ -181,6 +271,20 @@ export function ProjectFormDialog({ open, onOpenChange, project, canRetention, o
                 </Select>
               )}
             </FormField>
+          )}
+          {chosen && (
+            <p className="-mt-2 text-xs text-muted-foreground">
+              {chosen.tasks} tasks will be created; assign them on the Tasks tab.
+            </p>
+          )}
+          {!project && labId && (
+            <TeamPickers
+              labId={labId}
+              lead={lead}
+              members={members}
+              onLead={setLead}
+              onMembers={setMembers}
+            />
           )}
           <fieldset className="grid gap-2">
             <legend className="text-sm font-medium">What does this project study?</legend>

@@ -89,6 +89,7 @@ const dash = (over: Record<string, unknown> = {}) => ({
       open_tasks: 2,
       overdue_tasks: 0,
       done_last_30_days: 5,
+      in_progress_tasks: 1,
       last_active_at: "2026-11-04T10:00:00Z",
     },
   ],

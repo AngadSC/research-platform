@@ -264,8 +264,8 @@ def test_people_counts_not_timelines(world):
     m = people[str(world["member"].pk)]
     assert (m["open_tasks"], m["overdue_tasks"], m["done_last_30_days"]) == (2, 1, 1)
     assert set(m) == {
-        "user_id", "name", "role", "open_tasks", "overdue_tasks", "done_last_30_days",
-        "last_active_at",
+        "user_id", "name", "role", "open_tasks", "overdue_tasks", "in_progress_tasks",
+        "done_last_30_days", "last_active_at",
     }  # fmt: skip
     assert people[str(world["pi"].pk)]["open_tasks"] == 0
 
@@ -349,3 +349,24 @@ def test_a_past_due_deadline_counts_as_overdue_and_turns_the_project_red(world):
     assert row["health"] == "red" and "1 overdue deadline" in row["health_reasons"]
     # the late one is not also reported as "within 14 days" on the health line
     assert "Deadline within 14 days" in row["health_reasons"]
+
+
+def test_people_rows_count_in_progress_tasks(world):
+    task(world, assignee=world["member"], status=TaskStatus.IN_PROGRESS)
+    task(world, assignee=world["member"], status=TaskStatus.TODO)
+    row = next(p for p in get(world)["people"] if p["user_id"] == str(world["member"].pk))
+    assert row["in_progress_tasks"] == 1 and row["open_tasks"] == 2
+
+
+def test_team_tasks_list_matches_the_counts_and_is_manager_only(world):
+    t1 = task(world, assignee=world["member"], due_date=days(-2), status=TaskStatus.IN_PROGRESS)
+    task(world, assignee=world["member"], due_date=days(3))
+    task(world, assignee=world["member"], due_date=days(-1), status=TaskStatus.DONE)
+    task(world, assignee=world["pi"], due_date=days(-5))
+    url = f"/api/labs/{world['lab'].pk}/team-tasks/?assignee={world['member'].pk}"
+    ids = lambda show: [t["id"] for t in api(world["pi"]).get(f"{url}&show={show}").json()]  # noqa: E731
+    assert ids("overdue") == [str(t1.pk)]
+    assert ids("in_progress") == [str(t1.pk)]
+    assert len(ids("open")) == 2
+    assert api(world["member"]).get(url).status_code == 403
+    assert len(api(world["pi"]).get(url.split("?")[0] + "?show=overdue").json()) == 2  # everyone

@@ -1,12 +1,14 @@
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import generics, status
+from rest_framework import generics, serializers, status
 from rest_framework.response import Response
 
 from core.permissions import Perm
+from core.views import LabScopedViewMixin
 from projects.services import refuse_if_archived
 from projects.views import ProjectScopedMixin
 from provenance import services
+from provenance.models import FundingRecord
 from provenance.serializers import (
     INPUT,
     OUTPUT,
@@ -177,6 +179,46 @@ class FundingDetailView(KindDetail):
         "PATCH": Perm.ACCESS_FUNDING,
         "DELETE": Perm.ACCESS_FUNDING,
     }
+
+
+class FundingOverviewSerializer(serializers.ModelSerializer):
+    project_id = serializers.UUIDField(read_only=True)
+    project_name = serializers.CharField(source="project.name", read_only=True)
+
+    class Meta:
+        model = FundingRecord
+        fields = [
+            "id",
+            "project_id",
+            "project_name",
+            "funder",
+            "program",
+            "award_number",
+            "amount",
+            "currency",
+            "start_date",
+            "end_date",
+            "status",
+        ]
+        read_only_fields = fields
+
+
+class FundingOverviewView(LabScopedViewMixin, generics.ListAPIView):
+    """Every award in the lab, for PIs only (D226). Same filter as the project's Funding tab
+    (`visible_to` -> `FundingRecord.visible_rows`); no notes and no grant letter, one query."""
+
+    model = FundingRecord
+    serializer_class = FundingOverviewSerializer
+    pagination_class = None
+    perms = {"GET": Perm.ACCESS_FUNDING}
+
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("project")
+            .order_by("end_date", "project__name", "funder", "id")
+        )
 
 
 @_list_schema("review")

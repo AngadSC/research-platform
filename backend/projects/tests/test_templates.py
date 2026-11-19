@@ -7,7 +7,7 @@ from rest_framework.test import APIClient
 
 from audit.models import AuditAction, AuditEvent
 from labs.models import LabRole
-from projects.models import Project, ProjectDeadline, Task
+from projects.models import Project, ProjectDeadline, ProjectMembership, Task
 from projects.templates import TEMPLATES
 from provenance.models import WORKFLOW_STAGES, ReviewItem
 
@@ -87,3 +87,49 @@ def test_new_templates_make_folders_and_tasks(world):
         assert Task.objects.for_lab(lab).filter(project=project).count() == len(plan["tasks"])
         folders = Folder.objects.for_lab(lab).filter(project=project)
         assert sorted(f.name for f in folders) == sorted(plan["folders"])
+
+
+# The New project dialog says "N tasks will be created" from this table (ProjectFormDialog.tsx).
+DIALOG_TASK_COUNTS = {
+    "honours_thesis": 9,
+    "survey_study": 9,
+    "secondary_data_analysis": 8,
+    "experiment": 9,
+    "thesis_chapter": 7,
+    "ra_onboarding": 8,
+    "conference_poster": 8,
+}
+
+
+def test_dialog_task_counts_match_the_templates():
+    assert DIALOG_TASK_COUNTS == {k: len(v["tasks"]) for k, v in TEMPLATES.items()}
+
+
+def test_lead_and_members_join_and_template_tasks_stay_unassigned(world, make_user, join):
+    lab, client = world
+    student, other = make_user(), make_user()
+    join(student, lab, LabRole.MEMBER)
+    join(other, lab, LabRole.MEMBER)
+    r = create(
+        lab,
+        client,
+        template="honours_thesis",
+        lead=str(student.pk),
+        members=[str(other.pk), str(student.pk)],
+    )
+    assert r.status_code == 201, r.content
+    project = Project.objects.for_lab(lab).get()
+    roles = {
+        m.user_id: m.role for m in ProjectMembership.objects.for_lab(lab).filter(project=project)
+    }
+    assert roles[student.pk] == "lead" and roles[other.pk] == "contributor"
+    assert len(roles) == 3  # the creator, the lead and one member: no duplicates
+    assert not Task.objects.for_lab(lab).filter(project=project, assignee__isnull=False).exists()
+
+
+def test_someone_outside_the_lab_cannot_be_added_at_creation(world, make_user):
+    lab, client = world
+    stranger = make_user()
+    r = create(lab, client, members=[str(stranger.pk)])
+    assert r.status_code == 400
+    assert not Project.objects.for_lab(lab).exists()  # nothing half-made

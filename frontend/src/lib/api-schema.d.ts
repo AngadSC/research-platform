@@ -1446,6 +1446,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/funding/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Every award in the lab, for PIs only (D226). Same filter as the project's Funding tab
+         *     (`visible_to` -> `FundingRecord.visible_rows`); no notes and no grant letter, one query.
+         */
+        get: operations["labs_funding_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/funding/{fundingrecord_id}/": {
         parameters: {
             query?: never;
@@ -4730,6 +4750,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/team-tasks/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description One member's tasks across the lab, for the Home team table's counts. PIs and lab admins
+         *     only; the rows still go through `visible_to`, so nothing is shown that they couldn't open.
+         *     `show` uses the same definitions as the dashboard's counts: overdue, in_progress or open.
+         */
+        get: operations["labs_team_tasks_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/training/compliance/": {
         parameters: {
             query?: never;
@@ -6009,6 +6050,7 @@ export interface components {
             role: string;
             open_tasks: number;
             overdue_tasks: number;
+            in_progress_tasks: number;
             done_last_30_days: number;
             /** Format: date-time */
             last_active_at: string | null;
@@ -6643,6 +6685,24 @@ export interface components {
             notes?: string;
             /** Format: uuid */
             attachment?: string | null;
+        };
+        FundingOverview: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly project_id: string;
+            readonly project_name: string;
+            readonly funder: string;
+            readonly program: string;
+            readonly award_number: string;
+            /** Format: decimal */
+            readonly amount: string | null;
+            readonly currency: string;
+            /** Format: date */
+            readonly start_date: string | null;
+            /** Format: date */
+            readonly end_date: string | null;
+            readonly status: components["schemas"]["Status1eeEnum"];
         };
         GettingStarted: {
             steps: components["schemas"]["Step"][];
@@ -8407,6 +8467,9 @@ export interface components {
             retention_note?: string;
             study_types?: components["schemas"]["StudyTypesEnum"][];
             template?: components["schemas"]["TemplateEnum"];
+            /** Format: uuid */
+            lead?: string;
+            members?: string[];
         };
         ProjectMembership: {
             /** Format: uuid */
@@ -12081,6 +12144,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FormRead"];
+                };
+            };
+        };
+    };
+    labs_funding_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FundingOverview"][];
                 };
             };
         };
@@ -17606,6 +17690,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaskPost"];
+                };
+            };
+        };
+    };
+    labs_team_tasks_list: {
+        parameters: {
+            query?: {
+                assignee?: string;
+                /**
+                 * @description * `overdue` - overdue
+                 *     * `in_progress` - in_progress
+                 *     * `open` - open
+                 */
+                show?: "overdue" | "in_progress" | "open";
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTask"][];
                 };
             };
         };

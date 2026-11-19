@@ -96,7 +96,7 @@ function GroupHeading({
 
 /** The lab's pages that live in a group of their own, not in the main list. */
 const LAB_GROUP = ["admin", "documents", "papers", "training", "members", "participants"];
-const ADMIN_GROUP = ["audit-log", "retention", "inventory", "ethics"];
+const ADMIN_GROUP = ["audit-log", "funding", "retention", "inventory", "ethics"];
 
 /**
  * A group of pages behind one icon, below the divider. Hovering (or clicking, or focusing) it opens

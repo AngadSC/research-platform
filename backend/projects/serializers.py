@@ -83,6 +83,9 @@ class ProjectInputSerializer(serializers.Serializer):
 
 class ProjectCreateSerializer(ProjectInputSerializer):
     template = serializers.ChoiceField(choices=sorted(templates.TEMPLATES), required=False)
+    # Optional starting team: you stay a lead; these join as lead and contributors.
+    lead = serializers.UUIDField(required=False)
+    members = serializers.ListField(child=serializers.UUIDField(), required=False, max_length=50)
 
 
 class ProjectMembershipSerializer(serializers.ModelSerializer):

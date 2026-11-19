@@ -1,6 +1,7 @@
 from django.core.exceptions import PermissionDenied
 from django.db.models import Case, Count, F, IntegerField, Prefetch, When
 from django.http import Http404
+from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, serializers, status
@@ -574,6 +575,40 @@ class MyTaskListView(LabScopedViewMixin, generics.GenericAPIView):
             .select_related("project")
             .order_by(F("due_date").asc(nulls_last=True), "created_at", "id")
         )
+        return Response(self.get_serializer(rows, many=True).data)
+
+
+class TeamTaskListView(LabScopedViewMixin, generics.GenericAPIView):
+    """One member's tasks across the lab, for the Home team table's counts. PIs and lab admins
+    only; the rows still go through `visible_to`, so nothing is shown that they couldn't open.
+    `show` uses the same definitions as the dashboard's counts: overdue, in_progress or open."""
+
+    serializer_class = MyTaskSerializer
+    pagination_class = None
+    perms = {"GET": Perm.MANAGE_LAB}
+
+    class Query(serializers.Serializer):
+        assignee = serializers.UUIDField(required=False)  # left out: everyone's
+        show = serializers.ChoiceField(choices=["overdue", "in_progress", "open"], default="open")
+
+    @extend_schema(parameters=[Query], responses=MyTaskSerializer(many=True))
+    def get(self, request, lab_id):
+        q = self.Query(data=request.query_params)
+        q.is_valid(raise_exception=True)
+        rows = (
+            Task.objects.visible_to(request.user, request.lab)
+            .filter(assignee__isnull=False)
+            .exclude(status=TaskStatus.DONE)
+            .select_related("project")
+            .order_by(F("due_date").asc(nulls_last=True), "created_at", "id")
+        )
+        if "assignee" in q.validated_data:
+            rows = rows.filter(assignee_id=q.validated_data["assignee"])
+        show = q.validated_data["show"]
+        if show == "overdue":
+            rows = rows.filter(due_date__lt=timezone.localdate())
+        elif show == "in_progress":
+            rows = rows.filter(status=TaskStatus.IN_PROGRESS)
         return Response(self.get_serializer(rows, many=True).data)
 
 

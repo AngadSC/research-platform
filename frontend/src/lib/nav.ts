@@ -12,6 +12,7 @@ import {
   FolderKanban,
   GraduationCap,
   History,
+  Landmark,
   LayoutDashboard,
   Home,
   ListChecks,
@@ -120,6 +121,7 @@ export function navItems(
     page("notifications", "Notifications", Bell), // the palette only; the sidebar has the bell
     // These three permissions are held by PIs and lab admins only.
     ...(can("view_audit_log") ? [page("audit-log", "Audit log", History, true)] : []),
+    ...(can("access_funding") ? [page("funding", "Funding", Landmark, true)] : []), // PIs only (D226)
     ...(can("view_retention") ? [page("retention", "Retention", Archive, true)] : []),
     ...(can("manage_lab") ? [page("admin", "Lab details", Building2, true)] : []),
     help,

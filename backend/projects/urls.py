@@ -33,6 +33,7 @@ urlpatterns = [
         name="member-handover",
     ),
     path("labs/<uuid:lab_id>/my-tasks/", views.MyTaskListView.as_view(), name="my-tasks"),
+    path("labs/<uuid:lab_id>/team-tasks/", views.TeamTaskListView.as_view(), name="team-tasks"),
     path(_P + "tasks/", views.TaskListCreateView.as_view(), name="task-list"),
     path(
         "labs/<uuid:lab_id>/tasks/<uuid:task_id>/",

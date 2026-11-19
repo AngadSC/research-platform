@@ -159,6 +159,7 @@ class DashPersonSerializer(serializers.Serializer):
     role = serializers.CharField()
     open_tasks = serializers.IntegerField()
     overdue_tasks = serializers.IntegerField()
+    in_progress_tasks = serializers.IntegerField()
     done_last_30_days = serializers.IntegerField()
     last_active_at = serializers.DateTimeField(allow_null=True)
 
@@ -232,6 +233,7 @@ def build_dashboard(user, lab) -> dict:
         .annotate(
             open=Count("id", filter=not_done),
             overdue=Count("id", filter=late),
+            in_progress=Count("id", filter=Q(status=TaskStatus.IN_PROGRESS)),
             # updated_at stands in for "completed at" (no such column); see D172.
             done=Count(
                 "id",
@@ -449,6 +451,7 @@ def build_dashboard(user, lab) -> dict:
                 "role": m.role,
                 "open_tasks": c.get("open", 0),
                 "overdue_tasks": c.get("overdue", 0),
+                "in_progress_tasks": c.get("in_progress", 0),
                 "done_last_30_days": c.get("done", 0),
                 "last_active_at": last_active.get(m.user_id),
             }
