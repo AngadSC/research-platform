@@ -354,8 +354,14 @@ def test_inventory_search_sort_and_csv_export(world):
     assert len(c.get(url(lab, "inventory/?ordering=;drop")).json()) == 3  # unknown ordering ignored
     r = c.get(url(lab, "inventory/export/?category=other"))
     assert r["Content-Type"].startswith("text/csv")
-    text = r.content.decode()
+    assert r.content.decode("utf-8").startswith(chr(0xFEFF))  # BOM: Excel shows the µ
+    text = r.content.decode("utf-8-sig")
     assert text.startswith("Name,Category") and "'=cmd" in text and "Pipette" not in text
+    InventoryItem.objects.create(
+        lab=lab, name="Buffer", quantity="7.5", unit="µL", category="other"
+    )
+    row = c.get(url(lab, "inventory/export/?q=buffer")).content.decode("utf-8-sig")
+    assert ",7.5,µL," in row
     assert AuditAction.INVENTORY_EXPORTED in actions()
 
 

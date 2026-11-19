@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useIsPhone } from "@/hooks/media";
 import { ordersExportUrl, useOrders } from "@/hooks/admin";
 import {
   personName,
@@ -211,6 +212,7 @@ export function OrdersSection({
   const [cancelling, setCancelling] = useState<InventoryOrder>();
   const [deleting, setDeleting] = useState<InventoryOrder>();
   const orders = list.data ?? [];
+  const phone = useIsPhone();
 
   function setStatus(order: InventoryOrder, status: OrderStatus) {
     const wasReceived = order.status === "received";
@@ -230,6 +232,51 @@ export function OrdersSection({
     );
   }
 
+  const statusCell = (o: InventoryOrder) =>
+    canEdit && o.status !== "received" ? (
+      <NativeSelect
+        aria-label={`Status of ${o.name}`}
+        value={o.status}
+        className="w-32"
+        onChange={(e) => {
+          const next = e.target.value as OrderStatus;
+          if (next === "received") setReceiving(o);
+          else setStatus(o, next);
+        }}
+      >
+        {STATUSES.map((s) => (
+          <option key={s.value} value={s.value}>
+            {s.label}
+          </option>
+        ))}
+      </NativeSelect>
+    ) : (
+      (STATUSES.find((s) => s.value === o.status)?.label ?? o.status)
+    );
+
+  const actionsCell = (o: InventoryOrder) => (
+    <div className="flex flex-wrap justify-end gap-2">
+      {o.url && (
+        <Button variant="outline" size="sm" asChild>
+          <a href={o.url} target="_blank" rel="noopener noreferrer">
+            Place order<span className="sr-only">: {o.name}</span>
+          </a>
+        </Button>
+      )}
+      {canEdit && o.status === "received" && (
+        <Button variant="outline" size="sm" onClick={() => setCancelling(o)}>
+          Cancel order<span className="sr-only">: {o.name}</span>
+        </Button>
+      )}
+      {canEdit && o.status === "cancelled" && (
+        <Button variant="outline" size="sm" onClick={() => setDeleting(o)}>
+          Delete<span className="sr-only">: {o.name}</span>
+        </Button>
+      )}
+      {!o.url && !(canEdit && (o.status === "received" || o.status === "cancelled")) && "-"}
+    </div>
+  );
+
   const cols: Column<InventoryOrder>[] = [
     {
       key: "name",
@@ -248,55 +295,14 @@ export function OrdersSection({
     {
       key: "status",
       header: "Status",
-      cell: (o) =>
-        canEdit && o.status !== "received" ? (
-          <NativeSelect
-            aria-label={`Status of ${o.name}`}
-            value={o.status}
-            className="w-32"
-            onChange={(e) => {
-              const next = e.target.value as OrderStatus;
-              if (next === "received") setReceiving(o);
-              else setStatus(o, next);
-            }}
-          >
-            {STATUSES.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
-            ))}
-          </NativeSelect>
-        ) : (
-          (STATUSES.find((s) => s.value === o.status)?.label ?? o.status)
-        ),
+      cell: statusCell,
     },
     { key: "by", header: "Requested by", cell: (o) => personName(o.requested_by) },
     {
       key: "actions",
       header: "Actions",
       className: "text-right",
-      cell: (o) => (
-        <div className="flex justify-end gap-2">
-          {o.url && (
-            <Button variant="outline" size="sm" asChild>
-              <a href={o.url} target="_blank" rel="noopener noreferrer">
-                Place order<span className="sr-only">: {o.name}</span>
-              </a>
-            </Button>
-          )}
-          {canEdit && o.status === "received" && (
-            <Button variant="outline" size="sm" onClick={() => setCancelling(o)}>
-              Cancel order<span className="sr-only">: {o.name}</span>
-            </Button>
-          )}
-          {canEdit && o.status === "cancelled" && (
-            <Button variant="outline" size="sm" onClick={() => setDeleting(o)}>
-              Delete<span className="sr-only">: {o.name}</span>
-            </Button>
-          )}
-          {!o.url && !(canEdit && (o.status === "received" || o.status === "cancelled")) && "-"}
-        </div>
-      ),
+      cell: actionsCell,
     },
   ];
 
@@ -311,13 +317,37 @@ export function OrdersSection({
         </Button>
         {canEdit && <Button onClick={() => setAdding(true)}>New order</Button>}
       </div>
-      <DataTable
-        columns={cols}
-        rows={orders}
-        getRowKey={(o) => o.id}
-        loading={list.isLoading}
-        empty={<EmptyState title="No orders" description="Orders you add will appear here." />}
-      />
+      {phone && !list.isLoading && orders.length > 0 ? (
+        <ul className="grid gap-2" aria-label="Orders">
+          {orders.map((o) => (
+            <li key={o.id} className="grid gap-2 rounded-lg border p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">{o.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {[o.vendor, o.catalog_number].filter(Boolean).join(" · ") ||
+                      (o.item_name !== o.name ? o.item_name : "")}
+                  </p>
+                </div>
+                <span className="shrink-0 text-sm">{qty(o)}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                {statusCell(o)}
+                <span className="text-xs text-muted-foreground">{personName(o.requested_by)}</span>
+              </div>
+              {actionsCell(o)}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <DataTable
+          columns={cols}
+          rows={orders}
+          getRowKey={(o) => o.id}
+          loading={list.isLoading}
+          empty={<EmptyState title="No orders" description="Orders you add will appear here." />}
+        />
+      )}
       <OrderDialog
         key={reorder?.id ?? String(adding)}
         reorder={reorder}

@@ -229,7 +229,7 @@ const AREAS: Record<string, string> = {
   file: "Files",
   folder: "Files",
   membership: "People",
-  training: "People",
+  training: "Training",
   onboarding: "People",
   handover: "People",
   ethics: "Ethics",
@@ -245,7 +245,11 @@ const AREAS: Record<string, string> = {
   external: "Integrations",
   webhook: "Integrations",
 };
-const areaOf = (code: string) => AREAS[code.split(".")[0] ?? code] ?? "Other";
+/** "inventory_item.updated" and "training_record.verified" group by the word before the underscore. */
+const areaOf = (code: string) => {
+  const head = code.split(".")[0] ?? code;
+  return AREAS[head] ?? AREAS[head.split("_")[0] ?? head] ?? "Other";
+};
 const ACTION_GROUPS = Object.entries(ACTIONS).reduce<Record<string, [string, string][]>>(
   (groups, [code, label]) => ((groups[areaOf(code)] ??= []).push([code, label]), groups),
   {},
@@ -258,6 +262,34 @@ const actionText = (e: AuditEvent) => {
   if (e.action === "inventory.imported" && typeof rows === "number")
     return `Imported ${rows} ${rows === 1 ? "item" : "items"}`;
   return actionLabel(e.action);
+};
+const STATUS_WORDS = (v: unknown) => (typeof v === "string" ? v.replace(/_/g, " ") : "");
+/** A short line for the events whose names alone say little. Only amounts, units, status words and
+ * field names: never a text field. */
+const detailLine = (e: AuditEvent): string => {
+  const m =
+    e.metadata && typeof e.metadata === "object" && !Array.isArray(e.metadata) ? e.metadata : {};
+  const meta = m as Record<string, unknown>;
+  const amount = (k: string) =>
+    meta[k] != null
+      ? `${show(meta[k])} ${typeof meta.unit === "string" ? meta.unit : ""}`.trim()
+      : "";
+  if (e.action === "inventory.used" && meta.amount != null) return `Took ${amount("amount")}`;
+  if (e.action === "inventory.use_reversed" && meta.amount != null)
+    return `Put back ${amount("amount")}`;
+  if (e.action === "inventory_order.updated" && meta.status_to)
+    return `Status: ${STATUS_WORDS(meta.status_from)} → ${STATUS_WORDS(meta.status_to)}`;
+  const changed = meta.changed;
+  if (
+    (e.action === "inventory_item.updated" || e.action === "inventory_order.updated") &&
+    Array.isArray(changed) &&
+    changed.length > 0
+  ) {
+    const added = typeof meta.added === "string" ? `, added ${show(meta.added)}` : "";
+    const removed = typeof meta.removed === "string" ? `, removed ${show(meta.removed)}` : "";
+    return `Changed: ${changed.map(STATUS_WORDS).join(", ")}${added}${removed}`;
+  }
+  return "";
 };
 const who = (e: AuditEvent) => e.actor?.display_name || e.actor?.email || "System";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -345,7 +377,21 @@ const columns: Column<AuditEvent>[] = [
     cell: (e) => <When value={e.created_at} />,
   },
   { key: "who", header: "Who", cell: who },
-  { key: "action", header: "Action", cell: (e) => actionText(e) },
+  {
+    key: "action",
+    header: "Action",
+    cell: (e) => {
+      const line = detailLine(e);
+      return line ? (
+        <span className="grid">
+          {actionText(e)}
+          <span className="text-xs text-muted-foreground">{line}</span>
+        </span>
+      ) : (
+        actionText(e)
+      );
+    },
+  },
   { key: "target", header: "Target", cell: (e) => cleanTarget(e.target_label) },
 ];
 

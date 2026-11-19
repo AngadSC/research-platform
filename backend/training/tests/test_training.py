@@ -230,6 +230,16 @@ def test_requirement_permissions_and_delete_guard(world):
     r = TrainingRequirement.objects.for_lab(lab).get(name="WHMIS")
     rec(lab, u["ann"], r, TODAY)
     assert api(u["pi"]).delete(url(lab, f"requirements/{r.pk}/")).status_code == 409
+    # once that record is deleted, only soft-deleted rows remain and the requirement can go
+    assert (
+        api(u["ann"])
+        .delete(url(lab, f"records/{TrainingRecord.objects.for_lab(lab).get(requirement=r).pk}/"))
+        .status_code
+        == 204
+    )
+    assert api(u["pi"]).delete(url(lab, f"requirements/{r.pk}/")).status_code == 204
+    assert not TrainingRequirement.objects.for_lab(lab).filter(pk=r.pk).exists()
+    assert not TrainingRecord.objects.for_lab(lab).filter(requirement_id=r.pk).exists()
 
 
 # ---------------------------------------------------------------- cross-lab

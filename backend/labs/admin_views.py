@@ -3,6 +3,7 @@ and inventory are here."""
 
 import csv
 from datetime import timedelta
+from decimal import Decimal
 
 from django.db.models import Count, DecimalField, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import Coalesce
@@ -325,6 +326,8 @@ class InventoryListCreateView(InventoryMixin, generics.GenericAPIView):
 
 def _safe_cell(value):
     """Spreadsheet formula injection: a leading = + - @ makes Excel run the cell."""
+    if isinstance(value, Decimal):  # 7.500000 reads 7.5, 100.000000 reads 100
+        value = format(value.normalize(), "f")
     text = "" if value is None else str(value)
     return "'" + text if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
 
@@ -332,6 +335,7 @@ def _safe_cell(value):
 def _csv_export(request, filename, header, rows, **metadata):
     resp = HttpResponse(content_type="text/csv; charset=utf-8")
     resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+    resp.write("﻿")  # so Excel reads the file as UTF-8 (a "micro" sign stays one)
     w = csv.writer(resp)
     w.writerow(header)
     count = 0

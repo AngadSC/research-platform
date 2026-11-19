@@ -148,7 +148,7 @@ def _create(model, created, *, lab, user, data, request):
     return obj
 
 
-def _update(obj, updated, *, user, data, request):
+def _update(obj, updated, *, user, data, request, extra=None):
     for k, v in data.items():
         setattr(obj, k, v)
     _save(obj)
@@ -158,7 +158,7 @@ def _update(obj, updated, *, user, data, request):
         lab=obj.lab,
         target=obj,
         request=request,
-        metadata={"changed": sorted(data)},
+        metadata={"changed": sorted(data), **(extra or {})},
     )
     return obj
 
@@ -491,7 +491,15 @@ def update_inventory_order(order, *, user, data, request=None):
                 "or it can be cancelled."
             }
         )
-    order = _update(order, A.INVENTORY_ORDER_UPDATED, user=user, data=data, request=request)
+    moved = data.get("status", order.status) != order.status
+    order = _update(
+        order,
+        A.INVENTORY_ORDER_UPDATED,
+        user=user,
+        data=data,
+        request=request,
+        extra={"status_from": order.status, "status_to": data["status"]} if moved else None,
+    )
     if order.status == OrderStatus.RECEIVED and not was_received:
         _add_to_stock(order, user=user, request=request)
     if cancelling:

@@ -441,6 +441,20 @@ describe("orders", () => {
     await expect.poll(() => calls.some((c) => c.method === "DELETE")).toBe(true);
   });
 
+  it("asks before deleting an item and shows what is on order", async () => {
+    const calls = mockFetch(
+      inventory(["view_lab", "manage_inventory"], {
+        [`DELETE ${L}/inventory/i1/`]: { status: 204 },
+      }),
+    );
+    renderRoute("/labs/lab1/inventory");
+    expect(await screen.findByText("3 box on order")).toBeInTheDocument();
+    await pickMenuItem("More for Tips", "Delete");
+    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+    await userEvent.click(await screen.findByRole("button", { name: "Delete item" }));
+    await expect.poll(() => calls.some((c) => c.method === "DELETE")).toBe(true);
+  });
+
   it("shows about how many weeks an item has left, and nothing without a rate", async () => {
     mockFetch(
       inventory(["view_lab"], {

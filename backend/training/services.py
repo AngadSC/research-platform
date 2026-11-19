@@ -16,6 +16,7 @@ from core.models import Notification, NotificationKind
 from core.notifications import notify
 from core.permissions import Perm, can, forget
 from documents import services as document_services
+from documents.models import Attachment
 from labs.models import LabMembership
 from projects.models import Project, ProjectMembership
 from training.models import AppliesTo, ComplianceStatus, TrainingRecord, TrainingRequirement
@@ -114,15 +115,27 @@ def update_requirement(req, *, user, data, request=None):
 
 
 def delete_requirement(req, *, user, request=None):
+    """Live records block the delete (409). Records people already deleted (soft, D24) do not:
+    they and their old certificate files are removed with the requirement, since nothing else
+    points at them and the FK would otherwise keep a deleted training undeletable forever."""
+    old_keys = []
     try:
         with transaction.atomic():
+            if req.records.filter(deleted_at__isnull=True).exists():
+                raise InUse()
             audit(
                 A.TRAINING_REQUIREMENT_DELETED, actor=user, lab=req.lab, target=req, request=request
             )  # before: the name survives in target_repr
+            gone = Attachment.objects.for_lab(req.lab).filter(training_record__requirement=req)
+            old_keys = list(gone.values_list("storage_key", flat=True))
+            gone.delete()
+            req.records.all().delete()
             req.projects.clear()
             req.delete()
-    except ProtectedError as exc:  # records exist (D175)
+    except ProtectedError as exc:
         raise InUse() from exc
+    for key in old_keys:
+        document_services.lab_files().delete(key)
 
 
 def _remind(req, rows, *, title, body, key) -> int:

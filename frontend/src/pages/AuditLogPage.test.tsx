@@ -101,6 +101,30 @@ describe("audit log", () => {
     expect(panel).not.toHaveTextContent("Deducted");
   });
 
+  it("adds a short detail line to stock and order events", async () => {
+    mockFetch({
+      ...base(["view_audit_log"]),
+      [EVENTS]: {
+        body: {
+          next: null,
+          results: [
+            { ...ev(1), action: "inventory.used", metadata: { amount: "60.000000", unit: "mL" } },
+            {
+              ...ev(2),
+              action: "inventory_order.updated",
+              metadata: { changed: ["status"], status_from: "ordered", status_to: "received" },
+            },
+            { ...ev(3), action: "inventory_item.updated", metadata: { changed: ["status"] } },
+          ],
+        },
+      },
+    });
+    renderRoute("/labs/lab1/audit-log");
+    expect(await screen.findByText("Took 60 mL")).toBeInTheDocument();
+    expect(screen.getByText("Status: ordered → received")).toBeInTheDocument();
+    expect(screen.getByText("Changed: status")).toBeInTheDocument();
+  });
+
   it("names old membership targets by role instead of showing their id", async () => {
     mockFetch({
       ...base(["view_audit_log"]),

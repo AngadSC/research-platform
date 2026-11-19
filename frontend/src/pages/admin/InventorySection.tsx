@@ -18,14 +18,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { inventoryExportUrl, useInventory } from "@/hooks/admin";
+import { inventoryExportUrl, useInventory, useOrders } from "@/hooks/admin";
 import { useIsPhone } from "@/hooks/media";
 import { ImportInventory } from "./ImportInventory";
 import { UseStockDialog } from "./UseStockDialog";
 import { Minus, TriangleAlert } from "lucide-react";
 import { trimNumber } from "@/lib/units";
 import { useMembers } from "@/hooks/workspace";
-import type { InventoryInput, InventoryItem } from "@/lib/api-types";
+import type { InventoryInput, InventoryItem, InventoryOrder } from "@/lib/api-types";
 import { localDateISO } from "@/lib/format";
 import { formErrors, type FormErrors } from "@/lib/forms";
 import { saveBlob } from "@/lib/exportFiles";
@@ -291,6 +291,22 @@ function WeeksLeft({ item: i }: { item: InventoryItem }) {
     i.weeks_left < 1
       ? "less than a week left"
       : `about ${i.weeks_left} ${i.weeks_left === 1 ? "week" : "weeks"} left`;
+  return (
+    <span className="text-xs text-muted-foreground" title="Based on uses in the last 8 weeks">
+      {text}
+    </span>
+  );
+}
+
+/** Open orders (requested or ordered) for the item: they have not arrived, so they are not stock. */
+function OnOrder({ orders }: { orders: InventoryOrder[] }) {
+  if (orders.length === 0) return null;
+  const units = new Set(orders.map((o) => o.unit));
+  const total = orders.reduce((n, o) => n + Number(o.quantity), 0);
+  const text =
+    units.size === 1
+      ? `${trimNumber(total)} ${orders[0]?.unit}`.trim() + " on order"
+      : `${orders.length} orders on the way`;
   return <span className="text-xs text-muted-foreground">{text}</span>;
 }
 
@@ -345,6 +361,10 @@ export function InventorySection({
     selection.clear();
     setBulk(null);
   };
+  const [deleting, setDeleting] = useState<InventoryItem | null>(null);
+  const orders = useOrders(labId).list.data ?? [];
+  const openOrders = (i: InventoryItem) =>
+    orders.filter((o) => o.item === i.id && (o.status === "requested" || o.status === "ordered"));
   const [usingId, setUsing] = useState<string | null>(null);
   const using = (list.data ?? []).find((i) => i.id === usingId) ?? null;
 
@@ -370,11 +390,7 @@ export function InventorySection({
           { label: "Edit", onSelect: () => setEditing(i) },
           {
             label: "Delete",
-            onSelect: () =>
-              remove.mutate(i.id, {
-                onSuccess: () => toast.success("Item deleted"),
-                onError: (e) => toast.error(formErrors(e, []).form ?? "Could not delete the item."),
-              }),
+            onSelect: () => setDeleting(i),
           },
         ]}
       />
@@ -393,6 +409,7 @@ export function InventorySection({
           {`${trimNumber(i.quantity)} ${i.unit}`.trim()}
           {i.low && i.status !== "retired" && <LowBadge item={i} />}
           <WeeksLeft item={i} />
+          <OnOrder orders={openOrders(i)} />
         </span>
       ),
     },
@@ -531,6 +548,7 @@ export function InventorySection({
                   {`${trimNumber(i.quantity)} ${i.unit}`.trim()}
                   {i.low && i.status !== "retired" && <LowBadge item={i} />}
                   <WeeksLeft item={i} />
+                  <OnOrder orders={openOrders(i)} />
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -568,6 +586,22 @@ export function InventorySection({
           }
         />
       )}
+      <ConfirmDelete
+        open={!!deleting}
+        name={deleting?.name ?? ""}
+        noun="item"
+        description="Items still used by a protocol or a record of use can't be deleted. Mark them retired instead."
+        pending={remove.isPending}
+        onClose={() => setDeleting(null)}
+        onConfirm={() =>
+          deleting &&
+          remove.mutate(deleting.id, {
+            onSuccess: () => toast.success("Item deleted"),
+            onError: (e) => toast.error(formErrors(e, []).form ?? "Could not delete the item."),
+            onSettled: () => setDeleting(null),
+          })
+        }
+      />
       <ConfirmDelete
         open={bulk === "delete"}
         name={`${picked.length} ${picked.length === 1 ? "item" : "items"}`}

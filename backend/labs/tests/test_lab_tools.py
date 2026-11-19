@@ -243,6 +243,8 @@ def test_marking_received_adds_to_stock_exactly_once(world, stocked):
     client = api(u["member"])
     assert client.patch(target, {"status": "ordered"}, "json").status_code == 200
     assert quantity(stocked) == 5  # only the move into received counts
+    moved = AuditEvent.objects.get(action=AuditAction.INVENTORY_ORDER_UPDATED, target_id=order.pk)
+    assert moved.metadata["status_from"] == "requested" and moved.metadata["status_to"] == "ordered"
     assert client.patch(target, {"status": "received"}, "json").status_code == 200
     assert quantity(stocked) == 8
     assert client.patch(target, {"status": "received"}, "json").status_code == 200  # a double click
