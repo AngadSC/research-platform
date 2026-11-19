@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("projects", "0014_project_study_types"),
+        ("projects", "0015_google_chat_reactions"),
     ]
 
     operations = [

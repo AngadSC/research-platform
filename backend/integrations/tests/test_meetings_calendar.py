@@ -589,9 +589,9 @@ def test_migration_switches_push_off_for_existing_rows(transport, lab_users):
         push_tasks=True,
         push_deadlines=True,
     )
-    node = ("labs", "0022_calendar_push_off_by_default")
+    node = ("labs", "0023_calendar_push_off_by_default")
     apps = MigrationExecutor(connection).loader.project_state(node).apps
-    import_module("labs.migrations.0022_calendar_push_off_by_default").push_off(apps, None)
+    import_module("labs.migrations.0023_calendar_push_off_by_default").push_off(apps, None)
     row.refresh_from_db()
     assert not (row.push_meetings or row.push_tasks or row.push_deadlines)
 

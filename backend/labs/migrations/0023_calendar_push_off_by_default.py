@@ -14,7 +14,7 @@ def push_off(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("labs", "0021_inventoryitem_low_stock_at"),
+        ("labs", "0022_google_chat_reactions"),
     ]
 
     operations = [
