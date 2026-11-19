@@ -639,8 +639,12 @@ def revoke_member_accounts(lab, user, *, reason) -> int:
                 target=row,
                 metadata={"provider": row.provider, "provider_revoked": False},
             )
-        if pending:
-            transaction.on_commit(lambda: [_revoke_at_provider(r, t) for r, t in pending])
+        # bundled rows (D262) share one token: revoke each grant once, as `disconnect` does
+        grants = {}
+        for r, t in pending:
+            grants.setdefault(t, r)
+        if grants:
+            transaction.on_commit(lambda: [_revoke_at_provider(r, t) for t, r in grants.items()])
     return len(pending)
 
 

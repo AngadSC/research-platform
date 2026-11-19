@@ -337,13 +337,17 @@ def respond_to_google_event(lab, user, event_id: str, status: str) -> dict:
     mine = next((a for a in attendees if a.get("self")), None)
     if mine is None:
         raise ValidationError({"status": ["You are not on this event's guest list."]})
-    mine["responseStatus"] = status
+    # attendeesOmitted: send only our own entry, so Google updates just our answer and a guest
+    # list that changed since the GET is never overwritten
     _call(
         sync.account,
         "PATCH",
         url,
         params={"sendUpdates": "all"},
-        json={"attendees": attendees},
+        json={
+            "attendeesOmitted": True,
+            "attendees": [{"email": mine.get("email"), "responseStatus": status}],
+        },
     )
     return {"id": event_id, "my_status": status}
 
