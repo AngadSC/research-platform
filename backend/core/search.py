@@ -75,7 +75,7 @@ SPECS = [
     Spec(
         "project", Project, "name", ("description",), lambda o: f"/labs/{o.lab_id}/projects/{o.pk}"
     ),
-    Spec("task", Task, "title", ("description",), lambda o: f"{_p(o)}/tasks"),
+    Spec("task", Task, "title", ("description",), lambda o: f"{_p(o)}/tasks?task={o.pk}"),
     Spec(
         "document",
         Document,

@@ -468,6 +468,7 @@ describe("Dashboard", () => {
       required: true,
       done: false,
       by_training: false,
+      training_linked: false,
       training_requirement_name: "",
       ...over,
     });
@@ -510,6 +511,60 @@ describe("Dashboard", () => {
     await waitFor(() =>
       expect(calls.find((c) => c.method === "POST")?.body).toEqual({ done: true }),
     );
+  });
+
+  it("shows a training item as ticking itself, not as a checkbox to tick", async () => {
+    mockFetch({
+      ...base(dash(), ["view_lab"]),
+      "GET /api/labs/lab1/my-onboarding/": {
+        body: [
+          {
+            id: "o9",
+            title: "Complete WHMIS (FAKE)",
+            description: "",
+            url: "",
+            required: true,
+            done: false,
+            by_training: false,
+            training_linked: true,
+            training_requirement_name: "WHMIS (FAKE)",
+          },
+        ],
+      },
+    });
+    renderRoute("/labs/lab1");
+    expect(await screen.findByRole("checkbox", { name: "Complete WHMIS (FAKE)" })).toBeDisabled();
+    expect(screen.getByText(/Done when your WHMIS \(FAKE\) training is recorded/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Training" })).toHaveAttribute(
+      "href",
+      "/labs/lab1/training",
+    );
+  });
+
+  it("captions Start here and asks before unpinning", async () => {
+    const calls = mockFetch({
+      ...base(dash()),
+      "GET /api/labs/lab1/start-here/": {
+        body: [
+          {
+            id: "d1",
+            title: "Lab manual",
+            project: null,
+            project_name: "",
+            embed_url: "",
+            can_manage: true,
+          },
+        ],
+      },
+      "DELETE /api/labs/lab1/documents/d1/pin/": { status: 204, body: null },
+    });
+    renderRoute("/labs/lab1");
+    expect(await screen.findByText("Shown on everyone's Home")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await userEvent.click(screen.getByRole("button", { name: "Unpin Lab manual for everyone" }));
+    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+    await userEvent.click(await screen.findByRole("button", { name: "Unpin" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "DELETE")).toBe(true));
   });
 
   it("does not show a manager the member onboarding card", async () => {

@@ -1,5 +1,7 @@
 import { ExternalLink } from "lucide-react";
+import { Link } from "react-router";
 import { toast } from "sonner";
+import { ApiError } from "@/lib/api";
 import { useMyOnboarding, useTickOnboarding } from "@/hooks/startHere";
 
 /** The new-member checklist with one person's own ticks, until everything is ticked (D351).
@@ -25,11 +27,18 @@ export function MyOnboarding({ labId, enabled }: { labId: string; enabled: boole
               id={`onb-${i.id}`}
               className="mt-0.5 size-4 shrink-0"
               checked={i.done}
-              disabled={i.by_training || tick.isPending}
+              disabled={i.training_linked || tick.isPending}
               onChange={(e) =>
                 tick.mutate(
                   { id: i.id, done: e.target.checked },
-                  { onError: () => toast.error("Could not save that. Try again.") },
+                  {
+                    onError: (e) =>
+                      toast.error(
+                        e instanceof ApiError && e.status === 400
+                          ? e.message
+                          : "Could not save that. Try again.",
+                      ),
+                  },
                 )
               }
             />
@@ -48,9 +57,13 @@ export function MyOnboarding({ labId, enabled }: { labId: string; enabled: boole
                   <ExternalLink className="size-3" aria-hidden />
                 </a>
               )}
-              {i.by_training && (
+              {i.training_linked && (
                 <p className="text-xs text-muted-foreground">
-                  Ticks itself when your {i.training_requirement_name || "training"} is current.
+                  {i.by_training ? "Done: your" : "Done when your"}{" "}
+                  {i.training_requirement_name || "training"} training is recorded.{" "}
+                  <Link to={`/labs/${labId}/training`} className="text-primary hover:underline">
+                    Training
+                  </Link>
                 </p>
               )}
               {i.description && <p className="text-xs text-muted-foreground">{i.description}</p>}

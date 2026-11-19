@@ -18976,6 +18976,11 @@ components:
           readOnly: true
           description: Ticked by a current training record, so it cannot be ticked
             by hand.
+        training_linked:
+          type: boolean
+          readOnly: true
+          description: Ticks itself from training records, so it cannot be ticked
+            by hand.
         training_requirement_name:
           type: string
           readOnly: true
@@ -18986,6 +18991,7 @@ components:
       - id
       - required
       - title
+      - training_linked
       - training_requirement_name
       - url
     MyOnboardingTick:

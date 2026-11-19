@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useDelight, useRecents } from "@/hooks/preferences";
-import { useMyTasks, usePatchTask } from "@/hooks/projects";
+import { useMyTasks, usePatchTask, useProjects } from "@/hooks/projects";
 import type { MyTask } from "@/lib/api-types";
 import { shortDate } from "@/lib/dashboard";
 import { localDateISO } from "@/lib/format";
@@ -143,6 +143,7 @@ function Group({
 export function Today({ labId }: { labId: string }) {
   const { data: tasks, isLoading } = useMyTasks(labId);
   const recents = useRecents();
+  const { data: projects } = useProjects(labId);
   const delight = useDelight();
   const today = localDateISO();
   const open = (tasks ?? []).filter((t) => !isSnoozed(t.snoozed_until));
@@ -150,7 +151,10 @@ export function Today({ labId }: { labId: string }) {
   const dueToday = open.filter((t) => t.due_date === today);
   const snoozed = (tasks ?? []).length - open.length;
   // What you were last editing: the latest document or record, else the latest page at all.
-  const last = recents.find((r) => r.kind === "document" || r.kind === "record") ?? recents[0];
+  // Archived projects are skipped: "Continue" should not drop you into one.
+  const archived = (projects ?? []).filter((p) => p.status === "archived").map((p) => p.id);
+  const live = recents.filter((r) => !archived.some((id) => r.url.includes(`/projects/${id}`)));
+  const last = live.find((r) => r.kind === "document" || r.kind === "record") ?? live[0];
   const caughtUp = !isLoading && overdue.length === 0 && dueToday.length === 0;
 
   return (

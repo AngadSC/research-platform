@@ -7660,6 +7660,8 @@ export interface components {
             readonly done: boolean;
             /** @description Ticked by a current training record, so it cannot be ticked by hand. */
             readonly by_training: boolean;
+            /** @description Ticks itself from training records, so it cannot be ticked by hand. */
+            readonly training_linked: boolean;
             readonly training_requirement_name: string;
         };
         MyOnboardingTick: {
