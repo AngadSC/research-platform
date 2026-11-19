@@ -66,6 +66,10 @@ def test_student_report_lists_tasks_analysis_result_and_archived_project(seeded)
     assert orphans[ARCHIVED]["href"].endswith("/overview")
     assert orphans[ARCHIVED]["reason"]
     assert "Survey items (FAKE)" in orphans  # a document they created
+    (tasks,) = [s for s in body["sections"] if s["key"] == "open_tasks"]
+    for t in tasks["items"]:  # each row opens the task itself and carries its due date
+        assert t["href"].endswith(f"/tasks?task={t['id']}")
+        assert "due_date" in t
 
 
 @pytest.mark.django_db

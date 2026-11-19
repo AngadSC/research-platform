@@ -118,6 +118,21 @@ def test_rename_still_works_and_an_unchanged_flag_writes_nothing(w):
     assert not AuditEvent.objects.filter(action=AuditAction.FOLDER_PARTICIPANT_FLAG_CHANGED)
 
 
+def test_document_patch_keeps_what_it_leaves_out(w):
+    lab, project, _, pi, _ = w
+    d = doc(pi, lab, project, **{FLAG: True})
+    detail = u("document-detail", lab, document_id=d["id"])
+    resp = pi.patch(detail, {"title": "Renamed"}, format="json")
+    assert resp.status_code == 200, resp.content
+    body = resp.json()
+    assert body["title"] == "Renamed" and body[FLAG] is True
+    assert body["version"] == d["version"] + 1  # a rename is a new version, like a save
+    resp = pi.patch(detail, {FLAG: False}, format="json")
+    assert resp.status_code == 200 and resp.json()["title"] == "Renamed"
+    assert resp.json()[FLAG] is False
+    assert pi.patch(detail, {}, format="json").status_code == 400
+
+
 @pytest.mark.parametrize("kind", ["document", "attachment", "dataset"])
 def test_changing_the_flag_needs_edit_rights_and_is_audited(w, kind):
     lab, project, user, pi, viewer = w

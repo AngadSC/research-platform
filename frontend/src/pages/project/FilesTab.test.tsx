@@ -88,10 +88,9 @@ describe("files", () => {
     const u = userEvent.setup();
     await openDialog(u);
     expect(
-      screen.getByText(
-        "Do not upload participant identifiers. Upload only anonymized or aggregate data.",
-      ),
+      screen.getByText(/Files that identify participants are allowed if your ethics approval/),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/Do not upload participant identifiers/)).not.toBeInTheDocument();
     await u.upload(screen.getByLabelText("Choose file"), pdf());
     const btn = screen.getByRole("button", { name: "Upload" });
     expect(btn).toBeDisabled();
@@ -113,6 +112,7 @@ describe("files", () => {
     await u.click(screen.getByRole("radio", { name: /This file identifies participants/ }));
     expect(screen.queryByText(/Do not upload participant identifiers/)).not.toBeInTheDocument();
     expect(screen.getByText(/only if your ethics approval allows it/)).toBeInTheDocument();
+    expect(screen.getByText(/It does not change who in the lab can open it/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled();
     await u.click(screen.getByRole("checkbox", { name: /my ethics approval allows/ }));
     await u.click(screen.getByRole("button", { name: "Upload" }));
@@ -129,7 +129,7 @@ describe("files", () => {
     await u.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     await openDialog(u);
-    expect(screen.getByText(/Do not upload participant identifiers/)).toBeInTheDocument();
+    expect(screen.getByText(/Files that identify participants are allowed/)).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: /no participant identifiers/i })).not.toBeChecked();
   });
 

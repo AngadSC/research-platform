@@ -9,13 +9,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-/** VISION A3: items marked this way are never given to Claude or any other AI tool. */
+/** VISION A3: items marked this way are never given to Claude or any other AI tool. The mark
+ * only hides from AI: who in the lab can open the item is unchanged (D268). */
 export const PARTICIPANT_HINT =
-  "Names, contact details, ID numbers, faces or voices. Claude and other AI tools will never see this. Leave it off for de-identified data.";
+  "Names, contact details, ID numbers, faces or voices. Claude and other AI tools will never see this. It does not change who in the lab can open it. Leave it off for de-identified data.";
 
 /** Toast after marking: short, not the checkbox hint. */
 export const MARKED_TOAST =
-  "Marked as identifying participants. Claude and other AI tools can't open it now.";
+  "Marked as identifying participants. AI tools can't open it now. People who could open it still can.";
 
 /** Menu item text: marking is one click, removing the mark asks first (`useConfirmUnmark`). */
 export const markLabel = (flagged: boolean) =>

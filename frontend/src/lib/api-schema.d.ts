@@ -1112,7 +1112,10 @@ export interface paths {
         delete: operations["labs_documents_destroy"];
         options?: never;
         head?: never;
-        /** @description Tick or clear "Contains participant data" (VISION A3). Saving content is PUT. */
+        /**
+         * @description Rename, and/or tick or clear "Contains participant data" (VISION A3); a field left out
+         *     keeps its value. Saving content is PUT. A rename is a new version, like a save.
+         */
         patch: operations["labs_documents_partial_update"];
         trace?: never;
     };
@@ -7078,6 +7081,11 @@ export interface components {
             project: components["schemas"]["HandoverProject"] | null;
             href: string;
             reason: string;
+            /**
+             * Format: date
+             * @description Tasks only.
+             */
+            due_date?: string | null;
         };
         HandoverPerson: {
             /** Format: uuid */
@@ -8286,6 +8294,11 @@ export interface components {
             sharing?: string;
             responsibilities?: string;
             ethics_legal?: string;
+        };
+        /** @description Partial update: a field left out keeps its stored value. Content still saves with PUT. */
+        PatchedDocumentPatch: {
+            title?: string;
+            contains_participant_data?: boolean;
         };
         PatchedEthicsApprovalInput: {
             approval_number?: string;
@@ -11859,9 +11872,9 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["PatchedParticipantFlag"];
-                "application/x-www-form-urlencoded": components["schemas"]["PatchedParticipantFlag"];
-                "multipart/form-data": components["schemas"]["PatchedParticipantFlag"];
+                "application/json": components["schemas"]["PatchedDocumentPatch"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedDocumentPatch"];
+                "multipart/form-data": components["schemas"]["PatchedDocumentPatch"];
             };
         };
         responses: {

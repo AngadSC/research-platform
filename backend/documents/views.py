@@ -29,6 +29,7 @@ from documents.serializers import (
     DocumentCreateSerializer,
     DocumentListSerializer,
     DocumentOwnerSerializer,
+    DocumentPatchSerializer,
     DocumentSaveSerializer,
     DocumentSerializer,
     FolderCreateSerializer,
@@ -188,10 +189,27 @@ class DocumentDetailView(DocumentMixin, generics.GenericAPIView):
         doc = services.save_document(doc, user=request.user, request=request, **ser.validated_data)
         return Response(self.get_serializer(doc).data)
 
-    @extend_schema(request=ParticipantFlagSerializer, responses=DocumentSerializer)
+    @extend_schema(request=DocumentPatchSerializer, responses=DocumentSerializer)
     def patch(self, request, lab_id, document_id):
-        """Tick or clear "Contains participant data" (VISION A3). Saving content is PUT."""
-        return Response(self.get_serializer(_set_flag(request, self.get_object())).data)
+        """Rename, and/or tick or clear "Contains participant data" (VISION A3); a field left out
+        keeps its value. Saving content is PUT. A rename is a new version, like a save."""
+        ser = DocumentPatchSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        doc = self.get_object()
+        title = ser.validated_data.get("title")
+        if title is not None and title != doc.title:
+            doc = services.save_document(
+                doc,
+                title=title,
+                content=doc.content,
+                base_version=doc.version,
+                user=request.user,
+                request=request,
+            )
+        if "contains_participant_data" in ser.validated_data:
+            flag = ser.validated_data["contains_participant_data"]
+            doc = set_flag(doc, flag, user=request.user, request=request)
+        return Response(self.get_serializer(doc).data)
 
     @extend_schema(responses={204: None})
     def delete(self, request, lab_id, document_id):

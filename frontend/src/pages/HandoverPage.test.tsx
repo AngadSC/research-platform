@@ -58,6 +58,31 @@ describe("handover report", () => {
     expect(screen.getByRole("button", { name: /Print or save as PDF/ })).toBeInTheDocument();
   });
 
+  it("links each task to itself with a due pill, and lists an item once", async () => {
+    const task = {
+      ...item("Fit model", "task"),
+      href: "/labs/lab1/projects/p1/tasks?task=t1",
+      due_date: "2020-01-01",
+    };
+    const doc = { ...item("Survey", "document"), reason: "They created it." };
+    const body = report([doc]);
+    body.sections = [
+      { key: "open_tasks", label: "Open tasks", items: [task] },
+      { key: "documents", label: "Documents", items: [doc] },
+    ];
+    mockFetch({
+      ...base(["view_lab", "manage_members"]),
+      "GET /api/labs/lab1/members/m2/handover/": { body },
+    });
+    renderRoute("/labs/lab1/members/m2/handover");
+    const link = await screen.findByRole("link", { name: "Fit model" });
+    expect(link).toHaveAttribute("href", "/labs/lab1/projects/p1/tasks?task=t1");
+    expect(screen.getByText("Overdue")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Survey" })).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "Documents (1)" })).toBeInTheDocument();
+    expect(screen.getByText(/All are listed under/)).toBeInTheDocument();
+  });
+
   it("omits the callout when nothing lacks another owner", async () => {
     mockFetch({
       ...base(["view_lab", "manage_members"]),
