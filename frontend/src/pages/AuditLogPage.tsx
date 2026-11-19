@@ -88,6 +88,7 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "integration.revoked": "Removed someone's connected service",
   "integration.refresh_failed": "A connected service stopped working",
   "integration.picker_token_issued": "Opened the Google Drive file picker",
+  "integration.data_deleted": "Deleted someone's connected-service data on request",
   "integration.searched": "Searched a connected service",
   "external_link.created": "Linked an outside item",
   "external_link.removed": "Removed a link to an outside item",

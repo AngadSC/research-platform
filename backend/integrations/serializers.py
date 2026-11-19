@@ -101,6 +101,16 @@ class ConnectInputSerializer(serializers.Serializer):
     instance_url = serializers.CharField(write_only=True, required=False, max_length=500)
 
 
+class DisconnectInputSerializer(serializers.Serializer):
+    """Optional body of a disconnect. Honoured for your own Google Calendar connection only."""
+
+    delete_app_calendar = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text="Also delete the labbenchos calendar this connection made in Google Calendar.",
+    )
+
+
 class ConnectOutputSerializer(serializers.Serializer):
     """oauth2: `authorization_url` to send the browser to (`account` null). api_key: the stored
     `account` (`authorization_url` empty)."""

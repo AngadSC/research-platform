@@ -398,6 +398,51 @@ describe("Integrations page, one Google sign-in (D262)", () => {
     expect(await screen.findByText(/disconnects Drive, Calendar and Meet together/)).toBeVisible();
   });
 
+  it("offers to delete the labbenchos calendar in Google, and sends it only when ticked", async () => {
+    const both = [
+      { ...drive, account: acct("active") },
+      { ...calendar, account: { ...acct("active"), id: "a2" } },
+    ];
+    const calls = mockFetch({
+      ...base(MEMBER, both),
+      "DELETE /api/labs/lab1/integrations/accounts/a1/": { body: account({ status: "revoked" }) },
+    });
+    renderRoute(PAGE);
+    await userEvent.click(await screen.findByRole("button", { name: "Disconnect Google" }));
+    const box = await screen.findByRole("checkbox", {
+      name: "Also delete the labbenchos calendar from your Google Calendar",
+    });
+    expect(box).not.toBeChecked();
+    expect(screen.getByText(/stays in Google Calendar until you delete it there/)).toBeVisible();
+    await userEvent.click(box);
+    await userEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "DELETE")).toBe(true));
+    expect(calls.find((c) => c.method === "DELETE")!.body).toEqual({ delete_app_calendar: true });
+  });
+
+  it("leaves the labbenchos calendar alone unless asked", async () => {
+    const calls = mockFetch({
+      ...base(MEMBER, [
+        { ...drive, account: acct("active") },
+        { ...calendar, account: { ...acct("active"), id: "a2" } },
+      ]),
+      "DELETE /api/labs/lab1/integrations/accounts/a1/": { body: account({ status: "revoked" }) },
+    });
+    renderRoute(PAGE);
+    await userEvent.click(await screen.findByRole("button", { name: "Disconnect Google" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Disconnect" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "DELETE")).toBe(true));
+    expect(calls.find((c) => c.method === "DELETE")!.body).toBeUndefined();
+  });
+
+  it("can disconnect when only Drive was allowed, without the calendar choice", async () => {
+    mockFetch(base(MEMBER, [{ ...drive, account: acct("active") }, calendar]));
+    renderRoute(PAGE);
+    await userEvent.click(await screen.findByRole("button", { name: "Disconnect Google" }));
+    expect(await screen.findByText(/This disconnects Drive\./)).toBeVisible();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
   it("shows a disabled Connect with the reason while the site has no Google app", async () => {
     mockFetch(
       base(MEMBER, [

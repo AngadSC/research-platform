@@ -1206,6 +1206,7 @@ paths:
           - integration.revoked
           - integration.refresh_failed
           - integration.picker_token_issued
+          - integration.data_deleted
           - external_link.created
           - external_link.removed
           - external_link.change_accepted
@@ -1386,6 +1387,7 @@ paths:
           * `integration.revoked` - Integration Revoked
           * `integration.refresh_failed` - Integration Refresh Failed
           * `integration.picker_token_issued` - Integration Picker Token
+          * `integration.data_deleted` - Integration Data Deleted
           * `external_link.created` - External Link Created
           * `external_link.removed` - External Link Removed
           * `external_link.change_accepted` - External Link Change Accepted
@@ -12658,6 +12660,7 @@ components:
       - integration.revoked
       - integration.refresh_failed
       - integration.picker_token_issued
+      - integration.data_deleted
       - external_link.created
       - external_link.removed
       - external_link.change_accepted
@@ -12837,6 +12840,7 @@ components:
         * `integration.revoked` - Integration Revoked
         * `integration.refresh_failed` - Integration Refresh Failed
         * `integration.picker_token_issued` - Integration Picker Token
+        * `integration.data_deleted` - Integration Data Deleted
         * `external_link.created` - External Link Created
         * `external_link.removed` - External Link Removed
         * `external_link.change_accepted` - External Link Change Accepted

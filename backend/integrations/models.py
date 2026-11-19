@@ -65,7 +65,9 @@ class ConnectedAccount(LabScopedModel):
         return qs if can(user, Perm.MANAGE_LAB_INTEGRATIONS, lab) else qs.filter(user=user)
 
     def __str__(self):
-        return f"{self.provider}: {self.external_email or self.external_account_id}"
+        retired = self.external_account_id.startswith(("revoked:", "deleted:"))
+        who = self.external_email or ("" if retired else self.external_account_id)
+        return f"{self.provider}: {who}" if who else self.provider
 
     @property
     def instance_host(self) -> str:

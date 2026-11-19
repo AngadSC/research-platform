@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { CONTACT_EMAILS } from "../content";
 
-const UPDATED = "November 17, 2026";
+const UPDATED = "November 18, 2026";
 
 function Contact() {
   return (
@@ -116,6 +116,11 @@ export function PrivacyPage() {
           <strong>Participant data:</strong> a file or folder marked &ldquo;Identifies
           participants&rdquo; is never read for, or given to, any AI tool.
         </li>
+        <li>
+          <strong>After you disconnect:</strong> files you linked stay linked in their projects, as
+          project records: their title, type, link and version details. The daily check for them
+          stops until you connect again. Copies in your Drive stay there.
+        </li>
       </ul>
 
       <h3>Google Calendar and Meet</h3>
@@ -145,9 +150,24 @@ export function PrivacyPage() {
           (titles, times, the project name and any join link), updated about every 15 minutes.
         </li>
         <li>
-          <strong>After you disconnect:</strong> we stop reading and changing your calendar.
-          Meetings already created, and the labbenchos calendar with its events, stay in your Google
-          Calendar until you delete them there.
+          <strong>After you disconnect:</strong> we stop reading and changing your calendar, and we
+          delete your calendar settings and our list of what we put on the labbenchos calendar.
+        </li>
+        <li>
+          <strong>The labbenchos calendar after you disconnect:</strong> when you disconnect, you
+          can tick &ldquo;Also delete the labbenchos calendar from your Google Calendar&rdquo;. We
+          then delete that calendar and its events from your Google account, before we remove our
+          access. We touch nothing else in your Google account. If you don&rsquo;t tick it, or your
+          connection is removed another way (for example, you leave the lab), the calendar stays in
+          your Google Calendar until you delete it there: in Google Calendar, open the
+          calendar&rsquo;s &ldquo;Settings and sharing&rdquo; and choose &ldquo;Remove
+          calendar&rdquo;.
+        </li>
+        <li>
+          <strong>Meetings after you disconnect:</strong> Meet meetings you created stay on your
+          primary calendar, and on your guests&rsquo; calendars, until deleted in Google. In
+          labbenchos the meeting keeps its Meet link and the Google event ID, as a lab record, but
+          changes to it are no longer sent to Google.
         </li>
       </ul>
 
@@ -199,6 +219,16 @@ export function PrivacyPage() {
           everyone in the lab; in a project&rsquo;s chat, to everyone who can see the project.
           Everyone in that chat also sees the name of the linked conversation.
         </li>
+        <li>
+          <strong>After a chat is unlinked:</strong> we stop reading and posting at once and delete
+          the link. Messages already copied in stay in the chat, with their senders&rsquo; names and
+          photo links, as part of its history, until they are deleted in labbenchos.
+        </li>
+        <li>
+          <strong>If the person who linked it disconnects</strong> Google Chat, or leaves the lab,
+          the link pauses: nothing is read or posted until they connect again or someone unlinks it.
+          Messages already copied in stay, as above. Messages posted in Google Chat stay there.
+        </li>
         <li>Google Chat messages are never given to the AI assistant or to AI apps.</li>
       </ul>
 
@@ -219,25 +249,66 @@ export function PrivacyPage() {
       <h3>Keeping and deleting Google data</h3>
       <ul>
         <li>
-          Access tokens are stored encrypted. When you disconnect, or leave a lab, we delete them
-          and revoke our access at Google, unless the same Google account is still connected
-          elsewhere in labbenchos.
+          <strong>Tokens:</strong> access tokens are stored encrypted. When you disconnect, a lab
+          administrator removes your connection, you leave a lab or your account is closed, we
+          delete them and revoke our access at Google. If the same Google account is still connected
+          elsewhere in labbenchos, we revoke it when the last of those connections goes.
         </li>
         <li>
-          Disconnecting stops all reading and writing. What was already saved in labbenchos stays,
-          as lab content, until it is deleted: linked files&rsquo; titles and links, meetings and
-          their Meet links, and synced or imported Chat messages with their senders&rsquo; names.
-          Stopping a chat&rsquo;s sync works the same way. What labbenchos put in your Google
-          account (copies in Drive, calendar events, posted messages) stays there until you delete
-          it.
+          <strong>What we keep about a removed connection:</strong> the service, its status and when
+          it was connected and last used. We delete the Google email address, the permissions you
+          granted, and Google&rsquo;s ID for the account; in its place we keep a scrambled code that
+          only matches when you connect the same Google account again, so your links and meetings
+          reconnect to it. Your calendar settings are deleted (see Google Calendar above).
+        </li>
+        <li>
+          <strong>Lab records stay:</strong> what was already saved as lab content stays until it is
+          deleted in labbenchos or the lab is deleted: linked files&rsquo; titles, links and
+          versions, meetings with their Meet links, and synced or imported Chat messages with their
+          senders&rsquo; names and photo links. What labbenchos put in your Google account (copies
+          in Drive, calendar events, posted messages) stays there until you delete it, except the
+          labbenchos calendar if you ask us to delete it.
+        </li>
+        <li>
+          <strong>The audit log</strong> keeps its entries about connecting and disconnecting,
+          including the Google email address shown when you connected. These are security records
+          and are not changed afterwards.
         </li>
         <li>
           You can disconnect at any time in Integrations, or remove our access from your{" "}
-          <a href="https://myaccount.google.com/permissions">Google account settings</a>. To have
-          Google data deleted from labbenchos, delete it in the app, ask your lab&rsquo;s
-          administrators, or contact us at <Contact />.
+          <a href="https://myaccount.google.com/permissions">Google account settings</a>.
         </li>
       </ul>
+
+      <h3>Asking us to delete your Google data</h3>
+      <p>
+        Email <Contact /> from your account&rsquo;s address and say which Google account it is
+        about. We will then, in every lab (or only the labs you name):
+      </p>
+      <ul>
+        <li>
+          remove every connection you have, deleting the tokens and revoking our access at Google
+          (unless that Google account is still connected by someone else in labbenchos);
+        </li>
+        <li>
+          delete the Google email address, permissions and account ID we hold for those connections,
+          leaving no code that could match them again;
+        </li>
+        <li>delete your calendar settings and our list of what we put on your calendar;</li>
+        <li>remove links to Google Chat conversations made with your connection;</li>
+        <li>
+          remove your Google profile photo link from chat messages you wrote in Google Chat.
+          Directory lookups of your name expire within a day.
+        </li>
+      </ul>
+      <p>
+        If you have no labbenchos account but your messages were copied in from a Google Chat
+        conversation, tell us the name they appear under and the lab, and we will delete the
+        messages stored under that name in that lab. Lab records, such as linked files&rsquo; titles
+        and links, meetings, and messages you wrote in labbenchos, belong to the lab: ask its
+        administrators about them. If a lab still has a conversation linked, what you write there
+        later is copied in again; leave the conversation or ask the lab to unlink it to stop that.
+      </p>
 
       <h2>Other connected services and AI</h2>
       <p>
@@ -275,7 +346,13 @@ export function PrivacyPage() {
       <p>
         We keep your account while it is open. Lab content is kept for as long as the lab keeps it,
         under the lab&rsquo;s retention settings. When an account or lab is deleted, we delete its
-        data from the live system, and it leaves our backups as they expire.
+        data from the live system.{" "}
+        {/* OWNER DECISION (backups): docs/DEPLOY.md records "Backups: none" for the live server, and
+        nothing in deploy/ makes or prunes backups. Confirm on the server; once backups exist,
+        replace the next sentence with how long they are kept (DEPLOY.md section 8 suggests 14
+        daily and 8 weekly copies). */}
+        We do not keep backup copies of the database at the moment, so data deleted from the live
+        system is gone.
       </p>
 
       <h2>Your choices</h2>
