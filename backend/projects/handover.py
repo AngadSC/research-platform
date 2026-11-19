@@ -187,6 +187,11 @@ def build_report(*, requester, lab, membership, project=None, for_ai=False) -> d
         .select_related("project")
         .order_by("title", "id")
     )
+
+    def task(t, reason):  # opens the task itself, and carries its due date for the pill
+        item = _item(lid, "task", t, t.title, t.project, f"{{p}}/tasks?task={t.pk}", reason)
+        return item | {"due_date": t.due_date}
+
     by_key = {
         "external_links": [
             _item(
@@ -200,16 +205,8 @@ def build_report(*, requester, lab, membership, project=None, for_ai=False) -> d
             )
             for x in links
         ],
-        "open_tasks": [
-            _item(lid, "task", t, t.title, t.project, "{p}/tasks", f"Assigned to them ({t.status})")
-            for t in tasks
-        ],
-        "unassigned_tasks": [
-            _item(
-                lid, "task", t, t.title, t.project, "{p}/tasks", "Unassigned after they lost access"
-            )
-            for t in unassigned
-        ],
+        "open_tasks": [task(t, f"Assigned to them ({t.status})") for t in tasks],
+        "unassigned_tasks": [task(t, "Unassigned after they lost access") for t in unassigned],
         "documents": documents,
         "analyses": research(Analysis, "ran_by", "analysis", "analyses", "Run by them"),
         "results": research(Result, "analysis__ran_by", "result", "results", "From their analysis"),

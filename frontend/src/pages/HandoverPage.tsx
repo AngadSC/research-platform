@@ -2,6 +2,7 @@ import { IconAction } from "@/components/shared/IconAction";
 import { AlertTriangle, Printer } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
+import { DueChip } from "@/components/dashboard/DueChip";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -28,6 +29,7 @@ import type { HandoverItem } from "@/lib/api-types";
 import { personName } from "@/lib/api-types";
 import { ApiError } from "@/lib/api";
 import { formErrors } from "@/lib/forms";
+import { shortDate } from "@/lib/format";
 
 const EMPTY: Record<string, string> = {
   open_tasks: "No open tasks are assigned to them.",
@@ -148,6 +150,12 @@ function Items({
                   .filter(Boolean)
                   .join(" | ")}
               </span>
+              {i.due_date && (
+                <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                  Due {shortDate(i.due_date)}
+                  <DueChip due={i.due_date} status="open" />
+                </span>
+              )}
             </div>
             {action?.(i)}
           </div>
@@ -223,6 +231,9 @@ export function HandoverPage() {
       return next;
     });
 
+  // Shown once: an item under "No other owner" is left out of its own section below.
+  const rowKey = (i: HandoverItem) => `${i.kind}-${i.id}`;
+  const above = new Set(data.no_other_owner.map(rowKey));
   // Only documents they created have an owner to hand on; ones they last edited do not.
   const ownedDocs = new Set(
     data.no_other_owner.filter((i) => i.kind === "document").map((i) => i.id),
@@ -323,6 +334,14 @@ export function HandoverPage() {
       {data.sections.map((s) => {
         const isTasks = s.key === "open_tasks" || s.key === "unassigned_tasks";
         const movable = isTasks ? s.items : s.key === "documents" ? s.items.filter(canChange) : [];
+        const shown = s.items.filter((i) => !above.has(rowKey(i)));
+        const moved = s.items.length - shown.length;
+        const movedNote = moved > 0 && (
+          <p className="text-sm text-muted-foreground">
+            {shown.length ? `${moved} more ${moved === 1 ? "is" : "are"}` : "All are"} listed under
+            &ldquo;No other owner&rdquo; above.
+          </p>
+        );
         return (
           <section key={s.key} aria-labelledby={`h-${s.key}`} className="grid gap-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -339,9 +358,9 @@ export function HandoverPage() {
                 />
               )}
             </div>
-            {s.items.length ? (
-              <Items items={s.items} action={rowAction} errors={errors} />
-            ) : (
+            {shown.length > 0 && <Items items={shown} action={rowAction} errors={errors} />}
+            {movedNote}
+            {!s.items.length && (
               <EmptyState
                 className="py-6"
                 title={`No ${s.label.toLowerCase()}`}

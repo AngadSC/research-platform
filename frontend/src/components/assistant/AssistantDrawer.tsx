@@ -473,6 +473,10 @@ function AssistantPanel({
             {lab?.name ?? "This lab"}
             {scope ? ` · ${scope}` : ""}. It sees only what you can see.
           </p>
+          <p className="text-xs text-muted-foreground">
+            It never sees items marked as identifying participants. Text you paste in is not
+            checked.
+          </p>
         </div>
         <div className="flex gap-1">
           <Button variant="ghost" size="icon" aria-label="New chat" onClick={newChat}>
@@ -719,7 +723,8 @@ function readDock(): Dock {
   try {
     const d = JSON.parse(localStorage.getItem(DOCK_KEY) ?? "{}") as Partial<Dock>;
     return {
-      mode: d.mode === "open" || d.mode === "strip" ? d.mode : "closed",
+      // Open, it floats over the page, so each visit starts closed; only the strip is kept.
+      mode: d.mode === "strip" ? "strip" : "closed",
       width: clampWidth(typeof d.width === "number" ? d.width : 384),
     };
   } catch {

@@ -101,6 +101,18 @@ class ParticipantFlagSerializer(serializers.Serializer):
     contains_participant_data = serializers.BooleanField()
 
 
+class DocumentPatchSerializer(serializers.Serializer):
+    """Partial update: a field left out keeps its stored value. Content still saves with PUT."""
+
+    title = serializers.CharField(max_length=300, validators=[no_control_chars], required=False)
+    contains_participant_data = serializers.BooleanField(required=False)
+
+    def validate(self, attrs):
+        if not attrs:
+            raise serializers.ValidationError("Send a title or contains_participant_data.")
+        return attrs
+
+
 class ConflictSerializer(serializers.Serializer):
     detail = serializers.CharField()
     code = serializers.CharField()

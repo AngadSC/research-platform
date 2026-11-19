@@ -156,18 +156,26 @@ describe("docked assistant", () => {
     expect(saved().mode).toBe("open");
   });
 
-  it("starts as it was left, and toggles with the keyboard shortcut", async () => {
+  it("starts closed even if left open, and toggles with the keyboard shortcut", async () => {
     localStorage.setItem(KEY, JSON.stringify({ mode: "open", width: 9999 }));
     stubFetch();
     renderApp();
+    await screen.findByRole("button", { name: "Assistant" });
+    expect(screen.queryByRole("complementary", { name: "Assistant" })).not.toBeInTheDocument();
+    await userEvent.keyboard("{Control>}.{/Control}");
     const dock = await screen.findByRole("complementary", { name: "Assistant" });
     expect(dock).toHaveStyle({ width: `${Math.max(320, Math.min(640, window.innerWidth / 2))}px` });
 
     await userEvent.keyboard("{Control>}.{/Control}");
     await waitFor(() => expect(saved().mode).toBe("closed"));
     expect(screen.getByRole("button", { name: "Assistant" })).toHaveAttribute("title");
-    await userEvent.keyboard("{Control>}.{/Control}");
-    await waitFor(() => expect(saved().mode).toBe("open"));
+  });
+
+  it("keeps the side strip across visits", async () => {
+    localStorage.setItem(KEY, JSON.stringify({ mode: "strip", width: 384 }));
+    stubFetch();
+    renderApp();
+    expect(await screen.findByRole("button", { name: "Open the assistant" })).toBeInTheDocument();
   });
 
   it("sends the open page as kind and ids only", async () => {

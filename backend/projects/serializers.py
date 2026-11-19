@@ -254,6 +254,7 @@ class HandoverItemSerializer(serializers.Serializer):
     project = HandoverProjectSerializer(allow_null=True)
     href = serializers.CharField()
     reason = serializers.CharField()
+    due_date = serializers.DateField(allow_null=True, required=False, help_text="Tasks only.")
 
 
 class HandoverSectionSerializer(serializers.Serializer):

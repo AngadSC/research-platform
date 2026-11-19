@@ -7,10 +7,14 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { formErrors } from "@/lib/forms";
 
 export const MAX_BYTES = 50 * 1024 * 1024;
+/** For places that cannot take the "identifies participants" mark (ethics, papers). */
 export const NOTICE =
   "Do not upload participant identifiers. Upload only anonymized or aggregate data.";
+/** Where the mark is offered: identifying files are allowed, marked, and kept from AI (D268). */
+const CHOICE_NOTICE =
+  "Files that identify participants are allowed if your ethics approval covers them. Say so below and Claude and other AI tools will never see the file.";
 const FLAGGED_NOTICE =
-  "Keep identifying participant data here only if your ethics approval allows it. Claude and other AI tools will never see this file.";
+  "Keep identifying participant data here only if your ethics approval allows it. Claude and other AI tools will never see this file. It does not change who in the lab can open it.";
 
 /** One choice, two answers: shown when the caller can take the "identifies participants" mark. */
 export function ParticipantChoice({
@@ -170,7 +174,7 @@ function UploadForm({
         role="note"
         className="rounded-md border border-primary/40 bg-primary/10 p-3 text-sm font-medium"
       >
-        {flagged ? FLAGGED_NOTICE : NOTICE}
+        {flagged ? FLAGGED_NOTICE : hasChoice ? CHOICE_NOTICE : NOTICE}
       </p>
       <div
         onDragOver={(e) => e.preventDefault()}

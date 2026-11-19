@@ -2888,8 +2888,9 @@ paths:
           description: ''
     patch:
       operationId: labs_documents_partial_update
-      description: Tick or clear "Contains participant data" (VISION A3). Saving content
-        is PUT.
+      description: |-
+        Rename, and/or tick or clear "Contains participant data" (VISION A3); a field left out
+        keeps its value. Saving content is PUT. A rename is a new version, like a save.
       parameters:
       - in: path
         name: document_id
@@ -2909,13 +2910,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatchedParticipantFlag'
+              $ref: '#/components/schemas/PatchedDocumentPatch'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/PatchedParticipantFlag'
+              $ref: '#/components/schemas/PatchedDocumentPatch'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/PatchedParticipantFlag'
+              $ref: '#/components/schemas/PatchedDocumentPatch'
       security:
       - sessionAuth: []
       responses:
@@ -17502,6 +17503,11 @@ components:
           type: string
         reason:
           type: string
+        due_date:
+          type: string
+          format: date
+          nullable: true
+          description: Tasks only.
       required:
       - href
       - id
@@ -20561,6 +20567,16 @@ components:
         ethics_legal:
           type: string
           maxLength: 20000
+    PatchedDocumentPatch:
+      type: object
+      description: 'Partial update: a field left out keeps its stored value. Content
+        still saves with PUT.'
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        contains_participant_data:
+          type: boolean
     PatchedEthicsApprovalInput:
       type: object
       properties:

@@ -28,7 +28,7 @@ export function AiPolicySection({ labId, labName }: { labId: string; labName: st
   return (
     <Section
       title={`AI assistants in ${labName}`}
-      description="Allowed by default. When an assistant is used, content from records the member can see is sent to an AI provider under that member's own account and terms. If this lab holds sensitive participant data, you may need to choose Off."
+      description="Allowed by default. When an assistant is used, content from records the member can see is sent to an AI provider under that member's own account and terms. Items marked as identifying participants are never sent; text people paste in is not checked. If this lab holds sensitive participant data, you may need to choose Off."
     >
       <fieldset className="grid gap-3" disabled={!current || set.isPending}>
         <legend className="sr-only">Allow AI assistants</legend>

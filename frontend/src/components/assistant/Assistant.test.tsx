@@ -219,6 +219,7 @@ describe("assistant panel", () => {
     renderDrawer();
     await open();
     expect(await screen.findByRole("note")).toHaveTextContent(/sent to the AI provider/);
+    expect(screen.getByText(/never sees items marked as identifying/)).toBeInTheDocument();
     expect(screen.getByText(/Use Claude with this lab/)).toBeInTheDocument();
     expect(screen.getByText(/Click Connect to Claude/)).toBeInTheDocument();
     // Not connected yet, so the button is step 1 and opens claude.ai's add-connector page.
