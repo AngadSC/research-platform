@@ -192,6 +192,7 @@ describe("admin area", () => {
     await waitFor(() => expect(calls.some((c) => c.method === "PATCH")).toBe(true));
     expect(calls.find((c) => c.method === "PATCH")!.body).not.toHaveProperty("quantity");
     await pickMenuItem("More for Ethanol", "Delete");
+    await userEvent.click(await screen.findByRole("button", { name: "Delete item" }));
     expect(await screen.findByText("Mark the item as retired instead.")).toBeInTheDocument();
   });
 
