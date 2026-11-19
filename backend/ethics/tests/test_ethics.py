@@ -517,3 +517,64 @@ def test_pending_approval_needs_no_dates_but_active_does(w):
     )
     assert active.status_code == 400
     assert "expiry_date" in str(active.json())
+
+
+# ---------------------------------------------------------------- renewals
+def test_start_renewal_copies_the_old_approval_as_pending_and_audits(w):
+    old = make_approval(w, days=13, number="IRB-1")
+    client = api(w.u["pi"])
+    resp = client.post(url("ethics:approval-list", w), {"renews": str(old.pk)}, "json")
+    assert resp.status_code == 201, resp.content
+    new = resp.json()
+    assert new["status"] == "pending" and new["renews"] == str(old.pk)
+    assert new["approval_number"] == "IRB-1 renewal" and new["title"] == old.title
+    assert new["expiry_date"] is None and [p["id"] for p in new["projects"]] == [str(w.p1.pk)]
+    event = AuditEvent.objects.filter(action=AuditAction.ETHICS_APPROVAL_CREATED).latest("pk")
+    assert event.metadata == {"renews": str(old.pk)}
+    # the old approval now says a renewal is pending; a second renewal gets its own number
+    assert client.get(detail_url(w, old)).json()["renewal_status"] == "pending"
+    again = client.post(url("ethics:approval-list", w), {"renews": str(old.pk)}, "json")
+    assert again.status_code == 201 and again.json()["approval_number"] == "IRB-1 renewal 2"
+
+
+def test_renewal_status_ignores_deleted_and_withdrawn_renewals(w):
+    old = make_approval(w, days=13)
+    new = make_approval(w, days=400, status=ApprovalStatus.PENDING)
+    EthicsApproval.objects.for_lab(w.lab).filter(pk=new.pk).update(renews=old)
+    client = api(w.u["pi"])
+    assert client.get(detail_url(w, old)).json()["renewal_status"] == "pending"
+    EthicsApproval.objects.for_lab(w.lab).filter(pk=new.pk).update(status=ApprovalStatus.WITHDRAWN)
+    assert client.get(detail_url(w, old)).json()["renewal_status"] is None
+    EthicsApproval.objects.for_lab(w.lab).filter(pk=new.pk).update(status=ApprovalStatus.ACTIVE)
+    assert client.get(detail_url(w, old)).json()["renewal_status"] == "active"
+    EthicsApproval.objects.for_lab(w.lab).filter(pk=new.pk).update(deleted_at=timezone.now())
+    assert client.get(detail_url(w, old)).json()["renewal_status"] is None
+
+
+def test_start_renewal_rules(w):
+    old = make_approval(w, days=13)
+    hidden = make_approval(w, days=13, projects=[w.p2])
+    EthicsApproval.objects.for_lab(w.lab).filter(pk=hidden.pk).update(restricted=True)
+    list_url = url("ethics:approval-list", w)
+    # a viewer cannot create at all
+    assert api(w.u["lviewer"]).post(list_url, {"renews": str(old.pk)}, "json").status_code == 403
+    # a restricted approval the member cannot see reads as missing
+    r = api(w.u["nonproj"]).post(list_url, {"renews": str(hidden.pk)}, "json")
+    assert r.status_code == 400
+    # another lab's approval is not found either
+    other = EthicsApproval.objects.create(
+        lab=w.other_lab,
+        approval_number="X",
+        board="B",
+        title="T",
+        created_by=w.u["other_pi"],
+        approval_date=day(-1),
+        expiry_date=day(5),
+    )
+    r = api(w.u["pi"]).post(list_url, {"renews": str(other.pk)}, "json")
+    assert r.status_code == 400
+    # without renews the three fields are still required
+    assert api(w.u["pi"]).post(list_url, {"title": "x"}, "json").status_code == 400
+    # PATCH cannot re-point an approval at another one
+    r = api(w.u["pi"]).patch(detail_url(w, old), {"renews": str(hidden.pk)}, "json")
+    assert r.status_code == 200 and r.json()["renews"] is None

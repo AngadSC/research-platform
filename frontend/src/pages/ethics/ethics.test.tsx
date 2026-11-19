@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { daysUntil, expiryTone, validateApproval } from "@/lib/ethics";
+import { daysUntil, expiryTone, expiryWarning, validateApproval } from "@/lib/ethics";
 import { makeLab, mockFetch, openSidebarGroup, renderRoute, SESSION, signedIn } from "@/test/utils";
 
 const user = { id: "u1", email: "ada@uni.edu", display_name: "Ada" };
@@ -49,12 +49,24 @@ const base = (perms: string[]) => ({
 describe("expiry tone", () => {
   it.each([
     [61, "active", "success"],
-    [25, "active", "warning"],
-    [5, "active", "destructive"],
+    [13, "active", "success"],
     [-3, "active", "destructive"],
     [40, "expired", "destructive"],
+    [13, "pending", "secondary"],
   ])("%i days, %s -> %s", (days, status, tone) => {
     expect(expiryTone(days, status)).toBe(tone);
+  });
+
+  it.each([
+    [61, "active", null],
+    [31, "active", null],
+    [30, "active", "warning"],
+    [13, "active", "warning"],
+    [5, "active", "destructive"],
+    [13, "withdrawn", null],
+    [-3, "active", null],
+  ])("warning at %i days, %s -> %s", (days, status, tone) => {
+    expect(expiryWarning(days, status)).toBe(tone);
   });
 
   it("counts whole days from the local date", () => {
@@ -114,8 +126,37 @@ describe("list", () => {
       "GET /api/labs/lab1/ethics-approvals/": { body: [approval()] },
     });
     renderRoute("/labs/lab1/ethics");
-    expect(await screen.findByText("in 25 days")).toBeInTheDocument();
-    expect(screen.getByText("active", { selector: "span[data-days]" })).toHaveClass("bg-warning");
+    expect(await screen.findByText("Expires in 25 days")).toHaveClass("bg-warning");
+    expect(screen.getByText("active")).not.toHaveClass("bg-warning");
+  });
+
+  it("shows Renewal pending instead of the warning when a renewal is on file", async () => {
+    mockFetch({
+      ...base(["view_lab", "view_ethics"]),
+      "GET /api/labs/lab1/ethics-approvals/": {
+        body: [approval({ renewal_status: "pending" })],
+      },
+    });
+    renderRoute("/labs/lab1/ethics");
+    expect(await screen.findByText("Renewal pending")).toBeInTheDocument();
+    expect(screen.queryByText(/Expires in/)).toBeNull();
+  });
+
+  it("starts a renewal from the approval page", async () => {
+    const calls = mockFetch({
+      ...base(["view_lab", "view_ethics", "edit_ethics"]),
+      "GET /api/labs/lab1/ethics-approvals/ap1/": { body: approval({ expiry_date: iso(13) }) },
+      "POST /api/labs/lab1/ethics-approvals/": { status: 201, body: approval({ id: "ap2" }) },
+      "GET /api/labs/lab1/ethics-approvals/ap2/": { body: approval({ id: "ap2" }) },
+    });
+    renderRoute("/labs/lab1/ethics/ap1");
+    expect(await screen.findAllByText("Expires in 13 days")).not.toHaveLength(0);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Start renewal" }));
+    await waitFor(() =>
+      expect(
+        calls.find((c) => c.method === "POST" && c.path.endsWith("/ethics-approvals/"))?.body,
+      ).toEqual({ renews: "ap1" }),
+    );
   });
 
   it("says plainly why a member can't open files on a lab-wide approval, and what to do", async () => {

@@ -6574,6 +6574,9 @@ export interface components {
             readonly expiry_date: string | null;
             readonly status: components["schemas"]["ApprovalStatusEnum"];
             readonly restricted: boolean;
+            /** Format: uuid */
+            readonly renews: string | null;
+            readonly renewal_status: (components["schemas"]["RenewalStatusEnum"] | components["schemas"]["NullEnum"]) | null;
             readonly projects: components["schemas"]["ProjectRef"][];
             readonly attachments: components["schemas"]["Attachment"][];
             readonly can_view_files: boolean;
@@ -6584,9 +6587,9 @@ export interface components {
             readonly updated_at: string;
         };
         EthicsApprovalInput: {
-            approval_number: string;
-            board: string;
-            title: string;
+            approval_number?: string;
+            board?: string;
+            title?: string;
             projects?: string[];
             /** Format: date */
             approval_date?: string | null;
@@ -6594,6 +6597,8 @@ export interface components {
             expiry_date?: string | null;
             status?: components["schemas"]["ApprovalStatusEnum"];
             restricted?: boolean;
+            /** Format: uuid */
+            renews?: string;
         };
         Event: {
             /** Format: uuid */
@@ -8298,6 +8303,8 @@ export interface components {
             expiry_date?: string | null;
             status?: components["schemas"]["ApprovalStatusEnum"];
             restricted?: boolean;
+            /** Format: uuid */
+            renews?: string;
         };
         PatchedExternalOutputInput: {
             title?: string;
@@ -8933,6 +8940,12 @@ export interface components {
             /** @description New reminders; fewer when some were reminded today. */
             sent: number;
         };
+        /**
+         * @description * `pending` - pending
+         *     * `active` - active
+         * @enum {string}
+         */
+        RenewalStatusEnum: "pending" | "active";
         Resource: {
             /** Format: uuid */
             readonly id: string;
@@ -12222,7 +12235,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": components["schemas"]["EthicsApprovalInput"];
                 "application/x-www-form-urlencoded": components["schemas"]["EthicsApprovalInput"];

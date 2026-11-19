@@ -151,7 +151,7 @@ export default function EthicsTab({ labId, projectId, project }: ProjectTabProps
                   <span className="ml-2 text-xs font-normal text-muted-foreground">{a.board}</span>
                 </Link>
                 <span className="flex items-center gap-2">
-                  <ExpiryText expiry={a.expiry_date} />
+                  <ExpiryText expiry={a.expiry_date} status={a.status} renewal={a.renewal_status} />
                   <ApprovalBadge status={a.status} expiry={a.expiry_date} />
                 </span>
               </li>

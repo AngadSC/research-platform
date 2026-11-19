@@ -27,7 +27,7 @@ class ApprovalMixin(LabScopedViewMixin):
             .get_queryset()
             .filter(deleted_at__isnull=True)
             .select_related("created_by")
-            .prefetch_related("projects", "attachments", "attachments__uploaded_by")
+            .prefetch_related("projects", "renewals", "attachments", "attachments__uploaded_by")
         )
 
     def body(self, *, partial=False):

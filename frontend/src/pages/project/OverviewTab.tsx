@@ -20,6 +20,8 @@ import {
 import { Link, useSearchParams } from "react-router";
 import { StatsLink } from "@/components/shared/StatsLink";
 import { ApprovalBadge, ExpiryText } from "@/components/ethics/ApprovalBadge";
+import { daysUntil } from "@/lib/ethics";
+import { shortDate } from "@/lib/format";
 import { useAssistantReady } from "@/hooks/assistant";
 import { openAssistant } from "@/lib/assistant";
 import { useApprovals } from "@/hooks/ethics";
@@ -488,8 +490,17 @@ function ProjectApprovals({
   const { data } = useApprovals(labId, lab?.my_permissions.includes("view_ethics"));
   const mine = (data ?? []).filter((a) => a.projects.some((p) => p.id === projectId));
   if (!lab?.my_permissions.includes("view_ethics")) return null;
+  // the soonest end date among active approvals that nobody has started renewing
+  const next = mine
+    .filter((a) => a.status === "active" && a.expiry_date && !a.renewal_status)
+    .map((a) => a.expiry_date!)
+    .filter((d) => daysUntil(d) >= 0)
+    .sort()[0];
+  const hint = mine.length
+    ? `${mine.length}${next ? `, next expires ${shortDate(next)}` : ""}`
+    : "None linked";
   return (
-    <Disclosure card title="Ethics approvals" hint={mine.length ? `${mine.length}` : "None linked"}>
+    <Disclosure card title="Ethics approvals" hint={hint}>
       <div className="grid gap-3">
         <div className="flex items-center justify-end">
           {canLink && lab.my_permissions.includes("edit_ethics") && (
@@ -512,7 +523,7 @@ function ProjectApprovals({
                   {a.approval_number}: {a.title}
                 </Link>
                 <span className="flex items-center gap-2">
-                  <ExpiryText expiry={a.expiry_date} />
+                  <ExpiryText expiry={a.expiry_date} status={a.status} renewal={a.renewal_status} />
                   <ApprovalBadge status={a.status} expiry={a.expiry_date} />
                 </span>
               </li>

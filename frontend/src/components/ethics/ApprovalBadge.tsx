@@ -1,23 +1,40 @@
 import { Badge } from "@/components/ui/badge";
-import { daysUntil, expiryTone, relativeDays } from "@/lib/ethics";
+import type { EthicsApproval } from "@/lib/api-types";
+import { daysUntil, expiryTone, expiryWarning, relativeDays } from "@/lib/ethics";
+import { plural } from "@/lib/format";
 
-/** Status badge whose tone follows the expiry date. */
+/** Status badge: green while active, red once expired. */
 export function ApprovalBadge({ status, expiry }: { status: string; expiry: string | null }) {
-  if (!expiry)
-    return (
-      <Badge variant="secondary" className="capitalize">
-        {status}
-      </Badge>
-    );
-  const days = daysUntil(expiry);
+  const days = expiry ? daysUntil(expiry) : 0;
   return (
-    <Badge variant={expiryTone(days, status)} className="capitalize" data-days={days}>
+    <Badge variant={expiry ? expiryTone(days, status) : "secondary"} className="capitalize">
       {status}
     </Badge>
   );
 }
 
-export function ExpiryText({ expiry }: { expiry: string | null }) {
+/** Time left. Within 30 days it is a warning, unless a renewal is already on file. */
+export function ExpiryText({
+  expiry,
+  status = "active",
+  renewal = null,
+}: {
+  expiry: string | null;
+  status?: string;
+  renewal?: EthicsApproval["renewal_status"];
+}) {
   if (!expiry) return null;
-  return <span className="text-xs text-muted-foreground">{relativeDays(daysUntil(expiry))}</span>;
+  const days = daysUntil(expiry);
+  const warn = expiryWarning(days, status);
+  if (warn && renewal)
+    return (
+      <Badge variant="secondary">{renewal === "pending" ? "Renewal pending" : "Renewed"}</Badge>
+    );
+  if (warn)
+    return (
+      <Badge variant={warn}>
+        {days === 0 ? "Expires today" : `Expires in ${plural(days, "day")}`}
+      </Badge>
+    );
+  return <span className="text-xs text-muted-foreground">{relativeDays(days)}</span>;
 }

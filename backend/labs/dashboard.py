@@ -6,7 +6,7 @@ elsewhere. The query count is fixed: it does not grow with projects, tasks or me
 
 from datetime import timedelta
 
-from django.db.models import Case, Count, IntegerField, Max, Q, Value, When
+from django.db.models import Case, Count, Exists, IntegerField, Max, OuterRef, Q, Value, When
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, serializers
@@ -278,6 +278,16 @@ def build_dashboard(user, lab) -> dict:
         EthicsApproval.objects.visible_to(user, lab)
         .filter(deleted_at__isnull=True, expiry_date__lte=today + timedelta(days=ETHICS_DAYS))
         .exclude(status=ApprovalStatus.WITHDRAWN)
+        # a pending or active renewal on file settles it
+        .exclude(
+            Exists(
+                EthicsApproval.objects.filter(
+                    renews=OuterRef("pk"),
+                    deleted_at__isnull=True,
+                    status__in=[ApprovalStatus.PENDING, ApprovalStatus.ACTIVE],
+                )
+            )
+        )
         .order_by("expiry_date", "id")
     )
 

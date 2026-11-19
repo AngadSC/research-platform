@@ -35,6 +35,11 @@ class EthicsApproval(LabScopedModel):
     # D56: when set, only pi, lab_admin and people who can see a linked project see it
     restricted = models.BooleanField(default=False)
 
+    # a Pending approval started from this one (same lab, see the LabForeignKey in 0005)
+    renews = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL, related_name="renewals"
+    )
+
     permission_domain = "lab"  # lab-level (D27); "ethics" would fail the domain consistency test
     project_path = None
 
@@ -46,6 +51,16 @@ class EthicsApproval(LabScopedModel):
             return qs
         seen = Q(projects__in=visible_projects(user, lab))
         return qs.filter(Q(restricted=False) | seen).distinct()
+
+    @property
+    def renewal_status(self):
+        """Status of the newest live pending or active renewal, else None. Uses the prefetch."""
+        found = [
+            r
+            for r in self.renewals.all()
+            if r.deleted_at is None and r.status in (ApprovalStatus.PENDING, ApprovalStatus.ACTIVE)
+        ]
+        return max(found, key=lambda r: r.created_at).status if found else None
 
     class Meta(LabScopedModel.Meta):
         constraints = [
