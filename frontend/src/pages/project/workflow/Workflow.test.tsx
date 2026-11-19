@@ -49,6 +49,8 @@ const funding = {
   award_number: "RGPIN-1",
   amount: "12500.50",
   currency: "CAD",
+  spent: "2500.50",
+  report_due: "2030-06-01",
   start_date: "2030-01-01",
   end_date: "2031-01-01",
   status: "awarded",
@@ -300,6 +302,24 @@ describe("Funding", () => {
       currency: "CAD",
       status: "applied",
     });
+  });
+
+  it("asks before removing an award, and shows what is left", async () => {
+    const calls = mockFetch(
+      base(PI, ["view_lab"], {
+        [`GET ${P}/funding/`]: { body: [funding] },
+        [`GET ${P}/attachments/`]: { body: [] },
+        "DELETE /api/labs/lab1/funding/f1/": { status: 204, body: null },
+      }),
+    );
+    renderRoute(`${W}/funding`);
+    await userEvent.click(await screen.findByRole("button", { name: /NSERC/ }));
+    expect(screen.getByText("Remaining")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Remove NSERC" }));
+    expect(await screen.findByText("Remove the NSERC award?")).toBeInTheDocument();
+    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+    await userEvent.click(screen.getByRole("button", { name: "Remove award" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "DELETE")).toBe(true));
   });
 
   it("opens an award in place to show its details and Edit", async () => {

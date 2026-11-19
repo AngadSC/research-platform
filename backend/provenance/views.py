@@ -196,6 +196,8 @@ class FundingOverviewSerializer(serializers.ModelSerializer):
             "award_number",
             "amount",
             "currency",
+            "spent",
+            "report_due",
             "start_date",
             "end_date",
             "status",

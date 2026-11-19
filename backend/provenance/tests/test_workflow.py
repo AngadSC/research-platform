@@ -76,6 +76,20 @@ def test_funding_crud_is_audited_and_the_amount_is_returned(w):
     assert not FundingRecord.objects.for_lab(w.lab).exists()
 
 
+def test_funding_spent_and_report_due_round_trip_and_stay_pi_only(w):
+    made = post(w, "funding-list", {"funder": "A", "amount": "1000", "spent": "250.50"}).json()
+    assert made["spent"] == "250.50" and made["report_due"] is None
+    item = url(w, "funding-detail", fundingrecord_id=made["id"])
+    assert w.client().patch(item, {"report_due": "2031-02-03"}, format="json").status_code == 200
+    bad = w.client().patch(item, {"spent": "-1"}, format="json")
+    assert bad.status_code == 400
+    row = w.client().get(url(w, "funding-overview")).json()[0]
+    assert row["spent"] == "250.50" and row["report_due"] == "2031-02-03"
+    other = w.member(ProjectRole.CONTRIBUTOR)
+    assert w.client(other).get(url(w, "funding-overview")).status_code == 403
+    assert w.client(other).patch(item, {"spent": "1"}, format="json").status_code in (403, 404)
+
+
 def test_funding_is_pi_only_everywhere(w):
     """D226: every way funding data leaves the server, for a lab admin and a project lead."""
     from audit.models import AuditEvent
@@ -594,6 +608,8 @@ def test_lab_funding_overview_is_pi_only_and_one_query_per_page(make_lab, make_u
         "award_number",
         "amount",
         "currency",
+        "spent",
+        "report_due",
         "start_date",
         "end_date",
         "status",

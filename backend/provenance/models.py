@@ -208,6 +208,8 @@ class FundingRecord(ProvenanceModel):
     award_number = models.CharField(max_length=100, blank=True)
     amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
     currency = models.CharField(max_length=3, default="CAD")
+    spent = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    report_due = models.DateField(null=True, blank=True)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
     status = models.CharField(

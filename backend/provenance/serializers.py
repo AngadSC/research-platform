@@ -266,6 +266,8 @@ class FundingSerializer(serializers.ModelSerializer):
             "award_number",
             "amount",
             "currency",
+            "spent",
+            "report_due",
             "start_date",
             "end_date",
             "status",
@@ -537,6 +539,10 @@ class FundingInputSerializer(serializers.Serializer):
         max_digits=14, decimal_places=2, min_value=0, allow_null=True, required=False
     )
     currency = serializers.RegexField(r"^[A-Z]{3}$", required=False)
+    spent = serializers.DecimalField(
+        max_digits=14, decimal_places=2, min_value=0, allow_null=True, required=False
+    )
+    report_due = serializers.DateField(allow_null=True, required=False)
     start_date = serializers.DateField(allow_null=True, required=False)
     end_date = serializers.DateField(allow_null=True, required=False)
     status = serializers.ChoiceField(choices=FundingStatus.choices, required=False)

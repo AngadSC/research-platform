@@ -45,6 +45,10 @@ describe("Team table", () => {
       person({ user_id: "u2", name: "Ben", overdue_tasks: 0, in_progress_tasks: 0 }),
     ]);
     const ada = screen.getByText("Ada").closest("tr")!;
+    expect(within(ada).getByRole("link", { name: "Ada" })).toHaveAttribute(
+      "href",
+      "/labs/lab1/team-tasks?assignee=u1&show=open",
+    );
     expect(within(ada).getByRole("link", { name: "2 overdue tasks for Ada" })).toHaveAttribute(
       "href",
       "/labs/lab1/team-tasks?assignee=u1&show=overdue",

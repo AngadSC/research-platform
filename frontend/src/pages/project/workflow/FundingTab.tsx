@@ -2,6 +2,7 @@ import { ChevronRight, Landmark } from "lucide-react";
 import { useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
+import { ConfirmDelete } from "@/components/shared/ConfirmDelete";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormField } from "@/components/shared/FormField";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +53,7 @@ function FundingPanel({ labId, projectId, project }: ProjectTabProps) {
     params.get("new") === "1" ? "new" : null,
   );
 
+  const [removing, setRemoving] = useState<Funding>();
   const close = () => {
     setEditing(null);
     if (params.has("new")) {
@@ -90,12 +92,7 @@ function FundingPanel({ labId, projectId, project }: ProjectTabProps) {
                   funding={f}
                   canEdit={project.status !== "archived"}
                   onEdit={() => setEditing(f)}
-                  onRemove={() =>
-                    remove.mutate(f.id, {
-                      onSuccess: () => toast.success("Funding removed"),
-                      onError: fail,
-                    })
-                  }
+                  onRemove={() => setRemoving(f)}
                 />
               ))}
             </ul>
@@ -106,6 +103,25 @@ function FundingPanel({ labId, projectId, project }: ProjectTabProps) {
         labId={labId}
         category="funding"
         title="Funding resources at your institution"
+      />
+      <ConfirmDelete
+        open={!!removing}
+        name={`the ${removing?.funder ?? ""} award`}
+        noun="award"
+        verb="Remove"
+        description="It is removed from this project and from the lab's funding page."
+        pending={remove.isPending}
+        onClose={() => setRemoving(undefined)}
+        onConfirm={() =>
+          removing &&
+          remove.mutate(removing.id, {
+            onSuccess: () => {
+              toast.success("Funding removed");
+              setRemoving(undefined);
+            },
+            onError: fail,
+          })
+        }
       />
       {editing && (
         <FundingDialog
@@ -162,6 +178,13 @@ function FundingRow({
   const details: [string, string][] = [
     ["Program", f.program],
     ["Award number", f.award_number],
+    [
+      "Remaining",
+      f.amount !== null && f.spent !== null
+        ? (money(String(Number(f.amount) - Number(f.spent)), f.currency) ?? "")
+        : "",
+    ],
+    ["Report due", f.report_due ? day(f.report_due) : ""],
     ["Dates", f.start_date || f.end_date ? `${day(f.start_date)} to ${day(f.end_date)}` : ""],
     ["Held by", f.holder ? personName(f.holder) : ""],
     ["Notes", f.notes],
@@ -230,6 +253,8 @@ const FIELDS = [
   "award_number",
   "amount",
   "currency",
+  "spent",
+  "report_due",
   "start_date",
   "end_date",
   "status",
@@ -276,6 +301,8 @@ function FundingDialog({
           attachment: str(f, "attachment") || null,
           amount: str(f, "amount") || null,
           currency: str(f, "currency").toUpperCase() || "CAD",
+          spent: str(f, "spent") || null,
+          report_due: str(f, "report_due") || null,
         };
         await onSave(body);
       }}
@@ -325,6 +352,28 @@ function FundingDialog({
                   name="currency"
                   maxLength={3}
                   defaultValue={funding?.currency ?? "CAD"}
+                />
+              )}
+            </FormField>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Spent so far" hint="Same currency as the amount." error={e.spent}>
+              {(p) => (
+                <Input
+                  {...p}
+                  name="spent"
+                  inputMode="decimal"
+                  defaultValue={funding?.spent ?? ""}
+                />
+              )}
+            </FormField>
+            <FormField label="Report due" error={e.report_due}>
+              {(p) => (
+                <Input
+                  {...p}
+                  type="date"
+                  name="report_due"
+                  defaultValue={funding?.report_due ?? ""}
                 />
               )}
             </FormField>

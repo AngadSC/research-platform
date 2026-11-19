@@ -570,6 +570,7 @@ export function InventorySection({
         open={bulk === "delete"}
         name={`${picked.length} ${picked.length === 1 ? "item" : "items"}`}
         noun={picked.length === 1 ? "item" : "items"}
+        items={picked.map((i) => i.name)}
         description="Items still used by a protocol or a record of use can't be deleted; they stay, and you'll see which. Mark them retired instead."
         onConfirm={() => void bulkEach("Deleted", (i) => remove.mutateAsync(i.id))}
         onClose={() => setBulk(null)}

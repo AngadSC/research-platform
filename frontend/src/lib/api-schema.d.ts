@@ -6821,6 +6821,10 @@ export interface components {
             /** Format: decimal */
             readonly amount: string | null;
             readonly currency: string;
+            /** Format: decimal */
+            readonly spent: string | null;
+            /** Format: date */
+            readonly report_due: string | null;
             /** Format: date */
             readonly start_date: string | null;
             /** Format: date */
@@ -6842,6 +6846,10 @@ export interface components {
             /** Format: decimal */
             amount?: string | null;
             currency?: string;
+            /** Format: decimal */
+            spent?: string | null;
+            /** Format: date */
+            report_due?: string | null;
             /** Format: date */
             start_date?: string | null;
             /** Format: date */
@@ -6865,6 +6873,10 @@ export interface components {
             /** Format: decimal */
             readonly amount: string | null;
             readonly currency: string;
+            /** Format: decimal */
+            readonly spent: string | null;
+            /** Format: date */
+            readonly report_due: string | null;
             /** Format: date */
             readonly start_date: string | null;
             /** Format: date */
@@ -8295,6 +8307,10 @@ export interface components {
             /** Format: decimal */
             amount?: string | null;
             currency?: string;
+            /** Format: decimal */
+            spent?: string | null;
+            /** Format: date */
+            report_due?: string | null;
             /** Format: date */
             start_date?: string | null;
             /** Format: date */
