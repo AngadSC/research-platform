@@ -8,11 +8,13 @@ from core.models import User
 _ID = r"([0-9a-f-]{36})"
 _PROJECT = re.compile(rf"/labs/{_ID}/projects/{_ID}(?:/|$)")
 _DOCUMENT = re.compile(rf"/labs/{_ID}/projects/{_ID}/documents/{_ID}(?:/|$)")
+_LAB_DOCUMENT = re.compile(rf"/labs/{_ID}/documents/{_ID}(?:/|$)")  # a lab-wide document
 _APPROVAL = re.compile(rf"/labs/{_ID}/ethics/{_ID}(?:/|$)")
 _RECORD = re.compile(rf"/labs/{_ID}/projects/{_ID}/workflow/\w+/(\w+)/{_ID}(?:/|$)")
 
 
 def _exists(user, url, labs) -> bool:
+    from core.permissions import labs_for
     from documents.models import Document
     from ethics.models import EthicsApproval
     from labs.models import Lab
@@ -24,6 +26,17 @@ def _exists(user, url, labs) -> bool:
         if lab_id not in labs:
             labs[lab_id] = Lab.objects.filter(pk=lab_id).first()
         return labs[lab_id]
+
+    m = _LAB_DOCUMENT.match(url)
+    if m:
+        lab = lab_of(m.group(1))
+        if lab is None or not labs_for(user).filter(pk=lab.pk).exists():
+            return False
+        return (
+            Document.objects.for_lab(lab)
+            .filter(pk=m.group(2), project__isnull=True, deleted_at__isnull=True)
+            .exists()
+        )
 
     for pattern, model, extra in (
         (_RECORD, None, {}),

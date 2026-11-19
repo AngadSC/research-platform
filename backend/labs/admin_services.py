@@ -3,6 +3,7 @@
 import csv
 import io
 import uuid
+from decimal import Decimal, InvalidOperation
 
 from django.db import DataError, IntegrityError, transaction
 from django.db.models import F, ProtectedError
@@ -148,9 +149,23 @@ def _create(model, created, *, lab, user, data, request):
     return obj
 
 
+def _same(old, new) -> bool:
+    """Equal once Decimal/int, date/str and ""/None are normalised (an edit form sends them all)."""
+    if old == new or (not old and not new and old != 0 and new != 0):
+        return True
+    try:
+        return Decimal(str(old)) == Decimal(str(new))
+    except InvalidOperation:
+        return str(old) == str(new)
+
+
 def _update(obj, updated, *, user, data, request, extra=None):
+    """Saves, and audits only the fields whose value really changed; no change, no event."""
+    changed = sorted(k for k, v in data.items() if not _same(getattr(obj, k, None), v))
     for k, v in data.items():
         setattr(obj, k, v)
+    if not changed:
+        return obj
     _save(obj)
     record(
         updated,
@@ -158,7 +173,7 @@ def _update(obj, updated, *, user, data, request, extra=None):
         lab=obj.lab,
         target=obj,
         request=request,
-        metadata={"changed": sorted(data), **(extra or {})},
+        metadata={"changed": changed, **(extra or {})},
     )
     return obj
 

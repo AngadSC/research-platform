@@ -87,3 +87,27 @@ def test_saving_stale_recents_does_not_bring_back_a_deleted_document(w):
     Document.objects.for_lab(w.lab).update(deleted_at="2030-01-02T00:00:00Z")
     resp = w.client().patch(reverse("core:me"), {"preferences": {"recents": stale}}, format="json")
     assert resp.status_code == 200 and resp.json()["preferences"]["recents"] == []
+
+
+def test_deleted_lab_document_leaves_recents_on_read_and_save(w):
+    # The live sequence: open a lab-wide document, delete it, a stale copy is saved back.
+    c = w.client()
+    made = c.post(
+        reverse("documents:lab-document-list", kwargs={"lab_id": w.lab.pk}),
+        {"title": "Lab manual"},
+        format="json",
+    )
+    doc_id = made.json()["id"]
+    url = f"/labs/{w.lab.pk}/documents/{doc_id}"
+    item = {"url": url, "label": "Lab manual", "kind": "document", "at": "2030-01-01T00:00:00Z"}
+    me = reverse("core:me")
+    assert c.patch(me, {"preferences": {"recents": [item]}}, format="json").status_code == 200
+    assert c.get(me).json()["preferences"]["recents"] == [item]
+
+    assert c.delete(f"/api/labs/{w.lab.pk}/documents/{doc_id}/").status_code == 204
+
+    assert c.get(me).json()["preferences"]["recents"] == []
+    w.pi.refresh_from_db()
+    assert w.pi.preferences["recents"] == []
+    resp = c.patch(me, {"preferences": {"recents": [item]}}, format="json")
+    assert resp.json()["preferences"]["recents"] == []
