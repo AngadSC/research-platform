@@ -36,6 +36,8 @@ interface Confirm {
   title: string;
   description: string;
   action: "Revoke" | "Disconnect";
+  /** Your own Google Calendar is among what goes: offer to delete the labbenchos calendar. */
+  calendar?: boolean;
 }
 
 /** Lab settings: connect outside services, see your connections, and (for PIs and lab admins)
@@ -51,6 +53,7 @@ export function IntegrationsPage() {
   const connect = useConnect(labId);
   const disconnect = useDisconnect(labId);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
+  const [deleteCalendar, setDeleteCalendar] = useState(false);
   const [initialError] = useState(() => params.get("error"));
   const [failure, setFailure] = useState<string>();
   const [keyed, setKeyed] = useState<IntegrationProvider | null>(null);
@@ -97,12 +100,16 @@ export function IntegrationsPage() {
   };
   const run = () => {
     if (!confirm) return;
-    disconnect.mutate(confirm.id, {
-      onSuccess: () =>
-        toast.success(confirm.action === "Revoke" ? "Connection revoked" : "Disconnected"),
-      onError: (e) => toast.error(formErrors(e, []).form ?? "Something went wrong."),
-      onSettled: () => setConfirm(null),
-    });
+    const deleteAppCalendar = !!confirm.calendar && deleteCalendar;
+    disconnect.mutate(
+      { id: confirm.id, deleteAppCalendar },
+      {
+        onSuccess: () =>
+          toast.success(confirm.action === "Revoke" ? "Connection revoked" : "Disconnected"),
+        onError: (e) => toast.error(formErrors(e, []).form ?? "Something went wrong."),
+        onSettled: () => setConfirm(null),
+      },
+    );
   };
 
   const cols: Column<ConnectedAccount>[] = [
@@ -163,24 +170,35 @@ export function IntegrationsPage() {
                   {list.map((members) => {
                     const p = members[0]!;
                     const onConnect = () => (p.auth_type === "api_key" ? setKeyed(p) : start(p));
-                    const disconnectWith = (id: string, title: string, extra: string) =>
+                    const disconnectWith = (
+                      id: string,
+                      title: string,
+                      extra: string,
+                      calendar = false,
+                    ) => {
+                      setDeleteCalendar(false);
                       setConfirm({
                         id,
                         action: "Disconnect",
                         title,
+                        calendar,
                         description: `${extra}Linked items stay in your projects, but we stop checking them until you connect again.`,
                       });
+                    };
                     return members.length > 1 ? (
                       <BundleCard
                         key={p.name}
                         members={members}
                         busy={connect.isPending}
                         onConnect={onConnect}
-                        onDisconnect={(id, what) =>
+                        onDisconnect={(id, what, calendar) =>
                           disconnectWith(
                             id,
                             `Disconnect ${p.bundle_label}?`,
-                            `This disconnects ${what} together, because they use one sign-in. `,
+                            what.includes(", ")
+                              ? `This disconnects ${what} together, because they use one sign-in. `
+                              : `This disconnects ${what}. `,
+                            calendar,
                           )
                         }
                       />
@@ -191,7 +209,13 @@ export function IntegrationsPage() {
                         busy={connect.isPending}
                         onConnect={onConnect}
                         onDisconnect={() =>
-                          p.account && disconnectWith(p.account.id, `Disconnect ${p.label}?`, "")
+                          p.account &&
+                          disconnectWith(
+                            p.account.id,
+                            `Disconnect ${p.label}?`,
+                            "",
+                            p.name === "google_calendar",
+                          )
                         }
                       />
                     );
@@ -235,6 +259,27 @@ export function IntegrationsPage() {
           <DialogDescription className="text-sm text-muted-foreground">
             {confirm?.description}
           </DialogDescription>
+          {confirm?.calendar && (
+            <div className="flex items-start gap-2 text-sm">
+              <input
+                id="delete-app-calendar"
+                type="checkbox"
+                checked={deleteCalendar}
+                onChange={(e) => setDeleteCalendar(e.target.checked)}
+                aria-describedby="delete-app-calendar-hint"
+                className="mt-0.5"
+              />
+              <div className="grid gap-1">
+                <label htmlFor="delete-app-calendar">
+                  Also delete the labbenchos calendar from your Google Calendar
+                </label>
+                <span id="delete-app-calendar-hint" className="text-xs text-muted-foreground">
+                  Otherwise it stays in Google Calendar until you delete it there. Meetings on your
+                  main calendar stay either way.
+                </span>
+              </div>
+            </div>
+          )}
           <div className="flex justify-end gap-2">
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>
@@ -432,7 +477,7 @@ function BundleCard({
   members: Members;
   busy: boolean;
   onConnect: () => void;
-  onDisconnect: (accountId: string, what: string) => void;
+  onDisconnect: (accountId: string, what: string, calendar: boolean) => void;
 }) {
   const primary = members[0]!;
   const group = primary.bundle_label;
@@ -442,6 +487,7 @@ function BundleCard({
   const missing = members.filter((m) => m.account?.status !== "active");
   const stale = members.find((m) => m.account && needsReconnect(m.account.status));
   const who = active[0]?.account?.external_email || "your Google account";
+  const hasCalendar = active.some((m) => m.name === "google_calendar");
   let note = "Not connected";
   let action: ReactNode;
   if (!primary.configured) action = <NotSetUp label={group} />;
@@ -451,7 +497,7 @@ function BundleCard({
       <Button
         variant="outline"
         aria-label={`Disconnect ${group}`}
-        onClick={() => onDisconnect(active[0]!.account!.id, joined(members))}
+        onClick={() => onDisconnect(active[0]!.account!.id, joined(members), hasCalendar)}
       >
         Disconnect
       </Button>
@@ -461,9 +507,21 @@ function BundleCard({
     else if (stale) note = `${STATUS_HELP[stale.account!.status] ?? "Needs reconnecting."}`;
     const verb = stale ? "Reconnect" : active.length > 0 ? `Add ${joined(missing)}` : "Connect";
     action = (
-      <Button disabled={busy} onClick={onConnect} aria-label={`${verb} ${group}`}>
-        {verb}
-      </Button>
+      <>
+        {active.length > 0 && (
+          // Only part of the sign-in was allowed: it can still be disconnected.
+          <Button
+            variant="outline"
+            aria-label={`Disconnect ${group}`}
+            onClick={() => onDisconnect(active[0]!.account!.id, joined(active), hasCalendar)}
+          >
+            Disconnect
+          </Button>
+        )}
+        <Button disabled={busy} onClick={onConnect} aria-label={`${verb} ${group}`}>
+          {verb}
+        </Button>
+      </>
     );
   }
   return (

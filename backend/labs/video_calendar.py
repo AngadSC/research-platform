@@ -422,6 +422,24 @@ def _calendar_gone(sync) -> bool:
     return resp.status_code in (404, 410)
 
 
+def delete_app_calendar(sync) -> bool:
+    """Delete the person's labbenchos calendar, with its events, from their Google Calendar
+    (calendars.delete accepts calendar.app.created). Only when they ask, on disconnect. Best
+    effort: False when Google refused or could not be reached; already gone counts as done."""
+    if not sync.app_calendar_id:
+        return False
+    try:
+        _call(
+            sync.account,
+            "DELETE",
+            f"{GCAL}/calendars/{quote(sync.app_calendar_id, safe='')}",
+            ok=(200, 204, 404, 410),
+        )
+    except RemoteError:
+        return False
+    return True
+
+
 def push_all() -> int:
     """The scheduled run: every active Google Calendar connection that pushes anything. Lab by
     lab, as jobs do (D49); each person's calendar is built as that person (`build_calendar`)."""

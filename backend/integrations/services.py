@@ -3,6 +3,7 @@ refresh, disconnect and revoke, external links, item search and freshness. Views
 serialize the result."""
 
 import base64
+import copy
 import hashlib
 import logging
 import re
@@ -17,6 +18,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.http import Http404
 from django.utils import timezone
+from django.utils.crypto import salted_hmac
 from django.views.decorators.debug import sensitive_variables
 from rest_framework.exceptions import ValidationError
 
@@ -28,7 +30,7 @@ from core.permissions import Perm, can, get_lab_or_404, require
 from integrations import crypto, http, registry
 from integrations.http import AccountUnavailable, InstanceURLError, IntegrationError
 from integrations.models import TARGET_FIELDS, AccountStatus, ConnectedAccount, ExternalLink
-from labs.models import Lab
+from labs.models import GoogleCalendarSync, Lab
 from provenance.models import validate_web_url
 
 AuthType = registry.AuthType
@@ -252,11 +254,11 @@ def _store_account(
             r.status == AccountStatus.ACTIVE and r.external_account_id != external_id for r in rows
         ):
             raise OAuthError("other_account_connected")
-        account = next((r for r in rows if r.external_account_id == external_id), None)
+        same = (external_id, retired_id(external_id))  # a revoked row keeps only the hash
+        account = next((r for r in rows if r.external_account_id in same), None)
         if account is None:
-            account = ConnectedAccount(
-                lab=lab, user=user, provider=provider.name, external_account_id=external_id
-            )
+            account = ConnectedAccount(lab=lab, user=user, provider=provider.name)
+        account.external_account_id = external_id
         account.external_email = (email or "")[:254]
         account.granted_scopes = scopes
         account.instance_url = instance
@@ -453,7 +455,8 @@ def _grant_used_elsewhere(row) -> bool:
     would revoke the whole grant and break that connection too. Services bundled on one OAuth
     client (D262) share one grant but name the account differently (Drive by permissionId,
     Calendar by email), so a bundle sibling counts when either the id or the email matches.
-    Rows already revoked, including the ones being revoked in this same call, never count."""
+    Rows already revoked, including the ones being revoked in this same call, never count.
+    `row` is the snapshot `_retire` took before clearing the id and email."""
     provider = registry.PROVIDERS.get(row.provider)
     names = [m.name for m in registry.bundle_of(provider)] if provider else [row.provider]
     same = Q(external_account_id=row.external_account_id)
@@ -501,11 +504,60 @@ def _revoke_at_provider(row, token) -> bool:
         return False
 
 
-def disconnect(account, *, actor, request=None) -> None:
+def retired_id(external_id) -> str:
+    """What a revoked row keeps instead of the provider's account id (for Calendar that id is
+    the Google email address): a keyed hash, so nothing readable is left, but reconnecting the
+    same account still finds its row and its links and meetings (D69)."""
+    digest = salted_hmac("integrations.retired-account", external_id, algorithm="sha256")
+    return f"revoked:{digest.hexdigest()}"
+
+
+def _retire(rows) -> list:
+    """The one place a revoke changes our records (Google verification item 10), for locked rows
+    being revoked. Returns `(snapshot, token)` per row for `_revoke_at_provider`: the snapshot is
+    taken before anything is cleared, so `_grant_used_elsewhere` still matches other labs' and
+    siblings' rows by the old id and email. Then the tokens are wiped, the email, scopes and
+    account id are forgotten (`retired_id`), and the account's Google Calendar settings go, with
+    the records of what was pushed (the calendar itself stays in Google unless the person asked
+    `disconnect` to delete it)."""
+    out = []
+    for row in rows:
+        out.append((copy.copy(row), _stored_token(row)))
+        row.status = AccountStatus.REVOKED
+        row.clear_tokens()
+        row.external_email = ""
+        row.granted_scopes = []
+        row.external_account_id = retired_id(row.external_account_id)
+        row.save()
+        GoogleCalendarSync.objects.for_lab(row.lab_id).filter(account=row).delete()
+    return out
+
+
+def _delete_app_calendars(rows) -> str:
+    """Delete the labbenchos calendar in Google for the Calendar rows among `rows`, with their
+    still-valid tokens (calendars.delete accepts calendar.app.created). Best effort. Returns
+    "deleted", "failed" or "none" (there was none) for the audit event."""
+    from labs import video_calendar
+
+    syncs = list(
+        GoogleCalendarSync.objects.for_lab(rows[0].lab_id)
+        .filter(account__in=[r for r in rows if r.provider == "google_calendar"])
+        .exclude(app_calendar_id="")
+        .select_related("account")
+    )
+    if not syncs:
+        return "none"
+    done = [video_calendar.delete_app_calendar(s) for s in syncs]
+    return "deleted" if all(done) else "failed"
+
+
+def disconnect(account, *, actor, request=None, delete_app_calendar=False) -> None:
     """Wipe the tokens, mark the account revoked and revoke the grant at the provider (best
     effort: a provider failure never keeps the tokens). The owner needs manage_integrations
     (audited `integration.disconnected`); anyone else needs manage_lab_integrations
-    (`integration.revoked`). System revokes go through `revoke_member_accounts`."""
+    (`integration.revoked`). System revokes go through `revoke_member_accounts`.
+    `delete_app_calendar` (the owner only): first delete the labbenchos calendar in their Google
+    Calendar, while the token still works; a failure never stops the disconnect."""
     own = account.user_id == actor.pk
     require(actor, Perm.MANAGE_INTEGRATIONS if own else Perm.MANAGE_LAB_INTEGRATIONS, account)
     with transaction.atomic():
@@ -514,20 +566,16 @@ def disconnect(account, *, actor, request=None) -> None:
         )
         if row.status == AccountStatus.REVOKED:
             return
-        token = _stored_token(row)
-        row.status = AccountStatus.REVOKED
-        row.clear_tokens()
-        row.save()
-        siblings = _bundle_rows(row)
-        for sibling in siblings:
-            sibling.status = AccountStatus.REVOKED
-            sibling.clear_tokens()
-            sibling.save()
-        # after the siblings: the same-lab ones being revoked here must not block the revoke
-        revoked_at_provider = _revoke_at_provider(row, token)
-        action = AuditAction.INTEGRATION_DISCONNECTED if own else AuditAction.INTEGRATION_REVOKED
         # D262: the same sign-in also backs the services it is bundled with (the same person's
-        # account at the same address), so they go too.
+        # account at the same address), so they go too. Found before the email is cleared.
+        siblings = _bundle_rows(row)
+        extra = {}
+        if delete_app_calendar and own:
+            extra["app_calendar"] = _delete_app_calendars([row, *siblings])
+        snapshot, token = _retire([row, *siblings])[0]
+        # after the siblings: the same-lab ones being revoked here must not block the revoke
+        revoked_at_provider = _revoke_at_provider(snapshot, token)
+        action = AuditAction.INTEGRATION_DISCONNECTED if own else AuditAction.INTEGRATION_REVOKED
         for each in (row, *siblings):
             audit.record(
                 action,
@@ -535,7 +583,11 @@ def disconnect(account, *, actor, request=None) -> None:
                 lab=each.lab,
                 target=each,
                 request=request,
-                metadata={"provider": each.provider, "provider_revoked": revoked_at_provider},
+                metadata={
+                    "provider": each.provider,
+                    "provider_revoked": revoked_at_provider,
+                    **extra,
+                },
             )
     account.refresh_from_db()
 
@@ -567,19 +619,15 @@ def revoke_member_accounts(lab, user, *, reason) -> int:
     membership, so the local revoke (status, tokens, audit with actor null and label
     `lifecycle:<reason>`) commits with it. The provider calls run after the commit, best
     effort, and can't undo the revoke. Returns the number revoked."""
-    pending = []
     with transaction.atomic():
-        rows = (
+        rows = list(
             ConnectedAccount.objects.for_lab(lab)
             .select_for_update()
             .filter(user=user)
             .exclude(status=AccountStatus.REVOKED)
         )
+        pending = _retire(rows)
         for row in rows:
-            pending.append((row, _stored_token(row)))
-            row.status = AccountStatus.REVOKED
-            row.clear_tokens()
-            row.save()
             audit.record(
                 AuditAction.INTEGRATION_REVOKED,
                 actor=None,

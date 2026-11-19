@@ -28,6 +28,7 @@ from integrations.serializers import (
     ConnectedAccountSerializer,
     ConnectInputSerializer,
     ConnectOutputSerializer,
+    DisconnectInputSerializer,
     ExternalLinkInputSerializer,
     ExternalLinkSerializer,
     ImportResultSerializer,
@@ -169,11 +170,18 @@ class AccountDetailView(AccountMixin, generics.GenericAPIView):
     lookup_url_kwarg = "connectedaccount_id"
     perms = {"DELETE": Perm.MANAGE_INTEGRATIONS}
 
-    @extend_schema(request=None, responses=ConnectedAccountSerializer)
+    @extend_schema(request=DisconnectInputSerializer, responses=ConnectedAccountSerializer)
     def delete(self, request, lab_id, connectedaccount_id):
         """Own account: disconnect. Another member's (manage_lab_integrations): revoke."""
         account = self.get_object()
-        services.disconnect(account, actor=request.user, request=request)
+        body = DisconnectInputSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        services.disconnect(
+            account,
+            actor=request.user,
+            request=request,
+            delete_app_calendar=body.validated_data["delete_app_calendar"],
+        )
         return Response(self.get_serializer(account).data)
 
 

@@ -59,9 +59,11 @@ export function useConnect(labId: string) {
 export function useDisconnect(labId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (accountId: string) =>
-      api<ConnectedAccount>(`${base(labId)}/integrations/accounts/${accountId}/`, {
+    mutationFn: (v: { id: string; deleteAppCalendar?: boolean }) =>
+      api<ConnectedAccount>(`${base(labId)}/integrations/accounts/${v.id}/`, {
         method: "DELETE",
+        // Your own Google Calendar only: also delete the labbenchos calendar in Google.
+        body: v.deleteAppCalendar ? { delete_app_calendar: true } : undefined,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: root(labId) }),
   });
