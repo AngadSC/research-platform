@@ -95,10 +95,12 @@ class Provider:
     # scopes in one consent and stores one account, with the same tokens, per provider whose
     # `required_scopes` were all granted (the others are skipped and named to the person), and
     # disconnecting any of them disconnects them all. They must share one OAuth app (`client_from`)
-    # because a refresh token only works with the app that issued it.
+    # because a refresh token only works with the app that issued it. A member given its own
+    # client in settings leaves the bundle (`registry.bundle_of`) and is its own sign-in.
     bundle: tuple[str, ...] = ()
     bundle_label: str = ""  # what the person sees, for example "Google"
-    client_from: str = ""  # the provider whose app registration this one uses
+    # The provider whose app registration this one uses, unless this one's own is configured.
+    client_from: str = ""
     link_targets: frozenset[str] = frozenset({"project"})  # subset of TARGETS
     link_methods: tuple[str, ...] = ()  # subset of LINK_METHODS
 
@@ -185,8 +187,11 @@ class Provider:
         return dict(conf) if conf and all(conf.values()) else {}
 
     def client(self) -> tuple[str, str]:
-        """(client_id, client_secret) from settings; empty strings when not configured."""
-        conf = settings.INTEGRATION_CLIENTS.get(self.client_from or self.name, {})
+        """(client_id, client_secret) from settings; empty strings when not configured. This
+        provider's own client when both are set, otherwise `client_from`'s."""
+        conf = settings.INTEGRATION_CLIENTS.get(self.name, {})
+        if self.client_from and not (conf.get("client_id") and conf.get("client_secret")):
+            conf = settings.INTEGRATION_CLIENTS.get(self.client_from, {})
         return conf.get("client_id", ""), conf.get("client_secret", "")
 
     def valid_external_id(self, value) -> bool:

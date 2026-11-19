@@ -63,9 +63,11 @@ def get(name: str) -> Provider:
 
 def bundle_of(provider) -> list:
     """`provider` first, then the providers it shares a grant with (D262), in ENABLED order.
-    A provider with no bundle is just itself."""
+    A provider with no bundle is just itself. A grant belongs to one OAuth client, so a member on
+    a different client (its own, configured in settings) is left out: a separate sign-in."""
     others = [PROVIDERS[n] for n in ENABLED if n in provider.bundle and n in PROVIDERS]
-    return [provider, *(o for o in others if o.name != provider.name)]
+    own = provider.client()[0]
+    return [provider, *(o for o in others if o.name != provider.name and o.client()[0] == own)]
 
 
 def bundle_scopes(provider) -> tuple[str, ...]:

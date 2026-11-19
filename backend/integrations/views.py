@@ -116,7 +116,7 @@ def provider_entry(p, account) -> dict:
         "link_hosts": sorted(p.link_hosts),
         "can_check": p.fetch_item is not None,
         "task_import": p.fetch_tasks is not None,
-        "bundle": list(p.bundle),
+        "bundle": [m.name for m in registry.bundle_of(p)[1:]],
         "bundle_label": p.bundle_label,
         "account": account
         and {
@@ -249,6 +249,18 @@ class PickerTokenView(LabScopedViewMixin, generics.GenericAPIView):
         else:
             left = 3000  # Google access tokens last an hour; stay under it
         token = account.access_token()
+        # The scopes the token carries: a bundled grant (D262) also holds the sibling services'
+        # scopes (the same person's Calendar at the same address); a split one only Drive's.
+        scopes = set(account.granted_scopes)
+        siblings = [m.name for m in registry.bundle_of(provider)[1:]]
+        if siblings and account.external_email:
+            for row in self.get_queryset().filter(
+                user=request.user,
+                provider__in=siblings,
+                status=AccountStatus.ACTIVE,
+                external_email__iexact=account.external_email,
+            ):
+                scopes.update(row.granted_scopes)
         audit.record(  # who got a browser token and when; never the token itself
             AuditAction.INTEGRATION_PICKER_TOKEN,
             actor=request.user,
@@ -261,7 +273,7 @@ class PickerTokenView(LabScopedViewMixin, generics.GenericAPIView):
             {
                 "access_token": token,
                 "expires_in": max(1, min(3600, int(left))),
-                "scope": " ".join(account.granted_scopes),
+                "scope": " ".join(sorted(scopes)),
             }
         )
         resp["Cache-Control"] = "no-store"

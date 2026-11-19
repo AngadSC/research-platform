@@ -123,7 +123,8 @@ def test_drive_end_to_end(world, transport):
     tok = client.get(api(lab, "integrations/google/picker-token/"))
     assert tok.status_code == 200 and tok["Cache-Control"] == "no-store"
     assert tok.json()["access_token"] == "gd-access"
-    assert tok.json()["scope"] == SCOPE and 0 < tok.json()["expires_in"] <= 3600
+    # D262: the Drive token is the whole Google grant, Calendar scopes included
+    assert tok.json()["scope"] == GRANT and 0 < tok.json()["expires_in"] <= 3600
     assert "gd-refresh" not in tok.content.decode()
 
     # link a file to the dataset record: the md5 is copied into its version fields

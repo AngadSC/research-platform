@@ -55,14 +55,46 @@ console for the name in bold.
    - **Authorized redirect URI**: the redirect address above.
    - Copy the **client ID** and **client secret** into `GOOGLE_DRIVE_CLIENT_ID` and
      `GOOGLE_DRIVE_CLIENT_SECRET`.
-   - This one client serves Drive, Calendar and Meet together. There is no separate Calendar
-     client.
+   - This one client serves Drive, Calendar and Meet together, unless you set up the optional
+     separate Calendar client below.
 5. **Picker key and project number** (for "From Drive"):
    - **Credentials**, then **Create credentials**, then **API key**. Restrict it to **HTTP
      referrers** (your site's address) and to the **Google Picker API**. Put it in
      `GOOGLE_DRIVE_API_KEY`.
    - The **project number** is on the project's **Dashboard**, a long number. Put it in
      `GOOGLE_DRIVE_APP_ID`.
+
+### Optional: a separate Calendar client
+
+By default Drive and Calendar are one Google sign-in on one client. The catch: the token the
+browser gets to open the Drive file picker then also carries the Calendar permissions, because
+Google gives one token for the whole sign-in. Google does not let us ask for a narrower token from
+the same sign-in. The only way to give the picker a Drive-only token is to give Calendar its own
+client. Nothing in the code needs changing; it switches on when the two settings below are set.
+
+1. **Make a second Google Cloud project** for Calendar (recommended). Google describes a person's
+   permissions as combined per project ("all scopes that the user granted to the API project"),
+   so a second client in the same project is not documented to keep them apart. In the new
+   project: turn on the **Google Calendar API**, set up its consent screen as in step 3, and under
+   **Data Access** add only `calendar.events`, `calendar.app.created`, `openid` and
+   `userinfo.email`.
+2. In the **Drive project**, remove the two Calendar scopes from **Data Access**, so it lists
+   `drive.file` only. (The Picker key and `GOOGLE_DRIVE_APP_ID` stay with the Drive project.)
+3. In the Calendar project, **make an OAuth client** (type **Web application**) with the **same
+   redirect address** as Drive (`https://<your site>/api/integrations/oauth/callback/`).
+4. Put it in `INTEGRATION_GOOGLE_CALENDAR_CLIENT_ID` and
+   `INTEGRATION_GOOGLE_CALENDAR_CLIENT_SECRET` (both, or it is ignored) and restart (section 3).
+
+What changes for people: Integrations shows **Google Drive** and **Google Calendar and Meet** as two
+cards, each with its own **Connect**, and disconnecting one leaves the other alone.
+
+Everyone who connected Google before the switch has to connect **once more**. Their Calendar
+connection was made with the Drive client, which the Calendar client can't renew, so it stops and
+they are told to reconnect it. Their Drive connection still holds the old Calendar permissions, so
+it most likely stops at its next renewal too (we refuse a token carrying more than we asked for). If Google
+keeps returning the old permissions when they reconnect Drive (the page says "The service granted
+more access than we asked for"), they remove the app at <https://myaccount.google.com/permissions>
+and connect again.
 
 ### Letting anyone connect (Google)
 
