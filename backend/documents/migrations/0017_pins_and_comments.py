@@ -6,6 +6,8 @@ import uuid
 from django.conf import settings
 from django.db import migrations, models
 
+from core.lab_db import LabForeignKey
+
 
 class Migration(migrations.Migration):
 
@@ -128,5 +130,11 @@ class Migration(migrations.Migration):
                 ("objects", django.db.models.manager.Manager()),
                 ("unscoped", django.db.models.manager.Manager()),
             ],
+        ),
+        # D31: DB-level lab consistency (core/lab_db.py).
+        LabForeignKey("documents_pinneddocument", "document_id", "documents_document", "CASCADE"),
+        LabForeignKey("documents_documentcomment", "document_id", "documents_document", "CASCADE"),
+        LabForeignKey(
+            "documents_documentcomment", "parent_id", "documents_documentcomment", "CASCADE"
         ),
     ]
