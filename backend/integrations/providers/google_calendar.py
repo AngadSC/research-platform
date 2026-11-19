@@ -11,7 +11,14 @@ and manage events on that calendar alone, which is where tasks, deadlines and me
 `openid` and `userinfo.email` name the account, so Calendar connects even when Drive is declined.
 
 D262: this provider shares one Google sign-in with Google Drive. It uses Drive's Google app
-(`client_from`), and connecting either one asks for the scopes of both.
+(`client_from`), and connecting either one asks for the scopes of both. That one grant means the
+Drive token handed to the browser for the Picker also carries the Calendar scopes.
+
+Optional: when INTEGRATION_GOOGLE_CALENDAR_CLIENT_ID and _SECRET are set, Calendar uses that
+client instead and is its own sign-in (`registry.bundle_of` drops it from Drive's bundle), so the
+Picker token carries drive.file only. Calendar rows connected before the switch hold a refresh
+token from Drive's client; their next refresh fails, and the person is asked to reconnect.
+See docs/SETUP_GOOGLE_ZOOM.md, "Optional: a separate Calendar client".
 """
 
 from integrations.providers import AuthType, Category, Provider
