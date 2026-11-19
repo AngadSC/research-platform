@@ -5,14 +5,14 @@ import calendar
 import datetime
 
 from django.db import IntegrityError, transaction
-from django.db.models import ProtectedError
+from django.db.models import Max, ProtectedError
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
 
 from audit.models import AuditAction as A
 from audit.services import record as audit
-from core.models import NotificationKind
+from core.models import Notification, NotificationKind
 from core.notifications import notify
 from core.permissions import Perm, can, forget
 from documents import services as document_services
@@ -347,6 +347,16 @@ def compliance(lab, *, today=None, window=EXPIRING_DAYS, user=None):
     for pm in ProjectMembership.objects.for_lab(lab).filter(user__in=[m.user for m in memberships]):
         projects.setdefault(pm.user_id, set()).add(pm.project_id)
     latest = latest_records(lab, user=user)
+    reminded = {
+        (uid, tid): at
+        for uid, tid, at in Notification.objects.for_lab(lab)
+        .filter(
+            kind=NotificationKind.TRAINING_REMINDER, recipient__in=[m.user for m in memberships]
+        )
+        .values("recipient_id", "target_id")
+        .annotate(at=Max("created_at"))
+        .values_list("recipient_id", "target_id", "at")
+    }
     summary = {DONE: 0, EXPIRING: 0, EXPIRED: 0, MISSING: 0}
     rows = []
     for m in memberships:
@@ -365,6 +375,7 @@ def compliance(lab, *, today=None, window=EXPIRING_DAYS, user=None):
                 "expires_on": rec.expires_on if rec else None,
                 "days_left": (rec.expires_on - today).days if rec and rec.expires_on else None,
                 "verified": bool(rec and rec.verified_at),
+                "reminded_at": reminded.get((m.user_id, req.pk)),
             }
         rows.append({"user": m.user, "role": m.role, "cells": cells})
     return {"requirements": reqs, "members": rows, "summary": summary}

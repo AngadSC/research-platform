@@ -445,3 +445,13 @@ def test_new_requirement_tells_who_it_applies_to(world):
     assert api(u["pi"]).post(url(lab, "requirements/"), body, "json").status_code == 201
     got = Notification.objects.for_lab(lab).filter(kind=NotificationKind.TRAINING_REMINDER)
     assert {n.recipient for n in got} == {u["ann"], u["bob"]}
+
+
+def test_matrix_cell_shows_when_a_manager_last_reminded(world):
+    lab, u = world
+    r = req(lab)
+    cell = lambda: services.compliance(lab, today=TODAY)  # noqa: E731
+    mine = lambda d: next(m for m in d["members"] if m["user"] == u["ann"])["cells"][str(r.pk)]  # noqa: E731
+    assert mine(cell())["reminded_at"] is None
+    services.send_reminders(r, actor=u["bob"], user=u["ann"])
+    assert mine(cell())["reminded_at"] is not None

@@ -16,6 +16,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useDocuments } from "@/hooks/documents";
 import { useProjectMembers, useTasks } from "@/hooks/projects";
+import { useMe } from "@/hooks/workspace";
 import { api } from "@/lib/api";
 import { TASK_STATUSES, personName, type TaskStatus } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
@@ -45,7 +46,10 @@ export function NewTaskPanel({
     .map((m) => ({ id: m.user.id, name: personName(m.user) }));
   const docs = useDocuments(labId, projectId).data ?? [];
   const [status, setStatus] = useState<TaskStatus>("todo");
-  const [assignee, setAssignee] = useState(NONE);
+  // starts as you (when you can be assigned); null = not touched yet, so it follows the member list
+  const myId = useMe().data?.id;
+  const [picked, setAssignee] = useState<string | null>(null);
+  const assignee = picked ?? (members.some((m) => m.id === myId) ? myId! : NONE);
   const [linked, setLinked] = useState(document ?? NONE);
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
 

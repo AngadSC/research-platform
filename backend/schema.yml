@@ -23180,11 +23180,17 @@ components:
           nullable: true
         verified:
           type: boolean
+        reminded_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When a manager last sent a reminder about this training.
       required:
       - completed_on
       - days_left
       - expires_on
       - record
+      - reminded_at
       - status
       - verified
     TrainingCompliance:

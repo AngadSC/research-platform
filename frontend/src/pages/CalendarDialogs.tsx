@@ -268,7 +268,7 @@ export function MeetingDialog({
         <DialogDescription className="text-sm text-muted-foreground">
           {meeting && !editable
             ? `Added by ${organiser ? personName(organiser) : "someone in the lab"}.${lockedByCall ? "" : " Only they or a lab admin can change it."}`
-            : "A meeting with people and a time. For a lab date, like a deadline or holiday, use Add event."}
+            : "A meeting with people and a time. For a lab date, like a deadline or holiday, use Add event in the three-dot menu on the lab calendar."}
         </DialogDescription>
         {call && (
           <p className="text-sm text-muted-foreground">

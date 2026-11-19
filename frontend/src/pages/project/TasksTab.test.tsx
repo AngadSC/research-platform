@@ -90,6 +90,20 @@ describe("tasks", () => {
     expect(calls.some((c) => c.method === "POST")).toBe(false);
   });
 
+  it("starts a new task assigned to me when I can be assigned", async () => {
+    const calls = mockFetch({
+      ...base(["edit_content"], [task("t1", "Seed")]),
+      "GET /api/me/": { body: user },
+      "POST /api/labs/lab1/projects/p1/tasks/": { status: 201, body: task("t2", "Mine") },
+    });
+    renderRoute(`${TASKS}?new=task`);
+    await userEvent.type(await screen.findByLabelText("Title"), "Mine");
+    await waitFor(() => expect(screen.getByLabelText("Assignee")).toHaveTextContent("Ada"));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+    expect(calls.find((c) => c.method === "POST")!.body).toMatchObject({ assignee: "u1" });
+  });
+
   it("starts a task from a document already linked to it", async () => {
     const calls = mockFetch({
       ...base(["edit_content"], [task("t1", "Seed")]),
