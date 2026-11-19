@@ -203,7 +203,7 @@ class ChatMessage(LabScopedModel):
         ]
 
     def __str__(self):
-        return f"{self.author_id}: {self.body[:40]}"
+        return f"Message from {self.author_id}"
 
 
 class ChatReadState(LabScopedModel):

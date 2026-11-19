@@ -1,4 +1,5 @@
 import ipaddress
+import re
 
 from django.conf import settings
 
@@ -57,6 +58,9 @@ def record(
     )
 
 
+UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+
 def person_id(e):
     m = e.metadata if isinstance(e.metadata, dict) else {}
     return m.get("user_id") or m.get("person")
@@ -71,6 +75,8 @@ def label_context(events, user, lab) -> dict:
 
     # Only ids this lab's own events stored, so everyone named was in the lab at the time.
     people = {str(pid) for e in events if (pid := person_id(e))}
+    for e in events:  # ids that older labels embed ("<user id>: <requirement> ...")
+        people.update(UUID_RE.findall(e.target_repr or ""))
     names = {str(u.pk): u.display_name or u.email for u in User.objects.filter(pk__in=people)}
     project_ids = {e.project_id for e in events if e.project_id}
     projects = {

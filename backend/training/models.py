@@ -94,4 +94,4 @@ class TrainingRecord(LabScopedModel):
         ]
 
     def __str__(self):
-        return f"{self.user_id} {self.requirement_id} {self.completed_on}"
+        return f"{self.user_id}: {self.requirement.name}, {self.completed_on}"

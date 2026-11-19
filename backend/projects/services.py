@@ -355,8 +355,24 @@ def create_task(*, project, by, data) -> Task:
     task = Task(lab=project.lab, project=project, created_by=by, assignee=assignee, **data)
     _place(task, status, position)
     task.save()
+    record(AuditAction.TASK_CREATED, actor=by, lab=task.lab, target=task)
+    if assignee is not None:
+        _record_assigned(task, by, None)
     _notify_assigned(task, by)
     return task
+
+
+def _record_assigned(task, by, previous_id) -> None:
+    record(
+        AuditAction.TASK_ASSIGNED,
+        actor=by,
+        lab=task.lab,
+        target=task,
+        metadata={
+            "assignee_id": str(task.assignee_id) if task.assignee_id else None,
+            "previous_assignee_id": str(previous_id) if previous_id else None,
+        },
+    )
 
 
 def _notify_assigned(task, by) -> None:
@@ -379,7 +395,7 @@ def _notify_assigned(task, by) -> None:
 @transaction.atomic
 def update_task(*, task, by, data) -> Task:
     data = dict(data)
-    old_assignee = task.assignee_id
+    old_assignee, old_status = task.assignee_id, task.status
     if "assignee" in data:
         task.assignee = _resolve_assignee(task.project, data.pop("assignee"))
     status, position = data.pop("status", None), data.pop("position", None)
@@ -388,7 +404,16 @@ def update_task(*, task, by, data) -> Task:
     if status is not None or position is not None:
         _place(task, status or task.status, position)  # reorder within, or move across, columns
     task.save()
+    if task.status != old_status:
+        record(
+            AuditAction.TASK_STATUS_CHANGED,
+            actor=by,
+            lab=task.lab,
+            target=task,
+            metadata={"old_status": old_status, "new_status": task.status},
+        )
     if task.assignee_id != old_assignee:
+        _record_assigned(task, by, old_assignee)
         _notify_assigned(task, by)
     return task
 
@@ -509,6 +534,13 @@ def unlink_from_task(*, task, kind, obj) -> None:
 @transaction.atomic
 def create_post(*, task, author, body) -> TaskPost:
     post = TaskPost.objects.create(lab=task.lab, task=task, author=author, body=body)
+    record(  # the update id only, never its text
+        AuditAction.TASK_UPDATE_POSTED,
+        actor=author,
+        lab=task.lab,
+        target=task,
+        metadata={"update_id": str(post.pk)},
+    )
     assignee = task.assignee  # D142: in-app only; nobody is told about their own post
     if assignee is not None and assignee.pk != author.pk and assignee.is_active:
         notify(

@@ -131,6 +131,19 @@ describe("audit log", () => {
     );
   });
 
+  it("groups the action filter by area", async () => {
+    mockFetch({
+      ...base(["view_audit_log"]),
+      [EVENTS]: { body: { next: null, results: [ev(1)] } },
+    });
+    renderRoute("/labs/lab1/audit-log");
+    await screen.findByText("bob1@uni.edu");
+    await userEvent.click(screen.getByLabelText("Action"));
+    expect(await screen.findByText("Tasks")).toBeInTheDocument();
+    expect(screen.getByText("Changed a task's status")).toBeInTheDocument();
+    expect(screen.getByText("Posted a task update")).toBeInTheDocument();
+  });
+
   it("shows changes by default and reads in one click", async () => {
     const calls = mockFetch({
       ...base(["view_audit_log"]),
