@@ -499,7 +499,7 @@ function DocumentEditor({
       )}
     >
       {dialog}
-      <div className="flex items-start gap-2">
+      <div className="flex flex-wrap items-start gap-2">
         <Textarea
           aria-label="Title"
           value={title}
@@ -508,7 +508,7 @@ function DocumentEditor({
           rows={1}
           placeholder="Untitled document"
           // Wraps instead of clipping on a phone, and grows with the text.
-          className="field-sizing-content min-h-0 flex-1 resize-none rounded-sm border-0 bg-transparent px-0 py-1 text-3xl font-semibold [overflow-wrap:anywhere] shadow-none focus-visible:ring-1 focus-visible:ring-border"
+          className="field-sizing-content min-h-0 min-w-full flex-1 resize-none sm:min-w-0 rounded-sm border-0 bg-transparent px-0 py-1 text-3xl font-semibold [overflow-wrap:anywhere] shadow-none focus-visible:ring-1 focus-visible:ring-border"
           onKeyDown={(e) => {
             if (e.key === "Enter") e.preventDefault();
           }}

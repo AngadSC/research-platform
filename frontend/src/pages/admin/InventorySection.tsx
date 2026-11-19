@@ -286,7 +286,7 @@ function ItemDialog({
 
 /** "about 3 weeks left", from the server's rate over the last 8 weeks; nothing without one. */
 function WeeksLeft({ item: i }: { item: InventoryItem }) {
-  if (i.weeks_left == null) return null;
+  if (i.weeks_left == null || i.status === "retired") return null;
   const text =
     i.weeks_left < 1
       ? "less than a week left"

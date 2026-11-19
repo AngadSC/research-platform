@@ -59,7 +59,11 @@ export function useDeleteDocument(labId: string, projectId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api(`${base(labId)}/documents/${id}/`, { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: listKey(labId, projectId) }),
+    onSuccess: () => {
+      // a deleted document may have been pinned in Start here
+      void qc.invalidateQueries({ queryKey: ["labs", labId, "start-here"] });
+      return qc.invalidateQueries({ queryKey: listKey(labId, projectId) });
+    },
   });
 }
 

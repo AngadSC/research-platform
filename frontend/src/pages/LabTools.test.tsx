@@ -462,11 +462,13 @@ describe("orders", () => {
           body: [
             { ...item, weeks_left: 3 },
             { ...item, id: "i2", name: "Gloves", weeks_left: null },
+            { ...item, id: "i3", name: "Old tips", status: "retired", weeks_left: 5 },
           ],
         },
       }),
     );
     renderRoute("/labs/lab1/inventory");
     expect((await screen.findAllByText("about 3 weeks left")).length).toBeGreaterThan(0);
+    expect(screen.queryByText("about 5 weeks left")).toBeNull();
   });
 });

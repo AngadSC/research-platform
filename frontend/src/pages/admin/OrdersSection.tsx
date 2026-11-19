@@ -273,7 +273,6 @@ export function OrdersSection({
           Delete<span className="sr-only">: {o.name}</span>
         </Button>
       )}
-      {!o.url && !(canEdit && (o.status === "received" || o.status === "cancelled")) && "-"}
     </div>
   );
 

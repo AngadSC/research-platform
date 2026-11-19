@@ -26,7 +26,7 @@ export function DetailPanel({
             {description ?? title}
           </SheetDescription>
         </div>
-        <div className="flex-1 overflow-y-auto">{children}</div>
+        <div className="flex-1 overflow-y-auto pb-4">{children}</div>
       </SheetContent>
     </Sheet>
   );

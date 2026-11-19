@@ -217,13 +217,13 @@ export function FundingPage() {
               </Link>
               <p className="tabular-nums">
                 {money(f.amount, f.currency) ?? "Amount not set"}
-                {remaining(f) && ` � ${remaining(f)} left`}
+                {remaining(f) && ` · ${remaining(f)} left`}
               </p>
               <p className="text-muted-foreground">
                 Ends {day(f.end_date)}
                 {endsSoon(f) &&
                   ` (${daysUntil(f.end_date!) === 0 ? "today" : `in ${daysUntil(f.end_date!)} days`})`}
-                {f.report_due && ` � Report due ${day(f.report_due)}`}
+                {f.report_due && ` · Report due ${day(f.report_due)}`}
               </p>
             </li>
           ))}
