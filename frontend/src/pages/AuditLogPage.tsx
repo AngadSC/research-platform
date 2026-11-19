@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectGroup,
+  SelectLabel,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -63,6 +65,10 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "attachment.downloaded": "Downloaded a file",
   "attachment.deleted": "Deleted a file",
   "task.deleted": "Deleted a task",
+  "task.created": "Created a task",
+  "task.assigned": "Assigned a task",
+  "task.status_changed": "Changed a task's status",
+  "task.update_posted": "Posted a task update",
   "task.unassigned": "Unassigned a task",
   "task_post.deleted": "Deleted a task update",
   "chat_message.deleted": "Deleted a chat message",
@@ -208,6 +214,41 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
 };
 const humanKey = (k: string) => k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 // An action newer than this page still reads as words, never as a code.
+/** The action filter's headings, by the part of the code before the dot. */
+const AREAS: Record<string, string> = {
+  task: "Tasks",
+  task_post: "Tasks",
+  tasks: "Tasks",
+  deadline: "Tasks",
+  document: "Documents",
+  notebook: "Documents",
+  decision: "Documents",
+  dmp: "Documents",
+  attachment: "Files",
+  file: "Files",
+  folder: "Files",
+  membership: "People",
+  training: "People",
+  onboarding: "People",
+  handover: "People",
+  ethics: "Ethics",
+  funding: "Funding",
+  inventory: "Inventory",
+  protocol: "Inventory",
+  participant: "Participants",
+  subject: "Participants",
+  recruitment: "Participants",
+  auth: "Sign-in",
+  integration: "Integrations",
+  google: "Integrations",
+  external: "Integrations",
+  webhook: "Integrations",
+};
+const areaOf = (code: string) => AREAS[code.split(".")[0] ?? code] ?? "Other";
+const ACTION_GROUPS = Object.entries(ACTIONS).reduce<Record<string, [string, string][]>>(
+  (groups, [code, label]) => ((groups[areaOf(code)] ??= []).push([code, label]), groups),
+  {},
+);
 const actionLabel = (a: string) =>
   ACTIONS[a as AuditEvent["action"]] ?? humanKey(a.replace(".", " "));
 /** The action in words; an import says how many items it added. */
@@ -376,10 +417,15 @@ export function AuditLogPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>All actions</SelectItem>
-              {Object.entries(ACTIONS).map(([code, label]) => (
-                <SelectItem key={code} value={code}>
-                  {label}
-                </SelectItem>
+              {Object.entries(ACTION_GROUPS).map(([area, items]) => (
+                <SelectGroup key={area}>
+                  <SelectLabel>{area}</SelectLabel>
+                  {items.map(([code, label]) => (
+                    <SelectItem key={code} value={code}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               ))}
             </SelectContent>
           </Select>

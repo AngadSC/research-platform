@@ -5,6 +5,16 @@ import { cn } from "@/lib/utils";
 
 export const Select = S.Root;
 export const SelectValue = S.Value;
+export const SelectGroup = S.Group;
+
+export function SelectLabel({ className, ...props }: React.ComponentProps<typeof S.Label>) {
+  return (
+    <S.Label
+      className={cn("px-2 pt-2 pb-1 text-xs font-medium text-muted-foreground", className)}
+      {...props}
+    />
+  );
+}
 
 export function SelectTrigger({
   className,

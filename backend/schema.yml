@@ -1203,6 +1203,10 @@ paths:
           - audit_log.viewed
           - handover.generated
           - task.unassigned
+          - task.created
+          - task.assigned
+          - task.status_changed
+          - task.update_posted
           - auth.social_connected
           - auth.social_disconnected
           - auth.email_added
@@ -1390,6 +1394,10 @@ paths:
           * `audit_log.viewed` - Audit Log Viewed
           * `handover.generated` - Handover Generated
           * `task.unassigned` - Task Unassigned
+          * `task.created` - Task Created
+          * `task.assigned` - Task Assigned
+          * `task.status_changed` - Task Status Changed
+          * `task.update_posted` - Task Update Posted
           * `auth.social_connected` - Auth Social Connected
           * `auth.social_disconnected` - Auth Social Disconnected
           * `auth.email_added` - Auth Email Added
@@ -13068,6 +13076,10 @@ components:
       - audit_log.viewed
       - handover.generated
       - task.unassigned
+      - task.created
+      - task.assigned
+      - task.status_changed
+      - task.update_posted
       - auth.social_connected
       - auth.social_disconnected
       - auth.email_added
@@ -13254,6 +13266,10 @@ components:
         * `audit_log.viewed` - Audit Log Viewed
         * `handover.generated` - Handover Generated
         * `task.unassigned` - Task Unassigned
+        * `task.created` - Task Created
+        * `task.assigned` - Task Assigned
+        * `task.status_changed` - Task Status Changed
+        * `task.update_posted` - Task Update Posted
         * `auth.social_connected` - Auth Social Connected
         * `auth.social_disconnected` - Auth Social Disconnected
         * `auth.email_added` - Auth Email Added

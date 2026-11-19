@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from audit.models import AuditAction, AuditEvent
-from audit.services import person_id
+from audit.services import UUID_RE, person_id
 from core.serializers import UserSerializer
 from labs.models import LAB_ROLE_WORDS
 
@@ -57,6 +57,10 @@ class AuditEventSerializer(serializers.ModelSerializer):
             who = m.get("email") or e.target_repr
             return f"Invitation for {who}, from {word(m['old_role'])} to {word(m['new_role'])}"
         pid = person_id(e)
+        if "names" in ctx and pid is None:
+            # Training records and chat messages store "<user id>: ..." (names are not frozen
+            # into the log); show whose it was to people who can already read this log.
+            return UUID_RE.sub(lambda x: ctx["names"].get(x.group(), x.group()), e.target_repr)
         if "names" not in ctx or pid is None:
             return e.target_repr
         if e.action == AuditAction.DOCUMENT_OWNER_CHANGED:

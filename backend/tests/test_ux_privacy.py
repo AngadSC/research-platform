@@ -236,3 +236,36 @@ def test_reading_never_moves_last_activity(w):
     w.client("contrib").post(project_url(w, "task-list"), {"title": "T"}, format="json")
     w.project.refresh_from_db()
     assert w.project.last_activity_by == w.contrib
+
+
+def test_audit_names_whose_chat_message_it_was_and_keeps_its_text_out(w):
+    from projects.models import ChatMessage
+
+    msg = ChatMessage.objects.create(
+        lab=w.lab, project=w.project, author=w.contrib, body="secret words"
+    )
+    record(AuditAction.CHAT_MESSAGE_DELETED, actor=w.pi, lab=w.lab, target=msg)
+    resp = audit_list(w, "pi")
+    labels = [e["target_label"] for e in resp.json()["results"]]
+    assert "Message from Contrib Example" in labels
+    assert b"secret words" not in resp.content
+
+
+def test_task_changes_are_audited_without_the_update_text(w):
+    from projects import services as project_services
+
+    task = project_services.create_task(
+        project=w.project, by=w.pi, data={"title": "Run it", "assignee": w.contrib.pk}
+    )
+    project_services.update_task(task=task, by=w.pi, data={"status": "in_progress"})
+    project_services.create_post(task=task, author=w.contrib, body="private progress note")
+    resp = audit_list(w, "pi")
+    seen = {e["action"]: e for e in resp.json()["results"]}
+    assert {"task.created", "task.assigned", "task.status_changed", "task.update_posted"} <= set(
+        seen
+    )
+    assert seen["task.status_changed"]["metadata"] == {
+        "old_status": "todo",
+        "new_status": "in_progress",
+    }
+    assert b"private progress note" not in resp.content

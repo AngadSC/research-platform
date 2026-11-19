@@ -74,6 +74,10 @@ class AuditAction(models.TextChoices):
     HANDOVER_GENERATED = "handover.generated"
     # Run 2
     TASK_UNASSIGNED = "task.unassigned"
+    TASK_CREATED = "task.created"
+    TASK_ASSIGNED = "task.assigned"
+    TASK_STATUS_CHANGED = "task.status_changed"
+    TASK_UPDATE_POSTED = "task.update_posted"
     AUTH_SOCIAL_CONNECTED = "auth.social_connected"
     AUTH_SOCIAL_DISCONNECTED = "auth.social_disconnected"
     AUTH_EMAIL_ADDED = "auth.email_added"
