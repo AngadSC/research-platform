@@ -180,7 +180,7 @@ class OnboardingCompletionView(OnboardingMixin, generics.GenericAPIView):
 
 
 class MyOnboardingView(OnboardingMixin, generics.GenericAPIView):
-    """The new-member checklist with the signed-in person's own ticks (D346)."""
+    """The new-member checklist with the signed-in person's own ticks (D351)."""
 
     serializer_class = MyOnboardingSerializer
     perms = {"GET": Perm.VIEW_LAB}

@@ -11,7 +11,7 @@ const docPath = (labId: string, p: StartHerePin) =>
     ? `/labs/${labId}/projects/${p.project}/documents/${p.id}`
     : `/labs/${labId}/documents/${p.id}`;
 
-/** What the lab wants everyone to read first (D346). Nothing is shown when nothing is pinned.
+/** What the lab wants everyone to read first (D351). Nothing is shown when nothing is pinned.
  *  `labOnly` is for the top of Lab documents, which has no project documents. */
 export function StartHere({ labId, labOnly = false }: { labId: string; labOnly?: boolean }) {
   const { data } = useStartHere(labId);

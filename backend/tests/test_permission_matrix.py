@@ -234,7 +234,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "documents:attachment-edit-in-google"): "401 404 2 2 2 2 403 404 403",  # B3
     ("POST",   "documents:project-drive-export"): "401 404 2 2 2 403 403 404 403",  # stats to Drive
     ("POST",   "documents:document-move"): "401 404 2 2 2 2 403 404 403",
-    # Start here (D346): anyone in the lab reads the list; pinning for everyone needs
+    # Start here (D351): anyone in the lab reads the list; pinning for everyone needs
     # edit_project on the document's project (its lead, a PI or lab admin)
     ("GET",    "documents:start-here"): "401 404 2 2 2 2 2 2 2",
     ("POST",   "documents:document-pin"): "401 404 2 2 2 403 403 404 403",
@@ -499,7 +499,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("PATCH",  "labs:onboarding-detail"): "401 404 2 2 403 403 403 403 403",
     ("DELETE", "labs:onboarding-detail"): "401 404 2 2 403 403 403 403 403",
     ("POST",   "labs:onboarding-completion"): "401 404 2 2 403 403 403 403 403",
-    # your own checklist and your own ticks: any member (D346)
+    # your own checklist and your own ticks: any member (D351)
     ("GET",    "labs:my-onboarding"): "401 404 2 2 2 2 2 2 2",
     ("POST",   "labs:my-onboarding-tick"): "401 404 2 2 2 2 2 2 2",
     ("GET",    "labs:inventory-list"): "401 404 2 2 2 2 2 2 2",

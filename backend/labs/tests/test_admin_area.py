@@ -358,7 +358,7 @@ def test_inventory_search_sort_and_csv_export(world):
     assert AuditAction.INVENTORY_EXPORTED in actions()
 
 
-# ---------------------------------------------------------------- your own onboarding (D346)
+# ---------------------------------------------------------------- your own onboarding (D351)
 
 
 def test_members_see_and_tick_only_their_own_items(world):

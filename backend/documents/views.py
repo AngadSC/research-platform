@@ -346,7 +346,10 @@ class CommentDetailView(CommentMixin, generics.GenericAPIView):
         ser = CommentResolveSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         comment = services.resolve_comment(
-            self.get_object(), user=request.user, resolved=ser.validated_data["resolved"]
+            self.get_object(),
+            user=request.user,
+            resolved=ser.validated_data["resolved"],
+            request=request,
         )
         return Response(self.get_serializer(comment).data)
 

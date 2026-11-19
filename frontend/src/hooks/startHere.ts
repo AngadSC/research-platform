@@ -6,7 +6,7 @@ const base = (labId: string) => `/api/labs/${labId}`;
 const pinsKey = (labId: string) => ["labs", labId, "start-here"] as const;
 const onboardingKey = (labId: string) => ["labs", labId, "my-onboarding"] as const;
 
-/** Documents pinned for everyone (D346): lab documents first, then each project's. */
+/** Documents pinned for everyone (D351): lab documents first, then each project's. */
 export function useStartHere(labId: string) {
   return useQuery({
     queryKey: pinsKey(labId),

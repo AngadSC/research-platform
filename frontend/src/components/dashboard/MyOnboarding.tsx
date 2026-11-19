@@ -2,7 +2,7 @@ import { ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { useMyOnboarding, useTickOnboarding } from "@/hooks/startHere";
 
-/** The new-member checklist with one person's own ticks, until everything is ticked (D346).
+/** The new-member checklist with one person's own ticks, until everything is ticked (D351).
  *  Managers keep the full view under Lab details, so they are not shown this card. */
 export function MyOnboarding({ labId, enabled }: { labId: string; enabled: boolean }) {
   const { data } = useMyOnboarding(labId, enabled);

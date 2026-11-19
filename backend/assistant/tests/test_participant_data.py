@@ -207,9 +207,8 @@ def test_a_datasets_mark_cannot_come_off_while_its_file_is_marked(world):
 
 
 def test_comments_never_reach_ai_tools(world, ctx, flagged):
-    """Comments are not in AI search or any tool, marked document or not. A notice about one on a
-    marked document (its own box or its folder's) says nothing about it; elsewhere it reads like a
-    chat mention (D260)."""
+    """Comments are not in AI search or any tool, marked document or not. A notice about one,
+    or a mention in one, never carries the text (D354)."""
     pi, contrib, a = world.u.pi, world.u.contrib, str(world.lab_a.pk)
     for doc in (world.a1.doc, flagged["own"], flagged["inside"]):
         document_services.add_comment(doc, user=contrib, body=f"Comment {MARK} on {doc.title}")
@@ -223,7 +222,6 @@ def test_comments_never_reach_ai_tools(world, ctx, flagged):
     ]:
         assert MARK not in run(c, name, **args), name
     out = tools.call(c, "my_notifications", {"lab_id": a})["notifications"]
-    hidden = [n for n in out if n["kind"] == "document_comment" and not n["body"]]
-    assert len(hidden) == 2  # the pi owns all three; two are marked
-    assert len(out) == 3
-    assert sum(MARK in json.dumps(n) for n in out) == 1  # only the unmarked document's comment
+    assert len(out) == 3  # the pi owns all three documents
+    assert all(n["kind"] == "document_comment" and not n["body"] for n in out)
+    assert not any(MARK in json.dumps(n) for n in out)  # no comment text, marked document or not

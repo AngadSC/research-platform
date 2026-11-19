@@ -1,4 +1,4 @@
-"""Pin for everyone (D346). Who may reach each route is also in the permission matrix; this
+"""Pin for everyone (D351). Who may reach each route is also in the permission matrix; this
 covers lab documents, ordering, visibility and the audit trail."""
 
 import pytest

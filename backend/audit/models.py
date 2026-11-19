@@ -42,6 +42,8 @@ class AuditAction(models.TextChoices):
     DOCUMENT_UNPINNED = "document.unpinned"
     DOCUMENT_COMMENTED = "document.commented"  # metadata: the comment's id, never its text
     DOCUMENT_COMMENT_DELETED = "document.comment_deleted"
+    DOCUMENT_COMMENT_RESOLVED = "document.comment_resolved"
+    DOCUMENT_COMMENT_REOPENED = "document.comment_reopened"
     ATTACHMENT_UPLOADED = "attachment.uploaded"
     ATTACHMENT_DOWNLOADED = "attachment.downloaded"
     ATTACHMENT_DELETED = "attachment.deleted"

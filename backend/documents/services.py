@@ -10,6 +10,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.core.files.storage import storages
 from django.db import transaction
+from django.db.models import Q
 from django.http import Http404
 from django.utils import timezone
 from rest_framework import status
@@ -17,8 +18,8 @@ from rest_framework.exceptions import APIException, PermissionDenied, Validation
 
 from audit.models import AuditAction
 from audit.services import record
-from core.models import NotificationKind, User
-from core.notifications import MENTION_TOKEN, notify, notify_mentions
+from core.models import Notification, NotificationKind, User
+from core.notifications import MAX_MENTIONS, MENTION_TOKEN, notify, notify_mentions
 from core.permissions import Perm, can, can_remove_comment, can_resolve_comment, lab_role
 from core.retention import audit_retention, guard_retention, retention_changes
 from core.serializers import UserSerializer
@@ -654,7 +655,8 @@ def add_comment(doc, *, user, body, quote="", parent=None, request=None) -> Docu
         target=doc,
         key=f"doccomment:{comment.pk}",
     )
-    told = {str(user.pk), *(m.lower() for _, m in MENTION_TOKEN.findall(body))}
+    # only the first MAX_MENTIONS are told by notify_mentions: later ones still get their own notice
+    told = {str(user.pk), *(m.lower() for _, m in MENTION_TOKEN.findall(body)[:MAX_MENTIONS])}
     name = user.display_name or user.email
     text = MENTION_TOKEN.sub(lambda m: f"@{m[1]}", body)[:200]
     people = [(doc.created_by, f"{name} commented on {doc.title}")]
@@ -676,7 +678,7 @@ def add_comment(doc, *, user, body, quote="", parent=None, request=None) -> Docu
     return comment
 
 
-def resolve_comment(comment, *, user, resolved: bool) -> DocumentComment:
+def resolve_comment(comment, *, user, resolved: bool, request=None) -> DocumentComment:
     if not can_resolve_comment(user, comment):
         raise PermissionDenied
     if comment.parent_id is not None:
@@ -684,6 +686,16 @@ def resolve_comment(comment, *, user, resolved: bool) -> DocumentComment:
     comment.resolved_at = timezone.now() if resolved else None
     comment.resolved_by = user if resolved else None
     comment.save(update_fields=["resolved_at", "resolved_by", "updated_at"])
+    record(
+        AuditAction.DOCUMENT_COMMENT_RESOLVED
+        if resolved
+        else AuditAction.DOCUMENT_COMMENT_REOPENED,
+        actor=user,
+        lab=comment.lab,
+        target=comment.document,
+        request=request,
+        metadata={"comment": str(comment.pk)},
+    )
     return comment
 
 
@@ -693,12 +705,22 @@ def delete_comment(comment, *, user, request=None) -> None:
     The audit event keeps who wrote it and never the text."""
     if not can_remove_comment(user, comment):
         raise PermissionDenied
+    replies = list(comment.replies.values_list("pk", "author_id"))
+    ids = [comment.pk, *(pk for pk, _ in replies)]
+    gone = Q(dedupe_key__in=[f"mention:doccomment:{i}" for i in ids])  # the notices quote the text
+    for i in ids:
+        gone |= Q(dedupe_key__startswith=f"doccomment:{i}:")
+    Notification.objects.for_lab(comment.lab).filter(gone).delete()
     record(
         AuditAction.DOCUMENT_COMMENT_DELETED,
         actor=user,
         lab=comment.lab,
         target=comment.document,
         request=request,
-        metadata={"comment": str(comment.pk), "author": str(comment.author_id)},
+        metadata={
+            "comment": str(comment.pk),
+            "author": str(comment.author_id),
+            "replies": [{"id": str(pk), "author": str(a)} for pk, a in replies],
+        },
     )
     comment.delete()

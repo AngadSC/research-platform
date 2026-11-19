@@ -85,10 +85,19 @@ def test_thread_resolve_reopen_and_cascade(w):
 
     rows = client(p["viewer"]).get(comments_url(lab, doc)).json()
     assert [r["body"] for r in rows] == ["Tighten the intro", "Done"]
+    for action in (AuditAction.DOCUMENT_COMMENT_RESOLVED, AuditAction.DOCUMENT_COMMENT_REOPENED):
+        assert AuditEvent.objects.get(action=action).metadata == {"comment": top["id"]}
+    assert Notification.objects.for_lab(lab).filter(dedupe_key__contains="doccomment").exists()
     assert client(p["pi"]).delete(comments_url(lab, doc, top)).status_code == 204
     assert not DocumentComment.objects.for_lab(lab).exists()  # the reply went with it
+    # and so did the notices that quoted them
+    assert not Notification.objects.for_lab(lab).filter(dedupe_key__contains="doccomment").exists()
     event = AuditEvent.objects.get(action=AuditAction.DOCUMENT_COMMENT_DELETED)
-    assert event.metadata == {"comment": top["id"], "author": str(p["pi"].pk)}
+    assert event.metadata == {
+        "comment": top["id"],
+        "author": str(p["pi"].pk),
+        "replies": [{"id": reply["id"], "author": str(p["student"].pk)}],
+    }
     assert AuditEvent.objects.filter(action=AuditAction.DOCUMENT_COMMENTED).count() == 2
 
 
@@ -127,8 +136,8 @@ def test_lab_wide_document(w, join, make_user):
     # a member can't delete someone else's comment on a lab document; a PI can
     assert client(p["lead"]).delete(comments_url(lab, manual, by_student)).status_code == 403
     assert resolve(lab_viewer, lab, manual, by_student, True).status_code == 403
-    assert client(p["pi"]).delete(comments_url(lab, manual, by_viewer)).status_code == 204
     n = notices(lab, p["student"], NotificationKind.DOCUMENT_COMMENT)[0]
+    assert client(p["pi"]).delete(comments_url(lab, manual, by_viewer)).status_code == 204
     assert notification_url(n, p["student"]) == f"/labs/{lab.pk}/documents/{manual.pk}?comments=1"
 
 

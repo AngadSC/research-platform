@@ -1172,6 +1172,8 @@ paths:
           - document.unpinned
           - document.commented
           - document.comment_deleted
+          - document.comment_resolved
+          - document.comment_reopened
           - attachment.uploaded
           - attachment.downloaded
           - attachment.deleted
@@ -1357,6 +1359,8 @@ paths:
           * `document.unpinned` - Document Unpinned
           * `document.commented` - Document Commented
           * `document.comment_deleted` - Document Comment Deleted
+          * `document.comment_resolved` - Document Comment Resolved
+          * `document.comment_reopened` - Document Comment Reopened
           * `attachment.uploaded` - Attachment Uploaded
           * `attachment.downloaded` - Attachment Downloaded
           * `attachment.deleted` - Attachment Deleted
@@ -5445,7 +5449,7 @@ paths:
     get:
       operationId: labs_my_onboarding_list
       description: The new-member checklist with the signed-in person's own ticks
-        (D346).
+        (D351).
       parameters:
       - in: path
         name: lab_id
@@ -13033,6 +13037,8 @@ components:
       - document.unpinned
       - document.commented
       - document.comment_deleted
+      - document.comment_resolved
+      - document.comment_reopened
       - attachment.uploaded
       - attachment.downloaded
       - attachment.deleted
@@ -13217,6 +13223,8 @@ components:
         * `document.unpinned` - Document Unpinned
         * `document.commented` - Document Commented
         * `document.comment_deleted` - Document Comment Deleted
+        * `document.comment_resolved` - Document Comment Resolved
+        * `document.comment_reopened` - Document Comment Reopened
         * `attachment.uploaded` - Attachment Uploaded
         * `attachment.downloaded` - Attachment Downloaded
         * `attachment.deleted` - Attachment Deleted

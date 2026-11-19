@@ -902,13 +902,20 @@ def my_notifications(ctx, lab_id, unread_only=True):
         else:
             row = {
                 "title": live_title(n),
-                "body": untrusted(_cut(live_body(n), 500)),
+                "body": "" if _about_comment(n) else untrusted(_cut(live_body(n), 500)),
                 "url": _url(notification_url(n, ctx.user)),
             }
         out.append(
             {"kind": n.kind, **row, "created_at": n.created_at, "read": n.read_at is not None}
         )
     return {"notifications": out}
+
+
+def _about_comment(n) -> bool:
+    """A comment on a document or a mention in one: the text never reaches AI."""
+    return n.kind == NotificationKind.DOCUMENT_COMMENT or n.dedupe_key.startswith(
+        "mention:doccomment:"
+    )
 
 
 def _targets_flagged(n, lab) -> bool:

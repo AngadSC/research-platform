@@ -57,6 +57,8 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "document.unpinned": "Unpinned a document for everyone",
   "document.commented": "Commented on a document",
   "document.comment_deleted": "Deleted a comment on a document",
+  "document.comment_resolved": "Resolved a comment on a document",
+  "document.comment_reopened": "Reopened a comment on a document",
   "attachment.uploaded": "Uploaded a file",
   "attachment.downloaded": "Downloaded a file",
   "attachment.deleted": "Deleted a file",
