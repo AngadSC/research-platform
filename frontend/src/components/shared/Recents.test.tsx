@@ -27,5 +27,7 @@ describe("Recent", () => {
     expect(await screen.findByRole("link", { name: /Doc number 0/ })).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /Doc number/ })).toHaveLength(6);
     expect(screen.getAllByText(/Gut study/).length).toBeGreaterThanOrEqual(6);
+    // It is when you opened it, not when the document last changed.
+    expect(screen.getAllByText(/opened/).length).toBeGreaterThanOrEqual(6);
   });
 });

@@ -4,6 +4,7 @@ import pytest
 from django.urls import reverse
 
 from core.recents import prune_recents
+from documents.models import Document
 from projects.models import ProjectStatus
 from provenance.models import ReviewItem
 from provenance.tests.test_provenance import World
@@ -74,3 +75,15 @@ def test_recents_of_deleted_projects_are_dropped(w):
     prune_recents(w.pi)
     w.pi.refresh_from_db()
     assert [r["label"] for r in w.pi.preferences["recents"]] == ["A"]
+
+
+def test_saving_stale_recents_does_not_bring_back_a_deleted_document(w):
+    doc = w.client().post(
+        reverse("documents:document-list", kwargs=kw(w)), {"title": "SOP"}, format="json"
+    )
+    url = f"/labs/{w.lab.pk}/projects/{w.project.pk}/documents/{doc.json()['id']}"
+    stale = [{"url": url, "label": "SOP", "kind": "document", "at": "2030-01-01T00:00:00Z"}]
+
+    Document.objects.for_lab(w.lab).update(deleted_at="2030-01-02T00:00:00Z")
+    resp = w.client().patch(reverse("core:me"), {"preferences": {"recents": stale}}, format="json")
+    assert resp.status_code == 200 and resp.json()["preferences"]["recents"] == []

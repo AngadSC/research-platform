@@ -1,4 +1,5 @@
 import { ListChecks } from "lucide-react";
+import { useIsPhone } from "@/hooks/media";
 import { Link } from "react-router";
 import { DueChip } from "@/components/dashboard/DueChip";
 import { DataTable, type Column } from "@/components/shared/DataTable";
@@ -67,7 +68,24 @@ export function MyTasksList({ labId }: { labId: string }) {
         ),
     },
   ];
+  const phone = useIsPhone();
   if (error) return <FormError message={formErrors(error, []).form} />;
+  // On a phone five narrow columns are unreadable: stack each task instead.
+  if (phone && data && data.length > 0)
+    return (
+      <ul className="divide-y rounded-lg border">
+        {data.map((t) => (
+          <li key={t.id} className="grid gap-1 p-3 text-sm">
+            {cols[0]!.cell(t)}
+            <span className="text-xs text-muted-foreground">{t.project_name}</span>
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+              {cols[2]!.cell(t)}
+              {cols[3]!.cell(t)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    );
   return (
     <DataTable
       columns={cols}

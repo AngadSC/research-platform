@@ -241,6 +241,36 @@ describe("Dashboard", () => {
     expect(within(card).queryByText(/Di/)).toBeNull();
   });
 
+  it("shows the most urgent item under each folded count", async () => {
+    mockFetch({ ...base(dash()), "GET /api/labs/lab1/training/compliance/": { body: compliance } });
+    renderRoute("/labs/lab1/dashboard");
+    const card = await screen.findByRole("region", { name: /Training needs attention/ });
+    expect(within(card).getByText(/Biosafety · Cy: no record yet/)).toBeInTheDocument();
+  });
+
+  it("tells a member about their own expired training on Home", async () => {
+    mockFetch({
+      ...base(dash(), ["view_lab", "create_project"]),
+      "GET /api/labs/lab1/my-tasks/": { body: [] },
+      "GET /api/labs/lab1/training/my/": {
+        body: {
+          requirements: [{ id: "r1", name: "Biosafety" }],
+          members: [
+            {
+              user: { id: "u2", email: "bo@uni.edu", display_name: "Bo" },
+              role: "member",
+              cells: { r1: cell("expired", -5) },
+            },
+          ],
+          summary: { done: 0, expiring: 0, expired: 1, missing: 0 },
+        },
+      },
+    });
+    renderRoute("/labs/lab1");
+    const card = await screen.findByRole("region", { name: /Training needs attention/ });
+    expect(within(card).getByRole("link", { name: "Biosafety · Bo" })).toBeInTheDocument();
+  });
+
   it("lists low stock for people who manage inventory", async () => {
     const perms = [...PI, "manage_inventory"];
     mockFetch({

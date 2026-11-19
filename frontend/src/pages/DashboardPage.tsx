@@ -49,9 +49,9 @@ import { NextMeeting } from "@/components/dashboard/NextMeeting";
 import { TeamTable } from "@/components/dashboard/TeamTable";
 import { useDashboard, useLowStock, type DashProject } from "@/hooks/dashboard";
 import { useMyTasks } from "@/hooks/projects";
-import { useCompliance } from "@/hooks/training";
+import { useCompliance, useMyTraining } from "@/hooks/training";
 import { useLab, useMe } from "@/hooks/workspace";
-import type { InventoryItem } from "@/lib/api-types";
+import type { InventoryItem, TrainingCompliance } from "@/lib/api-types";
 import { digestOf } from "@/components/dashboard/MorningDigest";
 import { localDateISO } from "@/lib/format";
 import { roleLabel } from "@/lib/api-types";
@@ -96,6 +96,7 @@ function Card({
   shown,
   verb,
   hint,
+  lead,
   defaultOpen,
   children,
 }: {
@@ -110,6 +111,8 @@ function Card({
   verb?: { label: string; to: string };
   /** The rule that puts something here. */
   hint?: string;
+  /** The most urgent item, in one line under the count while the card is folded. */
+  lead?: string;
   children: ReactNode;
 }) {
   const snooze = useContext(SnoozeCtx);
@@ -146,6 +149,11 @@ function Card({
           className="size-4 shrink-0 text-muted-foreground transition-transform group-open/card:rotate-90"
         />
       </summary>
+      {lead && (
+        <p className="mt-1 truncate pl-6 text-[13px] text-muted-foreground group-open/card:hidden">
+          {lead}
+        </p>
+      )}
       <ul className="mt-3 grid gap-2 text-sm">{children}</ul>
       <div className="mt-3 flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
@@ -201,6 +209,7 @@ function LowStockCard({ base, items }: { base: string; items: InventoryItem[] })
       hint="Items at or below the alert level set on the item."
       title="Low stock"
       tone="amber"
+      lead={items[0] && `${items[0].name}: ${items[0].quantity} ${items[0].unit} left`}
       total={items.length}
       shown={items.length}
     >
@@ -211,6 +220,68 @@ function LowStockCard({ base, items }: { base: string; items: InventoryItem[] })
           title={i.name}
           tone="amber"
           meta={`${i.quantity} ${i.unit} left (alert at ${i.low_stock_at})`}
+        />
+      ))}
+    </Card>
+  );
+}
+
+/** One line for a training gap: what, who, and where it stands. */
+function trainingLead(i: TrainingGap) {
+  const state =
+    i.cell.status === "missing"
+      ? "no record yet"
+      : i.cell.status === "expired"
+        ? `expired ${dueText(i.cell.days_left ?? 0, "ago")}`
+        : `expires ${dueText(i.cell.days_left ?? 0)}`;
+  return `${i.requirement.name} · ${i.user.display_name || i.user.email}: ${state}`;
+}
+
+type TrainingGap = {
+  user: TrainingCompliance["members"][number]["user"];
+  requirement: TrainingCompliance["requirements"][number];
+  cell: NonNullable<TrainingCompliance["members"][number]["cells"][string]>;
+};
+
+/** Everything that is expired, expiring or has no record (what the matrix shows), worst first. */
+function trainingGaps(c: TrainingCompliance | undefined): TrainingGap[] {
+  const rank: Record<string, number> = { expired: 0, missing: 1, expiring: 2 };
+  return (c?.members ?? [])
+    .flatMap((m) =>
+      c!.requirements.flatMap((r) => {
+        const cell = m.cells[r.id];
+        return cell && cell.status in rank ? [{ user: m.user, requirement: r, cell }] : [];
+      }),
+    )
+    .sort((x, y) => rank[x.cell.status]! - rank[y.cell.status]!);
+}
+
+/** Everyone the matrix flags: expired, expiring or no record (D174). Nothing to show, no card. */
+function TrainingCard({ base, items }: { base: string; items: TrainingGap[] }) {
+  return (
+    <Card
+      id="training"
+      verb={{ label: "Review", to: `${base}/training` }}
+      hint="Required training that has expired, expires within 60 days, or has no record yet."
+      title="Training needs attention (expired, expiring or missing)"
+      tone={items.some((i) => i.cell.status !== "expiring") ? "red" : "amber"}
+      lead={items[0] && trainingLead(items[0])}
+      total={items.length}
+      shown={Math.min(items.length, 20)}
+    >
+      {items.slice(0, 20).map((i) => (
+        <Item
+          key={`${i.user.id}-${i.requirement.id}`}
+          to={`${base}/training`}
+          title={`${i.requirement.name} · ${i.user.display_name || i.user.email}`}
+          tone={i.cell.status === "expiring" ? "amber" : "red"}
+          meta={
+            i.cell.status === "missing"
+              ? "No record yet"
+              : i.cell.status === "expired"
+                ? `Expired ${dueText(i.cell.days_left ?? 0, "ago")}`
+                : `Expires ${dueText(i.cell.days_left ?? 0)}`
+          }
         />
       ))}
     </Card>
@@ -654,9 +725,11 @@ export function DashboardPage() {
   const [mine, setMine] = useState(false);
   const lowOn = !!lab?.inventory_enabled && !!lab.my_permissions.includes("manage_inventory");
   const lowStock = useLowStock(labId, lowOn);
+  const mineTraining = useMyTraining(labId, !!lab && !allowed);
   const base = `/labs/${labId}`;
   const layout = useHomeLayout(labId);
   const snooze = useSnooze(labId);
+  const ownTraining = trainingGaps(mineTraining.data);
 
   const failure = labError ?? error;
   if (failure) return <FormError message={formErrors(failure, []).form} />;
@@ -696,12 +769,13 @@ export function DashboardPage() {
     return (
       <>
         {header}
-        {lowStock.data && lowStock.data.length > 0 && (
+        {(ownTraining.length > 0 || (lowStock.data?.length ?? 0) > 0) && (
           <section aria-labelledby="attention" className="mb-6 grid gap-3">
             <h2 id="attention" className="text-base font-medium">
               Needs attention
             </h2>
-            <LowStockCard base={base} items={lowStock.data} />
+            <TrainingCard base={base} items={ownTraining} />
+            <LowStockCard base={base} items={lowStock.data ?? []} />
           </section>
         )}
         <section aria-labelledby="my-tasks" className="grid gap-3">
@@ -715,17 +789,7 @@ export function DashboardPage() {
       </>
     );
 
-  // Training: everything that is expired, expiring or has no record (what the matrix shows).
-  const trainingItems = (training.data?.members ?? []).flatMap((m) =>
-    training.data!.requirements.flatMap((r) => {
-      const cell = m.cells[r.id];
-      return cell && ["expired", "expiring", "missing"].includes(cell.status)
-        ? [{ user: m.user, requirement: r, cell }]
-        : [];
-    }),
-  );
-  const rank = { expired: 0, missing: 1, expiring: 2 } as Record<string, number>;
-  trainingItems.sort((x, y) => rank[x.cell.status]! - rank[y.cell.status]!);
+  const trainingItems = trainingGaps(training.data);
 
   // "Mine only": my tasks, my integrations and training, and the projects I lead.
   const raw = data?.attention;
@@ -829,6 +893,10 @@ export function DashboardPage() {
                     hint="Tasks whose due date has passed and are not done."
                     title="Overdue tasks"
                     tone="red"
+                    lead={
+                      a.overdue_tasks.items[0] &&
+                      `${a.overdue_tasks.items[0].title}: ${dueText(-a.overdue_tasks.items[0].days_overdue)}`
+                    }
                     total={a.overdue_tasks.total}
                     shown={a.overdue_tasks.items.length}
                   >
@@ -847,6 +915,10 @@ export function DashboardPage() {
                     verb={{ label: "Renew", to: `${base}/ethics` }}
                     hint="Approvals that have expired or expire within 60 days."
                     title="Ethics approvals"
+                    lead={
+                      a.ethics.items[0] &&
+                      `${a.ethics.items[0].approval_number} ${a.ethics.items[0].expired ? `expired ${dueText(daysUntil(a.ethics.items[0].expiry_date), "ago")}` : `expires ${shortDate(a.ethics.items[0].expiry_date)}`}`
+                    }
                     tone={a.ethics.items.some((e) => e.expired) ? "red" : "amber"}
                     total={a.ethics.total}
                     shown={a.ethics.items.length}
@@ -873,6 +945,10 @@ export function DashboardPage() {
                     }}
                     hint="Active funding that ends within 90 days, or has already ended."
                     title="Funding ending"
+                    lead={
+                      a.funding.items[0] &&
+                      `${a.funding.items[0].funder} ${daysUntil(a.funding.items[0].end_date) < 0 ? "ended" : "ends"} ${shortDate(a.funding.items[0].end_date)}`
+                    }
                     tone={a.funding.items.some((f) => daysUntil(f.end_date) < 0) ? "red" : "amber"}
                     total={a.funding.total}
                     shown={a.funding.items.length}
@@ -895,6 +971,10 @@ export function DashboardPage() {
                     }}
                     hint="Deadlines that are late or fall within 14 days."
                     title="Deadlines overdue or due in 14 days"
+                    lead={
+                      a.deadlines.items[0] &&
+                      `${a.deadlines.items[0].title}: ${shortDate(a.deadlines.items[0].due_date)}`
+                    }
                     tone="amber"
                     total={a.deadlines.total}
                     shown={a.deadlines.items.length}
@@ -918,6 +998,10 @@ export function DashboardPage() {
                     }}
                     hint="Planning or active projects with no activity for 30 days."
                     title="Stalled projects"
+                    lead={
+                      a.stalled.items[0] &&
+                      `${a.stalled.items[0].project_name}: no activity for ${plural(a.stalled.items[0].days_idle, "day")}`
+                    }
                     tone="amber"
                     total={a.stalled.total}
                     shown={a.stalled.items.length}
@@ -940,6 +1024,10 @@ export function DashboardPage() {
                     }}
                     hint="Open tasks with nobody assigned."
                     title="Tasks that need an owner"
+                    lead={
+                      a.unassigned.items[0] &&
+                      `${a.unassigned.items[0].title} (${a.unassigned.items[0].project_name})`
+                    }
                     tone="amber"
                     total={a.unassigned.total}
                     shown={a.unassigned.items.length}
@@ -959,6 +1047,10 @@ export function DashboardPage() {
                     verb={{ label: "Reconnect", to: `${base}/settings/integrations` }}
                     hint="Connected accounts that have expired or are reporting an error."
                     title="Integrations to fix"
+                    lead={
+                      a.integrations.items[0] &&
+                      `${a.integrations.items[0].provider.replace(/_/g, " ")}: ${a.integrations.items[0].user.name}`
+                    }
                     tone="red"
                     total={a.integrations.total}
                     shown={a.integrations.items.length}
@@ -982,6 +1074,7 @@ export function DashboardPage() {
                       }}
                       hint="Planning or active projects older than 14 days (or holding data) whose data management plan is not approved."
                       title="No approved data management plan"
+                      lead={a.dmp.items[0]?.project_name}
                       tone="amber"
                       total={a.dmp.total}
                       shown={a.dmp.items.length}
@@ -999,33 +1092,7 @@ export function DashboardPage() {
                   )}
                   {lowItems.length > 0 && <LowStockCard base={base} items={lowItems} />}
                   {/* Everyone the matrix flags: expired, expiring or no record (D174). */}
-                  {tr && (
-                    <Card
-                      id="training"
-                      verb={{ label: "Review", to: `${base}/training` }}
-                      hint="Required training that has expired, expires within 60 days, or has no record yet."
-                      title="Training needs attention (expired, expiring or missing)"
-                      tone={trItems.some((i) => i.cell.status !== "expiring") ? "red" : "amber"}
-                      total={trItems.length}
-                      shown={Math.min(trItems.length, 20)}
-                    >
-                      {trItems.slice(0, 20).map((i) => (
-                        <Item
-                          key={`${i.user.id}-${i.requirement.id}`}
-                          to={`${base}/training`}
-                          title={`${i.requirement.name} · ${i.user.display_name || i.user.email}`}
-                          tone={i.cell.status === "expiring" ? "amber" : "red"}
-                          meta={
-                            i.cell.status === "missing"
-                              ? "No record yet"
-                              : i.cell.status === "expired"
-                                ? `Expired ${dueText(i.cell.days_left ?? 0, "ago")}`
-                                : `Expires ${dueText(i.cell.days_left ?? 0)}`
-                          }
-                        />
-                      ))}
-                    </Card>
-                  )}
+                  {tr && <TrainingCard base={base} items={trItems} />}
                 </div>
               </section>
             )}

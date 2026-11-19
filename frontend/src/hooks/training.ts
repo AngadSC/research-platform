@@ -28,10 +28,11 @@ export const useCompliance = (labId: string, enabled = true) =>
     enabled,
   });
 
-export const useMyTraining = (labId: string) =>
+export const useMyTraining = (labId: string, enabled = true) =>
   useQuery({
     queryKey: [...root(labId), "my"],
     queryFn: () => api<TrainingCompliance>(`${base(labId)}/my/`),
+    enabled,
   });
 
 /** The requester's own records, or everyone's for a manager. */

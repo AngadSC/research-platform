@@ -78,7 +78,10 @@ class MeView(generics.RetrieveUpdateAPIView):
         with transaction.atomic():
             User.objects.select_for_update().filter(pk=request.user.pk).first()
             request.user.refresh_from_db()
-            return super().update(request, *args, **kwargs)
+            response = super().update(request, *args, **kwargs)
+            # A browser holding an old copy can save a deleted item back into its recents.
+            prune_recents(request.user)
+            return Response(self.get_serializer(request.user).data, status=response.status_code)
 
 
 class MyAvatarView(APIView):

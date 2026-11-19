@@ -69,7 +69,7 @@ export function Recents({ hide = [] }: { hide?: RecentKind[] }) {
                     {r.kind === "project"
                       ? KIND_LABEL.project
                       : (project?.name ?? KIND_LABEL[r.kind])}
-                    {" · "}
+                    {" · opened "}
                     <RelativeTime value={r.at} />
                   </span>
                 </span>
