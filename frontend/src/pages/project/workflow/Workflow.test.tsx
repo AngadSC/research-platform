@@ -129,7 +129,7 @@ describe("Workflow progress", () => {
       }),
     );
     renderRoute(`${W}/funding`);
-    expect(await screen.findByRole("link", { name: "Go to Participants" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Next: Participants" })).toBeInTheDocument();
     expect(screen.queryByText("Do this next: Participants.")).toBeNull();
     expect(screen.getByText("2 of 7 done")).toBeInTheDocument();
   });
@@ -171,7 +171,7 @@ describe("Workflow progress", () => {
         done: true,
       }),
     );
-    expect(await screen.findByRole("link", { name: "Go to Ethics" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Next: Ethics" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mark as not done" })).toBeInTheDocument();
   });
 

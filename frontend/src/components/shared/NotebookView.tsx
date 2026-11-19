@@ -266,7 +266,7 @@ function EntryDialog({
   const f = errors.fields;
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-h-[92dvh] max-w-2xl overflow-y-auto">
         <DialogTitle className="text-base font-semibold">
           {entry ? "Edit entry" : "New entry"}
         </DialogTitle>
@@ -306,14 +306,13 @@ function EntryDialog({
                 name="body"
                 rows={14}
                 className="font-mono text-sm"
-                placeholder={"Aim\n\nMethod\n\nResult\n\nNext steps"}
-                defaultValue={entry?.body}
+                defaultValue={entry ? entry.body : "Aim\n\n\nMethod\n\n\nResult\n\n\nNext steps\n"}
               />
             )}
           </FormField>
           <InsertProtocol labId={labId} projectId={projectId} onInsert={insert} />
           <FormError message={errors.form} />
-          <div className="flex justify-end gap-2">
+          <div className="sticky -bottom-6 z-10 -mx-1 flex justify-end gap-2 bg-background px-1 py-3">
             <DialogClose asChild>
               <Button type="button" variant="outline">
                 Cancel

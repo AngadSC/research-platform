@@ -90,6 +90,8 @@ describe("NotebookView", () => {
     show();
     await userEvent.click((await screen.findAllByRole("button", { name: /New entry/ }))[0]!);
     await userEvent.type(await screen.findByLabelText("Title"), "Gel 3");
+    expect((screen.getByLabelText("Entry") as HTMLTextAreaElement).value).toContain("Next steps");
+    await userEvent.clear(screen.getByLabelText("Entry"));
     await userEvent.type(screen.getByLabelText("Entry"), "Ran at 100 V");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => {

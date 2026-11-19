@@ -1,5 +1,6 @@
 import {
   Archive,
+  BarChart3,
   Bug,
   Bell,
   BookOpen,
@@ -52,6 +53,7 @@ export const PROJECT_SECTIONS = [
     icon: Workflow,
     hint: "Funding, ethics, participants, data, analysis, manuscript and review",
   },
+  { to: "analyse", label: "Statistics", icon: BarChart3 },
   { to: "external", label: "Posters and talks", icon: Presentation },
 ] as const;
 
