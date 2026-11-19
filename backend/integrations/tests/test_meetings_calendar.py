@@ -844,8 +844,34 @@ def test_accepting_a_google_invitation_changes_only_your_own_answer(transport, l
     assert r.status_code == 200 and r.json() == {"id": "g1", "my_status": "declined"}
     [sent] = transport.sent("PATCH", f"{EVENTS}/g1")
     assert sent["params"] == {"sendUpdates": "all"}
-    answers = {a["email"]: a["responseStatus"] for a in sent["json"]["attendees"]}
-    assert answers == {"boss@uni.edu": "accepted", "pi@uni.edu": "declined"}
+    # only our own answer, flagged so Google leaves the rest of the guest list alone
+    assert sent["json"] == {
+        "attendeesOmitted": True,
+        "attendees": [{"email": "pi@uni.edu", "responseStatus": "declined"}],
+    }
     assert api(users["pi"]).post(url, {"status": "later"}, "json").status_code == 400
     # someone with no Google connection cannot answer
     assert api(users["member"]).post(url, {"status": "accepted"}, "json").status_code == 404
+
+
+def test_answering_a_google_invitation_never_sends_the_other_guests(transport, lab_users):
+    """A whole attendee list in a PATCH replaces Google's: a guest added after we read the event
+    would be dropped. So the other guests are never sent at all."""
+    lab, users = lab_users
+    connect_google(transport, users["pi"], lab)
+    event = {
+        "id": "g1",
+        "attendees": [
+            {"email": "boss@uni.edu", "organizer": True, "responseStatus": "accepted"},
+            {"email": "guest@uni.edu", "responseStatus": "tentative"},
+            {"email": "pi@uni.edu", "self": True, "responseStatus": "needsAction"},
+            {"email": "room@resource", "resource": True},
+        ],
+    }
+    transport.on("GET", f"{EVENTS}/g1", response(200, event))
+    transport.on("PATCH", f"{EVENTS}/g1", response(200, event))
+    url = f"/api/labs/{lab.pk}/calendar/google/events/g1/answer/"
+    assert api(users["pi"]).post(url, {"status": "accepted"}, "json").status_code == 200
+    [sent] = transport.sent("PATCH", f"{EVENTS}/g1")
+    assert sent["json"]["attendeesOmitted"] is True
+    assert [a["email"] for a in sent["json"]["attendees"]] == ["pi@uni.edu"]

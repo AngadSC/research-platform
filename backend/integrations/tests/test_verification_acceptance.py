@@ -348,12 +348,6 @@ def test_removing_a_member_from_one_lab_keeps_their_grant_for_the_other(
     assert set(status_of(lab_b, pi).values()) == {AccountStatus.ACTIVE}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="revoke_member_accounts revokes each bundle row on its own: Drive and Calendar rows "
-    "sharing one refresh token send two identical POSTs to Google's revoke URL (disconnect() "
-    "sends one). Harmless, since Google answers the second with an error and it is best effort.",
-)
 def test_removing_a_member_from_their_last_lab_revokes_the_grant_once(
     transport, two_labs, django_capture_on_commit_callbacks
 ):
