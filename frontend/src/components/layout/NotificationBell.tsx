@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LAB_CHAT, useUnreadChats } from "@/hooks/chat";
+import { LAB_CHAT, useMarkAllChatsRead, useUnreadChats } from "@/hooks/chat";
 import { useMarkRead, useNotifications } from "@/hooks/ethics";
 import { useProjects } from "@/hooks/projects";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ export function NotificationBell({ labId }: { labId: string }) {
   const { one, all } = useMarkRead(labId);
   const unread = data.filter((n) => !n.read_at);
   const chats = useUnreadChats(labId);
+  const markChats = useMarkAllChatsRead(labId);
   const projects = useProjects(labId).data ?? [];
   // Chats with something new, the lab chat first.
   const chatRows = Object.entries(chats)
@@ -36,6 +37,10 @@ export function NotificationBell({ labId }: { labId: string }) {
     .sort((a, b) => (a.key === LAB_CHAT ? -1 : b.key === LAB_CHAT ? 1 : 0));
   const messages = chatRows.reduce((n, r) => n + r.count, 0);
   const total = unread.length + messages;
+  const markEverythingRead = () => {
+    if (unread.length > 0) all.mutate();
+    if (chatRows.length > 0) markChats.mutate(chatRows.map((r) => r.key));
+  };
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -52,8 +57,8 @@ export function NotificationBell({ labId }: { labId: string }) {
           <Button
             variant="ghost"
             size="sm"
-            disabled={unread.length === 0 || all.isPending}
-            onClick={() => all.mutate()}
+            disabled={total === 0 || all.isPending || markChats.isPending}
+            onClick={markEverythingRead}
           >
             Mark all as read
           </Button>

@@ -38,6 +38,29 @@ export function useUnreadChatsQuery(labId: string | undefined) {
   };
 }
 
+/** The bell's "Mark all as read": marks every chat with new messages read, lab chat and projects. */
+export function useMarkAllChatsRead(labId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (keys: string[]) => {
+      const lastReadAt = new Date().toISOString();
+      await Promise.all(
+        keys.map((key) =>
+          api(`${url(labId, key === LAB_CHAT ? undefined : key)}read/`, {
+            method: "POST",
+            body: { last_read_at: lastReadAt },
+          }),
+        ),
+      );
+    },
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: unreadKey(labId) });
+      qc.setQueryData<ChatUnread[]>(unreadKey(labId), []);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: unreadKey(labId) }),
+  });
+}
+
 export function useChat(labId: string, projectId?: string) {
   const qc = useQueryClient();
   const key = projectId
