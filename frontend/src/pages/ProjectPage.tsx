@@ -10,7 +10,7 @@ import {
   useParams,
   useSearchParams,
 } from "react-router";
-import { Check, ChevronDown, Compass, MessagesSquare, MoreHorizontal, Pencil } from "lucide-react";
+import { Check, ChevronDown, MessagesSquare, MoreHorizontal, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { DetailPanel } from "@/components/shared/DetailPanel";
 import { FormError } from "@/components/shared/FormError";
@@ -141,29 +141,6 @@ export function ProjectPage() {
             description={undefined}
             actions={
               <>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" aria-label="Navigate this project">
-                      <Compass aria-hidden /> Navigate <ChevronDown aria-hidden />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-52">
-                    {projectSections(project.study_types).map(({ to, label, icon: Icon }) => {
-                      const target = `/labs/${labId}/projects/${projectId}/${to}`;
-                      return (
-                        <DropdownMenuItem key={to} asChild>
-                          <NavLink to={target}>
-                            <Icon aria-hidden className="size-4" />
-                            <span className="flex-1">{label}</span>
-                            {pathname.startsWith(target) && (
-                              <Check aria-hidden className="size-4 text-primary" />
-                            )}
-                          </NavLink>
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
                 <StatusBadge status={project.status} />
                 <Button
                   variant="ghost"
@@ -184,6 +161,34 @@ export function ProjectPage() {
                     <Pencil aria-hidden />
                   </Button>
                 )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Navigate this project"
+                      title="Navigate this project"
+                    >
+                      <ChevronDown aria-hidden />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-52">
+                    {projectSections(project.study_types).map(({ to, label, icon: Icon }) => {
+                      const target = `/labs/${labId}/projects/${projectId}/${to}`;
+                      return (
+                        <DropdownMenuItem key={to} asChild>
+                          <NavLink to={target}>
+                            <Icon aria-hidden className="size-4" />
+                            <span className="flex-1">{label}</span>
+                            {pathname.startsWith(target) && (
+                              <Check aria-hidden className="size-4 text-primary" />
+                            )}
+                          </NavLink>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 {(can("export") || can("delete_project")) && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
