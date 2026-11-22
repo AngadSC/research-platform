@@ -377,7 +377,7 @@ export function AppShell() {
           <main
             id="main"
             tabIndex={-1}
-            className="@container relative outline-none min-h-0 flex-1 scroll-pt-[5.5rem] overflow-y-auto overscroll-contain pt-[4.75rem] pb-[calc(5rem+var(--tutorial-pad,0px))] md:pb-[var(--tutorial-pad,1.5rem)] print:overflow-visible print:pt-0"
+            className="@container relative outline-none min-h-0 flex-1 scroll-pt-[5.5rem] overflow-y-auto overscroll-contain pt-[4.75rem] pb-[calc(6.5rem+env(safe-area-inset-bottom)+var(--tutorial-pad,0px))] md:pb-[var(--tutorial-pad,1.5rem)] print:overflow-visible print:pt-0"
           >
             <div className="px-4 py-4 md:px-8 print:px-0">
               <div className="mb-4 print:hidden">
@@ -394,7 +394,7 @@ export function AppShell() {
       <GoogleEditorHost />
       <CommandPalette labId={labId} recents={recents} onGo={(url) => void navigate(url)} />
       <Tutorial />
-      <Toaster position="top-center" />
+      <Toaster position="bottom-right" duration={4000} mobileOffset={{ bottom: "6.5rem" }} />
     </TooltipProvider>
   );
 }

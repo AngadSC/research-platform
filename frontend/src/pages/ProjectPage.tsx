@@ -241,7 +241,9 @@ export function ProjectPage() {
         enabled={!!canEditContent}
         name={project.name}
       >
-        <Outlet context={{ labId, projectId, project } satisfies ProjectTabProps} />
+        <div className="pt-6">
+          <Outlet context={{ labId, projectId, project } satisfies ProjectTabProps} />
+        </div>
       </ProjectDropZone>
       <DetailPanel open={chatOpen} onOpenChange={setChatOpen} title="Project chat">
         <ChatTab labId={labId} projectId={projectId} project={project} />
