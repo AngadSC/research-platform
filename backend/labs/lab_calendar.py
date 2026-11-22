@@ -151,7 +151,7 @@ class MeetingInputSerializer(serializers.Serializer):
         child=serializers.EmailField(max_length=254),
         max_length=50,
         required=False,
-        help_text="Email addresses of people with a Google account, invited to a Google Meet or Zoom call.",
+        help_text="Email addresses of people with a Google account, invited to a Google Meet call.",
     )
     video = serializers.ChoiceField(
         choices=VideoProvider.choices,
