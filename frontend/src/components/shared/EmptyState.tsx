@@ -30,7 +30,7 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "mx-auto flex w-full max-w-2xl flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/30 px-6 py-12 text-center",
+        "mx-auto flex w-full max-w-2xl flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-input bg-muted/40 px-6 py-10 text-center",
         className,
       )}
     >

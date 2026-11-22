@@ -153,7 +153,9 @@ export function IntegrationsPage() {
         title="Integrations"
         description="Connect AI apps like Claude, and outside services you use with your projects. Each service below says what connecting it lets labbenchos do."
       />
-      <p className="text-sm text-muted-foreground">Each person connects their own accounts here.</p>
+      <p className="-mt-6 text-sm text-muted-foreground">
+        Each person connects their own accounts here.
+      </p>
       <FormError message={failure ?? connectError(initialError)} />
       <AiAppsSection />
       <Disclosure card region defaultOpen title="Services">
