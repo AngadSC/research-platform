@@ -15,14 +15,19 @@ export function LabChatPage() {
       <PageHeader title="Lab chat" description={lab ? `Everyone in ${lab.name}.` : undefined} />
       {lab && <GoogleChatSync labId={labId} />}
       {lab && (
-        <ChatPanel
-          key={labId}
-          labId={labId}
-          canModerate={lab.my_permissions.includes("manage_lab")}
-          label="Lab chat"
-          audience="this lab"
-          alsoSentTo={google ? `the Google Chat ${google.space_name || "conversation"}` : undefined}
-        />
+        <div className="h-[calc(100dvh-23rem)] min-h-80 md:h-[calc(100dvh-19rem)]">
+          <ChatPanel
+            inPanel
+            key={labId}
+            labId={labId}
+            canModerate={lab.my_permissions.includes("manage_lab")}
+            label="Lab chat"
+            audience="this lab"
+            alsoSentTo={
+              google ? `the Google Chat ${google.space_name || "conversation"}` : undefined
+            }
+          />
+        </div>
       )}
     </>
   );

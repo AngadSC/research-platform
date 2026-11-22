@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronRight,
   Building2,
@@ -452,6 +452,18 @@ export function Sidebar({
   const { data: labs = [], isLoading: labsLoading } = useLabs();
   const labId = useCurrentLabId();
   const projectId = useCurrentProjectId();
+  // The bottom fade only means something when the list scrolls; otherwise it is a faint strip.
+  const scroller = useRef<HTMLDivElement>(null);
+  const [scrolls, setScrolls] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      const el = scroller.current;
+      if (el) setScrolls(el.scrollHeight > el.clientHeight + 1);
+    };
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  });
   const { data: projects = [] } = useProjects(labId);
   const chatUnread = useUnreadChats(labId);
   const navigate = useNavigate();
@@ -531,21 +543,17 @@ export function Sidebar({
         >
           {/* Light theme: the original logo. Dark theme (chosen, or the system's): the dark logo
               and a light wordmark. The `dark` class is set for both, so it switches by itself. */}
-          <span className="inline-flex items-center">
+          <span className="inline-flex h-8 items-center">
             <img
               src={slim ? "/logo.png" : "/logo-full.png"}
               alt={APP_NAME}
               className={cn("w-auto dark:hidden", slim ? "h-8" : "h-7")}
             />
             <span className="hidden items-center gap-2 dark:inline-flex">
-              <img
-                src="/logo-dark.png"
-                alt={slim ? APP_NAME : ""}
-                className={cn("w-auto", slim ? "h-8" : "h-8")}
-              />
+              <img src="/logo-dark.png" alt={slim ? APP_NAME : ""} className="h-8 w-auto" />
               {!slim && (
                 <span className="text-lg font-bold tracking-tight">
-                  <span className="text-white">lab</span>
+                  <span className="text-foreground">lab</span>
                   <span className="text-[#16a34a]">benchos</span>
                 </span>
               )}
@@ -587,7 +595,7 @@ export function Sidebar({
           slim={slim}
         />
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+      <div ref={scroller} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
         {!slim && <PinnedNav onNavigate={onClose} />}
         {labId && !current ? (
           <div aria-busy="true" aria-label="Loading navigation" className="grid gap-2 px-3">
@@ -736,10 +744,12 @@ export function Sidebar({
           </>
         )}
         {/* a fade at the bottom tells you the list scrolls */}
-        <div
-          aria-hidden
-          className="pointer-events-none sticky bottom-0 -mt-4 h-6 shrink-0 bg-gradient-to-t from-sidebar to-transparent"
-        />
+        {scrolls && (
+          <div
+            aria-hidden
+            className="pointer-events-none sticky bottom-0 -mt-4 h-6 shrink-0 bg-gradient-to-t from-sidebar to-transparent"
+          />
+        )}
       </div>
       <SidebarFooter onNavigate={onClose} role={current?.my_role} slim={slim} />
     </aside>
