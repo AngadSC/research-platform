@@ -34,6 +34,8 @@ describe("Continue with Google", () => {
     mockFetch({ [SESSION]: signedOut, [CONFIG]: withGoogle });
     renderRoute("/signup");
     const btn = await screen.findByRole("button", { name: "Continue with Google" });
+    expect(btn.textContent).toBe("Continue with Google");
+    expect(within(btn).getByTestId("google-logo").querySelectorAll("path")).toHaveLength(4);
     const form = btn.closest("form")!;
     expect(form.method).toBe("post");
     expect(form.getAttribute("action")).toBe(`${B}/auth/provider/redirect`);
