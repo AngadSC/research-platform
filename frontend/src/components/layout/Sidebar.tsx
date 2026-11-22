@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   ChevronRight,
   Building2,
@@ -399,7 +399,9 @@ function LabSwitcher({
         ) : loading ? (
           <Skeleton aria-label="Loading" className="h-4 w-32" />
         ) : (
-          <span className="truncate">{current?.name ?? "Select a lab"}</span>
+          <span className="truncate" title={current?.name}>
+            {current?.name ?? "Select a lab"}
+          </span>
         )}
         {!slim && <UnreadBadge count={unread} className="ml-auto" />}
         {!slim && <ChevronsUpDown className="size-4 shrink-0 opacity-60" aria-hidden />}
@@ -452,18 +454,6 @@ export function Sidebar({
   const { data: labs = [], isLoading: labsLoading } = useLabs();
   const labId = useCurrentLabId();
   const projectId = useCurrentProjectId();
-  // The bottom fade only means something when the list scrolls; otherwise it is a faint strip.
-  const scroller = useRef<HTMLDivElement>(null);
-  const [scrolls, setScrolls] = useState(false);
-  useEffect(() => {
-    const check = () => {
-      const el = scroller.current;
-      if (el) setScrolls(el.scrollHeight > el.clientHeight + 1);
-    };
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  });
   const { data: projects = [] } = useProjects(labId);
   const chatUnread = useUnreadChats(labId);
   const navigate = useNavigate();
@@ -528,7 +518,7 @@ export function Sidebar({
       data-drawer={open ? "open" : undefined}
       className={cn(
         "glass glass--strong shrink-0 flex-col gap-4 overflow-hidden rounded-2xl md:m-3 md:mr-0 print:hidden",
-        slim ? "w-[4.5rem] p-2" : "w-64 p-4",
+        slim ? "w-[4.5rem] p-2" : "w-72 p-4",
         // Below md the sidebar is a drawer that only exists while open.
         open
           ? "fixed inset-y-3 left-3 z-50 flex md:static md:z-auto"
@@ -595,7 +585,7 @@ export function Sidebar({
           slim={slim}
         />
       </div>
-      <div ref={scroller} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto [mask-image:linear-gradient(to_bottom,black_calc(100%-1.5rem),transparent)]">
         {!slim && <PinnedNav onNavigate={onClose} />}
         {labId && !current ? (
           <div aria-busy="true" aria-label="Loading navigation" className="grid gap-2 px-3">
@@ -742,13 +732,6 @@ export function Sidebar({
               </nav>
             )}
           </>
-        )}
-        {/* a fade at the bottom tells you the list scrolls */}
-        {scrolls && (
-          <div
-            aria-hidden
-            className="pointer-events-none sticky bottom-0 -mt-4 h-6 shrink-0 bg-gradient-to-t from-sidebar to-transparent"
-          />
         )}
       </div>
       <SidebarFooter onNavigate={onClose} role={current?.my_role} slim={slim} />

@@ -1,0 +1,9 @@
+{% autoescape off %}{{ organiser }} changed a meeting in {{ lab_name }} that you are invited to. The details below are the current ones.
+
+{{ title }}
+Starts: {{ starts_at }}
+Ends: {{ ends_at }}
+
+Join: {{ join_url }}
+
+{% endautoescape %}

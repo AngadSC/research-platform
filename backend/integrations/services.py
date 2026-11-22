@@ -595,6 +595,33 @@ def disconnect(account, *, actor, request=None, delete_app_calendar=False) -> No
     account.refresh_from_db()
 
 
+def deauthorize_zoom(zoom_user_id: str) -> int:
+    """Zoom says this person removed the app (`app_deauthorized`): the grant is already gone, so
+    retire every Zoom row not already revoked for that Zoom user without calling Zoom's revoke.
+    Audited with no actor. Returns the number retired."""
+    count = 0
+    for lab in Lab.objects.all():
+        with transaction.atomic():
+            rows = list(
+                ConnectedAccount.objects.for_lab(lab)
+                .select_for_update()
+                .filter(provider="zoom", external_account_id=zoom_user_id)
+                .exclude(status=AccountStatus.REVOKED)
+            )
+            _retire(rows)
+            for row in rows:
+                audit.record(
+                    AuditAction.INTEGRATION_REVOKED,
+                    actor=None,
+                    actor_label="zoom:app_deauthorized",
+                    lab=lab,
+                    target=row,
+                    metadata={"provider": "zoom", "provider_revoked": False},
+                )
+            count += len(rows)
+    return count
+
+
 def _bundle_rows(row) -> list:
     """Locked, not-yet-revoked rows of the services bundled with `row`'s (D262): the same person,
     lab and email address."""

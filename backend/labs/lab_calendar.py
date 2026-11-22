@@ -22,6 +22,7 @@ from core.serializers import SaneDateTimeField, no_control_chars
 from core.tenancy import by_secret
 from core.views import LabScopedViewMixin
 from ethics.models import ApprovalStatus, EthicsApproval
+from integrations.models import AccountStatus
 from labs import admin_services as svc
 from labs import video_calendar
 from labs.models import (
@@ -162,7 +163,8 @@ class MeetingInputSerializer(serializers.Serializer):
 
 def _call_owner(meeting):
     account = meeting.video_account
-    return str(account.user_id) if meeting.video_provider and account is not None else None
+    live = account is not None and account.status == AccountStatus.ACTIVE  # as check_can_change
+    return str(account.user_id) if meeting.video_provider and live else None
 
 
 class GoogleAttendeeSerializer(serializers.Serializer):
@@ -445,8 +447,21 @@ class MeetingMixin(LabScopedViewMixin):
         return ser.validated_data
 
 
+class GuestMailThrottle(ScopedRateThrottle):
+    """Typed guests are emailed by us (Zoom), so adding them shares the `invites` limit. A request
+    with no guests is not counted."""
+
+    def allow_request(self, request, view):
+        data = request.data
+        if not (hasattr(data, "get") and data.get("guests")):
+            return True
+        return super().allow_request(request, view)
+
+
 class MeetingCreateView(MeetingMixin, generics.GenericAPIView):
     perms = {"POST": Perm.CONTRIBUTE_LAB}
+    throttle_classes = [GuestMailThrottle]
+    throttle_scope = "invites"
 
     @extend_schema(request=MeetingInputSerializer, responses={201: MeetingSerializer})
     def post(self, request, lab_id):
@@ -478,6 +493,8 @@ class MeetingDetailView(MeetingMixin, generics.GenericAPIView):
 
     lookup_url_kwarg = "meeting_id"
     perms = {"PATCH": Perm.CONTRIBUTE_LAB, "DELETE": Perm.CONTRIBUTE_LAB}
+    throttle_classes = [GuestMailThrottle]
+    throttle_scope = "invites"
 
     @extend_schema(request=MeetingInputSerializer, responses=MeetingSerializer)
     def patch(self, request, lab_id, meeting_id):

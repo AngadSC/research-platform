@@ -1,0 +1,7 @@
+{% extends "email/base.html" %}
+{% block heading %}A meeting was cancelled{% endblock %}
+{% block content %}
+                <p style="margin:0 0 16px 0;">{{ organiser }} cancelled this meeting in {{ lab_name }}, or took you off it. The old link no longer applies.</p>
+                <p style="margin:0 0 16px 0;"><strong>{{ title }}</strong><br>Starts: {{ starts_at }}<br>Ends: {{ ends_at }}</p>
+{% endblock %}
+{% block footer %}You received this because you were invited to this meeting.{% endblock %}

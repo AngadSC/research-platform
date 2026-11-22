@@ -452,6 +452,8 @@ for _var, _value in os.environ.items():
         }
 # D82: when set, self-hosted instance URLs (REDCap, GitLab, ...) must be on one of these hosts
 # (comma-separated; `*.uni.edu` allows any subdomain). Empty: any public https host.
+# Zoom event webhook secret token (app deauthorization). Empty: the endpoint answers 404.
+INTEGRATION_ZOOM_WEBHOOK_SECRET = os.environ.get("INTEGRATION_ZOOM_WEBHOOK_SECRET", "")
 INTEGRATION_ALLOWED_INSTANCE_HOSTS = env_list("INTEGRATION_ALLOWED_INSTANCE_HOSTS")
 # Task-import services shown in this deployment, for example todoist,trello,monday (D240).
 INTEGRATION_OPTIONAL_PROVIDERS = env_list("INTEGRATION_OPTIONAL_PROVIDERS")

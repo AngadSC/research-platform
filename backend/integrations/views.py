@@ -1,5 +1,9 @@
 """Integration endpoints (ARCHITECTURE section 9). Views validate and serialize; services act."""
 
+import hashlib
+import hmac
+import json
+import time
 from datetime import timedelta
 from urllib.parse import urlencode
 
@@ -24,6 +28,7 @@ from core.views import LabScopedViewMixin
 from integrations import http, registry, services, webhooks
 from integrations.http import IntegrationError
 from integrations.models import AccountStatus, ConnectedAccount, ExternalLink, Webhook
+from integrations.providers import zoom
 from integrations.serializers import (
     ConnectedAccountSerializer,
     ConnectInputSerializer,
@@ -612,3 +617,49 @@ class WebhookTestView(WebhookMixin, generics.GenericAPIView):
     def post(self, request, lab_id, webhook_id):
         sent = webhooks.send_test(self.get_object())
         return Response({"ok": sent is not None and 200 <= sent < 300, "status": sent})
+
+
+class ZoomEventsView(APIView):
+    """Zoom's event webhook (Marketplace requirement): URL validation and "App Deauthorized".
+    Public and unauthenticated, so every request must carry Zoom's signature of the raw body made
+    with the secret token (`INTEGRATION_ZOOM_WEBHOOK_SECRET`); without one set the URL is 404."""
+
+    authentication_classes = []  # no session, so no CSRF
+    perms = {"POST": Perm.PUBLIC}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "login_methods"
+
+    @extend_schema(request=None, responses={200: None})
+    def post(self, request):
+        secret = settings.INTEGRATION_ZOOM_WEBHOOK_SECRET.encode()
+        if not secret:
+            raise Http404
+        body = request.body
+        stamp = request.headers.get("x-zm-request-timestamp", "")
+        signed = b"v0:" + stamp.encode() + b":" + body
+        expected = "v0=" + hmac.new(secret, signed, hashlib.sha256).hexdigest()
+        try:
+            fresh = abs(time.time() - int(stamp)) <= 300
+        except ValueError:
+            fresh = False
+        sent = request.headers.get("x-zm-signature", "")
+        if not (fresh and hmac.compare_digest(sent.encode(), expected.encode())):
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+        try:
+            data = json.loads(body)
+            event, payload = data["event"], data.get("payload") or {}
+        except (ValueError, KeyError, TypeError, AttributeError):
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        if not isinstance(payload, dict):
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        if event == "endpoint.url_validation" and isinstance(payload.get("plainToken"), str):
+            token = payload["plainToken"]
+            digest = hmac.new(secret, token.encode(), hashlib.sha256).hexdigest()
+            return Response({"plainToken": token, "encryptedToken": digest})
+        if (
+            event == "app_deauthorized"
+            and payload.get("user_id")
+            and payload.get("client_id") == zoom.PROVIDER.client()[0] != ""
+        ):
+            services.deauthorize_zoom(str(payload["user_id"]))
+        return Response({})

@@ -166,7 +166,12 @@ export function ItemCardBody({
           rel="noopener noreferrer"
           className={cn(action, "mt-2 w-fit")}
         >
-          <Video aria-hidden className="size-4" /> Join the call
+          <Video aria-hidden className="size-4" />{" "}
+          {item.video_provider === "zoom"
+            ? "Join Zoom"
+            : item.video_provider === "google_meet"
+              ? "Join Google Meet"
+              : "Join the call"}
         </a>
       )}
       {item.kind === "meeting" && item.attendees.length > 0 && (

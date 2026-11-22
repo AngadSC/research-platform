@@ -153,7 +153,9 @@ export function IntegrationsPage() {
         title="Integrations"
         description="Connect AI apps like Claude, and outside services you use with your projects. Each service below says what connecting it lets labbenchos do."
       />
-      <p className="text-sm text-muted-foreground">Each person connects their own accounts here.</p>
+      <p className="-mt-6 text-sm text-muted-foreground">
+        Each person connects their own accounts here.
+      </p>
       <FormError message={failure ?? connectError(initialError)} />
       <AiAppsSection />
       <Disclosure card region defaultOpen title="Services">
@@ -182,7 +184,11 @@ export function IntegrationsPage() {
                         action: "Disconnect",
                         title,
                         calendar,
-                        description: `${extra}Linked items stay in your projects, but we stop checking them until you connect again.`,
+                        description: `${extra}${
+                          p.name === "zoom"
+                            ? "Meetings you already made keep their call link and stay in the lab. You can't make new Zoom calls until you connect again."
+                            : "Linked items stay in your projects, but we stop checking them until you connect again."
+                        }`,
                       });
                     };
                     return members.length > 1 ? (
@@ -458,6 +464,7 @@ const DISCLOSURE: Record<string, string> = {
     "Only files you pick or that labbenchos creates. The assistant reads a file only when you ask.",
   google_calendar:
     "Adds meetings you schedule, with a Meet link, to your calendar. Shows your events only to you. The labbenchos calendar stays off until you turn it on.",
+  zoom: "Lets you make Zoom calls for lab meetings. We send Zoom the meeting title and times, never notes or anyone's email address.",
   google_chat:
     "Lists your conversations so you can pick one. Reads and posts messages only in a conversation synced with a chat here, and reads one you choose to import.",
 };

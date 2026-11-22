@@ -1,0 +1,9 @@
+{% autoescape off %}{{ organiser }} invited you to a meeting in {{ lab_name }}.
+
+{{ title }}
+Starts: {{ starts_at }}
+Ends: {{ ends_at }}
+
+Join: {{ join_url }}
+
+{% endautoescape %}

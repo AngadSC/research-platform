@@ -16,7 +16,7 @@ You do this once per service, not once per lab or per person.
 |---|---|---|
 | Google client ID and secret | Drive, Calendar and Meet (one sign-in, D262) | `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET` |
 | Google Picker key and project number | The "From Drive" file picker | `GOOGLE_DRIVE_API_KEY`, `GOOGLE_DRIVE_APP_ID` |
-| Zoom client ID and secret | Making Zoom meetings | `INTEGRATION_ZOOM_CLIENT_ID`, `INTEGRATION_ZOOM_CLIENT_SECRET` |
+| Zoom client ID, secret and webhook secret token | Making Zoom meetings, and hearing when someone removes the app in Zoom | `INTEGRATION_ZOOM_CLIENT_ID`, `INTEGRATION_ZOOM_CLIENT_SECRET`, `INTEGRATION_ZOOM_WEBHOOK_SECRET` |
 
 The **redirect address** you register with both is your site's address plus
 `/api/integrations/oauth/callback/`:
@@ -170,15 +170,33 @@ they are in. A project lead does the same from the top of the project's chat.
 
    Zoom grants whatever the app was set up with. If the app has extra scopes, connecting fails
    on purpose ("The service granted more access than we asked for"), so keep it to these four.
-5. Fill in the basic information Zoom asks for (app name, description, support contact, privacy
+5. **Features**, then **Access**, then **Event subscription**: turn it on and click **Add new
+   event subscription**.
+   - **Event notification endpoint URL**: `https://labbenchos.com/api/integrations/zoom/events/`
+     (Zoom checks it when you save, so the server must already have the setting in step 6).
+   - **Events**: under **Zoom Marketplace**, tick **App Deauthorized**. This tells labbenchos
+     when someone removes the app in Zoom, so it can delete their tokens.
+   - Copy the **Secret Token** shown on the Features page into
+     `INTEGRATION_ZOOM_WEBHOOK_SECRET`.
+6. Put `INTEGRATION_ZOOM_CLIENT_ID`, `INTEGRATION_ZOOM_CLIENT_SECRET` and
+   `INTEGRATION_ZOOM_WEBHOOK_SECRET` in the live server's `deploy/.env.prod` (see section 3; only
+   the owner edits that file), then redeploy. Do this before you validate the endpoint in step 5.
+7. Fill in the basic information Zoom asks for (app name, description, support contact, privacy
    policy and terms addresses).
 
 ### Letting anyone connect (Zoom)
 
-Until Zoom approves the app, only people in **your own Zoom account** can authorize it. To let
-anyone connect, **submit the app for publishing** in the Marketplace. Zoom reviews it, and may
-ask for a short demo and for you to explain each scope. Zoom's requirements change, so check
-what its Marketplace asks for when you submit.
+Until the app is **published** on the Zoom Marketplace, only people in **your own Zoom account**
+(the one that owns the app) can authorize it. To let anyone connect, submit the app for
+publishing. Zoom will want:
+
+- Privacy policy address: `https://labbenchos.com/privacy`
+- Terms of use address: `https://labbenchos.com/terms`
+- A support address (email or page) people can reach.
+- Deauthorization handled: the event subscription above does this.
+- A short demo, and an explanation of each of the four scopes.
+
+Zoom's requirements change, so check what its Marketplace asks for when you submit.
 
 ---
 
@@ -194,6 +212,7 @@ GOOGLE_DRIVE_API_KEY=your-picker-key
 GOOGLE_DRIVE_APP_ID=your-project-number
 INTEGRATION_ZOOM_CLIENT_ID=your-zoom-client-id
 INTEGRATION_ZOOM_CLIENT_SECRET=your-zoom-client-secret
+INTEGRATION_ZOOM_WEBHOOK_SECRET=your-zoom-secret-token
 INTEGRATION_GOOGLE_CHAT_CLIENT_ID=your-google-chat-client-id
 INTEGRATION_GOOGLE_CHAT_CLIENT_SECRET=your-google-chat-client-secret
 ```

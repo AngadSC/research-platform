@@ -646,7 +646,7 @@ export default function OverviewTab({ labId, projectId, project }: ProjectTabPro
         </p>
       )}
       <div className="flex flex-wrap gap-2">
-        <Button asChild variant="outline">
+        <Button asChild variant="outline" size="sm">
           <StatsLink to={`/labs/${labId}/projects/${projectId}/analyse`}>
             <BarChart3 aria-hidden /> Run statistics
           </StatsLink>
@@ -654,6 +654,7 @@ export default function OverviewTab({ labId, projectId, project }: ProjectTabPro
         {assistantReady && (
           <Button
             variant="secondary"
+            size="sm"
             onClick={() =>
               openAssistant(
                 `Use project_overview for project_id ${projectId} in lab ${labId}, and list_tasks for this project. In under 150 words, tell me: where the project stands, what is overdue or due in the next two weeks, and the single most useful next step. Do not change anything.`,

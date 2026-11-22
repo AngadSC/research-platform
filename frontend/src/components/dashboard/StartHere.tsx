@@ -30,7 +30,7 @@ export function StartHere({
   const pins = (data ?? []).filter((p) => !labOnly || !p.project);
   if (pins.length === 0)
     return canPin && data ? (
-      <p className="text-sm text-muted-foreground">
+      <p className="rounded-lg border border-dashed border-input px-3 py-2 text-xs text-muted-foreground">
         Nothing is pinned yet. Pin a document for everyone from its ... menu.
       </p>
     ) : null;

@@ -3,6 +3,7 @@
 import csv
 import io
 import uuid
+from datetime import UTC
 
 from django.db import DataError, IntegrityError, transaction
 from django.db.models import F, ProtectedError
@@ -11,6 +12,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from audit.models import AuditAction as A
 from audit.services import record
+from core.email import send_email
 from core.institution_starters import NATIONAL_RESOURCES, STARTER_RESOURCES, match_institution
 from core.models import Institution, NotificationKind, User
 from core.notifications import notify
@@ -141,10 +143,10 @@ def load_starter_resources(lab, *, user, request=None) -> dict:
 # ---------------------------------------------------------------- generic CRUD
 
 
-def _create(model, created, *, lab, user, data, request):
+def _create(model, created, *, lab, user, data, request, metadata=None):
     obj = model(lab=lab, **data)
     _save(obj)
-    record(created, actor=user, lab=lab, target=obj, request=request)
+    record(created, actor=user, lab=lab, target=obj, request=request, metadata=metadata or {})
     return obj
 
 
@@ -173,8 +175,9 @@ def _update(obj, updated, *, user, data, request, extra=None):
     return obj
 
 
-def _delete(obj, deleted, *, user, request):
-    record(deleted, actor=user, lab=obj.lab, target=obj, request=request)  # before: repr survives
+def _delete(obj, deleted, *, user, request, metadata=None):
+    # before the delete: the repr survives
+    record(deleted, actor=user, lab=obj.lab, target=obj, request=request, metadata=metadata or {})
     obj.delete()
 
 
@@ -646,6 +649,34 @@ def _guests(emails, members: set[str]) -> list[str]:
     return out
 
 
+CALL_GUESTS = (VideoProvider.GOOGLE_MEET, VideoProvider.ZOOM)
+GUESTS_NEED_CALL = "Inviting people by email needs a Google Meet or Zoom call."
+
+
+def _mail_zoom_guests(meeting, template, to, organiser) -> int:
+    """Zoom sends no invitations, so we do (Meet's guests get Google's). Never notes. Returns how
+    many were mailed (the audit row keeps that count, never the addresses)."""
+    if meeting.video_provider != VideoProvider.ZOOM or not to:
+        return 0
+    when = "%a %d %b %Y, %H:%M UTC"
+    starts, ends = meeting.starts_at.astimezone(UTC), meeting.ends_at.astimezone(UTC)
+    send_email(
+        template,
+        sorted(to),
+        {
+            "title": meeting.title,
+            "starts_at": starts.strftime(when),
+            "ends_at": ends.strftime(when),
+            "starts_iso": starts.isoformat(),
+            "ends_iso": ends.isoformat(),
+            "join_url": meeting.join_url,
+            "organiser": organiser.display_name or organiser.email,
+            "lab_name": meeting.lab.name,
+        },
+    )
+    return len(to)
+
+
 @transaction.atomic
 def create_meeting(*, lab, user, data, request=None):
     from labs import video_calendar
@@ -655,8 +686,8 @@ def create_meeting(*, lab, user, data, request=None):
     _check_meeting_times(fields["starts_at"], fields["ends_at"])
     attendees = {*data.get("attendees", []), user.pk}
     guests = _guests(data.get("guests"), _attendee_emails(lab, attendees))
-    if guests and video != VideoProvider.GOOGLE_MEET:
-        raise ValidationError({"guests": "Inviting people by email needs a Google Meet call."})
+    if guests and video not in CALL_GUESTS:
+        raise ValidationError({"guests": GUESTS_NEED_CALL})
     fields["guest_emails"] = guests
     if video:
         # D254: the call is made first, on the organiser's own account. If anything after it
@@ -680,12 +711,16 @@ def create_meeting(*, lab, user, data, request=None):
             user=user,
             data={**fields, "created_by": user},
             request=request,
+            metadata={"guests_invited": len(guests)}
+            if video == VideoProvider.ZOOM and guests
+            else {},
         )
         _set_attendees(meeting, data.get("attendees", []), by=user)
     except Exception:
         if video:
             video_calendar.delete_call(draft, quiet=True)
         raise
+    _mail_zoom_guests(meeting, "meeting_guest_invite", guests, user)
     return meeting
 
 
@@ -708,9 +743,11 @@ def update_meeting(obj, *, user, data, request=None):
     _check_can_change_meeting(obj, user)
     video_calendar.check_can_change(obj, user)
     data = {k: v for k, v in data.items() if k != "video"}  # a call is chosen when made
+    guests_before = list(obj.guest_emails)
+    when_before = (obj.title, obj.starts_at, obj.ends_at)
     if "guests" in data:
-        if data["guests"] and obj.video_provider != VideoProvider.GOOGLE_MEET:
-            raise ValidationError({"guests": "Inviting people by email needs a Google Meet call."})
+        if data["guests"] and obj.video_provider not in CALL_GUESTS:
+            raise ValidationError({"guests": GUESTS_NEED_CALL})
         ids = data.get("attendees") or list(obj.attendees.values_list("pk", flat=True))
         data["guest_emails"] = _guests(data.pop("guests"), _attendee_emails(obj.lab, ids))
     if obj.video_provider and "join_url" in data:
@@ -732,13 +769,24 @@ def update_meeting(obj, *, user, data, request=None):
         ids = obj.attendees.values_list("pk", flat=True)
         emails = _attendee_emails(obj.lab, ids) | set(obj.guest_emails)
         video_calendar.update_call(obj, emails)  # raises: rolled back
+    now, before = set(obj.guest_emails), set(guests_before)
+    # a guest who is now a lab member is on the meeting, not removed from it: no cancellation
+    gone = before - now - _attendee_emails(obj.lab, obj.attendees.values_list("pk", flat=True))
+    counts = {
+        "guests_invited": _mail_zoom_guests(obj, "meeting_guest_invite", now - before, user),
+        "guests_cancelled": _mail_zoom_guests(obj, "meeting_guest_cancel", gone, user),
+    }
+    if when_before != (obj.title, obj.starts_at, obj.ends_at):
+        counts["guests_updated"] = _mail_zoom_guests(
+            obj, "meeting_guest_update", now & before, user
+        )
     record(
         A.MEETING_UPDATED,
         actor=user,
         lab=obj.lab,
         target=obj,
         request=request,
-        metadata={"changed": sorted(data)},
+        metadata={"changed": sorted(data), **{k: v for k, v in counts.items() if v}},
     )
     return obj
 
@@ -750,7 +798,14 @@ def delete_meeting(obj, *, user, request=None):
     _check_can_change_meeting(obj, user)
     video_calendar.check_can_change(obj, user)
     video_calendar.delete_call(obj)  # Google or Zoom first: a refusal keeps the meeting here
-    _delete(obj, A.MEETING_DELETED, user=user, request=request)
+    cancelled = _mail_zoom_guests(obj, "meeting_guest_cancel", obj.guest_emails, user)
+    _delete(
+        obj,
+        A.MEETING_DELETED,
+        user=user,
+        request=request,
+        metadata={"guests_cancelled": cancelled} if cancelled else {},
+    )
 
 
 @transaction.atomic
