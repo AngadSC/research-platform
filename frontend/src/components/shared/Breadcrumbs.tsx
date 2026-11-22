@@ -47,7 +47,6 @@ export function Breadcrumbs({
               {last || !item.to ? (
                 <span
                   aria-current={last ? "page" : undefined}
-                  title={item.label}
                   className={`block max-w-[12rem] truncate md:max-w-none ${last ? "text-foreground" : ""}`}
                 >
                   {item.label}
@@ -55,7 +54,6 @@ export function Breadcrumbs({
               ) : (
                 <Link
                   to={item.to}
-                  title={item.label}
                   className="block max-w-[12rem] truncate rounded-sm md:max-w-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   {item.label}
