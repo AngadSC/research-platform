@@ -184,7 +184,7 @@ export function IntegrationsPage() {
                         calendar,
                         description: `${extra}${
                           p.name === "zoom"
-                            ? "Meetings you already made keep their call link and stay in the lab. You can not make new Zoom calls until you connect again."
+                            ? "Meetings you already made keep their call link and stay in the lab. You can't make new Zoom calls until you connect again."
                             : "Linked items stay in your projects, but we stop checking them until you connect again."
                         }`,
                       });
