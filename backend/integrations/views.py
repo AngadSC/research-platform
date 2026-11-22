@@ -648,7 +648,9 @@ class ZoomEventsView(APIView):
         try:
             data = json.loads(body)
             event, payload = data["event"], data.get("payload") or {}
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, KeyError, TypeError, AttributeError):
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        if not isinstance(payload, dict):
             return Response(status=status.HTTP_400_BAD_REQUEST)
         if event == "endpoint.url_validation" and isinstance(payload.get("plainToken"), str):
             token = payload["plainToken"]

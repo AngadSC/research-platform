@@ -347,8 +347,9 @@ export function PrivacyPage() {
         <li>
           <strong>Guests:</strong> Zoom sends no invitations for these meetings. If you type guest
           email addresses into a Zoom meeting, labbenchos emails each guest the meeting title, times
-          and join link, and emails them again if the time changes or the meeting is cancelled. We
-          store those addresses with the meeting (only you and the people on it see them).
+          and join link, and emails them again if the title or time changes or the meeting is
+          cancelled. We store those addresses with the meeting (only you and the people on it see
+          them).
         </li>
         <li>
           <strong>If you disconnect:</strong> we revoke our access at Zoom and delete your tokens

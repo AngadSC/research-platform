@@ -153,3 +153,48 @@ def test_zoom_says_why_it_refused(transport, lab_users):
     )
     assert r.status_code == 400
     assert r.json()["video"] == ["Zoom refused the change: Invalid start time."]
+
+
+def test_a_guest_who_becomes_a_member_is_not_sent_a_cancellation(transport, lab_users, mails):
+    lab, users = lab_users
+    made = zoom_meeting(transport, users, lab)
+    member = users["member"]
+    Meeting.objects.for_lab(lab).filter(pk=made["id"]).update(
+        guest_emails=[member.email.lower(), "b@guest.example"]
+    )
+    mails.clear()
+    transport.on("PATCH", ZOOM_ONE, response(204))
+    url = f"/api/labs/{lab.pk}/calendar/meetings/{made['id']}/"
+    r = api(users["pi"]).patch(
+        url, {"guests": ["b@guest.example"], "attendees": [str(member.pk)]}, "json"
+    )
+    assert r.status_code == 200, r.content
+    assert mails == []  # the member is on the meeting, not removed from it
+
+
+def test_guest_counts_reach_the_audit_log_and_the_acting_user_is_named(transport, lab_users, mails):
+    from audit.models import AuditAction, AuditEvent
+
+    lab, users = lab_users
+    made = zoom_meeting(transport, users, lab)
+    assert mails[0][2]["organiser"]
+    event = AuditEvent.objects.get(action=AuditAction.MEETING_CREATED)
+    assert event.metadata["guests_invited"] == 2
+    assert "guest.example" not in json.dumps(event.metadata)
+    transport.on("DELETE", ZOOM_ONE, response(204))
+    mails.clear()
+    r = api(users["pi"]).delete(f"/api/labs/{lab.pk}/calendar/meetings/{made['id']}/")
+    assert r.status_code == 204
+    event = AuditEvent.objects.get(action=AuditAction.MEETING_DELETED)
+    assert event.metadata["guests_cancelled"] == 2
+
+
+def test_guest_mail_is_throttled_but_plain_meetings_are_not(transport, lab_users, mails):
+    from labs.lab_calendar import GuestMailThrottle, MeetingCreateView, MeetingDetailView
+
+    assert GuestMailThrottle in MeetingCreateView.throttle_classes
+    assert GuestMailThrottle in MeetingDetailView.throttle_classes
+    assert MeetingCreateView.throttle_scope == MeetingDetailView.throttle_scope == "invites"
+    throttle = GuestMailThrottle()
+    no_guests = type("R", (), {"data": {"title": "x"}})()
+    assert throttle.allow_request(no_guests, MeetingCreateView()) is True

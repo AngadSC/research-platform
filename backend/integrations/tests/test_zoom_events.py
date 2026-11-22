@@ -106,6 +106,23 @@ def test_deauthorized_retires_only_the_right_rows(transport, lab_users):
     assert event.actor is None and event.lab_id == lab.pk
 
 
+def test_deauthorized_also_retires_expired_and_error_rows(transport, lab_users):
+    lab, users = lab_users
+    a = connect_zoom(transport, users["pi"], lab)
+    b = connect_zoom(transport, users["lab_admin"], lab)
+    ConnectedAccount.objects.for_lab(lab).filter(pk=b.pk).update(external_account_id="zu1")
+    ConnectedAccount.objects.for_lab(lab).filter(pk=a.pk).update(status=AccountStatus.EXPIRED)
+    ConnectedAccount.objects.for_lab(lab).filter(pk=b.pk).update(status=AccountStatus.ERROR)
+    assert deauth("zu1").status_code == 200
+    for row in (a, b):
+        row.refresh_from_db()
+        assert row.status == AccountStatus.REVOKED
+
+
+def test_a_payload_that_is_not_an_object_is_a_400():
+    assert post("app_deauthorized", ["x"]).status_code == 400
+
+
 def test_other_events_are_acknowledged(transport, lab_users):
     assert post("meeting.started", {"x": 1}).status_code == 200
 

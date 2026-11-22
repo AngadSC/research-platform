@@ -13,7 +13,10 @@ account is cleared, as are their cached directory entries. Google connections at
 by another labbenchos user are never touched: they are listed as "skipped (connected by another
 user)", by id, for the operator to follow up. `--chat-name` (with `--lab`) also deletes the Google
 Chat messages stored under exactly that sender name (not blank, not the placeholder), whether or
-not the person has an account. Lab records stay: linked items' titles and links, meetings and their
+not the person has an account. Zoom connections are also matched by the Zoom address (Zoom names
+the person by it, and it may differ from their account's): the matched Zoom rows are printed with
+their owning user, so the operator sees when one was made by another labbenchos user. Lab records
+stay: linked items' titles and links, meetings and their
 links, and the text of chat messages written by lab members. One `integration.data_deleted` audit
 event per lab changed. `--dry-run` reports the counts and changes nothing.
 """
@@ -114,6 +117,9 @@ class Command(BaseCommand):
         if skipped:
             ids = ", ".join(str(i) for i in skipped)
             self.stdout.write(f"{lab.name}: skipped (connected by another user): {ids}")
+        for r in rows:
+            if r.provider == "zoom":
+                self.stdout.write(f"{lab.name}: Zoom row {r.pk} (owner user {r.user_id})")
         calendars = GoogleCalendarSync.objects.for_lab(lab).filter(account__in=rows).count()
         bridges = GoogleChatBridge.objects.for_lab(lab).filter(account__in=rows)
         counts = {"accounts": len(rows), "calendar_settings": calendars}
