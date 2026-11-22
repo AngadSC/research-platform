@@ -16,14 +16,7 @@ export function Section({
 }) {
   // Folded to its title and one line about it; the rest opens on demand.
   return (
-    <Disclosure
-      card
-      region
-      firstOpen
-      defaultOpen={defaultOpen}
-      title={title}
-      hint={description && <span className="line-clamp-1">{description}</span>}
-    >
+    <Disclosure card region firstOpen defaultOpen={defaultOpen} title={title} hint={description}>
       <div className="grid gap-4">{children}</div>
     </Disclosure>
   );
@@ -34,7 +27,7 @@ export function NativeSelect({ className, ...props }: ComponentProps<"select">) 
   return (
     <select
       className={cn(
-        "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+        "glass-field flex h-9 w-full rounded-md px-3 py-1 text-sm max-md:h-10 focus-visible:outline-none disabled:opacity-50 aria-[invalid=true]:border-destructive",
         className,
       )}
       {...props}

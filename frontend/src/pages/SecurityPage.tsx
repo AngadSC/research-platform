@@ -235,7 +235,13 @@ function ConnectedAccountsSection({ reauth }: { reauth: Reauth }) {
         <div className="text-sm">
           <p className="font-medium">Google</p>
           <p className="text-muted-foreground">
-            {accounts.isLoading ? "Loading..." : connected ? connected.display : "Not connected"}
+            {accounts.isLoading ? (
+              <Skeleton aria-label="Loading" className="mt-1 h-4 w-40" />
+            ) : connected ? (
+              connected.display
+            ) : (
+              "Not connected"
+            )}
           </p>
         </div>
         {connected ? (

@@ -14,6 +14,8 @@ interface EmptyStateProps {
   secondary?: ReactNode;
   /** A quiet line at the bottom, such as a link to the getting started checklist. */
   footer?: ReactNode;
+  /** Tighter, for an empty list inside a card. */
+  compact?: boolean;
   className?: string;
 }
 
@@ -25,12 +27,14 @@ export function EmptyState({
   action,
   secondary,
   footer,
+  compact,
   className,
 }: EmptyStateProps) {
   return (
     <div
       className={cn(
-        "mx-auto flex w-full max-w-2xl flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/30 px-6 py-12 text-center",
+        "flex w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/30 px-6 text-center",
+        compact ? "py-8" : "py-12",
         className,
       )}
     >

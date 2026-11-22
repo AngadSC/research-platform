@@ -22,7 +22,7 @@ import { inventoryExportUrl, useInventory, useOrders } from "@/hooks/admin";
 import { useIsPhone } from "@/hooks/media";
 import { ImportInventory } from "./ImportInventory";
 import { UseStockDialog } from "./UseStockDialog";
-import { Minus, TriangleAlert } from "lucide-react";
+import { Minus, Search, TriangleAlert } from "lucide-react";
 import { trimNumber } from "@/lib/units";
 import { useMembers } from "@/hooks/workspace";
 import type { InventoryInput, InventoryItem, InventoryOrder } from "@/lib/api-types";
@@ -439,13 +439,28 @@ export function InventorySection({
         canEdit ? "Equipment, reagents and licences the lab owns." : "Read only for your role."
       }
     >
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="w-56">
+      <div className="grid gap-3 sm:flex sm:flex-wrap sm:items-end">
+        <div className="sm:w-56">
           <FormField label="Search">
-            {(p) => <Input {...p} type="search" value={q} onChange={(e) => setQ(e.target.value)} />}
+            {(p) => (
+              <div className="relative">
+                <Search
+                  aria-hidden
+                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                />
+                <Input
+                  {...p}
+                  type="search"
+                  placeholder="Search items"
+                  className="pl-9"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                />
+              </div>
+            )}
           </FormField>
         </div>
-        <div className="w-44">
+        <div className="sm:w-44">
           <FormField label="Filter by category">
             {(p) => (
               <NativeSelect {...p} value={category} onChange={(e) => setCategory(e.target.value)}>
@@ -459,7 +474,7 @@ export function InventorySection({
             )}
           </FormField>
         </div>
-        <div className="w-44">
+        <div className="sm:w-44">
           <FormField label="Sort by">
             {(p) => (
               <NativeSelect {...p} value={ordering} onChange={(e) => setOrdering(e.target.value)}>
@@ -477,17 +492,19 @@ export function InventorySection({
             type="checkbox"
             checked={lowOnly}
             onChange={(e) => setLowOnly(e.target.checked)}
-            className="size-4"
+            className="size-4 accent-primary"
           />
           Low stock only
         </label>
-        <Button variant="ghost" asChild>
-          <a href={inventoryExportUrl(labId, query)} download="inventory.csv">
-            Export CSV
-          </a>
-        </Button>
-        {canEdit && <ImportInventory labId={labId} />}
-        {canEdit && <Button onClick={() => setAdding(true)}>Add item</Button>}
+        <div className="flex flex-wrap gap-2 sm:ml-auto">
+          <Button variant="outline" asChild>
+            <a href={inventoryExportUrl(labId, query)} download="inventory.csv">
+              Export CSV
+            </a>
+          </Button>
+          {canEdit && <ImportInventory labId={labId} />}
+          {canEdit && !onReorder && <Button onClick={() => setAdding(true)}>Add item</Button>}
+        </div>
       </div>
       {phone && rows.length > 0 && (
         <Button
@@ -574,6 +591,7 @@ export function InventorySection({
           loading={list.isLoading}
           empty={
             <EmptyState
+              compact
               title={lowOnly ? "Nothing is low" : "No inventory items"}
               description={
                 lowOnly
@@ -581,6 +599,11 @@ export function InventorySection({
                   : canEdit
                     ? "Items you add will appear here."
                     : "Only people who manage inventory can add items. Ask a PI or lab admin."
+              }
+              action={
+                canEdit && !lowOnly ? (
+                  <Button onClick={() => setAdding(true)}>Add item</Button>
+                ) : undefined
               }
             />
           }

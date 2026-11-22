@@ -74,9 +74,13 @@ function CopyCitation({ labId, paperId }: { labId: string; paperId: string }) {
           <Copy aria-hidden /> Copy citation
         </Button>
       </div>
-      <pre className="overflow-x-auto rounded-md bg-muted p-3 text-sm whitespace-pre-wrap">
-        {text || "Loading..."}
-      </pre>
+      {text ? (
+        <pre className="overflow-x-auto rounded-md bg-muted p-3 text-sm whitespace-pre-wrap">
+          {text}
+        </pre>
+      ) : (
+        <Skeleton aria-label="Loading" className="h-16 w-full" />
+      )}
     </Section>
   );
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useLab } from "@/hooks/workspace";
 import type { InventoryItem } from "@/lib/api-types";
@@ -12,10 +13,19 @@ export function InventoryPage() {
   const { labId = "" } = useParams();
   const { data: lab } = useLab(labId);
   const [reorder, setReorder] = useState<InventoryItem | null>(null);
+  const [, setParams] = useSearchParams();
   const canEdit = !!lab?.my_permissions.includes("manage_inventory");
   return (
     <>
-      <PageHeader title="Inventory" description={lab ? `What ${lab.name} owns.` : undefined} />
+      <PageHeader
+        title="Inventory"
+        description={lab ? `What ${lab.name} owns.` : undefined}
+        actions={
+          canEdit && lab?.inventory_enabled ? (
+            <Button onClick={() => setParams({ add: "1" })}>Add item</Button>
+          ) : undefined
+        }
+      />
       {lab && !lab.inventory_enabled && (
         <EmptyState
           title="Inventory is turned off"
