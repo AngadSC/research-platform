@@ -249,6 +249,18 @@ paths:
       responses:
         '302':
           description: No response body
+  /api/integrations/zoom/events/:
+    post:
+      operationId: integrations_zoom_events_create
+      description: |-
+        Zoom's event webhook (Marketplace requirement): URL validation and "App Deauthorized".
+        Public and unauthenticated, so every request must carry Zoom's signature of the raw body made
+        with the secret token (`INTEGRATION_ZOOM_WEBHOOK_SECRET`); without one set the URL is 404.
+      tags:
+      - integrations
+      responses:
+        '200':
+          description: No response body
   /api/invites/accept/:
     post:
       operationId: invites_accept_create

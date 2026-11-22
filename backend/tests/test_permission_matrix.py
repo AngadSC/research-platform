@@ -103,6 +103,9 @@ EXEMPT_PREFIXES = [
     "/.well-known/",  # public OAuth metadata (RFC 9728, RFC 8414)
     "/api/oauth/token/",
     "/api/oauth/register/",
+    # Zoom event webhook: public, signed with a shared secret (404 when unset), so it has no
+    # persona rows. Covered by integrations/tests/test_zoom_events.py.
+    "/api/integrations/zoom/events/",
 ]
 
 # fmt: off

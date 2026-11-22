@@ -94,7 +94,12 @@ class Command(BaseCommand):
         live_rows = ConnectedAccount.objects.for_lab(lab).exclude(
             external_account_id__startswith="deleted:"
         )
-        rows = list(live_rows.select_for_update().filter(user__in=users))
+        # Zoom names the person by the Zoom address they connected, which may not be their account's
+        rows = list(
+            live_rows.select_for_update().filter(
+                Q(user__in=users) | Q(provider="zoom", external_email__iexact=email)
+            )
+        )
         # Google connections at this address made by someone else are theirs: listed, not touched.
         skipped = list(
             live_rows.filter(provider__startswith="google_")
