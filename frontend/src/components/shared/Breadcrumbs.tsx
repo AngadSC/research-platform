@@ -22,8 +22,9 @@ export function Breadcrumbs({
   label?: string;
 }) {
   // "Home > Labs > Lab > Home": the page called the same as the root is the root, show it once.
+  const first = all[0];
   const items =
-    all.length > 1 && !all[0].pending && all[all.length - 1].label === all[0].label
+    first && !first.pending && all.length > 1 && all[all.length - 1]?.label === first.label
       ? all.slice(0, -1)
       : all;
   if (items.length === 0) return null;
