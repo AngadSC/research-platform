@@ -248,13 +248,13 @@ export function MembersPage() {
     {
       key: "joined",
       header: "Joined",
-      className: HIDE_NARROW,
+      className: `${HIDE_NARROW} whitespace-nowrap`,
       cell: (m) => <RelativeTime value={m.created_at} />,
     },
     {
       key: "actions",
       header: "Actions",
-      className: "text-right",
+      className: "text-right whitespace-nowrap",
       cell: (m: Membership) => {
         const mine = m.user.id === me?.id;
         const handover = (mine || canManage) && (
@@ -317,11 +317,16 @@ export function MembersPage() {
         </span>
       ),
     },
-    { key: "expires", header: "Expires", cell: (i) => <RelativeTime value={i.expires_at} /> },
+    {
+      key: "expires",
+      header: "Expires",
+      className: "whitespace-nowrap",
+      cell: (i) => <RelativeTime value={i.expires_at} />,
+    },
     {
       key: "actions",
       header: "Actions",
-      className: "text-right",
+      className: "text-right whitespace-nowrap",
       cell: (i) => (
         <div className="flex justify-end gap-1">
           <Button
@@ -356,9 +361,8 @@ export function MembersPage() {
     <>
       <PageHeader title="Members" description={lab ? `People in ${lab.name}.` : undefined} />
       {canManage && <InviteForm labId={labId} noPending={invites.data?.length === 0} />}
-      <details className="mb-6 rounded-md border px-3 py-2 text-sm">
-        <summary className="cursor-pointer font-medium">What each role can do</summary>
-        <dl className="mt-2 grid gap-1.5">
+      <Disclosure card title="What each role can do" className="mb-6 text-sm">
+        <dl className="grid gap-1.5">
           {ROLES.map((r) => (
             <div key={r.value}>
               <dt className="inline font-medium">{r.label}: </dt>
@@ -366,7 +370,7 @@ export function MembersPage() {
             </div>
           ))}
         </dl>
-      </details>
+      </Disclosure>
       <Disclosure card region title="People" defaultOpen>
         <div className="grid gap-3">
           <DataTable

@@ -125,7 +125,11 @@ function Card({
       open={defaultOpen || undefined}
       role="region"
       aria-labelledby={`${id}-title`}
-      className="group/card rounded-lg border bg-card/60 px-4 py-3 open:bg-card"
+      className={cn(
+        "group/card rounded-lg border bg-card/60 px-4 py-3 open:bg-card",
+        // An open-by-default card is the tall one: its own row, so no gap beside it in the grid.
+        defaultOpen && "md:col-span-2",
+      )}
     >
       <summary
         id={`${id}-title`}
