@@ -344,7 +344,16 @@ export function OrdersSection({
           rows={orders}
           getRowKey={(o) => o.id}
           loading={list.isLoading}
-          empty={<EmptyState title="No orders" description="Orders you add will appear here." />}
+          empty={
+            <EmptyState
+              compact
+              title="No orders"
+              description="Orders you add will appear here."
+              action={
+                canEdit ? <Button onClick={() => setAdding(true)}>New order</Button> : undefined
+              }
+            />
+          }
         />
       )}
       <OrderDialog

@@ -126,8 +126,8 @@ describe("list", () => {
       "GET /api/labs/lab1/ethics-approvals/": { body: [approval()] },
     });
     renderRoute("/labs/lab1/ethics");
-    expect(await screen.findByText("Expires in 25 days")).toHaveClass("bg-warning");
-    expect(screen.getByText("active")).not.toHaveClass("bg-warning");
+    expect(await screen.findByText("Expires in 25 days")).toHaveClass("bg-warning/25");
+    expect(screen.getByText("active")).not.toHaveClass("bg-warning/25");
   });
 
   it("shows Renewal pending instead of the warning when a renewal is on file", async () => {

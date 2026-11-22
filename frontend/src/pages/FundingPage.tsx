@@ -185,6 +185,7 @@ export function FundingPage() {
             type="checkbox"
             checked={soonOnly}
             onChange={(e) => setSoonOnly(e.target.checked)}
+            className="size-4 accent-primary"
           />
           Ends within 90 days
         </label>

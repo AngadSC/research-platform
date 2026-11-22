@@ -58,7 +58,7 @@ export function Disclosure({
           className="size-4 shrink-0 text-muted-foreground transition-transform group-open/disc:rotate-90"
         />
         <Heading className="text-base font-medium">{title}</Heading>
-        {hint && <span className="text-sm text-muted-foreground">{hint}</span>}
+        {hint && <span className="min-w-0 text-sm text-muted-foreground">{hint}</span>}
       </summary>
       <div className="mt-3">{children}</div>
     </details>

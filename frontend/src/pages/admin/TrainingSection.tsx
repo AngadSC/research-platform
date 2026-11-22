@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useProjects } from "@/hooks/projects";
 import { useCompliance, useTrainingMutations, useTrainingRequirements } from "@/hooks/training";
 import type { TrainingRequirementInput } from "@/lib/api-types";
@@ -126,10 +127,10 @@ export function TrainingSection({ labId }: { labId: string }) {
             )
           }
         />
+      ) : compliance.isError ? (
+        <p className="text-sm text-muted-foreground">Could not load the training overview.</p>
       ) : (
-        <p className="text-sm text-muted-foreground">
-          {compliance.isError ? "Could not load the training overview." : "Loading..."}
-        </p>
+        <Skeleton aria-label="Loading" className="h-24 w-full" />
       )}
 
       <div className="grid gap-2">

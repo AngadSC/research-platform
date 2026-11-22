@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useEntryHints, useNotebook, type ExportFormat } from "@/hooks/notebook";
 import { useProtocols } from "@/hooks/admin";
@@ -139,7 +140,7 @@ function EntryHints({
 }) {
   const { hints, take } = useEntryHints(labId, projectId, entry.id, true);
   const data = hints.data;
-  if (hints.isLoading) return <p className="text-sm text-muted-foreground">Reading the entry</p>;
+  if (hints.isLoading) return <Skeleton aria-label="Reading the entry" className="h-12 w-full" />;
   if (!data || (data.uses.length === 0 && data.protocol_changes.length === 0))
     return (
       <p className="text-sm text-muted-foreground">
