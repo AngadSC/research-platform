@@ -218,8 +218,10 @@ export function MeetingDialog({
     const user = members.find((m) => m.user.id === id)?.user;
     return user ? personName(user) : null;
   };
-  // guests are invited through a Google Meet call: a new one being made, or one already made
+  // guests are invited through a Meet call (Google emails them) or a Zoom call (labbenchos emails them),
+  // new or already made
   const meetCall = video === "google_meet" || call === "google_meet";
+  const zoomCall = video === "zoom" || call === "zoom";
   const [start, end] = nextHour();
   const { create, update, remove } = actions;
 
@@ -232,7 +234,7 @@ export function MeetingDialog({
     if (!v("ends_at")) return setErrors({ fields: { ends_at: "Pick when it ends" } });
     const guests = addressesIn(v("guests"));
     const bad = guests.filter((g) => !EMAIL.test(g));
-    if (meetCall && bad.length)
+    if ((meetCall || zoomCall) && bad.length)
       return setErrors({
         fields: {
           guests: `This does not look like an email address: ${bad.slice(0, 3).join(", ")}`,
@@ -246,7 +248,7 @@ export function MeetingDialog({
       notes: v("notes"),
       attendees: people,
       ...(!meeting && (video === "google_meet" || video === "zoom") ? { video } : {}),
-      ...(meetCall ? { guests } : {}),
+      ...(meetCall || zoomCall ? { guests } : {}),
     };
     try {
       if (meeting) await update.mutateAsync({ id: meeting.id, ...body });
@@ -418,10 +420,16 @@ export function MeetingDialog({
                 </div>
                 <FormError message={f.attendees} />
               </fieldset>
-              {meetCall && (
+              {(meetCall || zoomCall) && (
                 <FormField
-                  label="Invite anyone with a Google account"
-                  hint="Type their email addresses, separated by commas. Google emails each one the invitation with the Meet link. Only you and the people above see this list."
+                  label={
+                    meetCall ? "Invite anyone with a Google account" : "Invite guests by email"
+                  }
+                  hint={
+                    meetCall
+                      ? "Type their email addresses, separated by commas. Google emails each one the invitation with the Meet link. Only you and the people above see this list."
+                      : "Type their email addresses, separated by commas. Guests get an email from labbenchos with the join link. Only you and the people above see this list."
+                  }
                   error={f.guests}
                 >
                   {(p) => (

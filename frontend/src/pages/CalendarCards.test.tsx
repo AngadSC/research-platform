@@ -96,7 +96,7 @@ describe("calendar hover cards", () => {
     expect((await screen.findAllByText("Lee Lead")).length).toBeGreaterThan(0);
     expect(screen.getAllByText("friend@gmail.com").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/invited by email/).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("link", { name: /Join the call/ })[0]).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: /Join Google Meet/ })[0]).toHaveAttribute(
       "href",
       "https://meet.google.com/abc-defg-hij",
     );
@@ -155,6 +155,35 @@ describe("inviting people by email", () => {
     const body = calls.find((c) => c.method === "POST")!.body as Record<string, unknown>;
     expect(body.video).toBe("google_meet");
     expect(body.guests).toEqual(["Friend@Gmail.com", "colleague@uni.edu"]);
+  });
+
+  it("asks for a Zoom call's guests and says labbenchos emails them", async () => {
+    const calls = mockFetch(
+      world(["view_lab", "contribute_lab"], {
+        [`GET ${L}/calendar/video-options/`]: {
+          body: {
+            google_meet: true,
+            zoom: true,
+            google_meet_available: true,
+            zoom_available: true,
+          },
+        },
+        [`POST ${L}/calendar/meetings/`]: { status: 201, body: { ...meeting, id: "m3" } },
+      }),
+    );
+    renderRoute("/labs/lab1/calendar");
+    await userEvent.click(await screen.findByRole("button", { name: "Add meeting" }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.type(within(dialog).getByLabelText("Title"), "Sync");
+    await userEvent.click(within(dialog).getByLabelText("Make a Zoom call"));
+    const box = await within(dialog).findByLabelText("Invite guests by email");
+    expect(within(dialog).getByText(/Guests get an email from labbenchos/)).toBeVisible();
+    await userEvent.type(box, "friend@example.test");
+    await userEvent.click(within(dialog).getByRole("button", { name: /Save/ }));
+    await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+    const body = calls.find((c) => c.method === "POST")!.body as Record<string, unknown>;
+    expect(body.video).toBe("zoom");
+    expect(body.guests).toEqual(["friend@example.test"]);
   });
 
   it("shows your own answer buttons inside a meeting you are on", async () => {

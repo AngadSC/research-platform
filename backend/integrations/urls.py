@@ -18,6 +18,7 @@ urlpatterns = [
         views.PickerTokenView.as_view(),
         name="picker-token",
     ),
+    path("integrations/zoom/events/", views.ZoomEventsView.as_view(), name="zoom-events"),
     path("integrations/oauth/callback/", views.OAuthCallbackView.as_view(), name="oauth-callback"),
     path(
         L + "projects/<uuid:project_id>/external-links/",

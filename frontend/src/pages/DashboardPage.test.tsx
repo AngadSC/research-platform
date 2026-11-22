@@ -359,6 +359,7 @@ describe("Dashboard", () => {
             starts_at: starts,
             ends_at: null,
             join_url: "https://meet.example.test/abc",
+            video_provider: "zoom",
             notes: "",
           },
         ],
@@ -370,7 +371,7 @@ describe("Dashboard", () => {
       "href",
       "/labs/lab1/calendar",
     );
-    expect(within(section).getByRole("link", { name: /Join call/ })).toHaveAttribute(
+    expect(within(section).getByRole("link", { name: /Join Zoom/ })).toHaveAttribute(
       "href",
       "https://meet.example.test/abc",
     );
