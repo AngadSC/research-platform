@@ -1,4 +1,10 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { AuditPage, Invite, InvitePreview, Lab, Me, Membership, Role } from "@/lib/api-types";
 
@@ -59,6 +65,19 @@ export function useCreateLab() {
   });
 }
 
+/** What shows people: the member list, home and team numbers, and (when someone leaves) the
+ * projects' own members and tasks. Not the whole lab. */
+function refreshPeople(qc: QueryClient, labId: string, left: boolean) {
+  const l = ["labs", labId];
+  for (const k of ["members", "dashboard", "team-tasks", ...(left ? ["my-tasks"] : [])])
+    void qc.invalidateQueries({ queryKey: [...l, k] });
+  if (left)
+    void qc.invalidateQueries({
+      queryKey: l,
+      predicate: (q) =>
+        q.queryKey[2] === "projects" && ["members", "tasks"].includes(`${q.queryKey[4]}`),
+    });
+}
 export function useMembers(labId: string) {
   return useQuery({
     queryKey: ["labs", labId, "members"],
@@ -73,14 +92,15 @@ export function useUpdateMember(labId: string) {
         method: "PATCH",
         ...j({ role: v.role }),
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["labs", labId] }),
+    onSuccess: () => refreshPeople(qc, labId, false),
   });
 }
 export function useRemoveMember(labId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api(`/api/labs/${labId}/members/${id}/`, { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["labs", labId] }),
+    // A removed person leaves their projects and their tasks lose an assignee.
+    onSuccess: () => refreshPeople(qc, labId, true),
   });
 }
 

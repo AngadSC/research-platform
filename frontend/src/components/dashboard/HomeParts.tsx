@@ -147,7 +147,8 @@ export function ProjectRowActions({ labId, project }: { labId: string; project: 
       {
         onSuccess: () => {
           toast.success(done);
-          void qc.invalidateQueries({ queryKey: ["labs", labId] });
+          // useUpdateProject refreshes the project lists; home's numbers come from here.
+          void qc.invalidateQueries({ queryKey: ["labs", labId, "dashboard"] });
         },
         onError: () => toast.error("Could not change the project."),
       },

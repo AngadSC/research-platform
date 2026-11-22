@@ -1,10 +1,9 @@
+import { lazy, Suspense, type ComponentType } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Navigate, useParams, type RouteObject } from "react-router";
 import { useLabs } from "@/hooks/workspace";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { ProtectedLayout } from "@/components/layout/ProtectedLayout";
-import { AuditLogPage } from "@/pages/AuditLogPage";
-import { FundingPage } from "@/pages/FundingPage";
-import { TeamTasksPage } from "@/pages/TeamTasksPage";
 import { AcceptInvitePage } from "@/pages/AcceptInvitePage";
 import {
   CheckEmailPage,
@@ -19,9 +18,6 @@ import { DocumentPage } from "@/pages/LazyDocumentPage";
 import { LazyLineageTab } from "@/pages/project/LazyLineageTab";
 import { LabHomePage } from "@/pages/LabHomePage";
 import { DashboardPage } from "@/pages/DashboardPage";
-import { CalendarPage } from "@/pages/CalendarPage";
-import { HandoverPage } from "@/pages/HandoverPage";
-import { HelpPage } from "@/pages/HelpPage";
 import { LabChatPage } from "@/pages/LabChatPage";
 import { LabDocumentsPage } from "@/pages/LabDocumentsPage";
 import { MembersPage } from "@/pages/MembersPage";
@@ -54,16 +50,7 @@ import {
   WorkflowIndex,
   WorkflowLayout,
 } from "@/pages/project/workflow/WorkflowLayout";
-import { EthicsDetailPage, EthicsFormPage, EthicsListPage } from "@/pages/ethics/EthicsPages";
-import { NotificationsPage, RetentionPage } from "@/pages/ethics/LabPages";
 import { IntegrationsErrorPage, IntegrationsPage } from "@/pages/IntegrationsPage";
-import { AdminPage } from "@/pages/admin/AdminPage";
-import { InventoryPage } from "@/pages/admin/InventoryPage";
-import { PaperDetailPage } from "@/pages/papers/PaperDetailPage";
-import { PapersPage } from "@/pages/papers/PapersPage";
-import { MyTrainingPage } from "@/pages/training/MyTrainingPage";
-import { SettingsPage } from "@/pages/SettingsPage";
-import { OAuthConsentPage } from "@/pages/OAuthConsentPage";
 import { MarketingLayout } from "@/pages/landing/MarketingLayout";
 import { FeaturesPage } from "@/pages/landing/pages/FeaturesPage";
 import { InstitutionsPage } from "@/pages/landing/pages/InstitutionsPage";
@@ -72,6 +59,43 @@ import { PrivacyPage, TermsPage } from "@/pages/landing/pages/LegalPages";
 import { PricingPage } from "@/pages/landing/pages/PricingPage";
 import { StudentsPage } from "@/pages/landing/pages/StudentsPage";
 import { WorkflowPage } from "@/pages/landing/pages/WorkflowPage";
+
+/** Less-visited pages load when first opened, so Home ships without them. */
+function later<K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) {
+  const Page = lazy(async () => ({ default: (await load())[name] as ComponentType }));
+  return function LazyPage() {
+    return (
+      <Suspense
+        fallback={
+          <div className="grid gap-3 p-8" aria-busy="true" aria-label="Loading">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-80" />
+          </div>
+        }
+      >
+        <Page />
+      </Suspense>
+    );
+  };
+}
+const AuditLogPage = later(() => import("@/pages/AuditLogPage"), "AuditLogPage");
+const FundingPage = later(() => import("@/pages/FundingPage"), "FundingPage");
+const TeamTasksPage = later(() => import("@/pages/TeamTasksPage"), "TeamTasksPage");
+const CalendarPage = later(() => import("@/pages/CalendarPage"), "CalendarPage");
+const HandoverPage = later(() => import("@/pages/HandoverPage"), "HandoverPage");
+const HelpPage = later(() => import("@/pages/HelpPage"), "HelpPage");
+const SettingsPage = later(() => import("@/pages/SettingsPage"), "SettingsPage");
+const OAuthConsentPage = later(() => import("@/pages/OAuthConsentPage"), "OAuthConsentPage");
+const AdminPage = later(() => import("@/pages/admin/AdminPage"), "AdminPage");
+const InventoryPage = later(() => import("@/pages/admin/InventoryPage"), "InventoryPage");
+const PaperDetailPage = later(() => import("@/pages/papers/PaperDetailPage"), "PaperDetailPage");
+const PapersPage = later(() => import("@/pages/papers/PapersPage"), "PapersPage");
+const MyTrainingPage = later(() => import("@/pages/training/MyTrainingPage"), "MyTrainingPage");
+const EthicsDetailPage = later(() => import("@/pages/ethics/EthicsPages"), "EthicsDetailPage");
+const EthicsFormPage = later(() => import("@/pages/ethics/EthicsPages"), "EthicsFormPage");
+const EthicsListPage = later(() => import("@/pages/ethics/EthicsPages"), "EthicsListPage");
+const NotificationsPage = later(() => import("@/pages/ethics/LabPages"), "NotificationsPage");
+const RetentionPage = later(() => import("@/pages/ethics/LabPages"), "RetentionPage");
 
 /** /labs/<lab>/settings: lab admins get Lab details; everyone else gets their own Settings. */
 function LabSettingsRedirect() {

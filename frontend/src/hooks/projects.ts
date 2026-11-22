@@ -130,19 +130,49 @@ export function useMyTasks(labId: string) {
   });
 }
 
-/** Change one task from anywhere (Today, quick actions) without knowing its project's list. */
+/** Change one task from anywhere (Today, quick actions) without knowing its project's list.
+ * The "my tasks" list updates at once (a done task leaves it) and rolls back if the server says no. */
 export function usePatchTask(labId: string) {
   const qc = useQueryClient();
+  const myKey = ["labs", labId, "my-tasks"];
   return useMutation({
     mutationFn: (v: { id: string; patch: Partial<TaskInput> }) =>
       api<Task>(`${base(labId)}/tasks/${v.id}/`, { method: "PATCH", ...body(v.patch) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["labs", labId] }),
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: myKey });
+      const prev = qc.getQueryData<MyTask[]>(myKey);
+      if (prev) {
+        const { status, snoozed_until: snoozed } = v.patch;
+        qc.setQueryData(
+          myKey,
+          status === "done"
+            ? prev.filter((t) => t.id !== v.id)
+            : prev.map((t) =>
+                t.id === v.id && snoozed !== undefined ? { ...t, snoozed_until: snoozed } : t,
+              ),
+        );
+      }
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => ctx?.prev && qc.setQueryData(myKey, ctx.prev),
+    onSettled: () => {
+      const l = ["labs", labId];
+      void qc.invalidateQueries({ queryKey: myKey });
+      // Every project's task list (the task's project is not known here), plus the home
+      // numbers and team view that count tasks. Lists nobody is looking at refetch on next visit.
+      void qc.invalidateQueries({
+        queryKey: l,
+        predicate: (q) => q.queryKey[2] === "projects" && q.queryKey[4] === "tasks",
+      });
+      void qc.invalidateQueries({ queryKey: [...l, "dashboard"] });
+      void qc.invalidateQueries({ queryKey: [...l, "team-tasks"] });
+    },
   });
 }
 
 export function useTasks(labId: string, projectId: string) {
   const qc = useQueryClient();
-  const { list, create, update, key } = useSub<Task, TaskInput>(labId, projectId, "tasks", "tasks");
+  const { list, create, key } = useSub<Task, TaskInput>(labId, projectId, "tasks", "tasks");
   // Optimistic delete with rollback.
   const remove = useMutation({
     mutationFn: (id: string) => api(`${base(labId)}/tasks/${id}/`, { method: "DELETE" }),
@@ -153,6 +183,26 @@ export function useTasks(labId: string, projectId: string) {
         qc.setQueryData(
           key,
           prev.filter((t) => t.id !== id),
+        );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => ctx?.prev && qc.setQueryData(key, ctx.prev),
+    onSettled: () => qc.invalidateQueries({ queryKey: key }),
+  });
+  // Optimistic edit: the fields show at once; the refetch fills in the rest (an assignee is sent
+  // as an id but shown as a person, so it waits for the server) and a refusal restores the list.
+  const update = useMutation({
+    mutationFn: (v: { id: string; patch: Partial<TaskInput> }) =>
+      api<Task>(`${base(labId)}/tasks/${v.id}/`, { method: "PATCH", ...body(v.patch) }),
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<Task[]>(key);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { assignee: _a, ...shown } = v.patch;
+      if (prev)
+        qc.setQueryData(
+          key,
+          prev.map((t) => (t.id === v.id ? { ...t, ...shown } : t)),
         );
       return { prev };
     },

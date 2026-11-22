@@ -151,7 +151,7 @@ describe("list", () => {
     });
     renderRoute("/labs/lab1/ethics/ap1");
     expect(await screen.findAllByText("Expires in 13 days")).not.toHaveLength(0);
-    await userEvent.setup().click(screen.getByRole("button", { name: "Start renewal" }));
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Start renewal" }));
     await waitFor(() =>
       expect(
         calls.find((c) => c.method === "POST" && c.path.endsWith("/ethics-approvals/"))?.body,

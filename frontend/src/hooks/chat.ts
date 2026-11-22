@@ -61,6 +61,17 @@ export function useMarkAllChatsRead(labId: string) {
   });
 }
 
+type Reactions = ChatMessage["reactions"];
+/** Your reaction added, or taken away if you already had it. */
+export function toggleReaction(rs: Reactions, emoji: string): Reactions {
+  const had = rs.find((r) => r.emoji === emoji);
+  if (!had) return [...rs, { emoji, count: 1, mine: true, people: [] }];
+  if (!had.mine) return rs.map((r) => (r === had ? { ...r, count: r.count + 1, mine: true } : r));
+  return rs
+    .map((r) => (r === had ? { ...r, count: r.count - 1, mine: false } : r))
+    .filter((r) => r.count > 0);
+}
+
 export function useChat(labId: string, projectId?: string) {
   const qc = useQueryClient();
   const key = projectId
@@ -85,7 +96,21 @@ export function useChat(labId: string, projectId?: string) {
   const react = useMutation({
     mutationFn: ({ id, emoji }: { id: string; emoji: string }) =>
       api<ChatMessage>(reactUrl(labId, projectId, id), { method: "POST", body: { emoji } }),
-    onSuccess: refresh,
+    // Toggle it on screen first; the refetch brings the real names, and an error puts it back.
+    onMutate: async ({ id, emoji }) => {
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<ChatMessage[]>(key);
+      if (prev)
+        qc.setQueryData<ChatMessage[]>(
+          key,
+          prev.map((m) =>
+            m.id === id ? { ...m, reactions: toggleReaction(m.reactions, emoji) } : m,
+          ),
+        );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => ctx?.prev && qc.setQueryData(key, ctx.prev),
+    onSettled: refresh,
   });
   // Clears the badge at once; the refetch afterwards corrects it if anything newer arrived.
   const markRead = useMutation({

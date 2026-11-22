@@ -142,4 +142,20 @@ describe("Today", () => {
     expect(dialog).not.toHaveTextContent("Snoozed thing");
     expect(dialog).toHaveTextContent("1 snoozed task resting");
   });
+  it("offers Undo after a task is marked done", async () => {
+    const calls = mockFetch(
+      handlers([t("a", "Late thing", addDays(today, -1))], {
+        "PATCH /api/labs/lab1/tasks/a/": { body: {} },
+      }),
+    );
+    renderRoute("/labs/lab1/dashboard");
+    await userEvent.click(await screen.findByRole("button", { name: 'Mark "Late thing" done' }));
+    await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    await waitFor(() =>
+      expect(calls.filter((c) => c.path.endsWith("/tasks/a/")).map((c) => c.body)).toEqual([
+        { status: "done" },
+        { status: "todo" },
+      ]),
+    );
+  });
 });

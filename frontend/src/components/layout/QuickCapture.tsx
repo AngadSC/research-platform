@@ -106,7 +106,14 @@ export function QuickCapture() {
       } catch {
         /* the last project is a convenience only */
       }
-      void qc.invalidateQueries({ queryKey: ["labs", labId] });
+      // A new task shows in your list, that project's tasks, and home's and the team's counts.
+      for (const key of [
+        ["my-tasks"],
+        ["projects", project.id, "tasks"],
+        ["dashboard"],
+        ["team-tasks"],
+      ])
+        void qc.invalidateQueries({ queryKey: ["labs", labId, ...key] });
       toast.success(`Added to ${project.name}${parsed.due ? `, due ${dayText(parsed.due)}` : ""}`);
       close(false);
     } catch (err) {

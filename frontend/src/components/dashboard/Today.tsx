@@ -25,32 +25,37 @@ function Row({ labId, task, today }: { labId: string; task: MyTask; today: strin
   const late = !!task.due_date && task.due_date < today;
   const monday = nextMonday(today);
 
+  // The row leaves the list at once, so it may unmount before the answer: use the promise, not
+  // per-call callbacks, so the toast still shows.
   const done = () => {
     setLeaving(true);
-    patch.mutate(
-      { id: task.id, patch: { status: "done" } },
-      {
-        onError: () => {
-          setLeaving(false);
-          toast.error("Could not mark that done. Try again.");
-        },
-      },
-    );
+    patch
+      .mutateAsync({ id: task.id, patch: { status: "done" } })
+      .then(() =>
+        toast("Marked done", {
+          action: {
+            label: "Undo",
+            onClick: () => patch.mutate({ id: task.id, patch: { status: task.status } }),
+          },
+        }),
+      )
+      .catch(() => {
+        setLeaving(false);
+        toast.error("Could not mark that done. Try again.");
+      });
   };
   const snooze = (until: string, label: string) =>
-    patch.mutate(
-      { id: task.id, patch: { snoozed_until: until } },
-      {
-        onSuccess: () =>
-          toast(`Snoozed until ${label}`, {
-            action: {
-              label: "Undo",
-              onClick: () => patch.mutate({ id: task.id, patch: { snoozed_until: null } }),
-            },
-          }),
-        onError: () => toast.error("Could not snooze that."),
-      },
-    );
+    patch
+      .mutateAsync({ id: task.id, patch: { snoozed_until: until } })
+      .then(() =>
+        toast(`Snoozed until ${label}`, {
+          action: {
+            label: "Undo",
+            onClick: () => patch.mutate({ id: task.id, patch: { snoozed_until: null } }),
+          },
+        }),
+      )
+      .catch(() => toast.error("Could not snooze that."));
 
   return (
     <li
