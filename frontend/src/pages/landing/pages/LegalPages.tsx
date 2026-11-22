@@ -326,10 +326,43 @@ export function PrivacyPage() {
         or ask the lab to unlink it to stop that.
       </p>
 
+      <h2>Zoom</h2>
+      <p>
+        Each person connects their own Zoom account, in a lab&rsquo;s Integrations settings, so they
+        can make Zoom calls for lab meetings.
+      </p>
+      <ul>
+        <li>
+          <strong>What we send to Zoom:</strong> when you schedule a lab meeting with a Zoom call,
+          we create a Zoom meeting on your account with the meeting title, start time and length,
+          with the waiting room on. We update or delete it when you change or cancel the meeting
+          here. We never send Zoom meeting notes, or the email address of any attendee or guest.
+        </li>
+        <li>
+          <strong>What we store:</strong> your Zoom user ID and email address, your access tokens
+          (encrypted), and, for each meeting, its Zoom meeting ID and join link. Permissions: we can
+          create, change and delete meetings on your account and read your basic profile. We cannot
+          see your other meetings, recordings or contacts.
+        </li>
+        <li>
+          <strong>Guests:</strong> Zoom sends no invitations for these meetings. If you type guest
+          email addresses into a Zoom meeting, labbenchos emails each guest the meeting title, times
+          and join link, and emails them again if the time changes or the meeting is cancelled. We
+          store those addresses with the meeting (only you and the people on it see them).
+        </li>
+        <li>
+          <strong>If you disconnect:</strong> we revoke our access at Zoom and delete your tokens
+          and your Zoom user ID and email address. Meetings already made stay in the lab with their
+          join link, and stay in your Zoom account until you delete them there. We can no longer
+          change them from labbenchos. If you remove the labbenchos app in Zoom, Zoom tells us and
+          we do the same.
+        </li>
+      </ul>
+
       <h2>Other connected services and AI</h2>
       <p>
-        Your lab can connect other services (such as Zoom, OneDrive, Dropbox, GitHub or Zotero). We
-        only connect a service when someone in your lab asks us to, and we only use it for what that
+        Your lab can connect other services (such as OneDrive, Dropbox, GitHub or Zotero). We only
+        connect a service when someone in your lab asks us to, and we only use it for what that
         connection is for.
       </p>
       <p>

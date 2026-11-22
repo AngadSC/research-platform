@@ -136,6 +136,24 @@ describe("Integrations page", () => {
     await waitFor(() => expect(calls.some((c) => c.method === "DELETE")).toBe(true));
   });
 
+  it("tells what Zoom gets and what disconnecting keeps", async () => {
+    mockFetch(
+      base(MEMBER, [
+        provider({
+          name: "zoom",
+          label: "Zoom",
+          category: "meetings",
+          account: { id: "z1", status: "active", external_email: "ada@zoom.test" },
+        }),
+      ]),
+    );
+    renderRoute(PAGE);
+    expect(await screen.findByText(/never notes or anyone's email address/)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Disconnect Zoom" }));
+    expect(await screen.findByText(/keep their call link and stay in the lab/)).toBeVisible();
+    expect(screen.queryByText(/Linked items/)).toBeNull();
+  });
+
   it.each(["expired", "revoked", "error"])("offers Reconnect when the account is %s", async (s) => {
     mockFetch(
       base(MEMBER, [provider({ account: { id: "a1", status: s, external_email: "x@y.test" } })]),

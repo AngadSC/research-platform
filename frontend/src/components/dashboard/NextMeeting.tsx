@@ -44,7 +44,12 @@ export function NextMeeting({ labId }: { labId: string }) {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 text-primary underline-offset-2 hover:underline"
         >
-          <Video className="size-4" aria-hidden /> Join call
+          <Video className="size-4" aria-hidden />{" "}
+          {next.video_provider === "zoom"
+            ? "Join Zoom"
+            : next.video_provider === "google_meet"
+              ? "Join Google Meet"
+              : "Join call"}
         </a>
       )}
     </section>
