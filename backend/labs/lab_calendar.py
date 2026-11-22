@@ -22,6 +22,7 @@ from core.serializers import SaneDateTimeField, no_control_chars
 from core.tenancy import by_secret
 from core.views import LabScopedViewMixin
 from ethics.models import ApprovalStatus, EthicsApproval
+from integrations.models import AccountStatus
 from labs import admin_services as svc
 from labs import video_calendar
 from labs.models import (
@@ -150,7 +151,7 @@ class MeetingInputSerializer(serializers.Serializer):
         child=serializers.EmailField(max_length=254),
         max_length=50,
         required=False,
-        help_text="Email addresses of people with a Google account, invited to a Google Meet call.",
+        help_text="Email addresses of people with a Google account, invited to a Google Meet or Zoom call.",
     )
     video = serializers.ChoiceField(
         choices=VideoProvider.choices,
@@ -162,7 +163,8 @@ class MeetingInputSerializer(serializers.Serializer):
 
 def _call_owner(meeting):
     account = meeting.video_account
-    return str(account.user_id) if meeting.video_provider and account is not None else None
+    live = account is not None and account.status == AccountStatus.ACTIVE  # as check_can_change
+    return str(account.user_id) if meeting.video_provider and live else None
 
 
 class GoogleAttendeeSerializer(serializers.Serializer):

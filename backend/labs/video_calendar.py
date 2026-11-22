@@ -75,8 +75,22 @@ def _call(account, method, url, *, ok=(200, 201, 204), **kwargs):
                     ]
                 }
             )
+        detail = _zoom_message(resp) if provider is zoom.PROVIDER else ""
+        if detail:
+            raise RemoteError({"video": [f"{provider.label} refused the change: {detail}"]})
         raise RemoteError({"video": [f"{provider.label} refused the change. Try again."]})
     return resp
+
+
+def _zoom_message(resp) -> str:
+    """Zoom's own reason for a 4xx ({"code": .., "message": ..}), so the form says what to fix."""
+    if not 400 <= resp.status_code < 500:
+        return ""
+    try:
+        message = resp.json()["message"]
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return ""
+    return message.strip()[:200] if isinstance(message, str) else ""
 
 
 def _api_not_enabled(resp) -> bool:

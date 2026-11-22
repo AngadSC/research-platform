@@ -1,0 +1,7 @@
+{% autoescape off %}{{ organiser }} cancelled this meeting in {{ lab_name }}, or took you off it. The old link no longer applies.
+
+{{ title }}
+Starts: {{ starts_at }}
+Ends: {{ ends_at }}
+
+{% endautoescape %}

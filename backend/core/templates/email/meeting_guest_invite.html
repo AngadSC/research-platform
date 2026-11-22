@@ -1,0 +1,16 @@
+{% extends "email/base.html" %}
+{% block heading %}You are invited to a meeting{% endblock %}
+{% block content %}
+                <p style="margin:0 0 16px 0;">{{ organiser }} invited you to a meeting in {{ lab_name }}.</p>
+                <p style="margin:0 0 16px 0;"><strong>{{ title }}</strong><br>Starts: {{ starts_at }}<br>Ends: {{ ends_at }}</p>
+{% endblock %}
+{% block action %}
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 20px 0;">
+                  <tr>
+                    <td bgcolor="#4f46e5" align="center" style="border-radius:6px;background-color:#4f46e5;">
+                      <a href="{{ join_url }}" target="_blank" style="display:inline-block;padding:12px 22px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:20px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">Join the Zoom call</a>
+                    </td>
+                  </tr>
+                </table>
+{% endblock %}
+{% block footer %}You received this because {{ organiser }} added your email address to the meeting.{% endblock %}
