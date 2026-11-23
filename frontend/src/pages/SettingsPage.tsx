@@ -163,7 +163,7 @@ export function SettingsPage() {
                   </Section>
                   <Section
                     title="Surfaces"
-                    description="Glass is translucent and softly blurred. Reduced glass uses solid surfaces, which is easier on older devices and for some eyes."
+                    description="Glass adds a soft translucent look to menus and floating panels. Reduced glass uses solid surfaces, which is easier on older devices and for some eyes."
                   >
                     <Choice<"on" | "reduced">
                       label="Look"

@@ -3,27 +3,21 @@ import logo from "@/assets/brand/labbenchos-logo.png";
 import { Toaster } from "@/components/ui/sonner";
 import "./auth-background.css";
 
-/** Signed-out layout for sign in, create account and the other account pages: a slowly
- * moving soft indigo background with the form in a card in the middle. */
+/** Signed-out layout for sign in, create account and the other account pages: a calm
+ * flat background with the form in a card in the middle. */
 export function AuthLayout() {
   return (
     <div className="auth-bg relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-12 text-foreground">
-      <div className="auth-bg-blobs" aria-hidden="true">
-        <span className="auth-blob auth-blob-1" />
-        <span className="auth-blob auth-blob-2" />
-        <span className="auth-blob auth-blob-3" />
-        <span className="auth-blob auth-blob-4" />
-      </div>
       <div className="relative z-10 grid w-full max-w-md gap-6">
         <Link to="/" aria-label="labbenchos home" className="justify-self-center">
           <img src={logo} alt="labbenchos" className="h-10 w-auto" />
         </Link>
-        <main className="glass glass--strong glass--float rounded-3xl p-8">
+        <main className="glass glass--solid rounded-xl p-8 shadow-[var(--shadow-glass-2)]">
           <Outlet />
         </main>
         <Link
           to="/"
-          className="justify-self-center text-sm font-medium text-slate-600 hover:text-slate-900"
+          className="justify-self-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           ← Back to home
         </Link>

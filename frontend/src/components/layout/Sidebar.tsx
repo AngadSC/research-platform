@@ -454,7 +454,11 @@ export function Sidebar({
   const { data: labs = [], isLoading: labsLoading } = useLabs();
   const labId = useCurrentLabId();
   const projectId = useCurrentProjectId();
-  const { data: projects = [] } = useProjects(labId);
+  const { data: fetched = [] } = useProjects(labId);
+  // Active work first: archived projects drop to the bottom (the sort is stable).
+  const projects = [...fetched].sort(
+    (a, b) => Number(a.status === "archived") - Number(b.status === "archived"),
+  );
   const chatUnread = useUnreadChats(labId);
   const navigate = useNavigate();
   const current = labs.find((l) => l.id === labId);
@@ -517,11 +521,11 @@ export function Sidebar({
       id="app-sidebar"
       data-drawer={open ? "open" : undefined}
       className={cn(
-        "glass glass--strong shrink-0 flex-col gap-4 overflow-hidden rounded-2xl md:m-3 md:mr-0 print:hidden",
+        "glass glass--solid shrink-0 flex-col gap-4 overflow-hidden rounded-none border-0 border-r bg-sidebar shadow-none print:hidden",
         slim ? "w-[4.5rem] p-2" : "w-72 p-4",
         // Below md the sidebar is a drawer that only exists while open.
         open
-          ? "fixed inset-y-3 left-3 z-50 flex md:static md:z-auto"
+          ? "fixed inset-y-0 left-0 z-50 flex md:static md:z-auto"
           : desktopHidden
             ? "hidden"
             : "hidden md:flex",

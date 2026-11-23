@@ -58,7 +58,7 @@ export function DataTable<T>({
   };
 
   return (
-    <div className="rounded-lg border">
+    <div className="overflow-hidden rounded-lg border bg-card">
       <Table aria-busy={loading || undefined}>
         <TableHeader>
           <TableRow className="hover:bg-transparent">

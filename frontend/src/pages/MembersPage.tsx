@@ -275,6 +275,7 @@ export function MembersPage() {
               <Button
                 variant="ghost"
                 size="sm"
+                className="text-danger-text hover:bg-danger/10 hover:text-danger-text"
                 onClick={() => setRemoving(m)}
                 aria-label={`Remove ${m.user.email}`}
               >

@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 const tabClass = (active: boolean) =>
   cn(
-    "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm transition-[background-color,box-shadow,color] duration-[var(--dur)] ease-[var(--ease-glass)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none max-md:py-2.5",
+    "flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm transition-[background-color,box-shadow,color] duration-[var(--dur)] ease-[var(--ease-glass)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none max-md:py-2.5",
     active
       ? "glass-pill-active font-medium text-foreground"
       : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",

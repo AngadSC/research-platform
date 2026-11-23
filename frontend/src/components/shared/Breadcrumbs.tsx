@@ -30,7 +30,7 @@ export function Breadcrumbs({
   if (items.length === 0) return null;
   return (
     <nav aria-label={label}>
-      <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm text-muted-foreground">
+      <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[13px] text-muted-foreground">
         {items.map((item, i) => {
           const last = i === items.length - 1;
           // On phones only the last two crumbs fit.

@@ -3,21 +3,33 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* IBM Plex Sans, Latin subset, variable weight (Google Fonts, SIL Open Font License 1.1). */
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url("./assets/brand/plex-sans-latin.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
-  --background: #f4f4fa; /* a faint indigo wash, so white cards stand out from the page */
-  --foreground: #18181b;
+  --background: #f4f6f6; /* cool paper grey: white cards sit on it without a wash */
+  --foreground: #14201f;
   --card: #ffffff;
-  --card-foreground: #18181b;
+  --card-foreground: #14201f;
   --popover: #ffffff;
-  --popover-foreground: #18181b;
-  --primary: #4f46e5; /* indigo-600, white text 6.3:1 */
+  --popover-foreground: #14201f;
+  --primary: #0f6466; /* deep teal, white text 6.7:1 */
   --primary-foreground: #ffffff;
-  --secondary: #f4f4f5;
-  --secondary-foreground: #27272a;
-  --muted: #f4f4f5;
-  --muted-foreground: #46464f; /* 9:1 on white */
-  --accent: #f4f4f5;
-  --accent-foreground: #18181b;
+  --secondary: #eceff0;
+  --secondary-foreground: #1d2b2a;
+  --muted: #eceff0;
+  --muted-foreground: #4a5757; /* 7.4:1 on white */
+  --accent: #e6eced;
+  --accent-foreground: #14201f;
   /* Status fills. Each has a foreground that passes AA on it (white on red 4.8, green 5.0, blue 5.9;
      dark on amber 9+). The -text tokens are for coloured text on white or on a light tint. */
   --success: #15803d;
@@ -32,10 +44,10 @@
   --info: #0369a1;
   --info-foreground: #ffffff;
   --info-text: #075985;
-  --border: #e4e4e7;
-  --input: #d4d4d8;
-  --ring: #4f46e5;
-  --sidebar: #f6f6f9;
+  --border: #dde2e2;
+  --input: #c3cbcb;
+  --ring: #0f6466;
+  --sidebar: #eef1f1;
   /* Project colours (Project.color). projectColors.test.ts checks them against the sidebar. */
   --project-blue: #2563eb;
   --project-orange: #c2410c;
@@ -50,20 +62,20 @@
 }
 
 .dark {
-  --background: #09090b;
-  --foreground: #fafafa;
-  --card: #111113;
-  --card-foreground: #fafafa;
-  --popover: #111113;
-  --popover-foreground: #fafafa;
-  --primary: #818cf8; /* indigo-400, dark text 6.4:1 */
-  --primary-foreground: #09090b;
-  --secondary: #1f1f23;
-  --secondary-foreground: #fafafa;
-  --muted: #1f1f23;
-  --muted-foreground: #b4b4be; /* 9.6:1 on bg: timestamps and hints stay readable */
-  --accent: #1f1f23;
-  --accent-foreground: #fafafa;
+  --background: #0c1111;
+  --foreground: #eef3f2;
+  --card: #131a1a;
+  --card-foreground: #eef3f2;
+  --popover: #131a1a;
+  --popover-foreground: #eef3f2;
+  --primary: #5fc4be; /* soft teal, dark text 8:1 */
+  --primary-foreground: #08201f;
+  --secondary: #1c2525;
+  --secondary-foreground: #eef3f2;
+  --muted: #1c2525;
+  --muted-foreground: #aebbb9; /* 9:1 on bg */
+  --accent: #1f2a2a;
+  --accent-foreground: #eef3f2;
   --success: #4ade80;
   --success-foreground: #052e16;
   --success-text: #4ade80;
@@ -76,10 +88,10 @@
   --info: #38bdf8;
   --info-foreground: #082f49;
   --info-text: #38bdf8;
-  --border: #27272a;
-  --input: #3f3f46;
-  --ring: #818cf8;
-  --sidebar: #0d0d10;
+  --border: #263131;
+  --input: #3a4848;
+  --ring: #5fc4be;
+  --sidebar: #0a0e0e;
   --project-blue: #60a5fa;
   --project-orange: #fb923c;
   --project-green: #4ade80;
@@ -93,77 +105,70 @@
 }
 
 /* ---------------------------------------------------------------------------------------------
-   Liquid glass. Glass is for chrome and things that float (sidebar, top bar, menus, dialogs,
-   toasts, buttons, chips); work surfaces (tables, the participant grid, documents, long forms)
-   stay near-opaque. The surfaces mix the card colour, so a custom theme still works. Every value
-   lives here, in one place. The "Reduced glass" setting and the OS's reduced-transparency
-   preference both swap in the solid surfaces below. */
+   Surfaces. The old class names (.glass, .glass--strong, ...) stay so nothing else has to change,
+   but they are now plain, near-opaque panels with a hairline border and a very small shadow.
+   Every value lives here, in one place. */
 :root {
-  --glass-bg: color-mix(in srgb, var(--card) 88%, transparent);
-  --glass-bg-strong: color-mix(in srgb, var(--card) 82%, transparent);
+  --glass-bg: color-mix(in srgb, var(--card) 100%, transparent);
+  --glass-bg-strong: color-mix(in srgb, var(--card) 100%, transparent);
   --glass-bg-solid: color-mix(in srgb, var(--card) 100%, transparent);
-  --glass-bg-input: color-mix(in srgb, var(--foreground) 4%, var(--card) 70%);
-  --glass-border: rgb(24 24 40 / 0.08);
-  --glass-edge-shadow: rgb(24 24 27 / 0.04);
-  --glass-highlight: rgb(255 255 255 / 0.55);
-  --blur-sm: 6px;
-  --blur-md: 12px;
-  --blur-lg: 20px;
-  --glass-saturate: 1.1;
+  --glass-bg-input: var(--card);
+  --glass-border: var(--border);
+  --glass-edge-shadow: rgb(20 32 31 / 0.05);
+  --glass-highlight: transparent;
+  --blur-sm: 0px;
+  --blur-md: 0px;
+  --blur-lg: 0px;
+  --glass-saturate: 1;
   --radius-pill: 999px;
-  --radius-dialog: 24px;
-  --ease-glass: cubic-bezier(0.22, 1, 0.36, 1);
-  --dur-fast: 120ms;
-  --dur: 200ms;
-  --dur-slow: 320ms;
-  --shadow-glass-1: 0 1px 2px var(--glass-edge-shadow);
-  --shadow-glass-2: 0 1px 3px var(--glass-edge-shadow), 0 8px 24px rgb(24 24 27 / 0.05);
-  --shadow-glass-3: 0 2px 6px var(--glass-edge-shadow), 0 16px 40px rgb(24 24 27 / 0.12);
+  --radius-dialog: 14px;
+  --ease-glass: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-fast: 100ms;
+  --dur: 160ms;
+  --dur-slow: 260ms;
+  --shadow-glass-1: 0 1px 1px var(--glass-edge-shadow);
+  --shadow-glass-2: 0 1px 2px var(--glass-edge-shadow), 0 4px 12px rgb(20 32 31 / 0.05);
+  --shadow-glass-3: 0 2px 4px var(--glass-edge-shadow), 0 12px 32px rgb(20 32 31 / 0.14);
   --primary-glow: transparent;
-  --primary-lift: #6d5ae8; /* a touch more violet than --primary, for the button gradient */
-  /* One faint wash from the top corner: enough light to feel like glass, nothing to look at. */
-  --mesh: radial-gradient(70rem 36rem at 6% -14%, rgb(99 102 241 / 0.07), transparent 65%);
+  --primary-lift: #0f6466;
+  --mesh: none;
 }
 .dark {
-  --glass-bg: color-mix(in srgb, var(--card) 55%, transparent);
-  --glass-bg-strong: color-mix(in srgb, var(--card) 78%, transparent);
+  --glass-bg: color-mix(in srgb, var(--card) 100%, transparent);
+  --glass-bg-strong: color-mix(in srgb, var(--card) 100%, transparent);
   --glass-bg-solid: color-mix(in srgb, var(--card) 100%, transparent);
-  --glass-bg-input: color-mix(in srgb, var(--foreground) 6%, var(--card) 60%);
-  --glass-border: rgb(255 255 255 / 0.08);
-  --glass-edge-shadow: rgb(0 0 0 / 0.4);
-  --glass-highlight: rgb(255 255 255 / 0.06);
-  --glass-saturate: 1.1;
-  --shadow-glass-1: 0 1px 2px rgb(0 0 0 / 0.4);
-  --shadow-glass-2: 0 1px 3px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.3);
-  --shadow-glass-3: 0 2px 6px rgb(0 0 0 / 0.5), 0 16px 40px rgb(0 0 0 / 0.5);
+  --glass-bg-input: var(--card);
+  --glass-border: var(--border);
+  --glass-edge-shadow: rgb(0 0 0 / 0.35);
+  --glass-highlight: transparent;
+  --glass-saturate: 1;
+  --shadow-glass-1: 0 1px 1px rgb(0 0 0 / 0.35);
+  --shadow-glass-2: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 12px rgb(0 0 0 / 0.3);
+  --shadow-glass-3: 0 2px 4px rgb(0 0 0 / 0.5), 0 12px 32px rgb(0 0 0 / 0.5);
   --primary-glow: transparent;
-  --primary-lift: #818cf8;
-  --mesh: radial-gradient(70rem 36rem at 6% -14%, rgb(99 102 241 / 0.13), transparent 65%);
+  --primary-lift: #5fc4be;
+  --mesh: none;
 }
 
 /* A project's colour themes every page inside it (AppShell sets data-project-theme and --project).
    The page, the accents, the headings and the soft wash all lean toward the colour; the mixes are
    small enough that text keeps its contrast. */
 html[data-project-theme] {
-  --background: color-mix(in srgb, var(--project) 10%, #fbfbfc);
-  --foreground: color-mix(in srgb, var(--project) 10%, #18181b);
+  --background: color-mix(in srgb, var(--project) 5%, #f6f7f7);
+  --foreground: color-mix(in srgb, var(--project) 8%, #14201f);
   --muted-foreground: color-mix(in srgb, var(--project) 12%, #46464f);
   --primary: color-mix(in srgb, var(--project) 90%, #0f0f14);
   --ring: var(--primary);
   --primary-lift: var(--primary);
-  --accent: color-mix(in srgb, var(--project) 12%, #ffffff);
+  --accent: color-mix(in srgb, var(--project) 10%, #ffffff);
   --secondary: color-mix(in srgb, var(--project) 8%, #ffffff);
   --muted: color-mix(in srgb, var(--project) 8%, #ffffff);
   --border: color-mix(in srgb, var(--project) 20%, #e4e4e7);
-  --sidebar: color-mix(in srgb, var(--project) 8%, #ffffff);
-  --mesh: radial-gradient(
-    80rem 44rem at 6% -16%,
-    color-mix(in srgb, var(--project) 22%, transparent),
-    transparent 65%
-  );
+  --sidebar: color-mix(in srgb, var(--project) 6%, #f1f3f3);
+  --mesh: none;
 }
 html.dark[data-project-theme] {
-  --background: color-mix(in srgb, var(--project) 9%, #09090b);
+  --background: color-mix(in srgb, var(--project) 6%, #0c1111);
   --foreground: color-mix(in srgb, var(--project) 8%, #fafafa);
   --muted-foreground: color-mix(in srgb, var(--project) 12%, #b4b4be);
   --primary: color-mix(in srgb, var(--project) 92%, #ffffff);
@@ -172,15 +177,11 @@ html.dark[data-project-theme] {
   --muted: color-mix(in srgb, var(--project) 10%, #111113);
   --border: color-mix(in srgb, var(--project) 22%, #27272a);
   --sidebar: color-mix(in srgb, var(--project) 8%, #0d0d10);
-  --mesh: radial-gradient(
-    80rem 44rem at 6% -16%,
-    color-mix(in srgb, var(--project) 26%, transparent),
-    transparent 65%
-  );
+  --mesh: none;
 }
 html[data-project-theme] main h1,
 html[data-project-theme] main h2 {
-  color: color-mix(in srgb, var(--project) 55%, var(--foreground));
+  color: color-mix(in srgb, var(--project) 35%, var(--foreground));
 }
 html[data-project-theme] body {
   transition: background-color var(--dur-slow) var(--ease-glass);
@@ -211,18 +212,14 @@ body::after {
     backdrop-filter: blur(var(--blur-md)) saturate(var(--glass-saturate));
     -webkit-backdrop-filter: blur(var(--blur-md)) saturate(var(--glass-saturate));
     border: 1px solid var(--glass-border);
-    border-radius: 1rem;
-    box-shadow:
-      inset 0 1px 0 var(--glass-highlight),
-      var(--shadow-glass-1);
+    border-radius: 0.75rem;
+    box-shadow: var(--shadow-glass-1);
   }
   .glass--strong {
     background: var(--glass-bg-strong);
     backdrop-filter: blur(var(--blur-lg)) saturate(var(--glass-saturate));
     -webkit-backdrop-filter: blur(var(--blur-lg)) saturate(var(--glass-saturate));
-    box-shadow:
-      inset 0 1px 0 var(--glass-highlight),
-      var(--shadow-glass-2);
+    box-shadow: var(--shadow-glass-2);
   }
   .glass--solid {
     background: var(--glass-bg-solid);
@@ -239,24 +236,20 @@ body::after {
   }
   /* Floating layers sit higher. */
   .glass--float {
-    box-shadow:
-      inset 0 1px 0 var(--glass-highlight),
-      var(--shadow-glass-3);
+    box-shadow: var(--shadow-glass-3);
   }
   /* An inset field: slightly sunk, with a soft glow when focused. */
   .glass-field {
     background: var(--card);
-    border: 1px solid color-mix(in srgb, var(--foreground) 26%, transparent);
-    box-shadow: inset 0 1px 2px var(--glass-edge-shadow);
+    border: 1px solid var(--input);
+    box-shadow: none;
     transition:
       box-shadow var(--dur) var(--ease-glass),
       border-color var(--dur) var(--ease-glass);
   }
   .glass-field:focus-visible {
     border-color: var(--ring);
-    box-shadow:
-      inset 0 1px 2px var(--glass-edge-shadow),
-      0 0 0 3px color-mix(in srgb, var(--ring) 28%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 22%, transparent);
   }
   .btn-primary-glass {
     background-image: none;
@@ -267,7 +260,7 @@ body::after {
       filter var(--dur) var(--ease-glass);
   }
   .btn-primary-glass:hover {
-    filter: brightness(1.08);
+    filter: brightness(1.12);
   }
   .btn-primary-glass:active {
     transform: scale(0.98);
@@ -278,16 +271,16 @@ body::after {
   /* Outline buttons: a solid card face with a clear border, so they read on any background. */
   .btn-glass {
     background: var(--card);
-    border: 1px solid color-mix(in srgb, var(--foreground) 16%, transparent);
-    box-shadow: none;
+    border: 1px solid var(--input);
+    box-shadow: var(--shadow-glass-1);
     transition:
       background-color var(--dur) var(--ease-glass),
       box-shadow var(--dur) var(--ease-glass),
       transform var(--dur-fast) var(--ease-glass);
   }
   .btn-glass:hover {
-    background: color-mix(in srgb, var(--foreground) 5%, var(--card));
-    border-color: color-mix(in srgb, var(--foreground) 26%, transparent);
+    background: color-mix(in srgb, var(--foreground) 4%, var(--card));
+    border-color: color-mix(in srgb, var(--foreground) 34%, transparent);
   }
   /* Secondary buttons: tinted with the brand colour, so they sit between primary and outline. */
   .btn-tint {
@@ -323,7 +316,7 @@ body::after {
     background: var(--glass-bg);
     background: color-mix(in srgb, var(--foreground) 5%, transparent);
     border: 0;
-    border-radius: var(--radius-pill);
+    border-radius: 0.625rem;
     box-shadow: none;
     padding: 3px;
   }
@@ -439,7 +432,7 @@ body::after {
 }
 
 @theme inline {
-  --font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -469,8 +462,11 @@ body::after {
   --color-info-foreground: var(--info-foreground);
   --color-info-text: var(--info-text);
   /* One radius scale: controls rounded-md, panels rounded-lg. */
-  --radius-md: 0.75rem;
-  --radius-lg: 1rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 0.75rem;
+  --radius-3xl: 1rem;
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -483,6 +479,10 @@ body::after {
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings:
+      "tnum" 1,
+      "ss01" 0;
+    letter-spacing: -0.003em;
     overflow-wrap: break-word; /* a long title or address wraps instead of running off the screen */
   }
   /* Grid children default to min-width: auto, so one wide table stretched the whole page past

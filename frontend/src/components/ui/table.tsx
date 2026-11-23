@@ -19,7 +19,7 @@ export const TableHead = (p: React.ComponentProps<"th">) => (
   <th
     {...p}
     className={cn(
-      "h-10 px-3 text-left align-middle font-medium text-muted-foreground",
+      "h-9 bg-muted/50 px-3 text-left align-middle text-xs font-medium text-muted-foreground",
       p.className,
     )}
   />

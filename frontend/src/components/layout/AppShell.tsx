@@ -331,7 +331,7 @@ export function AppShell() {
           />
         )}
         <div className="relative flex min-w-0 flex-1 flex-col">
-          <header className="glass glass--strong absolute inset-x-3 top-3 z-30 flex items-center gap-2 rounded-2xl px-3 py-2 print:hidden md:inset-x-5">
+          <header className="glass glass--solid absolute inset-x-0 top-0 z-30 flex items-center gap-2 rounded-none border-0 border-b bg-background/95 px-3 py-2 shadow-none backdrop-blur-sm print:hidden md:px-6">
             <Button
               variant="ghost"
               size="icon"
@@ -377,9 +377,9 @@ export function AppShell() {
           <main
             id="main"
             tabIndex={-1}
-            className="@container relative outline-none min-h-0 flex-1 scroll-pt-[5.5rem] overflow-y-auto overscroll-contain pt-[4.75rem] pb-[calc(6.5rem+env(safe-area-inset-bottom)+var(--tutorial-pad,0px))] md:pb-[var(--tutorial-pad,1.5rem)] print:overflow-visible print:pt-0"
+            className="@container relative outline-none min-h-0 flex-1 scroll-pt-[4.75rem] overflow-y-auto overscroll-contain pt-[4.25rem] pb-[calc(6.5rem+env(safe-area-inset-bottom)+var(--tutorial-pad,0px))] md:pb-[var(--tutorial-pad,1.5rem)] print:overflow-visible print:pt-0"
           >
-            <div className="px-4 py-4 md:px-8 print:px-0">
+            <div className="mx-auto w-full max-w-[90rem] px-4 py-4 md:px-8 print:px-0">
               <div className="mb-4 print:hidden">
                 <Breadcrumbs items={crumbs} />
               </div>

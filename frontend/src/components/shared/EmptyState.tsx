@@ -33,13 +33,17 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/30 px-6 text-center",
-        compact ? "py-8" : "py-12",
+        "flex w-full flex-col items-center justify-center gap-2 rounded-xl border bg-card px-6 text-center",
+        compact ? "py-6" : "py-10",
         className,
       )}
     >
-      {Icon && <Icon className="size-8 text-muted-foreground" />}
-      <h2 className="text-base font-semibold">{title}</h2>
+      {Icon && (
+        <span className="mb-1 grid size-10 place-items-center rounded-lg bg-muted text-muted-foreground">
+          <Icon className="size-5" />
+        </span>
+      )}
+      <h2 className="text-sm font-semibold">{title}</h2>
       <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
       {why && <p className="max-w-sm text-xs text-muted-foreground">{why}</p>}
       {(action || secondary) && (

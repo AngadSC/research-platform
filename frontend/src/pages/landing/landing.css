@@ -17,13 +17,13 @@
 }
 
 .lb {
-  --lb-accent: #4f46e5;
-  --lb-accent-text: #4338ca;
-  --lb-accent-soft: #eef2ff;
+  --lb-accent: #0f6466;
+  --lb-accent-text: #0c5254;
+  --lb-accent-soft: #e8f2f2;
   --lb-ink: #0e1116;
   --lb-body: #4a5260;
   --lb-line: #e6e8ec;
-  --lb-mint: #a5b4fc;
+  --lb-mint: #8fd3cf;
   font-family: Inter, system-ui, sans-serif;
   color: var(--lb-ink);
   background: #ffffff;
@@ -34,7 +34,7 @@
   color: var(--lb-accent-text);
 }
 .lb a:hover {
-  color: #3730a3;
+  color: #0a4143;
 }
 .lb a:focus-visible,
 .lb button:focus-visible {
@@ -816,43 +816,32 @@
   }
 }
 
-/* Liquid glass, to match the app: one indigo accent, a soft backdrop and translucent chrome. */
+/* Flat surfaces, to match the app: one teal accent, white page, hairline borders. */
 .lb {
-  background:
-    radial-gradient(60rem 40rem at 8% -10%, rgb(99 102 241 / 0.16), transparent 60%),
-    radial-gradient(50rem 36rem at 95% 0%, rgb(167 139 250 / 0.14), transparent 60%),
-    radial-gradient(46rem 34rem at 60% 105%, rgb(45 212 191 / 0.1), transparent 60%), #ffffff;
-  background-attachment: fixed;
+  background: #ffffff;
 }
 .lb-header {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: rgb(255 255 255 / 0.72);
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  border-bottom: 1px solid rgb(255 255 255 / 0.65);
-  box-shadow: 0 1px 0 rgb(24 24 27 / 0.06);
+  background: rgb(255 255 255 / 0.96);
+  border-bottom: 1px solid var(--lb-line);
+  box-shadow: none;
 }
 .lb-card,
 .lb-plan {
-  background: rgb(255 255 255 / 0.72);
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  border: 1px solid rgb(255 255 255 / 0.65);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.9),
-    0 8px 28px rgb(24 24 27 / 0.08);
-  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid var(--lb-line);
+  box-shadow: 0 1px 2px rgb(20 32 31 / 0.05);
+  border-radius: 12px;
 }
 .lb-card-green {
-  background: linear-gradient(135deg, rgb(238 242 255 / 0.85), rgb(255 255 255 / 0.7));
+  background: var(--lb-accent-soft);
 }
 .lb-plan-featured {
-  background: linear-gradient(135deg, #4f46e5, #6d5ae8);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.35),
-    0 14px 40px rgb(79 70 229 / 0.35);
+  background: var(--lb-accent);
+  border-color: var(--lb-accent);
+  box-shadow: 0 8px 24px rgb(15 100 102 / 0.22);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .lb-header,

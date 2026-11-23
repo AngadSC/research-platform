@@ -16,7 +16,7 @@ export function MobileTabBar({ labId, onMore }: { labId?: string; onMore: () => 
   return (
     <nav
       aria-label="Quick navigation"
-      className="glass glass--strong glass--float !bg-[color-mix(in_srgb,var(--card)_96%,transparent)] fixed inset-x-3 bottom-3 z-30 flex gap-1 rounded-2xl p-1.5 md:hidden print:hidden"
+      className="glass glass--solid fixed inset-x-0 bottom-0 z-30 flex gap-1 rounded-none border-0 border-t p-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] shadow-none md:hidden print:hidden"
     >
       {items.map(([path, label, Icon]) => (
         <NavLink

@@ -14,7 +14,7 @@ import {
 import { useSaveCustomThemes, useTheme } from "@/lib/theme";
 import { Section } from "@/pages/admin/common";
 
-const START: Palette = { background: "#ffffff", text: "#18181b", accent: "#4f46e5" };
+const START: Palette = { background: "#ffffff", text: "#18181b", accent: "#0f6466" };
 const COLOURS = [
   ["background", "Background"],
   ["text", "Text"],
