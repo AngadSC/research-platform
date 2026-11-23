@@ -6,22 +6,6 @@ from django.db import migrations, models
 from core.lab_db import LabForeignKey
 
 
-def backfill(apps, schema_editor):
-    """D376: every Google message so far came in through its chat's link (checked on the live site
-    before this ran), so it is credited to that link's connection."""
-    Bridge = apps.get_model("labs", "GoogleChatBridge")
-    LabChat = apps.get_model("labs", "LabChatMessage")
-    ProjectChat = apps.get_model("projects", "ChatMessage")
-    for b in Bridge.objects.all():
-        if b.project_id is None:
-            rows = LabChat.objects.filter(lab_id=b.lab_id)
-        else:
-            rows = ProjectChat.objects.filter(lab_id=b.lab_id, project_id=b.project_id)
-        rows.filter(source="google_chat", via_account__isnull=True).update(
-            via_account_id=b.account_id
-        )
-
-
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -45,5 +29,4 @@ class Migration(migrations.Migration):
         LabForeignKey(  # D31
             "labs_labchatmessage", "via_account_id", "integrations_connectedaccount", "SET_NULL"
         ),
-        migrations.RunPython(backfill, migrations.RunPython.noop),
     ]
