@@ -30,7 +30,7 @@ from core.permissions import Perm, can, get_lab_or_404, require
 from integrations import crypto, http, registry
 from integrations.http import AccountUnavailable, InstanceURLError, IntegrationError
 from integrations.models import TARGET_FIELDS, AccountStatus, ConnectedAccount, ExternalLink
-from labs.models import GoogleCalendarSync, Lab
+from labs.models import GoogleCalendarSync, GoogleChatBridge, Lab
 from provenance.models import validate_web_url
 
 AuthType = registry.AuthType
@@ -522,7 +522,7 @@ def _retire(rows) -> list:
     siblings' rows by the old id and email. Then the tokens are wiped, the email, scopes and
     account id are forgotten (`retired_id`), and the account's Google Calendar settings go, with
     the records of what was pushed (the calendar itself stays in Google unless the person asked
-    `disconnect` to delete it)."""
+    `disconnect` to delete it), and any Google Chat links it set up (audited as unlinked)."""
     out = []
     for row in rows:
         out.append((copy.copy(row), _stored_token(row)))
@@ -533,6 +533,20 @@ def _retire(rows) -> list:
         row.external_account_id = retired_id(row.external_account_id)
         row.save()
         GoogleCalendarSync.objects.for_lab(row.lab_id).filter(account=row).delete()
+        # Chat links this account set up stop with it: nothing reads or posts for them any more.
+        for bridge in GoogleChatBridge.objects.for_lab(row.lab_id).filter(account=row):
+            audit.record(
+                AuditAction.GOOGLE_CHAT_UNLINKED,
+                actor=None,
+                actor_label="integration:revoked",
+                lab=row.lab,
+                target=bridge,
+                metadata={
+                    "space": bridge.space,
+                    **({"project": str(bridge.project_id)} if bridge.project_id else {}),
+                },
+            )
+            bridge.delete()
     return out
 
 

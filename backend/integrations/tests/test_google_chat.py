@@ -275,16 +275,29 @@ def test_messages_from_google_show_in_the_lab_chat_api(transport, linked):
     assert row["external_author"] == sync.UNKNOWN_SENDER
 
 
-def test_a_revoked_link_connection_stops_the_sync(transport, linked):
+def test_disconnecting_the_link_connection_unlinks_the_chat(transport, linked):
     lab, u, account, bridge = linked
+    url = reverse("labs:google-chat", args=[lab.pk])
     services.disconnect(account, actor=u["lab_admin"])
+    account.refresh_from_db()
+    assert account.status == AccountStatus.REVOKED
+    assert not GoogleChatBridge.objects.for_lab(lab).exists()
+    assert api(u["member"]).get(url).json()["bridge"] is None
+    event = AuditEvent.objects.get(action=AuditAction.GOOGLE_CHAT_UNLINKED)
+    assert event.actor is None and event.metadata["space"] == SPACE
     transport.calls.clear()
     assert sync.poll_all() == 0
     lab_services.post_lab_message(lab=lab, by=u["member"], body="hello")
     assert [c for c in transport.calls if "chat.googleapis.com" in c[1]] == []
+
+
+def test_an_expired_link_connection_keeps_the_link_and_says_reconnect(transport, linked):
+    lab, u, account, bridge = linked
+    account.status = AccountStatus.EXPIRED  # revoked in Google: reconnecting resumes it
+    account.save()
+    assert sync.poll_all() == 0
     bridge.refresh_from_db()
     assert "no longer active" in bridge.last_error
-    assert account.status == AccountStatus.REVOKED
 
 
 def test_deleting_a_relayed_message_deletes_it_in_google(transport, linked):

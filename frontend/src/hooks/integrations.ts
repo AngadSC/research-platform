@@ -65,7 +65,11 @@ export function useDisconnect(labId: string) {
         // Your own Google Calendar only: also delete the labbenchos calendar in Google.
         body: v.deleteAppCalendar ? { delete_app_calendar: true } : undefined,
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: root(labId) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: root(labId) });
+      // disconnecting Google Chat also unlinks the chats it fed
+      qc.invalidateQueries({ queryKey: ["labs", labId, "google-chat"] });
+    },
   });
 }
 
