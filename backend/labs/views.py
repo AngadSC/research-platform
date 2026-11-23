@@ -247,9 +247,7 @@ class GoogleChatView(LabScopedViewMixin, generics.GenericAPIView):
         return Response(
             GoogleChatStatusSerializer(
                 {
-                    "bridge": google_chat.bridge_for(lab),
-                    "configured": google_chat.PROVIDER.configured,
-                    "connected": google_chat.own_account(lab, user) is not None,
+                    **google_chat.chat_status(lab, user),
                     "can_manage": can(user, Perm.MANAGE_LAB_INTEGRATIONS, lab),
                 }
             ).data

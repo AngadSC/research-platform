@@ -24,6 +24,8 @@ const status = (over: Record<string, unknown> = {}) => ({
   configured: true,
   connected: false,
   can_manage: false,
+  needs_reconnect: false,
+  reconnect_is_mine: false,
   ...over,
 });
 const bridge = {
@@ -271,6 +273,18 @@ describe("importing from Google Chat into a chat (D327)", () => {
     expect(
       await screen.findByText("Imported 2 messages; 1 message were already here"),
     ).toBeInTheDocument();
+  });
+
+  it("asks to reconnect, and names no space, when the link's connection is off", async () => {
+    mockFetch(world([], status({ needs_reconnect: true, reconnect_is_mine: true })));
+    renderRoute("/labs/lab1/chat");
+    expect(await screen.findByText("Google Chat is disconnected.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Reconnect Google Chat" })).toHaveAttribute(
+      "href",
+      "/labs/lab1/settings/integrations",
+    );
+    expect(screen.queryByText("Sleep lab")).toBeNull();
+    expect(screen.queryByText(/Messages are also sent/)).toBeNull();
   });
 
   it("is not offered to members who cannot link the chat", async () => {

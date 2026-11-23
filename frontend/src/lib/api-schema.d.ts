@@ -156,6 +156,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/integrations/zoom/events/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Zoom's event webhook (Marketplace requirement): URL validation and "App Deauthorized".
+         *     Public and unauthenticated, so every request must carry Zoom's signature of the raw body made
+         *     with the secret token (`INTEGRATION_ZOOM_WEBHOOK_SECRET`); without one set the URL is 404.
+         */
+        post: operations["integrations_zoom_events_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/invites/accept/": {
         parameters: {
             query?: never;
@@ -7012,6 +7033,10 @@ export interface components {
             connected: boolean;
             /** @description You may link or unlink this chat. */
             can_manage: boolean;
+            /** @description Linked, but the connection that set it up is off: nothing from Google is shown. */
+            needs_reconnect: boolean;
+            /** @description That connection is yours: reconnecting Google Chat resumes it. */
+            reconnect_is_mine: boolean;
         };
         GoogleChatThread: {
             name: string;
@@ -9901,6 +9926,24 @@ export interface operations {
         responses: {
             /** @description No response body */
             302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    integrations_zoom_events_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

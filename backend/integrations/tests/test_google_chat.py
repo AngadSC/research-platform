@@ -275,29 +275,88 @@ def test_messages_from_google_show_in_the_lab_chat_api(transport, linked):
     assert row["external_author"] == sync.UNKNOWN_SENDER
 
 
-def test_disconnecting_the_link_connection_unlinks_the_chat(transport, linked):
+def test_disconnecting_pauses_the_link_and_hides_what_came_from_google(transport, linked):
+    """D376: nothing from Google shows while the connection is off; reconnecting brings it back."""
     lab, u, account, bridge = linked
-    url = reverse("labs:google-chat", args=[lab.pk])
+    LabChatMessage.objects.create(
+        lab=lab, body="from google", source=ChatSource.GOOGLE_CHAT, via_account=account
+    )
+    LabChatMessage.objects.create(lab=lab, author=u["member"], body="from here")
+    LabChatMessage.objects.create(lab=lab, body="no account known", source=ChatSource.GOOGLE_CHAT)
+    status_url = reverse("labs:google-chat", args=[lab.pk])
+    list_url = reverse("labs:labchat-list", args=[lab.pk])
+
+    def bodies():
+        return {m["body"] for m in api(u["member"]).get(list_url).json()}
+
+    assert bodies() == {"from google", "from here"}
+
     services.disconnect(account, actor=u["lab_admin"])
-    account.refresh_from_db()
-    assert account.status == AccountStatus.REVOKED
-    assert not GoogleChatBridge.objects.for_lab(lab).exists()
-    assert api(u["member"]).get(url).json()["bridge"] is None
-    event = AuditEvent.objects.get(action=AuditAction.GOOGLE_CHAT_UNLINKED)
-    assert event.actor is None and event.metadata["space"] == SPACE
+    assert GoogleChatBridge.objects.for_lab(lab).filter(pk=bridge.pk).exists()  # paused, kept
+    assert bodies() == {"from here"}
+    seen = api(u["member"]).get(status_url).json()
+    assert seen["bridge"] is None and seen["needs_reconnect"] and not seen["reconnect_is_mine"]
+    assert api(u["lab_admin"]).get(status_url).json()["reconnect_is_mine"]
     transport.calls.clear()
     assert sync.poll_all() == 0
     lab_services.post_lab_message(lab=lab, by=u["member"], body="hello")
     assert [c for c in transport.calls if "chat.googleapis.com" in c[1]] == []
 
+    again = connect_chat(transport, u["lab_admin"], lab, "1001", "admin@example.test")
+    assert again.pk == account.pk  # the same row (D69), so the link resumes
+    assert "from google" in bodies()
+    seen = api(u["member"]).get(status_url).json()
+    assert seen["bridge"]["space"] == SPACE and not seen["needs_reconnect"]
 
-def test_an_expired_link_connection_keeps_the_link_and_says_reconnect(transport, linked):
-    lab, u, account, bridge = linked
-    account.status = AccountStatus.EXPIRED  # revoked in Google: reconnecting resumes it
+
+def test_google_reactions_on_our_messages_show_only_while_the_link_works(transport, linked):
+    lab, u, account, _ = linked
+    LabChatMessage.objects.create(
+        lab=lab,
+        author=u["member"],
+        body="relayed",
+        external_id=f"{SPACE}/messages/r1",
+        external_reactions={"👍": {"count": 2, "by": ["Out Sider"]}},
+    )
+    url = reverse("labs:labchat-list", args=[lab.pk])
+
+    def reactions():
+        return api(u["member"]).get(url).json()[0]["reactions"]
+
+    assert reactions() == [{"emoji": "👍", "count": 2, "mine": False, "people": ["Out Sider"]}]
+    services.disconnect(account, actor=u["lab_admin"])
+    assert reactions() == []
+
+
+def test_the_hourly_check_notices_access_removed_in_google(transport, lab_users):
+    from integrations.jobs import check_google_chat_accounts
+
+    lab, u = lab_users
+    account = connect_chat(transport, u["member"], lab, "2002", "member@example.test")
+    transport.on("POST", google_chat.PROVIDER.token_url, response(400, {"error": "invalid_grant"}))
+    assert check_google_chat_accounts() == 1
+    account.refresh_from_db()
+    assert account.status == AccountStatus.EXPIRED
+
+
+def test_an_expired_connection_hides_google_messages_in_project_chats_too(
+    transport, linked, project
+):
+    lab, u, account, _ = linked
+    from projects.models import ChatMessage
+
+    ChatMessage.objects.create(
+        lab=lab,
+        project=project,
+        body="from google",
+        source=ChatSource.GOOGLE_CHAT,
+        via_account=account,
+    )
+    visible = ChatMessage.objects.visible_to(u["member"], lab)
+    assert visible.count() == 1
+    account.status = AccountStatus.EXPIRED  # revoked in Google, or aged out
     account.save()
-    assert sync.poll_all() == 0
-    bridge.refresh_from_db()
-    assert "no longer active" in bridge.last_error
+    assert ChatMessage.objects.visible_to(u["member"], lab).count() == 0
 
 
 def test_deleting_a_relayed_message_deletes_it_in_google(transport, linked):

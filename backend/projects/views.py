@@ -426,9 +426,7 @@ class ProjectGoogleChatView(ProjectScopedMixin, generics.GenericAPIView):
         return Response(
             GoogleChatStatusSerializer(
                 {
-                    "bridge": google_chat.bridge_for(lab, project),
-                    "configured": google_chat.PROVIDER.configured,
-                    "connected": google_chat.own_account(lab, user) is not None,
+                    **google_chat.chat_status(lab, user, project),
                     "can_manage": can(user, Perm.EDIT_PROJECT, project),
                 }
             ).data

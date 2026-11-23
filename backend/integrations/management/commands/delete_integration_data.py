@@ -155,6 +155,12 @@ class Command(BaseCommand):
             )
         counts["chat_pictures"] = pictures
         deleted = 0
+        for model in (LabChatMessage, ChatMessage):  # D376: what came in through their connections
+            theirs = model.objects.for_lab(lab).filter(
+                source=ChatSource.GOOGLE_CHAT, via_account__in=rows
+            )
+            deleted += theirs.count()
+            theirs.delete()
         for model in (LabChatMessage, ChatMessage) if chat_name else ():
             theirs = model.objects.for_lab(lab).filter(
                 author__isnull=True, source=ChatSource.GOOGLE_CHAT, external_author=chat_name

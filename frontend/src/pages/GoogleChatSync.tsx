@@ -57,7 +57,7 @@ export function GoogleChatSync({
   const [picking, setPicking] = useState(false);
   const [importing, setImporting] = useState(false); // D327
   const s = status.data;
-  if (!s || (!s.bridge && !(s.can_manage && s.configured))) return null;
+  if (!s || (!s.bridge && !s.needs_reconnect && !(s.can_manage && s.configured))) return null;
   const integrations = `/labs/${labId}/settings/integrations`;
 
   const stop = () =>
@@ -133,6 +133,28 @@ export function GoogleChatSync({
                 <DropdownMenuItem onSelect={() => setPicking(true)}>
                   <Repeat className="size-4" aria-hidden /> Change conversation
                 </DropdownMenuItem>
+                <DropdownMenuItem disabled={unlink.isPending} onSelect={stop}>
+                  <Unlink className="size-4" aria-hidden /> Stop syncing
+                </DropdownMenuItem>
+              </SyncMenu>
+            )}
+          </>
+        ) : s.needs_reconnect ? (
+          // D376: its connection is off, so nothing from Google shows until it is reconnected.
+          <>
+            <MessagesSquare className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <span role="status" className="min-w-0 flex-1 truncate text-muted-foreground">
+              {s.reconnect_is_mine
+                ? "Google Chat is disconnected."
+                : "Google Chat is paused until whoever set it up reconnects."}
+            </span>
+            {s.reconnect_is_mine && (
+              <Button asChild size="sm" variant="outline" className="shrink-0">
+                <Link to={integrations}>Reconnect Google Chat</Link>
+              </Button>
+            )}
+            {s.can_manage && (
+              <SyncMenu>
                 <DropdownMenuItem disabled={unlink.isPending} onSelect={stop}>
                   <Unlink className="size-4" aria-hidden /> Stop syncing
                 </DropdownMenuItem>

@@ -357,6 +357,24 @@ def test_a_deletion_request_by_account_email_clears_their_chat_pictures_and_a_na
     assert {r.status for r in rows(other, u["pi"]).values()} == {AccountStatus.ACTIVE}
 
 
+def test_a_deletion_request_deletes_what_came_in_through_their_chat_connection(
+    transport, requester, django_capture_on_commit_callbacks
+):
+    lab, other, u, _ = requester
+    chat = ConnectedAccount.objects.for_lab(lab).get(user=u["pi"], provider="google_chat")
+    LabChatMessage.objects.create(
+        lab=lab,
+        body="synced",
+        source=ChatSource.GOOGLE_CHAT,
+        external_author="Some One",
+        via_account=chat,
+    )
+    with django_capture_on_commit_callbacks(execute=True):
+        call_command("delete_integration_data", email=u["pi"].email, lab=str(lab.pk))
+    assert not LabChatMessage.objects.for_lab(lab).filter(body="synced").exists()
+    assert LabChatMessage.objects.for_lab(lab).filter(external_author="Out Sider").exists()
+
+
 def test_another_users_connection_at_the_same_address_is_listed_and_never_touched(
     transport, requester, django_capture_on_commit_callbacks
 ):

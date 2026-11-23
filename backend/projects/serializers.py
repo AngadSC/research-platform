@@ -304,9 +304,23 @@ class ReactionsMixin(serializers.Serializer):
         return summary(
             obj.reactions,
             getattr(request, "user", None),
-            getattr(obj, "external_reactions", None),
+            getattr(obj, "external_reactions", None) if self._google_live(obj) else None,
             self._reactor_names(obj),
         )
+
+    def _google_live(self, obj) -> bool:
+        """D376: reactions made in Google show only while the chat's Google Chat link works,
+        checked once per chat per request."""
+        if not getattr(obj, "external_reactions", None):
+            return False
+        from labs import google_chat
+
+        key = (obj.lab_id, getattr(obj, "project_id", None))
+        live = self.context.setdefault("_google_live", {})
+        if key not in live:
+            bridge = google_chat.bridge_for(obj.lab_id, key[1])
+            live[key] = bridge is not None and google_chat.usable(bridge)
+        return live[key]
 
     def _reactor_names(self, obj) -> dict[str, str]:
         """Lab user id -> name for everyone who reacted, one query for the whole page of messages

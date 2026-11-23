@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 
 from core.tenancy import LabScopedModel
 
@@ -187,10 +188,24 @@ class ChatMessage(LabScopedModel):
     external_author = models.CharField(max_length=200, blank=True)
     external_avatar = models.CharField(max_length=500, blank=True)
     external_id = models.CharField(max_length=255, blank=True)  # the Google Chat message
+    # D376: the Google Chat connection that brought it in. While that connection is not active,
+    # the message is hidden everywhere (`visible_rows`); reconnecting shows it again.
+    via_account = models.ForeignKey(
+        "integrations.ConnectedAccount",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
 
-    lab_parents = ("project",)
+    lab_parents = ("project", "via_account")
     permission_domain = "project"
     project_path = "project"
+
+    @classmethod
+    def visible_rows(cls, qs, user, lab):
+        """D376: what came from Google Chat shows only while its connection is active."""
+        return qs.filter(Q(source=ChatSource.APP) | Q(via_account__status="active"))
 
     class Meta(LabScopedModel.Meta):
         indexes = [models.Index(fields=["project", "created_at"], name="chatmessage_recent_idx")]

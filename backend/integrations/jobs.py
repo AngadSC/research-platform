@@ -10,7 +10,14 @@ import logging
 from celery import shared_task
 from celery.exceptions import SoftTimeLimitExceeded
 
-from integrations.services import check_all_links, check_lab_links, revoke_orphaned_accounts
+from integrations.http import AccountUnavailable, IntegrationError
+from integrations.models import AccountStatus, ConnectedAccount
+from integrations.services import (
+    check_all_links,
+    check_lab_links,
+    refresh_access_token,
+    revoke_orphaned_accounts,
+)
 from labs.models import Lab
 
 log = logging.getLogger("integrations.jobs")
@@ -52,6 +59,26 @@ def check_links_by_lab() -> int:
     for lab_id in ids:
         check_lab_links_task.delay(str(lab_id))
     return len(ids)
+
+
+@shared_task(soft_time_limit=600, time_limit=660)
+def check_google_chat_accounts() -> int:
+    """D376: notice access removed in Google for every active Google Chat connection, including
+    ones used only to import (a linked one is noticed by the next poll). A refused refresh marks
+    the account expired, which hides what came in through it. Returns how many went off."""
+    off = 0
+    for lab in Lab.objects.all():
+        rows = ConnectedAccount.objects.for_lab(lab).filter(
+            provider="google_chat", status=AccountStatus.ACTIVE
+        )
+        for account in rows:
+            try:
+                refresh_access_token(account)
+            except AccountUnavailable:
+                off += 1
+            except IntegrationError:
+                log.warning("google chat account check failed; tried again next run")
+    return off
 
 
 @shared_task(soft_time_limit=600, time_limit=660)

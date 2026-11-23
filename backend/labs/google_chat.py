@@ -80,6 +80,21 @@ def bridge_for(lab, project=None):
     return qs.filter(project=project).first()
 
 
+def chat_status(lab, user, project=None) -> dict:
+    """What the chat header shows (D376): the link only while it works; when its connection is
+    off, `needs_reconnect` instead, so nothing from Google is shown until it is reconnected."""
+    bridge = bridge_for(lab, project)
+    live = bridge if bridge is not None and usable(bridge) else None
+    off = bridge is not None and bridge.account.status != AccountStatus.ACTIVE
+    return {
+        "bridge": live,
+        "needs_reconnect": off,
+        "reconnect_is_mine": off and bridge.account.user_id == user.pk,
+        "configured": PROVIDER.configured,
+        "connected": own_account(lab, user) is not None,
+    }
+
+
 def _model(bridge_or_project_id):
     """The message model a link feeds: project chat or lab chat."""
     pid = getattr(bridge_or_project_id, "project_id", bridge_or_project_id)
@@ -217,7 +232,7 @@ def space_people(bridge) -> list[dict[str, str]]:
     """The people in a linked conversation who could be @mentioned from here, for the composer:
     Google id and name. Members who have connected Google Chat here are left out, since they are
     mentioned as the lab member they are. Names come from the conversation's own member list."""
-    if not _usable(bridge):
+    if not usable(bridge):
         return []
     mine = set(_authors(bridge.lab, bridge.project))
     try:
@@ -370,7 +385,7 @@ def unlink_space(*, lab, by, project=None, request=None) -> None:
     bridge.delete()
 
 
-def _usable(bridge) -> bool:
+def usable(bridge) -> bool:
     """The link works only while its connection is active and its owner still in the lab (and,
     for a project chat, still able to see the project)."""
     account = bridge.account
@@ -468,7 +483,7 @@ def relay(message) -> bool:
     bridge = bridge_for(message.lab, getattr(message, "project", None))
     if bridge is None or message.source != ChatSource.APP or message.external_id:
         return False
-    if not _usable(bridge):
+    if not usable(bridge):
         _fail(bridge, "The Google Chat connection that set this up is no longer active.")
         return False
     text = to_google_text(message.body, _google_ids(message.lab, getattr(message, "project", None)))
@@ -654,7 +669,7 @@ def _authors(lab, project=None) -> dict[str, object]:
 
 def poll(bridge) -> int:
     """Read the conversation's new messages into its chat. Returns how many were added."""
-    if not _usable(bridge):
+    if not usable(bridge):
         _fail(bridge, "The Google Chat connection that set this up is no longer active.")
         return 0
     try:
@@ -762,6 +777,7 @@ def poll(bridge) -> int:
                     source=ChatSource.GOOGLE_CHAT,
                     external_id=name,
                     external_reactions=clean_external(item.get("emojiReactionSummaries")),
+                    via_account=bridge.account,
                 )
             added += 1
         except IntegrityError:
@@ -1113,6 +1129,7 @@ def import_messages(*, lab, user, space, thread="", project=None, request=None) 
                     source=ChatSource.GOOGLE_CHAT,
                     external_id=name,
                     external_reactions=clean_external(item.get("emojiReactionSummaries")),
+                    via_account=account,
                 )
                 # Its own time, never later than now (created_at is set on create).
                 model.objects.for_lab(lab).filter(pk=row.pk).update(created_at=min(created, now))

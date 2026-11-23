@@ -162,6 +162,22 @@ class LabChatMessage(LabScopedModel):
     # Reactions made in Google Chat: {emoji: how many}. Google gives counts, not people, so they
     # are kept apart from `reactions` and added to them when read.
     external_reactions = models.JSONField(default=dict, blank=True)
+    # D376: the Google Chat connection that brought it in. While that connection is not active,
+    # the message is hidden everywhere (`visible_rows`); reconnecting shows it again.
+    via_account = models.ForeignKey(
+        "integrations.ConnectedAccount",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    lab_parents = ("via_account",)
+
+    @classmethod
+    def visible_rows(cls, qs, user, lab):
+        """D376: what came from Google Chat shows only while its connection is active."""
+        return qs.filter(Q(source=ChatSource.APP) | Q(via_account__status="active"))
 
     class Meta(LabScopedModel.Meta):
         indexes = [models.Index(fields=["lab", "created_at"], name="labchat_recent_idx")]

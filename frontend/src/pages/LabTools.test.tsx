@@ -14,7 +14,14 @@ const base = (perms: string[], extra: Record<string, unknown> = {}) => ({
   [`GET ${L}/chat/unread/`]: { body: [] },
   [`GET ${L}/notifications/`]: { body: [] },
   [`GET ${L}/chat/google/`]: {
-    body: { bridge: null, configured: false, connected: false, can_manage: false },
+    body: {
+      bridge: null,
+      configured: false,
+      connected: false,
+      can_manage: false,
+      needs_reconnect: false,
+      reconnect_is_mine: false,
+    },
   },
   ...extra,
 });

@@ -149,6 +149,12 @@ class GoogleChatStatusSerializer(serializers.Serializer):
     configured = serializers.BooleanField(help_text="The site has a Google Chat app set up.")
     connected = serializers.BooleanField(help_text="You have connected Google Chat in this lab.")
     can_manage = serializers.BooleanField(help_text="You may link or unlink this chat.")
+    needs_reconnect = serializers.BooleanField(
+        help_text="Linked, but the connection that set it up is off: nothing from Google is shown."
+    )
+    reconnect_is_mine = serializers.BooleanField(
+        help_text="That connection is yours: reconnecting Google Chat resumes it."
+    )
 
 
 class GoogleChatPersonSerializer(serializers.Serializer):

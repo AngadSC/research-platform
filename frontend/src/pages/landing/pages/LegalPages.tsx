@@ -234,9 +234,14 @@ export function PrivacyPage() {
           photo links, as part of its history, until they are deleted in labbenchos.
         </li>
         <li>
-          <strong>If the person who linked it disconnects</strong> Google Chat, or leaves the lab,
-          the link pauses: nothing is read or posted until they connect again or someone unlinks it.
-          Messages already copied in stay, as above. Messages posted in Google Chat stay there.
+          <strong>If the person who linked it disconnects</strong> Google Chat, removes our access
+          in their Google account, or leaves the lab, the link pauses: nothing is read or posted,
+          and the messages that came in through their connection are hidden from everyone in
+          labbenchos. If they connect the same Google account again, the link resumes and those
+          messages show again. Meanwhile the copies stay stored, hidden, until you ask us to delete
+          them (see below). Imported messages are hidden in the same way while the connection of the
+          person who imported them is off. We check every hour whether access was removed in Google.
+          Messages posted in Google Chat stay there.
         </li>
         <li>Google Chat messages are never given to the AI assistant or to AI apps.</li>
       </ul>
@@ -310,7 +315,10 @@ export function PrivacyPage() {
           kept as security records);
         </li>
         <li>delete your calendar settings and our list of what we put on your calendar;</li>
-        <li>remove links to Google Chat conversations made with your connection;</li>
+        <li>
+          remove links to Google Chat conversations made with your connection, and delete the
+          messages that were copied in or imported through it;
+        </li>
         <li>
           remove your Google profile photo link from chat messages linked to your labbenchos
           account. Directory lookups of your name expire within a day.

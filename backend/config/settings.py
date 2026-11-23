@@ -245,6 +245,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "assistant.jobs.prune_unused_clients",
         "schedule": crontab(hour=3, minute=0),
     },
+    "integrations-check-google-chat": {  # D376: access removed in Google
+        "task": "integrations.jobs.check_google_chat_accounts",
+        "schedule": crontab(minute=20),
+    },
     "integrations-revoke-orphans": {
         "task": "integrations.jobs.revoke_orphans",
         "schedule": crontab(hour=1, minute=30),

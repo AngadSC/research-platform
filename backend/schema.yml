@@ -17312,11 +17312,21 @@ components:
         can_manage:
           type: boolean
           description: You may link or unlink this chat.
+        needs_reconnect:
+          type: boolean
+          description: 'Linked, but the connection that set it up is off: nothing
+            from Google is shown.'
+        reconnect_is_mine:
+          type: boolean
+          description: 'That connection is yours: reconnecting Google Chat resumes
+            it.'
       required:
       - bridge
       - can_manage
       - configured
       - connected
+      - needs_reconnect
+      - reconnect_is_mine
     GoogleChatThread:
       type: object
       properties:
