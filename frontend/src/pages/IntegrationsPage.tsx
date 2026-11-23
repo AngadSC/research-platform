@@ -44,6 +44,11 @@ interface Confirm {
  * everyone's, with a Revoke action. */
 export function IntegrationsPage() {
   const { labId = "" } = useParams();
+  return <IntegrationsPanel labId={labId} />;
+}
+
+/** The whole integrations screen. `embedded` drops the page title, for use inside a Settings tab. */
+export function IntegrationsPanel({ labId, embedded }: { labId: string; embedded?: boolean }) {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const lab = useLab(labId).data;
@@ -149,13 +154,22 @@ export function IntegrationsPage() {
 
   return (
     <div className="grid gap-8">
-      <PageHeader
-        title="Integrations"
-        description="Connect AI apps like Claude, and outside services you use with your projects. Each service below says what connecting it lets labbenchos do."
-      />
-      <p className="-mt-6 text-sm text-muted-foreground">
-        Each person connects their own accounts here.
-      </p>
+      {embedded ? (
+        <p className="text-sm text-muted-foreground">
+          Connect AI apps like Claude, and outside services you use with your projects. Each person
+          connects their own accounts here.
+        </p>
+      ) : (
+        <>
+          <PageHeader
+            title="Integrations"
+            description="Connect AI apps like Claude, and outside services you use with your projects. Each service below says what connecting it lets labbenchos do."
+          />
+          <p className="-mt-6 text-sm text-muted-foreground">
+            Each person connects their own accounts here.
+          </p>
+        </>
+      )}
       <FormError message={failure ?? connectError(initialError)} />
       <AiAppsSection />
       <Disclosure card region defaultOpen title="Services">

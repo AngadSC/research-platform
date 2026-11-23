@@ -12,6 +12,7 @@ import type { CustomTheme } from "@/lib/customTheme";
 import { useTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { Section } from "@/pages/admin/common";
+import { IntegrationsPanel } from "@/pages/IntegrationsPage";
 import { SecuritySections } from "@/pages/SecurityPage";
 import { AiAccessSections, ConnectedAiApps } from "@/pages/settings/AiAccessSections";
 import { AiKeysSection } from "@/pages/settings/AiKeysSection";
@@ -228,18 +229,10 @@ export function SettingsPage() {
                     id: "integrations",
                     label: "Integrations",
                     content: (
-                      <Section
-                        title="Integrations"
-                        description="Connect your Google Drive, calendar and other accounts."
-                        defaultOpen
-                      >
-                        <Link
-                          className="text-sm font-medium underline-offset-4 hover:underline"
-                          to={`/labs/${lab.id}/settings/integrations`}
-                        >
-                          Open Integrations
-                        </Link>
-                      </Section>
+                      <div className="grid gap-4">
+                        <h2 className="text-lg font-semibold">Integrations</h2>
+                        <IntegrationsPanel labId={lab.id} embedded />
+                      </div>
                     ),
                   },
                 ]
