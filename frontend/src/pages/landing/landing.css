@@ -24,7 +24,7 @@
   --lb-body: #4a5260;
   --lb-line: #e6e8ec;
   --lb-mint: #8fd3cf;
-  font-family: Inter, system-ui, sans-serif;
+  font-family: "IBM Plex Sans", Inter, system-ui, sans-serif;
   color: var(--lb-ink);
   background: #ffffff;
   min-height: 100vh;

@@ -2,7 +2,7 @@ import { MoreMenu } from "@/components/shared/MoreMenu";
 import { useState, type FormEvent, type MouseEvent } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
-import { DataTable, type Column } from "@/components/shared/DataTable";
+import { DataTable, HIDE_NARROW, HIDE_NARROWER, type Column } from "@/components/shared/DataTable";
 import { BulkBar, SelectBox, reportBulk, runEach, useSelection } from "@/components/shared/bulk";
 import { ConfirmDelete } from "@/components/shared/ConfirmDelete";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -399,8 +399,18 @@ export function InventorySection({
 
   const cols: Column<InventoryItem>[] = [
     { key: "name", header: "Name", cell: (i) => <span className="font-medium">{i.name}</span> },
-    { key: "category", header: "Category", cell: (i) => nameOf(CATEGORIES, i.category) },
-    { key: "location", header: "Location", cell: (i) => i.location || "-" },
+    {
+      key: "category",
+      header: "Category",
+      className: HIDE_NARROW,
+      cell: (i) => nameOf(CATEGORIES, i.category),
+    },
+    {
+      key: "location",
+      header: "Location",
+      className: HIDE_NARROWER,
+      cell: (i) => i.location || "-",
+    },
     {
       key: "qty",
       header: "Quantity",
@@ -416,16 +426,17 @@ export function InventorySection({
     {
       key: "owner",
       header: "Owner",
+      className: HIDE_NARROWER,
       cell: (i) => (i.owner ? i.owner.display_name || i.owner.email : "-"),
     },
-    { key: "due", header: "Due", cell: (i) => i.due_date ?? "-" },
+    { key: "due", header: "Due", className: HIDE_NARROW, cell: (i) => i.due_date ?? "-" },
     { key: "status", header: "Status", cell: (i) => nameOf(STATUSES, i.status) },
     ...(canEdit
       ? [
           {
             key: "actions",
             header: "Actions",
-            className: "text-right",
+            className: "text-right whitespace-nowrap",
             cell: actions,
           },
         ]

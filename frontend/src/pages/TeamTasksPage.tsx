@@ -60,7 +60,7 @@ export function TeamTasksPage() {
   return (
     <>
       <PageHeader
-        title={`${person ? personName(person) : "Member"}: ${KINDS[show]}`}
+        title={person ? `${personName(person)}: ${KINDS[show]}` : `Team: ${KINDS[show]}`}
         description="Across every project you can see."
         actions={
           <Link

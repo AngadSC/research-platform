@@ -588,3 +588,8 @@ body::after {
   --viz-s2: #d95926;
   --viz-s3: #199e70;
 }
+
+/* The document editor uses the app's typeface. */
+.bn-container {
+  --bn-font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}

@@ -126,7 +126,8 @@ function Card({
       role="region"
       aria-labelledby={`${id}-title`}
       className={cn(
-        "group/card rounded-lg border bg-card/60 px-4 py-3 open:bg-card",
+        "group/card rounded-lg border border-l-4 bg-card px-4 py-3 shadow-[var(--shadow-glass-1)]",
+        tone === "red" ? "border-l-danger" : "border-l-warning",
         // An open-by-default card is the tall one: its own row, so no gap beside it in the grid.
         defaultOpen && "md:col-span-2",
       )}
@@ -671,9 +672,12 @@ function YourPlate({ labId }: { labId: string }) {
   const now = [...d.overdue, ...d.today];
   if (now.length === 0) return null;
   return (
-    <section aria-labelledby="your-plate" className="grid gap-2 rounded-lg border bg-card p-4">
+    <section
+      aria-labelledby="your-plate"
+      className="grid gap-2 rounded-lg border bg-card p-4 shadow-[var(--shadow-glass-1)]"
+    >
       <div className="flex items-center justify-between gap-2">
-        <h2 id="your-plate" className="text-base font-medium">
+        <h2 id="your-plate" className="text-base font-semibold">
           On your plate
           <span className="ml-2 text-sm font-normal text-muted-foreground">
             {[
@@ -775,7 +779,7 @@ export function DashboardPage() {
         {header}
         {(ownTraining.length > 0 || (lowStock.data?.length ?? 0) > 0) && (
           <section aria-labelledby="attention" className="mb-6 grid gap-3">
-            <h2 id="attention" className="text-base font-medium">
+            <h2 id="attention" className="text-base font-semibold">
               Needs attention
             </h2>
             <TrainingCard base={base} items={ownTraining} />
@@ -783,7 +787,7 @@ export function DashboardPage() {
           </section>
         )}
         <section aria-labelledby="my-tasks" className="grid gap-3">
-          <h2 id="my-tasks" className="text-base font-medium">
+          <h2 id="my-tasks" className="text-base font-semibold">
             My tasks
           </h2>
           <MyTasksList labId={labId} />
@@ -872,7 +876,7 @@ export function DashboardPage() {
             ) : (
               <section aria-labelledby="attention" className="grid gap-3">
                 <div className="flex items-center justify-between gap-2">
-                  <h2 id="attention" className="text-base font-medium">
+                  <h2 id="attention" className="text-base font-semibold">
                     Needs attention
                   </h2>
                   <Button
@@ -1114,7 +1118,7 @@ export function DashboardPage() {
             )}
             {lab && <ParticipantCards labId={labId} />}
             <section aria-labelledby="projects" className="grid gap-3">
-              <h2 id="projects" className="text-base font-medium">
+              <h2 id="projects" className="text-base font-semibold">
                 Projects
               </h2>
               <ProjectTable
