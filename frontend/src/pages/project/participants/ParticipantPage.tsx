@@ -1,6 +1,8 @@
-import { Archive, ArrowLeft, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { Archive, ArrowLeft, Check, ChevronLeft, ChevronRight, Paperclip } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
+import { Disclosure } from "@/components/shared/Disclosure";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,6 +10,7 @@ import { useParticipantEvents, useReasons, useRegistry } from "@/hooks/participa
 import type { CellStatus } from "@/lib/api-types";
 import { CATEGORIES, completeness, statusOf } from "@/lib/participants";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
+import { ParticipantFiles } from "@/pages/project/participants/ParticipantFiles";
 import { StatusChip } from "@/pages/project/participants/StatusChip";
 import { RelativeTime } from "@/components/shared/RelativeTime";
 
@@ -23,6 +26,7 @@ export default function ParticipantPage({ labId, projectId, project }: ProjectTa
   const p = list[index];
   const back = `/labs/${labId}/projects/${projectId}/participants`;
   const canEdit = project.my_permissions.includes("edit_content");
+  const [showDone, setShowDone] = useState(false);
 
   if (registry.participants.isLoading) return <Skeleton aria-label="Loading" className="h-48" />;
   if (!p)
@@ -45,6 +49,10 @@ export default function ParticipantPage({ labId, projectId, project }: ProjectTa
   const cellOf = (componentId: string) =>
     cells.find((c) => c.participant === p.id && c.component === componentId);
   const { percent } = completeness(columns.map((c) => cellOf(c.id)));
+  // "Done" is complete or deliberately left out; everything else is still to do.
+  const isDone = (id: string) => ["complete", "excluded"].includes(statusOf(cellOf(id)));
+  const todo = columns.filter((c) => !isDone(c.id));
+  const doneCount = columns.length - todo.length;
   const step = (d: number) => {
     const next = list[index + d];
     if (next) void navigate(`${back}/${next.id}`);
@@ -124,22 +132,39 @@ export default function ParticipantPage({ labId, projectId, project }: ProjectTa
         <div
           role="img"
           aria-label={`${percent}% complete`}
-          className="grid size-16 place-items-center rounded-full text-sm font-semibold"
+          className="grid size-14 place-items-center rounded-full text-sm font-semibold"
           style={{
             background: `conic-gradient(var(--success) ${percent * 3.6}deg, var(--muted) 0)`,
           }}
         >
-          <span className="grid size-12 place-items-center rounded-full bg-background">
+          <span className="grid size-10 place-items-center rounded-full bg-background">
             {percent}%
           </span>
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold">{p.code}</h1>
           <p className="text-sm text-muted-foreground">
             {[p.group, p.cohort, p.enrolment_status].filter(Boolean).join(" · ")}
           </p>
         </div>
+        {columns.length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            {doneCount} of {columns.length} entries done
+            {todo.length > 0 ? `, ${todo.length} to do` : ""}
+          </p>
+        )}
       </header>
+
+      {canEdit && columns.length > 0 && (
+        <ParticipantFiles
+          labId={labId}
+          projectId={projectId}
+          participant={p}
+          columns={columns}
+          cellOf={cellOf}
+          registry={registry}
+        />
+      )}
 
       {columns.length === 0 && (
         <p className="text-sm text-muted-foreground">
@@ -148,45 +173,65 @@ export default function ParticipantPage({ labId, projectId, project }: ProjectTa
         </p>
       )}
 
+      {columns.length > 0 && todo.length === 0 && !showDone && (
+        <p role="status" className="text-sm font-medium text-success-text">
+          Everything for {p.code} is done.
+        </p>
+      )}
+
       {CATEGORIES.map(([cat, catLabel]) => {
         const inCat = columns.filter((c) => c.category === cat);
         if (!inCat.length) return null;
+        const open = showDone ? inCat : inCat.filter((c) => !isDone(c.id));
+        const finished = inCat.length - inCat.filter((c) => !isDone(c.id)).length;
+        if (!open.length) return null;
         return (
           <section key={cat} aria-label={catLabel} className="grid gap-2">
-            <h2 className="text-sm font-medium text-muted-foreground">{catLabel}</h2>
-            <ul className="divide-y rounded-lg border">
-              {inCat.map((c) => {
+            <h2 className="flex items-baseline gap-2 text-sm font-semibold">
+              {catLabel}
+              <span className="text-xs font-normal text-muted-foreground">
+                {finished} of {inCat.length} done
+              </span>
+            </h2>
+            <ul className="divide-y rounded-lg border bg-card">
+              {open.map((c) => {
                 const cell = cellOf(c.id);
                 const reason = reasons.find((r) => r.id === cell?.reason)?.label;
+                const files = cell?.files ?? [];
                 return (
-                  <li key={c.id} className="flex flex-wrap items-center gap-3 px-3 py-2">
-                    <span className="min-w-40 flex-1 font-medium">{c.name}</span>
-                    <StatusChip status={statusOf(cell)} files={cell?.files.length} />
-                    {canEdit && !["complete", "excluded"].includes(statusOf(cell)) && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        aria-label={`Mark ${c.name} complete`}
-                        onClick={() => markComplete(c.id, c.name)}
-                      >
-                        <Check aria-hidden /> Mark complete
-                      </Button>
+                  <li key={c.id} className="grid gap-1 px-3 py-2">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="min-w-40 flex-1 font-medium">{c.name}</span>
+                      <StatusChip status={statusOf(cell)} files={files.length} />
+                      {canEdit && !isDone(c.id) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label={`Mark ${c.name} complete`}
+                          onClick={() => markComplete(c.id, c.name)}
+                        >
+                          <Check aria-hidden /> Mark complete
+                        </Button>
+                      )}
+                    </div>
+                    {(reason || cell?.due_date || files.length > 0) && (
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-muted-foreground">
+                        {reason && <span>{reason}</span>}
+                        {cell?.due_date && <span>Due {cell.due_date}</span>}
+                        {files.map((f) => (
+                          <a
+                            key={f.id}
+                            href={f.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex max-w-56 items-center gap-1 text-foreground underline underline-offset-2"
+                          >
+                            <Paperclip aria-hidden className="size-3.5 shrink-0" />
+                            <span className="truncate">{f.title || "Open file"}</span>
+                          </a>
+                        ))}
+                      </div>
                     )}
-                    {reason && <span className="text-sm text-muted-foreground">{reason}</span>}
-                    {cell?.due_date && (
-                      <span className="text-sm text-muted-foreground">Due {cell.due_date}</span>
-                    )}
-                    {(cell?.files ?? []).map((f) => (
-                      <a
-                        key={f.id}
-                        href={f.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm underline"
-                      >
-                        {f.title || "Open file"}
-                      </a>
-                    ))}
                   </li>
                 );
               })}
@@ -195,9 +240,22 @@ export default function ParticipantPage({ labId, projectId, project }: ProjectTa
         );
       })}
 
-      <section aria-label="History" className="grid gap-2">
-        <h2 className="text-sm font-medium text-muted-foreground">History</h2>
-        {events.length === 0 && <p className="text-sm text-muted-foreground">No changes yet.</p>}
+      {columns.length > 0 && doneCount > 0 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="justify-self-start"
+          aria-pressed={showDone}
+          onClick={() => setShowDone((v) => !v)}
+        >
+          {showDone ? "Hide finished entries" : `Show ${doneCount} finished`}
+        </Button>
+      )}
+
+      <Disclosure
+        title="History"
+        hint={events.length ? `${events.length} changes` : "No changes yet"}
+      >
         <ul className="grid gap-1 text-sm">
           {events.map((e) => {
             const col = (registry.columns.data ?? []).find((c) => c.id === e.component);
@@ -215,7 +273,7 @@ export default function ParticipantPage({ labId, projectId, project }: ProjectTa
             );
           })}
         </ul>
-      </section>
+      </Disclosure>
     </div>
   );
 }
