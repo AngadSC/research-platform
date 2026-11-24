@@ -8,7 +8,7 @@ import { LandingPage } from "@/pages/LandingPage";
 /** Sends signed-out visitors to /login and brings them back afterwards. */
 export function ProtectedLayout() {
   const { isLoading, isAuthenticated, unavailable, retry } = useAuth();
-  const { pathname, search } = useLocation();
+  const { pathname, search, hash } = useLocation();
   if (isLoading)
     return (
       <div className="grid gap-3 p-8" aria-busy="true" aria-label="Loading">
@@ -31,6 +31,6 @@ export function ProtectedLayout() {
     );
   if (!isAuthenticated && pathname === "/") return <LandingPage />;
   if (!isAuthenticated)
-    return <Navigate to={`/login?next=${encodeURIComponent(pathname + search)}`} replace />;
+    return <Navigate to={`/login?next=${encodeURIComponent(pathname + search + hash)}`} replace />;
   return <AppShell />;
 }

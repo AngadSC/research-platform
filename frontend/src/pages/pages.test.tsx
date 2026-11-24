@@ -185,3 +185,22 @@ describe("accept invite", () => {
     expect(await screen.findByRole("heading", { name: /can't be used/ })).toBeInTheDocument();
   });
 });
+
+describe("zoom app listing", () => {
+  it("keeps the tab through sign-in, so the Zoom landing link opens Integrations", async () => {
+    mockFetch({ [SESSION]: signedOut, ...PASSWORD_ONLY });
+    const router = renderRoute("/settings#integrations");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+    expect(router.state.location.search).toBe("?next=%2Fsettings%23integrations");
+  });
+
+  it("shows how to add, use and remove Zoom to signed-out visitors", async () => {
+    mockFetch({ [SESSION]: signedOut });
+    renderRoute("/zoom");
+    expect(
+      await screen.findByRole("heading", { name: "Using Zoom with labbenchos" }),
+    ).toBeInTheDocument();
+    for (const name of ["Add the app", "Use it", "Remove the app", "Support"])
+      expect(screen.getByRole("heading", { name })).toBeInTheDocument();
+  });
+});

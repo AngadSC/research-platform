@@ -508,3 +508,77 @@ export function TermsPage() {
     </Legal>
   );
 }
+
+/** /zoom: how to add, use and remove the Zoom app (a Zoom Marketplace listing requirement). */
+export function ZoomHelpPage() {
+  return (
+    <Legal title="Using Zoom with labbenchos">
+      <p>
+        Connect your Zoom account to make Zoom calls for lab meetings without leaving labbenchos.
+        Each meeting gets its own Zoom meeting and join link, made on your Zoom account.
+      </p>
+
+      <h2>Add the app</h2>
+      <ol>
+        <li>
+          Sign in to <Link to="/login">labbenchos</Link> and open a lab you belong to.
+        </li>
+        <li>
+          Go to <Link to="/settings#integrations">Settings, then Integrations</Link>.
+        </li>
+        <li>
+          On the Zoom card, click <strong>Connect</strong>, sign in to Zoom if asked, and click{" "}
+          <strong>Allow</strong>.
+        </li>
+      </ol>
+      <p>
+        You can also connect from a meeting form: pick <strong>Make a Zoom call</strong> and click{" "}
+        <strong>Connect Zoom</strong>.
+      </p>
+
+      <h2>Use it</h2>
+      <ol>
+        <li>
+          Open the lab&rsquo;s <strong>Calendar</strong> and click <strong>Add meeting</strong>.
+        </li>
+        <li>
+          Fill in the title and time, and under <strong>Video call</strong> pick{" "}
+          <strong>Make a Zoom call</strong>.
+        </li>
+        <li>
+          Save. labbenchos creates the Zoom meeting on your account, with the waiting room on, and
+          shows its join link on the meeting for everyone in the lab.
+        </li>
+      </ol>
+      <p>
+        Changing the meeting&rsquo;s title or time here changes the Zoom meeting too, and deleting
+        it here deletes the Zoom meeting. If you add guest email addresses, labbenchos emails them
+        the join link.
+      </p>
+
+      <h2>Remove the app</h2>
+      <ul>
+        <li>
+          In labbenchos: <strong>Settings, then Integrations</strong>, then{" "}
+          <strong>Disconnect</strong> on the Zoom card. We revoke our access at Zoom and delete your
+          tokens.
+        </li>
+        <li>
+          Or in Zoom: sign in to the Zoom App Marketplace, open <strong>Manage</strong>, then{" "}
+          <strong>Added Apps</strong>, and click <strong>Remove</strong> next to labbenchos. Zoom
+          tells us and we delete your tokens.
+        </li>
+      </ul>
+      <p>
+        Meetings you already made keep their join link and stay in your Zoom account until you
+        delete them there. What we store and send is in our{" "}
+        <Link to="/privacy">privacy policy</Link>.
+      </p>
+
+      <h2>Support</h2>
+      <p>
+        Questions or problems: email <Contact />.
+      </p>
+    </Legal>
+  );
+}

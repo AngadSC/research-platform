@@ -55,7 +55,7 @@ import { MarketingLayout } from "@/pages/landing/MarketingLayout";
 import { FeaturesPage } from "@/pages/landing/pages/FeaturesPage";
 import { InstitutionsPage } from "@/pages/landing/pages/InstitutionsPage";
 import { LabsPage } from "@/pages/landing/pages/LabsPage";
-import { PrivacyPage, TermsPage } from "@/pages/landing/pages/LegalPages";
+import { PrivacyPage, TermsPage, ZoomHelpPage } from "@/pages/landing/pages/LegalPages";
 import { PricingPage } from "@/pages/landing/pages/PricingPage";
 import { StudentsPage } from "@/pages/landing/pages/StudentsPage";
 import { WorkflowPage } from "@/pages/landing/pages/WorkflowPage";
@@ -119,6 +119,7 @@ export const routes: RouteObject[] = [
       { path: "/pricing", element: <PricingPage /> },
       { path: "/privacy", element: <PrivacyPage /> },
       { path: "/terms", element: <TermsPage /> },
+      { path: "/zoom", element: <ZoomHelpPage /> },
     ],
   },
   {

@@ -1738,6 +1738,11 @@
   font-weight: 600;
 }
 .lbp-legal p,
+.lbp-legal ol {
+  margin: 0 0 12px;
+  padding-left: 22px;
+  list-style: decimal;
+}
 .lbp-legal li {
   color: var(--lb-body);
   font-size: 16px;
