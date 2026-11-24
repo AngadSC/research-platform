@@ -333,7 +333,7 @@ function AssistantPanel({
   page?: PageContext;
   initialText?: string;
   /** Docked: the panel stays mounted, so a new prefill replaces the box. */
-  prefill?: { text: string; n: number };
+  prefill?: { text: string; n: number; send?: boolean };
   docked?: boolean;
   onClose: () => void;
   onCollapse?: () => void;
@@ -438,6 +438,16 @@ function AssistantPanel({
       msg,
     );
   }
+
+  // "Summarize this" from a text selection arrives with send: true and goes out by itself, once.
+  const autoSent = useRef(0);
+  useEffect(() => {
+    if (!prefill?.send || !prefill.text || prefill.n === autoSent.current || !chosen || streaming)
+      return;
+    autoSent.current = prefill.n;
+    void send(prefill.text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- send is re-made every render
+  }, [prefill, chosen, streaming]);
 
   async function decide(approve: boolean) {
     if (!convId) return;
@@ -761,7 +771,10 @@ export function AssistantDrawer({ labId }: { labId: string }) {
     return () => window.removeEventListener("resize", fit);
   }, []);
   const [mounted, setMounted] = useState(dock.mode !== "closed"); // keeps the chat once started
-  const [prefill, setPrefill] = useState({ text: "", n: 0 });
+  const [prefill, setPrefill] = useState<{ text: string; n: number; send?: boolean }>({
+    text: "",
+    n: 0,
+  });
   const params = Object.assign({}, ...useMatches().map((m) => m.params)) as Record<
     string,
     string | undefined
@@ -824,7 +837,12 @@ export function AssistantDrawer({ labId }: { labId: string }) {
   }, []);
   useEffect(() => {
     const onPrefill = (e: Event) => {
-      setPrefill((p) => ({ text: (e as CustomEvent<string>).detail, n: p.n + 1 }));
+      const d = (e as CustomEvent<string | { text: string; send?: boolean }>).detail;
+      setPrefill((p) =>
+        typeof d === "string"
+          ? { text: d, n: p.n + 1 }
+          : { text: d.text, n: p.n + 1, send: d.send },
+      );
       if (wide) setMode("open");
       else setOpen(true);
     };
@@ -834,15 +852,14 @@ export function AssistantDrawer({ labId }: { labId: string }) {
 
   const button = (
     <Button
-      variant="secondary"
-      size="sm"
+      variant="ghost"
+      size="icon"
       aria-label="Assistant"
       title={`Assistant (${MOD_KEY} .)`}
       aria-expanded={wide ? dock.mode === "open" : undefined}
       onClick={wide ? toggle : undefined}
     >
       <Sparkles aria-hidden />
-      <span className="hidden sm:inline">Assistant</span>
     </Button>
   );
 
@@ -923,7 +940,8 @@ export function AssistantDrawer({ labId }: { labId: string }) {
           labId={labId}
           projectId={projectId}
           page={page}
-          initialText={prefill.text}
+          initialText={prefill.send ? "" : prefill.text}
+          prefill={prefill}
           onClose={() => setOpen(false)}
         />
       </SheetContent>

@@ -1,3 +1,4 @@
+import { useInRouterContext, Link } from "react-router";
 import type { ReactNode } from "react";
 import { DocLinkCard } from "@/components/shared/DocLinkCard";
 import { parseGoogleLink } from "@/lib/googleLinks";
@@ -10,6 +11,7 @@ import { cn } from "@/lib/utils";
  * made clickable. */
 const INLINE = new RegExp(
   `(${[
+    String.raw`#\[[^\]\n]+\]\(page:\/labs\/[A-Za-z0-9\/_-]+\)`,
     String.raw`@\[[^\]\n]+\]\((?:user:[0-9a-fA-F-]{36}|gchat:[0-9]{1,40})\)`,
     String.raw`\*\*[^*\n]+\*\*`,
     String.raw`~~[^~\n]+~~`,
@@ -39,6 +41,21 @@ interface Style {
   onPrimary: boolean;
 }
 
+/** A tagged page, `#[Tasks](page:/labs/...)`: a link inside the app, never to another site. */
+function PageTag({ label, to }: { label: string; to: string }) {
+  const cls =
+    "rounded bg-primary/10 px-1 font-medium text-primary underline-offset-2 hover:underline";
+  return useInRouterContext() ? (
+    <Link to={to} className={cls}>
+      #{label}
+    </Link>
+  ) : (
+    <a href={to} className={cls}>
+      #{label}
+    </a>
+  );
+}
+
 function inline(text: string, prefix: string, st: Style): ReactNode[] {
   const make = (href: string, label: string, key: string) =>
     !st.ownOnly || ownOrigin(href) ? (
@@ -58,6 +75,10 @@ function inline(text: string, prefix: string, st: Style): ReactNode[] {
   return text.split(INLINE).map((part, i) => {
     const key = `${prefix}-${i}`;
     if (i % 2 === 0) return part;
+    if (part.startsWith("#[")) {
+      const m = /^#\[([^\]]+)\]\(page:([^)]+)\)$/.exec(part);
+      return m ? <PageTag key={key} label={m[1]!} to={m[2]!} /> : part;
+    }
     if (part.startsWith("@[")) {
       const m = /^@\[([^\]]+)\]/.exec(part);
       return (

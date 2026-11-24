@@ -54,7 +54,7 @@ export const PROJECT_SECTIONS = [
     hint: "Funding, ethics, participants, data, analysis, manuscript and review",
   },
   { to: "analyse", label: "Statistics", icon: BarChart3 },
-  { to: "external", label: "Posters and talks", icon: Presentation },
+  { to: "external", label: "Presentations", icon: Presentation },
 ] as const;
 
 /** The kinds of study a project can have, with how to say them (D329). */

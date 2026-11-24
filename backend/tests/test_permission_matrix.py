@@ -28,7 +28,7 @@ from assistant.models import (  # AI access (Run 5); lab AI key (VISION A5)
 from assistant.services import register_client  # AI access (Run 5)
 from assistant.tests.reauth import sign_in  # AI access (Run 5)
 from core import link_preview  # link previews (D322)
-from core.models import Institution, Notification, NotificationKind, User
+from core.models import Institution, Notification, NotificationKind, PageComment, User
 from documents import services as document_services  # documents/attachments (Phase 3)
 from documents.models import Attachment, DocumentComment  # file links (VISION S1); comments
 from ethics.models import EthicsApproval  # ethics (Phase 5)
@@ -432,6 +432,11 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "core:notification-list"): "401 404 2 2 2 2 2 2 2",
     ("POST",   "core:notification-read"): "401 404 2 404 404 404 404 404 404",
     ("POST",   "core:notification-read-all"): "401 404 2 2 2 2 2 2 2",
+    # Page comments need view_lab to read or write, so every lab member does both (a lab page).
+    # Deleting is for the author (the fixture comment is pi's) or someone who manages the lab.
+    ("GET",    "core:page-comment-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "core:page-comment-list"): "401 404 2 2 2 2 2 2 2",
+    ("DELETE", "core:page-comment-detail"): "401 404 2 2 403 403 403 403 403",
     ("GET",    "projects:retention-due"): "401 404 2 2 403 403 403 403 403",
     # --- end ethics and notifications (Phase 5) ---
     # --- handover (Phase 6) ---
@@ -1253,6 +1258,9 @@ def build_world():
     prov_a = _prov_fixtures(lab_a, p1, users["pi"], doc_a, attachment_a, "lab-a")  # Phase 4
     part_a = _participant_fixtures(lab_a, p1, users["pi"], "lab-a")  # participant registry
     eth_a, eth_att_a, note_a = _ethics_fixtures(lab_a, p1, users["pi"], "lab-a")  # Phase 5
+    page_comment_a = PageComment.objects.create(
+        lab=lab_a, author=users["pi"], path=f"/labs/{lab_a.pk}/calendar", body="a lab page note"
+    )
     int_accounts_a, link_a = _integration_fixtures(
         lab_a, p1, {n: users[n] for n in ("pi", "admin", "lead", "contrib")}, "lab-a"
     )  # integrations (Run 2)
@@ -1310,6 +1318,9 @@ def build_world():
     prov_b = _prov_fixtures(lab_b, p1_b, secret_pi, doc_b, attachment_b, "LAB-B-SECRET")  # Ph. 4
     part_b = _participant_fixtures(lab_b, p1_b, secret_pi, "LAB-B-SECRET")  # participant registry
     eth_b, eth_att_b, note_b = _ethics_fixtures(lab_b, p1_b, secret_pi, "LAB-B-SECRET")  # Phase 5
+    page_comment_b = PageComment.objects.create(
+        lab=lab_b, author=secret_pi, path=f"/labs/{lab_b.pk}/calendar", body="LAB-B-SECRET"
+    )
     int_accounts_b, link_b = _integration_fixtures(
         lab_b, p1_b, {"outsider": secret_pi}, "LAB-B-SECRET"
     )  # integrations (Run 2)
@@ -1352,6 +1363,7 @@ def build_world():
             **part_a,  # participant registry
             "ethicsapproval_id": eth_a.pk,  # ethics and notifications (Phase 5)
             "notification_id": note_a.pk,
+            "page_comment_id": page_comment_a.pk,
             "ethics_attachment_id": eth_att_a.pk,  # not a URL kwarg: ethics download test
             "provider": "fake",  # integrations (Run 2)
             "connectedaccount_id": int_accounts_a["contrib"].pk,
@@ -1391,6 +1403,7 @@ def build_world():
             **part_b,  # participant registry
             "ethicsapproval_id": eth_b.pk,  # ethics and notifications (Phase 5)
             "notification_id": note_b.pk,
+            "page_comment_id": page_comment_b.pk,
             "ethics_attachment_id": eth_att_b.pk,
             "provider": "fake",  # integrations (Run 2)
             "connectedaccount_id": int_accounts_b["outsider"].pk,
@@ -1739,6 +1752,11 @@ PAYLOADS = {
     },
     ("POST", "core:notification-read"): lambda user, w: {},
     ("POST", "core:notification-read-all"): lambda user, w: {},
+    ("GET", "core:page-comment-list"): lambda user, w: {"path": f"/labs/{w.a['lab_id']}/calendar"},
+    ("POST", "core:page-comment-list"): lambda user, w: {
+        "path": f"/labs/{w.a['lab_id']}/calendar",
+        "body": "A note from the matrix",
+    },
     # --- integrations (Run 2): pi, admin, lead and contrib each hold an active fake account ---
     ("POST", "integrations:connect"): lambda user, w: {},
     ("POST", "integrations:external-link-check"): lambda user, w: {},

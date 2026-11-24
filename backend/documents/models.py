@@ -35,6 +35,12 @@ class Folder(LabScopedModel):
         return self.name
 
 
+class DocumentKind(models.TextChoices):
+    DOC = "doc", "Document"
+    SHEET = "sheet", "Spreadsheet"
+    SLIDES = "slides", "Presentation"
+
+
 class Document(LabScopedModel):
     # D233: no project means a lab-wide document (a lab manual, an SOP). Project code never sees
     # one: `visible_to` filters on project, and only `services.lab_documents` returns them.
@@ -49,6 +55,9 @@ class Document(LabScopedModel):
         Folder, on_delete=models.SET_NULL, null=True, blank=True, related_name="documents"
     )
     title = models.CharField(max_length=300)
+    # What the content is: a text document (BlockNote blocks), a spreadsheet (one `sheet` block
+    # holding its sheets and cells) or a presentation (one `slide` block per slide).
+    kind = models.CharField(max_length=10, choices=DocumentKind.choices, default=DocumentKind.DOC)
     content = models.JSONField(default=list)  # BlockNote blocks
     # Set once at creation by documents.embed (allowlisted hosts). Blank for a normal document.
     embed_url = models.URLField(max_length=2000, blank=True, default="")

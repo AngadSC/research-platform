@@ -6,7 +6,22 @@ import { useDebounced } from "@/hooks/useDebounced";
 import { api } from "@/lib/api";
 import type { InstitutionHit } from "@/lib/api-types";
 
+/** The institution's own domain from its registry website, or "" when there is none. */
+function hostOf(website: string) {
+  try {
+    return new URL(website).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
 const webSearch = (text: string) => `https://www.google.com/search?q=${encodeURIComponent(text)}`;
+
+const SEARCHES: [string, string][] = [
+  ["ethics", "research ethics board"],
+  ["funding", "research funding office"],
+  ["data management", "research data management"],
+];
 
 /** A free-text institution field with suggestions from the ROR registry (D237). Anything can
  * still be typed, so it works the same when the registry has no match or cannot be reached. */
@@ -82,28 +97,28 @@ export function InstitutionInput({
         </ul>
       )}
       {picked && (
-        <p className="text-xs text-muted-foreground">
-          Filled in from the Research Organization Registry. Check it and add what is missing, such
-          as the postal code. To find this institution's own pages, try a{" "}
-          <a
-            className="underline underline-offset-4"
-            href={webSearch(`${picked.name} research ethics board`)}
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            web search for its ethics pages
-          </a>{" "}
-          or a{" "}
-          <a
-            className="underline underline-offset-4"
-            href={webSearch(`${picked.name} research funding office`)}
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            web search for its funding pages
-          </a>
-          . These are plain web searches, so check that what you find is really theirs.
-        </p>
+        <div className="grid gap-1 text-xs text-muted-foreground">
+          <p>
+            Filled in from the Research Organization Registry. Check it and add what is missing,
+            such as the postal code. To find this institution's own pages, try a{" "}
+            {SEARCHES.map(([what, words], i) => (
+              <span key={what}>
+                {i > 0 && (i === SEARCHES.length - 1 ? ", or a " : ", a ")}
+                <a
+                  className="underline underline-offset-4"
+                  href={webSearch(
+                    `${picked.name} ${words}${hostOf(picked.website) ? ` site:${hostOf(picked.website)}` : ""}`,
+                  )}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  web search for its {what} pages
+                </a>
+              </span>
+            ))}
+            . These are plain web searches, so check that what you find is really theirs.
+          </p>
+        </div>
       )}
     </div>
   );

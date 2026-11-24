@@ -2531,6 +2531,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/page-comments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The comments on one page, oldest first. */
+        get: operations["labs_page_comments_list"];
+        put?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        post: operations["labs_page_comments_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/page-comments/{page_comment_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Its author, or someone who can manage the lab. */
+        delete: operations["labs_page_comments_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/paper-notes/{papernote_id}/": {
         parameters: {
             query?: never;
@@ -6493,6 +6531,7 @@ export interface components {
             /** Format: uuid */
             readonly folder: string | null;
             readonly title: string;
+            readonly kind: components["schemas"]["Kind289Enum"];
             /** Format: uri */
             readonly embed_url: string;
             readonly version: number;
@@ -6515,6 +6554,8 @@ export interface components {
             /** Format: uuid */
             folder?: string | null;
             title: string;
+            /** @default doc */
+            kind: components["schemas"]["Kind289Enum"];
             content?: unknown;
             embed_url?: string;
             /** @default false */
@@ -6528,6 +6569,7 @@ export interface components {
             /** Format: uuid */
             readonly folder: string | null;
             readonly title: string;
+            readonly kind: components["schemas"]["Kind289Enum"];
             /** Format: uri */
             readonly embed_url: string;
             readonly version: number;
@@ -7371,6 +7413,13 @@ export interface components {
          */
         Kind1d9Enum: "webhook" | "slack";
         /**
+         * @description * `doc` - Document
+         *     * `sheet` - Spreadsheet
+         *     * `slides` - Presentation
+         * @enum {string}
+         */
+        Kind289Enum: "doc" | "sheet" | "slides";
+        /**
          * @description * `animal` - Animal
          *     * `microbe` - Microbe
          *     * `cell_line` - Cell Line
@@ -7866,6 +7915,25 @@ export interface components {
             id?: string;
             /** Format: uuid */
             project?: string;
+        };
+        PageComment: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly author: components["schemas"]["User"];
+            readonly path: string;
+            readonly page_label: string;
+            readonly quote: string;
+            readonly body: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        PageCommentCreate: {
+            path: string;
+            /** @default  */
+            page_label: string;
+            /** @default  */
+            quote: string;
+            body: string;
         };
         /**
          * @description * `lab` - lab
@@ -14277,6 +14345,78 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["OnboardingItem"];
                 };
+            };
+        };
+    };
+    labs_page_comments_list: {
+        parameters: {
+            query?: {
+                /** @description The page's path in the app. */
+                path?: string;
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageComment"][];
+                };
+            };
+        };
+    };
+    labs_page_comments_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PageCommentCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PageCommentCreate"];
+                "multipart/form-data": components["schemas"]["PageCommentCreate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageComment"];
+                };
+            };
+        };
+    };
+    labs_page_comments_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+                page_comment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

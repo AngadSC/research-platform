@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Spreadsheet } from "@/components/documents/Spreadsheet";
+import { addr, type Sheet } from "@/lib/sheet";
 import { Button } from "@/components/ui/button";
 import type { DataRows, DataShape, StatsEngine } from "@/lib/stats/contract";
 import { cn } from "@/lib/utils";
@@ -12,9 +14,12 @@ export function DataGrid({
   engine,
   shape,
   tall = false,
+  onSaveAsSheet,
 }: {
   engine: StatsEngine;
   shape: DataShape;
+  /** Offer "Save as spreadsheet": a copy of the rows shown, to work on with formulas. */
+  onSaveAsSheet?: (sheet: Sheet) => void;
   /** Fill the pane (focus mode) instead of stopping at a fixed height. */
   tall?: boolean;
 }) {
@@ -22,6 +27,24 @@ export function DataGrid({
   const [total, setTotal] = useState(shape.rows);
   const [error, setError] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<"sheet" | "types">("sheet");
+  // Row 1 holds the column names, as in a spreadsheet; the rows follow. Edits here are a scratch
+  // copy: they never change the file or the analysis.
+  const [scratch, setScratch] = useState<{ base: Sheet; sheets: Sheet[] } | null>(null);
+  const sheet = useMemo<Sheet>(() => {
+    const cells: Sheet["cells"] = {};
+    shape.columns.forEach((c, j) => {
+      cells[addr(j, 0)] = { text: c.name, bold: true, fill: "#e5e7eb" };
+    });
+    rows.forEach((row, i) =>
+      row.forEach((v, j) => {
+        if (v !== null && v !== "") cells[addr(j, i + 1)] = { text: String(v) };
+      }),
+    );
+    return { name: "Data", cells };
+  }, [rows, shape]);
+  // New rows start the scratch copy over.
+  const edited = scratch && scratch.base === sheet ? scratch.sheets : null;
 
   async function more(from: number) {
     setBusy(true);
@@ -56,74 +79,123 @@ export function DataGrid({
 
   return (
     <div className="grid gap-2">
-      <div
-        className={cn(
-          "overflow-auto rounded-xl border bg-card",
-          tall ? "max-h-[calc(100vh-17rem)]" : "max-h-80",
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div
+          role="radiogroup"
+          aria-label="Data view"
+          className="flex w-fit rounded-lg bg-muted p-0.5"
+        >
+          {(
+            [
+              ["sheet", "Spreadsheet"],
+              ["types", "Column types"],
+            ] as const
+          ).map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              role="radio"
+              aria-checked={mode === v}
+              onClick={() => setMode(v)}
+              className={cn(
+                "rounded-md px-3 py-1 text-sm text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                mode === v && "bg-background font-medium text-foreground shadow-sm",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {mode === "sheet" && onSaveAsSheet && (
+          <Button variant="outline" size="sm" onClick={() => onSaveAsSheet(edited?.[0] ?? sheet)}>
+            Save as spreadsheet
+          </Button>
         )}
-      >
-        <table className="w-full border-separate border-spacing-0 text-sm" aria-label="Data">
-          <thead>
-            <tr>
-              <th
-                scope="col"
-                className="sticky top-0 left-0 z-20 border-b border-r bg-muted px-2 py-1.5 text-right font-normal text-muted-foreground"
-              >
-                <span className="sr-only">Row</span>
-              </th>
-              {shape.columns.map((c) => (
+      </div>
+      {mode === "sheet" ? (
+        <>
+          <Spreadsheet
+            label="Data"
+            editable
+            tall={tall}
+            sheets={edited ?? [sheet]}
+            onChange={(sheets) => setScratch({ base: sheet, sheets })}
+          />
+          <p className="text-xs text-muted-foreground">
+            Formulas and edits here are a scratch copy. They do not change your file or the
+            analysis.
+          </p>
+        </>
+      ) : (
+        <div
+          className={cn(
+            "overflow-auto rounded-xl border bg-card",
+            tall ? "max-h-[calc(100vh-17rem)]" : "max-h-80",
+          )}
+        >
+          <table className="w-full border-separate border-spacing-0 text-sm" aria-label="Data">
+            <thead>
+              <tr>
                 <th
-                  key={c.name}
                   scope="col"
-                  className="sticky top-0 z-10 min-w-28 border-b bg-muted px-3 py-1.5 text-left font-medium"
+                  className="sticky top-0 left-0 z-20 border-b border-r bg-muted px-2 py-1.5 text-right font-normal text-muted-foreground"
                 >
-                  <span
-                    title={KIND_NAME[c.kind]}
-                    className={cn(
-                      "mr-1.5 rounded px-1 text-[10px] font-semibold",
-                      c.kind === "numeric"
-                        ? "bg-primary/15 text-primary"
-                        : "bg-foreground/10 text-muted-foreground",
-                    )}
+                  <span className="sr-only">Row</span>
+                </th>
+                {shape.columns.map((c) => (
+                  <th
+                    key={c.name}
+                    scope="col"
+                    className="sticky top-0 z-10 min-w-28 border-b bg-muted px-3 py-1.5 text-left font-medium"
                   >
-                    {KIND_LABEL[c.kind]}
-                    <span className="sr-only"> {KIND_NAME[c.kind]}</span>
-                  </span>
-                  {c.name}
-                  {c.missing > 0 && (
-                    <span className="ml-1 text-xs font-normal text-muted-foreground">
-                      ({c.missing} blank)
+                    <span
+                      title={KIND_NAME[c.kind]}
+                      className={cn(
+                        "mr-1.5 rounded px-1 text-[10px] font-semibold",
+                        c.kind === "numeric"
+                          ? "bg-primary/15 text-primary"
+                          : "bg-foreground/10 text-muted-foreground",
+                      )}
+                    >
+                      {KIND_LABEL[c.kind]}
+                      <span className="sr-only"> {KIND_NAME[c.kind]}</span>
                     </span>
-                  )}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr key={i}>
-                <th
-                  scope="row"
-                  className="sticky left-0 border-b border-r bg-muted px-2 py-1 text-right font-normal text-muted-foreground tabular-nums"
-                >
-                  {i + 1}
-                </th>
-                {row.map((v, j) => (
-                  <td
-                    key={j}
-                    className={cn(
-                      "border-b px-3 py-1",
-                      shape.columns[j]?.kind === "numeric" && "text-right tabular-nums",
+                    {c.name}
+                    {c.missing > 0 && (
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">
+                        ({c.missing} blank)
+                      </span>
                     )}
-                  >
-                    {v === null ? <span className="text-muted-foreground">·</span> : String(v)}
-                  </td>
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.map((row, i) => (
+                <tr key={i}>
+                  <th
+                    scope="row"
+                    className="sticky left-0 border-b border-r bg-muted px-2 py-1 text-right font-normal text-muted-foreground tabular-nums"
+                  >
+                    {i + 1}
+                  </th>
+                  {row.map((v, j) => (
+                    <td
+                      key={j}
+                      className={cn(
+                        "border-b px-3 py-1",
+                        shape.columns[j]?.kind === "numeric" && "text-right tabular-nums",
+                      )}
+                    >
+                      {v === null ? <span className="text-muted-foreground">·</span> : String(v)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>
           {error

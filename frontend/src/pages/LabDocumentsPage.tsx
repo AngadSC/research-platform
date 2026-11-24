@@ -1,4 +1,7 @@
 import { FileText, Plus } from "lucide-react";
+import { DocsGrid, ViewToggle } from "@/components/documents/DocsGrid";
+import { useDocsView } from "@/hooks/docsView";
+import { DOC_KINDS, kindInfo, type DocKind } from "@/lib/documentKinds";
 import { useState, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { StartHere } from "@/components/dashboard/StartHere";
@@ -20,6 +23,7 @@ import { formErrors, type FormErrors } from "@/lib/forms";
 
 const COLUMNS: Column<DocumentRow>[] = [
   { key: "title", header: "Title", cell: (d) => <span className="font-medium">{d.title}</span> },
+  { key: "kind", header: "Type", cell: (d) => kindInfo(d.kind).label },
   { key: "editor", header: "Last edited by", cell: (d) => personName(d.updated_by) },
   { key: "updated", header: "Updated", cell: (d) => <RelativeTime value={d.updated_at} /> },
 ];
@@ -33,6 +37,7 @@ export function LabDocumentsPage() {
   const create = useCreateDocument(labId, "");
   const remove = useDeleteDocument(labId, "");
   const rows = docs.data ?? [];
+  const [view, setView] = useDocsView(`lab:${labId}`);
   const selection = useSelection(rows.map((d) => d.id));
   const [deleting, setDeleting] = useState(false);
   const picked = rows.filter((d) => selection.has(d.id));
@@ -47,6 +52,7 @@ export function LabDocumentsPage() {
     setDeleting(false);
   }
   const [adding, setAdding] = useState(false);
+  const [kind, setKind] = useState<DocKind>("doc");
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
   const canAdd = lab?.my_permissions.includes("contribute_lab") ?? false;
   const open = (id: string) => void navigate(`/labs/${labId}/documents/${id}`);
@@ -75,6 +81,8 @@ export function LabDocumentsPage() {
     try {
       const doc = await create.mutateAsync({
         title,
+        kind,
+        content: kindInfo(kind).content(),
         ...(embedUrl && { embed_url: embedUrl }),
       });
       open(doc.id);
@@ -111,36 +119,54 @@ export function LabDocumentsPage() {
           </Button>
         </BulkBar>
       )}
-      <DataTable
-        columns={COLUMNS}
-        rows={rows}
-        selection={canAdd ? selection : undefined}
-        selectLabel={(d) => `Select ${d.title}`}
-        getRowKey={(d) => d.id}
-        loading={docs.isLoading}
-        onRowClick={(d) => open(d.id)}
-        empty={
-          <EmptyState
-            icon={FileText}
-            title="No lab documents yet"
-            description={
-              canAdd
-                ? "Write something the whole lab needs, such as a lab manual or an SOP."
-                : "Nothing here yet. Ask a lab manager to add the lab manual and SOPs."
-            }
-            footer={canAdd ? <GettingStartedLink labId={labId} /> : undefined}
-            why="Keeping them here means new members find the current version, not a copy in someone's email."
-            action={addButton}
-            secondary={
-              canAdd ? (
-                <Button variant="outline" onClick={() => setAdding(true)}>
-                  Link a Google Drive file
-                </Button>
-              ) : undefined
-            }
-          />
-        }
-      />
+      <div className="mb-3 flex justify-end">
+        <ViewToggle view={view} onChange={setView} />
+      </div>
+      {view === "grid" && rows.length > 0 ? (
+        <DocsGrid
+          items={rows.map((d) => ({
+            id: d.id,
+            name: d.title,
+            meta: <RelativeTime value={d.updated_at} />,
+            icon: (() => {
+              const Icon = kindInfo(d.kind).icon;
+              return <Icon aria-hidden />;
+            })(),
+            onOpen: () => open(d.id),
+          }))}
+        />
+      ) : (
+        <DataTable
+          columns={COLUMNS}
+          rows={rows}
+          selection={canAdd ? selection : undefined}
+          selectLabel={(d) => `Select ${d.title}`}
+          getRowKey={(d) => d.id}
+          loading={docs.isLoading}
+          onRowClick={(d) => open(d.id)}
+          empty={
+            <EmptyState
+              icon={FileText}
+              title="No lab documents yet"
+              description={
+                canAdd
+                  ? "Write something the whole lab needs, such as a lab manual or an SOP."
+                  : "Nothing here yet. Ask a lab manager to add the lab manual and SOPs."
+              }
+              footer={canAdd ? <GettingStartedLink labId={labId} /> : undefined}
+              why="Keeping them here means new members find the current version, not a copy in someone's email."
+              action={addButton}
+              secondary={
+                canAdd ? (
+                  <Button variant="outline" onClick={() => setAdding(true)}>
+                    Link a Google Drive file
+                  </Button>
+                ) : undefined
+              }
+            />
+          }
+        />
+      )}
       <ConfirmDelete
         open={deleting}
         name={`${picked.length} ${picked.length === 1 ? "document" : "documents"}`}
@@ -156,8 +182,35 @@ export function LabDocumentsPage() {
           <DialogTitle className="text-base font-semibold">New lab document</DialogTitle>
           <DialogDescription className="sr-only">Name the document.</DialogDescription>
           <form onSubmit={submit} noValidate className="grid gap-4">
+            <div
+              role="radiogroup"
+              aria-label="Type"
+              className="flex w-fit rounded-lg bg-muted p-0.5"
+            >
+              {DOC_KINDS.map((k) => (
+                <button
+                  key={k.kind}
+                  type="button"
+                  role="radio"
+                  aria-checked={kind === k.kind}
+                  onClick={() => setKind(k.kind)}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${kind === k.kind ? "bg-background font-medium text-foreground shadow-sm" : ""}`}
+                >
+                  <k.icon aria-hidden className="size-4" /> {k.label}
+                </button>
+              ))}
+            </div>
             <FormField label="Title" error={errors.fields.title}>
-              {(p) => <Input maxLength={300} {...p} name="title" autoComplete="off" />}
+              {(p) => (
+                <Input
+                  maxLength={300}
+                  {...p}
+                  name="title"
+                  autoComplete="off"
+                  defaultValue={kind === "doc" ? "" : kindInfo(kind).title}
+                  key={kind}
+                />
+              )}
             </FormField>
             <FormField
               label="Link to a Google or Microsoft file (optional)"

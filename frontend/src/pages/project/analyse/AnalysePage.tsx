@@ -1,6 +1,7 @@
 import { BarChart3, Maximize2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
+import { toast } from "sonner";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { IconAction } from "@/components/shared/IconAction";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -8,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { useFolders } from "@/hooks/documents";
+import { useCreateDocument, useFolders } from "@/hooks/documents";
 import { downloadUrl, useAttachments } from "@/hooks/projects";
 import { useRecords } from "@/hooks/research";
 import type { Analysis, Attachment, Dataset, ResearchResult } from "@/lib/api-types";
@@ -257,6 +258,10 @@ function StatsWorkspace({
   onInfo,
 }: WorkspaceProps) {
   const { engine, failed } = useEngine();
+  const navigate = useNavigate();
+  const createSheet = useCreateDocument(labId, projectId);
+  const canSaveSheet =
+    project.my_permissions.includes("edit_content") && project.status !== "archived";
   const [params, setParams] = useSearchParams();
   const focus = params.get("focus") === "1";
   const setFocus = (on: boolean) =>
@@ -773,7 +778,28 @@ function StatsWorkspace({
             </select>
           </div>
         )}
-        <DataGrid engine={engine} shape={shape} tall={focus} />
+        <DataGrid
+          engine={engine}
+          shape={shape}
+          tall={focus}
+          onSaveAsSheet={
+            canSaveSheet
+              ? (sheet) =>
+                  createSheet.mutate(
+                    {
+                      title: "Data spreadsheet",
+                      kind: "sheet",
+                      content: [{ type: "sheet", sheets: [sheet] }],
+                    },
+                    {
+                      onSuccess: (d) =>
+                        void navigate(`/labs/${labId}/projects/${projectId}/documents/${d.id}`),
+                      onError: () => toast.error("Could not save the spreadsheet."),
+                    },
+                  )
+              : undefined
+          }
+        />
       </section>
     ) : null;
 

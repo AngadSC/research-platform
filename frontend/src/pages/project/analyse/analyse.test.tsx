@@ -170,7 +170,7 @@ describe("Analyse page", () => {
     expect(engine.warmUp).toHaveBeenCalled();
     await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
     expect(await screen.findByText(/6 rows, 3 columns/)).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /note/ })).toBeInTheDocument();
+    expect(await screen.findByRole("gridcell", { name: "note" })).toBeInTheDocument();
     await u.click(screen.getByRole("button", { name: "Independent t-test" }));
     const outcome = screen.getByLabelText("Outcome (numbers)");
     expect(
@@ -543,6 +543,7 @@ describe("Studio layout", () => {
     setup(fakeEngine());
     const u = userEvent.setup();
     await u.selectOptions(await screen.findByLabelText("From this project"), "file:a1");
+    await u.click(await screen.findByRole("radio", { name: "Column types" }));
     const grid = await screen.findByRole("table", { name: "Data" });
     expect(await within(grid).findByRole("cell", { name: "x" })).toBeInTheDocument();
     expect(within(grid).getByRole("columnheader", { name: /score/ })).toHaveTextContent("numbers");

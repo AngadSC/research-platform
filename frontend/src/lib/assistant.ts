@@ -3,8 +3,12 @@ import { ApiError, getCookie, SESSION_URL, toApiError } from "@/lib/api";
 export const ASSISTANT_PREFILL = "assistant:prefill";
 
 /** Opens the assistant drawer with `prompt` in the message box, not sent. */
-export const openAssistant = (prompt: string) =>
-  window.dispatchEvent(new CustomEvent(ASSISTANT_PREFILL, { detail: prompt }));
+export const openAssistant = (prompt: string, opts?: { send?: boolean }) =>
+  window.dispatchEvent(
+    new CustomEvent(ASSISTANT_PREFILL, {
+      detail: opts?.send ? { text: prompt, send: true } : prompt,
+    }),
+  );
 
 /** One server-sent event from the assistant (D190). `type` is the SSE event name. */
 export interface ChatEvent {

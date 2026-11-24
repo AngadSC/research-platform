@@ -4,10 +4,12 @@ import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormField } from "@/components/shared/FormField";
+import { Disclosure } from "@/components/shared/Disclosure";
 import { LinkedFiles } from "@/components/shared/LinkedFiles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useRegistry } from "@/hooks/participants";
 import { useRecruitmentEntries, useRecruitmentPlan } from "@/hooks/workflow";
 import type { RecruitmentEntry } from "@/lib/api-types";
 import { label, PARTICIPANT_WARNING, RECRUITMENT_STATUSES, totals } from "@/lib/workflow";
@@ -267,15 +269,22 @@ function Tile({ label: l, value }: { label: string; value: string }) {
   );
 }
 
-/** Workflow > Participants: the registry (who has what) above the recruitment counts. */
+/** Workflow > Participants: the same list as the Participants page (one registry, so they never
+ *  drift apart), with the recruitment counts folded underneath. */
 export default function ParticipantsTab(props: ProjectTabProps) {
+  const registry = useRegistry(props.labId, props.projectId);
+  const total = registry.participants.data?.length ?? 0;
   return (
-    <div className="grid gap-8">
+    <div className="grid gap-6">
       <ParticipantRegistry {...props} />
-      <section aria-label="Recruitment counts" className="grid gap-3">
-        <h2 className="text-base font-semibold">Recruitment counts</h2>
+      <Disclosure
+        title="Recruitment counts"
+        defaultOpen
+        hint={`${total} in the participant list`}
+        className="[&_h2]:text-base"
+      >
         <RecruitmentCounts {...props} />
-      </section>
+      </Disclosure>
     </div>
   );
 }

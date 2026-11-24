@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, FileText, PinOff } from "lucide-react";
+import { ArrowDown, ArrowUp, FileText, PinOff, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,16 @@ const docPath = (labId: string, p: StartHerePin) =>
   p.project
     ? `/labs/${labId}/projects/${p.project}/documents/${p.id}`
     : `/labs/${labId}/documents/${p.id}`;
+
+const HINT_KEY = "start-here-hint-dismissed";
+
+function readHintDismissed() {
+  try {
+    return localStorage.getItem(HINT_KEY) === "1";
+  } catch {
+    return false; // storage is blocked: the hint just shows
+  }
+}
 
 /** What the lab wants everyone to read first (D351). Nothing is shown when nothing is pinned.
  *  `labOnly` is for the top of Lab documents, which has no project documents. */
@@ -27,11 +37,31 @@ export function StartHere({
   const change = usePinForEveryone(labId);
   const [editing, setEditing] = useState(false);
   const [removing, setRemoving] = useState<StartHerePin | null>(null);
+  const [hintDismissed, setHintDismissed] = useState(readHintDismissed);
+  const dismissHint = () => {
+    setHintDismissed(true);
+    try {
+      localStorage.setItem(HINT_KEY, "1");
+    } catch {
+      // storage is blocked: it comes back after a reload
+    }
+  };
   const pins = (data ?? []).filter((p) => !labOnly || !p.project);
   if (pins.length === 0)
-    return canPin && data ? (
-      <p className="rounded-lg border border-dashed border-input px-3 py-2 text-xs text-muted-foreground">
-        Nothing is pinned yet. Pin a document for everyone from its ... menu.
+    return canPin && data && !hintDismissed ? (
+      <p className="flex items-center gap-2 rounded-lg border border-dashed border-input py-1 pr-1 pl-3 text-xs text-muted-foreground">
+        <span className="flex-1">
+          Nothing is pinned yet. Pin a document for everyone from its ... menu.
+        </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-6"
+          aria-label="Dismiss"
+          onClick={dismissHint}
+        >
+          <X aria-hidden />
+        </Button>
       </p>
     ) : null;
   const canManage = pins.some((p) => p.can_manage);

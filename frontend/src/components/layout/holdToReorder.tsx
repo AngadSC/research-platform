@@ -13,6 +13,11 @@ const HOLD_MS = 280;
 const SLOP = 6;
 const SETTLE_MS = 180;
 
+export const REORDER_EDIT_EVENT = "reorder-edit";
+/** Turn the shake-and-move edit mode on or off for every reorderable list. */
+export const setReorderEditing = (on: boolean) =>
+  window.dispatchEvent(new CustomEvent(REORDER_EDIT_EVENT, { detail: on }));
+
 export function moveId(ids: string[], id: string, to: number): string[] {
   const next = ids.filter((x) => x !== id);
   next.splice(Math.max(0, Math.min(to, next.length)), 0, id);
@@ -41,7 +46,25 @@ interface Drag {
  * settles into place on release. Alt+Arrow keys do the same from the keyboard. A drag never
  * becomes a click. `ids` is the current order; `onReorder` gets the new one.
  */
-export function useHoldToReorder(ids: string[], onReorder: (next: string[]) => void) {
+export function useHoldToReorder(
+  ids: string[],
+  onReorder: (next: string[]) => void,
+  axis: "x" | "y" = "y",
+) {
+  const horizontal = axis === "x";
+  const [editing, setEditingState] = useState(false);
+  // Holding any row puts every list into edit mode, like iOS: rows shake until Done or Escape.
+  useEffect(() => {
+    const on = (e: Event) => setEditingState((e as CustomEvent<boolean>).detail);
+    window.addEventListener(REORDER_EDIT_EVENT, on);
+    return () => window.removeEventListener(REORDER_EDIT_EVENT, on);
+  }, []);
+  useEffect(() => {
+    if (!editing) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setReorderEditing(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editing]);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [lifted, setLifted] = useState<string | null>(null);
   const rects = useRef<{ top: number; height: number }[]>([]);
@@ -95,11 +118,14 @@ export function useHoldToReorder(ids: string[], onReorder: (next: string[]) => v
   const begin = (id: string, pointer: number, clientY: number, el: HTMLElement) => {
     rects.current = idsRef.current.map((x) => {
       const b = nodes.current.get(x)?.getBoundingClientRect();
-      return { top: b?.top ?? 0, height: b?.height ?? 0 };
+      return horizontal
+        ? { top: b?.left ?? 0, height: b?.width ?? 0 }
+        : { top: b?.top ?? 0, height: b?.height ?? 0 };
     });
     const from = idsRef.current.indexOf(id);
     live.current = { startY: clientY, id, from };
     dropped.current = true; // swallow the click that follows this gesture
+    setReorderEditing(true);
     setLifted(id);
     setDrag({ id, from, to: from, dy: 0, settling: false });
     try {
@@ -114,7 +140,7 @@ export function useHoldToReorder(ids: string[], onReorder: (next: string[]) => v
     const move = (e: PointerEvent) => {
       const d = live.current;
       if (!d) return;
-      const dy = e.clientY - d.startY;
+      const dy = (horizontal ? e.clientX : e.clientY) - d.startY;
       setDrag((cur) => cur && { ...cur, dy, to: targetIndex(d.from, dy) });
     };
     const up = () => finish();
@@ -138,6 +164,13 @@ export function useHoldToReorder(ids: string[], onReorder: (next: string[]) => v
       if (e.button !== 0 || e.pointerType === "touch" || drag) return;
       const el = e.currentTarget;
       const { clientX: x, clientY: y, pointerId } = e;
+      const at = horizontal ? x : y;
+      if (editing) {
+        // Already in edit mode: the row moves straight away, no hold needed.
+        clearHold();
+        begin(id, pointerId, at, el);
+        return;
+      }
       clearHold();
       hold.current = {
         x,
@@ -146,7 +179,7 @@ export function useHoldToReorder(ids: string[], onReorder: (next: string[]) => v
         pointer: pointerId,
         timer: window.setTimeout(() => {
           hold.current = null;
-          begin(id, pointerId, y, el);
+          begin(id, pointerId, at, el);
         }, HOLD_MS),
       };
     },
@@ -165,9 +198,11 @@ export function useHoldToReorder(ids: string[], onReorder: (next: string[]) => v
       }
     },
     onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
-      if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+      const back = horizontal ? "ArrowLeft" : "ArrowUp";
+      const forward = horizontal ? "ArrowRight" : "ArrowDown";
+      if (!e.altKey || (e.key !== back && e.key !== forward)) return;
       const at = ids.indexOf(id);
-      const to = at + (e.key === "ArrowUp" ? -1 : 1);
+      const to = at + (e.key === back ? -1 : 1);
       if (to < 0 || to >= ids.length) return;
       e.preventDefault();
       onReorder(moveId(ids, id, to));
@@ -179,13 +214,14 @@ export function useHoldToReorder(ids: string[], onReorder: (next: string[]) => v
   });
 
   /** Inline style for one row: the lifted one follows the pointer, the rest slide aside. */
+  const T = horizontal ? "translateX" : "translateY";
   const rowStyle = (id: string): CSSProperties | undefined => {
     if (!drag) return undefined;
     const i = ids.indexOf(id);
     const r = rects.current;
     if (id === drag.id)
       return {
-        transform: `translateY(${drag.dy}px) scale(${drag.settling ? 1 : 1.03})`,
+        transform: `${T}(${drag.dy}px) scale(${drag.settling ? 1 : 1.03})`,
         transition: drag.settling ? `transform ${SETTLE_MS}ms ease-out` : "none",
         zIndex: 20,
         position: "relative",
@@ -197,10 +233,10 @@ export function useHoldToReorder(ids: string[], onReorder: (next: string[]) => v
     let shift = 0;
     if (drag.from < i && i <= drag.to) shift = -(h + gap);
     else if (drag.to <= i && i < drag.from) shift = h + gap;
-    return { transform: `translateY(${shift}px)`, transition: `transform ${SETTLE_MS}ms ease-out` };
+    return { transform: `${T}(${shift}px)`, transition: `transform ${SETTLE_MS}ms ease-out` };
   };
 
-  return { rowProps, rowStyle, dragging: !!drag };
+  return { rowProps, rowStyle, dragging: !!drag, editing };
 }
 
 /** Wraps rows in the order given. Kept as a component so callers only list their rows. */
@@ -217,7 +253,7 @@ export function ReorderRow({
     <div
       {...reorder.rowProps(id)}
       style={reorder.rowStyle(id)}
-      className={reorder.dragging ? "min-w-0 rounded-md bg-sidebar select-none" : "min-w-0"}
+      className={`min-w-0 ${reorder.dragging ? "rounded-md bg-sidebar select-none" : ""} ${reorder.editing && !reorder.dragging ? "reorder-shake" : ""}`}
     >
       {children}
     </div>

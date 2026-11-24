@@ -54,6 +54,19 @@ import { formErrors } from "@/lib/forms";
 import { cn } from "@/lib/utils";
 
 const RichEditor = lazy(() => import("@/components/documents/RichEditor"));
+const KindEditors = lazy(() =>
+  import("@/components/documents/KindEditors").then((m) => ({
+    default: ({
+      kind,
+      ...p
+    }: {
+      kind: "sheet" | "slides";
+      initial: unknown[];
+      editable: boolean;
+      onChange: (c: unknown[]) => void;
+    }) => (kind === "sheet" ? <m.SheetEditor {...p} /> : <m.SlidesEditor {...p} />),
+  })),
+);
 
 /** Save this long after the last edit. */
 const AUTOSAVE_MS = 3000;
@@ -492,6 +505,7 @@ function DocumentEditor({
 
   return (
     <div
+      data-no-ai={flagged ? "" : undefined}
       className={cn(
         "flex flex-col gap-2",
         // Focus mode: the document takes the whole window, over the sidebar and project header.
@@ -645,22 +659,34 @@ function DocumentEditor({
                 <Skeleton className={cn("w-full flex-1", focus ? "min-h-0" : FILL_HEIGHT)} />
               }
             >
-              <RichEditor
-                initialContent={initial}
-                editable={canEdit}
-                label="Document content"
-                people={people}
-                className={cn(
-                  "flex-1 rounded-none border-0 bg-transparent py-0",
-                  focus
-                    ? "[&_.bn-editor]:min-h-[calc(100dvh-5rem)]"
-                    : "[&_.bn-editor]:min-h-[calc(100dvh-16rem)]", // the whole area takes the click
-                )}
-                onChange={(b) => {
-                  content.current = b;
-                  if (JSON.stringify(b) !== baseline.current) schedule();
-                }}
-              />
+              {doc.kind === "sheet" || doc.kind === "slides" ? (
+                <KindEditors
+                  kind={doc.kind}
+                  initial={initial}
+                  editable={canEdit}
+                  onChange={(b) => {
+                    content.current = b;
+                    if (JSON.stringify(b) !== baseline.current) schedule();
+                  }}
+                />
+              ) : (
+                <RichEditor
+                  initialContent={initial}
+                  editable={canEdit}
+                  label="Document content"
+                  people={people}
+                  className={cn(
+                    "flex-1 rounded-none border-0 bg-transparent py-0",
+                    focus
+                      ? "[&_.bn-editor]:min-h-[calc(100dvh-5rem)]"
+                      : "[&_.bn-editor]:min-h-[calc(100dvh-16rem)]", // the whole area takes the click
+                  )}
+                  onChange={(b) => {
+                    content.current = b;
+                    if (JSON.stringify(b) !== baseline.current) schedule();
+                  }}
+                />
+              )}
             </Suspense>
           )}
         </div>

@@ -36,6 +36,10 @@ export function useDocuments(labId: string, projectId: string, pollMs?: number, 
 
 export interface DocumentCreate {
   title: string;
+  /** A text document (the default), a spreadsheet or a presentation. */
+  kind?: "doc" | "sheet" | "slides";
+  /** What the document starts with; empty for a text document. */
+  content?: unknown[];
   folder?: string | null;
   /** A pasted Google or Microsoft link: the server normalises it into a frame URL. */
   embed_url?: string;

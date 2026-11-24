@@ -1,6 +1,8 @@
 import {
   BarChart3,
+  ChevronDown,
   Eye,
+  File as FileIcon,
   FileText,
   Link2,
   MoreHorizontal,
@@ -9,6 +11,9 @@ import {
   Upload,
 } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { DocsGrid, ViewToggle } from "@/components/documents/DocsGrid";
+import { useDocsView } from "@/hooks/docsView";
+import { DOC_KINDS, kindInfo, type DocKind } from "@/lib/documentKinds";
 import { useNavigate } from "react-router";
 import { RelativeTime } from "@/components/shared/RelativeTime";
 import { toast } from "sonner";
@@ -150,6 +155,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
       },
     );
   };
+  const [view, setView] = useDocsView(`project:${projectId}`);
   const [deleting, setDeleting] = useState<Row | null>(null);
   const [deleteError, setDeleteError] = useState<string>();
   const [moving, setMoving] = useState<Movable | null>(null);
@@ -169,14 +175,16 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
   };
   const base = `/labs/${labId}/projects/${projectId}`;
   const open = (id: string) => void navigate(`${base}/documents/${id}`);
-  const add = () =>
+  const add = (kind: DocKind = "doc") => {
+    const k = kindInfo(kind);
     create.mutate(
-      { title: "Untitled document", folder },
+      { title: k.title, kind, content: k.content(), folder },
       {
         onSuccess: (d) => open(d.id),
         onError: (e) => toast.error(formErrors(e, []).form ?? "Something went wrong."),
       },
     );
+  };
   const rows: Row[] = [
     ...(docs.data ?? []).map((doc) => ({ doc })),
     ...(files.data ?? []).map((file) => ({ file })),
@@ -184,6 +192,13 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
     .filter((r) => rowFolder(r) === folder)
     .sort((a, b) => rowDate(b).localeCompare(rowDate(a)));
 
+  const openRow = (r: Row) => {
+    if (r.doc) open(r.doc.id);
+    else if (googleEditor(r.file) || previewable(r.file)) preview(r.file);
+    else if (analysable(r.file)) void navigate(`${base}/analyse?file=${r.file.id}`);
+    else if (r.file.external_url) window.open(r.file.external_url, "_blank", "noopener");
+    else startDownload(downloadUrl(labId, r.file.id));
+  };
   const copyToGoogle = (f: Attachment) =>
     editInGoogle.mutate(f.id, {
       onSuccess: (copy) => {
@@ -245,7 +260,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
       header: "Type",
       className: `${HIDE_NARROW} whitespace-nowrap`,
       cell: (r) => {
-        if (r.doc) return "Document";
+        if (r.doc) return kindInfo(r.doc.kind).label;
         const g = googleEditor(r.file);
         const kind = g
           ? g.label
@@ -370,8 +385,9 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
     <div>
       {dialog}
       <div className="grid w-full min-w-0 gap-4">
-        {canEdit && !archived && (
+        {canEdit && !archived ? (
           <div className="flex flex-wrap justify-end gap-2">
+            <ViewToggle view={view} onChange={setView} />
             <IconAction
               label="Upload file"
               icon={<Upload aria-hidden />}
@@ -390,9 +406,29 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
                 })
               }
             />
-            <Button disabled={create.isPending} onClick={add}>
-              <Plus className="size-4" /> New document
-            </Button>
+            <div className="flex">
+              <Button className="rounded-r-none" disabled={create.isPending} onClick={() => add()}>
+                <Plus className="size-4" /> New document
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    className="rounded-l-none border-l border-l-primary-foreground/30 px-2"
+                    aria-label="Choose what to create"
+                    disabled={create.isPending}
+                  >
+                    <ChevronDown aria-hidden />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {DOC_KINDS.map((k) => (
+                    <DropdownMenuItem key={k.kind} onSelect={() => add(k.kind)}>
+                      <k.icon aria-hidden className="size-4" /> {k.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             <MoreMenu
               items={[
                 {
@@ -408,28 +444,46 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
               ]}
             />
           </div>
+        ) : (
+          <div className="flex justify-end">
+            <ViewToggle view={view} onChange={setView} />
+          </div>
         )}
         <FolderBrowser labId={labId} projectId={projectId} canEdit={canEdit} archived={archived} />
-        <DataTable
-          loading={docs.isLoading || files.isLoading}
-          rows={rows}
-          columns={cols}
-          getRowKey={rowId}
-          onRowClick={(r) => {
-            if (r.doc) open(r.doc.id);
-            else if (googleEditor(r.file) || previewable(r.file)) preview(r.file);
-            else if (analysable(r.file)) void navigate(`${base}/analyse?file=${r.file.id}`);
-            else if (r.file.external_url) window.open(r.file.external_url, "_blank", "noopener");
-            else startDownload(downloadUrl(labId, r.file.id));
-          }}
-          empty={
-            <EmptyState
-              icon={FileText}
-              title={folder ? "Nothing in this folder" : "No documents or files yet"}
-              description="Notes, protocols and write-ups for this project live here, with anonymized or aggregate data and papers. PDFs open right here."
-            />
-          }
-        />
+        {view === "grid" && rows.length > 0 ? (
+          <DocsGrid
+            items={rows.map((r) => ({
+              id: rowId(r),
+              name: rowName(r),
+              meta: r.doc ? kindInfo(r.doc.kind).label : kindOf(r.file),
+              icon: r.doc ? (
+                (() => {
+                  const Icon = kindInfo(r.doc.kind).icon;
+                  return <Icon aria-hidden />;
+                })()
+              ) : (
+                <FileIcon aria-hidden />
+              ),
+              onOpen: () => openRow(r),
+              menu: cols.find((c) => c.key === "actions")?.cell(r),
+            }))}
+          />
+        ) : (
+          <DataTable
+            loading={docs.isLoading || files.isLoading}
+            rows={rows}
+            columns={cols}
+            getRowKey={rowId}
+            onRowClick={openRow}
+            empty={
+              <EmptyState
+                icon={FileText}
+                title={folder ? "Nothing in this folder" : "No documents or files yet"}
+                description="Notes, protocols and write-ups for this project live here, with anonymized or aggregate data and papers. PDFs open right here."
+              />
+            }
+          />
+        )}
         <MoveDialog
           labId={labId}
           projectId={projectId}

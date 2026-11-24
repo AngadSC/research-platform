@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useGlass } from "@/hooks/preferences";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
@@ -12,6 +13,7 @@ import type { CustomTheme } from "@/lib/customTheme";
 import { useTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { Section } from "@/pages/admin/common";
+import { getDefaultDocsView, setDefaultDocsView, type DocsView } from "@/hooks/docsView";
 import { IntegrationsPanel } from "@/pages/IntegrationsPage";
 import { SecuritySections } from "@/pages/SecurityPage";
 import { AiAccessSections, ConnectedAiApps } from "@/pages/settings/AiAccessSections";
@@ -88,6 +90,7 @@ export function SettingsPage() {
     (User & { preferences?: { task_view?: TaskView; custom_themes?: CustomTheme[] } }) | undefined;
   const setPref = useSetPreference();
   const [glass, setGlass] = useGlass();
+  const [docsView, setDocsView] = useState<DocsView>(getDefaultDocsView);
   const labId = useCurrentLabId();
   const lab = useLabs().data?.find((l) => l.id === labId);
   const taskView = me?.preferences?.task_view ?? "board";
@@ -184,6 +187,23 @@ export function SettingsPage() {
                       options={[
                         { value: "board", label: "Board" },
                         { value: "list", label: "List" },
+                      ]}
+                    />
+                  </Section>
+                  <Section
+                    title="Documents and files"
+                    description="How documents and files open by default. You can still switch on any page."
+                  >
+                    <Choice<DocsView>
+                      label="Default documents view"
+                      value={docsView}
+                      onChange={(v) => {
+                        setDocsView(v);
+                        setDefaultDocsView(v);
+                      }}
+                      options={[
+                        { value: "list", label: "List" },
+                        { value: "grid", label: "Grid" },
                       ]}
                     />
                   </Section>

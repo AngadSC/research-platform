@@ -102,6 +102,7 @@ def create_document(
     user,
     title,
     content,
+    kind="doc",
     project=None,
     lab=None,
     embed_url="",
@@ -118,6 +119,7 @@ def create_document(
         lab=lab or project.lab,
         project=project,
         title=title,
+        kind=kind,
         content=content,
         embed_url=frame,
         embed_open_url=open_url,
@@ -687,9 +689,11 @@ def resolve_comment(comment, *, user, resolved: bool, request=None) -> DocumentC
     comment.resolved_by = user if resolved else None
     comment.save(update_fields=["resolved_at", "resolved_by", "updated_at"])
     record(
-        AuditAction.DOCUMENT_COMMENT_RESOLVED
-        if resolved
-        else AuditAction.DOCUMENT_COMMENT_REOPENED,
+        (
+            AuditAction.DOCUMENT_COMMENT_RESOLVED
+            if resolved
+            else AuditAction.DOCUMENT_COMMENT_REOPENED
+        ),
         actor=user,
         lab=comment.lab,
         target=comment.document,

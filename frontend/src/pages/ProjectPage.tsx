@@ -133,7 +133,7 @@ export function ProjectPage() {
     <>
       <div
         style={projectColorStyle(project.color)}
-        className="glass relative overflow-hidden rounded-xl border-l-4 border-l-(--project) px-4 py-3"
+        className="project-pill relative overflow-hidden rounded-xl px-4 py-3"
       >
         <div className="[&_h1]:text-xl [&_h1]:font-semibold [&>header]:mb-0">
           <PageHeader

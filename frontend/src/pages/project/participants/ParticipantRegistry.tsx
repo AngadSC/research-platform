@@ -6,6 +6,9 @@ import {
   SlidersHorizontal,
   Users,
   X,
+  ArrowDownUp,
+  ArrowDown,
+  ArrowUp,
 } from "lucide-react";
 import { Fragment, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { Link, useSearchParams } from "react-router";
@@ -107,6 +110,13 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
   const [filtersOpen, setFiltersOpen] = useState(false);
   const cells = useMemo(() => registry.cells.data ?? [], [registry.cells.data]);
 
+  // Sort by the code, the group, how much is done, or any data column; the choice is remembered.
+  const sortPrefs = useViewPrefs<{ key: string; dir: "asc" | "desc" }>(
+    "participants-sort",
+    projectId,
+    { key: "code", dir: "asc" },
+  );
+  const sort = sortPrefs.view;
   const [q, setQ] = useState("");
   const [group, setGroup] = useState("");
   const [params] = useSearchParams();
@@ -184,6 +194,42 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
       return false;
     return true;
   });
+
+  const STATUS_RANK: CellStatus[] = [
+    "missing",
+    "not_started",
+    "in_progress",
+    "needs_review",
+    "complete",
+    "not_applicable",
+    "excluded",
+  ];
+  const sortValue = (p: RegistryParticipant): number | string => {
+    if (sort.key === "code") return p.code.toLowerCase();
+    if (sort.key === "group") return (p.group ?? "").toLowerCase();
+    if (sort.key === "done")
+      return completeness(columns.filter((c) => applies(c, p)).map((c) => cellOf(p, c))).percent;
+    const col = columns.find((c) => c.id === sort.key);
+    if (!col || !applies(col, p)) return Number.MAX_SAFE_INTEGER;
+    return STATUS_RANK.indexOf(statusOf(cellOf(p, col)));
+  };
+  rows.sort((a, b) => {
+    const x = sortValue(a);
+    const y = sortValue(b);
+    const r =
+      typeof x === "number" && typeof y === "number"
+        ? x - y
+        : String(x).localeCompare(String(y), undefined, { numeric: true });
+    return sort.dir === "asc" ? r : -r;
+  });
+  const sortLabel =
+    sort.key === "code"
+      ? "Participant"
+      : sort.key === "group"
+        ? "Group"
+        : sort.key === "done"
+          ? "% done"
+          : (columns.find((c) => c.id === sort.key)?.name ?? "Participant");
 
   const summary = useMemo(() => {
     const all = participants.flatMap((p) =>
@@ -515,6 +561,44 @@ export default function ParticipantRegistry({ labId, projectId, project }: Proje
                 onChange={(e) => setQ(e.target.value)}
               />
             </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Sort: ${sortLabel}, ${sort.dir === "asc" ? "ascending" : "descending"}`}
+                  title={`Sort: ${sortLabel}`}
+                >
+                  <ArrowDownUp aria-hidden />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {[
+                  ["code", "Participant"],
+                  ["group", "Group"],
+                  ["done", "% done"],
+                  ...columns.map((c) => [c.id, c.name] as [string, string]),
+                ].map(([key, name]) => (
+                  <DropdownMenuItem
+                    key={key}
+                    onSelect={() =>
+                      sortPrefs.update({
+                        key,
+                        dir: sort.key === key && sort.dir === "asc" ? "desc" : "asc",
+                      })
+                    }
+                  >
+                    <span className="flex-1">{name}</span>
+                    {sort.key === key &&
+                      (sort.dir === "asc" ? (
+                        <ArrowUp aria-hidden className="size-4" />
+                      ) : (
+                        <ArrowDown aria-hidden className="size-4" />
+                      ))}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant="ghost"
               aria-expanded={showFilters}

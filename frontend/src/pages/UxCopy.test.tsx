@@ -24,8 +24,8 @@ describe("Projects list order", () => {
 });
 
 describe("Project sidebar labels", () => {
-  it("calls the outside tab Posters and talks and explains Workflow", () => {
-    expect(PROJECT_SECTIONS.map((s) => s.label)).toContain("Posters and talks");
+  it("calls the outside tab Presentations and explains Workflow", () => {
+    expect(PROJECT_SECTIONS.map((s) => s.label)).toContain("Presentations");
     expect(PROJECT_SECTIONS.find((s) => s.to === "workflow")?.hint).toMatch(/ethics/);
   });
 });

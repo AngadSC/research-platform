@@ -264,7 +264,7 @@ export const routes: RouteObject[] = [
                       {
                         path: "external",
                         element: <ProjectTab as={ExternalTab} />,
-                        handle: { crumb: "Posters and talks" },
+                        handle: { crumb: "Presentations" },
                       },
                       {
                         path: "documents",

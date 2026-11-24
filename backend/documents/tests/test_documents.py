@@ -72,6 +72,25 @@ def test_create_writes_revision_one(setup):
     assert [r["version"] for r in revs] == [1]
 
 
+def test_kind_defaults_to_document_and_can_be_a_sheet_or_slides(setup):
+    lab, _, project, client = setup
+    assert make_doc(client, lab, project)["kind"] == "doc"
+    for kind in ("sheet", "slides"):
+        r = client.post(
+            url("document-list", lab, project_id=project.pk),
+            {"title": kind, "kind": kind, "content": [{"type": kind}]},
+            format="json",
+        )
+        assert r.status_code == 201, r.content
+        assert r.json()["kind"] == kind
+    bad = client.post(
+        url("document-list", lab, project_id=project.pk),
+        {"title": "x", "kind": "video"},
+        format="json",
+    )
+    assert bad.status_code == 400
+
+
 def test_stale_save_returns_409_with_who_and_when(setup, make_user, join):
     lab, _, project, client = setup
     doc = make_doc(client, lab, project)

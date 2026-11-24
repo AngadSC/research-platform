@@ -2,7 +2,14 @@ from rest_framework import serializers
 
 from core.serializers import UserSerializer, no_control_chars
 from documents import services
-from documents.models import Attachment, Document, DocumentComment, DocumentRevision, Folder
+from documents.models import (
+    Attachment,
+    Document,
+    DocumentComment,
+    DocumentKind,
+    DocumentRevision,
+    Folder,
+)
 
 NOTICE = "Do not upload participant identifiers. Upload only anonymized or aggregate data."
 
@@ -17,6 +24,7 @@ class DocumentListSerializer(serializers.ModelSerializer):
             "project",
             "folder",
             "title",
+            "kind",
             "embed_url",
             "version",
             "updated_by",
@@ -45,6 +53,7 @@ class FolderRefMixin(serializers.Serializer):
 
 class DocumentCreateSerializer(FolderRefMixin):
     title = serializers.CharField(max_length=300, validators=[no_control_chars])
+    kind = serializers.ChoiceField(choices=DocumentKind.choices, default=DocumentKind.DOC)
     content = serializers.JSONField(default=list, validators=[services.validate_content])
     embed_url = serializers.CharField(max_length=2000, required=False, allow_blank=True)
     contains_participant_data = serializers.BooleanField(default=False)

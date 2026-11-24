@@ -6089,6 +6089,94 @@ paths:
               schema:
                 $ref: '#/components/schemas/OnboardingItem'
           description: ''
+  /api/labs/{lab_id}/page-comments/:
+    get:
+      operationId: labs_page_comments_list
+      description: The comments on one page, oldest first.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: path
+        schema:
+          type: string
+        description: The page's path in the app.
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PageComment'
+          description: ''
+    post:
+      operationId: labs_page_comments_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageCommentCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PageCommentCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PageCommentCreate'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageComment'
+          description: ''
+  /api/labs/{lab_id}/page-comments/{page_comment_id}/:
+    delete:
+      operationId: labs_page_comments_destroy
+      description: Its author, or someone who can manage the lab.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: page_comment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/paper-notes/{papernote_id}/:
     patch:
       operationId: labs_paper_notes_partial_update
@@ -15864,6 +15952,10 @@ components:
         title:
           type: string
           readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/Kind289Enum'
+          readOnly: true
         embed_url:
           type: string
           format: uri
@@ -15913,6 +16005,7 @@ components:
       - embed_url
       - folder
       - id
+      - kind
       - project
       - retain_until
       - retention_note
@@ -15932,6 +16025,10 @@ components:
         title:
           type: string
           maxLength: 300
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/Kind289Enum'
+          default: doc
         content: {}
         embed_url:
           type: string
@@ -15960,6 +16057,10 @@ components:
           nullable: true
         title:
           type: string
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/Kind289Enum'
           readOnly: true
         embed_url:
           type: string
@@ -15997,6 +16098,7 @@ components:
       - embed_url
       - folder
       - id
+      - kind
       - project
       - retain_until
       - retention_note
@@ -18191,6 +18293,16 @@ components:
       description: |-
         * `webhook` - Webhook
         * `slack` - Slack
+    Kind289Enum:
+      enum:
+      - doc
+      - sheet
+      - slides
+      type: string
+      description: |-
+        * `doc` - Document
+        * `sheet` - Spreadsheet
+        * `slides` - Presentation
     Kind3d1Enum:
       enum:
       - animal
@@ -19434,6 +19546,61 @@ components:
           format: uuid
       required:
       - kind
+    PageComment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        author:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        path:
+          type: string
+          readOnly: true
+        page_label:
+          type: string
+          readOnly: true
+        quote:
+          type: string
+          readOnly: true
+        body:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - author
+      - body
+      - created_at
+      - id
+      - page_label
+      - path
+      - quote
+    PageCommentCreate:
+      type: object
+      properties:
+        path:
+          type: string
+          maxLength: 500
+        page_label:
+          type: string
+          default: ''
+          maxLength: 200
+        quote:
+          type: string
+          default: ''
+          maxLength: 500
+        body:
+          type: string
+          maxLength: 4000
+      required:
+      - body
+      - path
     PageKindEnum:
       enum:
       - lab

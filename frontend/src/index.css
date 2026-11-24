@@ -184,6 +184,24 @@ html[data-project-theme] main h1,
 html[data-project-theme] main h2 {
   color: color-mix(in srgb, var(--project) 35%, var(--foreground));
 }
+/* A project's header pill is filled with the project's colour. The text and icons go white on a dark
+   colour and black on a light one, from the colour's lightness (white fallback for old browsers). */
+.project-pill {
+  --pill-fg: #ffffff;
+  --pill-fg: oklch(from var(--project) clamp(0, (0.68 - l) * 1000, 1) 0 0);
+  background: var(--project);
+  color: var(--pill-fg);
+  border: 1px solid transparent;
+  --foreground: var(--pill-fg);
+  --muted-foreground: var(--pill-fg);
+  --accent: color-mix(in srgb, var(--pill-fg) 18%, transparent);
+  --accent-foreground: var(--pill-fg);
+}
+html[data-project-theme] main .project-pill h1,
+html[data-project-theme] main .project-pill h2 {
+  color: var(--pill-fg);
+}
+
 html[data-project-theme] body {
   transition: background-color var(--dur-slow) var(--ease-glass);
 }
@@ -594,4 +612,31 @@ body::after {
 /* The document editor uses the app's typeface. */
 .bn-container {
   --bn-font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* iOS-style edit mode: rows shake while they can be moved. Still for people who ask for less motion. */
+@keyframes reorder-shake {
+  0% {
+    transform: rotate(-1.2deg);
+  }
+  50% {
+    transform: rotate(1.2deg);
+  }
+  100% {
+    transform: rotate(-1.2deg);
+  }
+}
+.reorder-shake {
+  animation: reorder-shake 0.28s ease-in-out infinite;
+  cursor: grab;
+}
+.reorder-shake:nth-child(even) {
+  animation-delay: -0.14s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reorder-shake {
+    animation: none;
+    outline: 1px dashed var(--ring);
+    outline-offset: 2px;
+  }
 }

@@ -171,6 +171,40 @@ class NotificationKind(models.TextChoices):
     DOCUMENT_COMMENT = "document_comment"  # a comment on your document, or a reply to yours
 
 
+class PageComment(LabScopedModel):
+    """A note on any page of the app (a project, a task list, a document...), tied to the page's
+    path and to the text that was selected. `project` is read from the path by the server, so a
+    comment inside a project is seen only by people who can see that project. Mentions and page
+    tags live in `body` as `@[Name](user:<uuid>)` and `#[Label](page:/labs/...)`. Like all
+    comments, never read by an AI tool."""
+
+    project = models.ForeignKey(
+        "projects.Project", on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+    )
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    path = models.CharField(max_length=500)
+    page_label = models.CharField(max_length=200, blank=True)
+    quote = models.CharField(max_length=500, blank=True)
+    body = models.TextField()
+
+    lab_parents = ("project",)
+    permission_domain = "lab"
+    project_path = None
+
+    @classmethod
+    def visible_rows(cls, qs, user, lab):
+        from projects.models import Project
+
+        seen = Project.objects.visible_to(user, lab).values("pk")
+        return qs.filter(models.Q(project__isnull=True) | models.Q(project__in=seen))
+
+    class Meta(LabScopedModel.Meta):
+        indexes = [models.Index(fields=["lab", "path", "created_at"], name="pagecomment_path_idx")]
+
+    def __str__(self):
+        return f"{self.author_id}: {self.body[:40]}"
+
+
 class Notification(LabScopedModel):
     """In-app notification (D30). Lab-scoped, but only its recipient may read or change it."""
 
