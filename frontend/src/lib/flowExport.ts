@@ -45,10 +45,10 @@ export function flowSvg(f: Flow): string {
       const y = 8 + i * 52;
       return (
         `<rect x="8" y="${y}" width="${w - 16}" height="40" rx="8" fill="#f4f4f5" stroke="#a1a1aa"/>` +
-        `<text x="20" y="${y + 25}" font-family="Source Serif 4, Georgia, serif" font-size="14" fill="#18181b">${esc(
+        `<text x="20" y="${y + 25}" font-family="IBM Plex Sans, sans-serif" font-size="14" fill="#18181b">${esc(
           r.label,
         )}</text>` +
-        `<text x="${w - 20}" y="${y + 25}" text-anchor="end" font-family="Source Serif 4, Georgia, serif" font-size="14" font-weight="600" fill="#18181b">${r.count ?? ""}${
+        `<text x="${w - 20}" y="${y + 25}" text-anchor="end" font-family="IBM Plex Sans, sans-serif" font-size="14" font-weight="600" fill="#18181b">${r.count ?? ""}${
           r.small ? "*" : ""
         }</text>` +
         (i < rows.length - 1

@@ -1,6 +1,6 @@
 /*
  * labbenchos public home page. Every rule is scoped under .lb so nothing here reaches the app.
- * The typeface (Source Serif 4) is loaded once, in index.css.
+ * The typeface (IBM Plex Sans) is loaded once, in index.css.
  */
 
 .lb {
@@ -11,7 +11,13 @@
   --lb-body: #4a5260;
   --lb-line: #e6e8ec;
   --lb-mint: #8fd3cf;
-  font-family: "Source Serif 4", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-family:
+    "IBM Plex Sans",
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   color: var(--lb-ink);
   background: #ffffff;
   min-height: 100vh;
@@ -493,7 +499,7 @@
   padding: 0 18px;
   border-radius: 999px;
   font:
-    600 15px "Source Serif 4",
+    600 15px "IBM Plex Sans",
     sans-serif;
   cursor: pointer;
 }
@@ -593,7 +599,7 @@
   padding: 0 22px;
   border-radius: 999px;
   font:
-    600 15px "Source Serif 4",
+    600 15px "IBM Plex Sans",
     sans-serif;
   cursor: pointer;
   background: #ffffff;
