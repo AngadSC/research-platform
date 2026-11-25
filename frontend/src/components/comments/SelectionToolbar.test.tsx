@@ -1,13 +1,14 @@
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
 
 const user = { id: "u1", email: "ada@uni.edu", display_name: "Ada Lee" };
 
-function setup(aiReady: boolean) {
+function setup(aiReady: boolean, grants: unknown[] = []) {
   return mockFetch({
     [SESSION]: signedIn,
+    "GET /api/ai/grants/": { body: grants },
     "GET /api/me/": { body: user },
     "GET /api/labs/": { body: [makeLab(["view_lab"])] },
     "GET /api/labs/lab1/": { body: makeLab(["view_lab"]) },
@@ -84,5 +85,27 @@ describe("the buttons over selected text", () => {
     renderRoute("/labs/lab1/dashboard");
     await select();
     expect(await screen.findByRole("button", { name: "Summarize this" })).toBeInTheDocument();
+  });
+
+  it("offers Summarize when Claude is connected without a key, and opens it beside the page", async () => {
+    setup(false, [
+      {
+        id: "g1",
+        kind: "oauth",
+        client_name: "Claude",
+        revoked_at: null,
+        labs: [],
+        access: "read",
+      },
+    ]);
+    const open = vi.spyOn(window, "open").mockReturnValue({} as Window);
+    renderRoute("/labs/lab1/dashboard");
+    await select();
+    await userEvent.click(await screen.findByRole("button", { name: "Summarize this" }));
+    expect(open).toHaveBeenCalledTimes(1);
+    const url = String(open.mock.calls[0]![0]);
+    expect(url.startsWith("https://claude.ai/new?q=")).toBe(true);
+    expect(decodeURIComponent(url.split("?q=")[1]!)).toMatch(/^Summarize this: /);
+    open.mockRestore();
   });
 });

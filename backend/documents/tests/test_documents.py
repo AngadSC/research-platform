@@ -573,3 +573,36 @@ def test_embedded_document_stores_frame_and_open_urls(setup):
         format="json",
     )
     assert resp.status_code == 400 and "embed_url" in resp.json()
+
+
+def test_list_carries_a_preview_of_each_kind(setup):
+    lab, _, project, client = setup
+    body = [{"type": "paragraph", "content": [{"type": "text", "text": "Hello lab"}]}]
+    make_doc(client, lab, project, body)
+    client.post(
+        url("document-list", lab, project_id=project.pk),
+        {
+            "title": "S",
+            "kind": "sheet",
+            "content": [
+                {"type": "sheet", "sheets": [{"name": "S", "cells": {"B2": {"text": "9"}}}]}
+            ],
+        },
+        format="json",
+    )
+    client.post(
+        url("document-list", lab, project_id=project.pk),
+        {
+            "title": "P",
+            "kind": "slides",
+            "content": [{"type": "slide", "title": {"text": "Intro"}, "body": {"text": "x"}}],
+        },
+        format="json",
+    )
+    previews = {
+        d["kind"]: d["preview"]
+        for d in client.get(url("document-list", lab, project_id=project.pk)).json()
+    }
+    assert previews["doc"] == {"kind": "doc", "text": "Hello lab"}
+    assert previews["sheet"]["rows"][1][1] == "9"
+    assert previews["slides"]["title"] == "Intro"

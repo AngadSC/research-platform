@@ -11,7 +11,7 @@ import {
   Upload,
 } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { DocsGrid, ViewToggle } from "@/components/documents/DocsGrid";
+import { DocsGrid, PreviewTile, ViewToggle } from "@/components/documents/DocsGrid";
 import { useDocsView } from "@/hooks/docsView";
 import { DOC_KINDS, kindInfo, type DocKind } from "@/lib/documentKinds";
 import { useNavigate } from "react-router";
@@ -464,6 +464,16 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
               ) : (
                 <FileIcon aria-hidden />
               ),
+              preview: r.doc ? (
+                <PreviewTile preview={r.doc.preview} />
+              ) : r.file && isImage(r.file) && !r.file.drive_file_id ? (
+                <img
+                  src={`${downloadUrl(labId, r.file.id)}`}
+                  alt=""
+                  loading="lazy"
+                  className="size-full object-cover"
+                />
+              ) : undefined,
               onOpen: () => openRow(r),
               menu: cols.find((c) => c.key === "actions")?.cell(r),
             }))}

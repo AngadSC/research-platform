@@ -13,12 +13,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAssistantReady } from "@/hooks/assistant";
+import { useConnectedExternalAi } from "@/hooks/ai";
 import { useCrumbs, useCurrentProjectId } from "@/hooks/crumbs";
 import { useMentionPeople } from "@/hooks/mentions";
 import { useAddPageComment, useDeletePageComment, usePageComments } from "@/hooks/pageComments";
 import { useProjects } from "@/hooks/projects";
 import { useLabs, useMe } from "@/hooks/workspace";
-import { openAssistant } from "@/lib/assistant";
+import { externalAiName, openAssistant, summarizeIn } from "@/lib/assistant";
 import { personName } from "@/lib/api-types";
 import { formErrors } from "@/lib/forms";
 import { navItems } from "@/lib/nav";
@@ -72,7 +73,9 @@ export function SelectionToolbar({ labId }: { labId: string | undefined }) {
   // A panel belongs to the page it was opened on, so it is not shown after navigating away.
   const [panel, setPanel] = useState<{ quote: string; path: string } | null>(null);
   const frame = useRef(0);
-  const aiReady = useAssistantReady(labId);
+  const assistantReady = useAssistantReady(labId);
+  const externalAi = useConnectedExternalAi();
+  const canSummarize = assistantReady || !!externalAi;
 
   useEffect(() => {
     const update = () => {
@@ -118,15 +121,20 @@ export function SelectionToolbar({ labId }: { labId: string | undefined }) {
           >
             <MessageSquarePlus aria-hidden />
           </Button>
-          {aiReady && picked.summarizable && (
+          {canSummarize && picked.summarizable && (
             <Button
               variant="ghost"
               size="icon"
               className="size-8"
               aria-label="Summarize this"
-              title="Summarize this with your assistant"
+              title={
+                assistantReady
+                  ? "Summarize this with your assistant"
+                  : `Summarize this in ${externalAiName(externalAi!)}`
+              }
               onClick={() => {
-                openAssistant(`Summarize this: ${picked.text}`, { send: true });
+                if (assistantReady) openAssistant(`Summarize this: ${picked.text}`, { send: true });
+                else if (externalAi) summarizeIn(externalAi, picked.text);
                 window.getSelection()?.removeAllRanges();
               }}
             >

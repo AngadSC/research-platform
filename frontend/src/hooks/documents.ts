@@ -93,11 +93,15 @@ export function useCurrentFolder(): string | null {
   return params.get("folder");
 }
 
+/** `projectId` "" is the lab documents' own folders. */
+const folderCollection = (labId: string, projectId: string) =>
+  projectId ? `${base(labId)}/projects/${projectId}/folders/` : `${base(labId)}/lab-folders/`;
+
 /** The project's folder tree, shared by the Documents and Files tabs. */
 export function useFolders(labId: string, projectId: string) {
   return useQuery({
     queryKey: [...listKey(labId, projectId).slice(0, 4), "folders"],
-    queryFn: () => api<Folder[]>(`${base(labId)}/projects/${projectId}/folders/`),
+    queryFn: () => api<Folder[]>(folderCollection(labId, projectId)),
   });
 }
 
@@ -107,7 +111,7 @@ export function useFolderActions(labId: string, projectId: string) {
   return {
     create: useMutation({
       mutationFn: (v: { name: string; parent: string | null }) =>
-        api<Folder>(`${base(labId)}/projects/${projectId}/folders/`, { method: "POST", body: v }),
+        api<Folder>(folderCollection(labId, projectId), { method: "POST", body: v }),
       onSuccess,
     }),
     /** Rename, and/or tick or clear "Identifies participants" (ticking flags the contents). */

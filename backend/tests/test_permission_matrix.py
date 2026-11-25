@@ -214,6 +214,8 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "documents:document-list"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:lab-document-list"): "401 404 2 2 2 2 2 2 2",
     ("POST",   "documents:lab-document-list"): "401 404 2 2 2 2 2 2 403",
+    ("GET",    "documents:lab-folder-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "documents:lab-folder-list"): "401 404 2 2 2 2 2 2 403",
     ("GET",    "documents:document-detail"): "401 404 2 2 2 2 2 404 2",
     ("PUT",    "documents:document-detail"): "401 404 2 2 2 2 403 404 403",
     ("PATCH",  "documents:document-detail"): "401 404 2 2 2 2 403 404 403",  # participant flag
@@ -1608,6 +1610,7 @@ PAYLOADS = {
     },
     ("POST", "documents:attachment-edit-in-google"): lambda user, w: _as_docx(w),
     ("POST", "documents:folder-list"): lambda user, w: {"name": "New folder"},
+    ("POST", "documents:lab-folder-list"): lambda user, w: {"name": "Lab folder"},
     ("PATCH", "documents:folder-detail"): lambda user, w: {"name": "Renamed folder"},
     ("PATCH", "documents:document-detail"): lambda user, w: {"contains_participant_data": True},
     ("PATCH", "documents:attachment-detail"): lambda user, w: {"contains_participant_data": True},

@@ -43,6 +43,8 @@ from documents.serializers import (
 from ethics.models import EthicsApproval
 from projects.services import ARCHIVED_MESSAGE, refuse_if_archived
 
+_SAME = object()  # resolve_folder: "the view's own project"
+
 
 class ProjectPermMixin(LabScopedViewMixin):
     """HasPerm reads `view.project`. Collection routes take the project from the URL (404 if
@@ -62,17 +64,22 @@ class ProjectPermMixin(LabScopedViewMixin):
         qs = super().get_queryset()
         return qs.filter(project=self.project) if "project_id" in self.kwargs else qs
 
-    def resolve_folder(self, folder_id):
-        """A folder of this view's project, or None. Any other id is the same 400 (no leak)."""
+    def resolve_folder(self, folder_id, project=_SAME):
+        """A folder of this view's project (or, for a lab document, a lab-wide one), or None. Any
+        other id is the same 400 (no leak)."""
         if folder_id is None:
             return None
-        folder = (
-            Folder.objects.visible_to(self.request.user, self.request.lab)
-            .filter(pk=folder_id, project=self.project)
-            .first()
+        project = self.project if project is _SAME else project
+        folders = (
+            services.lab_folders(self.request.lab)
+            if project is None
+            else Folder.objects.visible_to(self.request.user, self.request.lab).filter(
+                project=project
+            )
         )
+        folder = folders.filter(pk=folder_id).first()
         if folder is None:
-            raise ValidationError({"folder": "That folder does not exist in this project."})
+            raise ValidationError({"folder": "That folder does not exist here."})
         return folder
 
 
@@ -151,8 +158,15 @@ class LabDocumentListCreateView(LabScopedViewMixin, generics.GenericAPIView):
         ser = DocumentCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         data = dict(ser.validated_data)
-        data.pop("folder", None)  # folders belong to a project
-        doc = services.create_document(lab=request.lab, user=request.user, request=request, **data)
+        folder_id = data.pop("folder", None)
+        folder = None
+        if folder_id is not None:
+            folder = services.lab_folders(request.lab).filter(pk=folder_id).first()
+            if folder is None:
+                raise ValidationError({"folder": "That folder does not exist here."})
+        doc = services.create_document(
+            lab=request.lab, user=request.user, folder=folder, request=request, **data
+        )
         return Response(DocumentSerializer(doc).data, status=status.HTTP_201_CREATED)
 
 
@@ -223,16 +237,15 @@ class DocumentDetailView(DocumentMixin, generics.GenericAPIView):
 class DocumentMoveView(DocumentMixin, generics.GenericAPIView):
     serializer_class = ItemMoveSerializer
     lookup_url_kwarg = "document_id"
-    allow_lab_wide = False  # folders belong to a project
     perms = {"POST": Perm.EDIT_CONTENT}
 
     @extend_schema(request=ItemMoveSerializer, responses={204: None})
     def post(self, request, lab_id, document_id):
         ser = self.get_serializer(data=request.data)
         ser.is_valid(raise_exception=True)
-        services.move_to_folder(
-            self.get_object(), self.resolve_folder(ser.validated_data["folder"])
-        )
+        doc = self.get_object()
+        # A lab document moves among the lab's folders, a project document among its project's.
+        services.move_to_folder(doc, self.resolve_folder(ser.validated_data["folder"], doc.project))
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -597,6 +610,12 @@ class AttachmentDownloadView(AttachmentMixin, generics.GenericAPIView):
 class FolderMixin(ProjectPermMixin):
     model = Folder
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if "folder_id" in self.kwargs:  # reached by id, so the same routes serve lab-wide folders
+            qs = qs | services.lab_folders(self.request.lab)
+        return qs
+
     def get_permission_owner(self):
         if "folder_id" in self.kwargs:
             return get_object_or_404(self.get_queryset(), pk=self.kwargs["folder_id"])
@@ -622,6 +641,40 @@ class FolderListCreateView(FolderMixin, generics.GenericAPIView):
             user=request.user,
             name=ser.validated_data["name"],
             parent=self.resolve_folder(ser.validated_data.get("parent")),
+        )
+        return Response(self.get_serializer(folder).data, status=status.HTTP_201_CREATED)
+
+
+class LabFolderListCreateView(LabScopedViewMixin, generics.GenericAPIView):
+    """Folders for the lab documents. Rename and delete use the folder routes below."""
+
+    model = Folder
+    serializer_class = FolderSerializer
+    pagination_class = None
+    perms = {"GET": Perm.VIEW_LAB, "POST": Perm.CONTRIBUTE_LAB}
+
+    @extend_schema(responses=FolderSerializer(many=True))
+    def get(self, request, lab_id):
+        qs = services.lab_folders(request.lab).order_by("name")
+        return Response(self.get_serializer(qs, many=True).data)
+
+    @extend_schema(request=FolderCreateSerializer, responses={201: FolderSerializer})
+    def post(self, request, lab_id):
+        ser = FolderCreateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        parent = None
+        if ser.validated_data.get("parent") is not None:
+            parent = (
+                services.lab_folders(request.lab).filter(pk=ser.validated_data["parent"]).first()
+            )
+            if parent is None:
+                raise ValidationError({"parent": "That folder does not exist here."})
+        folder = services.create_folder(
+            project=None,
+            lab=request.lab,
+            user=request.user,
+            name=ser.validated_data["name"],
+            parent=parent,
         )
         return Response(self.get_serializer(folder).data, status=status.HTTP_201_CREATED)
 

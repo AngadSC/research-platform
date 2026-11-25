@@ -11,8 +11,10 @@ class Folder(LabScopedModel):
     """One tree per project, shared by documents and files. `parent` is set once at creation and
     never changes, so cycles cannot happen. Deleting moves the contents up (services)."""
 
+    # No project means a lab-wide folder, for the lab documents (D233). Services check that an item
+    # and its folder share a project (or both have none).
     project = models.ForeignKey(
-        "projects.Project", on_delete=models.CASCADE, related_name="folders"
+        "projects.Project", on_delete=models.CASCADE, null=True, blank=True, related_name="folders"
     )
     parent = models.ForeignKey(
         "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="children"
@@ -27,6 +29,10 @@ class Folder(LabScopedModel):
     lab_parents = ("project", "parent")
     permission_domain = "project"
     project_path = "project"
+
+    @property
+    def lab_wide(self) -> bool:
+        return self.project_id is None
 
     class Meta(LabScopedModel.Meta):
         indexes = [models.Index(fields=["project", "parent"], name="folder_project_parent_idx")]
@@ -97,13 +103,6 @@ class Document(LabScopedModel):
         indexes = [
             models.Index(fields=["project", "deleted_at"], name="document_project_deleted_idx"),
             models.Index(fields=["lab", "retain_until"], name="document_lab_retain_idx"),
-        ]
-        constraints = [
-            # With a null project the composite (folder, project) FK would not apply (MATCH SIMPLE).
-            models.CheckConstraint(
-                condition=Q(folder__isnull=True) | Q(project__isnull=False),
-                name="document_folder_needs_project",
-            ),
         ]
 
     def __str__(self):

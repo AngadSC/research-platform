@@ -782,6 +782,14 @@ function StatsWorkspace({
           engine={engine}
           shape={shape}
           tall={focus}
+          onUseEdits={(csv) =>
+            void start({
+              name: `${(source?.name ?? "data").replace(/\.[^.]+$/, "")} (edited).csv`,
+              bytes: new TextEncoder().encode(csv).buffer as ArrayBuffer,
+              // Edited data is not the dataset on record, but it stays as private as its source.
+              flagged: source?.flagged ?? null,
+            })
+          }
           onSaveAsSheet={
             canSaveSheet
               ? (sheet) =>

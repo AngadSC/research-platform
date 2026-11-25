@@ -488,3 +488,28 @@ export const parseTsv = (text: string): string[][] =>
     .map((line) => line.split("\t"));
 
 export const toTsv = (rows: string[][]) => rows.map((r) => r.join("\t")).join("\n");
+
+/** The sheet as CSV: formulas become their results, and only the used area is written. */
+export function sheetToCsv(sheet: Sheet): string {
+  let cols = 0;
+  let rows = 0;
+  for (const [k, cell] of Object.entries(sheet.cells)) {
+    const p = parseAddr(k);
+    if (p && cell.text !== "") {
+      cols = Math.max(cols, p.c + 1);
+      rows = Math.max(rows, p.r + 1);
+    }
+  }
+  const ev = new Evaluator(sheet.cells);
+  const quote = (v: string) => (/[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  const lines: string[] = [];
+  for (let r = 0; r < rows; r++) {
+    const line: string[] = [];
+    for (let c = 0; c < cols; c++) {
+      const v = ev.value(addr(c, r));
+      line.push(quote(typeof v === "number" ? String(v) : display(v)));
+    }
+    lines.push(line.join(","));
+  }
+  return lines.join("\n");
+}

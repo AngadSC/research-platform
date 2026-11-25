@@ -48,6 +48,11 @@ urlpatterns = [
         name="folder-list",
     ),
     path(
+        L + "lab-folders/",
+        views.LabFolderListCreateView.as_view(),
+        name="lab-folder-list",
+    ),
+    path(
         L + "folders/<uuid:folder_id>/",
         views.FolderDetailView.as_view(),
         name="folder-detail",

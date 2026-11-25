@@ -192,3 +192,28 @@ export function estimateCost(u: Usage, p: Price | undefined): number | null {
 }
 
 export const formatCost = (c: number) => (c < 0.01 ? "under $0.01" : `about $${c.toFixed(2)}`);
+
+/** A popup docked to the right 40% of the screen, where claude.ai or ChatGPT can sit beside this page. */
+export function sideWindowFeatures() {
+  const s = window.screen as Screen & { availLeft?: number; availTop?: number };
+  const width = Math.round(s.availWidth * 0.4);
+  const left = (s.availLeft ?? 0) + s.availWidth - width;
+  return `popup=yes,width=${width},height=${s.availHeight},left=${left},top=${s.availTop ?? 0}`;
+}
+
+/** The AI a person has connected outside the app (Settings > AI): Claude or ChatGPT. */
+export type ExternalAi = "claude" | "chatgpt";
+const EXTERNAL: Record<ExternalAi, { name: string; url: string }> = {
+  claude: { name: "Claude", url: "https://claude.ai/new" },
+  chatgpt: { name: "ChatGPT", url: "https://chatgpt.com/" },
+};
+export const externalAiName = (ai: ExternalAi) => EXTERNAL[ai].name;
+const MAX_SUMMARY_CHARS = 6000; // the text travels in the address
+
+/** Opens the connected AI beside this page with `Summarize this: <text>` already in its box. */
+export function summarizeIn(ai: ExternalAi, text: string) {
+  const prompt = `Summarize this: ${text.slice(0, MAX_SUMMARY_CHARS)}`;
+  const url = `${EXTERNAL[ai].url}?q=${encodeURIComponent(prompt)}`;
+  if (!window.open(url, "labbenchos-ai", sideWindowFeatures()))
+    window.open(url, "_blank", "noopener,noreferrer"); // popups blocked: a plain tab
+}

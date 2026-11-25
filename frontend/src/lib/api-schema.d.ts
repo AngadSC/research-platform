@@ -2110,6 +2110,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/lab-folders/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Folders for the lab documents. Rename and delete use the folder routes below. */
+        get: operations["labs_lab_folders_list"];
+        put?: never;
+        /** @description Folders for the lab documents. Rename and delete use the folder routes below. */
+        post: operations["labs_lab_folders_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/link-preview/": {
         parameters: {
             query?: never;
@@ -6532,6 +6550,13 @@ export interface components {
             readonly folder: string | null;
             readonly title: string;
             readonly kind: components["schemas"]["Kind289Enum"];
+            /**
+             * @description A thumbnail's worth of the content, for the grid view. Empty for a document that frames
+             *     an outside file: it holds nothing of its own.
+             */
+            readonly preview: {
+                [key: string]: unknown;
+            };
             /** Format: uri */
             readonly embed_url: string;
             readonly version: number;
@@ -6570,6 +6595,13 @@ export interface components {
             readonly folder: string | null;
             readonly title: string;
             readonly kind: components["schemas"]["Kind289Enum"];
+            /**
+             * @description A thumbnail's worth of the content, for the grid view. Empty for a document that frames
+             *     an outside file: it holds nothing of its own.
+             */
+            readonly preview: {
+                [key: string]: unknown;
+            };
             /** Format: uri */
             readonly embed_url: string;
             readonly version: number;
@@ -6877,7 +6909,7 @@ export interface components {
             /** Format: uuid */
             readonly id: string;
             /** Format: uuid */
-            readonly project: string;
+            readonly project: string | null;
             /** Format: uuid */
             readonly parent: string | null;
             readonly name: string;
@@ -13682,6 +13714,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Document"];
+                };
+            };
+        };
+    };
+    labs_lab_folders_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Folder"][];
+                };
+            };
+        };
+    };
+    labs_lab_folders_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FolderCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["FolderCreate"];
+                "multipart/form-data": components["schemas"]["FolderCreate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Folder"];
                 };
             };
         };

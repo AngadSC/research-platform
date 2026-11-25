@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useMatches } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -42,6 +43,7 @@ import { useProject } from "@/hooks/projects";
 import { useLabs } from "@/hooks/workspace";
 import {
   ASSISTANT_PREFILL,
+  sideWindowFeatures,
   estimateCost,
   formatCost,
   reduceLive,
@@ -256,14 +258,6 @@ export function Setup({
   );
 }
 
-/** A popup docked to the right 40% of the screen, where claude.ai can sit beside this page. */
-function claudeWindowFeatures() {
-  const s = window.screen as Screen & { availLeft?: number; availTop?: number };
-  const width = Math.round(s.availWidth * 0.4);
-  const left = (s.availLeft ?? 0) + s.availWidth - width;
-  return `popup=yes,width=${width},height=${s.availHeight},left=${left},top=${s.availTop ?? 0}`;
-}
-
 /** No key: steer people to Claude through our connector instead. claude.ai cannot be framed, so
  * it opens in a window beside this page (a plain new tab if the popup is blocked). */
 function ClaudeOption() {
@@ -286,7 +280,7 @@ function ClaudeOption() {
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => {
-              if (window.open(url, "labbenchos-claude", claudeWindowFeatures())) e.preventDefault();
+              if (window.open(url, "labbenchos-claude", sideWindowFeatures())) e.preventDefault();
             }}
           >
             Open Claude beside this page
@@ -304,7 +298,7 @@ function ClaudeOption() {
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => {
-            if (window.open(url, "labbenchos-claude", claudeWindowFeatures())) e.preventDefault(); // a popup opened; otherwise the link opens a new tab
+            if (window.open(url, "labbenchos-claude", sideWindowFeatures())) e.preventDefault(); // a popup opened; otherwise the link opens a new tab
           }}
         >
           {connected ? "Open Claude beside this page" : "Connect to Claude"}
@@ -867,66 +861,70 @@ export function AssistantDrawer({ labId }: { labId: string }) {
     return (
       <>
         {button}
-        {mounted && (
-          <aside
-            aria-label="Assistant"
-            style={{
-              width: dock.mode === "strip" ? STRIP_W : dock.width,
-              // Solid, and above the page and top bar, so nothing shows through the panel.
-              backgroundColor: dock.mode === "strip" ? "var(--muted)" : "var(--background)",
-              isolation: "isolate",
-            }}
-            className={`fixed inset-y-0 right-0 z-40 border-l bg-background print:hidden ${dock.mode === "open" ? "shadow-2xl" : ""} ${
-              dock.mode === "strip" ? "flex-col items-center bg-muted" : ""
-            } ${dock.mode === "closed" ? "hidden" : "flex"}`}
-          >
-            {dock.mode === "strip" && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="mx-auto mt-3"
-                aria-label="Open the assistant"
-                title={`Open the assistant (${MOD_KEY} .)`}
-                onClick={() => setMode("open")}
-              >
-                <PanelRightOpen aria-hidden />
-              </Button>
-            )}
-            {dock.mode === "strip" && (
-              <span
-                aria-hidden
-                className="mt-3 text-xs font-medium text-muted-foreground [writing-mode:vertical-rl]"
-              >
-                Assistant
-              </span>
-            )}
-            <div
-              className={
-                dock.mode === "open" ? "flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4" : "hidden"
-              }
+        {mounted &&
+          // In the page body, not the top bar: the bar blurs what is behind it, which makes a
+          // fixed child size itself to the bar (52px tall) instead of the window.
+          createPortal(
+            <aside
+              aria-label="Assistant"
+              style={{
+                width: dock.mode === "strip" ? STRIP_W : dock.width,
+                // Solid, and above the page and top bar, so nothing shows through the panel.
+                backgroundColor: dock.mode === "strip" ? "var(--muted)" : "var(--background)",
+                isolation: "isolate",
+              }}
+              className={`fixed inset-y-0 right-0 z-40 border-l bg-background print:hidden ${dock.mode === "open" ? "shadow-2xl" : ""} ${
+                dock.mode === "strip" ? "flex-col items-center bg-muted" : ""
+              } ${dock.mode === "closed" ? "hidden" : "flex"}`}
             >
-              <AssistantPanel
-                key={labId}
-                labId={labId}
-                projectId={projectId}
-                page={page}
-                prefill={prefill}
-                docked
-                onClose={() => setMode("closed")}
-                onCollapse={() => setMode("strip")}
-              />
-            </div>
-            {dock.mode === "open" && (
-              <DockHandle
-                label="Resize the assistant"
-                width={dock.width}
-                min={MIN_W}
-                max={Math.min(MAX_W, dockCap(MIN_W))}
-                onWidth={(w) => setDock((d) => ({ ...d, width: clampWidth(w) }))}
-              />
-            )}
-          </aside>
-        )}
+              {dock.mode === "strip" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="mx-auto mt-3"
+                  aria-label="Open the assistant"
+                  title={`Open the assistant (${MOD_KEY} .)`}
+                  onClick={() => setMode("open")}
+                >
+                  <PanelRightOpen aria-hidden />
+                </Button>
+              )}
+              {dock.mode === "strip" && (
+                <span
+                  aria-hidden
+                  className="mt-3 text-xs font-medium text-muted-foreground [writing-mode:vertical-rl]"
+                >
+                  Assistant
+                </span>
+              )}
+              <div
+                className={
+                  dock.mode === "open" ? "flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4" : "hidden"
+                }
+              >
+                <AssistantPanel
+                  key={labId}
+                  labId={labId}
+                  projectId={projectId}
+                  page={page}
+                  prefill={prefill}
+                  docked
+                  onClose={() => setMode("closed")}
+                  onCollapse={() => setMode("strip")}
+                />
+              </div>
+              {dock.mode === "open" && (
+                <DockHandle
+                  label="Resize the assistant"
+                  width={dock.width}
+                  min={MIN_W}
+                  max={Math.min(MAX_W, dockCap(MIN_W))}
+                  onWidth={(w) => setDock((d) => ({ ...d, width: clampWidth(w) }))}
+                />
+              )}
+            </aside>,
+            document.body,
+          )}
       </>
     );
 

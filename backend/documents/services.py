@@ -580,9 +580,16 @@ def _check_folder(folder, project_id) -> None:
         raise ValidationError({"folder": "That folder is not in this project."})
 
 
-def create_folder(*, project, user, name, parent=None) -> Folder:
-    _check_folder(parent, project.pk)
+def lab_folders(lab):
+    """The lab-wide folders (for lab documents): the only path to them, as with `lab_documents`."""
+    return Folder.objects.for_lab(lab).filter(project__isnull=True)
+
+
+def create_folder(*, project, user, name, parent=None, lab=None) -> Folder:
+    """`lab` instead of `project` makes a lab-wide folder."""
+    _check_folder(parent, project.pk if project else None)
     return Folder.objects.create(
+        lab=lab or project.lab,
         project=project,
         parent=parent,
         name=name,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Spreadsheet } from "@/components/documents/Spreadsheet";
-import { addr, type Sheet } from "@/lib/sheet";
+import { addr, sheetToCsv, type Sheet } from "@/lib/sheet";
 import { Button } from "@/components/ui/button";
 import type { DataRows, DataShape, StatsEngine } from "@/lib/stats/contract";
 import { cn } from "@/lib/utils";
@@ -15,11 +15,14 @@ export function DataGrid({
   shape,
   tall = false,
   onSaveAsSheet,
+  onUseEdits,
 }: {
   engine: StatsEngine;
   shape: DataShape;
   /** Offer "Save as spreadsheet": a copy of the rows shown, to work on with formulas. */
   onSaveAsSheet?: (sheet: Sheet) => void;
+  /** Offer "Analyse these edits": loads the edited sheet, formulas worked out, as the data. */
+  onUseEdits?: (csv: string) => void;
   /** Fill the pane (focus mode) instead of stopping at a fixed height. */
   tall?: boolean;
 }) {
@@ -106,10 +109,23 @@ export function DataGrid({
             </button>
           ))}
         </div>
-        {mode === "sheet" && onSaveAsSheet && (
-          <Button variant="outline" size="sm" onClick={() => onSaveAsSheet(edited?.[0] ?? sheet)}>
-            Save as spreadsheet
-          </Button>
+        {mode === "sheet" && (
+          <div className="flex flex-wrap gap-2">
+            {onUseEdits && edited && (
+              <Button size="sm" onClick={() => onUseEdits(sheetToCsv(edited[0]!))}>
+                Analyse these edits
+              </Button>
+            )}
+            {onSaveAsSheet && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onSaveAsSheet(edited?.[0] ?? sheet)}
+              >
+                Save as spreadsheet
+              </Button>
+            )}
+          </div>
         )}
       </div>
       {mode === "sheet" ? (
@@ -122,8 +138,8 @@ export function DataGrid({
             onChange={(sheets) => setScratch({ base: sheet, sheets })}
           />
           <p className="text-xs text-muted-foreground">
-            Formulas and edits here are a scratch copy. They do not change your file or the
-            analysis.
+            Edits and formulas here never change your file. Choose "Analyse these edits" to run the
+            tests on the edited data instead.
           </p>
         </>
       ) : (

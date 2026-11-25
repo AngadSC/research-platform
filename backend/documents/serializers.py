@@ -10,12 +10,19 @@ from documents.models import (
     DocumentRevision,
     Folder,
 )
+from documents.text import preview_of
 
 NOTICE = "Do not upload participant identifiers. Upload only anonymized or aggregate data."
 
 
 class DocumentListSerializer(serializers.ModelSerializer):
     updated_by = UserSerializer(read_only=True)
+    preview = serializers.SerializerMethodField()
+
+    def get_preview(self, obj) -> dict:
+        """A thumbnail's worth of the content, for the grid view. Empty for a document that frames
+        an outside file: it holds nothing of its own."""
+        return {} if obj.embed_url else preview_of(obj.kind, obj.content)
 
     class Meta:
         model = Document
@@ -25,6 +32,7 @@ class DocumentListSerializer(serializers.ModelSerializer):
             "folder",
             "title",
             "kind",
+            "preview",
             "embed_url",
             "version",
             "updated_by",

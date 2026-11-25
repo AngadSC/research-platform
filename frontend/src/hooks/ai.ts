@@ -68,3 +68,11 @@ export const oauthNav = { go: (url: string) => window.location.assign(url) };
 
 /** The MCP endpoint people paste into Claude or ChatGPT: this site's origin + /mcp. */
 export const mcpUrl = () => `${window.location.origin}/mcp`;
+
+/** Which AI outside the app this person has connected (Settings > AI), if any. */
+export function useConnectedExternalAi(): "claude" | "chatgpt" | null {
+  const grants = useAiGrants().data;
+  const live = (re: RegExp) =>
+    !!grants?.some((g) => g.kind === "oauth" && !g.revoked_at && re.test(g.client_name));
+  return live(/claude/i) ? "claude" : live(/chatgpt|openai/i) ? "chatgpt" : null;
+}

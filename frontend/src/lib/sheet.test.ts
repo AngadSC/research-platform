@@ -7,6 +7,7 @@ import {
   parseAddr,
   parseTsv,
   shiftCells,
+  sheetToCsv,
   type Cell,
 } from "@/lib/sheet";
 
@@ -74,5 +75,20 @@ describe("display and editing", () => {
       ["a", "b"],
       ["1", "2"],
     ]);
+  });
+});
+
+describe("sheetToCsv", () => {
+  it("writes formula results and quotes awkward text", () => {
+    const csv = sheetToCsv({
+      name: "S",
+      cells: {
+        A1: { text: "name" },
+        B1: { text: "score" },
+        A2: { text: 'a "b", c' },
+        B2: { text: "=2*3" },
+      },
+    });
+    expect(csv).toBe('name,score\n"a ""b"", c",6');
   });
 });

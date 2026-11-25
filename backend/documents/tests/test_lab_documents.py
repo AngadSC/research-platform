@@ -105,12 +105,71 @@ def test_project_routes_and_folders_stay_project_only(world):
         client(people["pi"]).get(f"/api/labs/{lab.pk}/projects/{project.pk}/documents/").json()
         == []
     )
-    # A lab-wide document cannot be moved into a folder.
+    # A lab-wide document cannot be moved into a project's folder.
     folder = Folder.objects.create(project=project, name="F", created_by=people["pi"])
     response = client(people["pi"]).post(
         url(lab, doc, "move/"), {"folder": str(folder.pk)}, format="json"
     )
-    assert response.status_code == 404
+    assert response.status_code == 400
+    assert Document.objects.for_lab(lab).get(pk=doc.pk).folder_id is None
+    # ... and a lab folder is not listed, renamed or reached through a project.
+    mine = (
+        client(people["pi"])
+        .post(f"/api/labs/{lab.pk}/lab-folders/", {"name": "SOPs"}, format="json")
+        .json()
+    )
+    project_folders = (
+        client(people["pi"]).get(f"/api/labs/{lab.pk}/projects/{project.pk}/folders/").json()
+    )
+    assert [f["name"] for f in project_folders] == ["F"]
+    assert [
+        f["id"] for f in client(people["pi"]).get(f"/api/labs/{lab.pk}/lab-folders/").json()
+    ] == [mine["id"]]
+
+
+def test_lab_folders_hold_lab_documents(world):
+    lab, other, people, doc = world
+    created = client(people["member"]).post(
+        f"/api/labs/{lab.pk}/lab-folders/", {"name": "SOPs"}, format="json"
+    )
+    assert created.status_code == 201
+    folder = created.json()
+    assert folder["project"] is None
+    # a new document can start in it, and an existing one can be moved in and out
+    made = client(people["member"]).post(
+        f"/api/labs/{lab.pk}/lab-documents/",
+        {"title": "Cleaning", "content": [], "folder": folder["id"]},
+        format="json",
+    )
+    assert made.status_code == 201 and made.json()["folder"] == folder["id"]
+    move = lambda f: client(people["member"]).post(  # noqa: E731
+        url(lab, doc, "move/"), {"folder": f}, format="json"
+    )
+    assert move(folder["id"]).status_code == 204
+    assert Document.objects.for_lab(lab).get(pk=doc.pk).folder_id.hex == folder["id"].replace(
+        "-", ""
+    )
+    assert move(None).status_code == 204
+    # rename, then delete: the contents move up, nothing is lost
+    detail = f"/api/labs/{lab.pk}/folders/{folder['id']}/"
+    assert (
+        client(people["member"]).patch(detail, {"name": "Procedures"}, format="json").status_code
+        == 200
+    )
+    assert client(people["member"]).delete(detail).status_code == 204
+    assert Document.objects.for_lab(lab).get(title="Cleaning").folder_id is None
+
+
+def test_lab_folders_follow_the_lab_document_permissions(world):
+    lab, other, people, doc = world
+    folders = f"/api/labs/{lab.pk}/lab-folders/"
+    assert client(people["viewer"]).post(folders, {"name": "x"}, format="json").status_code == 403
+    assert client(people["viewer"]).get(folders).status_code == 200
+    assert client(people["outsider"]).get(folders).status_code == 404
+    folder = client(people["pi"]).post(folders, {"name": "x"}, format="json").json()
+    detail = f"/api/labs/{lab.pk}/folders/{folder['id']}/"
+    assert client(people["viewer"]).delete(detail).status_code == 403
+    assert client(people["outsider"]).delete(detail).status_code == 404
 
 
 def test_retention_cannot_be_set(world):

@@ -1,6 +1,7 @@
-import { FileText, Plus } from "lucide-react";
-import { DocsGrid, ViewToggle } from "@/components/documents/DocsGrid";
+import { FileText, FolderInput, Plus } from "lucide-react";
+import { DocsGrid, PreviewTile, ViewToggle } from "@/components/documents/DocsGrid";
 import { useDocsView } from "@/hooks/docsView";
+import { FolderBrowser, MoveDialog, type Movable } from "@/components/documents/Folders";
 import { DOC_KINDS, kindInfo, type DocKind } from "@/lib/documentKinds";
 import { useState, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
@@ -16,17 +17,15 @@ import { RelativeTime } from "@/components/shared/RelativeTime";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { useCreateDocument, useDeleteDocument, useDocuments } from "@/hooks/documents";
+import {
+  useCreateDocument,
+  useCurrentFolder,
+  useDeleteDocument,
+  useDocuments,
+} from "@/hooks/documents";
 import { useLab } from "@/hooks/workspace";
 import { personName, type DocumentRow } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
-
-const COLUMNS: Column<DocumentRow>[] = [
-  { key: "title", header: "Title", cell: (d) => <span className="font-medium">{d.title}</span> },
-  { key: "kind", header: "Type", cell: (d) => kindInfo(d.kind).label },
-  { key: "editor", header: "Last edited by", cell: (d) => personName(d.updated_by) },
-  { key: "updated", header: "Updated", cell: (d) => <RelativeTime value={d.updated_at} /> },
-];
 
 /** D233: documents that belong to the whole lab rather than to one project. */
 export function LabDocumentsPage() {
@@ -36,7 +35,21 @@ export function LabDocumentsPage() {
   const docs = useDocuments(labId, "");
   const create = useCreateDocument(labId, "");
   const remove = useDeleteDocument(labId, "");
-  const rows = docs.data ?? [];
+  const folder = useCurrentFolder();
+  const [moving, setMoving] = useState<Movable | null>(null);
+  const moveButton = (d: DocumentRow) => (
+    <Button
+      variant="ghost"
+      size="sm"
+      aria-label={`Move ${d.title} to a folder`}
+      onClick={() =>
+        setMoving({ kind: "documents", id: d.id, name: d.title, folder: d.folder ?? null })
+      }
+    >
+      <FolderInput aria-hidden /> Move
+    </Button>
+  );
+  const rows = (docs.data ?? []).filter((d) => (d.folder ?? null) === folder);
   const [view, setView] = useDocsView(`lab:${labId}`);
   const selection = useSelection(rows.map((d) => d.id));
   const [deleting, setDeleting] = useState(false);
@@ -55,6 +68,27 @@ export function LabDocumentsPage() {
   const [kind, setKind] = useState<DocKind>("doc");
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
   const canAdd = lab?.my_permissions.includes("contribute_lab") ?? false;
+  const columns: Column<DocumentRow>[] = [
+    { key: "title", header: "Title", cell: (d) => <span className="font-medium">{d.title}</span> },
+    { key: "kind", header: "Type", cell: (d) => kindInfo(d.kind).label },
+    { key: "editor", header: "Last edited by", cell: (d) => personName(d.updated_by) },
+    { key: "updated", header: "Updated", cell: (d) => <RelativeTime value={d.updated_at} /> },
+    ...(canAdd
+      ? [
+          {
+            key: "move",
+            header: "",
+            className: "text-right",
+            // A row click opens the document, so the button must not reach it.
+            cell: (d: DocumentRow) => (
+              <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                {moveButton(d)}
+              </div>
+            ),
+          },
+        ]
+      : []),
+  ];
   const open = (id: string) => void navigate(`/labs/${labId}/documents/${id}`);
   // the command palette's "New lab document" lands here with ?new=1
   const [params, setParams] = useSearchParams();
@@ -83,6 +117,7 @@ export function LabDocumentsPage() {
         title,
         kind,
         content: kindInfo(kind).content(),
+        ...(folder && { folder }),
         ...(embedUrl && { embed_url: embedUrl }),
       });
       open(doc.id);
@@ -119,7 +154,10 @@ export function LabDocumentsPage() {
           </Button>
         </BulkBar>
       )}
-      <div className="mb-3 flex justify-end">
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <FolderBrowser labId={labId} projectId="" canEdit={canAdd} />
+        </div>
         <ViewToggle view={view} onChange={setView} />
       </div>
       {view === "grid" && rows.length > 0 ? (
@@ -132,12 +170,14 @@ export function LabDocumentsPage() {
               const Icon = kindInfo(d.kind).icon;
               return <Icon aria-hidden />;
             })(),
+            preview: <PreviewTile preview={d.preview} />,
             onOpen: () => open(d.id),
+            menu: canAdd ? moveButton(d) : undefined,
           }))}
         />
       ) : (
         <DataTable
-          columns={COLUMNS}
+          columns={columns}
           rows={rows}
           selection={canAdd ? selection : undefined}
           selectLabel={(d) => `Select ${d.title}`}
@@ -167,6 +207,7 @@ export function LabDocumentsPage() {
           }
         />
       )}
+      <MoveDialog labId={labId} projectId="" item={moving} onClose={() => setMoving(null)} />
       <ConfirmDelete
         open={deleting}
         name={`${picked.length} ${picked.length === 1 ? "document" : "documents"}`}
