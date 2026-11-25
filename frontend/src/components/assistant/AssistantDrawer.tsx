@@ -870,8 +870,13 @@ export function AssistantDrawer({ labId }: { labId: string }) {
         {mounted && (
           <aside
             aria-label="Assistant"
-            style={{ width: dock.mode === "strip" ? STRIP_W : dock.width }}
-            className={`fixed inset-y-0 right-0 z-30 border-l bg-background print:hidden ${dock.mode === "open" ? "shadow-2xl" : ""} ${
+            style={{
+              width: dock.mode === "strip" ? STRIP_W : dock.width,
+              // Solid, and above the page and top bar, so nothing shows through the panel.
+              backgroundColor: dock.mode === "strip" ? "var(--muted)" : "var(--background)",
+              isolation: "isolate",
+            }}
+            className={`fixed inset-y-0 right-0 z-40 border-l bg-background print:hidden ${dock.mode === "open" ? "shadow-2xl" : ""} ${
               dock.mode === "strip" ? "flex-col items-center bg-muted" : ""
             } ${dock.mode === "closed" ? "hidden" : "flex"}`}
           >

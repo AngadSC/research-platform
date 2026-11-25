@@ -53,7 +53,6 @@ import { greeting } from "@/lib/greeting";
 import { WeatherChip } from "./WeatherChip";
 import { NotificationBell } from "./NotificationBell";
 import { Sidebar } from "./Sidebar";
-import { setReorderEditing, useHoldToReorder } from "./holdToReorder";
 import { Tutorial } from "./Tutorial";
 import { SelectionToolbar } from "@/components/comments/SelectionToolbar";
 
@@ -218,22 +217,6 @@ export function AppShell() {
     ),
   };
   const barOrder = layout.topbar;
-  const shownIds = barOrder.filter((id) => barParts[id]);
-  // Moving the visible items keeps hidden ones (a shortcut with no permission) where they were.
-  const barReorder = useHoldToReorder(
-    shownIds,
-    (next) => {
-      let i = 0;
-      layout.setTopbar(barOrder.map((id) => (barParts[id] ? next[i++]! : id)));
-    },
-    "x",
-  );
-  const hideBelow = (id: string) =>
-    id === "pins"
-      ? "max-lg:hidden"
-      : id === "greeting" || id.startsWith("nav-")
-        ? "max-md:hidden"
-        : "";
 
   const commands = useMemo<Command[]>(
     () => [
@@ -383,21 +366,10 @@ export function AppShell() {
               return (
                 <Fragment key={id}>
                   {first && <span className="flex-1" />}
-                  <div
-                    {...barReorder.rowProps(id)}
-                    style={barReorder.rowStyle(id)}
-                    className={`flex min-w-0 items-center ${hideBelow(id)} ${barReorder.editing && !barReorder.dragging ? "reorder-shake" : ""}`}
-                  >
-                    {part}
-                  </div>
+                  {part}
                 </Fragment>
               );
             })}
-            {barReorder.editing && (
-              <Button size="sm" onClick={() => setReorderEditing(false)}>
-                Done
-              </Button>
-            )}
           </header>
           <main
             id="main"

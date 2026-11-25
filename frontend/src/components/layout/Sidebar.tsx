@@ -18,7 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { applyOrder, ReorderRow, useHoldToReorder } from "@/components/layout/holdToReorder";
+import { applyOrder } from "@/components/layout/holdToReorder";
 import {
   groupLabel,
   hoverTint,
@@ -492,10 +492,6 @@ export function Sidebar({
     (i) => keyOf(i.to),
     order.main,
   );
-  const mainReorder = useHoldToReorder(
-    mainItems.map((i) => keyOf(i.to)),
-    order.setMain,
-  );
   const badgeAt = slim ? "absolute top-0 right-1" : "ml-auto";
   const link = ({ to, label, icon: Icon, end }: NavItem) => (
     <NavLink
@@ -607,7 +603,7 @@ export function Sidebar({
               )}
               {(slim || !labFolded) &&
                 mainItems.map((item) => (
-                  <ReorderRow key={item.to} id={keyOf(item.to)} reorder={mainReorder}>
+                  <div key={item.to} className="min-w-0">
                     {item.to.endsWith("/projects") ? (
                       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
                         <div className="flex items-center gap-0.5">
@@ -695,7 +691,7 @@ export function Sidebar({
                     ) : (
                       link(item)
                     )}
-                  </ReorderRow>
+                  </div>
                 ))}
               {!slim && order.main.length > 0 && (
                 <button
