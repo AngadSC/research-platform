@@ -22,7 +22,8 @@ The development stack (`docker-compose.yml`) is separate and is not for producti
 - **Not set yet:**
   - **File bucket:** uploads go to the `labfiles` volume on the server.
   - **OneDrive, Dropbox, Box:** OAuth apps not created.
-  - **Backups:** none.
+  - **Backups:** none yet. `deploy/backup.sh` is ready and does nothing until `BACKUP_BUCKET` is
+    set (section 8).
   - **The audit-table role (section 7):** not applied.
 - **Secrets go only in `~/app/deploy/.env.prod` on the server,** never in `.env.prod.example`. The example file is tracked by git.
 - **QA accounts (D246):** the seed accounts (`pi@`, `admin@`, `lead@`, `student@` and `viewer@example.test`) share the password in `QA_PASSWORD` in `.env.prod`, and have no two-step verification. To reset them before a test pass, run `docker compose -f docker-compose.prod.yml run --rm backend python manage.py seed_pilot` in `~/app/deploy`. It sets all five to `QA_PASSWORD` again, removes any two-step setup and adds back any missing seed data. It does not delete what testers added. The app never sends email to `.test` addresses, so these accounts can't reach Postmark. The owner's copy of the password is in `.env.qa` at the repo root, which git ignores.
@@ -94,6 +95,11 @@ Generate each secret once:
 | `LAB_FILES_ENDPOINT_URL` | Empty for AWS. Set it for other S3-compatible providers. |
 | `LAB_FILES_STREAM_DOWNLOADS` | Leave empty. PDFs always stream through Django and other files redirect to a 60 second presigned URL (D90, D123). `True` streams everything; use it only if your provider ignores response header overrides. |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Credentials for the bucket. The app also reads them for SES. |
+| `BACKUP_BUCKET` | Bucket for the nightly backups (section 8). Empty means backups are off. |
+| `BACKUP_ENDPOINT_URL`, `BACKUP_REGION` | Default to the `LAB_FILES_*` values. |
+| `BACKUP_ACCESS_KEY_ID`, `BACKUP_SECRET_ACCESS_KEY` | Default to the `AWS_*` keys. Separate keys are safer. |
+| `BACKUP_KEEP_DAYS` | Days of backups to keep. Default `30`. |
+| `BACKUP_PING_URL` | Optional. Pinged after each good backup, so a heartbeat service can alert on a missed night. |
 | `DEFAULT_FROM_EMAIL` | Sender, for example `Research Platform <noreply@your-domain>`. |
 | `EMAIL_BACKEND` | `anymail.backends.postmark.EmailBackend` or `anymail.backends.amazon_ses.EmailBackend`. |
 | `POSTMARK_SERVER_TOKEN` | Postmark server token (Postmark only). |
@@ -166,6 +172,23 @@ What you must do:
 `LAB_FILES_STREAM_DOWNLOADS=True` streams everything through Django, for a provider that ignores
 `response-content-disposition`.
 
+### Moving lab files to a bucket (D377)
+
+A server that started on local disk (the `labfiles` volume) moves to a bucket in five steps. File
+keys stay the same, so the database does not change.
+
+1. Buy an S3-compatible bucket (private, versioning on) and an access key for that bucket only.
+2. Add `LAB_FILES_BUCKET`, `LAB_FILES_REGION`, `LAB_FILES_ENDPOINT_URL` (empty for AWS),
+   `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to `deploy/.env.prod`.
+3. Run `docker compose -f docker-compose.prod.yml up -d` so the app and worker pick them up. From
+   here on, new uploads go to the bucket.
+4. Copy the existing files across:
+   `docker compose -f docker-compose.prod.yml exec -T backend python manage.py copy_lab_files_to_bucket`.
+   It skips files already in the bucket, so a rerun is safe. Uploads made between steps 3 and 4
+   are already in the bucket.
+5. Open a few older attachments in the app to check them. Keep the `labfiles` volume until you
+   have, then it can go.
+
 ## 4. First start
 
 Run these from `deploy/`:
@@ -224,19 +247,23 @@ separate user that you keep for `migrate` runs. Check it with `\dp audit_auditev
 
 Three things must be backed up, and they fail independently.
 
-1. **The database.** Run `pg_dump` every night from cron on the host, and keep 14 daily and 8 weekly
-   copies:
+1. **The database, and lab files while they are on local disk.** `deploy/backup.sh` does this
+   every night (D377). It dumps the database (and, while `LAB_FILES_BUCKET` is empty, tars the
+   `labfiles` volume), uploads each to `BACKUP_BUCKET` as `backups/db-YYYY-MM-DD.dump` and
+   `backups/files-YYYY-MM-DD.tar.gz`, then deletes backups older than `BACKUP_KEEP_DAYS`. It
+   prunes only after a good upload, and does nothing while `BACKUP_BUCKET` is empty. Turn it on:
 
-   ```
-   docker compose -f /srv/research/deploy/docker-compose.prod.yml exec -T postgres \
-     pg_dump -U "$POSTGRES_USER" -Fc "$POSTGRES_DB" > /backups/research-$(date +%F).dump
-   ```
-
-   Copy the dump off the server (a second provider or a bucket with a different account). A
-   backup on the same disk is not a backup.
+   1. Buy an S3-compatible bucket, ideally in Canada, private, with its own access key.
+   2. Add the `BACKUP_*` values to `deploy/.env.prod` (section 2), then run
+      `docker compose -f docker-compose.prod.yml up -d` so the backend sees them.
+   3. Install the cron line once, as the deploy user:
+      `(crontab -l 2>/dev/null; echo '30 3 * * * bash ~/app/deploy/backup.sh >> ~/backup.log 2>&1') | crontab -`
+   4. Run `bash ~/app/deploy/backup.sh` by hand once and check the bucket shows the files.
+   5. Optional: set `BACKUP_PING_URL` to a heartbeat (for example a free healthchecks.io check),
+      so a missed night emails you. Without it, a failure shows only in `~/backup.log`.
 2. **The lab files bucket.** Keep versioning on, and sync the bucket to a second location on a
    schedule (for example `aws s3 sync` to another region). The database has only the file keys,
-   not the file contents.
+   not the file contents. Once files are in a bucket, `backup.sh` stops tarring them.
 3. **The encryption and signing keys.** Store `SECRET_KEY` and every value in
    `INTEGRATION_ENCRYPTION_KEYS` in a password manager, kept apart from the database backups.
    Without the Fernet keys, the Drive tokens in a database dump are useless, and a restored
@@ -255,10 +282,13 @@ rehearsed on a real server yet. Run them on a spare server before you rely on th
    `POSTGRES_*` values as before. Changed keys break logins or stored tokens.
 3. Build the images (step 3).
 4. Start the database only: `docker compose -f docker-compose.prod.yml up -d postgres`.
-5. Copy the dump in and restore it:
+5. Download the latest `backups/db-YYYY-MM-DD.dump` from the bucket (the provider's web console
+   works), then copy it in and restore it. If files were on local disk, also unpack the matching
+   `files-YYYY-MM-DD.tar.gz` into the `labfiles` volume
+   (`docker compose -f docker-compose.prod.yml run --rm -T backend tar -xzf - -C /data/lab_files < files.tar.gz`):
 
    ```
-   docker compose -f docker-compose.prod.yml cp research-2026-01-01.dump postgres:/tmp/restore.dump
+   docker compose -f docker-compose.prod.yml cp db-2026-01-01.dump postgres:/tmp/restore.dump
    docker compose -f docker-compose.prod.yml exec postgres \
      pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists /tmp/restore.dump
    ```

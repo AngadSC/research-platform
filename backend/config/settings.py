@@ -170,6 +170,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"  # collectstatic target in deploy/Dockerf
 # ARCHITECTURE section 8 / D26: lab files get their own storage alias. It is never served under
 # MEDIA_URL or static(); downloads go through the authenticated endpoint only.
 LAB_FILES_BUCKET = os.environ.get("LAB_FILES_BUCKET", "")
+LAB_FILES_ROOT = os.environ.get("LAB_FILES_ROOT", "/data/lab_files")
 if LAB_FILES_BUCKET:
     _lab_files = {
         "BACKEND": "documents.storage.LabFilesS3Storage",  # D123: forced-download metadata
@@ -185,8 +186,18 @@ if LAB_FILES_BUCKET:
 else:
     _lab_files = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
-        "OPTIONS": {"location": os.environ.get("LAB_FILES_ROOT", "/data/lab_files")},
+        "OPTIONS": {"location": LAB_FILES_ROOT},
     }
+# Nightly backups (deploy/backup.sh, DEPLOY.md section 8). Off while BACKUP_BUCKET is empty.
+# Endpoint and region fall back to the lab files bucket's; keys fall back to AWS_* through boto3.
+BACKUP_BUCKET = os.environ.get("BACKUP_BUCKET", "")
+BACKUP_ENDPOINT_URL = (
+    os.environ.get("BACKUP_ENDPOINT_URL") or os.environ.get("LAB_FILES_ENDPOINT_URL") or None
+)
+BACKUP_REGION = os.environ.get("BACKUP_REGION") or os.environ.get("LAB_FILES_REGION") or None
+BACKUP_ACCESS_KEY_ID = os.environ.get("BACKUP_ACCESS_KEY_ID") or None
+BACKUP_SECRET_ACCESS_KEY = os.environ.get("BACKUP_SECRET_ACCESS_KEY") or None
+BACKUP_KEEP_DAYS = int(os.environ.get("BACKUP_KEEP_DAYS", "30"))
 # D90, D123: with a bucket, forced-attachment downloads redirect to a presigned GET (60 s at
 # most); PDFs, shown inline, always stream through Django.
 # Set LAB_FILES_STREAM_DOWNLOADS=True for providers that ignore response-* overrides.
