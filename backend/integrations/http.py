@@ -441,6 +441,8 @@ def send(method, url, *, provider, account=None, **kwargs) -> requests.Response:
         and account.token_expires_at <= timezone.now() + REFRESH_MARGIN
     ):
         services.refresh_access_token(account)
+    if not account.access_token_ct:  # a seeded or half-made row: never send an empty credential
+        raise AccountUnavailable(f"{provider.label} connection needs reconnecting")
     for refreshed in (False, True):
         secret = "" if oauth else account.refresh_token()
         signed = provider.sign({**kwargs, "headers": dict(headers)}, account.access_token(), secret)

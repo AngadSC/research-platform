@@ -470,6 +470,7 @@ MATRIX: dict[tuple[str, str], str] = {
     # D70: the picker token is the requester's own active Drive account's, so only the four
     # people the fixture gave one get 200; everyone else in the lab gets 404.
     ("GET",    "integrations:picker-token"): "401 404 2 2 2 2 404 404 404",
+    ("POST",   "integrations:google-new-file"): "401 404 2 2 2 2 404 404 404",  # New Google Doc
     # A freshness check needs only view_project (it uses the linker's account); accepting a
     # change is a write: edit_content.
     ("POST",   "integrations:external-link-check"): "401 404 2 2 2 2 2 404 2",
@@ -1059,6 +1060,7 @@ def _matrix_fake_provider(monkeypatch, settings):
     # Edit in Google (VISION B3): the copy and its metadata, without Google.
     monkeypatch.setattr(google_drive, "create_converted", lambda account, **kw: "gcopy1")
     monkeypatch.setattr(google_drive, "create_export", lambda account, **kw: "gexport1")
+    monkeypatch.setattr(google_drive, "create_blank", lambda account, **kw: "gblank1")
     monkeypatch.setattr(
         google_drive,
         "fetch_item",
@@ -1610,6 +1612,7 @@ PAYLOADS = {
     },
     ("POST", "documents:attachment-edit-in-google"): lambda user, w: _as_docx(w),
     ("POST", "documents:folder-list"): lambda user, w: {"name": "New folder"},
+    ("POST", "integrations:google-new-file"): lambda user, w: {"kind": "document"},
     ("POST", "documents:lab-folder-list"): lambda user, w: {"name": "Lab folder"},
     ("PATCH", "documents:folder-detail"): lambda user, w: {"name": "Renamed folder"},
     ("PATCH", "documents:document-detail"): lambda user, w: {"contains_participant_data": True},

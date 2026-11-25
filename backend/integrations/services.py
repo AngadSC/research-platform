@@ -1089,6 +1089,7 @@ def check_lab_links(lab) -> dict:
         p.name for p in registry.PROVIDERS.values() if not p.needs_account and p.fetch_item
     ]
     done = skipped = failed = 0
+    dead = set()  # accounts refused earlier in this run: each link holds its own stale copy
     stop_at = time.monotonic() + settings.INTEGRATION_JOB_LAB_BUDGET
     links = ExternalLink.objects.for_lab(lab).select_related(
         "connected_account", "project", "linked_by"
@@ -1099,7 +1100,7 @@ def check_lab_links(lab) -> dict:
             log.warning("integration link checks for a lab stopped at its time budget")
             failed += 1  # the rest are checked tomorrow
             break
-        if check_blocked(link):
+        if link.connected_account_id in dead or check_blocked(link):
             skipped += 1
             continue
         try:
@@ -1108,7 +1109,11 @@ def check_lab_links(lab) -> dict:
                 per_request=settings.INTEGRATION_JOB_HTTP_DEADLINE,
             ):
                 check_link(link)
-            done += 1
+            if check_blocked(link):  # its account was refused during this check
+                dead.add(link.connected_account_id)
+                skipped += 1
+            else:
+                done += 1
         except Exception as exc:  # noqa: BLE001 - messages are fixed; log the type only
             log.warning("integration link check failed: %s", type(exc).__name__)
             failed += 1
