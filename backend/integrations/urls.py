@@ -18,6 +18,11 @@ urlpatterns = [
         views.PickerTokenView.as_view(),
         name="picker-token",
     ),
+    path(
+        L + "integrations/google/new-file/",
+        views.NewGoogleFileView.as_view(),
+        name="google-new-file",
+    ),
     path("integrations/zoom/events/", views.ZoomEventsView.as_view(), name="zoom-events"),
     path("integrations/oauth/callback/", views.OAuthCallbackView.as_view(), name="oauth-callback"),
     path(

@@ -58,3 +58,13 @@ export function openGoogleLinkInPanel(url: string, title: string) {
 }
 
 export const isGoogleDocLink = (url: string) => DOC_URL.test(url);
+
+/** Opens a Google Doc that was just made (by id) in the floating panel, ready to type in. */
+export function openNewGoogleDoc(id: string, title: string) {
+  const url = googleDocUrl(id);
+  openGooglePanel({ title, label: "Google Docs", src: url, openUrl: url });
+}
+
+/** Where a Google Doc opens in Google's editor, built from its id. */
+export const googleDocUrl = (id: string) =>
+  `https://docs.google.com/document/d/${encodeURIComponent(id)}/edit`;

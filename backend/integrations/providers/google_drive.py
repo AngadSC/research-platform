@@ -194,3 +194,31 @@ def _upload(account, *, name, source, target, data) -> str:
         return str(resp.json()["id"])  # checked when it is linked
     except (ValueError, KeyError, TypeError):
         raise http.IntegrationError("Google Drive returned an unreadable answer") from None
+
+
+# ---- "New Google Doc": an empty Doc, Sheet or Slides file made in the person's own Drive, so it
+# can be linked and opened in the panel at once. drive.file covers files the app creates.
+BLANK = {
+    "document": "application/vnd.google-apps.document",
+    "spreadsheet": "application/vnd.google-apps.spreadsheet",
+    "presentation": "application/vnd.google-apps.presentation",
+}
+
+
+def create_blank(account, *, name, kind) -> str:
+    """Drive v3 `files.create` with metadata only: a new empty file of Google type `kind`.
+    Returns the new file's id."""
+    resp = http.send(
+        "POST",
+        "https://www.googleapis.com/drive/v3/files?fields=id&supportsAllDrives=true",
+        provider=PROVIDER,
+        account=account,
+        data=json.dumps({"name": name, "mimeType": BLANK[kind]}).encode(),
+        headers={"Content-Type": "application/json; charset=UTF-8"},
+    )
+    if resp.status_code != 200:
+        raise http.IntegrationError("Google Drive did not make the file")
+    try:
+        return str(resp.json()["id"])
+    except (ValueError, KeyError, TypeError):
+        raise http.IntegrationError("Google Drive returned an unreadable answer") from None

@@ -105,6 +105,13 @@ export function useRemoveExternalLink(labId: string, projectId: string) {
 export const fetchPickerToken = (labId: string) =>
   api<PickerToken>(`${base(labId)}/integrations/google/picker-token/`);
 
+/** Makes an empty Google Doc in the person's own Drive; the page then links it like a picked one. */
+export const createGoogleDoc = (labId: string, name?: string) =>
+  api<{ id: string; name: string }>(`${base(labId)}/integrations/google/new-file/`, {
+    method: "POST",
+    body: { kind: "document", ...(name ? { name } : {}) },
+  });
+
 export function useCheckExternalLink(labId: string, projectId: string) {
   const qc = useQueryClient();
   return useMutation({

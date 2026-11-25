@@ -91,6 +91,20 @@ class PickerTokenSerializer(serializers.Serializer):
     scope = serializers.CharField()
 
 
+class NewGoogleFileInputSerializer(serializers.Serializer):
+    kind = serializers.ChoiceField(
+        choices=["document", "spreadsheet", "presentation"], default="document"
+    )
+    name = serializers.CharField(max_length=100, required=False, allow_blank=True)
+
+
+class NewGoogleFileSerializer(serializers.Serializer):
+    """The file just made: the same fields the Picker gives, so a page links it as a picked one."""
+
+    id = serializers.CharField()
+    name = serializers.CharField()
+
+
 class ConnectInputSerializer(serializers.Serializer):
     """oauth2: optional `scopes`. api_key: the connect form (D81). Secrets are write-only and
     no validation message ever repeats a value."""

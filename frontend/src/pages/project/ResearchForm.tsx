@@ -347,6 +347,7 @@ export function ResearchForm({
                       <FromDriveButton
                         labId={labId}
                         quiet
+                        newDoc
                         participant={false}
                         onPick={async (file, participant) => {
                           const a = await attachFromDrive(
@@ -375,6 +376,7 @@ export function ResearchForm({
                   <FromDriveButton
                     labId={labId}
                     quiet
+                    newDoc={{ name: (v.title as string).trim() }}
                     label="From Drive"
                     onPick={async (file) => {
                       if (!file.url) throw new Error("Google did not give a link.");

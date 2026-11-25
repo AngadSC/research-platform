@@ -270,6 +270,7 @@ function ExternalDialog({
               <FromDriveButton
                 labId={labId}
                 quiet
+                newDoc
                 participant={false}
                 onPick={async (f, participant) => {
                   const a = await attachFromDrive(

@@ -98,6 +98,7 @@ export function TaskFiles({
             </Button>
             <FromDriveButton
               labId={labId}
+              newDoc
               participant={false}
               onPick={async (f, participant) => {
                 const a = await attachFromDrive(

@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
+import { openGooglePanel } from "@/lib/googlePanel";
 import { linkStateLabel } from "@/lib/participants";
 import type { PickedFile } from "@/lib/drive";
 import { FromDriveButton } from "./FromDriveButton";
@@ -21,20 +22,22 @@ vi.mock("@/hooks/integrations", () => ({
     ],
   }),
   fetchPickerToken: async () => ({ access_token: "t" }),
+  createGoogleDoc: async () => ({ id: "newDoc12345", name: "Untitled document" }),
 }));
+vi.mock("@/lib/googlePanel", () => ({ openGooglePanel: vi.fn() }));
 vi.mock("@/lib/drive", () => ({
   pickDriveFile: async () => picked,
   pickDriveFiles: async () => [picked],
 }));
 vi.mock("@/lib/integrations", () => ({ pickerReady: () => true }));
 
-function setup(participant?: boolean) {
+function setup(participant?: boolean, newDoc = false) {
   const onPick = vi.fn<(f: PickedFile, participant: boolean) => Promise<unknown>>();
   onPick.mockResolvedValue({});
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter>
-        <FromDriveButton labId="lab1" onPick={onPick} participant={participant} />
+        <FromDriveButton labId="lab1" onPick={onPick} participant={participant} newDoc={newDoc} />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -68,6 +71,30 @@ describe("FromDriveButton participant question", () => {
     await u.click(screen.getByRole("button", { name: /From Drive/ }));
     await waitFor(() => expect(onPick).toHaveBeenCalledWith(picked, false));
     expect(screen.queryByRole("button", { name: "Link" })).toBeNull();
+  });
+});
+
+describe("New Google Doc", () => {
+  it("is only there when asked for", () => {
+    setup();
+    expect(screen.queryByRole("button", { name: /New Google Doc/ })).toBeNull();
+  });
+
+  it("makes a Doc, links it like a picked file, and opens it in the panel", async () => {
+    const { onPick, u } = setup(false, true);
+    await u.click(screen.getByRole("button", { name: /New Google Doc/ }));
+    const url = "https://docs.google.com/document/d/newDoc12345/edit";
+    await waitFor(() =>
+      expect(onPick).toHaveBeenCalledWith(
+        { id: "newDoc12345", name: "Untitled document", url },
+        false, // an empty Doc identifies no one, and there is no participant question to ask
+      ),
+    );
+    await waitFor(() =>
+      expect(openGooglePanel).toHaveBeenCalledWith(
+        expect.objectContaining({ src: url, label: "Google Docs" }),
+      ),
+    );
   });
 });
 

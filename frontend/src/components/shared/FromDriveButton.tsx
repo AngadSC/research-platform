@@ -1,13 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { FilePlus2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { IconAction } from "@/components/shared/IconAction";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { fetchPickerToken, useProviders } from "@/hooks/integrations";
+import { createGoogleDoc, fetchPickerToken, useProviders } from "@/hooks/integrations";
 import { pickDriveFile, pickDriveFiles, type PickedFile } from "@/lib/drive";
 import { formErrors } from "@/lib/forms";
+import { googleDocUrl, openNewGoogleDoc } from "@/lib/googleFiles";
 import { pickerReady } from "@/lib/integrations";
 import { ParticipantQuestion } from "@/pages/project/UploadDialog";
 
@@ -103,6 +105,7 @@ export function FromDriveButton({
   multiple,
   iconOnly,
   participant,
+  newDoc,
 }: {
   labId: string;
   onPick: (file: PickedFile, participant: boolean) => Promise<unknown>;
@@ -118,6 +121,10 @@ export function FromDriveButton({
   iconOnly?: boolean;
   /** Ask the participant question; the files go to an endpoint that stores the answer. */
   participant?: boolean;
+  /** Also offers "New Google Doc": makes an empty Doc in your own Drive, links it as a picked
+   * file is linked, and opens it in the floating panel without leaving the app. `name` is the
+   * Doc's title (Google's own "Untitled document" when empty). */
+  newDoc?: boolean | { name?: string };
 }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -133,7 +140,7 @@ export function FromDriveButton({
     return fields.drive_file_id ?? fields.file ?? form ?? "Google Drive did not answer.";
   };
 
-  async function link(files: PickedFile[], flagged: boolean) {
+  async function link(files: PickedFile[], flagged: boolean, silent = quiet): Promise<number> {
     setBusy(true);
     try {
       // One at a time: each is checked with Drive by the server, and one bad file must not
@@ -152,28 +159,50 @@ export function FromDriveButton({
       if (added < files.length) {
         const why = reason(lastError);
         toast.error(added ? `Added ${added} of ${files.length} files. ${why}` : why);
-      } else if (!quiet) {
+      } else if (!silent) {
         toast.success(
           files.length === 1
             ? `Added "${files[0]!.name}" from Drive`
             : `Added ${files.length} files from Drive`,
         );
       }
+      return added;
     } finally {
       setBusy(false);
     }
   }
 
-  async function run() {
-    if (!connected) {
-      toast.info("Connect Google Drive first, then pick the file.", {
-        action: {
-          label: "Connect",
-          onClick: () => void navigate(`/labs/${labId}/settings/integrations`),
-        },
-      });
-      return;
+  async function createDoc() {
+    if (!connected) return void notConnected();
+    setBusy(true);
+    try {
+      const made = await createGoogleDoc(labId, typeof newDoc === "object" ? newDoc.name : "");
+      // Empty, so it identifies no one; in a folder marked as identifying participants it inherits
+      // the mark, as any file put there does.
+      const added = await link(
+        [{ id: made.id, name: made.name, url: googleDocUrl(made.id) }],
+        !!participant,
+        true,
+      );
+      if (added) openNewGoogleDoc(made.id, made.name);
+    } catch (e) {
+      toast.error(reason(e));
+    } finally {
+      setBusy(false);
     }
+  }
+
+  function notConnected() {
+    toast.info("Connect Google Drive first, then pick the file.", {
+      action: {
+        label: "Connect",
+        onClick: () => void navigate(`/labs/${labId}/settings/integrations`),
+      },
+    });
+  }
+
+  async function run() {
+    if (!connected) return void notConnected();
     setBusy(true);
     let files: PickedFile[];
     try {
@@ -209,9 +238,31 @@ export function FromDriveButton({
     />
   );
 
+  const create = newDoc && (
+    <Button
+      type="button"
+      variant={variant}
+      size={size}
+      disabled={busy || disabled}
+      onClick={() => void createDoc()}
+    >
+      <FilePlus2 aria-hidden /> New Google Doc
+    </Button>
+  );
+  const createIcon = newDoc && (
+    <IconAction
+      label="New Google Doc"
+      icon={<FilePlus2 aria-hidden />}
+      variant={variant}
+      disabled={busy || disabled}
+      onClick={() => void createDoc()}
+    />
+  );
+
   if (iconOnly)
     return (
       <>
+        {createIcon}
         <IconAction
           label={label}
           icon={<DriveLogo />}
@@ -224,6 +275,7 @@ export function FromDriveButton({
     );
   return (
     <>
+      {create}
       <Button
         type="button"
         variant={variant}

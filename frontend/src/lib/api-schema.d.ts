@@ -1772,6 +1772,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/integrations/google/new-file/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Makes an empty Google Doc, Sheet or Slides file in the requester's own Drive and returns
+         *     its id and name. Nothing is linked here: the page that asked links it as it links a picked
+         *     file, then opens it in the floating panel.
+         */
+        post: operations["labs_integrations_google_new_file_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/integrations/google/picker-token/": {
         parameters: {
             query?: never;
@@ -7839,6 +7860,23 @@ export interface components {
          * @enum {string}
          */
         NameEnum: "api_key" | "secret" | "instance_url";
+        /** @description The file just made: the same fields the Picker gives, so a page links it as a picked one. */
+        NewGoogleFile: {
+            id: string;
+            name: string;
+        };
+        NewGoogleFileInput: {
+            /** @default document */
+            kind: components["schemas"]["NewGoogleFileInputKindEnum"];
+            name?: string;
+        };
+        /**
+         * @description * `document` - document
+         *     * `spreadsheet` - spreadsheet
+         *     * `presentation` - presentation
+         * @enum {string}
+         */
+        NewGoogleFileInputKindEnum: "document" | "spreadsheet" | "presentation";
         NoteInput: {
             body: string;
         };
@@ -13116,6 +13154,33 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    labs_integrations_google_new_file_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["NewGoogleFileInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["NewGoogleFileInput"];
+                "multipart/form-data": components["schemas"]["NewGoogleFileInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewGoogleFile"];
+                };
             };
         };
     };

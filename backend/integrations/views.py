@@ -40,6 +40,8 @@ from integrations.serializers import (
     ImportTasksInputSerializer,
     ItemSearchQuerySerializer,
     ItemSearchResultSerializer,
+    NewGoogleFileInputSerializer,
+    NewGoogleFileSerializer,
     PickerTokenSerializer,
     ProviderSerializer,
     TaskSourceSerializer,
@@ -291,6 +293,53 @@ class PickerTokenView(LabScopedViewMixin, generics.GenericAPIView):
         )
         resp["Cache-Control"] = "no-store"
         return resp
+
+
+class NewGoogleFileView(LabScopedViewMixin, generics.GenericAPIView):
+    """Makes an empty Google Doc, Sheet or Slides file in the requester's own Drive and returns
+    its id and name. Nothing is linked here: the page that asked links it as it links a picked
+    file, then opens it in the floating panel."""
+
+    model = ConnectedAccount
+    serializer_class = NewGoogleFileInputSerializer
+    perms = {"POST": Perm.MANAGE_INTEGRATIONS}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "uploads"
+
+    @extend_schema(request=NewGoogleFileInputSerializer, responses={201: NewGoogleFileSerializer})
+    def post(self, request, lab_id):
+        from integrations.providers import google_drive
+
+        ser = self.get_serializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        kind = ser.validated_data["kind"]
+        default = {"document": "Untitled document", "spreadsheet": "Untitled spreadsheet"}
+        name = "".join(c for c in ser.validated_data.get("name", "") if c.isprintable()).strip()
+        name = name or default.get(kind, "Untitled presentation")
+        account = (
+            self.get_queryset()
+            .filter(
+                user=request.user,
+                provider=google_drive.PROVIDER.name,
+                status=AccountStatus.ACTIVE,
+            )
+            .first()
+        )
+        if account is None:
+            raise Http404
+        try:
+            file_id = google_drive.create_blank(account, name=name, kind=kind)
+        except IntegrationError:  # AccountUnavailable too
+            raise ValidationError({"file": "Google Drive did not answer. Try again."}) from None
+        audit.record(
+            AuditAction.INTEGRATION_PICKER_TOKEN,  # a Drive action by the person's own account
+            actor=request.user,
+            lab=request.lab,
+            target=account,
+            request=request,
+            metadata={"provider": google_drive.PROVIDER.name, "via": "new_file", "kind": kind},
+        )
+        return Response({"id": file_id, "name": name}, status=status.HTTP_201_CREATED)
 
 
 def _frontend(path, **query):

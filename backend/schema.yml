@@ -4416,6 +4416,42 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/integrations/google/new-file/:
+    post:
+      operationId: labs_integrations_google_new_file_create
+      description: |-
+        Makes an empty Google Doc, Sheet or Slides file in the requester's own Drive and returns
+        its id and name. Nothing is linked here: the page that asked links it as it links a picked
+        file, then opens it in the floating panel.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewGoogleFileInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NewGoogleFileInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NewGoogleFileInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewGoogleFile'
+          description: ''
   /api/labs/{lab_id}/integrations/google/picker-token/:
     get:
       operationId: labs_integrations_google_picker_token_retrieve
@@ -19348,6 +19384,38 @@ components:
         * `api_key` - api_key
         * `secret` - secret
         * `instance_url` - instance_url
+    NewGoogleFile:
+      type: object
+      description: 'The file just made: the same fields the Picker gives, so a page
+        links it as a picked one.'
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+      required:
+      - id
+      - name
+    NewGoogleFileInput:
+      type: object
+      properties:
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/NewGoogleFileInputKindEnum'
+          default: document
+        name:
+          type: string
+          maxLength: 100
+    NewGoogleFileInputKindEnum:
+      enum:
+      - document
+      - spreadsheet
+      - presentation
+      type: string
+      description: |-
+        * `document` - document
+        * `spreadsheet` - spreadsheet
+        * `presentation` - presentation
     NoteInput:
       type: object
       properties:

@@ -222,6 +222,7 @@ export function EthicsDetailPage() {
               </Button>
               <FromDriveButton
                 labId={labId}
+                newDoc
                 onPick={(f) =>
                   attachFromDrive(`/api/labs/${labId}/ethics-approvals/${a.id}/attachments/`, f.id)
                 }

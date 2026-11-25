@@ -398,6 +398,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
               labId={labId}
               iconOnly
               multiple
+              newDoc
               participant={folderFlagged}
               onPick={(f, participant) =>
                 attachFromDrive(`/api/labs/${labId}/projects/${projectId}/attachments/`, f.id, {

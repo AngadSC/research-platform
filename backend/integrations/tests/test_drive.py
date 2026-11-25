@@ -497,3 +497,28 @@ def test_link_hosts_are_pinned_to_google_and_never_rendered_otherwise(world, tra
     ExternalLink.objects.for_lab(lab).update(url="https://evil.example/x")
     listed = client.get(api(lab, f"projects/{project.pk}/external-links/")).json()
     assert listed[0]["url"] == ""
+
+
+NEW_FILE_URL = "https://www.googleapis.com/drive/v3/files?fields=id&supportsAllDrives=true"
+
+
+def test_new_google_file_is_made_in_the_callers_drive_and_audited(world, transport):
+    lab, users, project, client = world
+    url = api(lab, "integrations/google/new-file/")
+    # nothing connected yet: nothing to make the file with
+    assert client.post(url, {}, "application/json").status_code == 404
+    connect_drive(client, lab, transport)
+    transport.on("POST", NEW_FILE_URL, response(200, {"id": FILE_ID}))
+    resp = client.post(url, {"kind": "spreadsheet", "name": " Plan "}, "application/json")
+    assert resp.status_code == 201, resp.content
+    assert resp.json() == {"id": FILE_ID, "name": "Plan"}
+    sent = transport.sent("POST", NEW_FILE_URL)[-1]
+    assert b"application/vnd.google-apps.spreadsheet" in sent["data"]
+    event = AuditEvent.objects.filter(action="integration.picker_token_issued").last()
+    assert event.metadata["via"] == "new_file" and "gd-access" not in str(event.metadata)
+    # a default name; a made-up kind is refused
+    assert client.post(url, {}, "application/json").json()["name"] == "Untitled document"
+    assert client.post(url, {"kind": "exe"}, "application/json").status_code == 400
+    # Google failing is a clean error, not a 500
+    transport.on("POST", NEW_FILE_URL, response(500, {}))
+    assert client.post(url, {}, "application/json").status_code == 400
