@@ -1109,7 +1109,9 @@ def check_lab_links(lab) -> dict:
                 per_request=settings.INTEGRATION_JOB_HTTP_DEADLINE,
             ):
                 check_link(link)
-            if check_blocked(link):  # its account was refused during this check
+            account = link.connected_account
+            # refused during this check, or never had a credential (http.send sent nothing)
+            if check_blocked(link) or (account and not account.access_token_ct):
                 dead.add(link.connected_account_id)
                 skipped += 1
             else:
