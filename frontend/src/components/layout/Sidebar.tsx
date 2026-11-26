@@ -95,11 +95,18 @@ function GroupHeading({
 }
 
 /** The lab's pages that live in a group of their own, not in the main list. */
-const LAB_GROUP = ["admin", "documents", "papers", "training", "members", "participants"];
-const ADMIN_GROUP = ["audit-log", "funding", "retention", "inventory", "ethics"];
+const LAB_GROUP = [
+  "members",
+  "training",
+  "papers",
+  "documents",
+  "participants",
+  "settings/integrations",
+];
+const ADMIN_GROUP = ["inventory", "ethics", "funding", "retention", "audit-log", "admin"];
 
 /**
- * A group of pages behind one icon, below the divider. Hovering (or clicking, or focusing) it opens
+ * Icons-only sidebar: a group of pages behind one icon, below the divider. Hovering (or clicking, or focusing) it opens
  * a small menu of its pages, like a project does in the icons-only sidebar.
  */
 function GroupFlyout({
@@ -299,7 +306,7 @@ function ProjectItem({
           )}
         >
           <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-(--project)" />
-          <span className="truncate" title={project.name}>
+          <span className="line-clamp-2 min-w-0 break-words" title={project.name}>
             {project.name}
           </span>
           {project.status === "archived" && (
@@ -477,11 +484,12 @@ export function Sidebar({
       to !== "/settings" &&
       to !== "/help" &&
       !to.endsWith("/notifications") && // each has its own menu
-      !to.endsWith("/settings/integrations") && // lives in Settings
       !layout.hidden.includes(keyOf(to)),
   );
   const order = useSidebarOrder();
   const [labFolded, toggleLab] = useFolded("lab");
+  const [peopleFolded, togglePeople] = useFolded("people");
+  const [adminFolded, toggleAdmin] = useFolded("admin");
   const grouped = (keys: string[]) =>
     keys.flatMap((k) => items.filter((i) => keyOf(i.to) === k || keyOf(i.to) === `${k}/`));
   const labGroup = grouped(LAB_GROUP);
@@ -599,7 +607,7 @@ export function Sidebar({
               {slim ? (
                 <hr aria-hidden className="mx-2 border-border" />
               ) : (
-                <GroupHeading label="Lab" folded={labFolded} onToggle={toggleLab} />
+                <GroupHeading label="Work" folded={labFolded} onToggle={toggleLab} />
               )}
               {(slim || !labFolded) &&
                 mainItems.map((item) => (
@@ -711,24 +719,40 @@ export function Sidebar({
                   slim ? "pt-2" : "pt-3",
                 )}
               >
-                {labGroup.length > 0 && (
-                  <GroupFlyout
-                    label="Lab details"
-                    icon={Building2}
-                    items={labGroup}
-                    slim={slim}
-                    onNavigate={onClose}
-                  />
-                )}
-                {adminGroup.length > 0 && (
-                  <GroupFlyout
-                    label={adminGroup.some((i) => i.admin) ? "Admin" : "Lab resources"}
-                    icon={SlidersHorizontal}
-                    items={adminGroup}
-                    slim={slim}
-                    onNavigate={onClose}
-                  />
-                )}
+                {[
+                  {
+                    label: "Lab",
+                    icon: Building2,
+                    items: labGroup,
+                    folded: peopleFolded,
+                    toggle: togglePeople,
+                  },
+                  {
+                    label: adminGroup.some((i) => i.admin) ? "Admin" : "Lab resources",
+                    icon: SlidersHorizontal,
+                    items: adminGroup,
+                    folded: adminFolded,
+                    toggle: toggleAdmin,
+                  },
+                ]
+                  .filter((g) => g.items.length > 0)
+                  .map((g) =>
+                    slim ? (
+                      <GroupFlyout
+                        key={g.label}
+                        label={g.label}
+                        icon={g.icon}
+                        items={g.items}
+                        slim
+                        onNavigate={onClose}
+                      />
+                    ) : (
+                      <div key={g.label} className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
+                        <GroupHeading label={g.label} folded={g.folded} onToggle={g.toggle} />
+                        {!g.folded && g.items.map(link)}
+                      </div>
+                    ),
+                  )}
               </nav>
             )}
           </>

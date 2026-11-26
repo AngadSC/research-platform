@@ -232,7 +232,7 @@ describe("app shell", () => {
     );
   });
 
-  it("lists the main links in order, without Notifications, with the rest behind two groups", async () => {
+  it("lists the main links in order, without Notifications, with the rest in two groups", async () => {
     mockFetch(world({}));
     renderRoute("/labs/lab1/members");
     const main = within(await screen.findByRole("navigation", { name: "Main" }));
@@ -253,18 +253,27 @@ describe("app shell", () => {
     for (const moved of ["Training", "Members", "Participants", "Papers", "Inventory"])
       expect(main.queryByRole("link", { name: moved })).toBeNull();
     expect(main.queryByRole("link", { name: "Notifications" })).toBeNull();
-    // a member has the lab's pages, but nothing of the admin pages beyond Inventory
+    // a member sees the lab's pages and Inventory as plain links, and nothing of the admin pages
     const groups = within(screen.getByRole("navigation", { name: "Lab and admin" }));
-    expect(groups.getByRole("button", { name: "Lab details, pages" })).toBeInTheDocument();
-    const user = userEvent.setup();
-    groups.getByRole("button", { name: "Lab resources, pages" }).focus();
-    await user.keyboard("{Enter}");
-    expect(await screen.findByRole("menuitem", { name: "Inventory" })).toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: "Audit log" })).toBeNull();
-    expect(screen.queryByRole("menuitem", { name: "Retention" })).toBeNull();
+    expect(groups.getByRole("button", { name: "Lab group" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(groups.getAllByRole("link").map((a) => a.textContent)).toEqual([
+      "Members",
+      "Training",
+      "Papers",
+      "Lab documents",
+      "Participants",
+      "Integrations",
+      "Inventory",
+    ]);
+    expect(groups.getByRole("button", { name: "Lab resources group" })).toBeInTheDocument();
+    expect(groups.queryByRole("link", { name: "Audit log" })).toBeNull();
+    expect(groups.queryByRole("link", { name: "Retention" })).toBeNull();
   });
 
-  it("puts the lab's pages under Lab details and Admin pages under Admin, for a PI", async () => {
+  it("shows the lab's pages under Lab and Admin pages under Admin, for a PI, with no hover needed", async () => {
     const perms = [
       "view_lab",
       "view_ethics",
@@ -280,26 +289,23 @@ describe("app shell", () => {
     });
     renderRoute("/labs/lab1/calendar");
     const groups = within(await screen.findByRole("navigation", { name: "Lab and admin" }));
-    const user = userEvent.setup();
-    (await groups.findByRole("button", { name: "Admin, pages" })).focus();
-    await user.keyboard("{Enter}");
-    expect((await screen.findAllByRole("menuitem")).map((i) => i.textContent)).toEqual([
-      "Audit log",
-      "Retention",
+    expect((await groups.findAllByRole("link")).map((a) => a.textContent)).toEqual([
+      "Members",
+      "Training",
+      "Papers",
+      "Lab documents",
+      "Participants",
+      "Integrations",
       "Inventory",
       "Ethics",
-    ]);
-    await user.keyboard("{Escape}");
-    groups.getByRole("button", { name: "Lab details, pages" }).focus();
-    await user.keyboard("{Enter}");
-    expect((await screen.findAllByRole("menuitem")).map((i) => i.textContent)).toEqual([
+      "Retention",
+      "Audit log",
       "Lab details",
-      "Lab documents",
-      "Papers",
-      "Training",
-      "Members",
-      "Participants",
     ]);
+    // folding a group hides its links
+    await userEvent.click(groups.getByRole("button", { name: "Admin group" }));
+    expect(groups.queryByRole("link", { name: "Audit log" })).toBeNull();
+    expect(groups.getByRole("link", { name: "Members" })).toBeInTheDocument();
   });
 
   it("lists every lab at /labs", async () => {

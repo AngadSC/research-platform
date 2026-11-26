@@ -86,3 +86,13 @@ def test_only_the_author_or_a_lab_manager_deletes(w):
     assert client(w["member"]).delete(d).status_code == 403
     assert client(w["author"]).delete(d).status_code == 204
     assert PageComment.objects.for_lab(w["lab"]).count() == 0
+
+
+def test_a_mention_in_a_page_comment_opens_that_page(w):
+    """It used to link to the lab home (a lab-wide page) or the project chat, never the page."""
+    tag = f"@[B](user:{w['member'].pk})"
+    lab_path = f"/labs/{w['lab'].pk}/papers"
+    for path in (lab_path, project_path(w)):
+        assert post(w, w["author"], path, f"look {tag}").status_code == 201
+    got = client(w["member"]).get(f"/api/labs/{w['lab'].pk}/notifications/").json()
+    assert {n["url"] for n in got} == {lab_path, project_path(w)}

@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { daysUntil, expiryTone, expiryWarning, validateApproval } from "@/lib/ethics";
-import { makeLab, mockFetch, openSidebarGroup, renderRoute, SESSION, signedIn } from "@/test/utils";
+import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
 
 const user = { id: "u1", email: "ada@uni.edu", display_name: "Ada" };
 const iso = (offset: number) => {
@@ -247,8 +247,8 @@ describe("retention review", () => {
     ).toBeInTheDocument();
     expect(await screen.findByText("Old survey")).toBeInTheDocument();
     expect(screen.getByText("Deleted")).toBeInTheDocument();
-    await openSidebarGroup("Admin");
-    expect(await screen.findByRole("menuitem", { name: "Retention" })).toBeInTheDocument();
+
+    expect(await screen.findByRole("link", { name: "Retention" })).toBeInTheDocument();
   });
 });
 

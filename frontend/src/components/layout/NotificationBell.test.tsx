@@ -33,6 +33,10 @@ describe("NotificationBell", () => {
     const link = within(menu).getByRole("menuitem", { name: /Ann mentioned you/ });
     expect(link).toHaveAttribute("href", "/labs/lab1/chat");
     expect(within(link).getByText("bold gone cc @Ben")).toBeInTheDocument();
+    expect(within(menu).getByRole("link", { name: "Notification settings" })).toHaveAttribute(
+      "href",
+      "/settings#notifications",
+    );
   });
 
   it("lists chats with new messages and counts them on the bell", async () => {

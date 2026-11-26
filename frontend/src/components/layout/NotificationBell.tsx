@@ -113,9 +113,12 @@ export function NotificationBell({ labId }: { labId: string }) {
             </li>
           ))}
         </ul>
-        <div className={cn("border-t px-3 py-2 text-sm")}>
+        <div className={cn("flex items-center justify-between border-t px-3 py-2 text-sm")}>
           <Link to={`/labs/${labId}/notifications`} className="text-primary hover:underline">
             See all notifications
+          </Link>
+          <Link to="/settings#notifications" className="text-primary hover:underline">
+            Notification settings
           </Link>
         </div>
       </DropdownMenuContent>

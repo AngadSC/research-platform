@@ -9,7 +9,7 @@ export function MobileTabBar({ labId, onMore }: { labId?: string; onMore: () => 
     ["dashboard", "Home", Home],
     ["my-work", "My work", ListChecks],
     ["calendar", "Calendar", CalendarDays],
-    ["chat", "Chat", MessagesSquare],
+    ["chat", "Lab chat", MessagesSquare],
   ] as const;
   const tab =
     "flex min-h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-5";

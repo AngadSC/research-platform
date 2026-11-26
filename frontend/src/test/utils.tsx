@@ -79,13 +79,6 @@ export const makeLab = (perms: string[], role = "pi") => ({
   my_permissions: perms,
 });
 
-/** Opens one of the sidebar's two groups of pages ("Lab details" or "Admin") from the keyboard. */
-export async function openSidebarGroup(name: "Lab details" | "Admin") {
-  const button = await screen.findByRole("button", { name: `${name}, pages` });
-  button.focus();
-  await userEvent.keyboard("{Enter}");
-}
-
 /** Opens a folded section (a Disclosure) by its heading. */
 export async function openSection(name: string | RegExp) {
   const heading = await screen.findByRole("heading", { name });
