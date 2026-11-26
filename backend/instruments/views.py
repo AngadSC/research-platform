@@ -3,6 +3,7 @@ import uuid
 from types import SimpleNamespace
 
 from django.conf import settings
+from django.core.cache import cache
 from django.http import Http404
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema
@@ -32,7 +33,7 @@ from instruments.serializers import (
     PublicDropSerializer,
     SoftwareChoiceSerializer,
 )
-from labs.models import InventoryCategory, InventoryItem, hash_token
+from labs.models import InventoryCategory, InventoryItem, InventoryStatus, hash_token
 from projects.activity import _request as activity_request
 from projects.services import refuse_if_archived
 
@@ -169,13 +170,13 @@ class DropLinkListCreateView(LabScopedViewMixin, generics.GenericAPIView):
         stale = recent_auth_required(request)  # D194: a login-free way in is a secret
         if stale:
             return stale
-        days = data.get("expires_in_days")
+        days = data["expires_in_days"]
         link, token = services.issue_link(
             instrument=instrument,
             project=project,
             user=request.user,
             label=data.get("label", ""),
-            expires_at=timezone.now() + datetime.timedelta(days=days) if days else None,
+            expires_at=timezone.now() + datetime.timedelta(days=days),
             request=request,
         )
         out = DropLinkCreatedSerializer(link, context={"token": token})
@@ -205,6 +206,17 @@ class Refused(APIException):
 
 
 ASK = "Ask the person who gave it to you for a new one."
+RETIRED_STATUSES = (InventoryStatus.RETIRED, InventoryStatus.LOST)
+DAILY_BYTES = 2 * 1024**3  # per link: a leaked link cannot move more than this a day
+
+
+def _spend_daily_bytes(token: str, size: int) -> None:
+    """Count `size` against the link's day; refuse once the budget is gone."""
+    key = f"instrument_drop_bytes:{hash_token(token)}"
+    cache.add(key, 0, 24 * 3600)
+    if cache.incr(key, size) > DAILY_BYTES:
+        cache.decr(key, size)
+        raise Refused(429, "This link has sent as much as it can for today. Try again tomorrow.")
 
 
 def _token(request) -> str:
@@ -254,8 +266,11 @@ def _open(request):
     project = visible_projects(user, lab).filter(pk=link.project_id).first()
     if project is None:
         raise Refused(404, "This link no longer works. " + ASK)
-    if not lab.inventory_enabled:
+    if not lab.inventory_enabled:  # D384: links work again if it is turned back on
         raise Refused(403, "Inventory is turned off for this lab.")
+    inst = link.instrument  # equipment that is still in use, as on the signed-in drop page
+    if inst.category != InventoryCategory.EQUIPMENT or inst.status in RETIRED_STATUSES:
+        raise Refused(404, "This link no longer works. " + ASK)
     if not can(user, Perm.EDIT_CONTENT, project):
         raise Refused(403, "The person who made this link can no longer add files here. " + ASK)
     return link, user, lab, project
@@ -298,6 +313,7 @@ class PublicDropView(views.APIView):
         refuse_if_archived(project)
         ser = DropUploadSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
+        _spend_daily_bytes(_token(request), ser.validated_data["file"].size)
         # D139: "last edited" names the link's maker, as with file links (VISION S1)
         token = activity_request.set(SimpleNamespace(user=user))
         try:

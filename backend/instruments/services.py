@@ -137,6 +137,15 @@ def revoke_link(link, *, by, reason="", request=None) -> None:
             )
 
 
+def revoke_project_links(project, *, by, request=None) -> None:
+    """A deleted project must not get its links back if it is ever restored (D384)."""
+    links = InstrumentDropLink.objects.for_lab(project.lab_id).filter(
+        project=project, revoked_at__isnull=True
+    )
+    for link in links.select_related("lab"):
+        revoke_link(link, by=by, reason="project deleted", request=request)
+
+
 def revoke_lost_links(user, *, lab, by=None, reason, request=None) -> None:
     """After an access change: end `user`'s live links into projects they can no longer add
     files to (left the lab or the project, lost the role, deactivated). Use re-checks too."""

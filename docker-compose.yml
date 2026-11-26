@@ -53,6 +53,21 @@ services:
       valkey:
         condition: service_healthy
 
+  # Instrument files are read here, apart from the default worker: a parser child may use up to
+  # 1 GB, so two at a time and a flood of drops cannot hold up email, reminders or alerts.
+  worker-parsing:
+    build: ./backend
+    <<: *env
+    command: ["celery", "-A", "config", "worker", "-l", "info", "-Q", "parsing", "--concurrency=2", "-n", "parsing@%h"]
+    volumes:
+      - ./backend:/app
+      - labfiles:/data/lab_files
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
   beat:
     build: ./backend
     <<: *env

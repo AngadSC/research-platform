@@ -2,8 +2,10 @@
 cross-lab isolation, participant data."""
 
 import datetime
+from pathlib import Path
 
 import pytest
+from django.conf import settings as django_settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -458,3 +460,173 @@ def test_demo_seed(world):
     assert (
         InventoryItem.objects.for_lab(lab).filter(instrument_software="cytiva_unicorn").count() == 1
     )
+
+
+# ---------------------------------------------------------------- review fixes (D384)
+
+
+def drop(token, name="a.csv"):
+    return APIClient().post(
+        DROP,
+        {"token": token, "file": a_file(name), "acknowledged_notice": "true"},
+        format="multipart",
+    )
+
+
+def test_i1_a_link_is_limited_by_rate_bytes_and_age(world, monkeypatch):
+    lab, users, project, _, reader = world
+    rates = django_settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
+    assert rates["instrument_drop_link"] == rates["uploads"] == "60/hour"
+    # a day's budget per link; a refused file is not counted
+    monkeypatch.setattr(views, "DAILY_BYTES", 40)
+    token = token_of(make_link(api(users["ann"]), lab, reader, project))
+    other_token = token_of(make_link(api(users["ann"]), lab, reader, project))
+    assert drop(token).status_code == 201  # 16 bytes
+    assert drop(token).status_code == 201  # 32
+    r = drop(token)
+    assert r.status_code == 429 and "as much as it can for today" in r.json()["detail"]
+    assert drop(other_token).status_code == 201  # each link has its own budget
+    assert InstrumentFile.objects.for_lab(lab).count() == 3
+    # every link ends by itself: 90 days unless asked, 365 at most, never "never"
+    url = f"/api/labs/{lab.pk}/instruments/{reader.pk}/drop-links/"
+    made = make_link(api(users["ann"]), lab, reader, project)
+    ends = InstrumentDropLink.objects.for_lab(lab).get(pk=made["id"]).expires_at
+    assert datetime.timedelta(days=89) < ends - timezone.now() <= datetime.timedelta(days=90)
+    for bad in (None, 0, 366):
+        r = api(users["ann"]).post(
+            url, {"project": str(project.pk), "expires_in_days": bad}, format="json"
+        )
+        assert r.status_code == 400, bad
+    assert make_link(api(users["ann"]), lab, reader, project, expires_in_days=365)
+
+
+def test_i1_parsing_has_its_own_queue_and_a_worker():
+    assert jobs.parse_instrument_file.queue == "parsing"
+    prod = Path("/deploy/docker-compose.prod.yml")  # bind-mounted in the test container
+    if prod.exists():
+        text = prod.read_text(encoding="utf-8")
+        assert '"-Q", "parsing"' in text and '"--concurrency=2"' in text
+
+
+def test_i2_nul_in_a_summary_is_stripped_and_a_db_error_never_leaves_pending(
+    world, django_capture_on_commit_callbacks, monkeypatch
+):
+    lab, users, project, _, reader = world
+    dirty = {
+        "status": "ok",
+        "title": "Run\x00 1",
+        "fields": [{"label": "Na\x00me", "value": "a\ud800b"}],
+        "bad\x00key": 1,
+    }
+    monkeypatch.setattr(jobs, "parse_file", lambda *a, **k: dirty)
+    with django_capture_on_commit_callbacks(execute=True):
+        r = api(users["ann"]).post(
+            drop_url(lab, project, reader),
+            {"file": a_file(), "acknowledged_notice": "true"},
+            format="multipart",
+        )
+    item = InstrumentFile.objects.for_lab(lab).get(pk=r.json()["id"])
+    assert item.status == ParseStatus.OK and item.summary["title"] == "Run 1"
+    assert item.summary["fields"] == [{"label": "Name", "value": "ab"}]
+    assert "badkey" in item.summary
+    # if Postgres still refuses it, the row fails with a plain message
+    monkeypatch.setattr(jobs, "_clean", lambda v: v)
+    with django_capture_on_commit_callbacks(execute=True):
+        r = api(users["ann"]).post(
+            drop_url(lab, project, reader),
+            {"file": a_file("b.csv"), "acknowledged_notice": "true"},
+            format="multipart",
+        )
+    item = InstrumentFile.objects.for_lab(lab).get(pk=r.json()["id"])
+    assert item.status == ParseStatus.FAILED
+    assert item.summary["error"] == "The file could not be read."
+
+
+def _pending_file(lab, project, reader, user, name):
+    att = Attachment.objects.create(
+        lab=lab,
+        project=project,
+        uploaded_by=user,
+        original_filename=name,
+        storage_key=name,
+        size_bytes=1,
+        content_type="text/csv",
+    )
+    return InstrumentFile.objects.create(
+        lab=lab, instrument=reader, attachment=att, project=project, uploaded_via="page"
+    )
+
+
+def test_i2_a_file_pending_for_ten_minutes_is_failed(world):
+    lab, users, project, _, reader = world
+    old = _pending_file(lab, project, reader, users["ann"], "x.csv")
+    fresh = _pending_file(lab, project, reader, users["ann"], "y.csv")
+    InstrumentFile.objects.for_lab(lab).filter(pk=old.pk).update(
+        created_at=timezone.now() - datetime.timedelta(minutes=11)
+    )
+    jobs.fail_stuck_files()
+    old.refresh_from_db()
+    fresh.refresh_from_db()
+    assert old.status == ParseStatus.FAILED
+    assert old.summary["error"] == "We could not read this file in time."
+    assert fresh.status == ParseStatus.PENDING
+    assert "instruments.jobs.fail_stuck_files" in {
+        e["task"] for e in django_settings.CELERY_BEAT_SCHEDULE.values()
+    }
+
+
+def test_i3_links_do_not_come_back_with_a_project_or_a_changed_instrument(world):
+    lab, users, project, _, reader = world
+    token = token_of(make_link(api(users["ann"]), lab, reader, project))
+    # an instrument that is retired, or no longer equipment, takes its links with it
+    InventoryItem.objects.for_lab(lab).filter(pk=reader.pk).update(status="retired")
+    assert APIClient().get(DROP, {"token": token}).status_code == 404
+    InventoryItem.objects.for_lab(lab).filter(pk=reader.pk).update(
+        status="active", category="consumable"
+    )
+    assert APIClient().get(DROP, {"token": token}).status_code == 404
+    InventoryItem.objects.for_lab(lab).filter(pk=reader.pk).update(category="equipment")
+    assert APIClient().get(DROP, {"token": token}).status_code == 200
+    # inventory off blocks links; on again, they work again (D384)
+    lab.inventory_enabled = False
+    lab.save()
+    assert APIClient().get(DROP, {"token": token}).status_code == 403
+    lab.inventory_enabled = True
+    lab.save()
+    assert APIClient().get(DROP, {"token": token}).status_code == 200
+    # deleting the project revokes its links for good, so a restore does not bring them back
+    project_services.delete_project(project=project, user=users["pi"])
+    link = InstrumentDropLink.objects.for_lab(lab).get()
+    assert link.revoked_at is not None
+    assert AuditEvent.objects.filter(action=AuditAction.INSTRUMENT_DROP_LINK_REVOKED).count() == 1
+    project.deleted_at = None
+    project.save()
+    assert APIClient().get(DROP, {"token": token}).status_code == 410
+
+
+def test_i4_a_project_lead_can_see_and_stop_a_link_into_their_project(world, make_user, join):
+    lab, users, project, other, reader = world
+    lee = make_user(display_name="Lee", email="lee@example.test")
+    zed = make_user(display_name="Zed", email="zed@example.test")
+    for u in (lee, zed):
+        join(u, lab, LabRole.MEMBER)
+    ProjectMembership.objects.create(lab=lab, project=project, user=lee, role=ProjectRole.LEAD)
+    ProjectMembership.objects.create(lab=lab, project=other, user=zed, role=ProjectRole.LEAD)
+    made = make_link(api(users["ann"]), lab, reader, project)
+    list_url = f"/api/labs/{lab.pk}/instruments/{reader.pk}/drop-links/"
+    url = f"/api/labs/{lab.pk}/instrument-drop-links/{made['id']}/"
+    assert [x["id"] for x in api(lee).get(list_url).json()] == [made["id"]]
+    # a lead of some other project, or a plain viewer of this one, sees nothing of it
+    assert api(zed).get(list_url).json() == []
+    assert api(zed).delete(url).status_code == 404
+    assert api(users["vic"]).delete(url).status_code == 404
+    assert api(lee).delete(url).status_code == 204
+    assert InstrumentDropLink.objects.for_lab(lab).get().revoked_at is not None
+    # a lab viewer is capped to viewer on every project, whatever the membership row says
+    viewer = make_user(display_name="Vi", email="viewer@example.test")
+    join(viewer, lab, LabRole.VIEWER)
+    ProjectMembership.objects.create(lab=lab, project=project, user=viewer, role=ProjectRole.LEAD)
+    again = make_link(api(users["ann"]), lab, reader, project)
+    assert api(viewer).get(list_url).json() == []
+    gone = api(viewer).delete(f"/api/labs/{lab.pk}/instrument-drop-links/{again['id']}/")
+    assert gone.status_code == 404

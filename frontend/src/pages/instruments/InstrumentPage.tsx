@@ -118,10 +118,10 @@ function Data({ labId, item }: { labId: string; item: InventoryItem }) {
 }
 
 const EXPIRY = [
-  { value: "", label: "Never, until turned off" },
   { value: "1", label: "1 day" },
   { value: "7", label: "1 week" },
   { value: "30", label: "30 days" },
+  { value: "90", label: "3 months" },
   { value: "365", label: "1 year" },
 ];
 
@@ -139,13 +139,12 @@ function Links({ labId, item }: { labId: string; item: InventoryItem }) {
     const fd = new FormData(form);
     const project = formValue(fd, "project");
     if (!project) return setErrors({ fields: { project: "Choose a project" } });
-    const days = formValue(fd, "expires");
     try {
       const link = await reauth.run(() =>
         create.mutateAsync({
           project,
           label: formValue(fd, "label"),
-          expires_in_days: days ? Number(days) : null,
+          expires_in_days: Number(formValue(fd, "expires")),
         }),
       );
       setErrors({ fields: {} });
@@ -191,7 +190,7 @@ function Links({ labId, item }: { labId: string; item: InventoryItem }) {
         </FormField>
         <FormField label="Stops working" error={errors.fields.expires_in_days}>
           {(p) => (
-            <NativeSelect {...p} name="expires" defaultValue="30">
+            <NativeSelect {...p} name="expires" defaultValue="90">
               {EXPIRY.map((x) => (
                 <option key={x.value} value={x.value}>
                   {x.label}

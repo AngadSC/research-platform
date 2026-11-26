@@ -156,11 +156,14 @@ def _notify_role(membership, by, event, added) -> None:
 @transaction.atomic
 def delete_project(*, project, user, request=None) -> None:
     """Soft delete (D24, D28). Children stay; D39 hides them with the project."""
+    from instruments.services import revoke_project_links  # instruments imports this module
+
     project.deleted_at = timezone.now()
     project.save(update_fields=["deleted_at", "updated_at"])
     record(
         AuditAction.PROJECT_DELETED, actor=user, lab=project.lab, target=project, request=request
     )
+    revoke_project_links(project, by=user, request=request)
 
 
 # ---------------------------------------------------------------- members

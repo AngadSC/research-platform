@@ -715,8 +715,8 @@ MATRIX: dict[tuple[str, str], str] = {
     ("POST",   "instruments:drop-file"): "401 404 2 2 2 2 403 404 403",  # edit_content on P1
     ("GET",    "instruments:link-list"): "401 404 2 2 2 2 2 2 2",  # your own (PI, admin: all)
     ("POST",   "instruments:link-list"): "401 404 2 2 2 2 403 404 403",  # into P1
-    # contrib's link: its maker, or a PI or lab admin (manage_lab) to stop a leaked one
-    ("DELETE", "instruments:link-detail"): "401 404 2 2 404 2 404 404 404",
+    # contrib's link into P1: its maker, a PI or lab admin (manage_lab), or a lead of P1 (D384)
+    ("DELETE", "instruments:link-detail"): "401 404 2 2 2 2 404 404 404",
     # A drop link acts as the person who made it, whose access is read again on use (as
     # assistant:file-link): outsider is not in Lab A, nonproj cannot see P1, viewers cannot add.
     ("GET",    "instruments:drop"): "401 404 2 2 2 2 403 404 403",

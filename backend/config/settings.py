@@ -271,6 +271,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "labs.jobs.push_google_calendars",
         "schedule": crontab(minute="*/15"),
     },
+    "instruments-fail-stuck-files": {  # a file still unread after 10 minutes is marked failed
+        "task": "instruments.jobs.fail_stuck_files",
+        "schedule": crontab(minute="*/5"),
+    },
     "sensors-check-silent": {  # a sensor that stopped reporting
         "task": "monitoring.jobs.check_silent_sensors",
         "schedule": crontab(minute="*/5"),
@@ -400,8 +404,9 @@ REST_FRAMEWORK = {
         "ai_chat": "240/hour",  # D190: messages and approvals to the in-app assistant
         "file_links": "120/hour",  # VISION S1: download and upload links, per address
         "sensor_ingest": "600/minute",  # per address; each sensor also has its own limit
+        "sensor_test": "30/hour",  # "send a test reading", per person
         "instrument_drop": "600/hour",  # instrument drop page, per address
-        "instrument_drop_link": "300/hour",  # files sent through one drop link
+        "instrument_drop_link": "60/hour",  # files sent through one drop link (same as "uploads")
     },
     "DEFAULT_PERMISSION_CLASSES": ["core.permissions.HasPerm"],
     "DEFAULT_AUTHENTICATION_CLASSES": ["core.auth.SessionAuthentication"],

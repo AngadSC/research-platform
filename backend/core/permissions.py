@@ -253,6 +253,15 @@ def sees_all_drop_links(user, lab) -> bool:
     return Perm.MANAGE_LAB in LAB_ROLE_PERMS.get(lab_role(user, lab), ())
 
 
+def led_projects(user, lab):
+    """Projects of `lab` where `user` is a lead (EDIT_PROJECT): their own role, never a lab viewer's
+    (capped to viewer, D19). PIs and lab admins lead every project and use `sees_all_drop_links`."""
+    base = Project.unscoped.filter(lab_id=_lab_id(lab), deleted_at__isnull=True)
+    if lab_role(user, lab) in (None, LabRole.VIEWER):
+        return base.none()
+    return base.filter(memberships__user=user, memberships__role=ProjectRole.LEAD)
+
+
 def can_reverse_usage(user, usage) -> bool:
     """D228: undoing a recorded use of stock needs a project lead, or the person who recorded it
     and can still edit the project."""

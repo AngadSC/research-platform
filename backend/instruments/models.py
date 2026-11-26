@@ -85,10 +85,13 @@ class InstrumentDropLink(LabScopedModel):
 
     @classmethod
     def visible_rows(cls, qs, user, lab):
-        """Your own links; a PI or lab admin sees everyone's, so a leaked one can be stopped."""
-        from core.permissions import sees_all_drop_links
+        """Your own links; a PI or lab admin sees everyone's, and a project lead everyone's into
+        their project, so a leaked one can be stopped."""
+        from core.permissions import led_projects, sees_all_drop_links
 
-        return qs if sees_all_drop_links(user, lab) else qs.filter(created_by=user)
+        if sees_all_drop_links(user, lab):
+            return qs
+        return qs.filter(models.Q(created_by=user) | models.Q(project__in=led_projects(user, lab)))
 
     def __str__(self):
         return f"Drop link {self.label or self.pk}"

@@ -172,6 +172,18 @@ describe("instrument page", () => {
       await screen.findByDisplayValue("https://labbenchos.test/drop/secret-token"),
     ).toBeVisible();
     const post = calls.find((c) => c.method === "POST")!;
-    expect(post.body).toEqual({ project: "p1", label: "Core PC", expires_in_days: 30 });
+    expect(post.body).toEqual({ project: "p1", label: "Core PC", expires_in_days: 90 });
+  });
+});
+
+describe("reading a file", () => {
+  it("stops saying it is being read after two minutes", async () => {
+    const { parseLine } = await import("@/hooks/instruments");
+    const now = new Date().toISOString();
+    const old = new Date(Date.now() - 3 * 60_000).toISOString();
+    expect(parseLine({ status: "pending", title: "", created_at: now })).toBe("Reading the file…");
+    expect(parseLine({ status: "pending", title: "", created_at: old })).toBe(
+      "Still working. Check back later.",
+    );
   });
 });

@@ -114,9 +114,8 @@ class DropLinkInputSerializer(serializers.Serializer):
     label = serializers.CharField(
         max_length=100, allow_blank=True, required=False, validators=[no_control_chars]
     )
-    expires_in_days = serializers.IntegerField(
-        min_value=1, max_value=365, allow_null=True, required=False
-    )
+    # Never "never": a leaked link must end by itself (D384).
+    expires_in_days = serializers.IntegerField(min_value=1, max_value=365, default=90)
 
 
 class PublicDropSerializer(serializers.Serializer):

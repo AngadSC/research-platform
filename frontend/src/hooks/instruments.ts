@@ -15,9 +15,17 @@ const base = (labId: string) => `/api/labs/${labId}`;
 export const dropPath = (labId: string, itemId: string) =>
   `/labs/${labId}/instruments/${itemId}/drop`;
 
+const GIVE_UP_MS = 2 * 60 * 1000;
+
+/** Still being read, and young enough that asking again is worth it. */
+function isWaiting(f: Pick<InstrumentFile, "status" | "created_at">): boolean {
+  return f.status === "pending" && !(Date.now() - Date.parse(f.created_at) >= GIVE_UP_MS);
+}
+
 /** One short line on how reading a file went. */
-export function parseLine(f: Pick<InstrumentFile, "status" | "title">): string {
-  if (f.status === "pending") return "Reading the file…";
+export function parseLine(f: Pick<InstrumentFile, "status" | "title" | "created_at">): string {
+  if (f.status === "pending")
+    return isWaiting(f) ? "Reading the file…" : "Still working. Check back later.";
   if (f.status === "ok") return f.title ? `Read: ${f.title}` : "Read";
   if (f.status === "unsupported") return "No preview for this kind of file yet";
   return "Could not read this file";
@@ -52,7 +60,7 @@ export function useInstrumentFiles(
     queryFn: () => api<InstrumentFile[]>(`${base(labId)}/instrument-files/?${qs}`),
     enabled: enabled && !!labId,
     // keep asking while something is still being read
-    refetchInterval: (q) => (q.state.data?.some((f) => f.status === "pending") ? 3000 : false),
+    refetchInterval: (q) => (q.state.data?.some(isWaiting) ? 3000 : false),
   });
 }
 
@@ -61,7 +69,7 @@ export function useInstrumentFile(labId: string, id: string | null) {
     queryKey: ["labs", labId, "instrument-files", "one", id],
     queryFn: () => api<InstrumentFileDetail>(`${base(labId)}/instrument-files/${id}/`),
     enabled: !!id,
-    refetchInterval: (q) => (q.state.data?.status === "pending" ? 2000 : false),
+    refetchInterval: (q) => (q.state.data && isWaiting(q.state.data) ? 2000 : false),
   });
 }
 
@@ -94,7 +102,7 @@ export function useDropLinks(labId: string, itemId: string) {
       queryFn: () => api<DropLink[]>(`${base(labId)}/instruments/${itemId}/drop-links/`),
     }),
     create: useMutation({
-      mutationFn: (v: { project: string; label: string; expires_in_days: number | null }) =>
+      mutationFn: (v: { project: string; label: string; expires_in_days: number }) =>
         api<DropLinkCreated>(`${base(labId)}/instruments/${itemId}/drop-links/`, {
           method: "POST",
           body: v,
