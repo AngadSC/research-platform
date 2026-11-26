@@ -4,14 +4,13 @@
 import datetime
 import re
 import uuid
-from itertools import islice
 
 from django.apps import apps
 from django.utils import timezone
 
 from core.email import send_email
 from core.models import Notification, NotificationKind, User
-from core.permissions import Perm, can, forget
+from core.permissions import Perm, can, forget, prime_project_roles
 from core.quiet import quiet_release
 
 # D71: only notices someone must act on, or that matter for compliance, are emailed.
@@ -69,13 +68,7 @@ def _still_allowed(user, lab, n) -> bool:
     if n.kind == NotificationKind.RETENTION_DUE:  # may point at a soft-deleted item
         return can(user, Perm.VIEW_RETENTION, lab)
     if n.kind == NotificationKind.ETHICS_EXPIRY:
-        approval = (
-            apps.get_model("ethics", "EthicsApproval")
-            .objects.for_lab(lab)
-            .filter(pk=n.target_id, deleted_at__isnull=True)
-            .prefetch_related("projects")
-            .first()
-        )
+        approval = _target(n, _ETHICS, lab, user)
         return (
             approval is not None
             and can(user, Perm.VIEW_ETHICS, approval)
@@ -85,12 +78,11 @@ def _still_allowed(user, lab, n) -> bool:
             )
         )
     if n.kind == NotificationKind.MEETING_INVITE:  # D230: only while still on the meeting
-        meeting = apps.get_model("labs", "Meeting").objects.for_lab(lab).filter(pk=n.target_id)
-        return meeting.filter(attendees=user).exists() and can(user, Perm.VIEW_LAB, lab)
+        return _target(n, _MEETING, lab, user) is not None and can(user, Perm.VIEW_LAB, lab)
     if n.kind in _ABOUT_PROJECT_ITEMS:  # D142, D260: the reader must still see the project
         model = _PROJECT_TARGETS.get(n.target_type.lower())
         if model is not None:
-            target = apps.get_model(model).objects.for_lab(lab).filter(pk=n.target_id).first()
+            target = _target(n, model, lab, user)
             if getattr(target, "deleted_at", None) is not None:  # gone with its document
                 return False
             return target is not None and can(user, Perm.VIEW_PROJECT, target)
@@ -117,10 +109,77 @@ _ABOUT_PROJECT_ITEMS = (
 )
 
 
+_ETHICS = "ethics.EthicsApproval"
+_MEETING = "labs.Meeting"
+
+
+def _models_for(n) -> tuple:
+    """The target models `_still_allowed` and `notification_url` may look up for `n`."""
+    wanted = [_PROJECT_TARGETS.get(n.target_type.lower())]
+    if n.kind == NotificationKind.ETHICS_EXPIRY:
+        wanted.append(_ETHICS)
+    if n.kind == NotificationKind.MEETING_INVITE:
+        wanted.append(_MEETING)
+    return tuple(m for m in wanted if m is not None)
+
+
+def _load_targets(rows, lab, user) -> dict:
+    """Fetch every target of `rows` with one query per model, lab-scoped, and hang the result on
+    each row, so the D54 re-check and the URL read the same objects without a query per row."""
+    ids = {}
+    for n in rows:
+        if n.target_id is not None:
+            for m in _models_for(n):
+                ids.setdefault(m, set()).add(n.target_id)
+    found = {}
+    for m, pks in ids.items():
+        qs = apps.get_model(m).objects.for_lab(lab).filter(pk__in=pks)
+        if m == _ETHICS:
+            qs = qs.filter(deleted_at__isnull=True).prefetch_related("projects")
+        elif m == _MEETING:  # only meetings the reader is still on
+            qs = qs.filter(attendees=user).distinct()
+        elif qs.model.project_path:
+            qs = qs.select_related(qs.model.project_path)
+        found.update(((m, obj.pk), obj) for obj in qs)
+    for n in rows:
+        n._targets = found
+    return found
+
+
+def _project_ids(targets) -> set:
+    ids = set()
+    for obj in targets:
+        if obj._meta.label == "projects.Project":
+            ids.add(obj.pk)
+        elif obj._meta.label == _ETHICS:
+            ids.update(p.pk for p in obj.projects.all())
+        elif getattr(obj, "project_id", None):
+            ids.add(obj.project_id)
+    return ids
+
+
+def _target(n, model, lab, user):
+    """`n`'s target as `model`, or None when it is gone (or, for a meeting, the reader left it)."""
+    if not hasattr(n, "_targets"):
+        _load_targets([n], lab, user)
+    return n._targets.get((model, n.target_id))
+
+
 def visible_notifications(user, lab, qs, limit=100) -> list:
-    """The first `limit` rows of `qs` the user may still see. Also used for unread counts."""
+    """The first `limit` rows of `qs` the user may still see. Also used for unread counts.
+    Targets and project roles are fetched a page of `limit` rows at a time, so the query count
+    stays flat."""
+    # ponytail: a restricted ethics approval still costs one query per row for a non-lead
+    # (`_sees_restricted`); batch that in permissions.py if expiry notices ever pile up.
     forget(user)
-    return list(islice((n for n in qs if _still_allowed(user, lab, n)), limit))
+    rows, out = list(qs), []
+    for i in range(0, len(rows), limit):
+        page = rows[i : i + limit]
+        prime_project_roles(user, _project_ids(_load_targets(page, lab, user).values()))
+        out += [n for n in page if _still_allowed(user, lab, n)]
+        if len(out) >= limit:
+            break
+    return out[:limit]
 
 
 # D260: `@[Display Name](user:<uuid>)` is what the composer stores for a mention.
@@ -239,28 +298,18 @@ def notification_url(n, user) -> str:
         chat = "/chat" if n.kind == NotificationKind.MENTION else ""
         return f"{lab}/projects/{n.target_id}{chat}"
     if target == "projects.task" and n.target_id:
-        task = (
-            apps.get_model("projects", "Task").objects.for_lab(n.lab_id).filter(pk=n.target_id)
-        ).first()
+        task = _target(n, "projects.Task", n.lab_id, user)
         if task is not None and can(user, Perm.VIEW_PROJECT, task):
             return f"{lab}/projects/{task.project_id}/tasks?task={task.pk}"
     if target == "documents.document" and n.target_id:
-        doc = (
-            apps.get_model("documents", "Document")
-            .objects.for_lab(n.lab_id)
-            .filter(pk=n.target_id, deleted_at__isnull=True)
-        ).first()
-        if doc is not None and can(user, Perm.VIEW_PROJECT, doc):
+        doc = _target(n, "documents.Document", n.lab_id, user)
+        if doc is not None and doc.deleted_at is None and can(user, Perm.VIEW_PROJECT, doc):
             # a mention in a document is always in a comment: documents themselves don't notify
             comments = n.kind in (NotificationKind.MENTION, NotificationKind.DOCUMENT_COMMENT)
             where = f"/projects/{doc.project_id}" if doc.project_id else ""  # D233: lab-wide
             return f"{lab}{where}/documents/{doc.pk}" + ("?comments=1" if comments else "")
     if target == "provenance.datasetrecord" and n.target_id:
-        ds = (
-            apps.get_model("provenance", "DatasetRecord")
-            .objects.for_lab(n.lab_id)
-            .filter(pk=n.target_id)
-        ).first()
+        ds = _target(n, "provenance.DatasetRecord", n.lab_id, user)
         if ds is not None and can(user, Perm.VIEW_PROJECT, ds):
             return f"{lab}/projects/{ds.project_id}/workflow/data/datasets/{ds.pk}"
     return lab

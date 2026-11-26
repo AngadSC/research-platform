@@ -196,6 +196,22 @@ def project_role(user, project) -> str | None:
     return _effective_project_role(lab_r, cache[key])
 
 
+def prime_project_roles(user, project_ids) -> None:
+    """Fill the cache `project_role` reads for many projects with one query (a list re-checking
+    many rows). The answers are the same as looking each one up."""
+    cache = _cache(user)
+    ids = {pk for pk in project_ids if ("project", pk) not in cache}
+    if not ids:
+        return
+    roles = dict(
+        ProjectMembership.unscoped.filter(user=user, project_id__in=ids).values_list(
+            "project_id", "role"
+        )
+    )
+    for pk in ids:
+        cache[("project", pk)] = roles.get(pk)
+
+
 def can_view_ethics_files(user, approval, visible=None) -> bool:
     """D48: an approval's files need view_ethics plus visibility of at least one linked project,
     or the pi/lab_admin role. `visible` is an optional precomputed set of visible project ids."""
