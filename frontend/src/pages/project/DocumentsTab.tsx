@@ -129,6 +129,7 @@ const analysable = (a: Attachment) =>
   !a.pi_only &&
   !a.drive_file_id &&
   !a.external_url &&
+  !a.office_copy &&
   /\.(csv|tsv|txt|xlsx)$/i.test(a.original_filename);
 const rowFlagged = (r: Row) => (r.doc ?? r.file).contains_participant_data;
 
@@ -213,6 +214,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
     else if (googleEditor(r.file) || previewable(r.file)) preview(r.file);
     else if (analysable(r.file)) void navigate(`${base}/analyse?file=${r.file.id}`);
     else if (r.file.external_url) window.open(r.file.external_url, "_blank", "noopener");
+    else if (r.file.office_copy) toast.info("This copy is in someone else's OneDrive.");
     else startDownload(downloadUrl(labId, r.file.id));
   };
   const copyToGoogle = (f: Attachment) =>
@@ -277,10 +279,16 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
             <span className="max-w-full truncate font-medium" title={rowName(r)}>
               {rowName(r)}
             </span>
-            {original && (
+            {r.file?.office_copy && !r.file.external_url ? (
               <span className="max-w-full truncate text-xs text-muted-foreground">
-                {r.file!.drive_file_id ? "Google" : "OneDrive"} copy of {original}
+                OneDrive copy (owned by {personName(r.file.uploaded_by)})
               </span>
+            ) : (
+              original && (
+                <span className="max-w-full truncate text-xs text-muted-foreground">
+                  {r.file!.drive_file_id ? "Google" : "OneDrive"} copy of {original}
+                </span>
+              )
             )}
             {rowFlagged(r) && <ParticipantBadge />}
             {r.file && instrumentOf.has(r.file.id) && (
@@ -301,7 +309,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
           ? g.label
           : r.file.drive_file_id
             ? "Google Drive file"
-            : r.file.external_url
+            : r.file.external_url || r.file.office_copy
               ? `${kindOf(r.file)} in OneDrive`
               : `${kindOf(r.file)} · ${size(r.file.size_bytes)}`;
         return r.file.source === "link" ? `${kind}, added through Claude` : kind;
@@ -368,7 +376,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {r.file && (
+                {r.file && !(r.file.office_copy && !r.file.external_url) && (
                   <DropdownMenuItem asChild>
                     <a href={downloadUrl(labId, r.file.id)} download>
                       Download

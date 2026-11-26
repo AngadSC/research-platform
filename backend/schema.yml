@@ -172,7 +172,8 @@ paths:
     post:
       operationId: auth_login_methods_create
       description: |-
-        Email-first sign-in (D156): which ways in this address has. Answers by domain only, so it
+        Email-first sign-in (D156): which ways in this address has (SAML, or the institution's
+        Google Workspace, then password). Answers by domain only, so it
         says nothing about whether an account exists. POST keeps the address out of URLs and logs.
       tags:
       - auth
@@ -15409,6 +15410,9 @@ components:
           type: string
           format: uri
           readOnly: true
+        office_copy:
+          type: boolean
+          readOnly: true
         copied_from:
           type: string
           format: uuid
@@ -15435,6 +15439,7 @@ components:
       - folder
       - id
       - notice_acknowledged_at
+      - office_copy
       - original_filename
       - pi_only
       - project

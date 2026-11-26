@@ -456,6 +456,29 @@ describe("Start in Overleaf", () => {
     );
   });
 
+  it("lists display names only, never an email address", async () => {
+    mockFetch(
+      base(["edit_content"], {
+        [`GET ${P}/members/`]: {
+          body: [
+            { id: "pm1", user, role: "lead" },
+            {
+              id: "pm2",
+              user: { ...user, id: "u2", display_name: "", email: "no.name@example.test" },
+              role: "member",
+            },
+          ],
+        },
+        "GET /api/labs/lab1/manuscripts/m1/": { body: ms },
+      }),
+    );
+    renderRoute("/labs/lab1/projects/p1/workflow/manuscript/manuscripts/m1");
+    await userEvent.click(await screen.findByRole("button", { name: /Start in Overleaf/ }));
+    const tex = decodeURIComponent(posted?.fields.encoded_snip ?? "");
+    expect(tex).toContain("\\author{Ada}");
+    expect(tex).not.toContain("example.test");
+  });
+
   it("is not offered to people who cannot edit", async () => {
     mockFetch(base(["view_project"], { "GET /api/labs/lab1/manuscripts/m1/": { body: ms } }));
     renderRoute("/labs/lab1/projects/p1/workflow/manuscript/manuscripts/m1");

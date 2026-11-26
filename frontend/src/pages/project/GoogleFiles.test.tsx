@@ -52,6 +52,7 @@ const file = (over: Record<string, unknown>) => ({
   created_at: "2026-01-01T00:00:00Z",
   drive_file_id: "",
   external_url: "",
+  office_copy: false,
   contains_participant_data: false,
   source: "web",
   ...over,
@@ -472,6 +473,25 @@ describe("Open in Overleaf", () => {
     expect(posted).toBeUndefined();
   });
 
+  it("is not offered for a copy that lives in OneDrive", async () => {
+    mockFetch(
+      base(
+        ["edit_content"],
+        [
+          file({
+            ...tex,
+            external_url: "https://contoso-my.sharepoint.com/x/p.tex",
+            office_copy: true,
+          }),
+        ],
+      ),
+    );
+    renderRoute(DOCS);
+    await screen.findByRole("cell", { name: "paper.tex" });
+    await userEvent.click(screen.getByRole("button", { name: "Actions for paper.tex" }));
+    expect(screen.queryByRole("menuitem", { name: "Open in Overleaf" })).toBeNull();
+  });
+
   it("is not offered to viewers or for other files", async () => {
     mockFetch(base(["view_project"], [tex]));
     renderRoute(DOCS);
@@ -528,6 +548,7 @@ describe("Edit in Word, Excel or PowerPoint (OneDrive)", () => {
           id: "o9",
           original_filename: "Draft.docx",
           external_url: "https://contoso-my.sharepoint.com/x/Draft.docx",
+          office_copy: true,
           copied_from: "w1",
         }),
       },
@@ -571,12 +592,35 @@ describe("Edit in Word, Excel or PowerPoint (OneDrive)", () => {
     expect(screen.queryByRole("menuitem", { name: "Edit in Word" })).toBeNull();
   });
 
+  it("shows someone else's OneDrive copy with no link", async () => {
+    const mine = file({
+      id: "o9",
+      original_filename: "Draft copy.docx",
+      external_url: "",
+      office_copy: true,
+      uploaded_by: { id: "u2", email: "grace@example.test", display_name: "Grace" },
+      size_bytes: 0,
+      copied_from: "w1",
+    });
+    const calls = mockFetch({
+      ...routes([account([EDIT])]),
+      "GET /api/labs/lab1/projects/p1/attachments/": { body: [word, mine] },
+    });
+    renderRoute(DOCS);
+    expect(await screen.findByText("OneDrive copy (owned by Grace)")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Actions for Draft copy.docx" }));
+    expect(screen.queryByRole("menuitem", { name: "Download" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Edit in Word" })).toBeNull();
+    expect(calls.some((c) => c.path.includes("/download/"))).toBe(false);
+  });
+
   it("labels a OneDrive copy and offers no copy of the copy", async () => {
     const copy = file({
       id: "o9",
       original_filename: "Draft copy.docx",
       content_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       external_url: "https://contoso-my.sharepoint.com/x/Draft.docx",
+      office_copy: true,
       size_bytes: 0,
       copied_from: "w1",
     });

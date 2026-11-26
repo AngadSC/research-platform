@@ -25,14 +25,18 @@ export const isImage = (a: Pick<Attachment, "content_type" | "drive_file_id">) =
  * and "Edit in Word, Excel or PowerPoint" can copy to OneDrive. Not a Drive file or an Office copy:
  * those have no bytes here. */
 export const convertible = (
-  a: Pick<Attachment, "original_filename" | "drive_file_id" | "external_url">,
-) => !a.drive_file_id && !a.external_url && /\.(docx|xlsx|pptx)$/i.test(a.original_filename);
+  a: Pick<Attachment, "original_filename" | "drive_file_id" | "external_url" | "office_copy">,
+) =>
+  !a.drive_file_id &&
+  !a.external_url &&
+  !a.office_copy &&
+  /\.(docx|xlsx|pptx)$/i.test(a.original_filename);
 
 const OFFICE_APPS: Record<string, string> = { docx: "Word", xlsx: "Excel", pptx: "PowerPoint" };
 
 /** "Word", "Excel" or "PowerPoint" for a file Edit in Office can copy, else undefined. */
 export const officeApp = (
-  a: Pick<Attachment, "original_filename" | "drive_file_id" | "external_url">,
+  a: Pick<Attachment, "original_filename" | "drive_file_id" | "external_url" | "office_copy">,
 ) =>
   convertible(a) ? OFFICE_APPS[a.original_filename.split(".").pop()!.toLowerCase()] : undefined;
 

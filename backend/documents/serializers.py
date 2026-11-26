@@ -187,6 +187,7 @@ class CommentResolveSerializer(serializers.Serializer):
 
 class AttachmentSerializer(serializers.ModelSerializer):
     uploaded_by = UserSerializer(read_only=True)
+    office_copy = serializers.BooleanField(read_only=True)  # in its maker's OneDrive
 
     class Meta:
         model = Attachment
@@ -204,12 +205,20 @@ class AttachmentSerializer(serializers.ModelSerializer):
             "created_at",
             "drive_file_id",
             "external_url",
+            "office_copy",
             "copied_from",
             "contains_participant_data",
             "source",
             "pi_only",  # D244: a grant letter; listed only to people who may open it
         ]
         read_only_fields = fields
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")  # no request (nested use): no link, to be safe
+        if not instance.can_see_external_url(getattr(request, "user", None)):
+            data["external_url"] = ""
+        return data
 
 
 class AttachmentUploadSerializer(FolderRefMixin):

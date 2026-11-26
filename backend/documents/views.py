@@ -519,7 +519,7 @@ class AttachmentEditInGoogleView(AttachmentMixin, generics.GenericAPIView):
 
 
 class AttachmentOpenInOverleafView(AttachmentMixin, generics.GenericAPIView):
-    """D380: a 5-minute link to one .tex or .zip file, for the browser to hand to Overleaf."""
+    """D388: a 5-minute link to one .tex or .zip file, for the browser to hand to Overleaf."""
 
     serializer_class = AttachmentSerializer
     lookup_url_kwarg = "attachment_id"
@@ -747,6 +747,8 @@ def _set_flag(request, obj):
 
 def download_response(request, attachment):
     """Audit the download, then stream it (or presign it). Callers have checked access."""
+    if not attachment.can_see_external_url(request.user):  # F2: someone else's OneDrive copy
+        raise PermissionDenied("This copy is in someone else's OneDrive.")
     record(  # D244: a PI-only file's name stays out of the log lab admins read
         AuditAction.FUNDING_UPDATED if attachment.pi_only else AuditAction.ATTACHMENT_DOWNLOADED,
         actor=request.user,

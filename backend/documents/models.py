@@ -244,6 +244,16 @@ class Attachment(LabScopedModel):
     def from_drive(self) -> bool:
         return bool(self.drive_file_id)
 
+    @property
+    def office_copy(self) -> bool:
+        """A copy made by "Edit in Word, Excel or PowerPoint": the bytes are in its maker's OneDrive."""
+        return bool(self.external_url and not self.drive_file_id)
+
+    def can_see_external_url(self, user) -> bool:
+        """F2: an Office copy's link can name its owner's OneDrive account, so only the person who
+        made the copy gets it. Drive and Google copies are unchanged."""
+        return not self.office_copy or (user is not None and self.uploaded_by_id == user.pk)
+
     lab_parents = (
         "project",
         "ethics_approval",

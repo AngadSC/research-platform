@@ -93,7 +93,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Email-first sign-in (D156): which ways in this address has. Answers by domain only, so it
+         * @description Email-first sign-in (D156): which ways in this address has (SAML, or the institution's
+         *     Google Workspace, then password). Answers by domain only, so it
          *     says nothing about whether an account exists. POST keeps the address out of URLs and logs.
          */
         post: operations["auth_login_methods_create"];
@@ -6327,6 +6328,7 @@ export interface components {
             readonly drive_file_id: string;
             /** Format: uri */
             readonly external_url: string;
+            readonly office_copy: boolean;
             /** Format: uuid */
             readonly copied_from: string | null;
             readonly contains_participant_data: boolean;
