@@ -24,3 +24,7 @@ cryptography==50.0.2
 anthropic==1.17.0  # MIT; its HTTP layer is httpx2 (BSD-3-Clause)
 openai==3.46.0  # Apache-2.0
 pypdf==6.21.4  # BSD-3-Clause; text of uploaded papers, only ever run in papers.pdftext's child
+# Wet-lab run: instrument file previews, only ever run in instrument_parsers' child process
+allotropy==0.1.152  # MIT; vendor exports to Allotrope ASM. Pulls pandas, numpy, openpyxl, rainbow-api (LGPL, allowed in the backend)
+tifffile==2026.11.16  # BSD-3-Clause; TIFF/OME-TIFF gel and blot images
+pillow==12.3.0  # HPND; PNG thumbnails
