@@ -229,15 +229,15 @@ export function Setup({
         A PI or lab admin can change this in Lab details, on the AI tab.
       </p>
     );
-  if (!config.lab_key && !canSetUp)
-    return (
-      <p className="text-sm font-medium">
-        The assistant isn&apos;t turned on for this lab yet. Ask your PI or lab admin to turn it on.
-      </p>
-    );
   return (
     <div className="grid gap-3">
-      {!config.lab_key && (
+      {!config.lab_key && !canSetUp && (
+        <p className="text-sm font-medium">
+          The assistant isn&apos;t turned on for this lab yet. Ask your PI or lab admin to turn it
+          on, or use one of these:
+        </p>
+      )}
+      {!config.lab_key && canSetUp && (
         <p className="text-sm font-medium">
           Your lab admin can add an AI key in{" "}
           <Link

@@ -209,7 +209,7 @@ describe("assistant panel", () => {
     );
   });
 
-  it("tells a member plainly when the lab has no AI key, with no setup steps", async () => {
+  it("tells a member plainly when the lab has no AI key, and keeps their own options", async () => {
     stubFetch({
       ...labs,
       [`GET ${BASE}/config/`]: { body: config({}, false) },
@@ -219,8 +219,9 @@ describe("assistant panel", () => {
     renderDrawer();
     await open();
     expect(await screen.findByText(/isn't turned on for this lab yet/)).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Set up a key" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Connect to Claude" })).not.toBeInTheDocument();
+    // their own key or Claude still work; only the lab-admin step is hidden
+    expect(screen.getByRole("link", { name: "Set up a key" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Lab details" })).not.toBeInTheDocument();
   });
 
   it("shows the privacy notice, the scope, and asks for a key when none is saved", async () => {
