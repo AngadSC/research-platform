@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { CONTACT_EMAILS } from "../content";
 
-const UPDATED = "November 18, 2026";
+const UPDATED = "November 25, 2026";
 
 function Contact() {
   return (
@@ -56,8 +56,19 @@ export function PrivacyPage() {
         </li>
         <li>
           <strong>Cookies:</strong> we use only the cookies needed to keep you signed in and to
-          protect forms. We do not use advertising or tracking cookies, and we do not use analytics
-          services.
+          protect forms. We do not use advertising or tracking cookies.
+        </li>
+        <li>
+          <strong>Usage statistics:</strong> to learn how labbenchos is used and what to improve, we
+          run Umami, an open-source analytics tool, on our own server in Canada. It uses no cookies
+          and does not store your IP address. It records which pages you open (with record IDs,
+          invitation and email codes, and search terms removed from the address), the site that sent
+          you, your browser, device type, screen size, country and how fast pages load, the labels
+          of buttons you click (except on pages about participants), and the kind of change you
+          make, such as &ldquo;created a task&rdquo;, never what you typed. Page titles, names and
+          file or document contents are never sent. When you are signed in, these records carry a
+          random account number, not your name or email. Nothing is shared with anyone else or used
+          for advertising. If your browser sends &ldquo;Do Not Track&rdquo;, nothing is recorded.
         </li>
       </ul>
 

@@ -3,8 +3,10 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import { App } from "./App";
 import { applyTheme, getStoredTheme } from "./lib/theme";
+import { startAnalytics } from "./lib/analytics";
 
 applyTheme(getStoredTheme());
+startAnalytics();
 
 // A deploy renames the built chunks, so a tab opened before it fails to load a lazy page.
 // Reload once to pick up the new build (the flag stops a reload loop if a chunk is truly missing).

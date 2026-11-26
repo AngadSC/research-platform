@@ -39,6 +39,16 @@
 		}
 	}
 
+	# D380: site analytics (Umami, the umami service). Only the tracker script and its event
+	# endpoint are public here, under /u/, so they are same-origin (the page's CSP stays 'self').
+	# The Umami dashboard itself is on the stats. subdomain below.
+	@umami path /u/s.js /u/api/send
+	handle @umami {
+		rewrite /u/s.js /script.js
+		uri strip_prefix /u
+		reverse_proxy umami:3000
+	}
+
 	@backend path /api/* /_allauth/* /accounts/* /healthz /mcp /.well-known/*
 	handle @backend {
 		reverse_proxy backend:8000
@@ -86,4 +96,18 @@
 		# allow eval() of JavaScript.
 		header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://apis.google.com/js/api.js https://apis.google.com/_/scs/ https://www.gstatic.com/_/; frame-src https://content.googleapis.com https://docs.google.com https://drive.google.com https://accounts.google.com https://*.sharepoint.com https://onedrive.live.com https://*.officeapps.live.com; connect-src 'self' https://content.googleapis.com https://apis.google.com https://docs.google.com https://drive.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.googleusercontent.com https://ssl.gstatic.com; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com; frame-ancestors 'none'"
 	}
+}
+
+# D380: the Umami analytics dashboard, for the founders (Umami's own login). Needs a DNS A record
+# for stats.<SITE_DOMAIN> pointing at this server; until then only this site's certificate fails.
+stats.{$SITE_DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		-Server
+	}
+	reverse_proxy umami:3000
 }

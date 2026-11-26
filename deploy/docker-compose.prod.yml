@@ -94,6 +94,21 @@ services:
       valkey:
         condition: service_healthy
 
+  # D380: site analytics. Its own database and user in the postgres service; DATABASE_URL and
+  # APP_SECRET come from deploy/.env (UMAMI_DATABASE_URL, UMAMI_APP_SECRET), never .env.prod, so
+  # the app never sees them. Caddy serves its tracker at /u/ and its dashboard at stats.<domain>.
+  umami:
+    image: ghcr.io/umami-software/umami:3.4.1
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${UMAMI_DATABASE_URL:?set UMAMI_DATABASE_URL in deploy/.env}
+      APP_SECRET: ${UMAMI_APP_SECRET:?set UMAMI_APP_SECRET in deploy/.env}
+      DISABLE_TELEMETRY: "1"
+      DISABLE_UPDATES: "1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   caddy:
     build:
       context: ../frontend
@@ -111,6 +126,7 @@ services:
       - "443:443"
     depends_on:
       - backend
+      - umami
 
 volumes:
   pgdata:

@@ -1,3 +1,4 @@
+import { trackAction } from "@/lib/analytics";
 export type FieldErrors = Record<string, string>;
 
 const MESSAGES: Record<number, string> = {
@@ -104,6 +105,7 @@ export async function rawRequest(
   } catch {
     throw new ApiError(0, "We couldn't reach the server. Check your connection and try again.");
   }
+  trackAction(method, path, res.status);
   const text = await res.text();
   try {
     return { status: res.status, body: text ? JSON.parse(text) : null };
@@ -137,6 +139,7 @@ export async function upload<T = unknown>(
     xhr.onerror = () =>
       reject(new ApiError(0, "We couldn't reach the server. Check your connection and try again."));
     xhr.onload = () => {
+      trackAction("POST", path, xhr.status);
       let body: unknown = null;
       try {
         body = xhr.responseText ? JSON.parse(xhr.responseText) : null;

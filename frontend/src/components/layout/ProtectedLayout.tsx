@@ -1,8 +1,11 @@
+import { useEffect } from "react";
 import { Navigate, useLocation } from "react-router";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/auth";
+import { useMe } from "@/hooks/workspace";
+import { identifyUser } from "@/lib/analytics";
 import { LandingPage } from "@/pages/LandingPage";
 
 /** Sends signed-out visitors to /login and brings them back afterwards. */
@@ -32,5 +35,17 @@ export function ProtectedLayout() {
   if (!isAuthenticated && pathname === "/") return <LandingPage />;
   if (!isAuthenticated)
     return <Navigate to={`/login?next=${encodeURIComponent(pathname + search + hash)}`} replace />;
-  return <AppShell />;
+  return (
+    <>
+      <AnalyticsIdentity />
+      <AppShell />
+    </>
+  );
+}
+
+/** D380: ties visits to a random account id, and leaves test and staff accounts out. */
+function AnalyticsIdentity() {
+  const me = useMe().data as { id?: string; email?: string; is_staff?: boolean } | undefined;
+  useEffect(() => identifyUser(me), [me]);
+  return null;
 }
