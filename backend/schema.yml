@@ -1342,6 +1342,13 @@ paths:
           - attachment.participant_flag_changed
           - dataset.participant_flag_changed
           - file_link.created
+          - sensor.created
+          - sensor.updated
+          - sensor.deleted
+          - sensor_token.created
+          - sensor_token.rotated
+          - sensor_token.revoked
+          - sensor_alert.acknowledged
           type: string
           minLength: 1
         description: |-
@@ -1535,6 +1542,13 @@ paths:
           * `attachment.participant_flag_changed` - Attachment Participant Flag Changed
           * `dataset.participant_flag_changed` - Dataset Participant Flag Changed
           * `file_link.created` - File Link Created
+          * `sensor.created` - Sensor Created
+          * `sensor.updated` - Sensor Updated
+          * `sensor.deleted` - Sensor Deleted
+          * `sensor_token.created` - Sensor Token Created
+          * `sensor_token.rotated` - Sensor Token Rotated
+          * `sensor_token.revoked` - Sensor Token Revoked
+          * `sensor_alert.acknowledged` - Sensor Alert Acknowledged
       - in: query
         name: actor
         schema:
@@ -11736,6 +11750,303 @@ paths:
               schema:
                 $ref: '#/components/schemas/SearchResults'
           description: ''
+  /api/labs/{lab_id}/sensors/:
+    get:
+      operationId: labs_sensors_list
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: query
+        name: item
+        schema:
+          type: string
+          format: uuid
+        description: Only this item's
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Sensor'
+          description: ''
+    post:
+      operationId: labs_sensors_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SensorInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SensorInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SensorInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensorDetail'
+          description: ''
+  /api/labs/{lab_id}/sensors/{sensor_id}/:
+    get:
+      operationId: labs_sensors_retrieve
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: sensor_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensorDetail'
+          description: ''
+    patch:
+      operationId: labs_sensors_partial_update
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: sensor_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSensorInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSensorInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSensorInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensorDetail'
+          description: ''
+    delete:
+      operationId: labs_sensors_destroy
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: sensor_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/sensors/{sensor_id}/test-reading/:
+    post:
+      operationId: labs_sensors_test_reading_create
+      description: Record a reading as if the device sent it, to check alerts and
+        the chart before wiring.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: sensor_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestReading'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TestReading'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TestReading'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensorDetail'
+          description: ''
+  /api/labs/{lab_id}/sensors/{sensor_id}/token/:
+    post:
+      operationId: labs_sensors_token_create
+      description: The device's secret. Making one needs a recent sign-in (D194);
+        it is shown once.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: sensor_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensorToken'
+          description: ''
+    delete:
+      operationId: labs_sensors_token_destroy
+      description: The device's secret. Making one needs a recent sign-in (D194);
+        it is shown once.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: sensor_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/sensors/alerts/{sensoralert_id}/acknowledge/:
+    post:
+      operationId: labs_sensors_alerts_acknowledge_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: sensoralert_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Acknowledge'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Acknowledge'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Acknowledge'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensorAlert'
+          description: ''
   /api/labs/{lab_id}/start-here/:
     get:
       operationId: labs_start_here_list
@@ -13298,6 +13609,13 @@ paths:
           description: ''
 components:
   schemas:
+    Acknowledge:
+      type: object
+      properties:
+        note:
+          type: string
+          default: ''
+          maxLength: 2000
     ActionEnum:
       enum:
       - auth.login
@@ -13490,6 +13808,13 @@ components:
       - attachment.participant_flag_changed
       - dataset.participant_flag_changed
       - file_link.created
+      - sensor.created
+      - sensor.updated
+      - sensor.deleted
+      - sensor_token.created
+      - sensor_token.rotated
+      - sensor_token.revoked
+      - sensor_alert.acknowledged
       type: string
       description: |-
         * `auth.login` - Auth Login
@@ -13682,6 +14007,13 @@ components:
         * `attachment.participant_flag_changed` - Attachment Participant Flag Changed
         * `dataset.participant_flag_changed` - Dataset Participant Flag Changed
         * `file_link.created` - File Link Created
+        * `sensor.created` - Sensor Created
+        * `sensor.updated` - Sensor Updated
+        * `sensor.deleted` - Sensor Deleted
+        * `sensor_token.created` - Sensor Token Created
+        * `sensor_token.rotated` - Sensor Token Rotated
+        * `sensor_token.revoked` - Sensor Token Revoked
+        * `sensor_alert.acknowledged` - Sensor Alert Acknowledged
     AiAccessEnum:
       enum:
       - read
@@ -18374,6 +18706,17 @@ components:
           nullable: true
       required:
       - folder
+    ItemRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
     ItemSearchResult:
       type: object
       description: 'A candidate to link (D85). Linking it sends only `id`: the server
@@ -19633,6 +19976,7 @@ components:
       - low_stock
       - meeting_invite
       - document_comment
+      - sensor_alert
       type: string
       description: |-
         * `ethics_expiry` - Ethics Expiry
@@ -19654,6 +19998,7 @@ components:
         * `low_stock` - Low Stock
         * `meeting_invite` - Meeting Invite
         * `document_comment` - Document Comment
+        * `sensor_alert` - Sensor Alert
     NullEnum:
       enum:
       - null
@@ -21616,6 +21961,42 @@ components:
           maxLength: 1000
         spec:
           $ref: '#/components/schemas/RuleSpec'
+    PatchedSensorInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        item:
+          type: string
+          format: uuid
+          nullable: true
+        unit:
+          $ref: '#/components/schemas/UnitEnum'
+        low_limit:
+          type: number
+          format: double
+          maximum: 1000.0
+          minimum: -300.0
+          nullable: true
+        high_limit:
+          type: number
+          format: double
+          maximum: 1000.0
+          minimum: -300.0
+          nullable: true
+        silent_after_minutes:
+          type: integer
+          maximum: 10080
+          minimum: 5
+        recipients:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
+        active:
+          type: boolean
     PatchedSetPatch:
       type: object
       properties:
@@ -21845,6 +22226,26 @@ components:
       - project
       - project_name
       - title
+    Point:
+      type: object
+      properties:
+        t:
+          type: string
+          format: date-time
+        min:
+          type: number
+          format: double
+        max:
+          type: number
+          format: double
+        avg:
+          type: number
+          format: double
+      required:
+      - avg
+      - max
+      - min
+      - t
     Policy:
       type: object
       properties:
@@ -23016,6 +23417,343 @@ components:
             $ref: '#/components/schemas/SearchHit'
       required:
       - results
+    Sensor:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        item:
+          allOf:
+          - $ref: '#/components/schemas/ItemRef'
+          nullable: true
+          readOnly: true
+        unit:
+          allOf:
+          - $ref: '#/components/schemas/UnitEnum'
+          readOnly: true
+        unit_symbol:
+          type: string
+          readOnly: true
+        low_limit:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+        high_limit:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+        silent_after_minutes:
+          type: integer
+          readOnly: true
+        recipients:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+          readOnly: true
+        active:
+          type: boolean
+          readOnly: true
+        has_token:
+          type: boolean
+          readOnly: true
+        token_created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        last_value:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+        last_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusD6dEnum'
+          description: |-
+            waiting: no reading yet; paused: not active.
+
+            * `ok` - ok
+            * `out_of_range` - out_of_range
+            * `silent` - silent
+            * `waiting` - waiting
+            * `paused` - paused
+          readOnly: true
+        alert:
+          allOf:
+          - $ref: '#/components/schemas/SensorAlert'
+          nullable: true
+          readOnly: true
+          description: The latest alert still open or not yet acknowledged.
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/Point'
+          readOnly: true
+          description: The last 24 hours in 20-minute steps (list) or 7 days in hours
+            (detail).
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - active
+      - alert
+      - created_at
+      - has_token
+      - high_limit
+      - id
+      - item
+      - last_at
+      - last_value
+      - low_limit
+      - name
+      - recipients
+      - series
+      - silent_after_minutes
+      - status
+      - token_created_at
+      - unit
+      - unit_symbol
+    SensorAlert:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/SensorAlertKindEnum'
+          readOnly: true
+        value:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+        peak:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          readOnly: true
+        ended_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        acknowledged_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        acknowledged_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        note:
+          type: string
+          readOnly: true
+      required:
+      - acknowledged_at
+      - acknowledged_by
+      - ended_at
+      - id
+      - kind
+      - note
+      - peak
+      - started_at
+      - value
+    SensorAlertKindEnum:
+      enum:
+      - high
+      - low
+      - silent
+      type: string
+      description: |-
+        * `high` - High
+        * `low` - Low
+        * `silent` - Silent
+    SensorDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        item:
+          allOf:
+          - $ref: '#/components/schemas/ItemRef'
+          nullable: true
+          readOnly: true
+        unit:
+          allOf:
+          - $ref: '#/components/schemas/UnitEnum'
+          readOnly: true
+        unit_symbol:
+          type: string
+          readOnly: true
+        low_limit:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+        high_limit:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+        silent_after_minutes:
+          type: integer
+          readOnly: true
+        recipients:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+          readOnly: true
+        active:
+          type: boolean
+          readOnly: true
+        has_token:
+          type: boolean
+          readOnly: true
+        token_created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        last_value:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+        last_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusD6dEnum'
+          description: |-
+            waiting: no reading yet; paused: not active.
+
+            * `ok` - ok
+            * `out_of_range` - out_of_range
+            * `silent` - silent
+            * `waiting` - waiting
+            * `paused` - paused
+          readOnly: true
+        alert:
+          allOf:
+          - $ref: '#/components/schemas/SensorAlert'
+          nullable: true
+          readOnly: true
+          description: The latest alert still open or not yet acknowledged.
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/Point'
+          readOnly: true
+          description: The last 24 hours in 20-minute steps (list) or 7 days in hours
+            (detail).
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/SensorAlert'
+          readOnly: true
+          description: The last 50 alerts, newest first.
+      required:
+      - active
+      - alert
+      - created_at
+      - has_token
+      - high_limit
+      - history
+      - id
+      - item
+      - last_at
+      - last_value
+      - low_limit
+      - name
+      - recipients
+      - series
+      - silent_after_minutes
+      - status
+      - token_created_at
+      - unit
+      - unit_symbol
+    SensorInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        item:
+          type: string
+          format: uuid
+          nullable: true
+        unit:
+          $ref: '#/components/schemas/UnitEnum'
+        low_limit:
+          type: number
+          format: double
+          maximum: 1000.0
+          minimum: -300.0
+          nullable: true
+        high_limit:
+          type: number
+          format: double
+          maximum: 1000.0
+          minimum: -300.0
+          nullable: true
+        silent_after_minutes:
+          type: integer
+          maximum: 10080
+          minimum: 5
+        recipients:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
+        active:
+          type: boolean
+      required:
+      - name
+    SensorToken:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Shown only now. Only its SHA-256 is kept.
+        token_created_at:
+          type: string
+          format: date-time
+      required:
+      - token
+      - token_created_at
     Set:
       type: object
       properties:
@@ -23357,6 +24095,20 @@ components:
         * `stored` - Stored
         * `finished` - Finished
         * `gone` - Gone
+    StatusD6dEnum:
+      enum:
+      - ok
+      - out_of_range
+      - silent
+      - waiting
+      - paused
+      type: string
+      description: |-
+        * `ok` - ok
+        * `out_of_range` - out_of_range
+        * `silent` - silent
+        * `waiting` - waiting
+        * `paused` - paused
     StatusFccEnum:
       enum:
       - screened
@@ -23829,6 +24581,16 @@ components:
         * `secondary_data_analysis` - secondary_data_analysis
         * `survey_study` - survey_study
         * `thesis_chapter` - thesis_chapter
+    TestReading:
+      type: object
+      properties:
+        value:
+          type: number
+          format: double
+          maximum: 1000.0
+          minimum: -300.0
+      required:
+      - value
     TimelineItem:
       type: object
       description: |-
@@ -24176,6 +24938,16 @@ components:
         * `presentation` - Presentation
         * `conference` - Conference
         * `other` - Other
+    UnitEnum:
+      enum:
+      - c
+      - rh
+      - co2
+      type: string
+      description: |-
+        * `c` - °C
+        * `rh` - % humidity
+        * `co2` - % CO2
     Usage:
       type: object
       properties:

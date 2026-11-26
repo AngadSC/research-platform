@@ -169,6 +169,7 @@ class NotificationKind(models.TextChoices):
     LOW_STOCK = "low_stock"  # D331: an inventory item fell to its alert level
     MEETING_INVITE = "meeting_invite"  # someone put you on a meeting
     DOCUMENT_COMMENT = "document_comment"  # a comment on your document, or a reply to yours
+    SENSOR_ALERT = "sensor_alert"  # a freezer or incubator sensor is out of range or quiet
 
 
 class PageComment(LabScopedModel):

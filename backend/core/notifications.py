@@ -291,6 +291,8 @@ def notification_url(n, user) -> str:
         return f"{lab}/settings/integrations"
     if n.kind == NotificationKind.LOW_STOCK:
         return f"{lab}/inventory"
+    if n.kind == NotificationKind.SENSOR_ALERT and n.target_id:
+        return f"{lab}/monitoring/{n.target_id}"
     if n.kind == NotificationKind.MEETING_INVITE:
         return f"{lab}/calendar?view=mine-agenda"
     if n.kind == NotificationKind.MENTION and n.dedupe_key.startswith("mention:labchat:"):
