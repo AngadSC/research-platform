@@ -1,0 +1,38 @@
+Software Version	3.12.08
+
+
+
+Experiment File Path:	C:\Users\demo\Documents\ST6Gal1_phosphate_release.xpt
+Protocol File Path:	C:\Users\demo\Documents\Malachite_green_A620.prt
+
+
+
+Plate Number	Plate 1
+Date	11/24/2026
+Time	2:41:07 PM
+Reader Type:	Synergy H1
+Reader Serial Number:	20010101
+Reading Type	Reader
+
+Procedure Details
+
+Plate Type	96 WELL PLATE (Use plate lid)
+Read	Absorbance Endpoint
+	Full Plate
+	Wavelengths:  620
+	Read Speed: Normal,  Delay: 100 msec,  Measurements/Data Point: 8
+
+Actual Temperature:	25.1
+
+
+
+Results
+	1	2	3	4	5	6	7	8	9	10	11	12
+A	0.0440	0.0470	0.1048	0.1043	0.0800	0.0836	0.0584	0.0549	0.0725	0.0686	0.0520	0.0509	620
+B	0.0921	0.1022	0.1643	0.1643	0.1109	0.1106	0.0511	0.0532	0.0862	0.0844	0.0526	0.0468	620
+C	0.1537	0.1541	0.2703	0.2822	0.1914	0.1946	0.0581	0.0575	0.1176	0.1188	0.0532	0.0512	620
+D	0.2582	0.2562	0.4946	0.5033	0.3232	0.3285	0.0745	0.0649	0.1889	0.1952	0.0399	0.0484	620
+E	0.3671	0.3642	0.0776	0.0748	0.0583	0.0697	0.0546	0.0560	0.0650	0.0596	0.0506	0.0435	620
+F	0.4775	0.4726	0.0980	0.0940	0.0764	0.0785	0.0590	0.0424	0.0583	0.0668	0.0572	0.0529	620
+G	0.6824	0.6799	0.1524	0.1469	0.1068	0.1173	0.0605	0.0558	0.0824	0.0834	0.0580	0.0531	620
+H	0.9071	0.9072	0.2434	0.2576	0.1795	0.1774	0.0502	0.0569	0.1166	0.1033	0.0491	0.0551	620

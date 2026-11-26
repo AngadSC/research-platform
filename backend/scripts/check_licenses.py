@@ -22,6 +22,8 @@ ALLOWED = {
     "Unlicense",
     "BlueOak-1.0.0",
     "HPND",
+    "MIT-CMU",  # Pillow: HPND-style permissive
+    "Zlib",  # numpy bundles zlib-licensed code
     "LGPL-2.0-only",
     "LGPL-2.0-or-later",
     "LGPL-2.1-only",
@@ -37,6 +39,8 @@ SKIP = {"pip", "setuptools", "wheel"}
 # name: (SPDX id, one-line reason)
 OVERRIDES: dict[str, tuple[str, str]] = {
     "qrcode": ("BSD-3-Clause", "LICENSE is BSD-3-Clause; Other/Proprietary classifier is stale"),
+    # the "(LGPLv3)" in its classifier trips the expression parser; D2 allows LGPL in the backend
+    "rainbow-api": ("LGPL-3.0-only", "allotropy dependency, unmodified, LGPLv3 (Wet-lab run)"),
 }
 
 ALIASES = {
