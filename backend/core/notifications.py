@@ -235,6 +235,15 @@ def notification_url(n, user) -> str:
         return f"{lab}/chat"
     if target == "ethics.ethicsapproval" and n.target_id:
         return f"{lab}/ethics/{n.target_id}"
+    if n.kind == NotificationKind.MENTION and n.dedupe_key.startswith("mention:pagecomment:"):
+        # a comment on any page: open that page (the mention was only sent to people who can see it)
+        comment = (
+            apps.get_model("core", "PageComment")
+            .objects.for_lab(n.lab_id)
+            .filter(pk=n.dedupe_key.rsplit(":", 1)[1])
+        ).first()
+        if comment is not None:
+            return comment.path
     if target == "projects.project" and n.target_id:
         chat = "/chat" if n.kind == NotificationKind.MENTION else ""
         return f"{lab}/projects/{n.target_id}{chat}"

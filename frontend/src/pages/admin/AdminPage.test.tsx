@@ -3,15 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { localDateISO } from "@/lib/format";
 import { suggestedQuantity } from "@/pages/admin/OrdersSection";
-import {
-  makeLab,
-  mockFetch,
-  openSidebarGroup,
-  renderRoute,
-  SESSION,
-  signedIn,
-  pickMenuItem,
-} from "@/test/utils";
+import { makeLab, mockFetch, renderRoute, SESSION, signedIn, pickMenuItem } from "@/test/utils";
 
 const ADMIN = ["view_lab", "manage_lab", "manage_inventory", "view_audit_log", "view_ethics"];
 const lab = (perms: string[]) => ({
@@ -69,8 +61,8 @@ describe("admin area", () => {
     }
     for (const name of ["Inventory", "Training"])
       expect(screen.queryByRole("heading", { name })).toBeNull();
-    await openSidebarGroup("Lab details");
-    expect(await screen.findByRole("menuitem", { name: "Lab details" })).toBeInTheDocument();
+
+    expect(await screen.findByRole("link", { name: "Lab details" })).toBeInTheDocument();
   });
 
   it("hides the Admin group and explains for a member", async () => {

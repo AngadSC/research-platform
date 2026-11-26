@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { makeLab, mockFetch, openSidebarGroup, renderRoute, SESSION, signedIn } from "@/test/utils";
+import { makeLab, mockFetch, renderRoute, SESSION, signedIn } from "@/test/utils";
 
 const iso = (days: number) => {
   const d = new Date();
@@ -101,8 +101,8 @@ describe("Lab funding page", () => {
   it("is in the sidebar for PIs, and says so (without asking the server) for everyone else", async () => {
     const calls = setup(["view_lab", "access_funding", "manage_lab", "view_audit_log"]);
     renderRoute("/labs/lab1/funding");
-    await openSidebarGroup("Admin");
-    expect(await screen.findByRole("menuitem", { name: "Funding" })).toBeInTheDocument();
+
+    expect(await screen.findByRole("link", { name: "Funding" })).toBeInTheDocument();
     expect(calls.some((c) => c.path === "/api/labs/lab1/funding/")).toBe(true);
   });
 
@@ -111,7 +111,7 @@ describe("Lab funding page", () => {
     renderRoute("/labs/lab1/funding");
     expect(await screen.findByText("Funding is visible to PIs only")).toBeInTheDocument();
     expect(calls.some((c) => c.path === "/api/labs/lab1/funding/")).toBe(false);
-    await openSidebarGroup("Admin");
-    expect(screen.queryByRole("menuitem", { name: "Funding" })).toBeNull();
+
+    expect(screen.queryByRole("link", { name: "Funding" })).toBeNull();
   });
 });
