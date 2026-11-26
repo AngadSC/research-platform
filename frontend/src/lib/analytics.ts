@@ -2,7 +2,8 @@
  * /u/ by Caddy). No cookies and no IP addresses are kept. Everything is scrubbed here before it
  * leaves the browser: page addresses lose ids, invite and email codes and every query parameter but
  * utm_*, page titles are never sent (they can hold project or document names), and actions are
- * recorded as "POST labs/:id/projects", never what was typed. Test accounts and staff are left out.
+ * recorded as "POST labs/:id/projects", never what was typed. Clicks record the kind of control and
+ * the page (links: their target page), never a label. Test accounts and staff are left out.
  * Only runs on the live domain. */
 
 const WEBSITE_ID = "a9ddebdc-1c3e-4b1b-a7e2-022fffbd47b3";
@@ -87,14 +88,6 @@ export function trackAction(method: string, path: string, status: number) {
 const CLICKABLE =
   "button, a[href], summary, [role=menuitem], [role=menuitemradio], [role=menuitemcheckbox], [role=tab], [role=option], [role=switch], [role=checkbox], [role=radio]";
 
-function clickLabel(el: Element): string {
-  const text = (el.getAttribute("aria-label") || el.textContent || "").replace(/\s+/g, " ").trim();
-  return text
-    .replace(/[^\s@]+@[^\s@]+/g, "[email]")
-    .replace(/\d{3,}/g, "#")
-    .slice(0, 40);
-}
-
 function onClick(e: MouseEvent) {
   if (excluded || !window.umami) return;
   const target = e.target instanceof Element ? e.target : null;
@@ -103,7 +96,7 @@ function onClick(e: MouseEvent) {
   const page = pattern(window.location.pathname);
   if (el instanceof HTMLAnchorElement) {
     const href = el.getAttribute("href") ?? "";
-    let to = "";
+    let to: string;
     try {
       const url = new URL(href, window.location.origin);
       to = url.origin === window.location.origin ? pattern(url.pathname) : url.hostname;
@@ -113,10 +106,11 @@ function onClick(e: MouseEvent) {
     track(`link ${to}`, { page });
     return;
   }
-  // Pages about participants may show participant codes on buttons: record that a click happened
-  // there, never the label.
-  const label = /participant/.test(page) ? "(participant page)" : clickLabel(el) || "(no label)";
-  track(`click ${label}`, { page });
+  // Never a label: buttons, menu items, options and tabs often show names, file names, past
+  // searches or participant codes. Only the kind of control and the page are recorded; what it did
+  // is recorded by trackAction.
+  const kind = el.getAttribute("role") || el.tagName.toLowerCase();
+  track(`click ${kind}`, { page });
 }
 
 /** Load the tracker on the live site only. */
@@ -139,19 +133,21 @@ export function startAnalytics() {
   document.addEventListener("click", onClick, true);
 }
 
-/** Tie this browser's visits to a random account id (never a name or email), so one person's
+/** Tie this browser's visits to the account's id (never a name or email), so one person's
  * path through the app can be followed. Test accounts and staff are not counted at all. */
 export function identifyUser(me: { id?: string; email?: string; is_staff?: boolean } | undefined) {
   if (!me?.id) return;
-  if (me.is_staff) {
+  excluded = !!me.is_staff || (me.email ?? "").toLowerCase().endsWith("@example.test");
+  if (excluded) {
     try {
-      localStorage.setItem("umami.disabled", "1"); // staff browsing never counts, signed in or not
+      // The tracker checks this before every send, so this browser stays out on later visits too,
+      // signed in or not (staff browsing, and the test and reviewer accounts).
+      localStorage.setItem("umami.disabled", "1");
     } catch {
       /* storage blocked */
     }
+    return;
   }
-  excluded = !!me.is_staff || (me.email ?? "").toLowerCase().endsWith("@example.test");
-  if (excluded) return;
   pendingId = me.id;
   window.umami?.identify(me.id);
 }

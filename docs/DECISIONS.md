@@ -479,3 +479,12 @@ A hands-on review of the live site as PI, admin, lead, student and viewer, plus 
   - **Home labels say whose numbers they are.** The digest shows "Yours: …" and the tiles are lab-wide. Health reasons are shown inline. The Home participant percent uses the same denominator as the project Participants page.
   - **Notifications list:** costs a flat ~14 queries. Targets are fetched once per model, lab-scoped, and the reader's project roles are loaded once before the D54 re-check. The re-check is unchanged.
   - **Page comments:** a page comment's path must be plain segments (`/labs/<id>/a/b`). Mentions in page comments never carry their text to AI, the same as document comments.
+- D380. **Site analytics with self-hosted Umami (2026-11-25), for the email to the university's professors.** The owner asked to see where people go, what they click and how many sign up. Umami 3.4.1 (MIT) runs on our own server in Canada with its own database; it uses no cookies and keeps no IP addresses. Caddy serves only `/u/s.js` and `/u/api/send` on the main domain, so the CSP stays `'self'`, and the dashboard is at `stats.<domain>`. `frontend/src/lib/analytics.ts` scrubs every event in the browser:
+  - **Addresses:** record ids, invitation, email and reset codes, and long opaque segments become placeholders. Every query parameter except `utm_*` is dropped, and only a plain `#tab` is kept. Another site's referrer keeps only its origin.
+  - **No titles:** page titles are never sent, because they can hold project or document names.
+  - **Actions:** every POST, PATCH or DELETE the app makes is recorded by kind only, e.g. "POST labs/:id/projects", with "FAIL" on errors. Bodies are never sent.
+  - **Clicks:** only the control's kind and the page are recorded, never its label. The privacy review found that labels carry names, file names (including participant-flagged files), past searches and participant codes. Links record their target page, or another site's host.
+  - **Identity:** signed-in visits carry the account id, never a name or email.
+  - **Who is counted:** staff and `@example.test` accounts are left out, and so are their browsers on later visits (`localStorage["umami.disabled"]`). Do Not Track is respected. The tracker runs only on the live domain.
+  - **Disclosure:** the privacy policy says all this under "Usage statistics". No heatmaps or session recordings, because they would capture whatever is on screen, participant data included.
+

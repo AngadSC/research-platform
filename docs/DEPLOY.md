@@ -450,5 +450,30 @@ server. Each job may use 1 CPU and 2 GB (`RUNNER_CPUS`, `RUNNER_MEMORY`), and tw
 To switch it off, empty `ANALYSIS_RUNNER_URL` on the app server and restart the backend. To
 change the secret, change it on both servers and restart both.
 
+## 14. Site analytics: Umami (D380)
+
+Umami runs as the `umami` service (image pinned by digest) with its own database in the `postgres`
+service. Caddy serves only its tracker (`/u/s.js`) and event endpoint (`/u/api/send`) on the main
+domain, and the dashboard at `stats.<SITE_DOMAIN>`. The frontend loads the tracker only on the live
+domain and scrubs everything first (`frontend/src/lib/analytics.ts`).
+
+One-time setup on the server, before the first deploy that contains the service (compose refuses to
+start without the two settings):
+
+1. Create the role and database as the Postgres superuser, with a generated password:
+   `CREATE ROLE umami LOGIN PASSWORD '<random>'; CREATE DATABASE umami OWNER umami;`
+2. Add to `deploy/.env` (not `.env.prod`, so the app never sees them), mode 600:
+   `UMAMI_DATABASE_URL=postgresql://umami:<random>@postgres:5432/umami` and
+   `UMAMI_APP_SECRET=<openssl rand -hex 32>`.
+3. Start Umami once, sign in as `admin` / `umami` from inside the network, change the password at
+   once, and create the website (`labbenchos.com`). Put its id in `WEBSITE_ID` in
+   `frontend/src/lib/analytics.ts`.
+4. Add a DNS A record for `stats` pointing at the server. Until it exists only that certificate
+   fails; the main site is unaffected.
+
+Staff (`is_staff`) and `@example.test` accounts are never counted. Their browsers set
+`localStorage["umami.disabled"]`. To stop counting your own browser without signing in, run
+`localStorage.setItem("umami.disabled", "1")` in its console.
+
 ## Content-Security-Policy and the Google Picker
 `script-src` in `deploy/Caddyfile` names the Picker's script paths (`apis.google.com/js/api.js`, `apis.google.com/_/scs/`, `www.gstatic.com/_/`), not whole Google hosts (D78). Google changes the paths it loads, and they could not be confirmed offline. Before go-live, open the Picker in a real browser with real Drive credentials, watch the console for CSP violations, and widen only the exact path reported.

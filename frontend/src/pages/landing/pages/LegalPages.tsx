@@ -63,12 +63,14 @@ export function PrivacyPage() {
           run Umami, an open-source analytics tool, on our own server in Canada. It uses no cookies
           and does not store your IP address. It records which pages you open (with record IDs,
           invitation and email codes, and search terms removed from the address), the site that sent
-          you, your browser, device type, screen size, country and how fast pages load, the labels
-          of buttons you click (except on pages about participants), and the kind of change you
-          make, such as &ldquo;created a task&rdquo;, never what you typed. Page titles, names and
-          file or document contents are never sent. When you are signed in, these records carry a
-          random account number, not your name or email. Nothing is shared with anyone else or used
-          for advertising. If your browser sends &ldquo;Do Not Track&rdquo;, nothing is recorded.
+          you, your browser, device type, screen size, country and how fast pages load. It also
+          records the kind of control you click, such as a button or tab, and which page a link
+          leads to, but never a button&rsquo;s label, and the kind of change you make, such as
+          &ldquo;created a task&rdquo;, never what you typed. Page titles, names, file names and
+          document contents are never sent. When you are signed in, these records carry your
+          account&rsquo;s ID (a code, not your name or email) so we can see how one person moves
+          through the app. Nothing is shared with anyone else or used for advertising. If your
+          browser sends &ldquo;Do Not Track&rdquo;, nothing is recorded.
         </li>
       </ul>
 

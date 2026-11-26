@@ -68,6 +68,8 @@ describe("analytics scrubbing (D380)", () => {
     trackAction("POST", "/api/labs/", 201);
     expect(track).not.toHaveBeenCalled();
     expect(identify).not.toHaveBeenCalled();
+    expect(localStorage.getItem("umami.disabled")).toBe("1"); // stays out on later visits
+    localStorage.removeItem("umami.disabled");
     identifyUser({ id: "u2", email: "ada@uni.edu" });
     trackAction("POST", "/api/labs/", 201);
     expect(identify).toHaveBeenCalledWith("u2");
