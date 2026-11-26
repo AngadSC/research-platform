@@ -275,7 +275,14 @@ export function useAttachments(labId: string, projectId: string, pollMs?: number
       return qc.invalidateQueries({ queryKey: key });
     },
   });
-  return { list, uploadFile, remove, editInGoogle };
+  // D380: a 5-minute link Overleaf can fetch for one .tex or .zip file.
+  const openInOverleaf = useMutation({
+    mutationFn: (id: string) =>
+      api<{ url: string; name: string }>(`${base(labId)}/attachments/${id}/open-in-overleaf/`, {
+        method: "POST",
+      }),
+  });
+  return { list, uploadFile, remove, editInGoogle, openInOverleaf };
 }
 
 /** The only way files are fetched: the authenticated same-origin endpoint. */

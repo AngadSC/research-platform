@@ -419,6 +419,51 @@ def upload_attachment(
     return attachment
 
 
+OVERLEAF_LINK_TTL = timedelta(minutes=5)
+
+
+def open_in_overleaf(attachment, *, user, request=None) -> dict:
+    """D380: a short-lived link Overleaf can fetch, for one .tex file or one .zip that holds LaTeX.
+    The caller has checked edit rights. Every refusal happens before a link exists. The bytes leave
+    only when Overleaf fetches the link (assistant/file_links.py audits that as a download via
+    Overleaf and checks the participant mark again)."""
+    import zipfile
+
+    from assistant import file_links, privacy
+    from assistant.models import FileLinkKind
+
+    name = attachment.original_filename
+    ext = name.rpartition(".")[2].lower() if "." in name else ""
+    if attachment.from_drive or attachment.project_id is None or ext not in ("tex", "zip"):
+        raise ValidationError(
+            {"file": "Only .tex files and .zip files with LaTeX can open in Overleaf."}
+        )
+    if privacy.is_flagged(attachment) or attachment.pi_only:
+        raise ValidationError(
+            {"file": "This file identifies participants, so it cannot go to Overleaf."}
+        )
+    if ext == "zip":
+        try:
+            with lab_files().open(attachment.storage_key, "rb") as fh:
+                has_tex = any(n.lower().endswith(".tex") for n in zipfile.ZipFile(fh).namelist())
+        except FileNotFoundError:
+            raise Http404 from None
+        except zipfile.BadZipFile:
+            has_tex = False
+        if not has_tex:
+            raise ValidationError({"file": "This zip file has no LaTeX (.tex) file in it."})
+    link, url = file_links.issue(
+        FileLinkKind.DOWNLOAD,
+        user=user,
+        project=attachment.project,
+        via=file_links.OVERLEAF,
+        request=request,
+        ttl=OVERLEAF_LINK_TTL,
+        attachment=attachment,
+    )
+    return {"url": url, "name": name, "expires_at": link.expires_at}
+
+
 def edit_in_google(attachment, *, user, request=None) -> Attachment:
     """VISION B3: copy a Word, Excel or PowerPoint upload into the person's own Google Drive as a
     Google Doc, Sheet or Slides file, and attach that copy next to the original, pointing back at

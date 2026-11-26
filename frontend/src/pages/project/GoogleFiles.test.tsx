@@ -422,3 +422,61 @@ describe("documents table", () => {
     expect(screen.getByRole("button", { name: "Delete file" })).toBeInTheDocument();
   });
 });
+
+describe("Open in Overleaf", () => {
+  const tex = file({ id: "t1", original_filename: "paper.tex", content_type: "text/x-tex" });
+  const LINK = "POST /api/labs/lab1/attachments/t1/open-in-overleaf/";
+  let posted: { action: string; fields: Record<string, string> } | undefined;
+
+  beforeEach(() => {
+    posted = undefined;
+    vi.spyOn(window, "open").mockReturnValue(null);
+    vi.spyOn(HTMLFormElement.prototype, "submit").mockImplementation(function (
+      this: HTMLFormElement,
+    ) {
+      posted = {
+        action: this.action,
+        fields: Object.fromEntries(new FormData(this).entries()) as Record<string, string>,
+      };
+    });
+  });
+
+  it("posts the short-lived link to Overleaf's /docs address", async () => {
+    mockFetch({
+      ...base(["edit_content"], [tex]),
+      [LINK]: { body: { url: "https://x.test/api/file-link?token=abc", name: "paper.tex" } },
+    });
+    renderRoute(DOCS);
+    await userEvent.click(await screen.findByRole("button", { name: "Actions for paper.tex" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Open in Overleaf" }));
+    await waitFor(() => expect(posted).toBeDefined());
+    expect(posted?.action).toBe("https://www.overleaf.com/docs");
+    expect(posted?.fields).toEqual({
+      snip_uri: "https://x.test/api/file-link?token=abc",
+      snip_name: "paper.tex",
+    });
+  });
+
+  it("shows the server's reason and posts nothing when refused", async () => {
+    mockFetch({
+      ...base(["edit_content"], [tex]),
+      [LINK]: {
+        status: 400,
+        body: { file: "This file identifies participants, so it cannot go to Overleaf." },
+      },
+    });
+    renderRoute(DOCS);
+    await userEvent.click(await screen.findByRole("button", { name: "Actions for paper.tex" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Open in Overleaf" }));
+    expect(await screen.findByText(/cannot go to Overleaf/)).toBeInTheDocument();
+    expect(posted).toBeUndefined();
+  });
+
+  it("is not offered to viewers or for other files", async () => {
+    mockFetch(base(["view_project"], [tex]));
+    renderRoute(DOCS);
+    await screen.findByRole("cell", { name: "paper.tex" });
+    await userEvent.click(screen.getByRole("button", { name: "Actions for paper.tex" }));
+    expect(screen.queryByRole("menuitem", { name: "Open in Overleaf" })).toBeNull();
+  });
+});
