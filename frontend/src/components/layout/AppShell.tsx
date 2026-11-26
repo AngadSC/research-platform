@@ -117,7 +117,7 @@ export function AppShell() {
   // Wait for the list before judging; with no projects the dialog explains what to do.
   const canAddTask =
     !projects?.length ||
-    projects.some((p) => p.status !== "archived" && p.my_permissions.includes("edit_content"));
+    projects.some((p) => p.status !== "archived" && p.my_permissions?.includes("edit_content"));
   const projectId = useCurrentProjectId();
   const projectColor = projects?.find((p) => p.id === projectId)?.color;
   // Inside a project, its colour themes the whole page: background, accents and headings.

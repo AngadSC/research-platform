@@ -154,7 +154,7 @@ describe("handover actions", () => {
   it("shows the project member action with manage_project_members", async () => {
     mockFetch(overview(["view_project", "manage_project_members"]));
     renderRoute("/labs/lab1/projects/p1/overview");
-    const link = await screen.findByRole("link", { name: /^Handover for grace@uni.edu/ });
+    const link = await screen.findByRole("link", { name: /^Handover for Grace/ });
     expect(link).toHaveAttribute("href", "/labs/lab1/projects/p1/handover?user=u2");
   });
 
@@ -174,12 +174,10 @@ describe("handover actions", () => {
       },
     });
     renderRoute("/labs/lab1/projects/p1/overview");
-    expect(await screen.findByRole("button", { name: "Remove grace@uni.edu" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Remove ada@uni.edu" })).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("combobox", { name: "Role for ada@uni.edu" }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Role for grace@uni.edu" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Remove Grace" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove Ada" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Role for Ada" })).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Role for Grace" })).toBeInTheDocument();
   });
 });
 

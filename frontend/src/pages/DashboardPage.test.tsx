@@ -537,10 +537,9 @@ describe("Dashboard", () => {
     renderRoute("/labs/lab1");
     expect(await screen.findByRole("checkbox", { name: "Complete WHMIS (FAKE)" })).toBeDisabled();
     expect(screen.getByText(/Done when your WHMIS \(FAKE\) training is recorded/)).toBeVisible();
-    expect(screen.getByRole("link", { name: "Training" })).toHaveAttribute(
-      "href",
-      "/labs/lab1/training",
-    );
+    expect(
+      within(screen.getByRole("main")).getByRole("link", { name: "Training" }),
+    ).toHaveAttribute("href", "/labs/lab1/training");
   });
 
   it("captions Start here and asks before unpinning", async () => {

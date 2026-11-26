@@ -39,7 +39,7 @@ export function QuickCapture() {
   const qc = useQueryClient();
   const { data: all = [] } = useProjects(labId);
   const projects = useMemo(
-    () => all.filter((p) => p.status !== "archived" && p.my_permissions.includes("edit_content")),
+    () => all.filter((p) => p.status !== "archived" && p.my_permissions?.includes("edit_content")),
     [all],
   );
   const [open, setOpen] = useState(false);

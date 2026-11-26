@@ -40,6 +40,8 @@ function setup(aiReady: boolean, grants: unknown[] = []) {
 
 /** Select the text of an element in the page's main area, as a drag would. */
 async function select() {
+  // Home swaps its skeleton for the page when the data lands; select after, or the range is lost.
+  await screen.findByText("Your projects");
   const el = await waitFor(() => {
     const found = [...document.querySelectorAll("#main h1, #main h2, #main p")].find(
       (n) => (n.textContent ?? "").trim().length > 3,
