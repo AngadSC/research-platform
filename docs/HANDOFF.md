@@ -2,6 +2,15 @@
 
 **Test server (2026-11-07):** `https://labbenchos.com`. Setup, limits and how to redeploy are at the top of `docs/DEPLOY.md`.
 
+## Outreach email gaps (Nov 2026)
+
+Sign-in with an institution's Google accounts (D387), Open in Overleaf (D388) and Edit in Word, Excel or PowerPoint (D389). Merged on `night/wl-int` (not pushed). Production steps after deploy:
+
+- Run `python manage.py set_google_domains "University of Alberta" ualberta.ca`.
+- Add `Files.ReadWrite.AppFolder` to the Entra app and remove `User.Read`.
+- Try Open in Overleaf once on the live site.
+- Test Edit in Word with one @ualberta.ca account and one personal Microsoft account.
+
 ## Wet-lab features (Dec 2026)
 
 For the 2026-12-02 demo to a glycobiology PI. Merged on `night/wl-int` (not pushed). Decisions D381 to D386.
