@@ -1002,8 +1002,9 @@ def _handover_items(items):
     "handover_report",
     "Handover list",
     "What a person needs to hand over before they leave the lab or a project: open tasks, "
-    "documents, analyses, results, datasets, decisions, ethics approvals, projects they lead and "
-    "external links, plus the items nobody else owns. Your own list (person 'me') is always "
+    "documents, analyses, results, datasets, decisions, ethics approvals, projects they lead, "
+    "external links and (lab-wide) the samples and tubes they own, plus the items nobody else "
+    "owns. Your own list (person 'me') is always "
     "available; someone else's needs a role that manages lab members, or, with project_id, one "
     "that manages that project's members. Each section shows at most "
     f"{HANDOVER_CAP} items and its total.",

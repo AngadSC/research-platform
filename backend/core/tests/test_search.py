@@ -16,6 +16,7 @@ from labs.models import InventoryItem, LabRole, Meeting
 from papers import services as paper_services
 from projects.models import ChatMessage, ProjectMembership, ProjectRole, Task
 from provenance import services as prov
+from samples.models import Sample
 from training.models import TrainingRequirement
 
 pytestmark = pytest.mark.django_db
@@ -151,6 +152,7 @@ def test_every_type_is_found_with_a_spa_url(w):
     say(w, w.p1, "pi", f"the **{WORD}** ran")
     InventoryItem.objects.create(lab=w.lab, name=f"{WORD} tank", category="equipment")
     TrainingRequirement.objects.create(lab=w.lab, name=f"{WORD} safety", category="safety")
+    Sample.objects.create(lab=w.lab, kind="plasmid", code="P0001", name=f"{WORD} plasmid")
     hits = run(w, "pi")
     assert {h["type"] for h in hits} == {s.type for s in SPECS if s.type != "link"}
     by = {h["type"]: h for h in hits}

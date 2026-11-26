@@ -20,6 +20,7 @@ const TYPE_LABELS: Record<string, string> = {
   paper: "Papers",
   paper_note: "Paper notes",
   inventory: "Inventory",
+  sample: "Samples",
   training: "Trainings",
 };
 

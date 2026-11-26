@@ -2,6 +2,7 @@ import { MobileTabBar } from "@/components/layout/MobileTabBar";
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Boxes,
+  FlaskConical,
   FileText,
   Keyboard,
   Menu,
@@ -284,6 +285,16 @@ export function AppShell() {
                     label: "Add inventory item",
                     icon: Boxes,
                     to: "inventory?add=1",
+                  },
+                ]
+              : []),
+            ...(perms.includes("manage_samples") && labPerms?.inventory_enabled
+              ? [
+                  {
+                    id: "sample:new",
+                    label: "Add sample",
+                    icon: FlaskConical,
+                    to: "samples?add=1",
                   },
                 ]
               : []),

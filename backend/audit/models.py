@@ -215,6 +215,19 @@ class AuditAction(models.TextChoices):
     DATASET_PARTICIPANT_FLAG_CHANGED = "dataset.participant_flag_changed"
     # Run 6: a 15-minute download or upload link for tools on the person's computer (VISION S1)
     FILE_LINK_CREATED = "file_link.created"
+    # Wet lab: sample registry and freezer boxes (samples app)
+    SAMPLE_CREATED = "sample.created"
+    SAMPLE_UPDATED = "sample.updated"
+    SAMPLE_DELETED = "sample.deleted"
+    SAMPLES_IMPORTED = "samples.imported"
+    SAMPLES_EXPORTED = "samples.exported"
+    STORAGE_CREATED = "storage.created"  # a freezer, fridge or box; the target type says which
+    STORAGE_UPDATED = "storage.updated"
+    STORAGE_DELETED = "storage.deleted"
+    TUBE_PLACED = "tube.placed"
+    TUBE_MOVED = "tube.moved"
+    TUBE_UPDATED = "tube.updated"
+    TUBE_REMOVED = "tube.removed"
 
 
 class AuditQuerySet(models.QuerySet):

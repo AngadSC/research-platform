@@ -250,7 +250,7 @@ describe("app shell", () => {
       "Lab chat",
     ]);
     expect(main.queryByRole("link", { name: "Integrations" })).toBeNull(); // it is in Settings
-    for (const moved of ["Training", "Members", "Participants", "Papers", "Inventory"])
+    for (const moved of ["Training", "Members", "Participants", "Papers", "Inventory", "Samples"])
       expect(main.queryByRole("link", { name: moved })).toBeNull();
     expect(main.queryByRole("link", { name: "Notifications" })).toBeNull();
     // a member sees the lab's pages and Inventory as plain links, and nothing of the admin pages
@@ -267,6 +267,7 @@ describe("app shell", () => {
       "Participants",
       "Integrations",
       "Inventory",
+      "Samples",
     ]);
     expect(groups.getByRole("button", { name: "Lab resources group" })).toBeInTheDocument();
     expect(groups.queryByRole("link", { name: "Audit log" })).toBeNull();
@@ -297,6 +298,7 @@ describe("app shell", () => {
       "Participants",
       "Integrations",
       "Inventory",
+      "Samples",
       "Ethics",
       "Retention",
       "Audit log",

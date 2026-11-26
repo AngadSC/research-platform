@@ -43,6 +43,7 @@ urlpatterns = [
     path("", include("assistant.urls")),  # Run 5, D160: /mcp, /.well-known/*, /api/oauth, /api/ai
     path("api/", include("training.urls")),  # Run 5, D175
     path("api/", include("papers.urls")),
+    path("api/", include("samples.urls")),  # wet lab: sample registry and freezer boxes
 ]
 
 if settings.DEBUG:  # ARCHITECTURE section 6 / D41: schema and Django admin only in dev

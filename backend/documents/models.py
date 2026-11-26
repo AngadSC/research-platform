@@ -191,9 +191,10 @@ class DocumentComment(LabScopedModel):
 
 
 class Attachment(LabScopedModel):
-    """D38, D175: exactly one owner, a project, an ethics approval, a training record or a paper
-    (DB check). Project views see only project-owned files; ethics files are served through the
-    approval (D48), training certificates through their record, paper PDFs through their paper."""
+    """D38, D175: exactly one owner, a project, an ethics approval, a training record, a paper or
+    a sample (DB check). Project views see only project-owned files; ethics files are served
+    through the approval (D48), training certificates through their record, paper PDFs through
+    their paper, sample files (maps, gels) through their sample."""
 
     project = models.ForeignKey(
         "projects.Project", on_delete=models.CASCADE, null=True, related_name="attachments"
@@ -206,6 +207,9 @@ class Attachment(LabScopedModel):
     )
     paper = models.ForeignKey(  # a paper's PDF, lab-wide, served through its paper
         "papers.Paper", on_delete=models.PROTECT, null=True, related_name="attachments"
+    )
+    sample = models.ForeignKey(  # a plasmid map or gel image, lab-wide, served through its sample
+        "samples.Sample", on_delete=models.PROTECT, null=True, related_name="attachments"
     )
     storage_key = models.CharField(max_length=512, unique=True)  # set server-side only
     original_filename = models.CharField(max_length=255)
@@ -246,6 +250,7 @@ class Attachment(LabScopedModel):
         "training_record",
         "folder",
         "paper",
+        "sample",
         "copied_from",
     )
     permission_domain = "project"
@@ -267,24 +272,35 @@ class Attachment(LabScopedModel):
                     ethics_approval__isnull=True,
                     training_record__isnull=True,
                     paper__isnull=True,
+                    sample__isnull=True,
                 )
                 | Q(
                     project__isnull=True,
                     ethics_approval__isnull=False,
                     training_record__isnull=True,
                     paper__isnull=True,
+                    sample__isnull=True,
                 )
                 | Q(
                     project__isnull=True,
                     ethics_approval__isnull=True,
                     training_record__isnull=False,
                     paper__isnull=True,
+                    sample__isnull=True,
                 )
                 | Q(
                     project__isnull=True,
                     ethics_approval__isnull=True,
                     training_record__isnull=True,
                     paper__isnull=False,
+                    sample__isnull=True,
+                )
+                | Q(
+                    project__isnull=True,
+                    ethics_approval__isnull=True,
+                    training_record__isnull=True,
+                    paper__isnull=True,
+                    sample__isnull=False,
                 ),
                 name="attachment_has_one_owner",
             ),

@@ -5,6 +5,7 @@ import {
   Bell,
   BookOpen,
   Boxes,
+  FlaskConical,
   Building2,
   CalendarDays,
   CheckSquare,
@@ -112,7 +113,9 @@ export function navItems(
     page("notebook", "My notebook", NotebookPen),
     page("participants", "Participants", Users),
     page("members", "Members", Users),
-    ...(inventoryEnabled ? [page("inventory", "Inventory", Boxes)] : []), // D227: wet labs only
+    ...(inventoryEnabled
+      ? [page("inventory", "Inventory", Boxes), page("samples", "Samples", FlaskConical)]
+      : []), // D227: wet labs only
     page("training", "Training", GraduationCap),
     ...(can("view_ethics") ? [page("ethics", "Ethics", ShieldCheck)] : []),
     page("documents", "Lab documents", FileText),

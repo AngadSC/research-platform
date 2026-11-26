@@ -78,6 +78,7 @@ INSTALLED_APPS = [
     "participants",
     "training",
     "papers",
+    "samples",
     "audit",
     "integrations",
     "assistant",  # Run 5, D160: AI tool layer and MCP server
@@ -421,6 +422,9 @@ SPECTACULAR_SETTINGS = {
         "ParticipantLinkStateEnum": "participants.models.LinkState",
         "ParticipantFileRoleEnum": "participants.models.FileRole",
         "ParticipantReasonKindEnum": "participants.models.ReasonKind",
+        "SampleKindEnum": "samples.models.SampleKind",  # wet lab samples
+        "SampleStatusEnum": "samples.models.SampleStatus",
+        "StorageKindEnum": "samples.models.StorageKind",
     },
 }
 

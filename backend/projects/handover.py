@@ -17,6 +17,7 @@ from integrations.models import ExternalLink
 from labs.models import LabMembership, LabRole
 from projects.models import Project, ProjectMembership, ProjectRole, Task, TaskStatus
 from provenance.models import Analysis, DatasetRecord, Decision, Result
+from samples.models import Sample, Tube
 
 # D132: where each research kind lives in the project's Workflow tab
 WORKFLOW_SECTION = {
@@ -37,6 +38,8 @@ SECTIONS = [
     ("projects_led", "Projects led"),
     ("external_links", "External links to relink"),
 ]
+# Lab-wide reports only, and only while the lab has inventory on (D227).
+SAMPLE_SECTION = ("samples", "Samples and tubes")
 
 
 def _ref(p):
@@ -55,6 +58,32 @@ def _item(lab_id, kind, obj, title, project, path, reason):
         + path.replace("{p}", f"projects/{project.pk}" if project else ""),
         "reason": reason,
     }
+
+
+def _samples(lid, scoped, target):
+    """Registry entries they own, then every tube they hold (reassigned one by one)."""
+    owned = scoped(Sample).filter(owner=target).order_by("code", "id")
+    tubes = (
+        scoped(Tube)
+        .filter(owner=target, sample__deleted_at__isnull=True)
+        .select_related("sample", "box__unit")
+        .order_by("sample__code", "box__name", "row", "col")
+    )
+    return [
+        _item(lid, "sample", s, f"{s.code} {s.name}", None, f"samples/{s.pk}", "They own it")
+        for s in owned
+    ] + [
+        _item(
+            lid,
+            "tube",
+            t,
+            f"{t.sample.code} in {t.box.unit.name}, {t.box.name} {t.position}",
+            None,
+            f"samples/{t.sample_id}",
+            "They hold this tube",
+        )
+        for t in tubes
+    ]
 
 
 def build_report(*, requester, lab, membership, project=None, for_ai=False) -> dict:
@@ -215,6 +244,10 @@ def build_report(*, requester, lab, membership, project=None, for_ai=False) -> d
         "ethics_approvals": ethics,
         "projects_led": projects_led,
     }
+    sections = list(SECTIONS)
+    if project is None and lab.inventory_enabled:
+        sections.append(SAMPLE_SECTION)
+        by_key["samples"] = _samples(lid, scoped, target)
 
     # "No other owner": they are the only lead, they created the document, or they control a
     # dataset and no other non-viewer project member can edit content.
@@ -257,7 +290,7 @@ def build_report(*, requester, lab, membership, project=None, for_ai=False) -> d
         },
         "project": _ref(project) if project else None,
         "no_other_owner": orphan,
-        "sections": [{"key": k, "label": label, "items": by_key[k]} for k, label in SECTIONS],
+        "sections": [{"key": k, "label": label, "items": by_key[k]} for k, label in sections],
     }
 
 
