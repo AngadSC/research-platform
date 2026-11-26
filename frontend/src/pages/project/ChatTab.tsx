@@ -366,6 +366,21 @@ export function ChatPanel({
     }
   }, [newest]);
 
+  // Pictures, link cards and a panel that is still opening change the height after the first
+  // scroll: while the reader is at the bottom, stay at the bottom.
+  const hasMessages = all.length > 0;
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || !hasMessages || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      if (pinned.current) el.scrollTop = el.scrollHeight;
+    });
+    ro.observe(el);
+    const list = el.querySelector("ol");
+    if (list) ro.observe(list);
+    return () => ro.disconnect();
+  }, [hasMessages]);
+
   // D207: only what reached the screen counts as read. Scrolled up, new messages stay unread
   // until the reader comes back down, which clears `unseen` and runs this again.
   useEffect(() => {

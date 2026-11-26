@@ -114,6 +114,10 @@ export function AppShell() {
   const labId = useCurrentLabId();
   const { data: labs } = useLabs();
   const { data: projects } = useProjects(labId);
+  // Wait for the list before judging; with no projects the dialog explains what to do.
+  const canAddTask =
+    !projects?.length ||
+    projects.some((p) => p.status !== "archived" && p.my_permissions.includes("edit_content"));
   const projectId = useCurrentProjectId();
   const projectColor = projects?.find((p) => p.id === projectId)?.color;
   // Inside a project, its colour themes the whole page: background, accents and headings.
@@ -195,7 +199,12 @@ export function AppShell() {
         variant="outline"
         size="sm"
         aria-label="Add a task"
-        title={`Add a task (${MOD_KEY} G)`}
+        disabled={!canAddTask}
+        title={
+          canAddTask
+            ? `Add a task (${MOD_KEY} G)`
+            : "You have view access to your projects. Ask a project lead to make you a contributor."
+        }
         onClick={() => window.dispatchEvent(new Event(OPEN_QUICK_CAPTURE_EVENT))}
       >
         <Plus aria-hidden />

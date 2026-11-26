@@ -33,7 +33,7 @@ describe("api", () => {
 
   it.each([
     [401, /sign in/i],
-    [403, /permission/i],
+    [403, /don't have access/i],
     [404, /find that/i],
     [409, /conflicts/i],
     [500, /our side/i],

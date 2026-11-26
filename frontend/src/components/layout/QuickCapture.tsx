@@ -38,7 +38,10 @@ export function QuickCapture() {
   const me = useMe().data;
   const qc = useQueryClient();
   const { data: all = [] } = useProjects(labId);
-  const projects = useMemo(() => all.filter((p) => p.status !== "archived"), [all]);
+  const projects = useMemo(
+    () => all.filter((p) => p.status !== "archived" && p.my_permissions.includes("edit_content")),
+    [all],
+  );
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [picked, setPicked] = useState("");
@@ -89,7 +92,12 @@ export function QuickCapture() {
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!parsed.title) return setError("Write what needs doing.");
-    if (!project) return setError("Make a project first, then add tasks to it.");
+    if (!project)
+      return setError(
+        all.length
+          ? "You have view access to your projects. Ask a project lead to make you a contributor."
+          : "Make a project first, then add tasks to it.",
+      );
     setBusy(true);
     setError(undefined);
     try {
