@@ -20,7 +20,9 @@ import {
   addProjectLead,
   reassignDataset,
   reassignDocument,
+  reassignSample,
   reassignTask,
+  reassignTube,
   useHandover,
 } from "@/hooks/handover";
 import { useProject } from "@/hooks/projects";
@@ -42,6 +44,7 @@ const EMPTY: Record<string, string> = {
   ethics_approvals: "No ethics approvals are linked to projects they lead.",
   projects_led: "They do not lead any projects.",
   external_links: "They have not linked any outside files.",
+  samples: "They do not own any samples or tubes.",
 };
 
 type Person = { id: string; name: string };
@@ -239,16 +242,20 @@ export function HandoverPage() {
     data.no_other_owner.filter((i) => i.kind === "document").map((i) => i.id),
   );
   const canChange = (i: HandoverItem) =>
-    ["task", "dataset", "project"].includes(i.kind) ||
+    ["task", "dataset", "project", "sample", "tube"].includes(i.kind) ||
     (i.kind === "document" && ownedDocs.has(i.id));
   const change = (i: HandoverItem, userId: string) =>
     i.kind === "dataset"
       ? reassignDataset(labId, i.id, userId)
       : i.kind === "task"
         ? reassignTask(labId, i.id, userId)
-        : i.kind === "document"
-          ? reassignDocument(labId, i.id, userId)
-          : addProjectLead(labId, i.project?.id ?? i.id, userId);
+        : i.kind === "sample"
+          ? reassignSample(labId, i.id, userId)
+          : i.kind === "tube"
+            ? reassignTube(labId, i.id, userId)
+            : i.kind === "document"
+              ? reassignDocument(labId, i.id, userId)
+              : addProjectLead(labId, i.project?.id ?? i.id, userId);
   /** Runs one change; returns true when it worked. Failures stay on the row. */
   const attempt = async (i: HandoverItem, userId: string) => {
     try {
@@ -333,7 +340,12 @@ export function HandoverPage() {
       )}
       {data.sections.map((s) => {
         const isTasks = s.key === "open_tasks" || s.key === "unassigned_tasks";
-        const movable = isTasks ? s.items : s.key === "documents" ? s.items.filter(canChange) : [];
+        const movable =
+          isTasks || s.key === "samples"
+            ? s.items
+            : s.key === "documents"
+              ? s.items.filter(canChange)
+              : [];
         const shown = s.items.filter((i) => !above.has(rowKey(i)));
         const moved = s.items.length - shown.length;
         const movedNote = moved > 0 && (
@@ -354,7 +366,13 @@ export function HandoverPage() {
                   button="Reassign all to…"
                   progress="Reassigning…"
                   people={people}
-                  run={(userId) => bulk(movable, userId, isTasks ? "task" : "document")}
+                  run={(userId) =>
+                    bulk(
+                      movable,
+                      userId,
+                      isTasks ? "task" : s.key === "samples" ? "item" : "document",
+                    )
+                  }
                 />
               )}
             </div>

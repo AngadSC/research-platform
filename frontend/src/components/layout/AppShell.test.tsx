@@ -256,6 +256,7 @@ describe("app shell", () => {
       "Participants",
       "Papers",
       "Inventory",
+      "Samples",
       "Monitoring",
     ])
       expect(main.queryByRole("link", { name: moved })).toBeNull();
@@ -274,6 +275,7 @@ describe("app shell", () => {
       "Participants",
       "Integrations",
       "Inventory",
+      "Samples",
       "Monitoring",
     ]);
     expect(groups.getByRole("button", { name: "Lab resources group" })).toBeInTheDocument();
@@ -305,6 +307,7 @@ describe("app shell", () => {
       "Participants",
       "Integrations",
       "Inventory",
+      "Samples",
       "Monitoring",
       "Ethics",
       "Retention",

@@ -105,6 +105,7 @@ const LAB_GROUP = [
 ];
 const ADMIN_GROUP = [
   "inventory",
+  "samples",
   "monitoring",
   "ethics",
   "funding",

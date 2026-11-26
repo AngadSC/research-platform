@@ -78,6 +78,12 @@ function later<K extends string>(load: () => Promise<Record<K, ComponentType>>, 
     );
   };
 }
+const SamplesPage = later(() => import("@/pages/samples/SamplesPage"), "SamplesPage");
+const StoragePage = later(() => import("@/pages/samples/StoragePage"), "StoragePage");
+const SampleDetailPage = later(
+  () => import("@/pages/samples/SampleDetailPage"),
+  "SampleDetailPage",
+);
 const AuditLogPage = later(() => import("@/pages/AuditLogPage"), "AuditLogPage");
 const FundingPage = later(() => import("@/pages/FundingPage"), "FundingPage");
 const TeamTasksPage = later(() => import("@/pages/TeamTasksPage"), "TeamTasksPage");
@@ -422,6 +428,15 @@ export const routes: RouteObject[] = [
               { path: "settings", element: <LabSettingsRedirect /> },
               { path: "integrations", element: <Navigate to="../settings/integrations" replace /> },
               { path: "inventory", element: <InventoryPage />, handle: { crumb: "Inventory" } },
+              {
+                path: "samples",
+                handle: { crumb: "Samples" },
+                children: [
+                  { index: true, element: <SamplesPage /> },
+                  { path: "storage", element: <StoragePage />, handle: { crumb: "Storage" } },
+                  { path: ":sampleId", element: <SampleDetailPage />, handle: { crumb: "Sample" } },
+                ],
+              },
               {
                 path: "monitoring",
                 handle: { crumb: "Monitoring" },

@@ -87,6 +87,7 @@ from provenance.models import (  # provenance (Phase 4)
     Result,
     ReviewItem,
 )
+from samples import services as sample_services  # wet lab samples
 from training import services as training_services  # training (Run 5)
 from training.models import TrainingRecord, TrainingRequirement  # training (Run 5)
 
@@ -638,6 +639,31 @@ MATRIX: dict[tuple[str, str], str] = {
     ("PATCH",  "papers:note-detail"): "401 404 403 403 403 2 403 403 403",
     ("DELETE", "papers:note-detail"): "401 404 2 2 403 2 403 403 403",
     # --- end paper library ---
+    # --- wet lab samples: like inventory (D147), every member reads, the lab viewer included,
+    # and manage_samples (pi, admin, members) writes; the viewer gets 403.
+    ("GET",    "samples:sample-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "samples:sample-list"): "401 404 2 2 2 2 2 2 403",
+    ("GET",    "samples:next-codes"): "401 404 2 2 2 2 2 2 2",
+    ("GET",    "samples:sample-export"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "samples:sample-import"): "401 404 2 2 2 2 2 2 403",
+    ("GET",    "samples:sample-detail"): "401 404 2 2 2 2 2 2 2",
+    ("PATCH",  "samples:sample-detail"): "401 404 2 2 2 2 2 2 403",
+    ("DELETE", "samples:sample-detail"): "401 404 2 2 2 2 2 2 403",
+    ("POST",   "samples:sample-files"): "401 404 2 2 2 2 2 2 403",
+    ("GET",    "samples:sample-file"): "401 404 2 2 2 2 2 2 2",
+    ("DELETE", "samples:sample-file"): "401 404 2 2 2 2 2 2 403",
+    ("GET",    "samples:unit-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "samples:unit-list"): "401 404 2 2 2 2 2 2 403",
+    ("PATCH",  "samples:unit-detail"): "401 404 2 2 2 2 2 2 403",
+    ("DELETE", "samples:unit-detail"): "401 404 2 2 2 2 2 2 403",
+    ("POST",   "samples:box-list"): "401 404 2 2 2 2 2 2 403",
+    ("GET",    "samples:box-detail"): "401 404 2 2 2 2 2 2 2",
+    ("PATCH",  "samples:box-detail"): "401 404 2 2 2 2 2 2 403",
+    ("DELETE", "samples:box-detail"): "401 404 2 2 2 2 2 2 403",
+    ("POST",   "samples:tube-list"): "401 404 2 2 2 2 2 2 403",
+    ("PATCH",  "samples:tube-detail"): "401 404 2 2 2 2 2 2 403",
+    ("DELETE", "samples:tube-detail"): "401 404 2 2 2 2 2 2 403",
+    # --- end wet lab samples ---
     # --- AI access (Run 5, D160-D169) ---
     # The consent API and your own grants need only a login (they are the user's own); the
     # payloads consent for, or create a token on, the persona's own lab. The fixture grant is
@@ -1091,6 +1117,39 @@ def _paper_fixtures(lab, owner, tag):  # paper library
     return paper, note
 
 
+def _sample_fixtures(lab, owner, tag):  # wet lab samples
+    """A sample with a file and no tubes (so it can be deleted), an empty freezer (deletable),
+    an empty box (deletable) and a tube of a second sample in another box."""
+    sample = sample_services.create_sample(
+        lab=lab, user=owner, data={"kind": "plasmid", "name": f"Sample {tag}"}
+    )
+    upload = SimpleUploadedFile(f"samplefile-{tag}.png", b"png bytes", content_type="image/png")
+    att = sample_services.upload_file(sample, user=owner, file=upload)
+    held = sample_services.create_sample(
+        lab=lab, user=owner, data={"kind": "strain", "name": f"Held sample {tag}"}
+    )
+    empty_unit = sample_services.create_unit(lab=lab, user=owner, data={"name": f"Fridge {tag}"})
+    unit = sample_services.create_unit(lab=lab, user=owner, data={"name": f"Freezer {tag}"})
+    empty_box = sample_services.create_box(
+        lab=lab, user=owner, data={"unit": unit.pk, "name": f"Box {tag}"}
+    )
+    full_box = sample_services.create_box(
+        lab=lab, user=owner, data={"unit": unit.pk, "name": f"Full box {tag}"}
+    )
+    tube = sample_services.place_tube(
+        lab=lab,
+        user=owner,
+        data={"box": full_box.pk, "row": 1, "col": 1, "sample": held.pk, "label": f"Tube {tag}"},
+    )
+    return {
+        "sample_id": sample.pk,
+        "samplefile_id": att.pk,
+        "storageunit_id": empty_unit.pk,
+        "storagebox_id": empty_box.pk,
+        "tube_id": tube.pk,
+    }
+
+
 @pytest.fixture(autouse=True)
 def _matrix_fake_provider(monkeypatch, settings):
     """The fake provider is configured, and reads items without any network."""
@@ -1351,6 +1410,7 @@ def build_world():
     protocol_a = _protocol_fixtures(lab_a, p1, users["lead"], "lab-a")
     tr_free_a, tr_rec_a = _training_fixtures(lab_a, users["contrib"], "lab-a")  # training (Run 5)
     paper_a, paper_note_a = _paper_fixtures(lab_a, users["contrib"], "lab-a")
+    samples_a = _sample_fixtures(lab_a, users["contrib"], "lab-a")  # wet lab samples
     ai_a = _ai_fixtures(lab_a, users["contrib"], "lab-a")  # AI access (Run 5)
     for persona_user in users.values():  # in-app assistant (Run 5): everyone holds a key
         row = AIProviderKey(user=persona_user, provider="anthropic")
@@ -1411,6 +1471,7 @@ def build_world():
     protocol_b = _protocol_fixtures(lab_b, p1_b, secret_pi, "LAB-B-SECRET")
     tr_free_b, tr_rec_b = _training_fixtures(lab_b, secret_pi, "LAB-B-SECRET")  # training (Run 5)
     paper_b, paper_note_b = _paper_fixtures(lab_b, secret_pi, "LAB-B-SECRET")
+    samples_b = _sample_fixtures(lab_b, secret_pi, "LAB-B-SECRET")  # wet lab samples
     ai_b = _ai_fixtures(lab_b, secret_pi, "LAB-B-SECRET")  # AI access (Run 5)
     conv_b = _assistant_fixtures(lab_b, secret_pi, p1_b, "LAB-B-SECRET")  # assistant (Run 5)
     invite_b, _ = Invite.issue(
@@ -1461,6 +1522,7 @@ def build_world():
             "trainingrecord_id": tr_rec_a.pk,
             "paper_id": paper_a.pk,
             "papernote_id": paper_note_a.pk,
+            **samples_a,  # wet lab samples
             "aigrant_id": ai_a.pk,  # AI access (Run 5)
             "ai_provider": "anthropic",  # in-app assistant (Run 5)
             "conversation_id": conv_a.pk,
@@ -1503,6 +1565,7 @@ def build_world():
             "trainingrecord_id": tr_rec_b.pk,
             "paper_id": paper_b.pk,
             "papernote_id": paper_note_b.pk,
+            **samples_b,  # wet lab samples
             "aigrant_id": ai_b.pk,  # AI access (Run 5)
             "ai_provider": "anthropic",  # in-app assistant (Run 5)
             "conversation_id": conv_b.pk,
@@ -1562,6 +1625,13 @@ def build_world():
             "Paper LAB-B-SECRET",
             "Paper note LAB-B-SECRET",
             "paper-LAB-B-SECRET.pdf",
+            "Sample LAB-B-SECRET",  # wet lab samples
+            "Held sample LAB-B-SECRET",
+            "samplefile-LAB-B-SECRET.png",
+            "Fridge LAB-B-SECRET",
+            "Freezer LAB-B-SECRET",
+            "Box LAB-B-SECRET",
+            "Tube LAB-B-SECRET",
             "AI grant LAB-B-SECRET",  # AI access (Run 5)
             "Chat LAB-B-SECRET",  # in-app assistant (Run 5)
             "Question LAB-B-SECRET",
@@ -1987,6 +2057,32 @@ PAYLOADS = {
         "acknowledged_notice": "true",
     },
     ("POST", "papers:paper-notes"): lambda user, w: {"body": "New note"},
+    # --- wet lab samples ---
+    ("POST", "samples:sample-list"): lambda user, w: {"kind": "primer", "name": "New primer"},
+    ("POST", "samples:sample-import"): lambda user, w: {
+        "file": SimpleUploadedFile("s.csv", b"Kind,Name\nplasmid,pNew\n", "text/csv"),
+        "commit": "true",
+    },
+    ("PATCH", "samples:sample-detail"): lambda user, w: {"description": "Edited"},
+    ("POST", "samples:sample-files"): lambda user, w: {
+        "file": SimpleUploadedFile("gel.png", b"png", content_type="image/png"),
+        "acknowledged_notice": "true",
+    },
+    ("POST", "samples:unit-list"): lambda user, w: {"name": "New fridge", "kind": "fridge"},
+    ("PATCH", "samples:unit-detail"): lambda user, w: {"location": "Room 2"},
+    ("POST", "samples:box-list"): lambda user, w: {
+        "unit": str(w.a["storageunit_id"]),
+        "name": "New box",
+    },
+    ("PATCH", "samples:box-detail"): lambda user, w: {"shelf": "Shelf 3"},
+    ("POST", "samples:tube-list"): lambda user, w: {
+        "box": str(w.a["storagebox_id"]),
+        "row": 2,
+        "col": 2,
+        "sample": str(w.a["sample_id"]),
+    },
+    ("PATCH", "samples:tube-detail"): lambda user, w: {"label": "Edited"},
+    # --- end wet lab samples ---
     ("PATCH", "papers:note-detail"): lambda user, w: {"body": "Edited"},
     # --- end paper library ---
     # --- AI access (Run 5) ---

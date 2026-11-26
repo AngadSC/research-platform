@@ -1413,6 +1413,18 @@ paths:
           - instrument_drop_link.created
           - instrument_drop_link.used
           - instrument_drop_link.revoked
+          - sample.created
+          - sample.updated
+          - sample.deleted
+          - samples.imported
+          - samples.exported
+          - storage.created
+          - storage.updated
+          - storage.deleted
+          - tube.placed
+          - tube.moved
+          - tube.updated
+          - tube.removed
           type: string
           minLength: 1
         description: |-
@@ -1616,6 +1628,18 @@ paths:
           * `instrument_drop_link.created` - Instrument Drop Link Created
           * `instrument_drop_link.used` - Instrument Drop Link Used
           * `instrument_drop_link.revoked` - Instrument Drop Link Revoked
+          * `sample.created` - Sample Created
+          * `sample.updated` - Sample Updated
+          * `sample.deleted` - Sample Deleted
+          * `samples.imported` - Samples Imported
+          * `samples.exported` - Samples Exported
+          * `storage.created` - Storage Created
+          * `storage.updated` - Storage Updated
+          * `storage.deleted` - Storage Deleted
+          * `tube.placed` - Tube Placed
+          * `tube.moved` - Tube Moved
+          * `tube.updated` - Tube Updated
+          * `tube.removed` - Tube Removed
       - in: query
         name: actor
         schema:
@@ -11987,6 +12011,382 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/samples/:
+    get:
+      operationId: labs_samples_list
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: query
+        name: kind
+        schema:
+          type: string
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: owner
+        schema:
+          type: string
+        description: A user id
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Search code, name, description and the details
+      - in: query
+        name: status
+        schema:
+          type: string
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Sample'
+          description: ''
+    post:
+      operationId: labs_samples_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SampleInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SampleInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SampleInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SampleDetail'
+          description: ''
+  /api/labs/{lab_id}/samples/{sample_id}/:
+    get:
+      operationId: labs_samples_retrieve
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: sample_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SampleDetail'
+          description: ''
+    patch:
+      operationId: labs_samples_partial_update
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: sample_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSampleInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSampleInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSampleInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SampleDetail'
+          description: ''
+    delete:
+      operationId: labs_samples_destroy
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: sample_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/samples/{sample_id}/files/:
+    post:
+      operationId: labs_samples_files_create
+      description: Upload a map, gel image or other file onto the sample; every lab
+        member can open it.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: sample_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AttachmentUpload'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AttachmentUpload'
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attachment'
+          description: ''
+  /api/labs/{lab_id}/samples/{sample_id}/files/{samplefile_id}/:
+    get:
+      operationId: labs_samples_files_retrieve
+      description: GET streams one of the sample's own uploads (audited); DELETE removes
+        it (soft).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: sample_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: samplefile_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          description: ''
+    delete:
+      operationId: labs_samples_files_destroy
+      description: GET streams one of the sample's own uploads (audited); DELETE removes
+        it (soft).
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: sample_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: samplefile_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/samples/export/:
+    get:
+      operationId: labs_samples_export_retrieve
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: query
+        name: kind
+        schema:
+          type: string
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: owner
+        schema:
+          type: string
+        description: A user id
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Search code, name, description and the details
+      - in: query
+        name: status
+        schema:
+          type: string
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/labs/{lab_id}/samples/import/:
+    post:
+      operationId: labs_samples_import_create
+      description: Post a CSV to preview it; post the same file with commit=true to
+        add every row.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SampleImportInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SampleImportInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SampleImportResult'
+          description: ''
+  /api/labs/{lab_id}/samples/next-codes/:
+    get:
+      operationId: labs_samples_next_codes_retrieve
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SampleNextCodes'
+          description: ''
   /api/labs/{lab_id}/search/:
     get:
       operationId: labs_search_retrieve
@@ -12009,7 +12409,7 @@ paths:
           type: string
         description: 'Comma-separated: project, task, document, dataset, analysis,
           result, decision, manuscript, funding, review, ethics, link, file, meeting,
-          chat, paper, inventory, training, paper_note'
+          chat, paper, inventory, sample, training, paper_note'
       tags:
       - labs
       security:
@@ -12344,6 +12744,356 @@ paths:
                 items:
                   $ref: '#/components/schemas/Pin'
           description: ''
+  /api/labs/{lab_id}/storage/:
+    get:
+      operationId: labs_storage_list
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Unit'
+          description: ''
+    post:
+      operationId: labs_storage_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnitInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UnitInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UnitInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unit'
+          description: ''
+  /api/labs/{lab_id}/storage/{storageunit_id}/:
+    patch:
+      operationId: labs_storage_partial_update
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: storageunit_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUnitInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUnitInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUnitInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unit'
+          description: ''
+    delete:
+      operationId: labs_storage_destroy
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: storageunit_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/storage/boxes/:
+    post:
+      operationId: labs_storage_boxes_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BoxInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BoxInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BoxInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoxDetail'
+          description: ''
+  /api/labs/{lab_id}/storage/boxes/{storagebox_id}/:
+    get:
+      operationId: labs_storage_boxes_retrieve
+      description: 'The grid: every tube in the box with its sample.'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: storagebox_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoxDetail'
+          description: ''
+    patch:
+      operationId: labs_storage_boxes_partial_update
+      description: 'The grid: every tube in the box with its sample.'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: storagebox_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBoxInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBoxInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBoxInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoxDetail'
+          description: ''
+    delete:
+      operationId: labs_storage_boxes_destroy
+      description: 'The grid: every tube in the box with its sample.'
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: storagebox_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/storage/tubes/:
+    post:
+      operationId: labs_storage_tubes_create
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TubeInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TubeInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TubeInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tube'
+          description: ''
+  /api/labs/{lab_id}/storage/tubes/{tube_id}/:
+    patch:
+      operationId: labs_storage_tubes_partial_update
+      description: PATCH box, row or col to move it; DELETE takes it out of storage.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: tube_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTubeInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTubeInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTubeInput'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tube'
+          description: ''
+    delete:
+      operationId: labs_storage_tubes_destroy
+      description: PATCH box, row or col to move it; DELETE takes it out of storage.
+      parameters:
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: tube_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/labs/{lab_id}/subjects/{subject_id}/:
     patch:
       operationId: labs_subjects_partial_update
@@ -14089,6 +14839,18 @@ components:
       - instrument_drop_link.created
       - instrument_drop_link.used
       - instrument_drop_link.revoked
+      - sample.created
+      - sample.updated
+      - sample.deleted
+      - samples.imported
+      - samples.exported
+      - storage.created
+      - storage.updated
+      - storage.deleted
+      - tube.placed
+      - tube.moved
+      - tube.updated
+      - tube.removed
       type: string
       description: |-
         * `auth.login` - Auth Login
@@ -14291,6 +15053,18 @@ components:
         * `instrument_drop_link.created` - Instrument Drop Link Created
         * `instrument_drop_link.used` - Instrument Drop Link Used
         * `instrument_drop_link.revoked` - Instrument Drop Link Revoked
+        * `sample.created` - Sample Created
+        * `sample.updated` - Sample Updated
+        * `sample.deleted` - Sample Deleted
+        * `samples.imported` - Samples Imported
+        * `samples.exported` - Samples Exported
+        * `storage.created` - Storage Created
+        * `storage.updated` - Storage Updated
+        * `storage.deleted` - Storage Deleted
+        * `tube.placed` - Tube Placed
+        * `tube.moved` - Tube Moved
+        * `tube.updated` - Tube Updated
+        * `tube.removed` - Tube Removed
     AiAccessEnum:
       enum:
       - read
@@ -14786,6 +15560,109 @@ components:
     BlankEnum:
       enum:
       - ''
+    Box:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        unit:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        rows:
+          type: integer
+          readOnly: true
+        cols:
+          type: integer
+          readOnly: true
+        shelf:
+          type: string
+          readOnly: true
+        filled:
+          type: integer
+          readOnly: true
+          description: Tubes in the box.
+      required:
+      - cols
+      - filled
+      - id
+      - name
+      - rows
+      - shelf
+      - unit
+    BoxDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        unit:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        rows:
+          type: integer
+          readOnly: true
+        cols:
+          type: integer
+          readOnly: true
+        shelf:
+          type: string
+          readOnly: true
+        filled:
+          type: integer
+          readOnly: true
+          description: Tubes in the box.
+        unit_name:
+          type: string
+          readOnly: true
+        tubes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tube'
+          readOnly: true
+      required:
+      - cols
+      - filled
+      - id
+      - name
+      - rows
+      - shelf
+      - tubes
+      - unit
+      - unit_name
+    BoxInput:
+      type: object
+      properties:
+        unit:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 100
+        rows:
+          type: integer
+          maximum: 26
+          minimum: 1
+        cols:
+          type: integer
+          maximum: 26
+          minimum: 1
+        shelf:
+          type: string
+          maxLength: 100
+      required:
+      - name
+      - unit
     CalendarFeedCreated:
       type: object
       properties:
@@ -17071,6 +17948,17 @@ components:
         * `completed` - Completed
         * `withdrawn` - Withdrawn
         * `ineligible` - Ineligible
+    EquipmentRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
     EthicsApproval:
       type: object
       description: |-
@@ -21719,6 +22607,26 @@ components:
         ran_at:
           type: string
           format: date-time
+    PatchedBoxInput:
+      type: object
+      properties:
+        unit:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 100
+        rows:
+          type: integer
+          maximum: 26
+          minimum: 1
+        cols:
+          type: integer
+          maximum: 26
+          minimum: 1
+        shelf:
+          type: string
+          maxLength: 100
     PatchedCellInput:
       type: object
       properties:
@@ -22580,6 +23488,77 @@ components:
           maxLength: 1000
         spec:
           $ref: '#/components/schemas/RuleSpec'
+    PatchedSampleInput:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/SampleKindEnum'
+        code:
+          type: string
+          description: 'Left out on create: the next free code.'
+          maxLength: 32
+        name:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 5000
+        owner:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          $ref: '#/components/schemas/SampleStatusEnum'
+        backbone:
+          type: string
+          maxLength: 200
+        insert:
+          type: string
+          maxLength: 200
+        resistance:
+          type: string
+          maxLength: 200
+        tag:
+          type: string
+          maxLength: 200
+        species:
+          type: string
+          maxLength: 200
+        genotype:
+          type: string
+          maxLength: 500
+        sequence:
+          type: string
+          description: 5' to 3'. Spaces are dropped.
+          maxLength: 500
+        concentration:
+          type: string
+          maxLength: 64
+        buffer:
+          type: string
+          maxLength: 200
+        made_on:
+          type: string
+          format: date
+          nullable: true
+        parents:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
+        projects:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
+        linked_files:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
     PatchedSensorInput:
       type: object
       properties:
@@ -22744,6 +23723,56 @@ components:
         notes:
           type: string
           maxLength: 2000
+    PatchedTubeInput:
+      type: object
+      properties:
+        box:
+          type: string
+          format: uuid
+        row:
+          type: integer
+          maximum: 26
+          minimum: 1
+        col:
+          type: integer
+          maximum: 26
+          minimum: 1
+        sample:
+          type: string
+          format: uuid
+        label:
+          type: string
+          maxLength: 100
+        amount:
+          type: string
+          maxLength: 64
+        stored_on:
+          type: string
+          format: date
+          nullable: true
+        owner:
+          type: string
+          format: uuid
+          nullable: true
+          description: Who holds it; you, when left out on place.
+    PatchedUnitInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        kind:
+          $ref: '#/components/schemas/StorageKindEnum'
+        temperature:
+          type: string
+          maxLength: 32
+        location:
+          type: string
+          maxLength: 200
+        equipment:
+          type: string
+          format: uuid
+          nullable: true
     PatchedWebhookUpdate:
       type: object
       properties:
@@ -24014,6 +25043,485 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/EnrolmentStatusEnum'
+    Sample:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/SampleKindEnum'
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        owner:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/SampleStatusEnum'
+          readOnly: true
+        backbone:
+          type: string
+          readOnly: true
+        insert:
+          type: string
+          readOnly: true
+        resistance:
+          type: string
+          readOnly: true
+        tag:
+          type: string
+          readOnly: true
+        species:
+          type: string
+          readOnly: true
+        genotype:
+          type: string
+          readOnly: true
+        sequence:
+          type: string
+          readOnly: true
+        tm:
+          type: number
+          format: double
+          nullable: true
+          readOnly: true
+          description: Primer melting temperature, °C (rough).
+        concentration:
+          type: string
+          readOnly: true
+        buffer:
+          type: string
+          readOnly: true
+        made_on:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        tubes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TubeSample'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - backbone
+      - buffer
+      - code
+      - concentration
+      - created_at
+      - description
+      - genotype
+      - id
+      - insert
+      - kind
+      - made_on
+      - name
+      - owner
+      - resistance
+      - sequence
+      - species
+      - status
+      - tag
+      - tm
+      - tubes
+      - updated_at
+    SampleDetail:
+      type: object
+      description: The view passes what the reader may see in the context; nothing
+        here queries.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/SampleKindEnum'
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        owner:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/SampleStatusEnum'
+          readOnly: true
+        backbone:
+          type: string
+          readOnly: true
+        insert:
+          type: string
+          readOnly: true
+        resistance:
+          type: string
+          readOnly: true
+        tag:
+          type: string
+          readOnly: true
+        species:
+          type: string
+          readOnly: true
+        genotype:
+          type: string
+          readOnly: true
+        sequence:
+          type: string
+          readOnly: true
+        tm:
+          type: number
+          format: double
+          nullable: true
+          readOnly: true
+          description: Primer melting temperature, °C (rough).
+        concentration:
+          type: string
+          readOnly: true
+        buffer:
+          type: string
+          readOnly: true
+        made_on:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        tubes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TubeSample'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        parents:
+          type: array
+          items:
+            $ref: '#/components/schemas/SampleRef'
+          readOnly: true
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/SampleRef'
+          readOnly: true
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectRef'
+          readOnly: true
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/SampleFile'
+          readOnly: true
+      required:
+      - backbone
+      - buffer
+      - children
+      - code
+      - concentration
+      - created_at
+      - description
+      - files
+      - genotype
+      - id
+      - insert
+      - kind
+      - made_on
+      - name
+      - owner
+      - parents
+      - projects
+      - resistance
+      - sequence
+      - species
+      - status
+      - tag
+      - tm
+      - tubes
+      - updated_at
+    SampleFile:
+      type: object
+      description: An upload on the sample (`on_sample`) or a project file linked
+        to it.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        content_type:
+          type: string
+        size_bytes:
+          type: integer
+        from_drive:
+          type: boolean
+        uploaded_by:
+          $ref: '#/components/schemas/User'
+        created_at:
+          type: string
+          format: date-time
+        on_sample:
+          type: boolean
+          readOnly: true
+        project:
+          allOf:
+          - $ref: '#/components/schemas/ProjectRef'
+          nullable: true
+          readOnly: true
+      required:
+      - content_type
+      - created_at
+      - from_drive
+      - id
+      - name
+      - on_sample
+      - project
+      - size_bytes
+      - uploaded_by
+    SampleImportInput:
+      type: object
+      properties:
+        file:
+          type: string
+          format: uri
+        commit:
+          type: boolean
+          default: false
+      required:
+      - file
+    SampleImportResult:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/SampleImportRow'
+        valid:
+          type: integer
+        invalid:
+          type: integer
+        imported:
+          type: integer
+          description: Entries added; 0 for a preview.
+        ignored_columns:
+          type: array
+          items:
+            type: string
+      required:
+      - ignored_columns
+      - imported
+      - invalid
+      - rows
+      - valid
+    SampleImportRow:
+      type: object
+      properties:
+        row:
+          type: integer
+          description: The line in the file (the header is line 1).
+        code:
+          type: string
+          description: The code it gets; suggested when the file has none.
+        kind:
+          type: string
+        name:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+      - code
+      - errors
+      - kind
+      - name
+      - row
+    SampleInput:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/SampleKindEnum'
+        code:
+          type: string
+          description: 'Left out on create: the next free code.'
+          maxLength: 32
+        name:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 5000
+        owner:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          $ref: '#/components/schemas/SampleStatusEnum'
+        backbone:
+          type: string
+          maxLength: 200
+        insert:
+          type: string
+          maxLength: 200
+        resistance:
+          type: string
+          maxLength: 200
+        tag:
+          type: string
+          maxLength: 200
+        species:
+          type: string
+          maxLength: 200
+        genotype:
+          type: string
+          maxLength: 500
+        sequence:
+          type: string
+          description: 5' to 3'. Spaces are dropped.
+          maxLength: 500
+        concentration:
+          type: string
+          maxLength: 64
+        buffer:
+          type: string
+          maxLength: 200
+        made_on:
+          type: string
+          format: date
+          nullable: true
+        parents:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
+        projects:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
+        linked_files:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
+      required:
+      - kind
+      - name
+    SampleKindEnum:
+      enum:
+      - plasmid
+      - strain
+      - primer
+      - construct
+      - cell_line
+      - antibody
+      - protein
+      - other
+      type: string
+      description: |-
+        * `plasmid` - Plasmid
+        * `strain` - Strain
+        * `primer` - Primer
+        * `construct` - Construct
+        * `cell_line` - Cell line
+        * `antibody` - Antibody
+        * `protein` - Protein or enzyme batch
+        * `other` - Other
+    SampleNextCodes:
+      type: object
+      properties:
+        plasmid:
+          type: string
+        strain:
+          type: string
+        primer:
+          type: string
+        construct:
+          type: string
+        cell_line:
+          type: string
+        antibody:
+          type: string
+        protein:
+          type: string
+        other:
+          type: string
+      required:
+      - antibody
+      - cell_line
+      - construct
+      - other
+      - plasmid
+      - primer
+      - protein
+      - strain
+    SampleRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/SampleKindEnum'
+          readOnly: true
+      required:
+      - code
+      - id
+      - kind
+      - name
+    SampleStatusEnum:
+      enum:
+      - in_use
+      - verified
+      - archived
+      type: string
+      description: |-
+        * `in_use` - In use
+        * `verified` - Verified
+        * `archived` - Archived
     SearchHit:
       type: object
       properties:
@@ -24798,6 +26306,18 @@ components:
       - can_act
       - done
       - key
+    StorageKindEnum:
+      enum:
+      - freezer
+      - fridge
+      - ln2
+      - room
+      type: string
+      description: |-
+        * `freezer` - Freezer
+        * `fridge` - Fridge
+        * `ln2` - Liquid nitrogen
+        * `room` - Room temperature
     StudyTypesEnum:
       enum:
       - human
@@ -25590,6 +27110,154 @@ components:
       required:
       - category
       - name
+    Tube:
+      type: object
+      description: A tube in a box grid.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        box:
+          type: string
+          format: uuid
+          readOnly: true
+        row:
+          type: integer
+          readOnly: true
+        col:
+          type: integer
+          readOnly: true
+        position:
+          type: string
+          readOnly: true
+        sample:
+          allOf:
+          - $ref: '#/components/schemas/SampleRef'
+          readOnly: true
+        label:
+          type: string
+          readOnly: true
+        amount:
+          type: string
+          readOnly: true
+        stored_on:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        owner:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+      required:
+      - amount
+      - box
+      - col
+      - id
+      - label
+      - owner
+      - position
+      - row
+      - sample
+      - stored_on
+    TubeInput:
+      type: object
+      properties:
+        box:
+          type: string
+          format: uuid
+        row:
+          type: integer
+          maximum: 26
+          minimum: 1
+        col:
+          type: integer
+          maximum: 26
+          minimum: 1
+        sample:
+          type: string
+          format: uuid
+        label:
+          type: string
+          maxLength: 100
+        amount:
+          type: string
+          maxLength: 64
+        stored_on:
+          type: string
+          format: date
+          nullable: true
+        owner:
+          type: string
+          format: uuid
+          nullable: true
+          description: Who holds it; you, when left out on place.
+      required:
+      - box
+      - col
+      - row
+      - sample
+    TubeSample:
+      type: object
+      description: 'A tube where it sits: for a sample''s own list and for "where
+        is P0012".'
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        box:
+          type: string
+          format: uuid
+          readOnly: true
+        box_name:
+          type: string
+          readOnly: true
+        unit:
+          type: string
+          format: uuid
+          readOnly: true
+        unit_name:
+          type: string
+          readOnly: true
+        row:
+          type: integer
+          readOnly: true
+        col:
+          type: integer
+          readOnly: true
+        position:
+          type: string
+          readOnly: true
+        label:
+          type: string
+          readOnly: true
+        amount:
+          type: string
+          readOnly: true
+        stored_on:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        owner:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+      required:
+      - amount
+      - box
+      - box_name
+      - col
+      - id
+      - label
+      - owner
+      - position
+      - row
+      - stored_on
+      - unit
+      - unit_name
     TypeEnum:
       enum:
       - poster
@@ -25602,6 +27270,44 @@ components:
         * `presentation` - Presentation
         * `conference` - Conference
         * `other` - Other
+    Unit:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/StorageKindEnum'
+          readOnly: true
+        temperature:
+          type: string
+          readOnly: true
+        location:
+          type: string
+          readOnly: true
+        equipment:
+          allOf:
+          - $ref: '#/components/schemas/EquipmentRef'
+          readOnly: true
+          nullable: true
+        boxes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Box'
+          readOnly: true
+      required:
+      - boxes
+      - equipment
+      - id
+      - kind
+      - location
+      - name
+      - temperature
     UnitEnum:
       enum:
       - c
@@ -25612,6 +27318,26 @@ components:
         * `c` - °C
         * `rh` - % humidity
         * `co2` - % CO2
+    UnitInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        kind:
+          $ref: '#/components/schemas/StorageKindEnum'
+        temperature:
+          type: string
+          maxLength: 32
+        location:
+          type: string
+          maxLength: 200
+        equipment:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - name
     UploadedViaEnum:
       enum:
       - page

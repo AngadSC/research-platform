@@ -30,6 +30,7 @@ from provenance.models import (
     Result,
     ReviewItem,
 )
+from samples.models import Sample
 from training.models import TrainingRequirement
 
 PER_TYPE = 8
@@ -155,6 +156,16 @@ SPECS = [
         perm=Perm.VIEW_LAB,
         ai=False,
     ),
+    Spec(  # the sample registry: same rules as inventory. Never in AI tools.
+        "sample",
+        Sample,
+        "name",
+        ("description", "code", "insert", "genotype"),
+        lambda o: f"/labs/{o.lab_id}/samples/{o.pk}",
+        perm=Perm.VIEW_LAB,
+        label=lambda o: f"{o.code} {o.name}",
+        ai=False,
+    ),
     Spec(  # the lab's required trainings only; people's records are private and never searched
         "training",
         TrainingRequirement,
@@ -217,7 +228,7 @@ def search(user, lab, q: str, types=None, for_ai=False) -> list[dict]:
     for spec in SPECS:
         if (types and spec.type not in types) or (for_ai and not spec.ai):
             continue
-        if spec.type == "inventory" and not lab.inventory_enabled:
+        if spec.type in ("inventory", "sample") and not lab.inventory_enabled:
             continue
         qs = scope(spec.model, user, lab)
         if spec.model is Document:  # D233: lab-wide documents have no project for scope() to check

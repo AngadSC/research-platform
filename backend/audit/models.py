@@ -227,6 +227,19 @@ class AuditAction(models.TextChoices):
     INSTRUMENT_DROP_LINK_CREATED = "instrument_drop_link.created"
     INSTRUMENT_DROP_LINK_USED = "instrument_drop_link.used"
     INSTRUMENT_DROP_LINK_REVOKED = "instrument_drop_link.revoked"
+    # Wet lab: sample registry and freezer boxes (samples app)
+    SAMPLE_CREATED = "sample.created"
+    SAMPLE_UPDATED = "sample.updated"
+    SAMPLE_DELETED = "sample.deleted"
+    SAMPLES_IMPORTED = "samples.imported"
+    SAMPLES_EXPORTED = "samples.exported"
+    STORAGE_CREATED = "storage.created"  # a freezer, fridge or box; the target type says which
+    STORAGE_UPDATED = "storage.updated"
+    STORAGE_DELETED = "storage.deleted"
+    TUBE_PLACED = "tube.placed"
+    TUBE_MOVED = "tube.moved"
+    TUBE_UPDATED = "tube.updated"
+    TUBE_REMOVED = "tube.removed"
 
 
 class AuditQuerySet(models.QuerySet):

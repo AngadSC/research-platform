@@ -267,8 +267,8 @@ def _link_drive_file(
     from integrations.models import AccountStatus, ConnectedAccount
     from integrations.providers import google_drive
 
-    project, approval, training_record, paper = owners
-    owner = project or approval or training_record or paper
+    project, approval, training_record, paper, sample = owners
+    owner = next(o for o in owners if o is not None)
     provider = google_drive.PROVIDER
     if not provider.valid_external_id(file_id):
         raise ValidationError({"drive_file_id": "That is not a Google Drive file."})
@@ -300,6 +300,7 @@ def _link_drive_file(
             ethics_approval=approval,
             training_record=training_record,
             paper=paper,
+            sample=sample,
             folder=folder,
             storage_key=f"drive:{attachment_id}",  # never opened: there are no bytes
             original_filename="".join(c for c in meta["title"] if c.isprintable())[:255] or "file",
@@ -342,6 +343,7 @@ def upload_attachment(
     approval=None,
     training_record=None,
     paper=None,
+    sample=None,
     request=None,
     folder=None,
     pi_only=False,
@@ -349,17 +351,18 @@ def upload_attachment(
     source="web",
 ) -> Attachment:
     """The caller has already checked `acknowledged_notice` (the serializer) and access to the
-    owner: exactly one of `project`, an ethics `approval`, a `training_record` or a `paper` (D38,
-    D175). The key is built here and never taken from the client (D26)."""
-    if sum(o is not None for o in (project, approval, training_record, paper)) != 1:
+    owner: exactly one of `project`, an ethics `approval`, a `training_record`, a `paper` or a
+    `sample` (D38, D175). The key is built here and never taken from the client (D26)."""
+    owners = (project, approval, training_record, paper, sample)
+    if sum(o is not None for o in owners) != 1:
         raise ValueError("an attachment has exactly one owner")
-    owner = project or approval or training_record or paper
+    owner = next(o for o in owners if o is not None)
     flag = _inherit(contains_participant_data, folder)
     if drive_file_id:
         return _link_drive_file(
             user=user,
             file_id=drive_file_id,
-            owners=(project, approval, training_record, paper),
+            owners=owners,
             folder=folder,
             request=request,
             pi_only=pi_only,
@@ -384,6 +387,7 @@ def upload_attachment(
                 ethics_approval=approval,
                 training_record=training_record,
                 paper=paper,
+                sample=sample,
                 folder=folder,
                 storage_key=saved,
                 original_filename="".join(c for c in file.name if c.isprintable())[:255] or "file",
@@ -476,7 +480,7 @@ def edit_in_google(attachment, *, user, request=None) -> Attachment:
     return _link_drive_file(
         user=user,
         file_id=file_id,
-        owners=(attachment.project, None, None, None),
+        owners=(attachment.project, None, None, None, None),
         folder=attachment.folder,
         request=request,
         pi_only=attachment.pi_only,

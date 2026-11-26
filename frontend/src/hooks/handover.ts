@@ -23,6 +23,12 @@ export const reassignTask = (labId: string, taskId: string, userId: string) =>
 export const reassignDataset = (labId: string, datasetId: string, userId: string) =>
   send("PATCH", `${lab(labId)}/datasets/${datasetId}/`, { controlled_by: userId });
 
+export const reassignSample = (labId: string, sampleId: string, userId: string) =>
+  send("PATCH", `${lab(labId)}/samples/${sampleId}/`, { owner: userId });
+
+export const reassignTube = (labId: string, tubeId: string, userId: string) =>
+  send("PATCH", `${lab(labId)}/storage/tubes/${tubeId}/`, { owner: userId });
+
 /** Give a document they created to a new owner, who must be able to edit the project. */
 export const reassignDocument = (labId: string, documentId: string, userId: string) =>
   send("POST", `${lab(labId)}/documents/${documentId}/owner/`, { owner: userId });
