@@ -96,6 +96,7 @@ const EthicsFormPage = later(() => import("@/pages/ethics/EthicsPages"), "Ethics
 const EthicsListPage = later(() => import("@/pages/ethics/EthicsPages"), "EthicsListPage");
 const NotificationsPage = later(() => import("@/pages/ethics/LabPages"), "NotificationsPage");
 const RetentionPage = later(() => import("@/pages/ethics/LabPages"), "RetentionPage");
+const UsagePage = later(() => import("@/pages/UsagePage"), "UsagePage");
 
 /** /labs/<lab>/settings: lab admins get Lab details; everyone else gets their own Settings. */
 function LabSettingsRedirect() {
@@ -149,6 +150,7 @@ export const routes: RouteObject[] = [
       { index: true, element: <HomePage /> },
       { path: "settings", element: <SettingsPage />, handle: { crumb: "Settings" } },
       { path: "help", element: <HelpPage />, handle: { crumb: "Help" } },
+      { path: "usage", element: <UsagePage />, handle: { crumb: "Usage" } },
       // The account menu's Profile: the Profile tab of Settings.
       { path: "profile", element: <Navigate to="/settings#profile" replace /> },
       // D161: OAuth authorization endpoint for MCP clients (sign-in and MFA happen first)

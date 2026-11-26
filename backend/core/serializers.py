@@ -9,6 +9,7 @@ from core import avatars
 from core.middleware import canonical_zone
 from core.models import Notification, User
 from core.notifications import live_body, live_title, notification_url
+from core.permissions import is_site_staff
 
 
 def no_control_chars(value):
@@ -152,8 +153,14 @@ class MeSerializer(UserSerializer):
     preferences = serializers.JSONField(required=False)
     bio = serializers.CharField(max_length=500, allow_blank=True, required=False)
 
+    # D379: true for the operators; only shows the Usage link. Never settable here.
+    site_staff = serializers.SerializerMethodField()
+
     class Meta(UserSerializer.Meta):
-        fields = [*UserSerializer.Meta.fields, "bio", "preferences"]
+        fields = [*UserSerializer.Meta.fields, "bio", "preferences", "site_staff"]
+
+    def get_site_staff(self, user) -> bool:
+        return is_site_staff(user)
 
     def validate_bio(self, value):
         # Newlines are fine in a bio; other control characters are not.
