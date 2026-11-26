@@ -29,9 +29,6 @@ from projects import services as project_services
 from projects.models import ProjectRole
 
 QUERY_BUDGET = 60
-# Known heavy: the list re-checks every notification's target one row at a time (D54), about two
-# queries a row, up to its 100-row limit. Batch the target lookups to bring this under budget.
-KNOWN_HEAVY = {"core:notification-list": 220}
 SECONDS_BUDGET = 5.0
 PW = "sweep-pw-not-secret"
 
@@ -308,11 +305,7 @@ def test_query_budget_and_speed(sweep, capsys):
         print("\nTOP 25 BY TIME")
         for r in sorted(recs, key=lambda r: -r.ms)[:25]:
             print(f"  {r.ms:7.0f} ms {r.queries:4d} q  {r.label:12} {r.name}")
-    over = [
-        r
-        for r in recs
-        if r.queries > KNOWN_HEAVY.get(r.name, QUERY_BUDGET) or r.ms > SECONDS_BUDGET * 1000
-    ]
+    over = [r for r in recs if r.queries > QUERY_BUDGET or r.ms > SECONDS_BUDGET * 1000]
     assert not over, "\n".join(f"{r.label} {r.name}: {r.queries} q, {r.ms:.0f} ms" for r in over)
 
 
