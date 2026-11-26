@@ -88,6 +88,8 @@ const SettingsPage = later(() => import("@/pages/SettingsPage"), "SettingsPage")
 const OAuthConsentPage = later(() => import("@/pages/OAuthConsentPage"), "OAuthConsentPage");
 const AdminPage = later(() => import("@/pages/admin/AdminPage"), "AdminPage");
 const InventoryPage = later(() => import("@/pages/admin/InventoryPage"), "InventoryPage");
+const MonitoringPage = later(() => import("@/pages/monitoring/MonitoringPage"), "MonitoringPage");
+const SensorPage = later(() => import("@/pages/monitoring/SensorPage"), "SensorPage");
 const PaperDetailPage = later(() => import("@/pages/papers/PaperDetailPage"), "PaperDetailPage");
 const PapersPage = later(() => import("@/pages/papers/PapersPage"), "PapersPage");
 const MyTrainingPage = later(() => import("@/pages/training/MyTrainingPage"), "MyTrainingPage");
@@ -415,6 +417,14 @@ export const routes: RouteObject[] = [
               { path: "settings", element: <LabSettingsRedirect /> },
               { path: "integrations", element: <Navigate to="../settings/integrations" replace /> },
               { path: "inventory", element: <InventoryPage />, handle: { crumb: "Inventory" } },
+              {
+                path: "monitoring",
+                handle: { crumb: "Monitoring" },
+                children: [
+                  { index: true, element: <MonitoringPage /> },
+                  { path: ":sensorId", element: <SensorPage />, handle: { crumb: "Sensor" } },
+                ],
+              },
               { path: "chat", element: <LabChatPage />, handle: { crumb: "Lab chat" } },
               { path: "calendar", element: <CalendarPage />, handle: { crumb: "Calendar" } },
               {

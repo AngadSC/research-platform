@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     "audit",
     "integrations",
     "assistant",  # Run 5, D160: AI tool layer and MCP server
+    "monitoring",  # wet lab: freezer and incubator sensors
 ]
 
 MIDDLEWARE = [
@@ -268,6 +269,14 @@ CELERY_BEAT_SCHEDULE = {
         "task": "labs.jobs.push_google_calendars",
         "schedule": crontab(minute="*/15"),
     },
+    "sensors-check-silent": {  # a sensor that stopped reporting
+        "task": "monitoring.jobs.check_silent_sensors",
+        "schedule": crontab(minute="*/5"),
+    },
+    "sensors-roll-up-readings": {  # raw readings older than 30 days become hourly rows
+        "task": "monitoring.jobs.roll_up_readings",
+        "schedule": crontab(minute=35),
+    },
     "poll-google-chat": {  # D316: new Google Chat messages into the lab chat
         "task": "labs.jobs.poll_google_chat",
         "schedule": float(os.environ.get("GOOGLE_CHAT_POLL_SECONDS", "15")),
@@ -388,6 +397,7 @@ REST_FRAMEWORK = {
         "ai_key": "20/hour",  # D187: each key save makes one provider call
         "ai_chat": "240/hour",  # D190: messages and approvals to the in-app assistant
         "file_links": "120/hour",  # VISION S1: download and upload links, per address
+        "sensor_ingest": "600/minute",  # per address; each sensor also has its own limit
     },
     "DEFAULT_PERMISSION_CLASSES": ["core.permissions.HasPerm"],
     "DEFAULT_AUTHENTICATION_CLASSES": ["core.auth.SessionAuthentication"],

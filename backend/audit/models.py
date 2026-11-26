@@ -215,6 +215,14 @@ class AuditAction(models.TextChoices):
     DATASET_PARTICIPANT_FLAG_CHANGED = "dataset.participant_flag_changed"
     # Run 6: a 15-minute download or upload link for tools on the person's computer (VISION S1)
     FILE_LINK_CREATED = "file_link.created"
+    # Wet lab: freezer and incubator sensors; the device token never appears
+    SENSOR_CREATED = "sensor.created"
+    SENSOR_UPDATED = "sensor.updated"
+    SENSOR_DELETED = "sensor.deleted"
+    SENSOR_TOKEN_CREATED = "sensor_token.created"
+    SENSOR_TOKEN_ROTATED = "sensor_token.rotated"
+    SENSOR_TOKEN_REVOKED = "sensor_token.revoked"
+    SENSOR_ALERT_ACKNOWLEDGED = "sensor_alert.acknowledged"
 
 
 class AuditQuerySet(models.QuerySet):

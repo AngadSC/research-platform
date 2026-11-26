@@ -103,7 +103,15 @@ const LAB_GROUP = [
   "participants",
   "settings/integrations",
 ];
-const ADMIN_GROUP = ["inventory", "ethics", "funding", "retention", "audit-log", "admin"];
+const ADMIN_GROUP = [
+  "inventory",
+  "monitoring",
+  "ethics",
+  "funding",
+  "retention",
+  "audit-log",
+  "admin",
+];
 
 /**
  * Icons-only sidebar: a group of pages behind one icon, below the divider. Hovering (or clicking, or focusing) it opens

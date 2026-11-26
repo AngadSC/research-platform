@@ -189,6 +189,13 @@ export type InventoryInput = Schemas["InventoryInput"];
 export type InventoryOrder = Schemas["InventoryOrder"];
 export type InventoryOrderInput = Schemas["InventoryOrderInput"];
 export type OrderStatus = InventoryOrder["status"];
+// Wet lab: freezer and incubator sensors
+export type Sensor = Schemas["Sensor"];
+export type SensorDetail = Schemas["SensorDetail"];
+export type SensorAlert = Schemas["SensorAlert"];
+export type SensorInput = Schemas["SensorInput"];
+export type SensorToken = Schemas["SensorToken"];
+export type SensorPoint = Schemas["Point"];
 export type CalendarItem = Schemas["CalendarItem"];
 export type LabEvent = Schemas["LabEvent"];
 export type LabEventInput = Schemas["LabEventInput"];

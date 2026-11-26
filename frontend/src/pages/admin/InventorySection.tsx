@@ -25,6 +25,8 @@ import { UseStockDialog } from "./UseStockDialog";
 import { Minus, Search, TriangleAlert } from "lucide-react";
 import { trimNumber } from "@/lib/units";
 import { useMembers } from "@/hooks/workspace";
+import { useSensors } from "@/hooks/monitoring";
+import { SensorBadge } from "@/pages/monitoring/parts";
 import type { InventoryInput, InventoryItem, InventoryOrder } from "@/lib/api-types";
 import { localDateISO } from "@/lib/format";
 import { formErrors, type FormErrors } from "@/lib/forms";
@@ -366,6 +368,7 @@ export function InventorySection({
   const openOrders = (i: InventoryItem) =>
     orders.filter((o) => o.item === i.id && (o.status === "requested" || o.status === "ordered"));
   const [usingId, setUsing] = useState<string | null>(null);
+  const sensors = useSensors(labId).data ?? [];
   const using = (list.data ?? []).find((i) => i.id === usingId) ?? null;
 
   const actions = (i: InventoryItem) => (
@@ -408,7 +411,20 @@ export function InventorySection({
   );
 
   const cols: Column<InventoryItem>[] = [
-    { key: "name", header: "Name", cell: (i) => <span className="font-medium">{i.name}</span> },
+    {
+      key: "name",
+      header: "Name",
+      cell: (i) => (
+        <span className="inline-flex flex-wrap items-center gap-2">
+          <span className="font-medium">{i.name}</span>
+          {sensors
+            .filter((s) => s.item?.id === i.id)
+            .map((s) => (
+              <SensorBadge key={s.id} labId={labId} sensor={s} />
+            ))}
+        </span>
+      ),
+    },
     {
       key: "category",
       header: "Category",

@@ -58,6 +58,8 @@ from labs.models import (  # admin area (Run 4)
     ProtocolReagent,
     Subject,
 )
+from monitoring import services as sensor_services  # wet lab sensors
+from monitoring.models import Sensor, SensorAlert  # wet lab sensors
 from papers import services as paper_services  # paper library
 from participants import imports as participant_imports  # participant registry
 from participants import rules as participant_rules  # participant registry
@@ -530,6 +532,21 @@ MATRIX: dict[tuple[str, str], str] = {
     ("PATCH",  "labs:order-detail"): "401 404 2 2 2 2 2 2 403",
     ("DELETE", "labs:order-detail"): "401 404 2 2 2 2 2 2 403",
     # --- end admin area (Run 4) ---
+    # --- wet lab sensors: like inventory, every member reads and manage_inventory changes (the
+    # lab viewer gets 403). A device posts with its sensor's token and no session: anon sends none
+    # (401); the outsider holds Lab A's real token, which is all a device needs.
+    ("GET",    "monitoring:sensor-list"): "401 404 2 2 2 2 2 2 2",
+    ("POST",   "monitoring:sensor-list"): "401 404 2 2 2 2 2 2 403",
+    ("GET",    "monitoring:sensor-detail"): "401 404 2 2 2 2 2 2 2",
+    ("PATCH",  "monitoring:sensor-detail"): "401 404 2 2 2 2 2 2 403",
+    ("DELETE", "monitoring:sensor-detail"): "401 404 2 2 2 2 2 2 403",
+    ("POST",   "monitoring:sensor-token"): "401 404 2 2 2 2 2 2 403",
+    ("DELETE", "monitoring:sensor-token"): "401 404 2 2 2 2 2 2 403",
+    ("POST",   "monitoring:sensor-test-reading"): "401 404 2 2 2 2 2 2 403",
+    ("POST",   "monitoring:alert-acknowledge"): "401 404 2 2 2 2 2 2 403",
+    ("GET",    "monitoring:sensor-ingest"): "401 2 2 2 2 2 2 2 2",
+    ("POST",   "monitoring:sensor-ingest"): "401 2 2 2 2 2 2 2 2",
+    # --- end wet lab sensors ---
     # --- lab chat and calendar ---
     # Lab chat is D206 for the whole lab: every member reads and posts, the lab viewer included.
     # The fixture message is contrib's: its author or manage_lab (pi, admin) may delete it.
@@ -896,6 +913,25 @@ def _admin_fixtures(lab, tag):
 
 
 # --- end admin area (Run 4) ---
+
+
+def _sensor_fixtures(lab, inv, tag):
+    """A sensor on the inventory item with an open, unacknowledged alert."""
+    sensor = Sensor.objects.create(
+        lab=lab, item=inv, name=f"Sensor {tag}", low_limit=-90, high_limit=-70
+    )
+    alert = SensorAlert.objects.create(
+        lab=lab, sensor=sensor, kind="high", value=-60, peak=-60, started_at="2030-01-01T00:00Z"
+    )
+    return {"sensor_id": sensor.pk, "sensoralert_id": alert.pk}
+
+
+def _sensor_token(user, w):
+    """A real device token for Lab A's sensor (anon gets none). Each case is rolled back."""
+    if user is None:
+        return {}
+    sensor = Sensor.objects.for_lab(w.a["lab_id"]).get(pk=w.a["sensor_id"])
+    return {"token": sensor_services.issue_token(sensor, user=user), "value": -79.5}
 
 
 def _protocol_fixtures(lab, project, user, tag):
@@ -1378,6 +1414,7 @@ def build_world():
             "institutionresource_id": res_a.pk,  # admin area (Run 4)
             "onboardingitem_id": onb_a.pk,
             "inventoryitem_id": inv_a.pk,
+            **_sensor_fixtures(lab_a, inv_a, "lab-a"),  # wet lab sensors
             **tools_a,
             **protocol_a,
             "trainingrequirement_id": tr_free_a.pk,  # training (Run 5)
@@ -1418,6 +1455,7 @@ def build_world():
             "institutionresource_id": res_b.pk,  # admin area (Run 4)
             "onboardingitem_id": onb_b.pk,
             "inventoryitem_id": inv_b.pk,
+            **_sensor_fixtures(lab_b, inv_b, "LAB-B-SECRET"),  # wet lab sensors
             **tools_b,
             **protocol_b,
             "trainingrequirement_id": tr_free_b.pk,  # training (Run 5)
@@ -1466,6 +1504,7 @@ def build_world():
             "Resource LAB-B-SECRET",
             "Onboarding LAB-B-SECRET",
             "Inventory LAB-B-SECRET",
+            "Sensor LAB-B-SECRET",  # wet lab sensors
             "Reagent LAB-B-SECRET",
             "Protocol LAB-B-SECRET",
             "Order LAB-B-SECRET",
@@ -1862,6 +1901,20 @@ PAYLOADS = {
         else {}
     ),
     # --- end lab chat and calendar ---
+    # --- wet lab sensors ---
+    ("POST", "monitoring:sensor-list"): lambda user, w: {
+        "name": "Cold room",
+        "low_limit": 2,
+        "high_limit": 8,
+        "recipients": [str(w.user_ids["contrib"])],
+    },
+    ("PATCH", "monitoring:sensor-detail"): lambda user, w: {"silent_after_minutes": 60},
+    ("POST", "monitoring:sensor-token"): lambda user, w: {},
+    ("POST", "monitoring:sensor-test-reading"): lambda user, w: {"value": -80},
+    ("POST", "monitoring:alert-acknowledge"): lambda user, w: {"note": "Door was ajar"},
+    ("GET", "monitoring:sensor-ingest"): _sensor_token,
+    ("POST", "monitoring:sensor-ingest"): _sensor_token,
+    # --- end wet lab sensors ---
     # --- training (Run 5) ---
     ("POST", "training:requirement-list"): lambda user, w: {
         "name": f"New training {next(_n)}",
