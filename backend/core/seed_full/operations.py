@@ -635,6 +635,8 @@ def seed_calendar(ctx, rng):
 
 def seed_subjects(ctx, rng):
     project, lead = ctx.projects["mouse"], ctx.people["hana"]
+    project.study_types = ["animal"]  # so the project shows Subjects, not Participants
+    project.save(update_fields=["study_types"])
     today, day = ctx.today, ctx.day
     lines = [
         ("C57BL/6J", "Wild type", "Example Mouse Vendor (FAKE)"),

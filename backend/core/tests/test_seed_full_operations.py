@@ -63,5 +63,6 @@ def test_operations_seed():
     assert Meeting.objects.for_lab(lab).count() > 100
     assert LabEvent.objects.for_lab(lab).count() == 10
     assert Subject.objects.for_lab(lab).count() == 30
+    assert {s.project.study_types[0] for s in Subject.objects.for_lab(lab)} == {"animal"}
     assert InstitutionResource.objects.for_lab(lab).exists()
     assert Invite.objects.for_lab(lab).count() == 3
