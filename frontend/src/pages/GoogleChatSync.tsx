@@ -146,7 +146,9 @@ export function GoogleChatSync({
             <span role="status" className="min-w-0 flex-1 truncate text-muted-foreground">
               {s.reconnect_is_mine
                 ? "Google Chat is disconnected."
-                : "Google Chat is paused until whoever set it up reconnects."}
+                : s.can_manage
+                  ? "Google Chat is paused until whoever set it up reconnects."
+                  : "Messages here still work. They are not being copied to Google Chat right now."}
             </span>
             {s.reconnect_is_mine && (
               <Button asChild size="sm" variant="outline" className="shrink-0">

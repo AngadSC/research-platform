@@ -383,7 +383,20 @@ function Members({
     {
       key: "name",
       header: "Name",
-      cell: (m) => <span className="font-medium">{personName(m.user)}</span>,
+      cell: (m) => (
+        <span className="flex flex-wrap items-baseline gap-x-2">
+          <span className="font-medium">{personName(m.user)}</span>
+          {m.user.email && (
+            <a
+              href={`mailto:${m.user.email}`}
+              aria-label={`Email ${personName(m.user)}`}
+              className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              Email
+            </a>
+          )}
+        </span>
+      ),
     },
     {
       key: "role",
@@ -395,7 +408,7 @@ function Members({
             {/* The server says per row: a lead cannot change a PI or the last lead. */}
             {canManage && m.can_change ? (
               <RoleSelect
-                label={`Role for ${m.user.email}`}
+                label={`Role for ${personName(m.user)}`}
                 value={m.role}
                 onChange={(role) =>
                   update.mutate(
@@ -423,7 +436,7 @@ function Members({
                 <Button variant="ghost" size="sm" asChild>
                   <Link
                     to={`/labs/${labId}/projects/${projectId}/handover?user=${m.user.id}`}
-                    aria-label={`Handover for ${m.user.email}`}
+                    aria-label={`Handover for ${personName(m.user)}`}
                     title="Lists everything this person owns or leads in this project, so it can be given to someone else."
                   >
                     Handover
@@ -433,7 +446,7 @@ function Members({
                   <Button
                     variant="ghost"
                     size="sm"
-                    aria-label={`Remove ${m.user.email}`}
+                    aria-label={`Remove ${personName(m.user)}`}
                     onClick={() =>
                       remove.mutate(m.id, {
                         onSuccess: () => toast.success("Member removed"),

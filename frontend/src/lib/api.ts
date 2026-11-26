@@ -2,7 +2,7 @@ export type FieldErrors = Record<string, string>;
 
 const MESSAGES: Record<number, string> = {
   401: "Please sign in to continue.",
-  403: "You don't have permission to do that.",
+  403: "You don't have access to do this. Ask your PI or a lab admin.",
   404: "We couldn't find that. It may have been removed.",
   409: "That conflicts with something that already exists or has just changed. Refresh and try again.",
 };
@@ -51,6 +51,9 @@ export function toApiError(status: number, body: unknown): ApiError {
   }
   const general = status >= 500 ? SERVER_MESSAGE : status === 400 ? undefined : MESSAGES[status];
   // 4xx other than 400: our friendly text wins unless the server gave a specific reason (403 invite mismatch etc.).
+  // DRF's stock 403 text says nothing useful, so the plain fallback replaces it.
+  if (status === 403 && message === "You do not have permission to perform this action.")
+    message = undefined;
   const text =
     status === 403 || status === 409 ? (message ?? general) : status === 400 ? message : general;
   const fallback = Object.values(fieldErrors)[0] ?? "Something went wrong. Please try again.";

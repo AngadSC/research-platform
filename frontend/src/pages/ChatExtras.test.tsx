@@ -287,6 +287,19 @@ describe("importing from Google Chat into a chat (D327)", () => {
     expect(screen.queryByText(/Messages are also sent/)).toBeNull();
   });
 
+  it("tells people who did not set it up that messages still work", async () => {
+    mockFetch(world([], status({ needs_reconnect: true })));
+    renderRoute("/labs/lab1/chat");
+    expect(await screen.findByText(/Messages here still work/)).toBeInTheDocument();
+    expect(screen.queryByText(/paused until/)).toBeNull();
+  });
+
+  it("tells a manager who did not set it up to ask whoever did", async () => {
+    mockFetch(world([], status({ needs_reconnect: true, can_manage: true })));
+    renderRoute("/labs/lab1/chat");
+    expect(await screen.findByText(/paused until whoever set it up/)).toBeInTheDocument();
+  });
+
   it("is not offered to members who cannot link the chat", async () => {
     mockFetch(world([], status({ bridge, connected: true, can_manage: false })));
     renderRoute("/labs/lab1/chat");

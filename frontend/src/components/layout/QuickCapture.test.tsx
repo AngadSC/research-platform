@@ -70,4 +70,13 @@ describe("quick capture", () => {
     expect(await within(dialog).findByText("Thesis")).toBeInTheDocument();
     expect(within(dialog).queryByText("Old study")).toBeNull();
   });
+
+  it("disables the header button, with a reason, when you can only view projects", async () => {
+    const viewOnly = { ...proj("p1", "Paper 2"), my_permissions: ["view_project"] };
+    setup({ "GET /api/labs/lab1/projects/": { body: [viewOnly] } });
+    renderRoute("/labs/lab1/dashboard");
+    const button = await screen.findByRole("button", { name: "Add a task" });
+    await waitFor(() => expect(button).toBeDisabled());
+    expect(button).toHaveAttribute("title", expect.stringMatching(/view access/));
+  });
 });

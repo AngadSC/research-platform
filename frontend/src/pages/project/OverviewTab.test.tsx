@@ -60,6 +60,15 @@ describe("project overview", () => {
     ).toBeInTheDocument();
   });
 
+  it("lets anyone email a member, and labels row actions by name, not login", async () => {
+    setup(["view_project", "manage_project_members"]);
+    renderRoute("/labs/lab1/projects/p1/overview");
+    const mail = await screen.findByRole("link", { name: "Email Vic" });
+    expect(mail).toHaveAttribute("href", `mailto:${vic.email}`);
+    expect(screen.queryByLabelText(new RegExp(vic.email))).toBeNull();
+    expect(screen.getByRole("link", { name: "Handover for Vic" })).toBeInTheDocument();
+  });
+
   it("names the deadline in every row action", async () => {
     setup(["view_project", "edit_project"]);
     renderRoute("/labs/lab1/projects/p1/overview");
