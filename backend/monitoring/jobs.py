@@ -36,7 +36,8 @@ def roll_up_readings() -> int:
     cutoff = (timezone.now() - timedelta(days=RAW_DAYS)).replace(minute=0, second=0, microsecond=0)
     old = Reading.objects.filter(at__lt=cutoff)
     hours = (
-        old.annotate(hour=TruncHour("at"))
+        old.filter(is_test=False)
+        .annotate(hour=TruncHour("at"))
         .values("sensor_id", "hour")
         .annotate(low=Min("value"), high=Max("value"), mean=Avg("value"), n=Count("id"))
         .order_by()

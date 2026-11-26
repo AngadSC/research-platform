@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from core.serializers import UserSerializer, no_control_chars
 from monitoring.models import SYMBOL, AlertKind, Sensor, SensorAlert, Unit
-from monitoring.services import VALUE_RANGE
+from monitoring.services import VALUE_RANGE, member_ids
 
 
 def _finite(value):
@@ -57,7 +57,9 @@ STATUS = serializers.ChoiceField(
 
 class SensorSerializer(serializers.ModelSerializer):
     item = serializers.SerializerMethodField()
-    recipients = UserSerializer(many=True, read_only=True)
+    recipients = serializers.SerializerMethodField(
+        help_text="The people picked on the sensor who are still in the lab."
+    )
     unit_symbol = serializers.SerializerMethodField()
     has_token = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
@@ -95,6 +97,15 @@ class SensorSerializer(serializers.ModelSerializer):
     @extend_schema_field(ItemRefSerializer(allow_null=True))
     def get_item(self, s):
         return {"id": s.item.pk, "name": s.item.name} if s.item else None
+
+    @extend_schema_field(UserSerializer(many=True))
+    def get_recipients(self, s):
+        # D383: someone who left the lab is not shown (name and email) to the people who stay
+        members = self.__dict__.setdefault("_members", {})
+        if s.lab_id not in members:
+            members[s.lab_id] = member_ids(s.lab_id)
+        kept = [u for u in s.recipients.all() if u.is_active and u.pk in members[s.lab_id]]
+        return UserSerializer(kept, many=True).data
 
     def get_unit_symbol(self, s) -> str:
         return SYMBOL.get(s.unit, "").strip()

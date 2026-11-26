@@ -65,6 +65,8 @@ class Reading(models.Model):
     sensor = models.ForeignKey(Sensor, on_delete=models.CASCADE, related_name="+")
     at = models.DateTimeField()
     value = models.FloatField()
+    # A person's "test reading" (audited): kept for the record, never judged, charted or rolled up.
+    is_test = models.BooleanField(default=False)
 
     class Meta:
         indexes = [models.Index(fields=["sensor", "at"], name="reading_sensor_at_idx")]

@@ -228,6 +228,7 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "sensor.created": "Added a sensor",
   "sensor.updated": "Changed a sensor",
   "sensor.deleted": "Deleted a sensor",
+  "sensor.test_reading": "Sent a test reading to a sensor",
   "sensor_token.created": "Made a sensor's device token",
   "sensor_token.rotated": "Replaced a sensor's device token",
   "sensor_token.revoked": "Turned off a sensor's device token",

@@ -198,7 +198,7 @@ function SetupSection({ labId, sensor: s }: { labId: string; sensor: SensorDetai
       {
         onSuccess: () => {
           setTestError(undefined);
-          toast.success("Test reading saved");
+          toast.success("Test reading received. It does not change the status.");
         },
         onError: (err) => setTestError(formErrors(err, ["value"]).fields.value ?? "Not saved."),
       },

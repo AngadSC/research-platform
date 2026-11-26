@@ -4,15 +4,19 @@ import io
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from django.core.cache import cache
 from django.core.management import call_command
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
+from rest_framework.throttling import ScopedRateThrottle
 
 from assistant.tests.reauth import sign_in
 from audit.models import AuditAction, AuditEvent
 from core.models import Notification, NotificationKind
-from labs.models import InventoryItem, LabRole
+from labs.models import InventoryItem, LabMembership, LabRole
 from monitoring import demo, jobs, services
 from monitoring.models import AlertKind, Reading, ReadingHour, Sensor, SensorAlert
 
@@ -333,8 +337,9 @@ def test_list_detail_and_test_reading(world):
     url = f"/api/labs/{lab.pk}/sensors/{sensor.pk}/"
     resp = api(pi).post(f"{url}test-reading/", {"value": -79.6}, format="json")
     assert resp.status_code == 200, resp.content
-    assert resp.json()["last_value"] == -79.6 and resp.json()["status"] == "ok"
-    assert len(resp.json()["series"]) == 1
+    # a test reading changes nothing a person sees (D383): no value, no status, no chart point
+    assert resp.json()["last_value"] is None and resp.json()["status"] == "waiting"
+    assert resp.json()["series"] == []
     services.record_reading(refresh(sensor), -40, timezone.now())
     listed = api(world["viewer"]).get(f"/api/labs/{lab.pk}/sensors/").json()
     assert [s["name"] for s in listed] == ["-80 Freezer B"]  # never the other lab's
@@ -383,3 +388,167 @@ def test_demo_seed(world):
     assert len(readings(freezer)) > 1000
     assert jobs.check_silent_sensors() == 0
     assert all(a.ended_at for s in sensors.values() for a in alerts(s))
+
+
+# ---------------------------------------------------------------- review fixes (D383)
+
+
+def name_of(user):
+    return user.display_name or user.email
+
+
+def test_s1_a_test_reading_is_audited_and_never_judged(world):
+    lab, sensor, member = world["lab"], world["sensor"], world["member"]
+    url = f"/api/labs/{lab.pk}/sensors/{sensor.pk}/test-reading/"
+    services.record_reading(sensor, -50, timezone.now() - timedelta(minutes=40))  # far out: open
+    before = refresh(sensor)
+    [alert] = alerts(sensor)
+    resp = api(member).post(url, {"value": -80}, format="json")  # looks perfectly fine
+    assert resp.status_code == 200, resp.content
+    after = refresh(sensor)
+    assert (after.last_value, after.last_at) == (before.last_value, before.last_at)
+    [alert] = alerts(sensor)
+    assert alert.ended_at is None and alert.peak == -50  # not closed, not changed
+    assert resp.json()["status"] == "out_of_range"
+    test = Reading.objects.get(sensor=sensor, is_test=True)
+    assert test.value == -80
+    assert [
+        p["avg"]
+        for p in services.series(
+            [sensor.pk], timezone.now() - timedelta(days=1), timedelta(hours=1)
+        )[sensor.pk]
+    ] == [-50]
+    event = AuditEvent.objects.get(action=AuditAction.SENSOR_TEST_READING)
+    assert (event.actor, event.target_id, event.metadata) == (member, sensor.pk, {"value": -80.0})
+    # a test reading does not count as the sensor reporting: it can still go quiet
+    assert jobs.check_silent_sensors() == 1
+    assert AlertKind.SILENT in [a.kind for a in alerts(sensor)]
+    # and test rows are not rolled into the hourly history
+    Reading.objects.filter(pk=test.pk).update(at=timezone.now() - timedelta(days=40))
+    jobs.roll_up_readings()
+    assert not ReadingHour.objects.filter(sensor=sensor).exists()
+    assert not Reading.objects.filter(is_test=True).exists()
+    # a viewer still cannot send one
+    assert api(world["viewer"]).post(url, {"value": 1}, format="json").status_code == 403
+
+
+def test_s2_a_flip_flopping_device_sends_one_email_not_hundreds(world, mailoutbox):
+    sensor, lab, member = world["sensor"], world["lab"], world["member"]
+    with TestCase.captureOnCommitCallbacks(execute=True):
+        for _ in range(4):
+            services.record_reading(refresh(sensor), -50, timezone.now())  # far past the limit
+            services.record_reading(refresh(sensor), -80, timezone.now())  # back in range
+    assert len(alerts(sensor)) == 4
+    # in-app: still one notice per alert and change; email: the first alert and its end only
+    assert len(notes(member, lab)) == 8
+    assert sorted(m.subject for m in mailoutbox) == [
+        "-80 Freezer B is at -50 °C",
+        "-80 Freezer B is at -50 °C",
+        "-80 Freezer B is back in range",
+        "-80 Freezer B is back in range",
+    ]  # two recipients (the PI and the member)
+    # after the cooldown a new excursion is emailed again
+    cache.delete(f"sensor-mail:{sensor.pk}:high")
+    with TestCase.captureOnCommitCallbacks(execute=True):
+        services.record_reading(refresh(sensor), -50, timezone.now())
+    assert len(mailoutbox) == 6
+    # the peak of an open alert keeps updating whether or not it was emailed
+    services.record_reading(refresh(sensor), -45, timezone.now())
+    assert alerts(sensor)[-1].peak == -45
+
+
+def test_s2_test_readings_are_throttled_and_a_lab_has_at_most_50_sensors(world, monkeypatch):
+    lab, sensor, pi = world["lab"], world["sensor"], world["pi"]
+    monkeypatch.setitem(ScopedRateThrottle.THROTTLE_RATES, "sensor_test", "2/hour")
+    url = f"/api/labs/{lab.pk}/sensors/{sensor.pk}/test-reading/"
+    client = api(pi)
+    codes = [client.post(url, {"value": -80}, format="json").status_code for _ in range(3)]
+    assert codes == [200, 200, 429]
+    assert api(world["member"]).post(url, {"value": -80}, format="json").status_code == 200
+    for i in range(services.MAX_SENSORS - 1):  # the world already has one
+        Sensor.objects.create(lab=lab, name=f"Sensor {i}")
+    resp = client.post(f"/api/labs/{lab.pk}/sensors/", {"name": "One too many"}, format="json")
+    assert resp.status_code == 400 and "up to 50 sensors" in str(resp.json())
+    assert Sensor.objects.for_lab(lab).count() == services.MAX_SENSORS
+
+
+def test_s3_ingest_checks_size_and_token_before_parsing(world, monkeypatch):
+    token = token_for(world["sensor"], world["pi"])
+    huge = b"[" * 400_000
+    resp = APIClient().post(INGEST, huge, content_type="application/json")
+    assert resp.status_code == 413 and "too large" in resp.json()["error"]
+    # small but deeply nested: a 400, never a crash
+    nested = b"[" * 3000
+    resp = APIClient().post(
+        INGEST, nested, content_type="application/json", HTTP_AUTHORIZATION=f"Bearer {token}"
+    )
+    assert resp.status_code == 400
+
+    # an unknown token in the header is refused without the body being read at all
+    def boom(self, *a, **k):
+        raise AssertionError("body was parsed")
+
+    monkeypatch.setattr("rest_framework.request.Request._load_data_and_files", boom)
+    resp = APIClient().post(
+        INGEST, b'{"value": 1}', content_type="application/json", HTTP_AUTHORIZATION="Bearer nope"
+    )
+    assert resp.status_code == 401
+    monkeypatch.undo()
+    # form-encoded posts work, with the token in the form or the header
+    form = "application/x-www-form-urlencoded"
+    resp = APIClient().post(INGEST, f"value=-79.4&token={token}", content_type=form)
+    assert resp.status_code == 204 and refresh(world["sensor"]).last_value == -79.4
+    resp = APIClient().post(
+        INGEST, "value=-79.5", content_type=form, HTTP_AUTHORIZATION=f"Bearer {token}"
+    )
+    assert resp.status_code == 204 and refresh(world["sensor"]).last_value == -79.5
+    assert post(token, -80).status_code == 204  # JSON still works
+    resp = APIClient().post(INGEST, "value=-79.5&token=nope", content_type=form)
+    assert resp.status_code == 401
+
+
+def test_s4_stopping_a_sensor_with_an_open_alert_tells_the_others(world):
+    sensor, lab, pi, member = world["sensor"], world["lab"], world["pi"], world["member"]
+    services.update_sensor(sensor, user=pi, data={"active": False})  # nothing open: quiet
+    assert notes(member, lab) == []
+    services.update_sensor(refresh(sensor), user=pi, data={"active": True})
+    services.record_reading(refresh(sensor), -50, timezone.now())
+    base = len(notes(member, lab))
+    services.update_sensor(refresh(sensor), user=pi, data={"active": False})
+    titles = [n.title for n in notes(member, lab)]
+    assert f"-80 Freezer B was paused by {name_of(pi)} while it was out of range" in titles
+    assert len(titles) == base + 1
+    assert not [n for n in notes(pi, lab) if "was paused" in n.title]  # not the one who did it
+    # disconnecting and deleting say so too
+    services.update_sensor(refresh(sensor), user=pi, data={"active": True})
+    services.record_reading(refresh(sensor), -50, timezone.now() + timedelta(seconds=5))
+    token_for(refresh(sensor), pi)
+    services.revoke_token(refresh(sensor), user=pi)
+    services.delete_sensor(refresh(sensor), user=pi)
+    titles = [n.title for n in notes(member, lab)]
+    assert f"-80 Freezer B was disconnected by {name_of(pi)} while it was out of range" in titles
+    assert f"-80 Freezer B was deleted by {name_of(pi)} while it was out of range" in titles
+
+
+def test_s5_people_who_left_the_lab_are_not_shown_as_recipients(world):
+    lab, sensor, pi, member = world["lab"], world["sensor"], world["pi"], world["member"]
+    url = f"/api/labs/{lab.pk}/sensors/{sensor.pk}/"
+    listed = api(pi).get(f"/api/labs/{lab.pk}/sensors/").json()
+    assert [r["email"] for r in listed[0]["recipients"]] == [member.email]
+    LabMembership.objects.for_lab(lab).filter(user=member).delete()
+    assert api(pi).get(f"/api/labs/{lab.pk}/sensors/").json()[0]["recipients"] == []
+    assert api(pi).get(url).json()["recipients"] == []
+
+
+def test_s6_charts_are_grouped_in_the_database(world):
+    sensor = world["sensor"]
+    start = datetime(2030, 1, 1, tzinfo=UTC)
+    Reading.objects.bulk_create(
+        Reading(sensor=sensor, at=start + timedelta(seconds=30 * i), value=-80 + i % 7)
+        for i in range(2880)  # a day at one reading every 30 seconds
+    )
+    with CaptureQueriesContext(connection) as q:
+        points = services.series([sensor.pk], start, timedelta(minutes=20))[sensor.pk]
+    assert len(q) == 1 and "date_bin" in q[0]["sql"]
+    assert len(points) == 72 and all(p["min"] <= p["avg"] <= p["max"] for p in points)
+    assert points[0]["t"] == start and points[1]["t"] == start + timedelta(minutes=20)

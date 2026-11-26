@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from django.conf import settings
 from django.core.cache import cache
 from django.db import transaction
+from django.db.models import Avg, DateTimeField, F, Func, Max, Min, Value
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from rest_framework.exceptions import ValidationError
@@ -29,6 +30,8 @@ VALUE_RANGE = (-300.0, 1000.0)  # liquid nitrogen to an oven; anything else is a
 MAX_AGE = timedelta(hours=24)  # a device that was offline may send what it buffered
 MAX_AHEAD = timedelta(minutes=5)  # device clocks drift
 FAR = 5.0  # with only one limit set, this far past it alerts on the first reading
+MAX_SENSORS = 50  # per lab
+MAIL_COOLDOWN = 30 * 60  # seconds: no new "out of range" email for one sensor and kind sooner
 
 
 # ---------------------------------------------------------------- settings
@@ -61,6 +64,11 @@ def _check_limits(low, high):
 
 @transaction.atomic
 def create_sensor(*, lab, user, data, request=None):
+    # ponytail: not locked, so two creates at the very same moment may pass 50; fine for a cap
+    if Sensor.objects.for_lab(lab).count() >= MAX_SENSORS:
+        raise ValidationError(
+            {"detail": f"A lab can have up to {MAX_SENSORS} sensors. Delete one you no longer use."}
+        )
     data = dict(data)
     item = _item(lab, data.pop("item", None))
     ids = data.pop("recipients", None)
@@ -96,7 +104,9 @@ def update_sensor(sensor, *, user, data, request=None):
     if not changed:
         return sensor
     sensor.save()
-    if not sensor.active:  # paused: nothing is left open to nag about
+    if not sensor.active:  # paused: nothing is left open to nag about, so tell people it was
+        if "active" in changed:
+            tell_stopped(sensor, user, "paused", "Nobody is watching it now.")
         SensorAlert.objects.for_lab(sensor.lab_id).filter(
             sensor=sensor, ended_at__isnull=True
         ).update(ended_at=timezone.now())
@@ -113,6 +123,7 @@ def update_sensor(sensor, *, user, data, request=None):
 
 @transaction.atomic
 def delete_sensor(sensor, *, user, request=None):
+    tell_stopped(sensor, user, "deleted", "Nobody is watching it now.", target=None)
     record(A.SENSOR_DELETED, actor=user, lab=sensor.lab, target=sensor, request=request)
     sensor.delete()  # its readings and alerts go with it
 
@@ -140,6 +151,7 @@ def revoke_token(sensor, *, user, request=None) -> None:
     sensor.token_hash = None
     sensor.token_created_at = None
     sensor.save(update_fields=["token_hash", "token_created_at", "updated_at"])
+    tell_stopped(sensor, user, "disconnected", "Its device can no longer send readings.")
     record(A.SENSOR_TOKEN_REVOKED, actor=user, lab=sensor.lab, target=sensor, request=request)
 
 
@@ -277,6 +289,22 @@ def record_reading(sensor, value, at) -> None:
             announce(alert, opened)
 
 
+@transaction.atomic
+def record_test_reading(sensor, value, *, user, request=None) -> None:
+    """A person's "send a test reading". Kept and audited, but never judged: it cannot raise,
+    end or acknowledge an alert, change the latest value, or show on a chart, so it cannot hide
+    a real excursion (D383)."""
+    Reading.objects.create(sensor=sensor, at=timezone.now(), value=value, is_test=True)
+    record(
+        A.SENSOR_TEST_READING,
+        actor=user,
+        lab=sensor.lab,
+        target=sensor,
+        request=request,
+        metadata={"value": value},
+    )
+
+
 def mark_silent(sensor, now) -> bool:
     """Open a "quiet" alert if the sensor has reported before but not for its silence window."""
     with transaction.atomic():
@@ -300,6 +328,11 @@ def mark_silent(sensor, now) -> bool:
         )
         announce(alert, True)
         return True
+
+
+def member_ids(lab_id) -> set:
+    """Everyone now in the lab, to leave out people who have gone from a sensor's recipients."""
+    return set(LabMembership.objects.for_lab(lab_id).values_list("user_id", flat=True))
 
 
 def recipients(sensor) -> list:
@@ -346,12 +379,57 @@ def message(alert, opened) -> tuple[str, str]:
     )
 
 
+def _may_email(alert, opened) -> bool:
+    """A device flip-flopping across a limit opens many alerts: email the first, then at most one
+    per sensor and kind every MAIL_COOLDOWN. "Back in range" only follows an email that was sent."""
+    sent = f"sensor-mail-sent:{alert.pk}"
+    if not opened:
+        return bool(cache.get(sent))
+    if not cache.add(f"sensor-mail:{alert.sensor_id}:{alert.kind}", 1, MAIL_COOLDOWN):
+        return False
+    cache.set(sent, 1, 7 * 24 * 3600)
+    return True
+
+
+def tell_stopped(sensor, user, what, body="", target=...) -> None:
+    """A person paused, deleted or disconnected a sensor that had an alert open: that ends the
+    watching, so tell the others, as an alert would (not the person who did it)."""
+    kinds = set(
+        SensorAlert.objects.for_lab(sensor.lab_id)
+        .filter(sensor=sensor, ended_at__isnull=True)
+        .values_list("kind", flat=True)
+    )
+    if not kinds:
+        return
+    state = "out of range" if kinds - {AlertKind.SILENT} else "not reporting"
+    title = f"{sensor.name} was {what} by {user.display_name or user.email} while it was {state}"
+    stamp = timezone.now().isoformat()
+    link = f"{settings.FRONTEND_URL}/labs/{sensor.lab_id}/monitoring"
+    for person in recipients(sensor):
+        if person.pk == user.pk:
+            continue
+        created = notify(
+            lab=sensor.lab,
+            recipient=person,
+            kind=NotificationKind.SENSOR_ALERT,
+            title=title,
+            body=body,
+            target=sensor if target is ... else target,
+            dedupe_key=f"sensor-stopped:{sensor.pk}:{what}:{stamp}",
+        )
+        if created:
+            mail = {"title": title[:200], "body": f"{body}\n\n{link}"}
+            send_email("notification", person.email, mail)
+
+
 def announce(alert, opened) -> None:
-    """An in-app notification and an email to each recipient, once per alert and change.
-    The email skips quiet hours on purpose: a thawing -80 cannot wait until morning."""
+    """An in-app notification for each recipient, once per alert and change, and an email unless
+    this sensor's emails are cooling down. The email skips quiet hours on purpose: a thawing -80
+    cannot wait until morning."""
     sensor = alert.sensor
     title, body = message(alert, opened)
     link = f"{settings.FRONTEND_URL}/labs/{sensor.lab_id}/monitoring/{sensor.pk}"
+    mail = _may_email(alert, opened)
     for user in recipients(sensor):
         created = notify(
             lab=sensor.lab,
@@ -362,7 +440,7 @@ def announce(alert, opened) -> None:
             target=sensor,
             dedupe_key=f"sensor-alert:{alert.pk}:{'open' if opened else 'end'}",
         )
-        if created:
+        if created and mail:
             send_email("notification", user.email, {"title": title, "body": f"{body}\n\n{link}"})
 
 
@@ -389,33 +467,29 @@ def acknowledge(alert, *, user, note="", request=None):
 # ---------------------------------------------------------------- charts
 
 
+class _Bin(Func):
+    """Postgres date_bin: the start of the `step`-wide slot (from the epoch) holding `at`."""
+
+    function = "date_bin"
+    output_field = DateTimeField()
+
+
+EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+
+
 def series(sensor_ids, since, bucket: timedelta) -> dict:
-    """{sensor_id: [{t, min, max, avg}]} in `bucket`-wide steps since `since`, one query for all."""
-    step = bucket.total_seconds()
-    out, cur = {}, {}
+    """{sensor_id: [{t, min, max, avg}]} in `bucket`-wide steps since `since`: one query for all,
+    grouped in the database, so a chart is a few hundred rows however many readings there are.
+    Test readings are left out."""
     rows = (
-        Reading.objects.filter(sensor_id__in=sensor_ids, at__gte=since)
-        .order_by("sensor_id", "at")
-        .values_list("sensor_id", "at", "value")
+        Reading.objects.filter(sensor_id__in=sensor_ids, at__gte=since, is_test=False)
+        .annotate(slot=_Bin(Value(bucket), F("at"), Value(EPOCH)))
+        .values("sensor_id", "slot")
+        .annotate(lo=Min("value"), hi=Max("value"), mean=Avg("value"))
+        .order_by("sensor_id", "slot")
     )
-    for sid, at, value in rows.iterator():
-        slot = int(at.timestamp() // step)
-        last = cur.get(sid)
-        if last is None or last[0] != slot:
-            last = cur[sid] = [slot, value, value, 0.0, 0]
-            out.setdefault(sid, []).append(last)
-        last[1], last[2] = min(last[1], value), max(last[2], value)
-        last[3] += value
-        last[4] += 1
-    return {
-        sid: [
-            {
-                "t": datetime.fromtimestamp(slot * step, UTC),
-                "min": lo,
-                "max": hi,
-                "avg": round(total / n, 3),
-            }
-            for slot, lo, hi, total, n in points
-        ]
-        for sid, points in out.items()
-    }
+    out = {}
+    for r in rows:
+        point = {"t": r["slot"], "min": r["lo"], "max": r["hi"], "avg": round(r["mean"], 3)}
+        out.setdefault(r["sensor_id"], []).append(point)
+    return out

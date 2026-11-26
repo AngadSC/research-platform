@@ -6,7 +6,9 @@ from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
-from rest_framework import generics, status
+from rest_framework import generics, negotiation, status
+from rest_framework.exceptions import APIException
+from rest_framework.parsers import FormParser, JSONParser
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
@@ -14,7 +16,6 @@ from rest_framework.views import APIView
 from core.auth import recent_auth_required
 from core.permissions import Perm
 from core.views import LabScopedViewMixin
-from labs.lab_calendar import AnyAccept
 from monitoring import services as svc
 from monitoring.models import Sensor, SensorAlert
 from monitoring.serializers import (
@@ -158,15 +159,18 @@ class SensorTokenView(SensorMixin, generics.GenericAPIView):
 
 
 class SensorTestReadingView(SensorMixin, generics.GenericAPIView):
-    """Record a reading as if the device sent it, to check alerts and the chart before wiring."""
+    """Check the wiring: a reading that is kept and audited but never judged, so it cannot raise
+    or end an alert, change the latest value or show on a chart (D383)."""
 
     perms = {"POST": Perm.MANAGE_INVENTORY}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "sensor_test"
 
     @extend_schema(request=TestReadingSerializer, responses=SensorDetailSerializer)
     def post(self, request, lab_id, sensor_id):
         sensor = self.get_object()
         value = _body(TestReadingSerializer, request)["value"]
-        svc.record_reading(sensor, value, timezone.now())
+        svc.record_test_reading(sensor, value, user=request.user, request=request)
         return self.detail(sensor)
 
 
@@ -188,6 +192,20 @@ def _error(message, code):
     return JsonResponse({"error": message}, status=code)
 
 
+MAX_BODY = 4096  # a reading is a few dozen bytes; anything bigger is not a device
+
+
+class DeviceNegotiation(negotiation.DefaultContentNegotiation):
+    """Devices send odd Accept headers, or none, and sometimes the wrong Content-Type: answer in
+    JSON whatever they ask, and read a body by its type (JSON or a form), JSON when unsure."""
+
+    def select_parser(self, request, parsers):
+        return super().select_parser(request, parsers) or parsers[0]
+
+    def select_renderer(self, request, renderers, format_suffix=None):
+        return renderers[0], renderers[0].media_type
+
+
 class IngestView(APIView):
     """`POST /api/sensors/ingest/` with `Authorization: Bearer <token>` and `{"value": -79.4,
     "at": optional ISO time}`, or `GET ?token=&value=` for devices that can only call a URL
@@ -196,7 +214,8 @@ class IngestView(APIView):
     router logs, so POST with the header is preferred wherever the device allows it."""
 
     authentication_classes = []  # a browser session must never stand in for the token
-    content_negotiation_class = AnyAccept  # devices send odd Accept headers, or none
+    content_negotiation_class = DeviceNegotiation
+    parser_classes = [JSONParser, FormParser]
     perms = {"GET": Perm.PUBLIC, "POST": Perm.PUBLIC}
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "sensor_ingest"
@@ -209,14 +228,37 @@ class IngestView(APIView):
     def post(self, request):
         return self._take(request, None)
 
+    def _body(self, request):
+        """The small body as a dict, or a 400/413 answer. Nothing is parsed before the length
+        is known, so a huge or deeply nested body never reaches a parser."""
+        try:
+            length = int(request.META.get("CONTENT_LENGTH") or 0)
+        except ValueError:
+            return _error("Send a valid Content-Length.", 400)
+        if length > MAX_BODY or len(request._request.body) > MAX_BODY:  # no length: read a little
+            return _error(f"The body is too large. Send at most {MAX_BODY} bytes.", 413)
+        try:
+            data = request.data
+        except (APIException, RecursionError, ValueError):
+            return _error('Send JSON like {"value": -79.4}, or a form.', 400)
+        return data if isinstance(data, dict) else {}
+
     def _take(self, request, data):
         auth = request.headers.get("Authorization", "")
         token = auth[7:].strip() if auth[:7].lower() == "bearer " else ""
         token = token or request.query_params.get("token", "")
-        if data is None:  # parse the body only once the URL and header are known
-            data = request.data if isinstance(request.data, dict) else {}
-        token = token or (data.get("token") if isinstance(data.get("token"), str) else "")
-        sensor = svc.sensor_for_token(token)
+        if data is None:  # POST: look the token up from the URL or header before any parsing
+            sensor = svc.sensor_for_token(token)
+            if token and sensor is None:
+                return _error("Unknown or revoked token.", 401)
+            data = self._body(request)
+            if isinstance(data, JsonResponse):
+                return data
+            if sensor is None:  # a device that cannot set headers may send it in the body
+                token = data.get("token") if isinstance(data.get("token"), str) else ""
+                sensor = svc.sensor_for_token(token)
+        else:
+            sensor = svc.sensor_for_token(token)
         if sensor is None:
             return _error("Unknown or revoked token.", 401)
         if not sensor.lab.inventory_enabled:  # D227
