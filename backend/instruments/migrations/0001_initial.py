@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("documents", "0019_lab_wide_folders"),
-        ("labs", "0027_inventory_instrument_software"),
+        ("labs", "0028_inventory_instrument_software"),
         ("projects", "0017_chat_via_account"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]

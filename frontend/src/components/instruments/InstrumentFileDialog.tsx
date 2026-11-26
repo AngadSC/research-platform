@@ -53,7 +53,9 @@ export function InstrumentFileDialog({
       (a) => void navigate(`/labs/${labId}/projects/${f.project.id}/analyse?file=${a.id}`),
       () => {
         setSaving(false);
-        toast.error("Could not save the table to the project. You may not be able to add files there.");
+        toast.error(
+          "Could not save the table to the project. You may not be able to add files there.",
+        );
       },
     );
   };

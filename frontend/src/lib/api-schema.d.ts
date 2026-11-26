@@ -139,6 +139,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/instrument-drop/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description `/drop/<token>` in the app: shows the instrument and project names and takes files. It
+         *     never lists or reads anything. The token is the only credential; a session does not count.
+         */
+        get: operations["instrument_drop_retrieve"];
+        put?: never;
+        /**
+         * @description `/drop/<token>` in the app: shows the instrument and project names and takes files. It
+         *     never lists or reads anything. The token is the only credential; a session does not count.
+         */
+        post: operations["instrument_drop_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/instrument-software/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The instrument software the parsers know, for the equipment form. */
+        get: operations["instrument_software_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/integrations/oauth/callback/": {
         parameters: {
             query?: never;
@@ -1692,6 +1733,78 @@ export interface paths {
         put?: never;
         /** @description Copy the lab's university links and the national links into the lab (D149). */
         post: operations["labs_institution_resources_load_starters_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/instrument-drop-links/{instrumentdroplink_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+         *     is not a member) before permissions run. Item lookups go through `get_queryset()`.
+         */
+        delete: operations["labs_instrument_drop_links_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/instrument-files/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The newest instrument files in projects the viewer can see. */
+        get: operations["labs_instrument_files_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/instrument-files/{instrumentfile_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One file with its parsed summary; the page polls this while the status is pending. */
+        get: operations["labs_instrument_files_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/instruments/{inventoryitem_id}/drop-links/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Links into a project for this instrument: your own (PIs and lab admins see everyone's). */
+        get: operations["labs_instruments_drop_links_list"];
+        put?: never;
+        /** @description Links into a project for this instrument: your own (PIs and lab admins see everyone's). */
+        post: operations["labs_instruments_drop_links_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3505,6 +3618,23 @@ export interface paths {
         get: operations["labs_projects_handover_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labs/{lab_id}/projects/{project_id}/instruments/{inventoryitem_id}/files/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The signed-in drop page (and the QR sticker): one file per request into a project. */
+        post: operations["labs_projects_instruments_files_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5752,9 +5882,12 @@ export interface components {
          *     * `sensor_token.rotated` - Sensor Token Rotated
          *     * `sensor_token.revoked` - Sensor Token Revoked
          *     * `sensor_alert.acknowledged` - Sensor Alert Acknowledged
+         *     * `instrument_drop_link.created` - Instrument Drop Link Created
+         *     * `instrument_drop_link.used` - Instrument Drop Link Used
+         *     * `instrument_drop_link.revoked` - Instrument Drop Link Revoked
          * @enum {string}
          */
-        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "site.usage_viewed" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.invite_resent" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.created" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "document.pinned" | "document.unpinned" | "document.commented" | "document.comment_deleted" | "document.comment_resolved" | "document.comment_reopened" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "task.created" | "task.assigned" | "task.status_changed" | "task.update_posted" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "integration.data_deleted" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "notebook.created" | "notebook.updated" | "notebook.deleted" | "notebook.locked" | "notebook.exported" | "subject.created" | "subject.updated" | "subject.deleted" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "inventory_order.deleted" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "google_chat.linked" | "google_chat.unlinked" | "google_chat.imported" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "participant.created" | "participant.updated" | "participant.archived" | "participant.restored" | "participant_component.created" | "participant_component.updated" | "participant_component.deleted" | "participant_cell.changed" | "participant_file.added" | "participant_file.changed" | "participant_file.removed" | "participant_reason.changed" | "participant.identifier_blocked" | "participant.imported" | "participant.import_undone" | "participant.files_matched" | "participant.links_checked" | "participant.tasks_created" | "participant_rule.saved" | "participant_rule.archived" | "participant_set.locked" | "participant_flow.exported" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "training.reminded" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created" | "sensor.created" | "sensor.updated" | "sensor.deleted" | "sensor_token.created" | "sensor_token.rotated" | "sensor_token.revoked" | "sensor_alert.acknowledged";
+        ActionEnum: "auth.login" | "auth.login_failed" | "auth.logout" | "site.usage_viewed" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.invite_resent" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.created" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "document.pinned" | "document.unpinned" | "document.commented" | "document.comment_deleted" | "document.comment_resolved" | "document.comment_reopened" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "task.created" | "task.assigned" | "task.status_changed" | "task.update_posted" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "integration.data_deleted" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "notebook.created" | "notebook.updated" | "notebook.deleted" | "notebook.locked" | "notebook.exported" | "subject.created" | "subject.updated" | "subject.deleted" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "inventory_order.deleted" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "google_chat.linked" | "google_chat.unlinked" | "google_chat.imported" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "participant.created" | "participant.updated" | "participant.archived" | "participant.restored" | "participant_component.created" | "participant_component.updated" | "participant_component.deleted" | "participant_cell.changed" | "participant_file.added" | "participant_file.changed" | "participant_file.removed" | "participant_reason.changed" | "participant.identifier_blocked" | "participant.imported" | "participant.import_undone" | "participant.files_matched" | "participant.links_checked" | "participant.tasks_created" | "participant_rule.saved" | "participant_rule.archived" | "participant_set.locked" | "participant_flow.exported" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "training.reminded" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created" | "sensor.created" | "sensor.updated" | "sensor.deleted" | "sensor_token.created" | "sensor_token.rotated" | "sensor_token.revoked" | "sensor_alert.acknowledged" | "instrument_drop_link.created" | "instrument_drop_link.used" | "instrument_drop_link.revoked";
         /**
          * @description * `read` - Read
          *     * `write` - Write
@@ -6803,6 +6936,50 @@ export interface components {
             /** Format: uri */
             url: string;
         };
+        DropLink: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly label: string;
+            readonly project: components["schemas"]["Named"];
+            readonly created_by: components["schemas"]["User"];
+            /** Format: date-time */
+            readonly expires_at: string | null;
+            readonly expired: boolean;
+            /** Format: date-time */
+            readonly last_used_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        DropLinkCreated: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly label: string;
+            readonly project: components["schemas"]["Named"];
+            readonly created_by: components["schemas"]["User"];
+            /** Format: date-time */
+            readonly expires_at: string | null;
+            readonly expired: boolean;
+            /** Format: date-time */
+            readonly last_used_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** @description Shown once; only its hash is stored. */
+            readonly url: string;
+        };
+        DropLinkInput: {
+            /** Format: uuid */
+            project: string;
+            label?: string;
+            expires_in_days?: number | null;
+        };
+        DropUpload: {
+            /** Format: uri */
+            file: string;
+            /** @default false */
+            acknowledged_notice: boolean;
+            /** @default false */
+            contains_participant_data: boolean;
+        };
         /**
          * @description * `screened` - Screened
          *     * `enrolled` - Enrolled
@@ -7395,6 +7572,76 @@ export interface components {
         InstitutionSearch: {
             results: components["schemas"]["InstitutionHit"][];
         };
+        InstrumentFile: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly instrument: components["schemas"]["Named"];
+            readonly project: components["schemas"]["Named"];
+            /** Format: uuid */
+            readonly attachment: string;
+            readonly filename: string;
+            readonly size_bytes: number;
+            readonly contains_participant_data: boolean;
+            readonly software: string;
+            readonly status: components["schemas"]["StatusA96Enum"];
+            readonly title: string;
+            readonly kind: string;
+            readonly uploaded_via: components["schemas"]["UploadedViaEnum"];
+            readonly dropped_by: components["schemas"]["User"];
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        InstrumentFileDetail: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly instrument: components["schemas"]["Named"];
+            readonly project: components["schemas"]["Named"];
+            /** Format: uuid */
+            readonly attachment: string;
+            readonly filename: string;
+            readonly size_bytes: number;
+            readonly contains_participant_data: boolean;
+            readonly software: string;
+            readonly status: components["schemas"]["StatusA96Enum"];
+            readonly title: string;
+            readonly kind: string;
+            readonly uploaded_via: components["schemas"]["UploadedViaEnum"];
+            readonly dropped_by: components["schemas"]["User"];
+            /** Format: date-time */
+            readonly created_at: string;
+            /** @description instrument_parsers.parse_file */
+            readonly summary: unknown;
+        };
+        /**
+         * @description * `agilent_gen5` - Agilent BioTek Gen5 (plate reader)
+         *     * `moldev_softmax_pro` - Molecular Devices SoftMax Pro (plate reader)
+         *     * `thermo_skanit` - Thermo Scientific SkanIt (plate reader)
+         *     * `tecan_magellan` - Tecan Magellan (plate reader)
+         *     * `bmg_mars` - BMG LABTECH MARS (plate reader)
+         *     * `revvity_envision` - Revvity EnVision (plate reader)
+         *     * `nanodrop_one` - Thermo NanoDrop One
+         *     * `nanodrop_eight` - Thermo NanoDrop Eight
+         *     * `nanodrop_8000` - Thermo NanoDrop 8000
+         *     * `qubit` - Thermo Qubit 4
+         *     * `bio_rad_cfx` - Bio-Rad CFX Maestro (qPCR)
+         *     * `quantstudio` - Applied Biosystems QuantStudio (qPCR)
+         *     * `quantstudio_design_analysis` - QuantStudio Design & Analysis (qPCR)
+         *     * `cytiva_unicorn` - Cytiva UNICORN (AKTA chromatography)
+         *     * `thermo_chromeleon` - Thermo Chromeleon (HPLC, JSON export)
+         *     * `agilent_openlab` - Agilent OpenLab CDS (HPLC)
+         *     * `agilent_tapestation` - Agilent TapeStation
+         *     * `flowjo` - FlowJo workspace
+         *     * `bd_facsdiva` - BD FACSDiva (XML export)
+         *     * `biacore_insight` - Cytiva Biacore Insight
+         *     * `biacore_t200_control` - Cytiva Biacore T200 control
+         *     * `biacore_t200_evaluation` - Cytiva Biacore T200 evaluation
+         *     * `generic_csv` - Table (CSV, TSV or Excel)
+         *     * `image_tiff` - Image (TIFF, gel or blot)
+         *     * `fcs` - Flow cytometry events (FCS)
+         *     * `abi_sanger` - DNA sequencing trace (.ab1, .fsa)
+         * @enum {string}
+         */
+        InstrumentSoftwareEnum: "agilent_gen5" | "moldev_softmax_pro" | "thermo_skanit" | "tecan_magellan" | "bmg_mars" | "revvity_envision" | "nanodrop_one" | "nanodrop_eight" | "nanodrop_8000" | "qubit" | "bio_rad_cfx" | "quantstudio" | "quantstudio_design_analysis" | "cytiva_unicorn" | "thermo_chromeleon" | "agilent_openlab" | "agilent_tapestation" | "flowjo" | "bd_facsdiva" | "biacore_insight" | "biacore_t200_control" | "biacore_t200_evaluation" | "generic_csv" | "image_tiff" | "fcs" | "abi_sanger";
         Inventory: {
             /** Format: uuid */
             readonly id: string;
@@ -7421,6 +7668,7 @@ export interface components {
             readonly expiry_date: string | null;
             readonly status: components["schemas"]["StatusA7dEnum"];
             readonly notes: string;
+            readonly instrument_software: string;
             /** Format: date-time */
             readonly created_at: string;
             /** Format: date-time */
@@ -7474,6 +7722,7 @@ export interface components {
             expiry_date?: string | null;
             status?: components["schemas"]["StatusA7dEnum"];
             notes?: string;
+            instrument_software?: components["schemas"]["InstrumentSoftwareEnum"] | components["schemas"]["BlankEnum"];
         };
         InventoryOrder: {
             /** Format: uuid */
@@ -8010,6 +8259,11 @@ export interface components {
          * @enum {string}
          */
         NameEnum: "api_key" | "secret" | "instance_url";
+        Named: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
         /** @description The file just made: the same fields the Picker gives, so a page links it as a picked one. */
         NewGoogleFile: {
             id: string;
@@ -8705,6 +8959,7 @@ export interface components {
             expiry_date?: string | null;
             status?: components["schemas"]["StatusA7dEnum"];
             notes?: string;
+            instrument_software?: components["schemas"]["InstrumentSoftwareEnum"] | components["schemas"]["BlankEnum"];
         };
         PatchedInventoryOrderInput: {
             /** Format: uuid */
@@ -9208,6 +9463,15 @@ export interface components {
          * @enum {string}
          */
         ProviderEnum: "anthropic" | "openai";
+        PublicDrop: {
+            instrument: string;
+            project: string;
+            max_bytes: number;
+        };
+        PublicDropResult: {
+            name: string;
+            size_bytes: number;
+        };
         Reaction: {
             emoji: string;
             count: number;
@@ -9668,6 +9932,10 @@ export interface components {
             count: number;
             percent: number;
         };
+        SoftwareChoice: {
+            value: string;
+            label: string;
+        };
         /**
          * @description * `app` - App
          *     * `google_chat` - Google Chat
@@ -9723,6 +9991,14 @@ export interface components {
          * @enum {string}
          */
         StatusA7dEnum: "active" | "in_repair" | "retired" | "lost";
+        /**
+         * @description * `pending` - Pending
+         *     * `ok` - Ok
+         *     * `unsupported` - Unsupported
+         *     * `failed` - Failed
+         * @enum {string}
+         */
+        StatusA96Enum: "pending" | "ok" | "unsupported" | "failed";
         /**
          * @description * `active` - Active
          *     * `stored` - Stored
@@ -10083,6 +10359,12 @@ export interface components {
          * @enum {string}
          */
         UnitEnum: "c" | "rh" | "co2";
+        /**
+         * @description * `page` - Page
+         *     * `link` - Link
+         * @enum {string}
+         */
+        UploadedViaEnum: "page" | "link";
         Usage: {
             input_tokens?: number;
             output_tokens?: number;
@@ -10433,6 +10715,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstitutionSearch"];
+                };
+            };
+        };
+    };
+    instrument_drop_retrieve: {
+        parameters: {
+            query: {
+                token: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicDrop"];
+                };
+            };
+        };
+    };
+    instrument_drop_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["DropUpload"];
+                "application/x-www-form-urlencoded": components["schemas"]["DropUpload"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicDropResult"];
+                };
+            };
+        };
+    };
+    instrument_software_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoftwareChoice"][];
                 };
             };
         };
@@ -11383,8 +11729,11 @@ export interface operations {
                  *     * `sensor_token.rotated` - Sensor Token Rotated
                  *     * `sensor_token.revoked` - Sensor Token Revoked
                  *     * `sensor_alert.acknowledged` - Sensor Alert Acknowledged
+                 *     * `instrument_drop_link.created` - Instrument Drop Link Created
+                 *     * `instrument_drop_link.used` - Instrument Drop Link Used
+                 *     * `instrument_drop_link.revoked` - Instrument Drop Link Revoked
                  */
-                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "site.usage_viewed" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.invite_resent" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.created" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "document.pinned" | "document.unpinned" | "document.commented" | "document.comment_deleted" | "document.comment_resolved" | "document.comment_reopened" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "task.created" | "task.assigned" | "task.status_changed" | "task.update_posted" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "integration.data_deleted" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "notebook.created" | "notebook.updated" | "notebook.deleted" | "notebook.locked" | "notebook.exported" | "subject.created" | "subject.updated" | "subject.deleted" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "inventory_order.deleted" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "google_chat.linked" | "google_chat.unlinked" | "google_chat.imported" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "participant.created" | "participant.updated" | "participant.archived" | "participant.restored" | "participant_component.created" | "participant_component.updated" | "participant_component.deleted" | "participant_cell.changed" | "participant_file.added" | "participant_file.changed" | "participant_file.removed" | "participant_reason.changed" | "participant.identifier_blocked" | "participant.imported" | "participant.import_undone" | "participant.files_matched" | "participant.links_checked" | "participant.tasks_created" | "participant_rule.saved" | "participant_rule.archived" | "participant_set.locked" | "participant_flow.exported" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "training.reminded" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created" | "sensor.created" | "sensor.updated" | "sensor.deleted" | "sensor_token.created" | "sensor_token.rotated" | "sensor_token.revoked" | "sensor_alert.acknowledged";
+                action?: "auth.login" | "auth.login_failed" | "auth.logout" | "site.usage_viewed" | "auth.password_changed" | "auth.mfa_enabled" | "auth.mfa_disabled" | "lab.created" | "lab.updated" | "membership.invited" | "membership.invite_revoked" | "membership.invite_accepted" | "membership.invite_role_changed" | "membership.invite_resent" | "membership.role_changed" | "membership.removed" | "project_membership.added" | "project_membership.role_changed" | "project_membership.removed" | "project.created" | "project.updated" | "project.archived" | "project.deleted" | "project.exported" | "document.created" | "document.viewed" | "document.restored" | "document.deleted" | "document.owner_changed" | "document.pinned" | "document.unpinned" | "document.commented" | "document.comment_deleted" | "document.comment_resolved" | "document.comment_reopened" | "attachment.uploaded" | "attachment.downloaded" | "attachment.deleted" | "task.deleted" | "task_post.deleted" | "deadline.deleted" | "dataset.created" | "dataset.updated" | "dataset.deleted" | "analysis.created" | "analysis.updated" | "analysis.deleted" | "result.created" | "result.updated" | "result.deleted" | "decision.created" | "decision.updated" | "decision.deleted" | "manuscript.created" | "manuscript.updated" | "manuscript.deleted" | "ethics_approval.created" | "ethics_approval.updated" | "ethics_approval.links_changed" | "ethics_approval.deleted" | "retention.changed" | "audit_log.viewed" | "handover.generated" | "task.unassigned" | "task.created" | "task.assigned" | "task.status_changed" | "task.update_posted" | "auth.social_connected" | "auth.social_disconnected" | "auth.email_added" | "auth.email_removed" | "integration.connected" | "integration.disconnected" | "integration.revoked" | "integration.refresh_failed" | "integration.picker_token_issued" | "integration.data_deleted" | "external_link.created" | "external_link.removed" | "external_link.change_accepted" | "chat_message.deleted" | "integration.searched" | "inventory_item.created" | "inventory_item.updated" | "inventory_item.deleted" | "inventory.exported" | "inventory.imported" | "notebook.created" | "notebook.updated" | "notebook.deleted" | "notebook.locked" | "notebook.exported" | "subject.created" | "subject.updated" | "subject.deleted" | "inventory.used" | "inventory.use_reversed" | "protocol.created" | "protocol.updated" | "protocol.deleted" | "inventory_order.created" | "inventory_order.updated" | "inventory_order.deleted" | "lab_event.created" | "lab_event.updated" | "lab_event.deleted" | "meeting.created" | "meeting.updated" | "meeting.deleted" | "calendar_feed.created" | "calendar_feed.revoked" | "google_chat.linked" | "google_chat.unlinked" | "google_chat.imported" | "onboarding_item.created" | "onboarding_item.updated" | "onboarding_item.deleted" | "onboarding.completion_changed" | "institution_resource.created" | "institution_resource.updated" | "institution_resource.deleted" | "funding.created" | "funding.updated" | "funding.deleted" | "external_output.created" | "external_output.updated" | "external_output.deleted" | "review_item.created" | "review_item.updated" | "review_item.deleted" | "recruitment_entry.created" | "recruitment_entry.updated" | "recruitment_entry.deleted" | "recruitment_plan.updated" | "participant.created" | "participant.updated" | "participant.archived" | "participant.restored" | "participant_component.created" | "participant_component.updated" | "participant_component.deleted" | "participant_cell.changed" | "participant_file.added" | "participant_file.changed" | "participant_file.removed" | "participant_reason.changed" | "participant.identifier_blocked" | "participant.imported" | "participant.import_undone" | "participant.files_matched" | "participant.links_checked" | "participant.tasks_created" | "participant_rule.saved" | "participant_rule.archived" | "participant_set.locked" | "participant_flow.exported" | "ai_access.granted" | "ai_access.revoked" | "ai_tool.write" | "ai_key.saved" | "ai_key.removed" | "lab_ai_key.set" | "lab_ai_key.replaced" | "lab_ai_key.removed" | "lab_ai_key.cap_changed" | "training_requirement.created" | "training_requirement.updated" | "training_requirement.deleted" | "training_record.created" | "training_record.updated" | "training_record.verified" | "training_record.deleted" | "training.reminded" | "dmp.created" | "dmp.updated" | "dmp.approved" | "dmp.deleted" | "webhook.created" | "webhook.updated" | "webhook.deleted" | "tasks.imported" | "papers.imported" | "paper.deleted" | "paper_note.deleted" | "folder.participant_flag_changed" | "document.participant_flag_changed" | "attachment.participant_flag_changed" | "dataset.participant_flag_changed" | "file_link.created" | "sensor.created" | "sensor.updated" | "sensor.deleted" | "sensor_token.created" | "sensor_token.rotated" | "sensor_token.revoked" | "sensor_alert.acknowledged" | "instrument_drop_link.created" | "instrument_drop_link.used" | "instrument_drop_link.revoked";
                 actor?: string;
                 /** @description Leave out views, downloads and other reads. */
                 changes_only?: boolean;
@@ -13453,6 +13802,125 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StartersLoaded"];
+                };
+            };
+        };
+    };
+    labs_instrument_drop_links_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instrumentdroplink_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    labs_instrument_files_list: {
+        parameters: {
+            query?: {
+                /** @description Only this instrument's files. */
+                instrument?: string;
+                /** @description Only this project's files. */
+                project?: string;
+            };
+            header?: never;
+            path: {
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstrumentFile"][];
+                };
+            };
+        };
+    };
+    labs_instrument_files_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instrumentfile_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstrumentFileDetail"];
+                };
+            };
+        };
+    };
+    labs_instruments_drop_links_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inventoryitem_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DropLink"][];
+                };
+            };
+        };
+    };
+    labs_instruments_drop_links_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inventoryitem_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DropLinkInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["DropLinkInput"];
+                "multipart/form-data": components["schemas"]["DropLinkInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DropLinkCreated"];
                 };
             };
         };
@@ -16544,6 +17012,34 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Handover"];
+                };
+            };
+        };
+    };
+    labs_projects_instruments_files_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inventoryitem_id: string;
+                lab_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["DropUpload"];
+                "application/x-www-form-urlencoded": components["schemas"]["DropUpload"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstrumentFile"];
                 };
             };
         };

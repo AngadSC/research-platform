@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("labs", "0026_chat_via_account_backfill"),
+        ("labs", "0027_inventory_lot_and_expiry"),
     ]
 
     operations = [
