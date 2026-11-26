@@ -4,14 +4,15 @@
 
 ## Wet-lab features (Dec 2026)
 
-For the 2026-12-02 demo to a glycobiology PI. Merged on `night/wl-int` (not pushed). Decisions D381 to D385.
+For the 2026-12-02 demo to a glycobiology PI. Merged on `night/wl-int` (not pushed). Decisions D381 to D386.
 
 - **Reagent lots:** lot number and expiry on inventory items, the lot kept on each use, expiry flags and calendar entries.
 - **Instrument previews:** exported files from plate readers, NanoDrop/Qubit, qPCR, ÄKTA (UNICORN), HPLC, gels (TIFF), flow (FCS) and Sanger (AB1) are read in a sandboxed child process on the worker and shown as plates, tables, traces or images. New backend dependencies: allotropy (MIT, pulls rainbow-api, LGPL, allowed by D2), tifffile (BSD), pillow (HPND).
 - **Instruments:** an equipment item has an instrument page with its data, upload-only drop links and a QR sticker; dropped files land in the project's "Instrument data" folder. "Use in statistics" on a preview saves the table as a CSV and opens Analyse on it.
+- **Samples:** a registry of plasmids, strains, primers and enzyme batches with a freezer box map.
 - **Monitoring:** freezer and incubator sensors post readings with a per-sensor token and alert by email and in the app.
-- **Demo:** `python manage.py seed_wetlab_demo` (DEBUG on, or QA_PASSWORD set) makes "Glycoenzyme Demo Lab". Logins `glyco-pi@`, `glyco-admin@`, `glyco-postdoc@` (project lead), `glyco-student@`, `glyco-viewer@example.test`, password `wetlab-demo-not-secret` (or QA_PASSWORD). Safe to run twice. Sample registry (wl-samples) is not merged yet; `seed_wetlab_demo` has a marked place for its seed.
-- **Still to do:** apply the instruments and sensors security-review fixes; merge wl-samples; the Celery worker must be running for dropped files to be parsed outside the seed command.
+- **Demo:** `python manage.py seed_wetlab_demo` (DEBUG on, or QA_PASSWORD set) makes "Glycoenzyme Demo Lab". Logins `glyco-pi@`, `glyco-admin@`, `glyco-postdoc@` (project lead), `glyco-student@`, `glyco-viewer@example.test`, password `wetlab-demo-not-secret` (or QA_PASSWORD). Safe to run twice.
+- **Still to do:** apply the instruments and sensors security-review fixes; the Celery worker must be running for dropped files to be parsed outside the seed command.
 
 ## Overnight feedback run (branch claude/ux-overhaul)
 
