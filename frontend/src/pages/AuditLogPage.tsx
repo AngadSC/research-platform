@@ -213,6 +213,9 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "attachment.participant_flag_changed": "Changed a file's identifying mark",
   "dataset.participant_flag_changed": "Changed a dataset's identifying mark",
   "file_link.created": "Made a download or upload link for a file",
+  "instrument_drop_link.created": "Made an instrument drop link",
+  "instrument_drop_link.used": "Received a file through an instrument drop link",
+  "instrument_drop_link.revoked": "Turned off an instrument drop link",
 };
 const humanKey = (k: string) => k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 // An action newer than this page still reads as words, never as a code.

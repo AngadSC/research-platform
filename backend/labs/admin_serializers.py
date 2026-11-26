@@ -7,6 +7,7 @@ from rest_framework import serializers
 
 from core.models import User
 from core.serializers import UserSerializer, no_control_chars
+from instrument_parsers import SOFTWARE_CHOICES
 from labs.models import (
     InstitutionResource,
     InventoryCategory,
@@ -217,6 +218,7 @@ class InventorySerializer(serializers.ModelSerializer):
             "due_date",
             "status",
             "notes",
+            "instrument_software",
             "created_at",
             "updated_at",
         ]
@@ -240,6 +242,9 @@ class InventoryInputSerializer(serializers.Serializer):
     due_date = serializers.DateField(allow_null=True, required=False)
     status = serializers.ChoiceField(choices=InventoryStatus.choices, required=False)
     notes = serializers.CharField(max_length=5000, allow_blank=True, required=False)
+    instrument_software = serializers.ChoiceField(
+        choices=SOFTWARE_CHOICES, allow_blank=True, required=False
+    )
 
 
 class InventoryImportInputSerializer(serializers.Serializer):

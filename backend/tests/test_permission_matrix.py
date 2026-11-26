@@ -32,6 +32,8 @@ from core.models import Institution, Notification, NotificationKind, PageComment
 from documents import services as document_services  # documents/attachments (Phase 3)
 from documents.models import Attachment, DocumentComment  # file links (VISION S1); comments
 from ethics.models import EthicsApproval  # ethics (Phase 5)
+from instruments import services as instrument_services  # instruments (wet lab)
+from instruments.models import InstrumentFile  # instruments (wet lab)
 from integrations import http as integrations_http  # integrations (Run 2)
 from integrations import registry, webhooks
 from integrations.models import ConnectedAccount, ExternalLink, Webhook  # integrations (Run 2)
@@ -663,6 +665,20 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "assistant:file-link"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "assistant:file-link"): "401 404 2 2 2 2 403 404 403",
     # --- end in-app assistant (Run 5) ---
+    # --- instruments (wet lab): instrument files, the drop page and drop links ---
+    ("GET",    "instruments:software"): "401 2 2 2 2 2 2 2 2",
+    ("GET",    "instruments:file-list"): "401 404 2 2 2 2 2 2 2",
+    ("GET",    "instruments:file-detail"): "401 404 2 2 2 2 2 404 2",  # a file in P1
+    ("POST",   "instruments:drop-file"): "401 404 2 2 2 2 403 404 403",  # edit_content on P1
+    ("GET",    "instruments:link-list"): "401 404 2 2 2 2 2 2 2",  # your own (PI, admin: all)
+    ("POST",   "instruments:link-list"): "401 404 2 2 2 2 403 404 403",  # into P1
+    # contrib's link: its maker, or a PI or lab admin (manage_lab) to stop a leaked one
+    ("DELETE", "instruments:link-detail"): "401 404 2 2 404 2 404 404 404",
+    # A drop link acts as the person who made it, whose access is read again on use (as
+    # assistant:file-link): outsider is not in Lab A, nonproj cannot see P1, viewers cannot add.
+    ("GET",    "instruments:drop"): "401 404 2 2 2 2 403 404 403",
+    ("POST",   "instruments:drop"): "401 404 2 2 2 2 403 404 403",
+    # --- end instruments (wet lab) ---
 }
 # fmt: on
 
@@ -1001,6 +1017,30 @@ def _training_fixtures(lab, owner, tag):
 
 
 # --- end training (Run 5) ---
+
+
+def _instrument_fixtures(lab, inv, attachment, maker, tag):  # instruments (wet lab)
+    """`inv` (equipment) with `attachment` as its file, and a drop link made by `maker`."""
+    item = InstrumentFile.objects.create(
+        lab=lab,
+        instrument=inv,
+        attachment=attachment,
+        project=attachment.project,
+        uploaded_via="page",
+    )
+    link, _ = instrument_services.issue_link(
+        instrument=inv, project=attachment.project, user=maker, label=f"Link {tag}"
+    )
+    return {"instrumentfile_id": item.pk, "instrumentdroplink_id": link.pk}
+
+
+def _drop_token(user, w):
+    if user is None:
+        return {}
+    project = Project.objects.for_lab(w.a["lab_id"]).get(pk=w.a["project_id"])
+    inv = InventoryItem.objects.for_lab(w.a["lab_id"]).get(pk=w.a["inventoryitem_id"])
+    _, token = instrument_services.issue_link(instrument=inv, project=project, user=user)
+    return {"token": token}
 
 
 def _paper_fixtures(lab, owner, tag):  # paper library
@@ -1387,6 +1427,7 @@ def build_world():
             "aigrant_id": ai_a.pk,  # AI access (Run 5)
             "ai_provider": "anthropic",  # in-app assistant (Run 5)
             "conversation_id": conv_a.pk,
+            **_instrument_fixtures(lab_a, inv_a, attachment_a, users["contrib"], "lab-a"),
         },
         b={
             "lab_id": lab_b.pk,
@@ -1427,6 +1468,7 @@ def build_world():
             "aigrant_id": ai_b.pk,  # AI access (Run 5)
             "ai_provider": "anthropic",  # in-app assistant (Run 5)
             "conversation_id": conv_b.pk,
+            **_instrument_fixtures(lab_b, inv_b, attachment_b, secret_pi, "LAB-B-SECRET"),
         },
         b_names=[
             "Lab B Secret",
@@ -1468,6 +1510,7 @@ def build_world():
             "Inventory LAB-B-SECRET",
             "Reagent LAB-B-SECRET",
             "Protocol LAB-B-SECRET",
+            "Link LAB-B-SECRET",  # instruments (wet lab)
             "Order LAB-B-SECRET",
             "Lab chat LAB-B-SECRET",
             "Event LAB-B-SECRET",
@@ -1925,6 +1968,18 @@ PAYLOADS = {
     ("POST", "assistant:file-link"): lambda user, w: {
         **_file_link(user, w, "upload"),
         "file": SimpleUploadedFile("fig.png", b"png", content_type="image/png"),
+    },
+    # --- instruments (wet lab) ---
+    ("POST", "instruments:drop-file"): lambda user, w: {
+        "file": SimpleUploadedFile("read.csv", b"Well,OD", content_type="text/csv"),
+        "acknowledged_notice": "true",
+    },
+    ("POST", "instruments:link-list"): lambda user, w: {"project": str(w.a["project_id"])},
+    ("GET", "instruments:drop"): _drop_token,
+    ("POST", "instruments:drop"): lambda user, w: {
+        **_drop_token(user, w),
+        "file": SimpleUploadedFile("read.csv", b"Well,OD", content_type="text/csv"),
+        "acknowledged_notice": "true",
     },
 }
 

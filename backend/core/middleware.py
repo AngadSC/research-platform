@@ -11,7 +11,12 @@ from django.http import JsonResponse
 from django.urls import Resolver404, resolve
 from django.utils import timezone
 
-UPLOAD_URL_NAMES = {"documents:attachment-list", "ethics:approval-attachments"}
+UPLOAD_URL_NAMES = {
+    "documents:attachment-list",
+    "ethics:approval-attachments",
+    "instruments:drop-file",
+    "instruments:drop",
+}
 MULTIPART_ALLOWANCE = 64 * 1024  # boundaries and form fields around the file
 
 

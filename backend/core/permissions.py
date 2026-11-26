@@ -244,6 +244,12 @@ def can_access_funding(user, lab) -> bool:
     return Perm.ACCESS_FUNDING in LAB_ROLE_PERMS.get(lab_role(user, lab), ())
 
 
+def sees_all_drop_links(user, lab) -> bool:
+    """Instrument drop links: a PI or lab admin (`manage_lab`) sees and revokes everyone's;
+    everyone else only their own. `lab` may be a Lab or its id."""
+    return Perm.MANAGE_LAB in LAB_ROLE_PERMS.get(lab_role(user, lab), ())
+
+
 def can_reverse_usage(user, usage) -> bool:
     """D228: undoing a recorded use of stock needs a project lead, or the person who recorded it
     and can still edit the project."""
@@ -427,6 +433,14 @@ def shares_a_lab(user, other) -> bool:
 def calendar_feeds_of(user):
     """Someone's feed links in every lab, for ending them after a security event (D231)."""
     return CalendarFeedToken.unscoped.filter(user=user).select_related("lab")
+
+
+def drop_links_of(user):
+    """Someone's live instrument drop links in every lab, for ending them after a security
+    event (as `calendar_feeds_of`)."""
+    from instruments.models import InstrumentDropLink
+
+    return InstrumentDropLink.unscoped.filter(created_by=user, revoked_at__isnull=True)
 
 
 def scope(model, user, lab):

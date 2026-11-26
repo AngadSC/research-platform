@@ -54,6 +54,7 @@ EXTERNAL = {
     "core:weather",
     "assistant:file-link",
     "labs:calendar-ics",  # needs a feed token, not a login
+    "instruments:drop",  # needs a drop link token, not a login
 }
 # kwarg stem -> model name where the two differ
 ALIASES = {"comment": "documentcomment", "ethics_attachment": "ethicsattachment"}

@@ -237,6 +237,67 @@ paths:
               schema:
                 $ref: '#/components/schemas/InstitutionSearch'
           description: ''
+  /api/instrument-drop/:
+    get:
+      operationId: instrument_drop_retrieve
+      description: |-
+        `/drop/<token>` in the app: shows the instrument and project names and takes files. It
+        never lists or reads anything. The token is the only credential; a session does not count.
+      parameters:
+      - in: query
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - instrument-drop
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicDrop'
+          description: ''
+    post:
+      operationId: instrument_drop_create
+      description: |-
+        `/drop/<token>` in the app: shows the instrument and project names and takes files. It
+        never lists or reads anything. The token is the only credential; a session does not count.
+      tags:
+      - instrument-drop
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DropUpload'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DropUpload'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicDropResult'
+          description: ''
+  /api/instrument-software/:
+    get:
+      operationId: instrument_software_list
+      description: The instrument software the parsers know, for the equipment form.
+      tags:
+      - instrument-software
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SoftwareChoice'
+          description: ''
   /api/integrations/oauth/callback/:
     get:
       operationId: integrations_oauth_callback_retrieve
@@ -1342,6 +1403,9 @@ paths:
           - attachment.participant_flag_changed
           - dataset.participant_flag_changed
           - file_link.created
+          - instrument_drop_link.created
+          - instrument_drop_link.used
+          - instrument_drop_link.revoked
           type: string
           minLength: 1
         description: |-
@@ -1535,6 +1599,9 @@ paths:
           * `attachment.participant_flag_changed` - Attachment Participant Flag Changed
           * `dataset.participant_flag_changed` - Dataset Participant Flag Changed
           * `file_link.created` - File Link Created
+          * `instrument_drop_link.created` - Instrument Drop Link Created
+          * `instrument_drop_link.used` - Instrument Drop Link Used
+          * `instrument_drop_link.revoked` - Instrument Drop Link Revoked
       - in: query
         name: actor
         schema:
@@ -4297,6 +4364,166 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/StartersLoaded'
+          description: ''
+  /api/labs/{lab_id}/instrument-drop-links/{instrumentdroplink_id}/:
+    delete:
+      operationId: labs_instrument_drop_links_destroy
+      description: |-
+        ARCHITECTURE section 2: anonymous gets 401, then the lab is resolved (404 if the user
+        is not a member) before permissions run. Item lookups go through `get_queryset()`.
+      parameters:
+      - in: path
+        name: instrumentdroplink_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/labs/{lab_id}/instrument-files/:
+    get:
+      operationId: labs_instrument_files_list
+      description: The newest instrument files in projects the viewer can see.
+      parameters:
+      - in: query
+        name: instrument
+        schema:
+          type: string
+        description: Only this instrument's files.
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: project
+        schema:
+          type: string
+        description: Only this project's files.
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InstrumentFile'
+          description: ''
+  /api/labs/{lab_id}/instrument-files/{instrumentfile_id}/:
+    get:
+      operationId: labs_instrument_files_retrieve
+      description: One file with its parsed summary; the page polls this while the
+        status is pending.
+      parameters:
+      - in: path
+        name: instrumentfile_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstrumentFileDetail'
+          description: ''
+  /api/labs/{lab_id}/instruments/{inventoryitem_id}/drop-links/:
+    get:
+      operationId: labs_instruments_drop_links_list
+      description: 'Links into a project for this instrument: your own (PIs and lab
+        admins see everyone''s).'
+      parameters:
+      - in: path
+        name: inventoryitem_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DropLink'
+          description: ''
+    post:
+      operationId: labs_instruments_drop_links_create
+      description: 'Links into a project for this instrument: your own (PIs and lab
+        admins see everyone''s).'
+      parameters:
+      - in: path
+        name: inventoryitem_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DropLinkInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DropLinkInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DropLinkInput'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DropLinkCreated'
           description: ''
   /api/labs/{lab_id}/integrations/{provider}/connect/:
     post:
@@ -8562,6 +8789,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Handover'
+          description: ''
+  /api/labs/{lab_id}/projects/{project_id}/instruments/{inventoryitem_id}/files/:
+    post:
+      operationId: labs_projects_instruments_files_create
+      description: 'The signed-in drop page (and the QR sticker): one file per request
+        into a project.'
+      parameters:
+      - in: path
+        name: inventoryitem_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DropUpload'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DropUpload'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstrumentFile'
           description: ''
   /api/labs/{lab_id}/projects/{project_id}/integrations/{provider}/import-tasks/:
     post:
@@ -13490,6 +13761,9 @@ components:
       - attachment.participant_flag_changed
       - dataset.participant_flag_changed
       - file_link.created
+      - instrument_drop_link.created
+      - instrument_drop_link.used
+      - instrument_drop_link.revoked
       type: string
       description: |-
         * `auth.login` - Auth Login
@@ -13682,6 +13956,9 @@ components:
         * `attachment.participant_flag_changed` - Attachment Participant Flag Changed
         * `dataset.participant_flag_changed` - Dataset Participant Flag Changed
         * `file_link.created` - File Link Created
+        * `instrument_drop_link.created` - Instrument Drop Link Created
+        * `instrument_drop_link.used` - Instrument Drop Link Used
+        * `instrument_drop_link.revoked` - Instrument Drop Link Revoked
     AiAccessEnum:
       enum:
       - read
@@ -16323,6 +16600,129 @@ components:
       - id
       - name
       - url
+    DropLink:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        label:
+          type: string
+          readOnly: true
+        project:
+          allOf:
+          - $ref: '#/components/schemas/Named'
+          readOnly: true
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        expired:
+          type: boolean
+          readOnly: true
+        last_used_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - created_by
+      - expired
+      - expires_at
+      - id
+      - label
+      - last_used_at
+      - project
+    DropLinkCreated:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        label:
+          type: string
+          readOnly: true
+        project:
+          allOf:
+          - $ref: '#/components/schemas/Named'
+          readOnly: true
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        expired:
+          type: boolean
+          readOnly: true
+        last_used_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        url:
+          type: string
+          readOnly: true
+          description: Shown once; only its hash is stored.
+      required:
+      - created_at
+      - created_by
+      - expired
+      - expires_at
+      - id
+      - label
+      - last_used_at
+      - project
+      - url
+    DropLinkInput:
+      type: object
+      properties:
+        project:
+          type: string
+          format: uuid
+        label:
+          type: string
+          maxLength: 100
+        expires_in_days:
+          type: integer
+          maximum: 365
+          minimum: 1
+          nullable: true
+      required:
+      - project
+    DropUpload:
+      type: object
+      properties:
+        file:
+          type: string
+          format: uri
+        acknowledged_notice:
+          type: boolean
+          default: false
+        contains_participant_data:
+          type: boolean
+          default: false
+      required:
+      - file
     EnrolmentStatusEnum:
       enum:
       - screened
@@ -17902,6 +18302,172 @@ components:
             $ref: '#/components/schemas/InstitutionHit'
       required:
       - results
+    InstrumentFile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        instrument:
+          allOf:
+          - $ref: '#/components/schemas/Named'
+          readOnly: true
+        project:
+          allOf:
+          - $ref: '#/components/schemas/Named'
+          readOnly: true
+        attachment:
+          type: string
+          format: uuid
+          readOnly: true
+        filename:
+          type: string
+          readOnly: true
+        size_bytes:
+          type: integer
+          readOnly: true
+        contains_participant_data:
+          type: boolean
+          readOnly: true
+        software:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusA96Enum'
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        kind:
+          type: string
+          readOnly: true
+        uploaded_via:
+          allOf:
+          - $ref: '#/components/schemas/UploadedViaEnum'
+          readOnly: true
+        dropped_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - attachment
+      - contains_participant_data
+      - created_at
+      - dropped_by
+      - filename
+      - id
+      - instrument
+      - kind
+      - project
+      - size_bytes
+      - software
+      - status
+      - title
+      - uploaded_via
+    InstrumentFileDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        instrument:
+          allOf:
+          - $ref: '#/components/schemas/Named'
+          readOnly: true
+        project:
+          allOf:
+          - $ref: '#/components/schemas/Named'
+          readOnly: true
+        attachment:
+          type: string
+          format: uuid
+          readOnly: true
+        filename:
+          type: string
+          readOnly: true
+        size_bytes:
+          type: integer
+          readOnly: true
+        contains_participant_data:
+          type: boolean
+          readOnly: true
+        software:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusA96Enum'
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        kind:
+          type: string
+          readOnly: true
+        uploaded_via:
+          allOf:
+          - $ref: '#/components/schemas/UploadedViaEnum'
+          readOnly: true
+        dropped_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        summary:
+          readOnly: true
+          description: instrument_parsers.parse_file
+      required:
+      - attachment
+      - contains_participant_data
+      - created_at
+      - dropped_by
+      - filename
+      - id
+      - instrument
+      - kind
+      - project
+      - size_bytes
+      - software
+      - status
+      - summary
+      - title
+      - uploaded_via
+    InstrumentSoftwareEnum:
+      enum:
+      - agilent_gen5
+      - molecular_devices_softmax_pro
+      - thermo_nanodrop_one
+      - biorad_cfx_maestro
+      - thermo_quantstudio
+      - cytiva_unicorn
+      - thermo_chromeleon
+      - generic_csv
+      - image_tiff
+      - fcs
+      - abi_sanger
+      type: string
+      description: |-
+        * `agilent_gen5` - Agilent BioTek Gen5
+        * `molecular_devices_softmax_pro` - Molecular Devices SoftMax Pro
+        * `thermo_nanodrop_one` - Thermo NanoDrop One
+        * `biorad_cfx_maestro` - Bio-Rad CFX Maestro
+        * `thermo_quantstudio` - Thermo QuantStudio
+        * `cytiva_unicorn` - Cytiva UNICORN (ÄKTA)
+        * `thermo_chromeleon` - Thermo Chromeleon
+        * `generic_csv` - Spreadsheet or CSV
+        * `image_tiff` - Image (TIFF)
+        * `fcs` - Flow cytometry (FCS)
+        * `abi_sanger` - Sanger sequencing (AB1)
     Inventory:
       type: object
       properties:
@@ -17967,6 +18533,9 @@ components:
         notes:
           type: string
           readOnly: true
+        instrument_software:
+          type: string
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -17980,6 +18549,7 @@ components:
       - created_at
       - due_date
       - id
+      - instrument_software
       - location
       - low
       - low_stock_at
@@ -18100,6 +18670,10 @@ components:
         notes:
           type: string
           maxLength: 5000
+        instrument_software:
+          oneOf:
+          - $ref: '#/components/schemas/InstrumentSoftwareEnum'
+          - $ref: '#/components/schemas/BlankEnum'
       required:
       - category
       - name
@@ -19429,6 +20003,17 @@ components:
         * `api_key` - api_key
         * `secret` - secret
         * `instance_url` - instance_url
+    Named:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
     NewGoogleFile:
       type: object
       description: 'The file just made: the same fields the Picker gives, so a page
@@ -21141,6 +21726,10 @@ components:
         notes:
           type: string
           maxLength: 5000
+        instrument_software:
+          oneOf:
+          - $ref: '#/components/schemas/InstrumentSoftwareEnum'
+          - $ref: '#/components/schemas/BlankEnum'
     PatchedInventoryOrderInput:
       type: object
       properties:
@@ -22295,6 +22884,29 @@ components:
       description: |-
         * `anthropic` - Anthropic
         * `openai` - Openai
+    PublicDrop:
+      type: object
+      properties:
+        instrument:
+          type: string
+        project:
+          type: string
+        max_bytes:
+          type: integer
+      required:
+      - instrument
+      - max_bytes
+      - project
+    PublicDropResult:
+      type: object
+      properties:
+        name:
+          type: string
+        size_bytes:
+          type: integer
+      required:
+      - name
+      - size_bytes
     Reaction:
       type: object
       properties:
@@ -23227,6 +23839,16 @@ components:
       - key
       - label
       - percent
+    SoftwareChoice:
+      type: object
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+      required:
+      - label
+      - value
     Source395Enum:
       enum:
       - app
@@ -23317,6 +23939,18 @@ components:
         * `in_repair` - In Repair
         * `retired` - Retired
         * `lost` - Lost
+    StatusA96Enum:
+      enum:
+      - pending
+      - ok
+      - unsupported
+      - failed
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `ok` - Ok
+        * `unsupported` - Unsupported
+        * `failed` - Failed
     StatusCa5Enum:
       enum:
       - active
@@ -24148,6 +24782,14 @@ components:
         * `presentation` - Presentation
         * `conference` - Conference
         * `other` - Other
+    UploadedViaEnum:
+      enum:
+      - page
+      - link
+      type: string
+      description: |-
+        * `page` - Page
+        * `link` - Link
     Usage:
       type: object
       properties:

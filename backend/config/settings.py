@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     "audit",
     "integrations",
     "assistant",  # Run 5, D160: AI tool layer and MCP server
+    "instruments",  # wet lab: instrument files and drop links
 ]
 
 MIDDLEWARE = [
@@ -388,6 +389,8 @@ REST_FRAMEWORK = {
         "ai_key": "20/hour",  # D187: each key save makes one provider call
         "ai_chat": "240/hour",  # D190: messages and approvals to the in-app assistant
         "file_links": "120/hour",  # VISION S1: download and upload links, per address
+        "instrument_drop": "600/hour",  # instrument drop page, per address
+        "instrument_drop_link": "300/hour",  # files sent through one drop link
     },
     "DEFAULT_PERMISSION_CLASSES": ["core.permissions.HasPerm"],
     "DEFAULT_AUTHENTICATION_CLASSES": ["core.auth.SessionAuthentication"],

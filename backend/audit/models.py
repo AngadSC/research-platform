@@ -215,6 +215,10 @@ class AuditAction(models.TextChoices):
     DATASET_PARTICIPANT_FLAG_CHANGED = "dataset.participant_flag_changed"
     # Run 6: a 15-minute download or upload link for tools on the person's computer (VISION S1)
     FILE_LINK_CREATED = "file_link.created"
+    # Wet lab: upload-only links into a project for one instrument (instruments app)
+    INSTRUMENT_DROP_LINK_CREATED = "instrument_drop_link.created"
+    INSTRUMENT_DROP_LINK_USED = "instrument_drop_link.used"
+    INSTRUMENT_DROP_LINK_REVOKED = "instrument_drop_link.revoked"
 
 
 class AuditQuerySet(models.QuerySet):
