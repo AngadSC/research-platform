@@ -94,6 +94,13 @@ describe("Integrations page", () => {
     expect(await screen.findByText(/Ada: Claude \(read only\)/)).toBeVisible();
   });
 
+  it("opens Everyone's connections when the Home tile sends you with ?everyone=1", async () => {
+    mockFetch(base(ADMIN, []));
+    renderRoute(`${PAGE}?everyone=1`);
+    const region = await screen.findByRole("region", { name: "Everyone's connections" });
+    expect(region).toHaveAttribute("open");
+  });
+
   it("shows the Claude connector with connected apps and a link to Settings", async () => {
     const app = { id: "g1", kind: "oauth", client_name: "Claude", labs: [], access: "read" };
     mockFetch({ ...base(MEMBER, []), "GET /api/ai/grants/": { body: [app] } });
