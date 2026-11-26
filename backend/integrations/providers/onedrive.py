@@ -1,7 +1,12 @@
 """Microsoft OneDrive and SharePoint through Microsoft Graph (ARCHITECTURE section 9, D100 to
-D102). Delegated scopes `Files.Read.All` and `offline_access` only. Metadata only: `$select`
+D102). Delegated scopes `Files.Read.All` and `offline_access`. Metadata only: `$select`
 names the fields, and no content, preview or thumbnail endpoint is ever called. Microsoft has no
-per-token revoke endpoint, so disconnecting wipes the local tokens only."""
+per-token revoke endpoint, so disconnecting wipes the local tokens only.
+
+"Edit in Word, Excel or PowerPoint" adds `Files.ReadWrite.AppFolder` (EDIT_SCOPE), asked for only
+when the person clicks "Allow editing in Office" (`extra_scopes`): it writes to this app's own
+folder in their OneDrive and nowhere else. The upload lives in `documents/office.py`, so this
+module stays metadata-only (D84)."""
 
 import os
 import re
@@ -29,6 +34,7 @@ def tenant(value) -> str:
 TENANT = tenant(os.environ.get("INTEGRATION_ONEDRIVE_TENANT"))
 
 GRAPH = "https://graph.microsoft.com/v1.0"
+EDIT_SCOPE = "Files.ReadWrite.AppFolder"
 FIELDS = "id,name,lastModifiedDateTime,eTag,cTag,webUrl,file,folder,deleted,parentReference"
 _SHARE_SUFFIXES = (".sharepoint.com", ".sharepoint.us", ".sharepoint.cn")
 _SHARE_HOSTS = {"onedrive.live.com", "1drv.ms"}
@@ -152,7 +158,8 @@ PROVIDER = Provider(
     icon="onedrive",
     link_targets=frozenset(TARGETS),
     link_methods=("search",),  # a pasted share link needs the shares API: not offered (D101)
-    scopes=("Files.Read.All", "offline_access"),
+    scopes=("Files.Read.All", "offline_access", EDIT_SCOPE),
+    extra_scopes=(EDIT_SCOPE,),  # only on "Allow editing in Office"
     authorize_url=f"https://login.microsoftonline.com/{TENANT}/oauth2/v2.0/authorize",
     token_url=f"https://login.microsoftonline.com/{TENANT}/oauth2/v2.0/token",
     revoke_url="",  # none exists for Microsoft tokens (D102)

@@ -422,3 +422,115 @@ describe("documents table", () => {
     expect(screen.getByRole("button", { name: "Delete file" })).toBeInTheDocument();
   });
 });
+
+describe("Edit in Word, Excel or PowerPoint (OneDrive)", () => {
+  const word = file({ id: "w1", original_filename: "Draft.docx", content_type: "application/x" });
+  const EDIT = "Files.ReadWrite.AppFolder";
+  const onedrive = {
+    ...drivePicker,
+    name: "onedrive",
+    label: "OneDrive and SharePoint",
+    icon: "onedrive",
+    scopes: ["Files.Read.All", "offline_access", EDIT],
+    link_methods: ["search"],
+    public_config: {},
+    account: null,
+  };
+  const account = (scopes: string[]) => ({
+    id: "od1",
+    provider: "onedrive",
+    user,
+    external_email: "ada@example.test",
+    instance_url: "",
+    granted_scopes: scopes,
+    status: "active",
+    connected_at: "2026-01-01T00:00:00Z",
+    last_used_at: null,
+  });
+  const routes = (accounts: unknown[], configured = true) => ({
+    ...base(["edit_content"], [word]),
+    "GET /api/labs/lab1/integrations/providers/": {
+      body: [drivePicker, { ...onedrive, configured }],
+    },
+    "GET /api/labs/lab1/integrations/accounts/": { body: accounts },
+  });
+  const COPY = "POST /api/labs/lab1/attachments/w1/edit-in-office/";
+  const CONNECT = "POST /api/labs/lab1/integrations/onedrive/connect/";
+  const openMenu = async () => {
+    renderRoute(DOCS);
+    await userEvent.click(await screen.findByRole("button", { name: "Actions for Draft.docx" }));
+  };
+
+  it("copies the file to your OneDrive and offers to open it in Word", async () => {
+    const calls = mockFetch({
+      ...routes([account(["Files.Read.All", EDIT])]),
+      [COPY]: {
+        status: 201,
+        body: file({
+          id: "o9",
+          original_filename: "Draft.docx",
+          external_url: "https://contoso-my.sharepoint.com/x/Draft.docx",
+          copied_from: "w1",
+        }),
+      },
+    });
+    await openMenu();
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Edit in Word" }));
+    expect(await screen.findByText(/Copied to your OneDrive/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open in Word" })).toBeInTheDocument();
+    expect(calls.some((c) => `${c.method} ${c.path}` === COPY)).toBe(true);
+  });
+
+  it("asks to allow editing first, and asks Microsoft for that permission only then", async () => {
+    const calls = mockFetch({
+      ...routes([account(["Files.Read.All"])]),
+      [CONNECT]: { body: { authorization_url: "", account: null } },
+    });
+    await openMenu();
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Edit in Word" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit in Word" });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Allow editing in Office" }));
+    await waitFor(() =>
+      expect(calls.find((c) => `${c.method} ${c.path}` === CONNECT)?.body).toEqual({
+        scopes: ["Files.Read.All", "offline_access", EDIT],
+      }),
+    );
+    expect(calls.some((c) => `${c.method} ${c.path}` === COPY)).toBe(false);
+  });
+
+  it("offers to connect OneDrive when it is not connected", async () => {
+    mockFetch(routes([]));
+    await openMenu();
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Edit in Word" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit in Word" });
+    expect(within(dialog).getByRole("button", { name: "Connect OneDrive" })).toBeInTheDocument();
+  });
+
+  it("is not offered when the site has no OneDrive set up", async () => {
+    mockFetch(routes([], false));
+    await openMenu();
+    expect(await screen.findByRole("menuitem", { name: "Edit in Google" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Edit in Word" })).toBeNull();
+  });
+
+  it("labels a OneDrive copy and offers no copy of the copy", async () => {
+    const copy = file({
+      id: "o9",
+      original_filename: "Draft copy.docx",
+      content_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      external_url: "https://contoso-my.sharepoint.com/x/Draft.docx",
+      size_bytes: 0,
+      copied_from: "w1",
+    });
+    mockFetch({
+      ...routes([account([EDIT])]),
+      "GET /api/labs/lab1/projects/p1/attachments/": { body: [word, copy] },
+    });
+    renderRoute(DOCS);
+    expect(await screen.findByText("OneDrive copy of Draft.docx")).toBeInTheDocument();
+    expect(screen.getByText("Word in OneDrive")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Actions for Draft copy.docx" }));
+    expect(screen.queryByRole("menuitem", { name: "Edit in Word" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Edit in Google" })).toBeNull();
+  });
+});

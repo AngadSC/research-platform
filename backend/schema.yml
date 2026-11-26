@@ -1103,6 +1103,35 @@ paths:
               schema:
                 $ref: '#/components/schemas/Attachment'
           description: ''
+  /api/labs/{lab_id}/attachments/{attachment_id}/edit-in-office/:
+    post:
+      operationId: labs_attachments_edit_in_office_create
+      description: Copy a Word, Excel or PowerPoint upload into the app folder of
+        the person's own OneDrive.
+      parameters:
+      - in: path
+        name: attachment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attachment'
+          description: ''
   /api/labs/{lab_id}/attachments/{attachment_id}/move/:
     post:
       operationId: labs_attachments_move_create

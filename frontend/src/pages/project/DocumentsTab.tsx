@@ -66,7 +66,8 @@ import { UploadDialog } from "@/pages/project/UploadDialog";
 import { IconAction } from "@/components/shared/IconAction";
 import { FromDriveButton } from "@/components/shared/FromDriveButton";
 import { attachFromDrive } from "@/lib/drive";
-import { convertible, googleEditor, isImage } from "@/lib/googleFiles";
+import { convertible, googleEditor, isImage, officeApp } from "@/lib/googleFiles";
+import { useOfficeEdit } from "@/components/shared/OfficeEdit";
 import { openGooglePanel } from "@/lib/googlePanel";
 
 const isPdf = (a: Attachment) =>
@@ -136,7 +137,9 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
     uploadFile,
     remove: removeFile,
     editInGoogle,
+    editInOffice,
   } = useAttachments(labId, projectId, LIVE_POLL_MS);
+  const office = useOfficeEdit(labId, (id) => editInOffice.mutateAsync(id));
   useNewItemToasts(`${projectId}/files`, files.data, "file", (f) => f.original_filename);
   const canEdit = project.my_permissions.includes("edit_content");
   const archived = project.status === "archived"; // no new documents, files or folders
@@ -247,7 +250,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
             </span>
             {original && (
               <span className="max-w-full truncate text-xs text-muted-foreground">
-                Google copy of {original}
+                {r.file!.drive_file_id ? "Google" : "OneDrive"} copy of {original}
               </span>
             )}
             {rowFlagged(r) && <ParticipantBadge />}
@@ -266,7 +269,9 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
           ? g.label
           : r.file.drive_file_id
             ? "Google Drive file"
-            : `${kindOf(r.file)} · ${size(r.file.size_bytes)}`;
+            : r.file.external_url
+              ? `${kindOf(r.file)} in OneDrive`
+              : `${kindOf(r.file)} · ${size(r.file.size_bytes)}`;
         return r.file.source === "link" ? `${kind}, added through Claude` : kind;
       },
     },
@@ -351,6 +356,14 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
                     Edit in Google
                   </DropdownMenuItem>
                 )}
+                {canEdit && r.file && office.available && officeApp(r.file) && (
+                  <DropdownMenuItem
+                    disabled={office.busy}
+                    onSelect={() => void office.start(r.file, officeApp(r.file)!)}
+                  >
+                    Edit in {officeApp(r.file)}
+                  </DropdownMenuItem>
+                )}
                 {canEdit && (
                   <>
                     <DropdownMenuItem onSelect={() => startMove(r)}>
@@ -384,6 +397,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
   return (
     <div>
       {dialog}
+      {office.dialog}
       <div className="grid w-full min-w-0 gap-4">
         {canEdit && !archived ? (
           <div className="flex flex-wrap justify-end gap-2">

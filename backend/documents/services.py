@@ -433,7 +433,7 @@ def edit_in_google(attachment, *, user, request=None) -> Attachment:
     stem, dot, ext = attachment.original_filename.rpartition(".")
     ext = f".{ext.lower()}" if dot else ""
     if (
-        attachment.from_drive
+        attachment.external_url  # a Drive file or an Office copy: no bytes here
         or attachment.project_id is None
         or ext not in google_drive.CONVERTIBLE
     ):
@@ -483,6 +483,113 @@ def edit_in_google(attachment, *, user, request=None) -> Attachment:
         flag=flagged,
         copied_from=attachment,
     )
+
+
+def edit_in_office(attachment, *, user, request=None) -> Attachment:
+    """Edit in Word, Excel or PowerPoint: copy a .docx, .xlsx or .pptx upload into this app's
+    folder in the person's own OneDrive and attach that copy next to the original, pointing back
+    at it, as Edit in Google does (D273). The caller has checked edit rights on the project. Every
+    refusal comes before anything is sent. A file marked as identifying participants (or in a
+    marked folder) is refused: unlike Edit in Google (D307), nothing says such data belongs in a
+    personal OneDrive."""
+    from assistant.privacy import is_flagged
+    from documents import office
+    from integrations.http import IntegrationError
+    from integrations.models import AccountStatus, ConnectedAccount
+    from integrations.providers import onedrive
+
+    stem, dot, ext = attachment.original_filename.rpartition(".")
+    ext = f".{ext.lower()}" if dot else ""
+    if attachment.external_url or attachment.project_id is None or ext not in office.APPS:
+        raise ValidationError(
+            {"file": "Only Word, Excel and PowerPoint files can be edited in Office."}
+        )
+    if is_flagged(attachment):
+        raise ValidationError(
+            {
+                "file": "This file is marked as identifying participants, so it cannot be "
+                "copied to OneDrive."
+            }
+        )
+    limit = office.MAX_BYTES
+    too_big = f"This file is too large to copy to OneDrive ({limit // 1048576} MB maximum)."
+    if attachment.size_bytes > limit:
+        raise ValidationError({"file": too_big})
+    account = (
+        ConnectedAccount.objects.for_lab(attachment.lab_id)
+        .filter(user=user, provider=onedrive.PROVIDER.name, status=AccountStatus.ACTIVE)
+        .first()
+    )
+    if account is None:
+        raise ValidationError({"file": "Connect OneDrive first."})
+    allow_first = "Allow editing in Office first."
+    if onedrive.EDIT_SCOPE not in account.granted_scopes:
+        raise ValidationError({"file": allow_first})
+    try:
+        with lab_files().open(attachment.storage_key, "rb") as fh:
+            data = fh.read(limit + 1)
+    except FileNotFoundError:
+        raise Http404 from None
+    if len(data) > limit:
+        raise ValidationError({"file": too_big})
+    # D244, as upload_attachment: a PI-only file's name must not reach lab admins
+    sent_action = (
+        AuditAction.FUNDING_UPDATED if attachment.pi_only else AuditAction.ATTACHMENT_DOWNLOADED
+    )
+    try:
+        item = office.upload_copy(account, name=office.safe_name(stem, ext), data=data)
+    except IntegrationError as exc:  # AccountUnavailable too
+        # Microsoft may have the file even though it did not answer, so the attempt is recorded.
+        record(
+            sent_action,
+            actor=user,
+            lab=attachment.lab,
+            target=attachment,
+            request=request,
+            metadata={"via": "office_copy", "outcome": "uncertain", "participant_data": False},
+        )
+        if isinstance(exc, office.NotAllowed):
+            raise ValidationError({"file": allow_first}) from None
+        raise ValidationError({"file": "OneDrive did not answer. Try again."}) from None
+    # The bytes have left: recorded now, so a failure to link the copy below still leaves a trace.
+    record(
+        sent_action,
+        actor=user,
+        lab=attachment.lab,
+        target=attachment,
+        request=request,
+        metadata={"via": "office_copy", "onedrive_item": item["id"], "participant_data": False},
+    )
+    copy_id = uuid.uuid4()
+    with transaction.atomic():
+        copy = Attachment.objects.create(
+            id=copy_id,
+            project=attachment.project,
+            folder=attachment.folder,
+            storage_key=f"onedrive:{copy_id}",  # never opened: the bytes are in OneDrive
+            original_filename="".join(c for c in item["name"] if c.isprintable())[:255] or "file",
+            content_type=attachment.content_type,
+            size_bytes=0,
+            sha256="",
+            uploaded_by=user,
+            notice_acknowledged_at=None,
+            pi_only=attachment.pi_only,
+            external_url=item["url"],
+            copied_from=attachment,
+        )
+        record(
+            AuditAction.FUNDING_UPDATED if copy.pi_only else AuditAction.ATTACHMENT_UPLOADED,
+            actor=user,
+            lab=attachment.lab,
+            target=copy,
+            request=request,
+            metadata={
+                "source": "office_copy",
+                "onedrive_item": item["id"],
+                "copied_from": str(attachment.pk),
+            },
+        )
+    return copy
 
 
 EXPORT_NAME_MAX = 100

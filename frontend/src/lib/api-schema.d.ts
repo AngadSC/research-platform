@@ -523,6 +523,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/attachments/{attachment_id}/edit-in-office/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Copy a Word, Excel or PowerPoint upload into the app folder of the person's own OneDrive. */
+        post: operations["labs_attachments_edit_in_office_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/attachments/{attachment_id}/move/": {
         parameters: {
             query?: never;
@@ -10836,6 +10853,28 @@ export interface operations {
         };
     };
     labs_attachments_edit_in_google_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"];
+                };
+            };
+        };
+    };
+    labs_attachments_edit_in_office_create: {
         parameters: {
             query?: never;
             header?: never;

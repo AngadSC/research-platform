@@ -113,6 +113,11 @@ urlpatterns = [
         name="attachment-edit-in-google",
     ),
     path(
+        L + "attachments/<uuid:attachment_id>/edit-in-office/",
+        views.AttachmentEditInOfficeView.as_view(),
+        name="attachment-edit-in-office",
+    ),
+    path(
         L + "attachments/<uuid:attachment_id>/download/",
         views.AttachmentDownloadView.as_view(),
         name="attachment-download",

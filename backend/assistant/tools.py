@@ -1314,6 +1314,8 @@ def _file(ctx, lab, file_id):
 
 def _kind(a):
     """The filetext kind of a file, or None when it can't be read as text."""
+    if a.external_url and not a.from_drive:  # an Office copy: its bytes are in OneDrive only
+        return None
     if a.from_drive:
         return DRIVE_KINDS.get(a.content_type) or filetext.kind(a.original_filename)
     return filetext.kind(a.original_filename)
@@ -1460,6 +1462,8 @@ def read_file(ctx, lab_id, file_id, offset=0):
     unreadable = "This type of file cannot be read as text. " + (
         "Open it in Google Drive instead."
         if a.from_drive
+        else "Open it in OneDrive instead."
+        if a.external_url
         else "Use get_file_link to download it instead."
     )
     if _kind(a) is None:
@@ -1523,8 +1527,9 @@ def read_file(ctx, lab_id, file_id, offset=0):
 def get_file_link(ctx, lab_id, file_id):
     lab = _lab(ctx, lab_id)
     a = _file(ctx, lab, file_id)
-    if a.from_drive:
-        raise ToolError("This file is in Google Drive, so there is no download link here.")
+    if a.external_url:
+        where = "Google Drive" if a.from_drive else "OneDrive"
+        raise ToolError(f"This file is in {where}, so there is no download link here.")
     link, url = file_links.issue(
         FileLinkKind.DOWNLOAD,
         user=ctx.user,
@@ -1895,6 +1900,8 @@ EXPORTED = {"text/csv": ".csv", "text/plain": ".txt"}  # a Google file goes in a
 
 def _run_input(ctx, lab, a):
     """(name, bytes) of one input file, read the way read_file reads it."""
+    if a.external_url and not a.from_drive:
+        raise ToolError(f"{a.original_filename} is in OneDrive, so it cannot be read here.")
     if not a.from_drive:
         try:
             with document_services.lab_files().open(a.storage_key, "rb") as fh:

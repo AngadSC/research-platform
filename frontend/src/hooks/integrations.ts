@@ -43,7 +43,7 @@ export function useAccounts(labId: string, all: boolean, enabled = true) {
 export function useConnect(labId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { provider: string; body?: Record<string, string> }) =>
+    mutationFn: (v: { provider: string; body?: Record<string, unknown> }) =>
       api<ConnectOutput>(`${base(labId)}/integrations/${v.provider}/connect/`, {
         method: "POST",
         body: v.body ?? {},

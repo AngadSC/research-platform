@@ -69,7 +69,10 @@ class TestOneDrive(ProviderContract):
 
     def test_least_scopes_and_hosts(self):
         p = self.provider
-        assert p.scopes == ("Files.Read.All", "offline_access")  # D100: read-only, no User.Read
+        # D100: read-only, no User.Read. The app-folder write is asked for only on request.
+        assert p.scopes == ("Files.Read.All", "offline_access", "Files.ReadWrite.AppFolder")
+        assert p.required_scopes == {"Files.Read.All", "offline_access"}
+        assert p.extra_scopes == ("Files.ReadWrite.AppFolder",)
         assert p.api_hosts == {"login.microsoftonline.com", "graph.microsoft.com"}
         assert p.revoke_url == "" and p.revoke is None  # D102: Microsoft has no revoke endpoint
         assert "paste_url" not in p.link_methods  # D101

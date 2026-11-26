@@ -32,7 +32,7 @@ def _flagged_q(model) -> Q:
     q = Q(contains_participant_data=True)
     if container := _CONTAINER[model]:
         q |= Q(**{f"{container}__contains_participant_data": True})
-    if model is Attachment:  # a Google copy follows the upload it was made from
+    if model is Attachment:  # a Google or OneDrive copy follows the upload it was made from
         q |= Q(copied_from__contains_participant_data=True)
     return q
 

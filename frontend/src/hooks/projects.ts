@@ -275,7 +275,16 @@ export function useAttachments(labId: string, projectId: string, pollMs?: number
       return qc.invalidateQueries({ queryKey: key });
     },
   });
-  return { list, uploadFile, remove, editInGoogle };
+  // The same for Office: a copy in the app's folder in the person's own OneDrive.
+  const editInOffice = useMutation({
+    mutationFn: (id: string) =>
+      api<Attachment>(`${base(labId)}/attachments/${id}/edit-in-office/`, { method: "POST" }),
+    onSuccess: (a) => {
+      markMine(a?.id);
+      return qc.invalidateQueries({ queryKey: key });
+    },
+  });
+  return { list, uploadFile, remove, editInGoogle, editInOffice };
 }
 
 /** The only way files are fetched: the authenticated same-origin endpoint. */
