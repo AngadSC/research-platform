@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("core", "0018_page_comment"),
+        ("core", "0019_sensor_alert_kind"),
     ]
 
     operations = [
