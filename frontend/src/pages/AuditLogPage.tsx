@@ -220,6 +220,9 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "sensor_token.rotated": "Replaced a sensor's device token",
   "sensor_token.revoked": "Turned off a sensor's device token",
   "sensor_alert.acknowledged": "Acknowledged a sensor alert",
+  "instrument_drop_link.created": "Made an instrument drop link",
+  "instrument_drop_link.used": "Received a file through an instrument drop link",
+  "instrument_drop_link.revoked": "Turned off an instrument drop link",
 };
 const humanKey = (k: string) => k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 // An action newer than this page still reads as words, never as a code.

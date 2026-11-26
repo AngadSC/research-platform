@@ -68,6 +68,11 @@ import { FromDriveButton } from "@/components/shared/FromDriveButton";
 import { attachFromDrive } from "@/lib/drive";
 import { convertible, googleEditor, isImage } from "@/lib/googleFiles";
 import { openGooglePanel } from "@/lib/googlePanel";
+import {
+  InstrumentBadge,
+  InstrumentFileDialog,
+} from "@/components/instruments/InstrumentFileDialog";
+import { useInstrumentFiles } from "@/hooks/instruments";
 
 const isPdf = (a: Attachment) =>
   a.content_type === "application/pdf" || a.original_filename.toLowerCase().endsWith(".pdf");
@@ -162,6 +167,11 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
   const [embedding, setEmbedding] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [previewing, setPreviewing] = useState<Attachment | null>(null);
+  // Files sent from an instrument get a badge and open their parsed preview.
+  // ponytail: the newest 100 per project; older ones show as plain files.
+  const instrumentFiles = useInstrumentFiles(labId, { project: projectId });
+  const instrumentOf = new Map((instrumentFiles.data ?? []).map((f) => [f.attachment, f]));
+  const [instrumentPreview, setInstrumentPreview] = useState<string | null>(null);
   // D326: the Google panel lives in the app shell, so it stays open on other pages.
   const setPanel = ({ file, edit }: { file: Attachment; edit: boolean }) => {
     const editor = googleEditor(file);
@@ -194,6 +204,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
 
   const openRow = (r: Row) => {
     if (r.doc) open(r.doc.id);
+    else if (instrumentOf.has(r.file.id)) setInstrumentPreview(instrumentOf.get(r.file.id)!.id);
     else if (googleEditor(r.file) || previewable(r.file)) preview(r.file);
     else if (analysable(r.file)) void navigate(`${base}/analyse?file=${r.file.id}`);
     else if (r.file.external_url) window.open(r.file.external_url, "_blank", "noopener");
@@ -251,6 +262,9 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
               </span>
             )}
             {rowFlagged(r) && <ParticipantBadge />}
+            {r.file && instrumentOf.has(r.file.id) && (
+              <InstrumentBadge name={instrumentOf.get(r.file.id)!.instrument.name} />
+            )}
           </span>
         );
       },
@@ -504,6 +518,11 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
         <Disclosure title="Linked files" level={3}>
           <LinkedFiles labId={labId} projectId={projectId} canEdit={canEdit} />
         </Disclosure>
+        <InstrumentFileDialog
+          labId={labId}
+          fileId={instrumentPreview}
+          onClose={() => setInstrumentPreview(null)}
+        />
         <UploadDialog
           open={uploading}
           onOpenChange={setUploading}

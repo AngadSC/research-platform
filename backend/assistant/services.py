@@ -170,6 +170,9 @@ def revoke_all(user, *, reason, request=None) -> int:
     from labs.admin_services import revoke_calendar_feeds  # avoids an import cycle
 
     revoke_calendar_feeds(user, reason=reason, request=request)  # D231
+    from instruments.services import revoke_all_links
+
+    revoke_all_links(user, reason=reason, request=request)  # instrument drop links, the same
     return count
 
 

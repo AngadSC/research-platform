@@ -223,6 +223,10 @@ class AuditAction(models.TextChoices):
     SENSOR_TOKEN_ROTATED = "sensor_token.rotated"
     SENSOR_TOKEN_REVOKED = "sensor_token.revoked"
     SENSOR_ALERT_ACKNOWLEDGED = "sensor_alert.acknowledged"
+    # Wet lab: upload-only links into a project for one instrument (instruments app)
+    INSTRUMENT_DROP_LINK_CREATED = "instrument_drop_link.created"
+    INSTRUMENT_DROP_LINK_USED = "instrument_drop_link.used"
+    INSTRUMENT_DROP_LINK_REVOKED = "instrument_drop_link.revoked"
 
 
 class AuditQuerySet(models.QuerySet):

@@ -315,6 +315,9 @@ def unassign_lost_access(user, *, lab, by=None, reason, request=None) -> int:
                 dedupe_key=f"task_unassigned:{event.pk}",
             )
         count += 1
+    from instruments.services import revoke_lost_links  # instruments imports this module
+
+    revoke_lost_links(user, lab=lab, by=by, reason=reason, request=request)
     return count
 
 

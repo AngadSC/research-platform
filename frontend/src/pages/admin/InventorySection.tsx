@@ -1,6 +1,6 @@
 import { MoreMenu } from "@/components/shared/MoreMenu";
 import { useState, type FormEvent, type MouseEvent } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { DataTable, HIDE_NARROW, HIDE_NARROWER, type Column } from "@/components/shared/DataTable";
 import { BulkBar, SelectBox, reportBulk, runEach, useSelection } from "@/components/shared/bulk";
@@ -27,6 +27,7 @@ import { trimNumber } from "@/lib/units";
 import { useMembers } from "@/hooks/workspace";
 import { useSensors } from "@/hooks/monitoring";
 import { SensorBadge } from "@/pages/monitoring/parts";
+import { useSoftwareChoices } from "@/hooks/instruments";
 import type { InventoryInput, InventoryItem, InventoryOrder } from "@/lib/api-types";
 import { localDateISO } from "@/lib/format";
 import { formErrors, type FormErrors } from "@/lib/forms";
@@ -99,6 +100,7 @@ const KNOWN = [
   "expiry_date",
   "status",
   "notes",
+  "instrument_software",
 ];
 
 const PICK_TODAY_HINT = "Double-click to pick today";
@@ -106,7 +108,7 @@ const pickToday = (e: MouseEvent<HTMLInputElement>) => {
   e.currentTarget.value = localDateISO();
 };
 
-function ItemDialog({
+export function ItemDialog({
   labId,
   item,
   open,
@@ -122,7 +124,15 @@ function ItemDialog({
   update: ReturnType<typeof useInventory>["update"];
 }) {
   const members = useMembers(labId).data ?? [];
+  const software = useSoftwareChoices().data ?? [];
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
+  // Only equipment exports data, so only equipment is asked for its software.
+  const [picked, setPicked] = useState<string>();
+  const category = picked ?? item?.category ?? "equipment";
+  const close = () => {
+    setPicked(undefined);
+    onClose();
+  };
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -144,6 +154,9 @@ function ItemDialog({
       expiry_date: v("expiry_date") || null,
       status: v("status") as InventoryInput["status"],
       notes: v("notes"),
+      ...(fd.has("instrument_software") && {
+        instrument_software: v("instrument_software") as InventoryInput["instrument_software"],
+      }),
     };
     try {
       if (item) {
@@ -154,7 +167,7 @@ function ItemDialog({
       } else await create.mutateAsync(body);
       setErrors({ fields: {} });
       toast.success(item ? "Item saved" : "Item added");
-      onClose();
+      close();
     } catch (err) {
       setErrors(formErrors(err, KNOWN));
     }
@@ -162,7 +175,7 @@ function ItemDialog({
 
   const f = errors.fields;
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={(o) => !o && close()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogTitle className="text-base font-semibold">
           {item ? "Edit item" : "Add an item"}
@@ -175,7 +188,12 @@ function ItemDialog({
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="Category" error={f.category}>
               {(p) => (
-                <NativeSelect {...p} name="category" defaultValue={item?.category ?? "equipment"}>
+                <NativeSelect
+                  {...p}
+                  name="category"
+                  defaultValue={item?.category ?? "equipment"}
+                  onChange={(e) => setPicked(e.target.value)}
+                >
                   {CATEGORIES.map((c) => (
                     <option key={c.value} value={c.value}>
                       {c.label}
@@ -293,6 +311,28 @@ function ItemDialog({
               )}
             </FormField>
           </div>
+          {category === "equipment" && (
+            <FormField
+              label="Software it exports from"
+              hint="So files dropped from this instrument can be read and previewed."
+              error={f.instrument_software}
+            >
+              {(p) => (
+                <NativeSelect
+                  {...p}
+                  name="instrument_software"
+                  defaultValue={item?.instrument_software ?? ""}
+                >
+                  <option value="">Not set</option>
+                  {software.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              )}
+            </FormField>
+          )}
           <FormField label="Notes" error={f.notes}>
             {(p) => (
               <Textarea maxLength={5000} {...p} name="notes" rows={3} defaultValue={item?.notes} />
@@ -360,6 +400,19 @@ function ExpiryBadge({ date }: { date: string | null }) {
     >
       <TriangleAlert aria-hidden className="size-3" /> {s.text}
     </span>
+  );
+}
+
+/** Equipment opens its instrument page (its data, drop links and QR sticker). */
+function ItemName({ labId, item: i }: { labId: string; item: InventoryItem }) {
+  if (i.category !== "equipment") return <span className="font-medium">{i.name}</span>;
+  return (
+    <Link
+      to={`/labs/${labId}/instruments/${i.id}`}
+      className="font-medium underline-offset-2 hover:underline"
+    >
+      {i.name}
+    </Link>
   );
 }
 
@@ -467,7 +520,7 @@ export function InventorySection({
       header: "Name",
       cell: (i) => (
         <span className="inline-flex flex-wrap items-center gap-2">
-          <span className="font-medium">{i.name}</span>
+          <ItemName labId={labId} item={i} />
           {sensors
             .filter((s) => s.item?.id === i.id)
             .map((s) => (
@@ -659,7 +712,9 @@ export function InventorySection({
                   />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium">{i.name}</p>
+                  <p>
+                    <ItemName labId={labId} item={i} />
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {[nameOf(CATEGORIES, i.category), i.location].filter(Boolean).join(" · ")}
                   </p>

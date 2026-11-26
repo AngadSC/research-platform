@@ -44,6 +44,7 @@ urlpatterns = [
     path("api/", include("training.urls")),  # Run 5, D175
     path("api/", include("papers.urls")),
     path("api/", include("monitoring.urls")),  # wet lab sensors
+    path("api/", include("instruments.urls")),
 ]
 
 if settings.DEBUG:  # ARCHITECTURE section 6 / D41: schema and Django admin only in dev

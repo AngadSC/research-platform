@@ -99,6 +99,9 @@ const EthicsListPage = later(() => import("@/pages/ethics/EthicsPages"), "Ethics
 const NotificationsPage = later(() => import("@/pages/ethics/LabPages"), "NotificationsPage");
 const RetentionPage = later(() => import("@/pages/ethics/LabPages"), "RetentionPage");
 const UsagePage = later(() => import("@/pages/UsagePage"), "UsagePage");
+const InstrumentPage = later(() => import("@/pages/instruments/InstrumentPage"), "InstrumentPage");
+const DropPage = later(() => import("@/pages/instruments/DropPage"), "DropPage");
+const PublicDropPage = later(() => import("@/pages/instruments/PublicDropPage"), "PublicDropPage");
 
 /** /labs/<lab>/settings: lab admins get Lab details; everyone else gets their own Settings. */
 function LabSettingsRedirect() {
@@ -142,6 +145,8 @@ export const routes: RouteObject[] = [
         handle: { crumb: "Sign in" },
       },
       { path: "/invite/:token", element: <AcceptInvitePage />, handle: { crumb: "Invitation" } },
+      // An instrument drop link: no sign-in, it can only send files (instruments app).
+      { path: "/drop/:token", element: <PublicDropPage />, handle: { crumb: "Send files" } },
     ],
   },
   {
@@ -423,6 +428,14 @@ export const routes: RouteObject[] = [
                 children: [
                   { index: true, element: <MonitoringPage /> },
                   { path: ":sensorId", element: <SensorPage />, handle: { crumb: "Sensor" } },
+                ],
+              },
+              {
+                path: "instruments/:itemId",
+                handle: { crumb: "Instrument" },
+                children: [
+                  { index: true, element: <InstrumentPage /> },
+                  { path: "drop", element: <DropPage />, handle: { crumb: "Send files" } },
                 ],
               },
               { path: "chat", element: <LabChatPage />, handle: { crumb: "Lab chat" } },

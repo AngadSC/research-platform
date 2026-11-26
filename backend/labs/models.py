@@ -402,6 +402,9 @@ class InventoryItem(LabScopedModel):
         max_length=16, choices=InventoryStatus.choices, default=InventoryStatus.ACTIVE
     )
     notes = models.TextField(blank=True)
+    # Equipment: the software its data is exported from, a key of instrument_parsers'
+    # SOFTWARE_CHOICES (checked in the serializer, so new parsers need no migration).
+    instrument_software = models.CharField(max_length=64, blank=True)
 
     class Meta(LabScopedModel.Meta):
         indexes = [models.Index(fields=["lab", "category"], name="inventory_lab_cat_idx")]

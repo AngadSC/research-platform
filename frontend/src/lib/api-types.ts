@@ -268,3 +268,11 @@ export type RegistryFile = Schemas["File"];
 export type RegistryReason = Schemas["Reason"];
 export type RegistryEvent = Schemas["Event"];
 export type CellStatus = Schemas["CellStatusEnum"];
+
+// Instruments (wet lab): files dropped from an instrument, and drop links
+export type InstrumentFile = Schemas["InstrumentFile"];
+export type InstrumentFileDetail = Schemas["InstrumentFileDetail"];
+export type DropLink = Schemas["DropLink"];
+export type DropLinkCreated = Schemas["DropLinkCreated"];
+export type PublicDrop = Schemas["PublicDrop"];
+export type SoftwareChoice = Schemas["SoftwareChoice"];
