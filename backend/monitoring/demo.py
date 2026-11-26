@@ -43,7 +43,7 @@ def _history(sensor, base, noise, rng, now, excursion=None):
 
 
 def seed(lab, users: dict) -> None:
-    if Sensor.objects.for_lab(lab).exists():  # seeded already: safe to run twice
+    if Sensor.objects.for_lab(lab).filter(name="-80 Freezer B").exists():  # safe to run twice
         return
     pi = users.get("pi") or next(iter(users.values()))
     keeper = users.get("admin") or users.get("lead") or pi  # looks after the freezers

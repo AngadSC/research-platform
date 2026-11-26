@@ -327,7 +327,7 @@ def test_public_drop_shows_names_only_and_uploads_into_the_bound_project(
     item = InstrumentFile.objects.for_lab(lab).get()
     assert item.project_id == project.pk and item.uploaded_via == "link"
     assert item.dropped_by is None and item.attachment.uploaded_by == users["ann"]
-    assert item.status == ParseStatus.UNSUPPORTED  # the stub parser
+    assert item.status != ParseStatus.PENDING  # parsed after commit (eager Celery in tests)
     assert AuditEvent.objects.filter(action=AuditAction.INSTRUMENT_DROP_LINK_USED).count() == 1
     assert InstrumentDropLink.objects.for_lab(lab).get().last_used_at is not None
     # the notice still has to be acknowledged
@@ -441,10 +441,10 @@ def test_software_is_checked_against_the_parsers(world):
     pi = api(users["pi"])
     url = f"/api/labs/{lab.pk}/inventory/{reader.pk}/"
     assert pi.patch(url, {"instrument_software": "nonsense"}, format="json").status_code == 400
-    r = pi.patch(url, {"instrument_software": "thermo_nanodrop_one"}, format="json")
-    assert r.status_code == 200 and r.json()["instrument_software"] == "thermo_nanodrop_one"
+    r = pi.patch(url, {"instrument_software": "nanodrop_one"}, format="json")
+    assert r.status_code == 200 and r.json()["instrument_software"] == "nanodrop_one"
     choices = pi.get("/api/instrument-software/").json()
-    assert {"value": "cytiva_unicorn", "label": "Cytiva UNICORN (ÄKTA)"} in choices
+    assert {"value": "cytiva_unicorn", "label": "Cytiva UNICORN (AKTA chromatography)"} in choices
 
 
 def test_demo_seed(world):
@@ -454,7 +454,7 @@ def test_demo_seed(world):
     demo.seed(lab, users)
     demo.seed(lab, users)
     names = set(InventoryItem.objects.for_lab(lab).values_list("name", flat=True))
-    assert {"NanoDrop One", "ÄKTA pure 25"} <= names
+    assert {"NanoDrop 8000", "ÄKTA pure 25"} <= names
     assert (
         InventoryItem.objects.for_lab(lab).filter(instrument_software="cytiva_unicorn").count() == 1
     )
