@@ -5,9 +5,12 @@ import datetime
 from django.utils import timezone
 
 from samples import services as svc
+from samples.models import Sample
 
 
 def seed(lab, users: dict) -> None:
+    if Sample.objects.for_lab(lab).filter(name="pCW-MalE-CST06 (FAKE)").exists():
+        return  # seeded already: safe to run twice
     people = list(users.values())
     pi = users.get("pi") or people[0]
     student = users.get("student") or people[-1]

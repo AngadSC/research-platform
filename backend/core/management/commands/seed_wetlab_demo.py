@@ -26,6 +26,8 @@ from labs.services import create_lab
 from monitoring import demo as monitoring_demo
 from projects import services as project_services
 from projects.models import Project, ProjectMembership, ProjectRole
+from samples import demo as samples_demo
+from samples.models import Sample
 
 LAB_NAME = "Glycoenzyme Demo Lab"
 PROJECT_NAME = "Sialyltransferase engineering"
@@ -36,7 +38,7 @@ PEOPLE = [
     ("admin", "glyco-admin@example.test", "Alex Manager (FAKE)", LabRole.LAB_ADMIN, None),
     ("lead", "glyco-postdoc@example.test", "Jordan Postdoc (FAKE)", LabRole.MEMBER, "lead"),
     (
-        "member",
+        "student",
         "glyco-student@example.test",
         "Casey Student (FAKE)",
         LabRole.MEMBER,
@@ -72,8 +74,9 @@ class Command(BaseCommand):
             demo_lots.seed(lab, users)
             instruments_demo.seed(lab, users)
             monitoring_demo.seed(lab, users)
-            # Add samples here once wl-samples merges: samples.demo.seed(lab, users)
+            samples_demo.seed(lab, users)
         self.drop_files(lab, project, users["lead"])
+        self.link_batch(lab, project)
         self.summary(lab)
 
     def user(self, email, name):
@@ -147,6 +150,17 @@ class Command(BaseCommand):
                 via=UploadedVia.PAGE,
             )
             parse_instrument_file(str(item.pk), str(lab.pk))
+
+    def link_batch(self, lab, project):
+        """The purified enzyme batch points at its NanoDrop reading and its ÄKTA run."""
+        batch = Sample.objects.for_lab(lab).filter(name="MBP-CST06 batch 2 (FAKE)").first()
+        if batch is None:
+            return
+        files = InstrumentFile.objects.for_lab(lab).filter(
+            instrument__name__in=["NanoDrop 8000", "ÄKTA pure 25"]
+        )
+        batch.projects.add(project)
+        batch.linked_files.add(*[f.attachment for f in files])
 
     def summary(self, lab):
         self.stdout.write(f"Demo lab: {LAB_NAME}  ({settings.FRONTEND_URL})")
