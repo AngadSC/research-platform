@@ -152,6 +152,7 @@ def update_sample(sample, *, user, data, request=None):
 @transaction.atomic
 def delete_sample(sample, *, user, request=None):
     """Soft delete. Its tubes must be taken out first, so no box points at a deleted entry."""
+    sample = Sample.objects.for_lab(sample.lab_id).select_for_update().get(pk=sample.pk)
     tubes = sample.tubes.count()
     if tubes:
         raise Conflict(
@@ -161,13 +162,21 @@ def delete_sample(sample, *, user, request=None):
     now = timezone.now()
     sample.deleted_at = now
     sample.save(update_fields=["deleted_at", "updated_at"])
-    sample.attachments.filter(deleted_at__isnull=True).update(deleted_at=now)
+    for att in sample.attachments.filter(deleted_at__isnull=True):
+        document_services.delete_attachment(att, user=user, request=request)
     record(A.SAMPLE_DELETED, actor=user, lab=sample.lab, target=sample, request=request)
 
 
-def upload_file(sample, *, user, file=None, drive_file_id=None, request=None):
+def upload_file(
+    sample, *, user, file=None, drive_file_id=None, contains_participant_data=False, request=None
+):
     return document_services.upload_attachment(
-        sample=sample, user=user, file=file, drive_file_id=drive_file_id, request=request
+        sample=sample,
+        user=user,
+        file=file,
+        drive_file_id=drive_file_id,
+        contains_participant_data=contains_participant_data,
+        request=request,
     )
 
 
@@ -348,6 +357,7 @@ def create_box(*, lab, user, data, request=None):
 
 @transaction.atomic
 def update_box(box, *, user, data, request=None):
+    box = _lock_box(box)  # a resize and a placement at once must not leave a tube outside
     data = dict(data)
     if "unit" in data:
         data["unit"] = _unit(box.lab, data["unit"])
@@ -372,8 +382,11 @@ def _tube_refs(lab, data):
         if data["box"] is None:
             raise ValidationError({"box": "This box does not exist."})
     if "sample" in data:
-        data["sample"] = (
-            Sample.objects.for_lab(lab).filter(pk=data["sample"], deleted_at__isnull=True).first()
+        data["sample"] = (  # locked: a delete at the same moment cannot miss this tube
+            Sample.objects.for_lab(lab)
+            .select_for_update()
+            .filter(pk=data["sample"], deleted_at__isnull=True)
+            .first()
         )
         if data["sample"] is None:
             raise ValidationError({"sample": "This sample does not exist."})

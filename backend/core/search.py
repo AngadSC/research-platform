@@ -156,7 +156,8 @@ SPECS = [
         perm=Perm.VIEW_LAB,
         ai=False,
     ),
-    Spec(  # the sample registry: same rules as inventory. Never in AI tools.
+    Spec(  # the sample registry: same rules as inventory. Never in AI search; only the
+        # handover list names the samples and tubes a leaver owns (D386), never their files.
         "sample",
         Sample,
         "name",

@@ -1410,6 +1410,7 @@ paths:
           - sensor_token.rotated
           - sensor_token.revoked
           - sensor_alert.acknowledged
+          - sensor.test_reading
           - instrument_drop_link.created
           - instrument_drop_link.used
           - instrument_drop_link.revoked
@@ -1625,6 +1626,7 @@ paths:
           * `sensor_token.rotated` - Sensor Token Rotated
           * `sensor_token.revoked` - Sensor Token Revoked
           * `sensor_alert.acknowledged` - Sensor Alert Acknowledged
+          * `sensor.test_reading` - Sensor Test Reading
           * `instrument_drop_link.created` - Instrument Drop Link Created
           * `instrument_drop_link.used` - Instrument Drop Link Used
           * `instrument_drop_link.revoked` - Instrument Drop Link Revoked
@@ -12586,8 +12588,9 @@ paths:
   /api/labs/{lab_id}/sensors/{sensor_id}/test-reading/:
     post:
       operationId: labs_sensors_test_reading_create
-      description: Record a reading as if the device sent it, to check alerts and
-        the chart before wiring.
+      description: |-
+        Check the wiring: a reading that is kept and audited but never judged, so it cannot raise
+        or end an alert, change the latest value or show on a chart (D383).
       parameters:
       - in: path
         name: lab_id
@@ -14836,6 +14839,7 @@ components:
       - sensor_token.rotated
       - sensor_token.revoked
       - sensor_alert.acknowledged
+      - sensor.test_reading
       - instrument_drop_link.created
       - instrument_drop_link.used
       - instrument_drop_link.revoked
@@ -15050,6 +15054,7 @@ components:
         * `sensor_token.rotated` - Sensor Token Rotated
         * `sensor_token.revoked` - Sensor Token Revoked
         * `sensor_alert.acknowledged` - Sensor Alert Acknowledged
+        * `sensor.test_reading` - Sensor Test Reading
         * `instrument_drop_link.created` - Instrument Drop Link Created
         * `instrument_drop_link.used` - Instrument Drop Link Used
         * `instrument_drop_link.revoked` - Instrument Drop Link Revoked
@@ -17915,7 +17920,7 @@ components:
           type: integer
           maximum: 365
           minimum: 1
-          nullable: true
+          default: 90
       required:
       - project
     DropUpload:
@@ -25607,6 +25612,7 @@ components:
           items:
             $ref: '#/components/schemas/User'
           readOnly: true
+          description: The people picked on the sensor who are still in the lab.
         active:
           type: boolean
           readOnly: true
@@ -25778,6 +25784,7 @@ components:
           items:
             $ref: '#/components/schemas/User'
           readOnly: true
+          description: The people picked on the sensor who are still in the lab.
         active:
           type: boolean
           readOnly: true

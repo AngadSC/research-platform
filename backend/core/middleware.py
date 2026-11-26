@@ -16,6 +16,8 @@ UPLOAD_URL_NAMES = {
     "ethics:approval-attachments",
     "instruments:drop-file",
     "instruments:drop",
+    "samples:sample-files",
+    "samples:sample-import",
 }
 MULTIPART_ALLOWANCE = 64 * 1024  # boundaries and form fields around the file
 

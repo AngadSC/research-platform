@@ -3,6 +3,7 @@ search, viewer read-only, cross-lab and inventory switched off."""
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from audit.models import AuditAction, AuditEvent
@@ -247,3 +248,103 @@ def test_demo_seed(world):
     demo.seed(lab, {"pi": users["pi"], "lead": users["ann"], "student": users["bob"]})
     assert Sample.objects.for_lab(lab).filter(kind="plasmid").count() == 2
     assert Tube.objects.for_lab(lab).count() == 7
+
+
+# ---------------------------------------------------------------- review fixes (D386)
+
+
+def _upload(lab, user, s, **extra):
+    f = SimpleUploadedFile("map.png", b"\x89PNG fake", content_type="image/png")
+    return api(user).post(
+        u(lab, f"samples/{s['id']}/files/"), {"file": f, "acknowledged_notice": "true", **extra}
+    )
+
+
+def test_m1_sample_files_keep_the_participant_flag_and_refuse_pi_only(world):
+    from assistant.privacy import ai_visible, is_flagged
+    from documents.models import Attachment
+
+    lab, _, users = world
+    s = add(lab, users["ann"])
+    r = _upload(lab, users["ann"], s, contains_participant_data="true")
+    assert r.status_code == 201, r.data
+    att = Attachment.objects.for_lab(lab).get(pk=r.data["id"])
+    assert att.contains_participant_data and is_flagged(att) and not att.pi_only
+    assert not ai_visible(Attachment.objects.for_lab(lab).filter(pk=att.pk)).exists()
+    assert _upload(lab, users["ann"], s).data["contains_participant_data"] is False
+    # a PI-only file belongs on a project: refuse, never drop the box without a word
+    before = Attachment.objects.for_lab(lab).count()
+    r = _upload(lab, users["ann"], s, pi_only="true")
+    assert r.status_code == 400 and "pi_only" in r.json()
+    assert Attachment.objects.for_lab(lab).count() == before
+
+
+def test_m2_file_audit_names_the_sample_and_delete_audits_each_file(world, monkeypatch):
+    from documents.models import Attachment
+    from integrations.models import ConnectedAccount
+    from integrations.providers import google_drive
+
+    lab, _, users = world
+    s = add(lab, users["ann"])
+    r = _upload(lab, users["ann"], s)
+    ConnectedAccount.objects.create(
+        lab=lab,
+        user=users["ann"],
+        provider="google_drive",
+        external_account_id="p1",
+        connected_at=timezone.now(),
+    )
+    monkeypatch.setattr(
+        google_drive,
+        "fetch_item",
+        lambda account, file_id: {
+            "title": "Gel.png",
+            "url": "https://drive.google.com/file/d/1AbC-dEf_9/view",
+            "mime_type": "image/png",
+        },
+    )
+    drive = api(users["ann"]).post(
+        u(lab, f"samples/{s['id']}/files/"), {"drive_file_id": "1AbC-dEf_9"}
+    )
+    assert drive.status_code == 201, drive.data
+    uploaded = AuditEvent.objects.filter(lab=lab, action=AuditAction.ATTACHMENT_UPLOADED)
+    assert sorted(e.metadata["sample"] for e in uploaded) == [s["id"], s["id"]]
+    assert api(users["ann"]).delete(u(lab, f"samples/{s['id']}/")).status_code == 204
+    deleted = AuditEvent.objects.filter(lab=lab, action=AuditAction.ATTACHMENT_DELETED)
+    assert deleted.count() == 2 and {str(e.target_id) for e in deleted} == {
+        r.data["id"],
+        drive.data["id"],
+    }
+    assert not Attachment.objects.for_lab(lab).filter(deleted_at__isnull=True).exists()
+    assert AuditEvent.objects.filter(lab=lab, action=AuditAction.SAMPLE_DELETED).count() == 1
+
+
+def test_m3_box_resize_and_sample_delete_take_their_locks(world, monkeypatch):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    lab, _, users = world
+    s = add(lab, users["ann"])
+    b = box(lab, users["pi"])
+    with CaptureQueriesContext(connection) as q:
+        r = api(users["ann"]).patch(u(lab, f"storage/boxes/{b['id']}/"), {"rows": 4}, format="json")
+    assert r.status_code == 200
+    assert sum("FOR UPDATE" in x["sql"] and "storagebox" in x["sql"] for x in q) >= 1
+    with CaptureQueriesContext(connection) as q:
+        assert place(lab, users["ann"], b, s).status_code == 201
+    assert any("FOR UPDATE" in x["sql"] and "samples_sample" in x["sql"] for x in q)
+    api(users["ann"]).delete(u(lab, f"storage/tubes/{Tube.objects.for_lab(lab).get().pk}/"))
+    with CaptureQueriesContext(connection) as q:
+        assert api(users["ann"]).delete(u(lab, f"samples/{s['id']}/")).status_code == 204
+    assert any("FOR UPDATE" in x["sql"] and "samples_sample" in x["sql"] for x in q)
+
+
+def test_m4_sample_uploads_are_refused_by_length_before_the_body_is_read(world, settings):
+    lab, _, users = world
+    s = add(lab, users["ann"])
+    settings.ATTACHMENT_MAX_BYTES = 1000
+    for path in (f"samples/{s['id']}/files/", "samples/import/"):
+        r = api(users["ann"]).post(
+            u(lab, path), data=b"x" * 200_000, content_type="multipart/form-data; boundary=b"
+        )
+        assert r.status_code == 413, path

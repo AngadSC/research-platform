@@ -329,6 +329,7 @@ def _link_drive_file(
                 "ethics_approval": str(approval.pk) if approval else None,
                 "training_record": str(training_record.pk) if training_record else None,
                 "paper": str(paper.pk) if paper else None,
+                "sample": str(sample.pk) if sample else None,
             },
         )
     return attachment
@@ -411,6 +412,7 @@ def upload_attachment(
                     "ethics_approval": str(approval.pk) if approval else None,
                     "training_record": str(training_record.pk) if training_record else None,
                     "paper": str(paper.pk) if paper else None,
+                    "sample": str(sample.pk) if sample else None,
                     "notice_acknowledged_at": now.isoformat(),
                     "size_bytes": attachment.size_bytes,
                     "sha256": attachment.sha256,

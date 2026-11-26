@@ -251,11 +251,16 @@ class SampleFilesView(SampleMixin, generics.GenericAPIView):
     def post(self, request, lab_id, sample_id):
         ser = AttachmentUploadSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
+        if ser.validated_data["pi_only"]:  # D244 is for project files; never drop it silently
+            raise serializers.ValidationError(
+                {"pi_only": "Private files are for projects. Upload this one on a project."}
+            )
         attachment = svc.upload_file(
             self.get_object(),
             user=request.user,
             file=ser.validated_data.get("file"),
             drive_file_id=ser.validated_data.get("drive_file_id"),
+            contains_participant_data=ser.validated_data["contains_participant_data"],
             request=request,
         )
         return Response(AttachmentSerializer(attachment).data, status=status.HTTP_201_CREATED)
