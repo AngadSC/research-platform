@@ -3,7 +3,6 @@ import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useProjectMembers } from "@/hooks/projects";
 import { manuscriptTemplate, openOverleafWindow } from "@/lib/overleaf";
-import { personName } from "@/lib/api-types";
 
 /** Starts a new Overleaf project from a small template (title and the project's people). The
  * person then pastes the new project's address into this record's link. */
@@ -19,7 +18,7 @@ export function StartInOverleaf({
   const members = useProjectMembers(labId, projectId).list;
   const [started, setStarted] = useState(false);
   const start = () => {
-    const names = (members.data ?? []).map((m) => personName(m.user));
+    const names = (members.data ?? []).flatMap((m) => m.user.display_name || []); // never fall back to an email
     openOverleafWindow().post([
       ["encoded_snip", encodeURIComponent(manuscriptTemplate(title, names))],
       ["snip_name", "main.tex"],
