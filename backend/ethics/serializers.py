@@ -22,6 +22,7 @@ class EthicsApprovalSerializer(serializers.ModelSerializer):
     projects = serializers.SerializerMethodField()
     attachments = serializers.SerializerMethodField()
     can_view_files = serializers.SerializerMethodField()
+    responsible = serializers.SerializerMethodField()
     renewal_status = serializers.ChoiceField(
         choices=[ApprovalStatus.PENDING, ApprovalStatus.ACTIVE], read_only=True, allow_null=True
     )
@@ -40,6 +41,7 @@ class EthicsApprovalSerializer(serializers.ModelSerializer):
             "renews",
             "renewal_status",
             "projects",
+            "responsible",
             "attachments",
             "can_view_files",
             "created_by",
@@ -62,6 +64,19 @@ class EthicsApprovalSerializer(serializers.ModelSerializer):
         return ProjectRefSerializer(
             [p for p in obj.projects.all() if p.pk in visible], many=True
         ).data
+
+    @extend_schema_field(UserSerializer(many=True))
+    def get_responsible(self, obj):
+        """Approvals have no owner of their own: the leads of the linked projects the requester
+        can see are who answers for them."""
+        visible = self._visible()
+        leads = {
+            m.user_id: m.user
+            for p in obj.projects.all()
+            if p.pk in visible
+            for m in p.memberships.all()
+        }
+        return UserSerializer(leads.values(), many=True).data
 
     def get_can_view_files(self, obj) -> bool:
         return can_view_ethics_files(self.context["request"].user, obj, self._visible())

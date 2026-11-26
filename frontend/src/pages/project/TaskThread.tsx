@@ -133,10 +133,15 @@ export function TaskThread({
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!text.trim()) return;
+    // the pick list is this project's members, so everyone mentioned from it can see the task
+    const ids = new Set([...text.matchAll(/@\[[^\]]+\]\(user:([^)]+)\)/g)].map((m) => m[1]));
+    const told = (people ?? []).filter((p) => ids.has(p.id) && p.id !== me?.id).map((p) => p.name);
     create.mutate(text, {
       onSuccess: () => {
         setText("");
-        toast.success("Update posted");
+        toast.success(
+          told.length ? `Update posted. ${told.join(", ")} will be notified.` : "Update posted",
+        );
       },
       onError: fail,
     });

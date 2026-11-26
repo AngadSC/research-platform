@@ -607,3 +607,11 @@ def test_restricted_renewal_needs_a_project_the_user_can_edit(w):
     assert r.status_code in (400, 403), r.content
     if r.status_code == 400:
         assert "Ask a PI" in str(r.json())
+
+
+def test_responsible_lists_the_leads_of_linked_projects(w):
+    approval = make_approval(w)
+    client = APIClient()
+    client.force_authenticate(w.u["pi"])
+    got = client.get(detail_url(w, approval)).json()
+    assert [u["id"] for u in got["responsible"]] == [str(w.u["lead"].pk)]

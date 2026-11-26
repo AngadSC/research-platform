@@ -20,6 +20,7 @@ const approval = (over: Record<string, unknown> = {}) => ({
   status: "active",
   restricted: false,
   projects: [{ id: "p1", name: "Gut study" }],
+  responsible: [user],
   attachments: [],
   can_view_files: true,
   created_by: user,
@@ -139,7 +140,9 @@ describe("list", () => {
     });
     renderRoute("/labs/lab1/ethics");
     expect(await screen.findByText("Renewal pending")).toBeInTheDocument();
+    expect(screen.getByText("in 25 days")).toBeInTheDocument();
     expect(screen.queryByText(/Expires in/)).toBeNull();
+    expect(screen.getByRole("columnheader", { name: "Responsible" })).toBeInTheDocument();
   });
 
   it("starts a renewal from the approval page", async () => {

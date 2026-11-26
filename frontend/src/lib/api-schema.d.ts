@@ -6697,6 +6697,7 @@ export interface components {
             readonly renews: string | null;
             readonly renewal_status: (components["schemas"]["RenewalStatusEnum"] | components["schemas"]["NullEnum"]) | null;
             readonly projects: components["schemas"]["ProjectRef"][];
+            readonly responsible: components["schemas"]["User"][];
             readonly attachments: components["schemas"]["Attachment"][];
             readonly can_view_files: boolean;
             readonly created_by: components["schemas"]["User"];

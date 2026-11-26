@@ -1,6 +1,17 @@
 export const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 
+/** "Nov 12, 2026, 3:00 PM EST": the time with the reader's zone, where a meeting's time is the point. */
+export const whenZone = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
+
 /** Full date and time in the user's locale, for hover text. */
 export const fullDate = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { dateStyle: "long", timeStyle: "short" });

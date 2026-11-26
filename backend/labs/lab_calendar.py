@@ -111,7 +111,9 @@ def validate_join_url(value):
     host = (parts.hostname or "").lower()
     known = any(host == h or host.endswith(f".{h}") for h in JOIN_HOSTS)
     if parts.scheme != "https" or parts.username or parts.password or not known:
-        raise serializers.ValidationError("Paste a Zoom or Google Meet link starting with https://")
+        raise serializers.ValidationError(
+            "Paste a link from zoom.us, zoomgov.com or meet.google.com (it starts with https://)."
+        )
 
 
 class MeetingSerializer(serializers.ModelSerializer):

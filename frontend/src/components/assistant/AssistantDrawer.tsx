@@ -216,6 +216,10 @@ export function Setup({
   /** The drawer closes itself so the Settings page behind it can be seen. */
   onOpenSettings?: () => void;
 }) {
+  // Lab details is where the lab's key is added; only people who can open it can set one up.
+  const canSetUp = !!useLabs()
+    .data?.find((l) => l.id === labId)
+    ?.my_permissions.includes("manage_lab");
   if (!config.can_use)
     return (
       <p role="alert" className="rounded-md border p-3 text-sm">
@@ -223,6 +227,12 @@ export function Setup({
           ? "AI assistants are turned off for this lab."
           : "This lab allows AI apps over MCP only; the in-app assistant is turned off."}{" "}
         A PI or lab admin can change this in Lab details, on the AI tab.
+      </p>
+    );
+  if (!config.lab_key && !canSetUp)
+    return (
+      <p className="text-sm font-medium">
+        The assistant isn&apos;t turned on for this lab yet. Ask your PI or lab admin to turn it on.
       </p>
     );
   return (

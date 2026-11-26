@@ -28,7 +28,10 @@ export function ExpiryText({
   const warn = expiryWarning(days, status);
   if (warn && renewal)
     return (
-      <Badge variant="secondary">{renewal === "pending" ? "Renewal pending" : "Renewed"}</Badge>
+      <span className="flex flex-wrap items-center gap-2">
+        <Badge variant="secondary">{renewal === "pending" ? "Renewal pending" : "Renewed"}</Badge>
+        <span className="text-xs text-muted-foreground">{relativeDays(days)}</span>
+      </span>
     );
   if (warn)
     return (

@@ -20,7 +20,10 @@ function useSavePrefs() {
   return useMutation({
     mutationFn: (preferences: Prefs) =>
       api<User>("/api/me/", { method: "PATCH", body: { preferences } }),
-    onSuccess: (u) => qc.setQueryData(["me"], u),
+    onSuccess: (u) => {
+      qc.setQueryData(["me"], u);
+      toast.success("Saved");
+    },
     onError: () => toast.error("Could not save that setting."),
   });
 }

@@ -29,7 +29,7 @@ import {
 } from "@/hooks/ethics";
 import { downloadUrl, useProjects } from "@/hooks/projects";
 import { useLab } from "@/hooks/workspace";
-import type { Attachment, EthicsApproval } from "@/lib/api-types";
+import { personName, type Attachment, type EthicsApproval } from "@/lib/api-types";
 import { APPROVAL_STATUSES, dayText, validateApproval, type ApprovalValues } from "@/lib/ethics";
 import { formErrors } from "@/lib/forms";
 import { UploadDialog } from "@/pages/project/UploadDialog";
@@ -74,6 +74,12 @@ export function EthicsListPage() {
     { key: "t", header: "Title", cell: (a) => a.title, className: "hidden sm:table-cell" },
     { key: "b", header: "Board", cell: (a) => a.board, className: "hidden sm:table-cell" },
     {
+      key: "r",
+      header: "Responsible",
+      cell: (a) => responsibleText(a.responsible),
+      className: "hidden md:table-cell",
+    },
+    {
       key: "e",
       header: "Expires",
       cell: (a) => (
@@ -117,6 +123,9 @@ export function EthicsListPage() {
   );
 }
 
+const responsibleText = (people: EthicsApproval["responsible"]) =>
+  people.length ? people.map(personName).join(", ") : "Not set";
+
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
@@ -143,7 +152,7 @@ export function EthicsDetailPage() {
     <div className="grid gap-8 [&>header]:mb-0">
       <PageHeader
         title={a.title}
-        description={`${a.board}, ${a.approval_number}${a.restricted ? " (restricted)" : ""}`}
+        description={`${a.board}, ${a.approval_number}${a.restricted ? " (restricted: only PIs, lab admins and people on a linked project can see it)" : ""}`}
         actions={
           canEdit && (
             <>
@@ -181,9 +190,17 @@ export function EthicsDetailPage() {
           )
         }
       />
-      <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <Fact label="Status">
           <ApprovalBadge status={a.status} expiry={a.expiry_date} />
+        </Fact>
+        <Fact label="Responsible">
+          {responsibleText(a.responsible)}
+          {a.responsible.length === 0 && (
+            <span className="block text-xs text-muted-foreground">
+              Shown from the lead of a linked project.
+            </span>
+          )}
         </Fact>
         <Fact label="Approved on">{dayText(a.approval_date)}</Fact>
         <Fact label="Expires on">{dayText(a.expiry_date)}</Fact>
@@ -310,7 +327,7 @@ function RestrictedBadge() {
   return (
     <span
       className="ml-2 inline-flex items-center gap-1 text-xs font-normal text-muted-foreground"
-      title="Restricted: only people on linked projects can see this"
+      title="Restricted: only PIs, lab admins and people on a linked project can see this approval"
     >
       <Lock className="size-3" aria-hidden="true" />
       Restricted

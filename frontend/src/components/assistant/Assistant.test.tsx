@@ -209,9 +209,23 @@ describe("assistant panel", () => {
     );
   });
 
-  it("shows the privacy notice, the scope, and asks for a key when none is saved", async () => {
+  it("tells a member plainly when the lab has no AI key, with no setup steps", async () => {
     stubFetch({
       ...labs,
+      [`GET ${BASE}/config/`]: { body: config({}, false) },
+      [`GET ${BASE}/conversations/`]: { body: [] },
+      "GET /api/ai/grants/": { body: [] },
+    });
+    renderDrawer();
+    await open();
+    expect(await screen.findByText(/isn't turned on for this lab yet/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Set up a key" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Connect to Claude" })).not.toBeInTheDocument();
+  });
+
+  it("shows the privacy notice, the scope, and asks for a key when none is saved", async () => {
+    stubFetch({
+      "GET /api/labs/": { body: [makeLab(["view_lab", "manage_lab"], "lab_admin")] },
       [`GET ${BASE}/config/`]: { body: config({}, false) },
       [`GET ${BASE}/conversations/`]: { body: [] },
       "GET /api/ai/grants/": { body: [] },
@@ -242,7 +256,7 @@ describe("assistant panel", () => {
 
   it("opens Claude in a window sized to the right of the screen, and shows only the button once connected", async () => {
     stubFetch({
-      ...labs,
+      "GET /api/labs/": { body: [makeLab(["view_lab", "manage_lab"], "lab_admin")] },
       [`GET ${BASE}/config/`]: { body: config({}, false) },
       [`GET ${BASE}/conversations/`]: { body: [] },
       "GET /api/ai/grants/": {
