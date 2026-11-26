@@ -35,6 +35,7 @@ export default function ProtocolsTab({ labId, projectId, project }: ProjectTabPr
     { key: "who", header: "Who", cell: (u) => personName(u.used_by) },
     { key: "item", header: "Reagent", cell: (u) => u.item_name },
     { key: "amount", header: "Amount", cell: (u) => qty(u.amount, u.unit) },
+    { key: "lot", header: "Lot", cell: (u) => u.lot_number || "-" },
     { key: "protocol", header: "Protocol", cell: (u) => u.protocol_name },
     {
       key: "actions",

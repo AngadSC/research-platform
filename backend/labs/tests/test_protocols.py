@@ -430,3 +430,60 @@ def test_an_item_without_a_level_never_alerts_and_the_level_is_shown(world):
     url = reverse("labs:inventory-detail", kwargs={"lab_id": lab.pk, "inventoryitem_id": item.pk})
     assert api(pi).patch(url, {"low_stock_at": "2"}, "json").json()["low"] is True  # 1 mL left
     assert api(pi).patch(url, {"low_stock_at": None}, "json").json()["low"] is False
+
+
+# ---------------------------------------------------------------- lot and expiry
+
+
+def test_a_use_keeps_the_lot_it_was_taken_from_even_after_the_lot_changes(world):
+    lab, pi, _, _, item = world
+    InventoryItem.objects.for_lab(lab).filter(pk=item.pk).update(lot_number="CN-2611-A")
+    r = use(world, make_protocol(world))
+    assert r.status_code == 201 and r.json()["lot_number"] == "CN-2611-A"
+    InventoryItem.objects.for_lab(lab).filter(pk=item.pk).update(lot_number="CN-2701-B")
+    listed = api(pi).get(
+        reverse("labs:inventory-item-usage", kwargs={"lab_id": lab.pk, "inventoryitem_id": item.pk})
+    )
+    assert [u["lot_number"] for u in listed.json()] == ["CN-2611-A"]
+
+
+def test_lot_and_expiry_save_and_export_and_import(world):
+    lab, pi, *_ = world
+    c = api(pi)
+    list_url = reverse("labs:inventory-list", kwargs={"lab_id": lab.pk})
+    body = {
+        "name": "CMP-Neu5Ac",
+        "category": "reagent",
+        "lot_number": "CN-1",
+        "expiry_date": "2031-01-02",
+    }
+    made = c.post(list_url, body, "json")
+    assert made.status_code == 201, made.content
+    assert (made.json()["lot_number"], made.json()["expiry_date"]) == ("CN-1", "2031-01-02")
+    export = c.get(reverse("labs:inventory-export", kwargs={"lab_id": lab.pk}))
+    text = export.content.decode("utf-8-sig")
+    assert "Lot,Expiry" in text and "CN-1,2031-01-02" in text
+    r = post_import(world, "Name,Category,Lot,Expiry\nIPTG,reagent,L9,2031-05-01\n", commit=True)
+    assert r.status_code == 200 and r.json()["imported"] == 1, r.content
+    iptg = InventoryItem.objects.for_lab(lab).get(name="IPTG")
+    assert (iptg.lot_number, str(iptg.expiry_date)) == ("L9", "2031-05-01")
+    bad = post_import(world, "Name,Category,Expiry\nIPTG,reagent,soon\n")
+    assert bad.json()["invalid"] == 1
+
+
+def test_expiry_shows_in_the_calendar_beside_the_due_date(world):
+    lab, pi, _, _, item = world
+    InventoryItem.objects.for_lab(lab).filter(pk=item.pk).update(
+        lot_number="L1", due_date="2030-06-10", expiry_date="2030-06-20"
+    )
+    rows = (
+        api(pi)
+        .get(
+            reverse("labs:calendar", kwargs={"lab_id": lab.pk}),
+            {"from": "2030-06-01", "to": "2030-06-30"},
+        )
+        .json()
+    )
+    inv = {r["title"]: r for r in rows if r["kind"] == "inventory"}
+    assert set(inv) == {"Ethanol (maintenance due)", "Ethanol lot L1 (expires)"}
+    assert len({r["id"] for r in inv.values()}) == 2

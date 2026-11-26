@@ -241,6 +241,7 @@ ORDERINGS = {
     "serial_number",
     "purchase_date",
     "due_date",
+    "expiry_date",
     "owner__display_name",
 }
 
@@ -382,13 +383,20 @@ class InventoryExportView(InventoryMixin, generics.GenericAPIView):
     @extend_schema(parameters=Q_PARAMS, responses=OpenApiTypes.BINARY)
     def get(self, request, lab_id):
         header = ["Name", "Category", "Location", "Quantity", "Unit", "Owner", "Serial number"]
-        header += ["Purchase date", "Due date", "Status", "Notes"]
+        header += ["Purchase date", "Due date", "Lot", "Expiry", "Status", "Notes"]
 
         def rows():
             for i in _filtered(self.get_queryset(), request.query_params):
                 owner = (i.owner.display_name or i.owner.email) if i.owner else ""
                 row = [i.name, i.category, i.location, i.quantity, i.unit, owner, i.serial_number]
-                yield row + [i.purchase_date, i.due_date, i.status, i.notes]
+                yield row + [
+                    i.purchase_date,
+                    i.due_date,
+                    i.lot_number,
+                    i.expiry_date,
+                    i.status,
+                    i.notes,
+                ]
 
         return _csv_export(request, "inventory.csv", header, rows())
 

@@ -38,10 +38,17 @@ const csvCell = (v: unknown) => {
 };
 function exportRows(items: InventoryItem[]) {
   const head = ["Name", "Category", "Location", "Quantity", "Unit", "Owner", "Serial number"];
-  head.push("Purchase date", "Due date", "Status", "Notes");
+  head.push("Purchase date", "Due date", "Lot", "Expiry", "Status", "Notes");
   const lines = items.map((i) =>
     [i.name, i.category, i.location, i.quantity, i.unit, i.owner?.display_name || i.owner?.email]
-      .concat([i.serial_number, i.purchase_date, i.due_date, i.status, i.notes] as string[])
+      .concat([
+        i.serial_number,
+        i.purchase_date,
+        i.due_date,
+        i.lot_number,
+        i.expiry_date,
+      ] as string[])
+      .concat([i.status, i.notes])
       .map(csvCell)
       .join(","),
   );
@@ -71,6 +78,7 @@ const SORTS = [
   { value: "name", label: "Name" },
   { value: "category", label: "Category" },
   { value: "due_date", label: "Due date" },
+  { value: "expiry_date", label: "Expiry date" },
   { value: "status", label: "Status" },
   { value: "location", label: "Location" },
 ];
@@ -85,6 +93,8 @@ const KNOWN = [
   "serial_number",
   "purchase_date",
   "due_date",
+  "lot_number",
+  "expiry_date",
   "status",
   "notes",
 ];
@@ -128,6 +138,8 @@ function ItemDialog({
       serial_number: v("serial_number"),
       purchase_date: v("purchase_date") || null,
       due_date: v("due_date") || null,
+      lot_number: v("lot_number"),
+      expiry_date: v("expiry_date") || null,
       status: v("status") as InventoryInput["status"],
       notes: v("notes"),
     };
@@ -263,6 +275,21 @@ function ItemDialog({
                 />
               )}
             </FormField>
+            <FormField label="Lot number" error={f.lot_number}>
+              {(p) => (
+                <Input maxLength={100} {...p} name="lot_number" defaultValue={item?.lot_number} />
+              )}
+            </FormField>
+            <FormField label="Expiry date" error={f.expiry_date}>
+              {(p) => (
+                <Input
+                  {...p}
+                  name="expiry_date"
+                  type="date"
+                  defaultValue={item?.expiry_date ?? ""}
+                />
+              )}
+            </FormField>
           </div>
           <FormField label="Notes" error={f.notes}>
             {(p) => (
@@ -308,6 +335,30 @@ function OnOrder({ orders }: { orders: InventoryOrder[] }) {
       ? `${trimNumber(total)} ${orders[0]?.unit}`.trim() + " on order"
       : `${orders.length} orders on the way`;
   return <span className="text-xs text-muted-foreground">{text}</span>;
+}
+
+const EXPIRY_WARN_DAYS = 30;
+function expiryState(date: string | null) {
+  if (!date) return null;
+  const days = Math.round((Date.parse(date) - Date.parse(localDateISO())) / 86_400_000);
+  if (days < 0) return { text: "Expired", bad: true };
+  return days <= EXPIRY_WARN_DAYS
+    ? { text: days === 0 ? "Expires today" : `Expires in ${days} days`, bad: false }
+    : null;
+}
+
+function ExpiryBadge({ date }: { date: string | null }) {
+  const s = expiryState(date);
+  if (!s) return null;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
+        s.bad ? "bg-destructive/15 text-destructive" : "bg-warning/25 text-warning-text"
+      }`}
+    >
+      <TriangleAlert aria-hidden className="size-3" /> {s.text}
+    </span>
+  );
 }
 
 function LowBadge({ item: i }: { item: InventoryItem }) {
@@ -440,6 +491,21 @@ export function InventorySection({
       cell: (i) => (i.owner ? i.owner.display_name || i.owner.email : "-"),
     },
     { key: "due", header: "Due", className: HIDE_NARROW, cell: (i) => i.due_date ?? "-" },
+    { key: "lot", header: "Lot", className: HIDE_NARROW, cell: (i) => i.lot_number || "-" },
+    {
+      key: "expires",
+      header: "Expires",
+      className: HIDE_NARROW,
+      cell: (i) =>
+        i.expiry_date ? (
+          <span className="inline-flex items-center gap-2">
+            {i.expiry_date}
+            <ExpiryBadge date={i.expiry_date} />
+          </span>
+        ) : (
+          "-"
+        ),
+    },
     { key: "status", header: "Status", cell: (i) => nameOf(STATUSES, i.status) },
     ...(canEdit
       ? [
@@ -594,6 +660,8 @@ export function InventorySection({
                   nameOf(STATUSES, i.status),
                   i.owner && (i.owner.display_name || i.owner.email),
                   i.due_date && `Due ${i.due_date}`,
+                  i.lot_number && `Lot ${i.lot_number}`,
+                  i.expiry_date && `Expires ${i.expiry_date}`,
                 ]
                   .filter(Boolean)
                   .join(" · ")}

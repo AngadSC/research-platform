@@ -396,6 +396,8 @@ class InventoryItem(LabScopedModel):
     serial_number = models.CharField(max_length=100, blank=True)
     purchase_date = models.DateField(null=True, blank=True)
     due_date = models.DateField(null=True, blank=True)  # calibration or maintenance
+    lot_number = models.CharField(max_length=100, blank=True)  # reagent lot, copied onto each use
+    expiry_date = models.DateField(null=True, blank=True)
     status = models.CharField(
         max_length=16, choices=InventoryStatus.choices, default=InventoryStatus.ACTIVE
     )
@@ -512,6 +514,7 @@ class InventoryUsage(LabScopedModel):
         Protocol, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
     protocol_name = models.CharField(max_length=200, blank=True)  # survives the protocol going
+    lot_number = models.CharField(max_length=100, blank=True)  # the item's lot when it was used
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT, related_name="+")
     amount = models.DecimalField(max_digits=18, decimal_places=6)  # as typed, in `unit`
     unit = models.CharField(max_length=32, blank=True)

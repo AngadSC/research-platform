@@ -215,6 +215,8 @@ class InventorySerializer(serializers.ModelSerializer):
             "serial_number",
             "purchase_date",
             "due_date",
+            "lot_number",
+            "expiry_date",
             "status",
             "notes",
             "created_at",
@@ -238,6 +240,10 @@ class InventoryInputSerializer(serializers.Serializer):
     serial_number = serializers.CharField(max_length=100, allow_blank=True, required=False)
     purchase_date = serializers.DateField(allow_null=True, required=False)
     due_date = serializers.DateField(allow_null=True, required=False)
+    lot_number = serializers.CharField(
+        max_length=100, allow_blank=True, required=False, validators=[no_control_chars]
+    )
+    expiry_date = serializers.DateField(allow_null=True, required=False)
     status = serializers.ChoiceField(choices=InventoryStatus.choices, required=False)
     notes = serializers.CharField(max_length=5000, allow_blank=True, required=False)
 

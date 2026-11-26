@@ -17960,6 +17960,14 @@ components:
           format: date
           readOnly: true
           nullable: true
+        lot_number:
+          type: string
+          readOnly: true
+        expiry_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
         status:
           allOf:
           - $ref: '#/components/schemas/StatusA7dEnum'
@@ -17979,8 +17987,10 @@ components:
       - category
       - created_at
       - due_date
+      - expiry_date
       - id
       - location
+      - lot_number
       - low
       - low_stock_at
       - name
@@ -18092,6 +18102,13 @@ components:
           format: date
           nullable: true
         due_date:
+          type: string
+          format: date
+          nullable: true
+        lot_number:
+          type: string
+          maxLength: 100
+        expiry_date:
           type: string
           format: date
           nullable: true
@@ -18226,6 +18243,9 @@ components:
         protocol_name:
           type: string
           readOnly: true
+        lot_number:
+          type: string
+          readOnly: true
         project:
           type: string
           format: uuid
@@ -18276,6 +18296,7 @@ components:
       - item
       - item_name
       - item_unit
+      - lot_number
       - note
       - project
       - project_name
@@ -21133,6 +21154,13 @@ components:
           format: date
           nullable: true
         due_date:
+          type: string
+          format: date
+          nullable: true
+        lot_number:
+          type: string
+          maxLength: 100
+        expiry_date:
           type: string
           format: date
           nullable: true

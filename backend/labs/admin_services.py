@@ -341,13 +341,19 @@ _IMPORT_FIELDS = {
     "serial_number",
     "purchase_date",
     "due_date",
+    "lot_number",
+    "expiry_date",
     "status",
     "notes",
 }
 
 
+_HEADER_ALIASES = {"lot": "lot_number", "expiry": "expiry_date"}
+
+
 def _import_header(cell):
-    return cell.strip().lower().replace(" ", "_").replace("-", "_")
+    h = cell.strip().lower().replace(" ", "_").replace("-", "_")
+    return _HEADER_ALIASES.get(h, h)
 
 
 def _clean_cell(cell):
