@@ -63,6 +63,34 @@ describe("email-first sign-in (D156)", () => {
     expect(await screen.findByRole("button", { name: "Continue" })).toBeInTheDocument();
   });
 
+  it("offers the institution's Google accounts, with a password as the second choice", async () => {
+    const google = { id: "google", name: "Google", flows: ["provider_redirect"] };
+    mockFetch({
+      [SESSION]: signedOut,
+      [`GET ${B}/config`]: {
+        body: { status: 200, data: { socialaccount: { providers: [google] } } },
+      },
+      [METHODS]: {
+        body: { methods: ["google", "password"], institution: "University of Alberta" },
+      },
+    });
+    renderRoute("/login");
+    await enterEmail("ada@ualberta.ca");
+    const btn = await screen.findByRole("button", {
+      name: "Continue with your University of Alberta Google account",
+    });
+    expect(Object.fromEntries(new FormData(btn.closest("form")!).entries())).toEqual({
+      provider: "google",
+      process: "login",
+      callback_url: "/account/provider/callback",
+      login_hint: "ada@ualberta.ca",
+      csrfmiddlewaretoken: "tok",
+    });
+    expect(screen.queryByLabelText("Password")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Use a password instead" }));
+    expect(await screen.findByLabelText("Password")).toBeInTheDocument();
+  });
+
   it("shows the password form for other addresses, and when the lookup fails", async () => {
     mockFetch({
       [SESSION]: signedOut,

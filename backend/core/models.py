@@ -62,10 +62,37 @@ PLACEHOLDER_INSTITUTION = "PLACEHOLDER INSTITUTION (fake, replace me)"  # see mi
 class Institution(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=200, unique=True)
+    # Email domains whose accounts are this institution's Google Workspace: email-first sign-in
+    # offers "Continue with your <name> Google account" when no SAML owns the domain. A hint
+    # only: linking still rests on Google's verified `hd` claim (D73). Set with
+    # `manage.py set_google_domains`, never through the API.
+    google_domains = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        self.google_domains = clean_domains(self.google_domains, "google_domains")
+        others = Institution.objects.exclude(pk=self.pk).exclude(google_domains=[])
+        clash = {d for o in others for d in o.google_domains} & set(self.google_domains)
+        if clash:
+            raise ValidationError({"google_domains": f"Already listed elsewhere: {sorted(clash)}"})
+
+
+def clean_domains(domains, field: str) -> list[str]:
+    """A list of exact email domains, lowercased, deduplicated and sorted."""
+    from django.core.exceptions import ValidationError
+
+    if not isinstance(domains, list) or not all(isinstance(d, str) for d in domains):
+        raise ValidationError({field: 'A JSON list of domains, e.g. ["ualberta.ca"]'})
+    out = sorted({d.strip().lower().lstrip("@") for d in domains if d.strip()})
+    for d in out:
+        if "." not in d or "@" in d or "/" in d or " " in d:
+            raise ValidationError({field: f"Not a domain: {d}"})
+    return out
 
 
 def default_saml_attributes():
@@ -120,13 +147,7 @@ class InstitutionSSO(models.Model):
     def clean(self):
         from django.core.exceptions import ValidationError
 
-        domains = self.email_domains
-        if not isinstance(domains, list) or not all(isinstance(d, str) for d in domains):
-            raise ValidationError({"email_domains": 'A JSON list of domains, e.g. ["ualberta.ca"]'})
-        self.email_domains = sorted({d.strip().lower().lstrip("@") for d in domains if d.strip()})
-        for d in self.email_domains:
-            if "." not in d or "@" in d or "/" in d or " " in d:
-                raise ValidationError({"email_domains": f"Not a domain: {d}"})
+        self.email_domains = clean_domains(self.email_domains, "email_domains")
         taken = InstitutionSSO.objects.exclude(pk=self.pk).filter(enabled=True)
         clash = {d for o in taken for d in o.email_domains} & set(self.email_domains)
         if self.enabled and clash:

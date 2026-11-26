@@ -26,6 +26,10 @@ from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.headless.account.views import VerifyEmailView as AllauthVerifyEmailView
 from allauth.headless.adapter import DefaultHeadlessAdapter
 from allauth.headless.internal.restkit.response import ErrorResponse
+from allauth.headless.socialaccount.forms import RedirectToProviderForm
+from allauth.headless.socialaccount.views import (
+    RedirectToProviderView as AllauthRedirectToProviderView,
+)
 from allauth.mfa.signals import authenticator_added, authenticator_removed
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.socialaccount.helpers import render_authentication_error
@@ -36,6 +40,7 @@ from django.conf import settings
 from django.contrib.auth.signals import user_logged_in, user_logged_out, user_login_failed
 from django.contrib.sites.shortcuts import get_current_site
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.dispatch import receiver
 from django.http import JsonResponse
 from django.test import RequestFactory
@@ -45,7 +50,7 @@ from rest_framework import authentication
 from audit.models import AuditAction
 from audit.services import record
 from core.email import send_email
-from core.models import InstitutionSSO
+from core.models import Institution, InstitutionSSO
 
 log = logging.getLogger("core.auth")
 
@@ -388,13 +393,55 @@ def _required_sso(user, provider: str):
     return required[0]
 
 
-def login_methods_for_email(email: str) -> list[str]:
+def google_institution(email: str):
+    """The institution whose Google Workspace owns this address's domain (exact match), or None,
+    also None while Google sign-in is not configured. Never consulted when linking (D73)."""
+    domain = _domain(email)
+    if not domain or not settings.SOCIALACCOUNT_PROVIDERS.get("google", {}).get("APPS"):
+        return None
+    return Institution.objects.filter(google_domains__contains=[domain]).first()
+
+
+def login_methods_for_email(email: str) -> dict:
     """SSO routing (D156): ["saml:<slug>"] for a domain whose institution requires SSO,
-    ["saml:<slug>", "password"] when SSO is offered but optional, else ["password"]."""
+    ["saml:<slug>", "password"] when SSO is offered but optional; with no SAML, ["google",
+    "password"] for an institution's Google Workspace domain; else ["password"]."""
     cfg = sso_for_email(email)
-    if cfg is None:
-        return ["password"]
-    return [cfg.provider_id] if cfg.require_sso else [cfg.provider_id, "password"]
+    if cfg is not None:
+        methods = [cfg.provider_id] if cfg.require_sso else [cfg.provider_id, "password"]
+        return {"methods": methods, "institution": cfg.institution.name}
+    inst = google_institution(email)
+    if inst is not None:
+        return {"methods": ["google", "password"], "institution": inst.name}
+    return {"methods": ["password"], "institution": None}
+
+
+class RedirectToProviderView(AllauthRedirectToProviderView):
+    """Google sign-in started from email-first login sends `login_hint=<email>`. For a listed
+    Workspace domain we pass Google `login_hint` and `hd`, so its account picker opens on that
+    address. allauth headless takes no per-request auth params, hence this view. Only a UI hint:
+    `hd` comes from our list, never the browser, and linking still needs Google's verified `hd`
+    claim in the id token (D73)."""
+
+    def post(self, request, *args, **kwargs):
+        hint = request.POST.get("login_hint", "").strip()
+        form = RedirectToProviderForm(request.POST)
+        try:
+            validate_email(hint)
+        except ValidationError:
+            hint = ""
+        ok = hint and google_institution(hint) and form.is_valid()
+        if not ok or form.cleaned_data["provider"].id != "google":
+            return super().post(request, *args, **kwargs)
+        provider = form.cleaned_data["provider"]
+        params = {**provider.get_auth_params(), "hd": _domain(hint), "login_hint": hint}
+        return provider.redirect(
+            request,
+            form.cleaned_data["process"],
+            next_url=form.cleaned_data["callback_url"],
+            headless=True,
+            auth_params=params,
+        )
 
 
 def recent_auth_required(request):

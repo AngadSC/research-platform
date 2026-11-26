@@ -183,15 +183,18 @@ def session_user(client):
 
 
 def test_login_methods_routing(sso):
-    assert login_methods_for_email("Ada@UAlberta.ca") == ["saml:ualberta", "password"]
-    assert login_methods_for_email("ada@gmail.com") == ["password"]
-    assert login_methods_for_email("ada@cs.ualberta.ca") == ["password"]  # exact domains only
+    def methods(email):
+        return login_methods_for_email(email)["methods"]
+
+    assert methods("Ada@UAlberta.ca") == ["saml:ualberta", "password"]
+    assert methods("ada@gmail.com") == ["password"]
+    assert methods("ada@cs.ualberta.ca") == ["password"]  # exact domains only
     sso.require_sso = True
     sso.save()
-    assert login_methods_for_email("ada@ualberta.ca") == ["saml:ualberta"]
+    assert methods("ada@ualberta.ca") == ["saml:ualberta"]
     sso.enabled = False
     sso.save()
-    assert login_methods_for_email("ada@ualberta.ca") == ["password"]
+    assert methods("ada@ualberta.ca") == ["password"]
 
 
 def test_login_methods_endpoint(sso):
