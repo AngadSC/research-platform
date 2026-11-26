@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronsUpDown, CircleHelp, LogOut, Settings, User, X } from "lucide-react";
+import { ChartColumn, ChevronsUpDown, CircleHelp, LogOut, Settings, User, X } from "lucide-react";
 import { NavLink, useNavigate } from "react-router";
 import {
   DropdownMenu,
@@ -160,6 +160,12 @@ export function SidebarFooter({
             <Settings aria-hidden className="size-4" />
             Settings
           </DropdownMenuItem>
+          {me?.site_staff && (
+            <DropdownMenuItem onSelect={() => go("/usage")}>
+              <ChartColumn aria-hidden className="size-4" />
+              Usage
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuLabel>Appearance</DropdownMenuLabel>
           <DropdownMenuRadioGroup value={theme} onValueChange={(t) => setTheme(t as Theme)}>

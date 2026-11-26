@@ -13210,6 +13210,37 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
+  /api/usage/:
+    get:
+      operationId: usage_retrieve
+      description: 'D379: how people use the app, across every lab. Site staff only;
+        others get 404.'
+      parameters:
+      - in: query
+        name: days
+        schema:
+          type: integer
+          enum:
+          - 30
+          - 7
+          - 90
+          default: 30
+      - in: query
+        name: include_test
+        schema:
+          type: boolean
+          default: false
+      tags:
+      - usage
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteUsage'
+          description: ''
   /api/users/{user_id}/avatar/:
     get:
       operationId: users_avatar_retrieve
@@ -19079,10 +19110,14 @@ components:
           type: string
           maxLength: 500
         preferences: {}
+        site_staff:
+          type: boolean
+          readOnly: true
       required:
       - avatar_url
       - email
       - id
+      - site_staff
     Meeting:
       type: object
       properties:
@@ -21235,6 +21270,9 @@ components:
           type: string
           maxLength: 500
         preferences: {}
+        site_staff:
+          type: boolean
+          readOnly: true
     PatchedMeetingInput:
       type: object
       properties:
@@ -23002,6 +23040,189 @@ components:
       required:
       - name
       - rule
+    SiteUsage:
+      type: object
+      properties:
+        days:
+          type: integer
+        include_test:
+          type: boolean
+        headline:
+          $ref: '#/components/schemas/SiteUsageHeadline'
+        daily:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteUsageDay'
+        funnel:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteUsageStep'
+        features:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteUsageFeature'
+        integrations:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteUsageIntegration'
+        recent_signups:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteUsageSignup'
+        retention:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteUsageCohort'
+      required:
+      - daily
+      - days
+      - features
+      - funnel
+      - headline
+      - include_test
+      - integrations
+      - recent_signups
+      - retention
+    SiteUsageCohort:
+      type: object
+      properties:
+        week_start:
+          type: string
+          format: date
+        users:
+          type: integer
+        weeks:
+          type: array
+          items:
+            type: integer
+            nullable: true
+      required:
+      - users
+      - week_start
+      - weeks
+    SiteUsageDay:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        signups:
+          type: integer
+        sign_ins:
+          type: integer
+        active_users:
+          type: integer
+      required:
+      - active_users
+      - date
+      - sign_ins
+      - signups
+    SiteUsageFeature:
+      type: object
+      properties:
+        feature:
+          type: string
+        events:
+          type: integer
+        users:
+          type: integer
+      required:
+      - events
+      - feature
+      - users
+    SiteUsageHeadline:
+      type: object
+      properties:
+        total_users:
+          type: integer
+        new_users:
+          type: integer
+        active_users:
+          type: integer
+        labs_total:
+          type: integer
+        labs_new:
+          type: integer
+        projects_total:
+          type: integer
+        dau:
+          type: integer
+        wau:
+          type: integer
+        mau:
+          type: integer
+      required:
+      - active_users
+      - dau
+      - labs_new
+      - labs_total
+      - mau
+      - new_users
+      - projects_total
+      - total_users
+      - wau
+    SiteUsageIntegration:
+      type: object
+      properties:
+        provider:
+          type: string
+        connections:
+          type: integer
+        users:
+          type: integer
+      required:
+      - connections
+      - provider
+      - users
+    SiteUsageSignup:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        email:
+          type: string
+          format: email
+        institution:
+          type: string
+        date_joined:
+          type: string
+          format: date-time
+        labs:
+          type: integer
+        last_active:
+          type: string
+          format: date
+          nullable: true
+        events:
+          type: integer
+      required:
+      - date_joined
+      - display_name
+      - email
+      - events
+      - id
+      - institution
+      - labs
+      - last_active
+    SiteUsageStep:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        count:
+          type: integer
+        percent:
+          type: integer
+      required:
+      - count
+      - key
+      - label
+      - percent
     Source395Enum:
       enum:
       - app

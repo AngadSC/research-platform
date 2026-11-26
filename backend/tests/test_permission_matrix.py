@@ -114,6 +114,8 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "core:health"):           "2   2        2  2     2    2       2       2       2",
     ("GET",    "core:me"):               "401 2        2  2     2    2       2       2       2",
     ("GET",    "core:weather"):          "401 2        2  2     2    2       2       2       2",
+    # D379: site-wide Usage page, staff only (no persona here is staff); 404 hides that it exists
+    ("GET",    "core:usage"):            "401 404      404 404  404  404     404     404     404",
     ("PATCH",  "core:me"):               "401 2        2  2     2    2       2       2       2",
     # Profile picture (D258): your own, any signed-in person; GET of someone else's needs a
     # shared lab, so the outsider (no lab in common with Lab A's people) gets 404.

@@ -5382,6 +5382,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/usage/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description D379: how people use the app, across every lab. Site staff only; others get 404. */
+        get: operations["usage_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/{user_id}/avatar/": {
         parameters: {
             query?: never;
@@ -7740,6 +7757,7 @@ export interface components {
             readonly avatar_url: string | null;
             bio?: string;
             preferences?: unknown;
+            readonly site_staff: boolean;
         };
         Meeting: {
             /** Format: uuid */
@@ -8609,6 +8627,7 @@ export interface components {
             readonly avatar_url?: string | null;
             bio?: string;
             preferences?: unknown;
+            readonly site_staff?: boolean;
         };
         PatchedMeetingInput: {
             title?: string;
@@ -9304,6 +9323,71 @@ export interface components {
             name: string;
             /** Format: uuid */
             rule: string;
+        };
+        SiteUsage: {
+            days: number;
+            include_test: boolean;
+            headline: components["schemas"]["SiteUsageHeadline"];
+            daily: components["schemas"]["SiteUsageDay"][];
+            funnel: components["schemas"]["SiteUsageStep"][];
+            features: components["schemas"]["SiteUsageFeature"][];
+            integrations: components["schemas"]["SiteUsageIntegration"][];
+            recent_signups: components["schemas"]["SiteUsageSignup"][];
+            retention: components["schemas"]["SiteUsageCohort"][];
+        };
+        SiteUsageCohort: {
+            /** Format: date */
+            week_start: string;
+            users: number;
+            weeks: (number | null)[];
+        };
+        SiteUsageDay: {
+            /** Format: date */
+            date: string;
+            signups: number;
+            sign_ins: number;
+            active_users: number;
+        };
+        SiteUsageFeature: {
+            feature: string;
+            events: number;
+            users: number;
+        };
+        SiteUsageHeadline: {
+            total_users: number;
+            new_users: number;
+            active_users: number;
+            labs_total: number;
+            labs_new: number;
+            projects_total: number;
+            dau: number;
+            wau: number;
+            mau: number;
+        };
+        SiteUsageIntegration: {
+            provider: string;
+            connections: number;
+            users: number;
+        };
+        SiteUsageSignup: {
+            /** Format: uuid */
+            id: string;
+            display_name: string;
+            /** Format: email */
+            email: string;
+            institution: string;
+            /** Format: date-time */
+            date_joined: string;
+            labs: number;
+            /** Format: date */
+            last_active: string | null;
+            events: number;
+        };
+        SiteUsageStep: {
+            key: string;
+            label: string;
+            count: number;
+            percent: number;
         };
         /**
          * @description * `app` - App
@@ -19282,6 +19366,28 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    usage_retrieve: {
+        parameters: {
+            query?: {
+                days?: 30 | 7 | 90;
+                include_test?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteUsage"];
                 };
             };
         };

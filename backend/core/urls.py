@@ -1,6 +1,7 @@
 from django.urls import path
 
 from core.page_comments import PageCommentDetailView, PageCommentListCreateView
+from core.usage import UsageView
 from core.views import (
     HealthView,
     LoginMethodsView,
@@ -22,6 +23,7 @@ urlpatterns = [
     path("me/avatar/", MyAvatarView.as_view(), name="me-avatar"),
     path("users/<uuid:user_id>/avatar/", UserAvatarView.as_view(), name="user-avatar"),
     path("weather/", WeatherView.as_view(), name="weather"),
+    path("usage/", UsageView.as_view(), name="usage"),  # D379, site staff only
     path("auth/login-methods/", LoginMethodsView.as_view(), name="login-methods"),
     path(L + "search/", SearchView.as_view(), name="search"),
     path(L + "page-comments/", PageCommentListCreateView.as_view(), name="page-comment-list"),

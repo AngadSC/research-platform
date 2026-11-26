@@ -56,6 +56,7 @@ class Perm(StrEnum):
     # pseudo
     PUBLIC = "public"
     AUTHENTICATED = "authenticated"
+    SITE_STAFF = "site_staff"  # D379: the operators (is_staff), for the site-wide Usage page
 
 
 SENSITIVE_PERMS = frozenset(
@@ -150,6 +151,20 @@ def _cache(user) -> dict:
 
 def _active(user) -> bool:
     return bool(user is not None and user.is_authenticated and user.is_active)
+
+
+def is_site_staff(user) -> bool:
+    """D379: an active account with `is_staff`, set by hand for the founders. No lab role or
+    superuser flag grants it."""
+    return _active(user) and bool(user.is_staff)
+
+
+def all_labs(user, model):
+    """D379: every lab's rows of a lab-scoped `model`, for site staff only, for the counts on the
+    Usage page (core/usage.py). Never for anything a lab member sees. Anyone else gets 404."""
+    if not is_site_staff(user):
+        raise Http404
+    return model.unscoped.all()
 
 
 def lab_role(user, lab) -> str | None:
@@ -342,6 +357,8 @@ def can(user, perm: Perm, target=None) -> bool:
         return True
     if perm == Perm.AUTHENTICATED:
         return _active(user)
+    if perm == Perm.SITE_STAFF:
+        return is_site_staff(user)
     lab_id, project = _resolve(target)
     if lab_id is None:
         return False
@@ -467,6 +484,12 @@ class HasPerm(BasePermission):
         perm = self._perm(request, view)
         if perm is None:
             return False
+        if perm == Perm.SITE_STAFF:  # D379: signed in but not staff gets 404, so it stays hidden
+            if not request.user.is_authenticated:
+                return False
+            if not can(request.user, perm):
+                raise Http404
+            return True
         target = getattr(view, "project", None) or getattr(request, "lab", None)
         if target is None and perm not in (Perm.PUBLIC, Perm.AUTHENTICATED):
             return False
