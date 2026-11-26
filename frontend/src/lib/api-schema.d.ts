@@ -585,6 +585,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labs/{lab_id}/attachments/{attachment_id}/open-in-overleaf/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description D380: a 5-minute link to one .tex or .zip file, for the browser to hand to Overleaf. */
+        post: operations["labs_attachments_open_in_overleaf_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labs/{lab_id}/audit-events/": {
         parameters: {
             query?: never;
@@ -8705,6 +8722,12 @@ export interface components {
             /** Format: uuid */
             training_requirement?: string | null;
         };
+        OverleafLink: {
+            url: string;
+            name: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
         /**
          * @description Which page the person has open: a kind and ids only, never page text. The model still has
          *     to use its tools, which check access.
@@ -12155,6 +12178,28 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    labs_attachments_open_in_overleaf_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+                lab_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverleafLink"];
+                };
             };
         };
     };

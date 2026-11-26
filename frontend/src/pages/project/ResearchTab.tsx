@@ -45,6 +45,7 @@ import { formErrors } from "@/lib/forms";
 import { isKind, KINDS, recordTitle, type AnyRecord, type Kind } from "@/lib/research";
 import { recordPath, SECTION_KINDS, sectionOf, type ResearchSection } from "@/lib/workflow";
 import type { ProjectTabProps } from "@/pages/ProjectPage";
+import { StartInOverleaf } from "@/pages/project/StartInOverleaf";
 import { ResearchForm, ResultSetForm } from "@/pages/project/ResearchForm";
 import { AnalysisOutputs, DownloadCode, RunAgain } from "@/pages/project/AnalysisExtras";
 
@@ -437,7 +438,14 @@ const Ext = ({ url }: { url: string }) =>
     <span className="text-muted-foreground">None</span>
   );
 
-function fields(kind: Kind, r: AnyRecord, labId: string, base: string): [string, ReactNode][] {
+function fields(
+  kind: Kind,
+  r: AnyRecord,
+  labId: string,
+  base: string,
+  projectId: string,
+  canEdit: boolean,
+): [string, ReactNode][] {
   const ds = (x: { id: string; name: string; version_label: string }[]) =>
     x.map((d) => ({ id: d.id, label: `${d.name} (${d.version_label})` }));
   const t = (x: { id: string; title: string }[]) => x.map((i) => ({ id: i.id, label: i.title }));
@@ -550,6 +558,7 @@ function fields(kind: Kind, r: AnyRecord, labId: string, base: string): [string,
           "Link",
           <span key="u" className="inline-flex flex-wrap items-center gap-2">
             <Ext url={m.url} />
+            {canEdit && <StartInOverleaf labId={labId} projectId={projectId} title={m.title} />}
             {isGoogleDocLink(m.url) && (
               <Button
                 type="button"
@@ -655,7 +664,7 @@ function Detail({
         }
       />
       <dl className="grid gap-4 text-sm">
-        {fields(kind, r, labId, base).map(([k, v]) => (
+        {fields(kind, r, labId, base, projectId, canEdit).map(([k, v]) => (
           <div key={k} className="grid gap-1 sm:grid-cols-[12rem_1fr]">
             <dt className="text-muted-foreground">{k}</dt>
             <dd className="whitespace-pre-wrap">{v}</dd>

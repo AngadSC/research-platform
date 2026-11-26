@@ -245,6 +245,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("DELETE", "documents:attachment-detail"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:attachment-download"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "documents:attachment-edit-in-google"): "401 404 2 2 2 2 403 404 403",  # B3
+    ("POST",   "documents:attachment-open-in-overleaf"): "401 404 2 2 2 2 403 404 403",  # D380
     ("POST",   "documents:project-drive-export"): "401 404 2 2 2 403 403 404 403",  # stats to Drive
     ("POST",   "documents:document-move"): "401 404 2 2 2 2 403 404 403",
     # Start here (D351): anyone in the lab reads the list; pinning for everyone needs
@@ -1765,6 +1766,7 @@ PAYLOADS = {
         "file": SimpleUploadedFile("results.xlsx", b"PK\x03\x04x"),
     },
     ("POST", "documents:attachment-edit-in-google"): lambda user, w: _as_docx(w),
+    ("POST", "documents:attachment-open-in-overleaf"): lambda user, w: _as_tex(w),
     ("POST", "documents:folder-list"): lambda user, w: {"name": "New folder"},
     ("POST", "integrations:google-new-file"): lambda user, w: {"kind": "document"},
     ("POST", "documents:lab-folder-list"): lambda user, w: {"name": "Lab folder"},
@@ -2137,6 +2139,14 @@ def _as_docx(w):
     """Edit in Google (VISION B3) takes Word, Excel and PowerPoint files only."""
     Attachment.objects.for_lab(w.a["lab_id"]).filter(pk=w.a["attachment_id"]).update(
         original_filename="Notes.docx"
+    )
+    return {}
+
+
+def _as_tex(w):
+    """Open in Overleaf (D380) takes .tex and .zip files only."""
+    Attachment.objects.for_lab(w.a["lab_id"]).filter(pk=w.a["attachment_id"]).update(
+        original_filename="paper.tex"
     )
     return {}
 

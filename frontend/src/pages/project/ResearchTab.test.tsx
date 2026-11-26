@@ -412,3 +412,54 @@ describe("dataset versions", () => {
     expect(rows[2]).toHaveTextContent("Replaced");
   });
 });
+
+describe("Start in Overleaf", () => {
+  const ms = {
+    id: "m1",
+    project: "p1",
+    title: "Gut paper_1",
+    url: "https://www.overleaf.com/project/0123456789abcdef01234567",
+    status: "drafting",
+    results: [],
+    created_by: user,
+  };
+  let posted: { action: string; fields: Record<string, string> } | undefined;
+  beforeEach(() => {
+    posted = undefined;
+    vi.spyOn(window, "open").mockReturnValue(null);
+    vi.spyOn(HTMLFormElement.prototype, "submit").mockImplementation(function (
+      this: HTMLFormElement,
+    ) {
+      posted = {
+        action: this.action,
+        fields: Object.fromEntries(new FormData(this).entries()) as Record<string, string>,
+      };
+    });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("posts a title-and-authors template to Overleaf and says what to do next", async () => {
+    mockFetch(
+      base(["edit_content"], {
+        [`GET ${P}/members/`]: { body: [{ id: "pm1", user, role: "lead" }] },
+        "GET /api/labs/lab1/manuscripts/m1/": { body: ms },
+      }),
+    );
+    renderRoute("/labs/lab1/projects/p1/workflow/manuscript/manuscripts/m1");
+    await userEvent.click(await screen.findByRole("button", { name: /Start in Overleaf/ }));
+    expect(posted?.action).toBe("https://www.overleaf.com/docs");
+    const tex = decodeURIComponent(posted?.fields.encoded_snip ?? "");
+    expect(tex).toContain("\\title{Gut paper\\_1}");
+    expect(tex).toContain("\\author{Ada}");
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      /paste it into the manuscript link/,
+    );
+  });
+
+  it("is not offered to people who cannot edit", async () => {
+    mockFetch(base(["view_project"], { "GET /api/labs/lab1/manuscripts/m1/": { body: ms } }));
+    renderRoute("/labs/lab1/projects/p1/workflow/manuscript/manuscripts/m1");
+    await screen.findByText("Gut paper_1");
+    expect(screen.queryByRole("button", { name: /Start in Overleaf/ })).toBeNull();
+  });
+});

@@ -518,6 +518,33 @@ class AttachmentEditInGoogleView(AttachmentMixin, generics.GenericAPIView):
         return Response(self.get_serializer(copy).data, status=status.HTTP_201_CREATED)
 
 
+class AttachmentOpenInOverleafView(AttachmentMixin, generics.GenericAPIView):
+    """D380: a 5-minute link to one .tex or .zip file, for the browser to hand to Overleaf."""
+
+    serializer_class = AttachmentSerializer
+    lookup_url_kwarg = "attachment_id"
+    perms = {"POST": Perm.EDIT_CONTENT}
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "uploads"
+
+    @extend_schema(
+        request=None,
+        responses={
+            200: inline_serializer(
+                "OverleafLink",
+                {
+                    "url": serializers.CharField(),
+                    "name": serializers.CharField(),
+                    "expires_at": serializers.DateTimeField(),
+                },
+            )
+        },
+    )
+    def post(self, request, lab_id, attachment_id):
+        out = services.open_in_overleaf(self.get_object(), user=request.user, request=request)
+        return Response(out)
+
+
 class DriveExportInputSerializer(serializers.Serializer):
     file = serializers.FileField()
     name = serializers.CharField(

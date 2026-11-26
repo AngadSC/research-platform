@@ -66,6 +66,7 @@ import { UploadDialog } from "@/pages/project/UploadDialog";
 import { IconAction } from "@/components/shared/IconAction";
 import { FromDriveButton } from "@/components/shared/FromDriveButton";
 import { attachFromDrive } from "@/lib/drive";
+import { overleafFile, openOverleafWindow } from "@/lib/overleaf";
 import { convertible, googleEditor, isImage } from "@/lib/googleFiles";
 import { openGooglePanel } from "@/lib/googlePanel";
 import {
@@ -141,6 +142,7 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
     uploadFile,
     remove: removeFile,
     editInGoogle,
+    openInOverleaf,
   } = useAttachments(labId, projectId, LIVE_POLL_MS);
   useNewItemToasts(`${projectId}/files`, files.data, "file", (f) => f.original_filename);
   const canEdit = project.my_permissions.includes("edit_content");
@@ -218,6 +220,22 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
       },
       onError: (e) => toast.error(formErrors(e, []).form ?? "Something went wrong."),
     });
+  const sendToOverleaf = (f: Attachment) => {
+    const win = openOverleafWindow(); // opened now, while the click counts
+    openInOverleaf.mutate(f.id, {
+      onSuccess: (r) => {
+        win.post([
+          ["snip_uri", r.url],
+          ["snip_name", r.name],
+        ]);
+        toast.success("Opening in Overleaf. This copy is a one-way send.");
+      },
+      onError: (e) => {
+        win.close();
+        toast.error(formErrors(e, []).form ?? "Something went wrong.");
+      },
+    });
+  };
   const preview = (f: Attachment) =>
     googleEditor(f) ? setPanel({ file: f, edit: false }) : setPreviewing(f);
   const startMove = (r: Row) =>
@@ -363,6 +381,14 @@ export default function DocumentsTab({ labId, projectId, project }: ProjectTabPr
                     onSelect={() => copyToGoogle(r.file)}
                   >
                     Edit in Google
+                  </DropdownMenuItem>
+                )}
+                {canEdit && r.file && overleafFile(r.file) && (
+                  <DropdownMenuItem
+                    disabled={openInOverleaf.isPending}
+                    onSelect={() => sendToOverleaf(r.file)}
+                  >
+                    Open in Overleaf
                   </DropdownMenuItem>
                 )}
                 {canEdit && (

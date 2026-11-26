@@ -108,6 +108,11 @@ urlpatterns = [
         name="attachment-move",
     ),
     path(
+        L + "attachments/<uuid:attachment_id>/open-in-overleaf/",
+        views.AttachmentOpenInOverleafView.as_view(),
+        name="attachment-open-in-overleaf",
+    ),
+    path(
         L + "attachments/<uuid:attachment_id>/edit-in-google/",
         views.AttachmentEditInGoogleView.as_view(),
         name="attachment-edit-in-google",

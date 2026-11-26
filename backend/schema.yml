@@ -1203,6 +1203,35 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/labs/{lab_id}/attachments/{attachment_id}/open-in-overleaf/:
+    post:
+      operationId: labs_attachments_open_in_overleaf_create
+      description: 'D380: a 5-minute link to one .tex or .zip file, for the browser
+        to hand to Overleaf.'
+      parameters:
+      - in: path
+        name: attachment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: lab_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverleafLink'
+          description: ''
   /api/labs/{lab_id}/audit-events/:
     get:
       operationId: labs_audit_events_list
@@ -21593,6 +21622,20 @@ components:
       required:
       - kind
       - title
+    OverleafLink:
+      type: object
+      properties:
+        url:
+          type: string
+        name:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - expires_at
+      - name
+      - url
     Page:
       type: object
       description: |-

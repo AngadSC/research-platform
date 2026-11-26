@@ -100,7 +100,7 @@ const FIELDS: Record<Kind, Field[]> = {
     F("title", "Title", "text", { required: true }),
     F("url", "Link to the manuscript", "url", {
       required: true,
-      hint: "Overleaf or Google Docs.",
+      hint: "Overleaf or Google Docs. After Start in Overleaf, paste the new project address here.",
     }),
     F("status", "Status", "status"),
     F("results", "Results used", "multi", { source: "results" }),
