@@ -158,7 +158,7 @@ function CodeForm({ next }: { next: string }) {
 
 type LoginStep = LoginMethods & { email: string };
 
-/** Email first (D156): the address's domain decides between institution SSO and a password. */
+/** Email first (D156): the address's domain decides between institution SSO (SAML or its Google Workspace) and a password. */
 function EmailStep({
   onNext,
   footer,
@@ -236,18 +236,25 @@ export function LoginPage() {
       </>
     );
 
-  const sso = step.methods.find((m) => m.startsWith("saml:"));
+  // Institution SAML, or (with no SAML) the institution's Google Workspace accounts.
+  const sso = step.methods.find((m) => m.startsWith("saml:") || m === "google");
   if (sso && !usePassword) {
     const name = step.institution ?? "your institution";
+    const google = sso === "google";
     return (
       <>
-        <Heading title="Sign in">{`${step.email} signs in with ${name}.`}</Heading>
+        <Heading title="Sign in">
+          {google
+            ? `Sign in with your ${name} Google account.`
+            : `${step.email} signs in with ${name}.`}
+        </Heading>
         <div className="grid gap-3">
           <ProviderButton
             provider={sso}
             process="login"
-            label={`Continue with ${name}`}
+            label={google ? `Continue with your ${name} Google account` : `Continue with ${name}`}
             returnTo={next}
+            loginHint={google ? step.email : undefined}
           />
           {step.methods.includes("password") && (
             <Button variant="ghost" onClick={() => setUsePassword(true)}>

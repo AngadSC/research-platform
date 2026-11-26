@@ -11,12 +11,15 @@ export function ProviderButton({
   process,
   label,
   returnTo,
+  loginHint,
   beforeSubmit,
 }: {
   provider?: string;
   process: "login" | "connect";
   label: string;
   returnTo?: string;
+  /** The address typed at email-first sign-in; Google opens its account picker on it. */
+  loginHint?: string;
   /** Runs before the page leaves (e.g. reauthentication); the form posts once it resolves. */
   beforeSubmit?: () => Promise<void>;
 }) {
@@ -40,6 +43,7 @@ export function ProviderButton({
       <input type="hidden" name="provider" value={provider} />
       <input type="hidden" name="process" value={process} />
       <input type="hidden" name="callback_url" value={CALLBACK_URL} />
+      {loginHint && <input type="hidden" name="login_hint" value={loginHint} />}
       <input type="hidden" name="csrfmiddlewaretoken" value={getCookie("csrftoken") ?? ""} />
       {provider === "google" ? (
         // Google sign-in branding: https://developers.google.com/identity/branding-guidelines

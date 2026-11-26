@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.http import HttpResponseNotFound
 from django.urls import include, path
 
-from core.auth import VerifyEmailView
+from core.auth import RedirectToProviderView, VerifyEmailView
 from core.healthz import healthz
 
 urlpatterns = [
@@ -11,6 +11,11 @@ urlpatterns = [
     path("healthz", healthz),
     # D72: our verify view first, so it wins over allauth's own route of the same path.
     path("_allauth/browser/v1/auth/email/verify", VerifyEmailView.as_api_view(client="browser")),
+    # Google login_hint and hd for a listed Workspace domain; otherwise allauth's own view.
+    path(
+        "_allauth/browser/v1/auth/provider/redirect",
+        RedirectToProviderView.as_api_view(client="browser"),
+    ),
     path("_allauth/", include("allauth.headless.urls")),
     # Provider callbacks only (HEADLESS_ONLY), e.g. /accounts/google/login/callback/.
     # D73: the One Tap token endpoint is unused; answer 404 before allauth's route can match.

@@ -14,7 +14,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from core import avatars, weather
-from core.auth import login_methods_for_email, sso_for_email
+from core.auth import login_methods_for_email
 from core.models import Notification, User
 from core.notifications import visible_notifications
 from core.permissions import Perm, get_lab_or_404, shares_a_lab
@@ -32,7 +32,8 @@ class HealthView(APIView):
 
 
 class LoginMethodsView(APIView):
-    """Email-first sign-in (D156): which ways in this address has. Answers by domain only, so it
+    """Email-first sign-in (D156): which ways in this address has (SAML, or the institution's
+    Google Workspace, then password). Answers by domain only, so it
     says nothing about whether an account exists. POST keeps the address out of URLs and logs."""
 
     permission_classes = [AllowAny]
@@ -51,13 +52,7 @@ class LoginMethodsView(APIView):
     )
     def post(self, request):
         email = serializers.EmailField().run_validation(request.data.get("email"))
-        cfg = sso_for_email(email)
-        return Response(
-            {
-                "methods": login_methods_for_email(email),
-                "institution": cfg.institution.name if cfg else None,
-            }
-        )
+        return Response(login_methods_for_email(email))
 
 
 class MeView(generics.RetrieveUpdateAPIView):
