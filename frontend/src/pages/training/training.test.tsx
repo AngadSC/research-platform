@@ -89,10 +89,18 @@ describe("ComplianceMatrix", () => {
     expect(onRemind).toHaveBeenLastCalledWith("r1", "u2");
     expect(screen.queryByRole("button", { name: /Remind all missing for WHMIS/ })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Remind all missing for TCPS 2" }));
+    expect(onRemind).not.toHaveBeenCalledWith("r2", null); // asks first
+    expect(screen.getByText(/Each person missing TCPS 2/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Send reminders" }));
     expect(onRemind).toHaveBeenLastCalledWith("r2", null);
     expect(screen.queryByRole("button", { name: /Remind Ann/ })).toBeNull(); // not missing
     rerender(<ComplianceMatrix data={DATA} />);
     expect(screen.queryByRole("button", { name: /^Remind/ })).toBeNull();
+  });
+
+  it("explains the dash", () => {
+    render(<ComplianceMatrix data={DATA} />);
+    expect(screen.getByText(/dash \(-\) means the training is not required/)).toBeInTheDocument();
   });
 
   it("says so when nothing is required", () => {

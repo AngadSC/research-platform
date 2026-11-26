@@ -25,7 +25,7 @@ import {
 } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
 import { vendorLinks } from "@/lib/vendors";
-import { formValue, NativeSelect, Section } from "./common";
+import { formValue, Section } from "./common";
 
 const STATUSES: { value: OrderStatus; label: string }[] = [
   { value: "requested", label: "Requested" },
@@ -51,6 +51,7 @@ export function suggestedQuantity(item: InventoryItem | null, last: InventoryOrd
 function OrderDialog({
   reorder,
   last,
+  pending,
   open,
   onClose,
   create,
@@ -58,6 +59,8 @@ function OrderDialog({
   reorder: InventoryItem | null;
   /** The newest order for the item being reordered: its vendor details are reused. */
   last: InventoryOrder | undefined;
+  /** Open orders (requested or ordered) for this item: a warning, never a block. */
+  pending: InventoryOrder[];
   open: boolean;
   onClose: () => void;
   create: Orders["create"];
@@ -102,6 +105,18 @@ function OrderDialog({
             ? "When this order is marked received, its quantity is added to the item."
             : "Request something for the lab."}
         </DialogDescription>
+        {pending.length > 0 && (
+          <p role="note" className="rounded-md bg-warning/25 px-3 py-2 text-sm text-warning-text">
+            Already on order:{" "}
+            {pending
+              .map(
+                (o) =>
+                  `${qty(o)}, ${o.status} ${new Date(o.created_at).toLocaleDateString("en-CA", { day: "numeric", month: "short" })}`,
+              )
+              .join("; ")}
+            . You can still order more.
+          </p>
+        )}
         <form onSubmit={submit} noValidate className="grid gap-3">
           <FormField label="Name" error={f.name}>
             {(p) => (
@@ -220,7 +235,15 @@ export function OrdersSection({
       { id: order.id, status },
       {
         onSuccess: () => {
-          toast.success(status === "cancelled" ? "Order cancelled" : "Order updated");
+          toast.success(
+            status === "cancelled"
+              ? order.status === "requested"
+                ? "Request declined"
+                : "Order cancelled"
+              : status === "ordered"
+                ? "Marked as ordered. Place it with the vendor if you haven't; labbenchos doesn't contact vendors."
+                : "Order updated",
+          );
           if (status === "received" || wasReceived) void refreshStock();
         },
         onError: (e) => toast.error(formErrors(e, []).form ?? "Could not update the order."),
@@ -233,39 +256,40 @@ export function OrdersSection({
   }
 
   const statusCell = (o: InventoryOrder) =>
-    canEdit && o.status !== "received" ? (
-      <NativeSelect
-        aria-label={`Status of ${o.name}`}
-        value={o.status}
-        className="w-32"
-        onChange={(e) => {
-          const next = e.target.value as OrderStatus;
-          if (next === "received") setReceiving(o);
-          else setStatus(o, next);
-        }}
-      >
-        {STATUSES.map((s) => (
-          <option key={s.value} value={s.value}>
-            {s.label}
-          </option>
-        ))}
-      </NativeSelect>
-    ) : (
-      (STATUSES.find((s) => s.value === o.status)?.label ?? o.status)
-    );
+    STATUSES.find((s) => s.value === o.status)?.label ?? o.status;
 
   const actionsCell = (o: InventoryOrder) => (
     <div className="flex flex-wrap justify-end gap-2">
-      {o.url && (
+      {o.url && (o.status === "requested" || o.status === "ordered") && (
         <Button variant="outline" size="sm" asChild>
           <a href={o.url} target="_blank" rel="noopener noreferrer">
-            Place order<span className="sr-only">: {o.name}</span>
+            Open vendor page<span className="sr-only">: {o.name}</span>
           </a>
         </Button>
       )}
+      {canEdit && o.status === "requested" && (
+        <>
+          <Button size="sm" disabled={update.isPending} onClick={() => setStatus(o, "ordered")}>
+            Approve and mark ordered<span className="sr-only">: {o.name}</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setStatus(o, "cancelled")}>
+            Decline<span className="sr-only">: {o.name}</span>
+          </Button>
+        </>
+      )}
+      {canEdit && o.status === "ordered" && (
+        <>
+          <Button size="sm" onClick={() => setReceiving(o)}>
+            Mark received<span className="sr-only">: {o.name}</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setStatus(o, "cancelled")}>
+            Cancel order<span className="sr-only">: {o.name}</span>
+          </Button>
+        </>
+      )}
       {canEdit && o.status === "received" && (
         <Button variant="outline" size="sm" onClick={() => setCancelling(o)}>
-          Cancel order<span className="sr-only">: {o.name}</span>
+          Undo receipt<span className="sr-only">: {o.name}</span>
         </Button>
       )}
       {canEdit && o.status === "cancelled" && (
@@ -305,6 +329,11 @@ export function OrdersSection({
     },
   ];
 
+  const open = reorder
+    ? orders.filter(
+        (o) => o.item === reorder.id && (o.status === "requested" || o.status === "ordered"),
+      )
+    : [];
   const last = reorder ? orders.find((o) => o.item === reorder.id) : undefined;
   return (
     <Section title="Orders" description="What the lab has asked for and what has arrived.">
@@ -360,6 +389,7 @@ export function OrdersSection({
         key={reorder?.id ?? String(adding)}
         reorder={reorder}
         last={last}
+        pending={open}
         open={adding || !!reorder}
         create={create}
         onClose={() => {

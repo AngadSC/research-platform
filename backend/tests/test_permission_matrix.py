@@ -1828,7 +1828,7 @@ PAYLOADS = {
     ("POST", "labs:inventory-item-usage-reverse"): lambda user, w: {},
     ("PATCH", "labs:inventory-detail"): lambda user, w: {"notes": "Edited"},
     ("POST", "labs:order-list"): lambda user, w: {"name": "New order", "quantity": "2"},
-    ("PATCH", "labs:order-detail"): lambda user, w: {"status": "ordered"},
+    ("PATCH", "labs:order-detail"): lambda user, w: {"notes": "Edited"},
     # --- end admin area (Run 4) ---
     # --- lab chat and calendar (GET payloads are query strings) ---
     ("POST", "labs:labchat-list"): lambda user, w: {"body": "Hello"},

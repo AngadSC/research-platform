@@ -1,7 +1,15 @@
+import { useState } from "react";
 import { BulkBar, SelectBox, useSelection } from "@/components/shared/bulk";
 import { RelativeTime } from "@/components/shared/RelativeTime";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { TrainingCompliance } from "@/lib/api-types";
 import { dayText } from "@/lib/ethics";
 import { STATUS } from "@/lib/training";
@@ -52,6 +60,9 @@ export function ComplianceMatrix({
         : [];
     }),
   );
+  const [remindAll, setRemindAll] = useState<string | null>(null);
+  const askRemindAll = requirements.find((r) => r.id === remindAll);
+  const askCount = members.filter((m) => m.cells[remindAll ?? ""]?.status === "missing").length;
   const finish = (p: Promise<void> | undefined) => void p?.then(selection.clear);
   if (requirements.length === 0 || members.length === 0)
     return <p className="text-sm text-muted-foreground">No required trainings yet.</p>;
@@ -60,6 +71,9 @@ export function ComplianceMatrix({
       <p className="text-sm text-muted-foreground" aria-label="Compliance summary">
         {summary.done} done, {summary.expiring} expiring within 60 days, {summary.expired} expired,{" "}
         {summary.missing} missing
+      </p>
+      <p className="text-xs text-muted-foreground">
+        A dash (-) means the training is not required for that person.
       </p>
       <BulkBar selection={selection}>
         {onBulkRemind && (
@@ -115,7 +129,7 @@ export function ComplianceMatrix({
                       size="sm"
                       className="-ml-2 h-7 px-2 text-xs"
                       aria-label={`Remind all missing for ${r.name}`}
-                      onClick={() => onRemind(r.id, null)}
+                      onClick={() => setRemindAll(r.id)}
                     >
                       Remind all missing
                     </Button>
@@ -150,6 +164,7 @@ export function ComplianceMatrix({
                         key={r.id}
                         className="px-3 py-2 text-muted-foreground"
                         aria-label="Not required"
+                        title="Not required for this person"
                       >
                         <span aria-hidden="true">-</span>
                       </td>
@@ -201,6 +216,29 @@ export function ComplianceMatrix({
           </tbody>
         </table>
       </div>
+      <Dialog open={!!askRemindAll} onOpenChange={(o) => !o && setRemindAll(null)}>
+        <DialogContent>
+          <DialogTitle className="text-base font-semibold">
+            Remind {askCount} {askCount === 1 ? "person" : "people"}?
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            Each person missing {askRemindAll?.name} gets a reminder.
+          </DialogDescription>
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              onClick={() => {
+                if (askRemindAll) onRemind?.(askRemindAll.id, null);
+                setRemindAll(null);
+              }}
+            >
+              Send reminders
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

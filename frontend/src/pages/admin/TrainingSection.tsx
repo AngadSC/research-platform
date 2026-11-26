@@ -114,14 +114,22 @@ export function TrainingSection({ labId }: { labId: string }) {
             remind.mutate(
               { requirement, user },
               {
-                onSuccess: ({ sent }) =>
+                onSuccess: ({ sent }) => {
+                  const name = (m: { user: { display_name?: string; email: string } }) =>
+                    m.user.display_name || m.user.email;
+                  const req = compliance.data?.requirements.find((r) => r.id === requirement);
+                  const who = (compliance.data?.members ?? []).filter((m) =>
+                    user ? m.user.id === user : m.cells[requirement]?.status === "missing",
+                  );
+                  const names = who.length <= 4 ? who.map(name).join(", ") : "";
                   toast.success(
                     sent === 0
                       ? "Already reminded today."
                       : user
-                        ? "Reminder sent."
-                        : `Reminded ${sent} ${sent === 1 ? "person" : "people"}.`,
-                  ),
+                        ? `Reminded ${who[0] ? name(who[0]) : "them"} about ${req?.name ?? "this training"}.`
+                        : `Reminded ${sent} ${sent === 1 ? "person" : "people"}${names ? `: ${names}` : ""}.`,
+                  );
+                },
                 onError: () => toast.error("Could not send the reminder."),
               },
             )

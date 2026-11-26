@@ -504,7 +504,12 @@ def update_inventory_order(order, *, user, data, request=None):
                 "or it can be cancelled."
             }
         )
-    moved = data.get("status", order.status) != order.status
+    new_status = data.get("status", order.status)
+    if order.status == OrderStatus.CANCELLED and new_status != order.status:
+        raise ValidationError({"status": "This order was cancelled. Add a new order instead."})
+    if order.status == OrderStatus.ORDERED and new_status == OrderStatus.REQUESTED:
+        raise ValidationError({"status": "This order was already placed, so it can't go back."})
+    moved = new_status != order.status
     order = _update(
         order,
         A.INVENTORY_ORDER_UPDATED,
