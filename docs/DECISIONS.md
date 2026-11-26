@@ -479,6 +479,13 @@ A hands-on review of the live site as PI, admin, lead, student and viewer, plus 
   - **Home labels say whose numbers they are.** The digest shows "Yours: …" and the tiles are lab-wide. Health reasons are shown inline. The Home participant percent uses the same denominator as the project Participants page.
   - **Notifications list:** costs a flat ~14 queries. Targets are fetched once per model, lab-scoped, and the reader's project roles are loaded once before the D54 re-check. The re-check is unchanged.
   - **Page comments:** a page comment's path must be plain segments (`/labs/<id>/a/b`). Mentions in page comments never carry their text to AI, the same as document comments.
+- D379. **Site-wide Usage page for the operators (2026-11-25).** `GET /api/usage/` and the `/usage` page are for site staff only: an active account with `is_staff`, set by hand for the founders (`Perm.SITE_STAFF`).
+  - **Access:** no lab role and no superuser flag grants it. Anyone else who is signed in gets 404, so the page stays hidden.
+  - **Cross-lab counting:** this is the only code that counts across labs. Lab-scoped rows come only through `permissions.all_labs(user, model)`, which re-checks staff and lives in the permission module; the tenancy guard is unchanged.
+  - **What it returns:** counts, dates and the newest 50 sign-ups (name, email, the institution of their first lab, number of labs, last active day, number of actions). Never titles, text, file names or participant data.
+  - **"Active"** means an audit event as the actor (failed sign-ins excluded), or a chat message sent in the app, a document save, a paper added or a question to the assistant, counted per UTC day.
+  - **Excluded by default:** test accounts (`.test`, `.invalid`, `example.com/.org/.net`) and staff, unless asked for.
+  - `/api/me/` gains `site_staff`, so the menu shows Usage only to staff and analytics leaves staff out (D380).
 - D380. **Site analytics with self-hosted Umami (2026-11-25), for the email to the university's professors.** The owner asked to see where people go, what they click and how many sign up. Umami 3.4.1 (MIT) runs on our own server in Canada with its own database; it uses no cookies and keeps no IP addresses. Caddy serves only `/u/s.js` and `/u/api/send` on the main domain, so the CSP stays `'self'`, and the dashboard is at `stats.<domain>`. `frontend/src/lib/analytics.ts` scrubs every event in the browser:
   - **Addresses:** record ids, invitation, email and reset codes, and long opaque segments become placeholders. Every query parameter except `utm_*` is dropped, and only a plain `#tab` is kept. Another site's referrer keeps only its origin.
   - **No titles:** page titles are never sent, because they can hold project or document names.

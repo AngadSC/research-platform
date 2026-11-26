@@ -61,7 +61,7 @@ export function UsagePage() {
                 checked={includeTest}
                 onChange={(e) => setIncludeTest(e.target.checked)}
               />
-              Include test accounts
+              Include test and staff accounts
             </label>
           </>
         }

@@ -471,7 +471,7 @@ start without the two settings):
 4. Add a DNS A record for `stats` pointing at the server. Until it exists only that certificate
    fails; the main site is unaffected.
 
-Staff (`is_staff`) and `@example.test` accounts are never counted. Their browsers set
+Staff (`site_staff` in `/api/me/`, from `is_staff`) and `@example.test` accounts are never counted. Their browsers set
 `localStorage["umami.disabled"]`. To stop counting your own browser without signing in, run
 `localStorage.setItem("umami.disabled", "1")` in its console.
 

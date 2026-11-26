@@ -135,9 +135,11 @@ export function startAnalytics() {
 
 /** Tie this browser's visits to the account's id (never a name or email), so one person's
  * path through the app can be followed. Test accounts and staff are not counted at all. */
-export function identifyUser(me: { id?: string; email?: string; is_staff?: boolean } | undefined) {
+export function identifyUser(
+  me: { id?: string; email?: string; site_staff?: boolean } | undefined,
+) {
   if (!me?.id) return;
-  excluded = !!me.is_staff || (me.email ?? "").toLowerCase().endsWith("@example.test");
+  excluded = !!me.site_staff || (me.email ?? "").toLowerCase().endsWith("@example.test");
   if (excluded) {
     try {
       // The tracker checks this before every send, so this browser stays out on later visits too,

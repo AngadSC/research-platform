@@ -45,7 +45,7 @@ export function ProtectedLayout() {
 
 /** D380: ties visits to a random account id, and leaves test and staff accounts out. */
 function AnalyticsIdentity() {
-  const me = useMe().data as { id?: string; email?: string; is_staff?: boolean } | undefined;
+  const me = useMe().data as { id?: string; email?: string; site_staff?: boolean } | undefined;
   useEffect(() => identifyUser(me), [me]);
   return null;
 }

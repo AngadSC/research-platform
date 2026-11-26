@@ -81,7 +81,8 @@ def _fake(prefix="") -> Q:
     q = Q()
     for suffix in TEST_EMAIL_SUFFIXES:
         q |= Q(**{f"{prefix}email__iendswith": suffix})
-    return q
+    # The founders' own use would swamp the numbers, so staff count as test accounts here.
+    return q | Q(**{f"{prefix}is_staff": True})
 
 
 def _row_sources(staff) -> dict:
