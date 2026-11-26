@@ -91,7 +91,11 @@ def run(data: bytes, filename: str, software: str) -> dict:
             "status": "failed",
             "software": software or candidates[0],
             "error": last_error
-            or "This file doesn't look like an export from the software you chose, or it comes "
-            "from a version we can't read.",
+            or (
+                "This file doesn't look like an export from the software you chose, or it comes "
+                "from a version we can't read."
+                if software
+                else "This file could not be read; it may be damaged."
+            ),
         }
     return {"status": "unsupported", "software": "", "error": UNSUPPORTED}

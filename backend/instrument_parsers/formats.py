@@ -14,6 +14,7 @@ MAX_COLUMNS = 40
 MAX_SHEETS = 5
 MAX_POINTS = 1500
 MAX_PIXELS = 100_000_000
+MAX_DECODED = 300 * 1024**2  # bytes the TIFF decodes to, before we ask tifffile to decode it
 MAX_XLSX_UNPACKED = 200 * 1024 * 1024
 PNG_SIZES = (1024, 800, 640, 512, 384)
 PNG_BUDGET = 350_000  # base64 characters, so the whole summary stays well under 500 KB
@@ -25,17 +26,14 @@ class Unreadable(Exception):
         self.user_message = message
 
 
+_NUMBER = re.compile(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?")
+
+
 def _number(cell):
     if isinstance(cell, str):
         text = cell.strip()
-        try:
-            return (
-                float(text)
-                if re.fullmatch(r"[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?", text)
-                else text
-            )
-        except ValueError:
-            return text
+        # the length check keeps a hostile megabyte cell from being scanned
+        return float(text) if len(text) <= 64 and _NUMBER.fullmatch(text) else text
     return cell
 
 
@@ -111,7 +109,15 @@ def tiff_image(data: bytes, filename: str) -> dict:
 
     with tifffile.TiffFile(io.BytesIO(data)) as tif:
         page = tif.pages[0]
-        if page.imagelength * page.imagewidth > MAX_PIXELS:
+        decoded = (
+            page.imagelength
+            * page.imagewidth
+            * page.samplesperpixel
+            * max(page.imagedepth, 1)
+            * page.bitspersample
+            // 8
+        )
+        if page.imagelength * page.imagewidth > MAX_PIXELS or decoded > MAX_DECODED:
             raise Unreadable("This image is too large to preview.")
         arr = np.squeeze(page.asarray())
         pages, ome = len(tif.pages), tif.is_ome

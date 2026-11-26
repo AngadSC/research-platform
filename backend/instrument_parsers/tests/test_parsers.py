@@ -1,6 +1,8 @@
 import base64
 import io
 import json
+import tempfile
+import time
 from pathlib import Path
 
 import numpy as np
@@ -8,7 +10,7 @@ import pytest
 from openpyxl import Workbook
 
 import instrument_parsers
-from instrument_parsers import SOFTWARE_CHOICES, asm, dispatch, parse_file
+from instrument_parsers import SOFTWARE_CHOICES, asm, dispatch, formats, parse_file
 
 from .builders import make_abif, make_fcs, make_tiff
 
@@ -276,3 +278,51 @@ def test_child_works_in_a_scratch_directory_and_cannot_write_outside(tmp_path, m
     monkeypatch.chdir(tmp_path)
     parse_file(b"a,b\n1,2\n", "t.csv")
     assert list(tmp_path.iterdir()) == []
+
+
+def test_image_that_decodes_to_too_many_bytes_is_refused_before_it_is_decoded(monkeypatch):
+    # 11000 x 9000 float64 zeros is a 750 KB zlib file that decodes to 790 MB and passes MAX_PIXELS
+    monkeypatch.setattr(formats, "MAX_DECODED", 1024**2)
+    data = make_tiff(np.zeros((1000, 1000), dtype=np.float64), compression="zlib")
+    with pytest.raises(formats.Unreadable, match="too large"):
+        formats.tiff_image(data, "big.tif")
+    monkeypatch.setattr(formats, "MAX_DECODED", 300 * 1024**2)
+    assert formats.tiff_image(data, "big.tif")["kind"] == "image"
+
+
+def test_long_digit_cell_is_not_scanned_slowly():
+    data = b"a,b\n" + b"1" * 100_000 + b"x,2\n"
+    started = time.monotonic()
+    out = formats.generic_table(data, "t.csv")
+    assert time.monotonic() - started < 1
+    assert out["tables"][0]["rows"][0][1] == 2.0
+    assert formats._number(" -1.5e3 ") == -1500.0 and formats._number("1.") == 1.0
+    assert formats._number(".5") == 0.5 and formats._number("1e") == "1e"
+
+
+def test_scratch_directory_is_removed_even_when_the_child_is_killed(tmp_path, monkeypatch):
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    monkeypatch.setattr(instrument_parsers, "TIMEOUT", 0.01)
+    assert "too long" in parse_file(b"a,b\n1,2\n", "slow.csv")["error"]
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_child_output_is_read_only_up_to_the_limit(monkeypatch):
+    monkeypatch.setattr(instrument_parsers, "MAX_SUMMARY", 0)
+    rows = b"".join(b"%d,%d,%d,%d\n" % (i, i, i, i) for i in range(2000))
+    out = parse_file(b"a,b,c,d\n" + rows, "big.csv")
+    assert out["status"] == "failed" and "too large" in out["error"]
+
+
+def test_plate_bigger_than_1536_wells_becomes_a_table(monkeypatch):
+    path = FIXTURES / "gen5_absorbance_two_wavelengths.txt"
+    assert asm.convert(path.read_bytes(), path.name, "agilent_gen5")["plates"]
+    monkeypatch.setattr(asm, "PLATE_FORMATS", [(2, 3)])
+    out = asm.convert(path.read_bytes(), path.name, "agilent_gen5")
+    assert "plates" not in out and out["tables"]
+    assert any("table" in w for w in out["warnings"])
+
+
+def test_unreadable_file_without_a_chosen_software_does_not_blame_the_choice():
+    out = parse_file(b"II*\x00" + b"\xff" * 40, "bad.tif")
+    assert out["status"] == "failed" and "software you chose" not in out["error"]

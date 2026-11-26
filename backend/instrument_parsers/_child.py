@@ -1,16 +1,16 @@
 """Child process of parse_file: reads the file from stdin, prints the JSON summary to stdout.
 
 Runs under `python -I`, so the package's parent folder is added to the path by hand. Sets its own
-memory, CPU and file-size limits before importing any parser, and works in a throwaway directory.
+memory, CPU and file-size limits before importing any parser. Its working directory and TMPDIR are a
+throwaway directory made (and removed) by the parent, so a killed child leaves nothing behind.
 """
 
 import json
 import os
 import sys
-import tempfile
 
 TIMEOUT = 45
-MEMORY = 2 * 1024**3
+MEMORY = 1024**3
 
 
 def main() -> None:
@@ -26,12 +26,9 @@ def main() -> None:
     filename, software = sys.argv[1], sys.argv[2]
     data = sys.stdin.buffer.read()
     try:
-        with tempfile.TemporaryDirectory() as scratch:
-            os.chdir(scratch)
-            tempfile.tempdir = scratch
-            from instrument_parsers.dispatch import run
+        from instrument_parsers.dispatch import run
 
-            out = run(data, filename, software)
+        out = run(data, filename, software)
     except BaseException:  # noqa: BLE001 (any parser failure on a hostile file is the same answer)
         out = {
             "status": "failed",

@@ -213,6 +213,24 @@ describe("summaryToCsv", () => {
     expect(csv).toBe('Sample,Note\n"He said ""hi"", twice",\nS2,1.5');
   });
 
+  it("defuses text that looks like a formula but leaves numbers alone", () => {
+    const csv = summaryToCsv({
+      status: "ok",
+      tables: [
+        {
+          name: "T",
+          columns: ["Sample", "Value"],
+          rows: [
+            ["=SUM(A1)", -1.5],
+            ["@x", "+5"],
+            ["ok-1", 2],
+          ],
+        },
+      ],
+    });
+    expect(csv).toBe("Sample,Value\n'=SUM(A1),-1.5\n'@x,'+5\nok-1,2");
+  });
+
   it("writes a plate as one row per well, in plate order", () => {
     const csv = summaryToCsv({
       status: "ok",

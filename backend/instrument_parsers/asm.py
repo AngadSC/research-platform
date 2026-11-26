@@ -260,8 +260,13 @@ def convert(data: bytes, filename: str, key: str) -> dict:
         n = seen[(read["plate"], read["label"])] = seen.get((read["plate"], read["label"]), 0) + 1
         r, c = next(
             ((r, c) for r, c in PLATE_FORMATS if r >= read["rows"] and c >= read["cols"]),
-            (read["rows"], read["cols"]),
+            (0, 0),
         )
+        if not r:  # bigger than a 1536-well plate: the readings table below still has every well
+            warnings.append(
+                "A plate in this file has more wells than we can draw, so it is shown as a table."
+            )
+            continue
         title = " ".join(
             p for p in (read["plate"], read["label"], f"(read {n})" if n > 1 else "") if p
         )
