@@ -52,5 +52,5 @@ Each worker gets a written brief: goal, files, what is already ruled out, and ho
 - Participant data: items flagged "Contains participant data" never reach any AI tool.
 - Secrets come from the environment. Never open or print `.env`, `.env.qa` or `deploy/.env.prod`.
 - Seed and test data must be obviously fake (example.test).
-- New dependencies must be MIT, BSD, Apache, ISC or MPL-2.0. Never install `@blocknote/xl-*` and never
-  read or copy GPL or AGPL code.
+- New dependencies must be MIT, BSD, Apache, ISC or MPL-2.0; unmodified LGPL Python packages are allowed
+  in the backend only (D2). Never install `@blocknote/xl-*` and never read or copy GPL or AGPL code.
