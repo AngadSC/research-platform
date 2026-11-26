@@ -159,7 +159,16 @@ function Deadlines({
     {
       key: "title",
       header: "Deadline",
-      cell: (d) => <span className={d.done ? "line-through" : undefined}>{d.title}</span>,
+      cell: (d) => (
+        <>
+          <span className={d.done ? "line-through" : undefined}>{d.title}</span>
+          {d.done && (
+            <Badge variant="secondary" className="ml-2 align-middle">
+              Done
+            </Badge>
+          )}
+        </>
+      ),
     },
     {
       key: "priority",

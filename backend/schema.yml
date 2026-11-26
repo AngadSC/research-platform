@@ -16356,6 +16356,11 @@ components:
           items:
             $ref: '#/components/schemas/ProjectRef'
           readOnly: true
+        responsible:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+          readOnly: true
         attachments:
           type: array
           items:
@@ -16389,6 +16394,7 @@ components:
       - projects
       - renewal_status
       - renews
+      - responsible
       - restricted
       - status
       - title

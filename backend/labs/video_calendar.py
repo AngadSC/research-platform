@@ -60,7 +60,7 @@ def _call(account, method, url, *, ok=(200, 201, 204), **kwargs):
         resp = send(method, url, provider=provider, account=account, **kwargs)
     except AccountUnavailable as exc:
         raise RemoteError(
-            {"video": [f"Reconnect {provider.label} in Settings, then try again."]}
+            {"video": [f"Reconnect {provider.label} on the Integrations page, then try again."]}
         ) from exc
     except IntegrationError as exc:
         raise RemoteError({"video": [f"{provider.label} did not answer. Try again."]}) from exc

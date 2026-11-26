@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Link } from "react-router";
 import { toast } from "sonner";
 import { FormError } from "@/components/shared/FormError";
 import { FormField } from "@/components/shared/FormField";
@@ -22,7 +23,7 @@ import { useReauth } from "@/hooks/reauth";
 import { useLab, useMe, useMembers } from "@/hooks/workspace";
 import { personName, type CalendarItem } from "@/lib/api-types";
 import { toLocalInput } from "@/lib/calendar";
-import { plural, when } from "@/lib/format";
+import { plural, whenZone } from "@/lib/format";
 import { formErrors, type FormErrors } from "@/lib/forms";
 import { formValue } from "@/pages/admin/common";
 
@@ -120,7 +121,17 @@ function VideoChoice({
             " It also goes on your Google Calendar, with the people below as guests."}
         </p>
       )}
-      <FormError message={error} />
+      {error?.includes("Integrations page") ? (
+        <p role="alert" className="text-sm font-medium text-destructive">
+          {error.replace(" on the Integrations page", "")} Open{" "}
+          <Link className="underline" to={`/labs/${labId}/settings/integrations`}>
+            Integrations
+          </Link>{" "}
+          and press Reconnect.
+        </p>
+      ) : (
+        <FormError message={error} />
+      )}
     </fieldset>
   );
 }
@@ -295,8 +306,8 @@ export function MeetingDialog({
               <div className="grid gap-0.5">
                 <dt className="text-xs text-muted-foreground">When</dt>
                 <dd>
-                  {meeting.starts_at && when(meeting.starts_at)}
-                  {meeting.ends_at && ` to ${when(meeting.ends_at)}`}
+                  {meeting.starts_at && whenZone(meeting.starts_at)}
+                  {meeting.ends_at && ` to ${whenZone(meeting.ends_at)}`}
                 </dd>
               </div>
               <div className="grid gap-0.5">
@@ -364,7 +375,7 @@ export function MeetingDialog({
               {!call && video === "link" && (
                 <FormField
                   label="Zoom or Google Meet link"
-                  hint="Paste the link from your invitation. It starts with https://"
+                  hint="Paste a Zoom or Google Meet link (zoom.us, zoomgov.com or meet.google.com). It starts with https://"
                   error={f.join_url}
                 >
                   {(p) => (
@@ -382,7 +393,7 @@ export function MeetingDialog({
                 <p className="text-xs text-muted-foreground">
                   Only the people on a meeting can see it. Whoever added it always stays on it.
                 </p>
-                <div className="grid max-h-40 gap-1 overflow-y-auto rounded-md border p-2">
+                <div className="grid max-h-72 gap-1 overflow-y-auto rounded-md border p-2">
                   {members.length > 1 && (
                     <div className="flex items-center gap-2 border-b pb-1 text-sm">
                       <input
