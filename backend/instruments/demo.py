@@ -6,9 +6,11 @@ from labs.models import InventoryCategory, InventoryItem
 INSTRUMENTS = [
     # name, location, software, serial (fake)
     ("Plate reader (Synergy H1)", "Room 2-104, bench 3", "agilent_gen5", "DEMO-SH1-0001"),
-    ("NanoDrop One", "Room 2-104, bench 1", "thermo_nanodrop_one", "DEMO-ND1-0002"),
+    ("NanoDrop 8000", "Room 2-104, bench 1", "nanodrop_8000", "DEMO-ND8-0002"),
     ("ÄKTA pure 25", "Cold room 2-110", "cytiva_unicorn", "DEMO-AKTA-0003"),
     ("Gel imager (ChemiDoc)", "Room 2-106", "image_tiff", "DEMO-GEL-0004"),
+    ("qPCR (CFX Opus 96)", "Room 2-108", "bio_rad_cfx", "DEMO-CFX-0005"),
+    ("Sanger sequencing (DNA core)", "DNA core facility", "abi_sanger", "DEMO-SEQ-0006"),
 ]
 
 
