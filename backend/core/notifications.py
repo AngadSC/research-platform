@@ -26,6 +26,9 @@ EMAIL_KINDS = frozenset(
     }
 )
 
+# A page comment's path: plain segments only, no spaces, dots or other text riding along in a link
+SAFE_PATH = re.compile(r"^/labs/[0-9a-fA-F-]{36}(?:/[A-Za-z0-9_-]+)*$")
+
 
 def notify(
     *,
@@ -301,7 +304,7 @@ def notification_url(n, user) -> str:
             .objects.for_lab(n.lab_id)
             .filter(pk=n.dedupe_key.rsplit(":", 1)[1])
         ).first()
-        if comment is not None:
+        if comment is not None and SAFE_PATH.match(comment.path):  # older rows were checked less
             return comment.path
     if target == "projects.project" and n.target_id:
         chat = "/chat" if n.kind == NotificationKind.MENTION else ""

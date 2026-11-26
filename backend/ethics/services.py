@@ -17,6 +17,7 @@ from core.permissions import (
 )
 from documents import services as document_services
 from ethics.models import ApprovalStatus, EthicsApproval
+from projects.models import ProjectMembership, ProjectRole
 
 A = AuditAction
 
@@ -205,4 +206,13 @@ def delete_approval(approval, *, user, request=None) -> None:
 def upload_file(*, approval, user, file=None, drive_file_id=None, request=None):
     return document_services.upload_attachment(
         approval=approval, user=user, file=file, drive_file_id=drive_file_id, request=request
+    )
+
+
+def lead_memberships(lab):
+    """Active project leads in this lab: who answers for an approval (its `responsible`)."""
+    return (
+        ProjectMembership.objects.for_lab(lab)
+        .filter(role=ProjectRole.LEAD, user__is_active=True)
+        .select_related("user")
     )

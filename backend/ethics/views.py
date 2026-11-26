@@ -15,7 +15,6 @@ from documents.serializers import AttachmentSerializer, AttachmentUploadSerializ
 from ethics import services
 from ethics.models import EthicsApproval
 from ethics.serializers import EthicsApprovalInputSerializer, EthicsApprovalSerializer
-from projects.models import ProjectMembership, ProjectRole
 
 
 class ApprovalMixin(LabScopedViewMixin):
@@ -32,9 +31,7 @@ class ApprovalMixin(LabScopedViewMixin):
             .prefetch_related(
                 Prefetch(
                     "projects__memberships",
-                    queryset=ProjectMembership.objects.for_lab(self.request.lab)
-                    .filter(role=ProjectRole.LEAD)
-                    .select_related("user"),
+                    queryset=services.lead_memberships(self.request.lab),
                 ),
                 # renewals the viewer cannot see must not leak their status
                 Prefetch(

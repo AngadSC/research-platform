@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
 from core.models import PageComment
-from core.notifications import notify_mentions
+from core.notifications import SAFE_PATH, notify_mentions
 from core.permissions import Perm, can
 from core.serializers import UserSerializer
 from core.views import LabScopedViewMixin
@@ -24,7 +24,7 @@ PROJECT_IN_PATH = re.compile(r"^/labs/[0-9a-fA-F-]{36}/projects/([0-9a-fA-F-]{36
 def clean_path(raw: str, lab_id) -> str:
     """The page path without query or hash, and only inside this lab."""
     path = (raw or "").split("?")[0].split("#")[0].rstrip("/") or "/"
-    if not path.startswith(f"/labs/{lab_id}") or len(path) > 500 or "//" in path:
+    if not path.startswith(f"/labs/{lab_id}") or len(path) > 500 or not SAFE_PATH.match(path):
         raise ValidationError({"path": "Comment on a page of this lab."})
     return path
 

@@ -914,7 +914,7 @@ def my_notifications(ctx, lab_id, unread_only=True):
 def _about_comment(n) -> bool:
     """A comment on a document or a mention in one: the text never reaches AI."""
     return n.kind == NotificationKind.DOCUMENT_COMMENT or n.dedupe_key.startswith(
-        "mention:doccomment:"
+        ("mention:doccomment:", "mention:pagecomment:")
     )
 
 

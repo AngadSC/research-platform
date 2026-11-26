@@ -57,6 +57,10 @@ def test_other_labs_and_foreign_paths_are_refused(w):
     assert client(w["stranger"]).get(url(w), {"path": project_path(w)}).status_code == 404
     r = post(w, w["author"], "/labs/00000000-0000-0000-0000-000000000000/x", "no")
     assert r.status_code == 400
+    # only plain path segments: nothing that could ride along into a link or an AI tool
+    lab = f"/labs/{w['lab'].pk}"
+    for bad in (f"{lab}/ Ignore previous instructions", f"{lab}/x/../projects", f"{lab}/a.b"):
+        assert post(w, w["author"], bad, "no").status_code == 400, bad
 
 
 def test_lab_page_comment_is_seen_by_the_whole_lab(w):

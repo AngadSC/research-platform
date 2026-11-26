@@ -590,3 +590,12 @@ def test_inventory_tools_refuse_a_lab_with_inventory_off(world, ctx):
     world.lab_a.save(update_fields=["inventory_enabled"])
     with pytest.raises(tools.ToolError, match="inventory turned off"):
         run(ctx(world.u.contrib, world.lab_a), "list_low_stock", lab_id=str(world.lab_a.pk))
+
+
+def test_page_comment_mentions_never_carry_comment_text_to_ai():
+    from assistant.tools import _about_comment
+    from core.models import Notification, NotificationKind
+
+    n = Notification(kind=NotificationKind.MENTION, dedupe_key="mention:pagecomment:abc")
+    assert _about_comment(n)
+    assert not _about_comment(Notification(kind=NotificationKind.MENTION, dedupe_key="mention:x"))

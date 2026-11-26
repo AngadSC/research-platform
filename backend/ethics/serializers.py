@@ -68,7 +68,8 @@ class EthicsApprovalSerializer(serializers.ModelSerializer):
     @extend_schema_field(UserSerializer(many=True))
     def get_responsible(self, obj):
         """Approvals have no owner of their own: the leads of the linked projects the requester
-        can see are who answers for them."""
+        can see are who answers for them. Needs the view's `services.lead_memberships` prefetch,
+        which keeps only active leads."""
         visible = self._visible()
         leads = {
             m.user_id: m.user
