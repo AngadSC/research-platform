@@ -451,3 +451,21 @@ def test_inventory_audit_lists_only_fields_that_changed(world):
     assert api(u["member"]).patch(path, {**form, "location": "1.1"}, "json").status_code == 200
     assert InventoryItem.objects.for_lab(lab).get(pk=iid).location == "1.1"
     assert AuditEvent.objects.filter(action=kind).count() == 3
+
+
+def test_order_status_only_moves_forward(make_lab, make_user, join):
+    from labs.models import InventoryOrder
+
+    lab = make_lab("Flow Lab")
+    member = make_user()
+    join(member, lab, LabRole.MEMBER)
+    order = InventoryOrder.objects.create(lab=lab, name="Tips", requested_by=member)
+    link = reverse("labs:order-detail", kwargs={"lab_id": lab.pk, "inventoryorder_id": order.pk})
+    patch = lambda status: api(member).patch(link, {"status": status}, format="json")  # noqa: E731
+    assert patch("ordered").status_code == 200
+    assert patch("requested").status_code == 400
+    assert patch("cancelled").status_code == 200
+    r = patch("received")
+    assert r.status_code == 400 and "cancelled" in str(r.json())
+    order.refresh_from_db()
+    assert order.status == "cancelled"

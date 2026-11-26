@@ -92,7 +92,7 @@ function InviteForm({ labId, noPending }: { labId: string; noPending: boolean })
     setErrors({ fields: {} });
     try {
       await create.mutateAsync({ email, role });
-      toast.success(`Invitation sent to ${email}`);
+      toast.success(`Invitation sent to ${email}. Add them to projects once they accept.`);
       form.reset();
     } catch (err) {
       setErrors(formErrors(err, ["email", "role"]));
@@ -145,6 +145,10 @@ function InviteForm({ labId, noPending }: { labId: string; noPending: boolean })
             Send invitation
           </Button>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Add them to projects once they accept. They will not show up in project member lists until
+          then.
+        </p>
         <FormError message={errors.form} />
       </form>
     </Disclosure>

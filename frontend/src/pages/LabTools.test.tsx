@@ -366,13 +366,40 @@ describe("orders", () => {
   it("opens the order link safely in a new tab and hides editing from viewers", async () => {
     mockFetch(inventory(["view_lab"]));
     renderRoute("/labs/lab1/inventory");
-    const place = await screen.findByRole("link", { name: /Place order/ });
+    const place = await screen.findByRole("link", { name: /Open vendor page/ });
     expect(place).toHaveAttribute("href", "https://vendor.example/o1");
     expect(place).toHaveAttribute("target", "_blank");
     expect(place).toHaveAttribute("rel", "noopener noreferrer");
     expect(screen.queryByRole("button", { name: "New order" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "More for Tips" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("combobox", { name: "Status of Tips" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Mark received/ })).not.toBeInTheDocument();
+  });
+
+  it("shows only the actions that fit each status", async () => {
+    mockFetch(
+      inventory(["view_lab", "manage_inventory"], {
+        [`GET ${L}/inventory/orders/`]: {
+          body: [
+            { ...order, id: "a", name: "Chow", status: "requested" },
+            { ...order, id: "b", name: "Gloves", status: "received" },
+          ],
+        },
+      }),
+    );
+    renderRoute("/labs/lab1/inventory");
+    expect(
+      await screen.findByRole("button", { name: "Approve and mark ordered: Chow" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Decline: Chow" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Open vendor page: Gloves/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Mark received: (Chow|Gloves)/ })).toBeNull();
+  });
+
+  it("warns on Reorder when the item is already on order", async () => {
+    mockFetch(inventory(["view_lab", "manage_inventory"]));
+    renderRoute("/labs/lab1/inventory");
+    await pickMenuItem("More for Tips", "Reorder");
+    expect(await screen.findByRole("note")).toHaveTextContent("Already on order: 3 box, ordered");
   });
 
   it("prefills Reorder from the item's last order and links it", async () => {
@@ -402,8 +429,7 @@ describe("orders", () => {
       }),
     );
     renderRoute("/labs/lab1/inventory");
-    const select = await screen.findByRole("combobox", { name: "Status of Tips" });
-    await userEvent.selectOptions(select, "received");
+    await userEvent.click(await screen.findByRole("button", { name: "Mark received: Tips" }));
     expect(calls.some((c) => c.method === "PATCH")).toBe(false);
     await userEvent.click(await screen.findByRole("button", { name: "Mark received" }));
     await expect
@@ -420,7 +446,7 @@ describe("orders", () => {
       }),
     );
     renderRoute("/labs/lab1/inventory");
-    await userEvent.click(await screen.findByRole("button", { name: "Cancel order: Tips" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Undo receipt: Tips" }));
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toHaveTextContent("this takes 3 box back off Tips");
     expect(calls.some((c) => c.method === "PATCH")).toBe(false);

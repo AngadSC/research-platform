@@ -29,7 +29,7 @@ import { useLab } from "@/hooks/workspace";
 import { useDeadlines, useProjectMembers, useUpdateProject } from "@/hooks/projects";
 import { useFunding } from "@/hooks/workflow";
 import { RoleName } from "@/components/shared/RoleName";
-import { useMembers } from "@/hooks/workspace";
+import { useInvites, useMembers } from "@/hooks/workspace";
 import {
   PROJECT_ROLES,
   PROJECT_STATUSES,
@@ -299,6 +299,7 @@ function AddMember({
   onAdd: (v: { user: string; role: ProjectRole }) => Promise<unknown>;
 }) {
   const labMembers = useMembers(labId);
+  const pendingInvites = useInvites(labId, true).data?.length ?? 0;
   const [user, setUser] = useState("");
   const [role, setRole] = useState<ProjectRole>("contributor");
   const [error, setError] = useState<string>();
@@ -326,7 +327,11 @@ function AddMember({
       className="flex flex-wrap items-start gap-3"
     >
       <div className="w-64">
-        <FormField label="Person" error={error}>
+        <FormField
+          label="Person"
+          error={error}
+          hint={pendingInvites > 0 ? "Invited people appear here once they accept." : undefined}
+        >
           {(p) => (
             <Select value={user} onValueChange={setUser}>
               <SelectTrigger {...p}>

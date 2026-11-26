@@ -383,6 +383,16 @@ export function InventorySection({
             <Minus aria-hidden /> Use
           </Button>
         )}
+      {onReorder && i.low && i.status !== "retired" && (
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label={`Reorder ${i.name}`}
+          onClick={() => onReorder(i)}
+        >
+          Reorder
+        </Button>
+      )}
       <MoreMenu
         label={`More for ${i.name}`}
         items={[
