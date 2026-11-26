@@ -316,6 +316,8 @@ def _bytes(ctx, lab, a) -> tuple[bytes, str]:
         name = safe_name(a.original_filename, "file")
         ext = EXPORT_EXT.get(drive_files.EXPORTS.get(a.content_type, ""), "")
         return data, name if name.endswith(ext) else name + ext
+    if a.external_url:  # an Office copy: its bytes are in OneDrive only
+        raise tools.ToolError(f"{a.original_filename} is in OneDrive, so it cannot be loaded.")
     if a.size_bytes > MAX_BYTES:
         raise tools.ToolError(f"{a.original_filename} is too large to load.")
     try:

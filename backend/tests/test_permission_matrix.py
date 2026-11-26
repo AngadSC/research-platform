@@ -29,6 +29,7 @@ from assistant.services import register_client  # AI access (Run 5)
 from assistant.tests.reauth import sign_in  # AI access (Run 5)
 from core import link_preview  # link previews (D322)
 from core.models import Institution, Notification, NotificationKind, PageComment, User
+from documents import office  # Edit in Office
 from documents import services as document_services  # documents/attachments (Phase 3)
 from documents.models import Attachment, DocumentComment  # file links (VISION S1); comments
 from ethics.models import EthicsApproval  # ethics (Phase 5)
@@ -37,7 +38,7 @@ from instruments.models import InstrumentFile  # instruments (wet lab)
 from integrations import http as integrations_http  # integrations (Run 2)
 from integrations import registry, webhooks
 from integrations.models import ConnectedAccount, ExternalLink, Webhook  # integrations (Run 2)
-from integrations.providers import google_drive  # Edit in Google (VISION B3)
+from integrations.providers import google_drive, onedrive  # Edit in Google (B3), in Office
 from integrations.providers import zotero as zotero_provider  # Zotero import (D242)
 from integrations.tests.fake import FAKE  # integrations (Run 2)
 from labs import google_chat as lab_google_chat  # Google Chat link (D318)
@@ -246,6 +247,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("GET",    "documents:attachment-download"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "documents:attachment-edit-in-google"): "401 404 2 2 2 2 403 404 403",  # B3
     ("POST",   "documents:attachment-open-in-overleaf"): "401 404 2 2 2 2 403 404 403",  # D380
+    ("POST",   "documents:attachment-edit-in-office"): "401 404 2 2 2 2 403 404 403",  # Office
     ("POST",   "documents:project-drive-export"): "401 404 2 2 2 403 403 404 403",  # stats to Drive
     ("POST",   "documents:document-move"): "401 404 2 2 2 2 403 404 403",
     # Start here (D351): anyone in the lab reads the list; pinning for everyone needs
@@ -921,6 +923,18 @@ def _integration_fixtures(lab, project, owners, tag):
         )
         drive.set_tokens(access=f"matrix-{name}", refresh=None, expires_at=None)
         drive.save()
+    for name, user in owners.items():  # OneDrive, allowed to save copies (Edit in Office)
+        od = ConnectedAccount(
+            lab=lab,
+            user=user,
+            provider="onedrive",
+            external_account_id=f"od-{name}-{tag}",
+            external_email=f"od-{name}-{tag}@fake.test",
+            connected_at=now,
+            granted_scopes=list(onedrive.PROVIDER.scopes),
+        )
+        od.set_tokens(access=f"matrix-od-{name}", refresh=None, expires_at=None)
+        od.save()
     for name, user in owners.items():  # a Zotero account for the paper import (D242)
         ConnectedAccount.objects.create(
             lab=lab,
@@ -1197,6 +1211,15 @@ def _matrix_fake_provider(monkeypatch, settings):
     )
     # Edit in Google (VISION B3): the copy and its metadata, without Google.
     monkeypatch.setattr(google_drive, "create_converted", lambda account, **kw: "gcopy1")
+    monkeypatch.setattr(
+        office,
+        "upload_copy",
+        lambda account, **kw: {
+            "id": "b!d.ocopy1",
+            "name": "Notes.docx",
+            "url": "https://contoso-my.sharepoint.com/personal/x/Notes.docx",
+        },
+    )
     monkeypatch.setattr(google_drive, "create_export", lambda account, **kw: "gexport1")
     monkeypatch.setattr(google_drive, "create_blank", lambda account, **kw: "gblank1")
     monkeypatch.setattr(
@@ -1767,6 +1790,7 @@ PAYLOADS = {
     },
     ("POST", "documents:attachment-edit-in-google"): lambda user, w: _as_docx(w),
     ("POST", "documents:attachment-open-in-overleaf"): lambda user, w: _as_tex(w),
+    ("POST", "documents:attachment-edit-in-office"): lambda user, w: _as_docx(w),
     ("POST", "documents:folder-list"): lambda user, w: {"name": "New folder"},
     ("POST", "integrations:google-new-file"): lambda user, w: {"kind": "document"},
     ("POST", "documents:lab-folder-list"): lambda user, w: {"name": "Lab folder"},

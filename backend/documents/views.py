@@ -545,6 +545,15 @@ class AttachmentOpenInOverleafView(AttachmentMixin, generics.GenericAPIView):
         return Response(out)
 
 
+class AttachmentEditInOfficeView(AttachmentEditInGoogleView):
+    """Copy a Word, Excel or PowerPoint upload into the app folder of the person's own OneDrive."""
+
+    @extend_schema(request=None, responses={201: AttachmentSerializer})
+    def post(self, request, lab_id, attachment_id):
+        copy = services.edit_in_office(self.get_object(), user=request.user, request=request)
+        return Response(self.get_serializer(copy).data, status=status.HTTP_201_CREATED)
+
+
 class DriveExportInputSerializer(serializers.Serializer):
     file = serializers.FileField()
     name = serializers.CharField(
@@ -745,7 +754,7 @@ def download_response(request, attachment):
         target=attachment,
         request=request,
     )
-    if attachment.from_drive:  # D257: no bytes here; Drive decides who may open it
+    if attachment.external_url:  # D257: no bytes here; Drive or OneDrive decides who may open it
         return HttpResponseRedirect(attachment.external_url)
     inline = attachment.content_type == "application/pdf"  # shown by PDF.js
     # D123: only forced downloads are presigned. Anything shown inline streams through

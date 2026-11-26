@@ -136,7 +136,7 @@ class FileLinkView(views.APIView):
             )
             .first()
         )
-        if att is None or not can(user, Perm.VIEW_PROJECT, att) or att.from_drive:
+        if att is None or not can(user, Perm.VIEW_PROJECT, att) or att.external_url:
             raise Refused(404, "This file is no longer available.")
         if privacy.is_flagged(att):
             raise Refused(403, privacy.REFUSAL)

@@ -109,6 +109,10 @@ class Provider:
     # Scopes in `scopes` the person may decline on Google's screen: the account still connects
     # and the code does without them (Google Chat's directory and membership lookups).
     optional_scopes: tuple[str, ...] = ()
+    # Scopes in `scopes` a plain connect never asks for: only a connect that names them (the
+    # person clicked something like "Allow editing in Office") requests them, so an existing
+    # connection is never widened behind the person's back. The account connects without them.
+    extra_scopes: tuple[str, ...] = ()
     authorize_url: str = ""
     token_url: str = ""
     revoke_url: str = ""
@@ -168,7 +172,7 @@ class Provider:
     @property
     def required_scopes(self) -> frozenset[str]:
         """What must be granted for this provider to connect."""
-        return frozenset(self.scopes) - frozenset(self.optional_scopes)
+        return frozenset(self.scopes) - {*self.optional_scopes, *self.extra_scopes}
 
     @property
     def needs_account(self) -> bool:

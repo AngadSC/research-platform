@@ -108,7 +108,8 @@ def start_connect(request, lab, provider_name, scopes=None) -> str:
     require(user, Perm.MANAGE_INTEGRATIONS, lab)
     provider = _oauth_provider(provider_name)
     allowed = registry.bundle_scopes(provider)  # D262: the whole bundle, in one consent
-    scopes = sorted(set(scopes or allowed))
+    extra = {s for m in registry.bundle_of(provider) for s in m.extra_scopes}
+    scopes = sorted(set(scopes or [s for s in allowed if s not in extra]))
     if not set(scopes) <= set(allowed):
         raise OAuthError("invalid_scope")
 

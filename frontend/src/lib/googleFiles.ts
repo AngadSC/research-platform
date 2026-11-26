@@ -21,9 +21,20 @@ export function googleEditor(a: Pick<Attachment, "content_type" | "drive_file_id
 export const isImage = (a: Pick<Attachment, "content_type" | "drive_file_id">) =>
   !a.drive_file_id && /^image\/(png|jpe?g|gif|webp|svg\+xml)$/.test(a.content_type);
 
-/** An upload that "Edit in Google" can turn into a Google Doc, Sheet or Slides copy (VISION B3). */
-export const convertible = (a: Pick<Attachment, "original_filename" | "drive_file_id">) =>
-  !a.drive_file_id && /\.(docx|xlsx|pptx)$/i.test(a.original_filename);
+/** An upload that "Edit in Google" can turn into a Google Doc, Sheet or Slides copy (VISION B3),
+ * and "Edit in Word, Excel or PowerPoint" can copy to OneDrive. Not a Drive file or an Office copy:
+ * those have no bytes here. */
+export const convertible = (
+  a: Pick<Attachment, "original_filename" | "drive_file_id" | "external_url">,
+) => !a.drive_file_id && !a.external_url && /\.(docx|xlsx|pptx)$/i.test(a.original_filename);
+
+const OFFICE_APPS: Record<string, string> = { docx: "Word", xlsx: "Excel", pptx: "PowerPoint" };
+
+/** "Word", "Excel" or "PowerPoint" for a file Edit in Office can copy, else undefined. */
+export const officeApp = (
+  a: Pick<Attachment, "original_filename" | "drive_file_id" | "external_url">,
+) =>
+  convertible(a) ? OFFICE_APPS[a.original_filename.split(".").pop()!.toLowerCase()] : undefined;
 
 /** Opens a linked Google Doc, Sheet or Slides file in the floating panel (D326): editing, or just
  * a preview. Returns false for any other file. */
