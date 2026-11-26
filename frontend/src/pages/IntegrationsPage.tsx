@@ -254,7 +254,12 @@ export function IntegrationsPanel({ labId, embedded }: { labId: string; embedded
       </Disclosure>
       {canSeeAll && <WebhooksSection labId={labId} />}
       {canSeeAll && (
-        <Disclosure card region title="Everyone's connections">
+        <Disclosure
+          card
+          region
+          title="Everyone's connections"
+          defaultOpen={params.get("everyone") === "1"}
+        >
           <div className="grid gap-3">
             <DataTable
               columns={cols}

@@ -5,7 +5,7 @@ import datetime
 from collections import Counter, defaultdict
 
 from core.permissions import visible_projects
-from participants.models import CellStatus, Participant, ParticipantComponent
+from participants.models import CellStatus, Component, Participant, ParticipantComponent
 
 DONE = {CellStatus.COMPLETE}
 LEFT_OUT = {CellStatus.NOT_APPLICABLE, CellStatus.EXCLUDED}
@@ -28,6 +28,7 @@ def lab_overview(user, lab) -> dict:
             "id",
             "project_id",
             "participant_id",
+            "component_id",
             "status",
             "owner_id",
             "due_date",
@@ -35,22 +36,50 @@ def lab_overview(user, lab) -> dict:
             "reason__label",
             "component__name",
             "component__category",
+            "component__archived_at",
+            "component__applies_to_groups",
         )
     )
+    # Same cells the project's Participants page counts: no archived columns, and no column that
+    # is limited to other groups.
+    cells = [
+        c
+        for c in cells
+        if c["component__archived_at"] is None
+        and (
+            not c["component__applies_to_groups"]
+            or people[c["participant_id"]]["group"] in c["component__applies_to_groups"]
+        )
+    ]
     per = defaultdict(lambda: Counter())
     by_component = defaultdict(lambda: [0, 0])
+    # Percent complete counts every participant x column that applies, like the project's
+    # Participants page: a cell nobody has touched yet is "not started", not absent.
+    state = {(c["participant_id"], c["component_id"]): c["status"] for c in cells}
+    for comp in (
+        Component.objects.for_lab(lab)
+        .filter(project_id__in=ids, archived_at__isnull=True)
+        .values("id", "project_id", "name", "applies_to_groups")
+    ):
+        for pid, person in people.items():
+            if person["project_id"] != comp["project_id"]:
+                continue
+            if comp["applies_to_groups"] and person["group"] not in comp["applies_to_groups"]:
+                continue
+            status = state.get((pid, comp["id"]), CellStatus.NOT_STARTED)
+            if status in LEFT_OUT:
+                continue
+            per[comp["project_id"]]["counted"] += 1
+            by_component[comp["name"]][1] += 1
+            if status in DONE:
+                per[comp["project_id"]]["complete"] += 1
+                by_component[comp["name"]][0] += 1
     reasons: Counter = Counter()
     pending: Counter = Counter()
     mine, recent = [], []
     for c in cells:
         pr = per[c["project_id"]]
         status = c["status"]
-        if status not in LEFT_OUT:
-            pr["counted"] += 1
-            by_component[c["component__name"]][1] += 1
-            if status in DONE:
-                pr["complete"] += 1
-                by_component[c["component__name"]][0] += 1
         if status == CellStatus.MISSING:
             pr["missing"] += 1
             reasons[c["reason__label"] or "No reason"] += 1

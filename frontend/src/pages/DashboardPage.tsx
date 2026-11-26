@@ -315,12 +315,17 @@ function DeadlineDate({ date }: { date: string }) {
 function Health({ p }: { p: DashProject }) {
   const Icon = TONE_ICON[p.health];
   return (
-    <span
-      title={p.health_reasons.join(". ") || "No problems found"}
-      className={cn("inline-flex items-center gap-1 font-medium", TONE_TEXT[p.health])}
-    >
-      <Icon className="size-4" aria-hidden />
-      {HEALTH_LABEL[p.health]}
+    <span title={p.health_reasons.join(". ") || "No problems found"} className="block">
+      <span className={cn("inline-flex items-center gap-1 font-medium", TONE_TEXT[p.health])}>
+        <Icon className="size-4" aria-hidden />
+        {HEALTH_LABEL[p.health]}
+      </span>
+      {p.health_reasons.length > 0 && (
+        <span className="block text-xs text-muted-foreground">
+          {p.health_reasons.slice(0, 2).join(", ")}
+          {p.health_reasons.length > 2 && ` +${p.health_reasons.length - 2} more`}
+        </span>
+      )}
     </span>
   );
 }
@@ -742,20 +747,22 @@ export function DashboardPage() {
   const failure = labError ?? error;
   if (failure) return <FormError message={formErrors(failure, []).form} />;
 
-  const header = (
+  const title = (
+    <PageHeader
+      title="Home"
+      description={lab && `${lab.name} · You are ${roleLabel(lab.my_role ?? "")}`}
+      actions={
+        lab ? (
+          <>
+            <MorningDigest labId={labId} />
+            <CustomizeHome layout={layout} />
+          </>
+        ) : undefined
+      }
+    />
+  );
+  const intro = (
     <>
-      <PageHeader
-        title="Home"
-        description={lab && `${lab.name} · You are ${roleLabel(lab.my_role ?? "")}`}
-        actions={
-          lab ? (
-            <>
-              <MorningDigest labId={labId} />
-              <CustomizeHome layout={layout} />
-            </>
-          ) : undefined
-        }
-      />
       {lab && (
         <div className="mb-6 grid gap-4 empty:hidden md:grid-cols-2 md:[&>*:only-child]:col-span-2">
           <StartHere labId={labId} canPin={allowed} />
@@ -764,6 +771,12 @@ export function DashboardPage() {
       )}
       {lab && <NextMeeting labId={labId} />}
       {lab && !allowed && <Today labId={labId} />}
+    </>
+  );
+  const header = (
+    <>
+      {title}
+      {intro}
     </>
   );
   const extras = (
@@ -855,14 +868,19 @@ export function DashboardPage() {
       </Disclosure>
     ) : null;
 
+  // On a phone Needs attention comes before Start here and Next meeting (order only; desktop is
+  // unchanged): title, then the top block, then the intro, then the rest.
   return (
-    <>
-      {header}
+    <div className="flex flex-col">
+      {title}
+      <div className="max-md:order-2">{intro}</div>
       {isLoading || training.isLoading || !data || !a ? (
-        <DashboardSkeleton />
+        <div className="max-md:order-1">
+          <DashboardSkeleton />
+        </div>
       ) : (
         <SnoozeCtx.Provider value={snooze}>
-          <div className="grid gap-6">
+          <div className="mb-6 grid gap-6 max-md:order-1">
             <GettingStarted labId={labId} />
             <YourPlate labId={labId} />
             {!problems && !tr?.count && !mine ? (
@@ -1052,8 +1070,8 @@ export function DashboardPage() {
                   </Card>
                   <Card
                     id="integrations"
-                    verb={{ label: "Reconnect", to: `${base}/settings/integrations` }}
-                    hint="Connected accounts that have expired or are reporting an error."
+                    verb={{ label: "Reconnect", to: `${base}/settings/integrations?everyone=1` }}
+                    hint="Connected accounts that have expired or are reporting an error. Counts everyone in the lab, not just your own; Reconnect opens the list of everyone's connections."
                     title="Integrations to fix"
                     lead={
                       a.integrations.items[0] &&
@@ -1066,7 +1084,7 @@ export function DashboardPage() {
                     {a.integrations.items.map((i) => (
                       <Item
                         key={i.id}
-                        to={`${base}/settings/integrations`}
+                        to={`${base}/settings/integrations?everyone=1`}
                         title={i.provider.replace(/_/g, " ")}
                         tone="red"
                         meta={`${i.user.name} · ${i.status === "expired" ? "needs to reconnect" : "has an error"}`}
@@ -1116,6 +1134,8 @@ export function DashboardPage() {
                 </button>
               </p>
             )}
+          </div>
+          <div className="grid gap-6 max-md:order-3">
             {lab && <ParticipantCards labId={labId} />}
             <section aria-labelledby="projects" className="grid gap-3">
               <h2 id="projects" className="text-base font-semibold">
@@ -1137,6 +1157,6 @@ export function DashboardPage() {
           </div>
         </SnoozeCtx.Provider>
       )}
-    </>
+    </div>
   );
 }

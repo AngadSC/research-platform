@@ -152,6 +152,7 @@ describe("Dashboard", () => {
     );
     expect(screen.getByText("Expired 4 days ago")).toBeInTheDocument();
     expect(screen.getByText("At risk")).toBeInTheDocument();
+    expect(screen.getByText("3 overdue tasks")).toBeInTheDocument();
     expect(screen.getByText("Done in 30 days")).toBeInTheDocument();
     // kinds with nothing wrong are not listed, and training stays hidden without its endpoint
     expect(screen.queryByRole("region", { name: /Deadlines/ })).toBeNull();

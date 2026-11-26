@@ -127,3 +127,25 @@ def test_the_lab_overview_rolls_up_what_the_person_can_see(w):
     w.join(stranger, w.lab, LabRole.MEMBER)
     empty = w.client(stranger).get(f"/api/labs/{w.lab.pk}/participant-overview/").json()
     assert empty["projects"] == [] and empty["waiting_on_me"] == []
+
+
+def test_home_percent_leaves_out_columns_the_registry_leaves_out(w):
+    import datetime as dt
+
+    from participants.models import Component
+
+    ps, t, s = setup_cells(w)
+    for p in ps:  # Session done for everyone; Translation untouched
+        w.client().patch(
+            f"{w.base}/participants/{p['id']}/cells/{s['id']}/", {"status": "complete"}, "json"
+        )
+    url = f"/api/labs/{w.lab.pk}/participant-overview/"
+    before = w.client().get(url).json()["projects"][0]["percent"]
+    assert before == 50
+    # a retired column and a column for another group are not counted
+    Component.objects.for_lab(w.lab).filter(pk=t["id"]).update(archived_at=dt.datetime.now(dt.UTC))
+    assert w.client().get(url).json()["projects"][0]["percent"] == 100
+    Component.objects.for_lab(w.lab).filter(pk=t["id"]).update(
+        archived_at=None, applies_to_groups=["Other"]
+    )
+    assert w.client().get(url).json()["projects"][0]["percent"] == 100

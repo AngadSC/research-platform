@@ -124,8 +124,9 @@ export function MorningDigest({ labId }: { labId: string }) {
   const summary = isLoading
     ? "Loading"
     : due === 0
-      ? "Nothing new due today"
-      : [
+      ? "Yours: nothing due today"
+      : "Yours: " +
+        [
           d.today.length + todayDl.length && `${d.today.length + todayDl.length} due today`,
           d.overdue.length + lateDl.length && `${d.overdue.length + lateDl.length} overdue`,
         ]
@@ -153,8 +154,8 @@ export function MorningDigest({ labId }: { labId: string }) {
           <DialogTitle className="text-lg font-semibold">{greeting(new Date(), name)}</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             {due === 0
-              ? "Nothing is due today and nothing is overdue."
-              : `${plural(due, "thing")} need${due === 1 ? "s" : ""} you today.`}
+              ? "Nothing of yours is due today or overdue."
+              : `${plural(due, "thing")} of yours need${due === 1 ? "s" : ""} you today. Lab-wide counts are on Home.`}
           </DialogDescription>
           <div className="grid gap-4">
             <DeadlineList labId={labId} title="Overdue deadlines" items={lateDl} today={today} />
