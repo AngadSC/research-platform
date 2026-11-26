@@ -1,4 +1,4 @@
-"""D380: Open in Overleaf hands Overleaf a 5-minute link to one .tex or .zip file."""
+"""D388: Open in Overleaf hands Overleaf a 5-minute link to one .tex or .zip file."""
 
 import io
 import zipfile
@@ -125,3 +125,46 @@ def test_marking_after_the_link_was_made_blocks_the_download(w):
     token = call(w, att).json()["url"].split("token=")[1]
     Attachment.objects.for_lab(lab.pk).filter(pk=att).update(contains_participant_data=True)
     assert APIClient().get("/api/file-link", {"token": token}).status_code == 403
+
+
+def test_huge_zips_are_not_opened_up_to_look_inside(w, monkeypatch):
+    """O1: a zip with thousands of entries, or over 20 MB, is never listed; no 500, no big read."""
+    many = make(w, "many.zip", zipped(*[f"f{i}.png" for i in range(5001)]))
+    big = make(w, "big.zip", zipped("a.png"))
+    Attachment.objects.for_lab(w[0].pk).filter(pk=big).update(size_bytes=21 * 1024 * 1024)
+    small = make(w, "small.zip", zipped("a.png"))
+    real = zipfile.ZipFile
+    listed = []
+    monkeypatch.setattr(zipfile, "ZipFile", lambda *a, **k: listed.append(1) or real(*a, **k))
+    assert call(w, many).status_code == 200
+    assert call(w, big).status_code == 200
+    assert listed == []
+    assert call(w, small).status_code == 400  # a small zip is still checked
+    assert listed == [1]
+
+
+@pytest.mark.parametrize("error", [zipfile.BadZipFile, ValueError, UnicodeDecodeError])
+def test_a_zip_that_cannot_be_read_is_a_plain_refusal(w, monkeypatch, error):
+    """O1: a broken zip, or odd file names, is the normal 'no LaTeX' answer, not a 500."""
+    exc = error("x", b"x", 0, 1, "bad") if error is UnicodeDecodeError else error("bad")
+    good = make(w, "p.zip", zipped("main.tex"))
+    junk = make(w, "junk.zip", b"not a zip at all")
+
+    def boom(*a, **k):
+        raise exc
+
+    monkeypatch.setattr(zipfile, "ZipFile", boom)
+    r = call(w, good)
+    assert r.status_code == 400 and "no LaTeX" in r.json()["file"]
+    r = call(w, junk)
+    assert r.status_code == 400 and "no LaTeX" in r.json()["file"]
+
+
+def test_drive_and_office_copies_are_refused(w):
+    """O3: a copy that lives in Drive or OneDrive has no bytes here to send."""
+    lab, _, _ = w
+    att = make(w)
+    Attachment.objects.for_lab(lab.pk).filter(pk=att).update(
+        external_url="https://contoso-my.sharepoint.com/x/paper.tex"
+    )
+    assert call(w, att).status_code == 400

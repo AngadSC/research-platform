@@ -246,7 +246,7 @@ MATRIX: dict[tuple[str, str], str] = {
     ("DELETE", "documents:attachment-detail"): "401 404 2 2 2 2 403 404 403",
     ("GET",    "documents:attachment-download"): "401 404 2 2 2 2 2 404 2",
     ("POST",   "documents:attachment-edit-in-google"): "401 404 2 2 2 2 403 404 403",  # B3
-    ("POST",   "documents:attachment-open-in-overleaf"): "401 404 2 2 2 2 403 404 403",  # D380
+    ("POST",   "documents:attachment-open-in-overleaf"): "401 404 2 2 2 2 403 404 403",  # D388
     ("POST",   "documents:attachment-edit-in-office"): "401 404 2 2 2 2 403 404 403",  # Office
     ("POST",   "documents:project-drive-export"): "401 404 2 2 2 403 403 404 403",  # stats to Drive
     ("POST",   "documents:document-move"): "401 404 2 2 2 2 403 404 403",
@@ -2168,7 +2168,7 @@ def _as_docx(w):
 
 
 def _as_tex(w):
-    """Open in Overleaf (D380) takes .tex and .zip files only."""
+    """Open in Overleaf (D388) takes .tex and .zip files only."""
     Attachment.objects.for_lab(w.a["lab_id"]).filter(pk=w.a["attachment_id"]).update(
         original_filename="paper.tex"
     )

@@ -275,7 +275,7 @@ export function useAttachments(labId: string, projectId: string, pollMs?: number
       return qc.invalidateQueries({ queryKey: key });
     },
   });
-  // D380: a 5-minute link Overleaf can fetch for one .tex or .zip file.
+  // D388: a 5-minute link Overleaf can fetch for one .tex or .zip file.
   const openInOverleaf = useMutation({
     mutationFn: (id: string) =>
       api<{ url: string; name: string }>(`${base(labId)}/attachments/${id}/open-in-overleaf/`, {

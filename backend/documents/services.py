@@ -428,8 +428,35 @@ def upload_attachment(
 OVERLEAF_LINK_TTL = timedelta(minutes=5)
 
 
+ZIP_INSPECT_MAX_BYTES = 20 * 1024 * 1024
+ZIP_INSPECT_MAX_ENTRIES = 5000
+ZIP_INSPECT_MAX_DIRECTORY = 1024 * 1024
+
+
+def _zip_has_tex(fh, size_bytes):
+    """True or False, or None when the zip is too big to look inside cheaply (Overleaf then
+    judges it). Reads the end-of-directory record first, so a huge central directory is never
+    listed; the directory size is checked too, since the entry count in the record can lie."""
+    import struct
+    import zipfile
+
+    if size_bytes > ZIP_INSPECT_MAX_BYTES:
+        return None
+    fh.seek(0, 2)
+    fh.seek(max(0, fh.tell() - 65557))
+    tail = fh.read()
+    i = tail.rfind(b"PK")
+    if i < 0 or len(tail) < i + 16:
+        raise zipfile.BadZipFile("no end record")
+    entries, directory = struct.unpack("<HI", tail[i + 10 : i + 16])
+    if entries > ZIP_INSPECT_MAX_ENTRIES or directory > ZIP_INSPECT_MAX_DIRECTORY:
+        return None  # 0xFFFF entries (zip64) lands here too
+    fh.seek(0)
+    return any(n.lower().endswith(".tex") for n in zipfile.ZipFile(fh).namelist())
+
+
 def open_in_overleaf(attachment, *, user, request=None) -> dict:
-    """D380: a short-lived link Overleaf can fetch, for one .tex file or one .zip that holds LaTeX.
+    """D388: a short-lived link Overleaf can fetch, for one .tex file or one .zip that holds LaTeX.
     The caller has checked edit rights. Every refusal happens before a link exists. The bytes leave
     only when Overleaf fetches the link (assistant/file_links.py audits that as a download via
     Overleaf and checks the participant mark again)."""
@@ -440,7 +467,8 @@ def open_in_overleaf(attachment, *, user, request=None) -> dict:
 
     name = attachment.original_filename
     ext = name.rpartition(".")[2].lower() if "." in name else ""
-    if attachment.from_drive or attachment.project_id is None or ext not in ("tex", "zip"):
+    # external_url: a Drive file or an Office copy has no bytes here
+    if attachment.external_url or attachment.project_id is None or ext not in ("tex", "zip"):
         raise ValidationError(
             {"file": "Only .tex files and .zip files with LaTeX can open in Overleaf."}
         )
@@ -451,12 +479,12 @@ def open_in_overleaf(attachment, *, user, request=None) -> dict:
     if ext == "zip":
         try:
             with lab_files().open(attachment.storage_key, "rb") as fh:
-                has_tex = any(n.lower().endswith(".tex") for n in zipfile.ZipFile(fh).namelist())
+                has_tex = _zip_has_tex(fh, attachment.size_bytes)
         except FileNotFoundError:
             raise Http404 from None
-        except zipfile.BadZipFile:
+        except (zipfile.BadZipFile, ValueError, UnicodeDecodeError):
             has_tex = False
-        if not has_tex:
+        if has_tex is False:
             raise ValidationError({"file": "This zip file has no LaTeX (.tex) file in it."})
     link, url = file_links.issue(
         FileLinkKind.DOWNLOAD,

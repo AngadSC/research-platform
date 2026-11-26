@@ -104,7 +104,7 @@ def _open(request, kind):
         lab = get_lab_or_404(user, link.lab_id)
     except Http404:
         raise Refused(404, "This link is no longer available.") from None
-    if link.via == OVERLEAF:  # the person's own "Open in Overleaf", not an AI tool (D380)
+    if link.via == OVERLEAF:  # the person's own "Open in Overleaf", not an AI tool (D388)
         return link, user, lab
     if lab.ai_policy == AiPolicy.OFF:
         raise Refused(403, "This lab has turned AI tools off.")

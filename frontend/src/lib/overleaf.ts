@@ -1,10 +1,18 @@
-// "Open in Overleaf" (D380): a browser form POST to Overleaf's public /docs address, in a new tab.
+// "Open in Overleaf" (D388): a browser form POST to Overleaf's public /docs address, in a new tab.
 // Only this one address is ever posted to; the site's form-action rule (deploy/Caddyfile) allows it.
 export const OVERLEAF_DOCS = "https://www.overleaf.com/docs";
 
 /** A .tex file, or a .zip that may hold LaTeX (the server checks inside the zip). */
-export const overleafFile = (a: { original_filename: string; drive_file_id?: string | null }) =>
-  !a.drive_file_id && /\.(tex|zip)$/i.test(a.original_filename);
+export const overleafFile = (a: {
+  original_filename: string;
+  drive_file_id?: string | null;
+  external_url?: string | null;
+  office_copy?: boolean;
+}) =>
+  !a.drive_file_id &&
+  !a.external_url &&
+  !a.office_copy &&
+  /\.(tex|zip)$/i.test(a.original_filename);
 
 /** Opens a tab first (while the click still counts, so the browser does not block it), then posts
  * the fields into it. Call this synchronously from the click, before any await. */
