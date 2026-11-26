@@ -227,6 +227,7 @@ def complete_connect(request, *, state, code="", error="") -> ConnectedAccount:
                 external_id=external_id,
                 email=email,
                 scopes=[s for s in granted if s in member.scopes],
+                asked=entry["scopes"],
                 access=access,
                 refresh=tokens.get("refresh_token") or None,
                 expires_at=_expiry(tokens),
@@ -239,7 +240,18 @@ def complete_connect(request, *, state, code="", error="") -> ConnectedAccount:
 
 @sensitive_variables("access", "refresh")
 def _store_account(
-    request, lab, provider, *, external_id, email, scopes, access, refresh, expires_at, instance=""
+    request,
+    lab,
+    provider,
+    *,
+    external_id,
+    email,
+    scopes,
+    access,
+    refresh,
+    expires_at,
+    instance="",
+    asked=(),
 ) -> ConnectedAccount:
     """Save a verified connection. Under a row lock: another active external account of this
     provider refuses (`other_account_connected`: disconnect first, D69); the same external
@@ -261,6 +273,13 @@ def _store_account(
             account = ConnectedAccount(lab=lab, user=user, provider=provider.name)
         account.external_account_id = external_id
         account.external_email = (email or "")[:254]
+        # Microsoft may also return scopes consented to earlier: an extra (write) scope is kept
+        # only when this connect asked for it or the row already had it. Never widened silently.
+        scopes = [
+            s
+            for s in scopes
+            if s not in provider.extra_scopes or s in asked or s in account.granted_scopes
+        ]
         account.granted_scopes = scopes
         account.instance_url = instance
         account.status = AccountStatus.ACTIVE
@@ -384,7 +403,12 @@ def _refresh_locked(row) -> bool:
                     refresh=tokens.get("refresh_token") or None,  # some providers rotate it
                     expires_at=_expiry(tokens),
                 )
-                mine = [s for s in granted if s in provider.scopes]
+                mine = [  # an extra scope stays only if the row had it: never widened silently
+                    s
+                    for s in granted
+                    if s in provider.scopes
+                    and (s not in provider.extra_scopes or s in row.granted_scopes)
+                ]
                 if mine:
                     row.granted_scopes = mine
                 row.save()

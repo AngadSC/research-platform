@@ -112,6 +112,30 @@ def test_scopes_asked_for(transport, world):
     assert ConnectedAccount.objects.for_lab(lab).filter(provider="onedrive").count() == 1
 
 
+def test_microsoft_returning_the_write_scope_is_not_stored_unless_asked_for(transport, world):
+    """F1: Microsoft may return scopes consented to earlier. A plain connect and a refresh must
+    not widen the stored grant; asking for it, or already having it, keeps it."""
+    lab, users, _ = world
+    user = users["member"]
+    connect(transport, user, lab, granted=ALL)  # asked for read only, Microsoft returns write too
+    account = ConnectedAccount.objects.for_lab(lab).get(user=user, provider="onedrive")
+    assert onedrive.EDIT_SCOPE not in account.granted_scopes
+    transport.on("POST", onedrive.PROVIDER.token_url, token_reply("od-at-2", "od-rt-2", ALL))
+    services.refresh_access_token(account)  # a refresh returns it again: still not stored
+    account.refresh_from_db()
+    assert onedrive.EDIT_SCOPE not in account.granted_scopes
+    connect(transport, user, lab, scopes=list(onedrive.PROVIDER.scopes))  # now asked for
+    account.refresh_from_db()
+    assert onedrive.EDIT_SCOPE in account.granted_scopes
+    connect(transport, user, lab, granted=ALL)  # a later plain connect keeps what the row had
+    account.refresh_from_db()
+    assert onedrive.EDIT_SCOPE in account.granted_scopes
+    transport.on("POST", onedrive.PROVIDER.token_url, token_reply("od-at-3", "od-rt-3", ALL))
+    services.refresh_access_token(account)
+    account.refresh_from_db()
+    assert onedrive.EDIT_SCOPE in account.granted_scopes
+
+
 def test_edit_in_office_copies_into_your_onedrive_and_links_back(transport, world):
     lab, users, project = world
     folder = Folder.objects.create(lab=lab, project=project, name="Drafts", created_by=users["pi"])
@@ -141,6 +165,32 @@ def test_edit_in_office_copies_into_your_onedrive_and_links_back(transport, worl
     # opening the copy goes to Office on the web; there are no bytes here
     opened = api(users["member"]).get(f"/api/labs/{lab.pk}/attachments/{body['id']}/download/")
     assert opened.status_code == 302 and opened["Location"] == WEB
+
+
+def test_only_the_person_who_made_a_onedrive_copy_gets_its_link(transport, world):
+    """F2: the link can name the owner's OneDrive account, so other project viewers get no link
+    and no redirect. Google copies keep their link for everyone."""
+    lab, users, project = world
+    att = upload(world)
+    connect(transport, users["member"], lab, scopes=list(onedrive.PROVIDER.scopes))
+    transport.on("PUT", PUT_URL, response(201, ITEM))
+    made = edit(api(users["member"]), lab, att).json()
+    assert made["external_url"] == WEB and made["office_copy"] is True
+    listing = f"/api/labs/{lab.pk}/projects/{project.pk}/attachments/"
+    download = f"/api/labs/{lab.pk}/attachments/{made['id']}/download/"
+    mine = {a["id"]: a for a in api(users["member"]).get(listing).json()}
+    assert mine[made["id"]]["external_url"] == WEB
+    other = api(users["pi"])  # a project member who did not make the copy
+    seen = {a["id"]: a for a in other.get(listing).json()}[made["id"]]
+    assert seen["external_url"] == "" and seen["office_copy"] is True
+    assert seen["uploaded_by"]["id"] == str(users["member"].pk)  # the name is still shown
+    assert WEB not in other.get(listing).content.decode()
+    refused = other.get(download)
+    assert refused.status_code == 403 and "Location" not in refused
+    assert api(users["member"]).get(download)["Location"] == WEB
+    # a Drive link is unchanged for everyone
+    Attachment.objects.for_lab(lab.pk).filter(pk=made["id"]).update(drive_file_id="drv1")
+    assert other.get(download)["Location"] == WEB
 
 
 def test_an_expired_token_is_refreshed_first(transport, world):
