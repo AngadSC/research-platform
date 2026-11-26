@@ -76,22 +76,22 @@ def test_only_active_staff_see_it(world):
 def test_counts_across_labs_without_test_accounts(world):
     data = get(world["staff"]).json()
     h = data["headline"]
-    # founder, ada, bob, cy; the seed account is left out
-    assert h["total_users"] == 4
-    assert h["new_users"] == 4
+    # ada, bob, cy; the seed account and the staff founder are left out
+    assert h["total_users"] == 3
+    assert h["new_users"] == 3
     assert h["active_users"] == 3  # ada and bob signed in; cy asked the assistant
     assert h["labs_total"] == 2 and h["labs_new"] == 2
     assert h["projects_total"] == 1
     assert h["dau"] == h["wau"] == h["mau"] == 3
     today = data["daily"][-1]
     assert len(data["daily"]) == 30
-    assert today["signups"] == 4 and today["sign_ins"] == 2 and today["active_users"] == 3
+    assert today["signups"] == 3 and today["sign_ins"] == 2 and today["active_users"] == 3
     funnel = {s["key"]: (s["count"], s["percent"]) for s in data["funnel"]}
     assert funnel == {
-        "signed_up": (4, 100),
-        "in_lab": (2, 50),
-        "project": (1, 25),
-        "invited": (1, 25),
+        "signed_up": (3, 100),
+        "in_lab": (2, 67),
+        "project": (1, 33),
+        "invited": (1, 33),
         "came_back": (0, 0),
     }
     features = {f["feature"]: (f["events"], f["users"]) for f in data["features"]}
@@ -103,7 +103,6 @@ def test_counts_across_labs_without_test_accounts(world):
     assert data["integrations"] == [{"provider": "zotero", "connections": 1, "users": 1}]
     rows = {r["email"]: r for r in data["recent_signups"]}
     assert set(rows) == {
-        "founder@usage.example",
         "ada@usage.example",
         "bob@usage.example",
         "cy@usage.example",
@@ -112,9 +111,8 @@ def test_counts_across_labs_without_test_accounts(world):
     assert rows["ada@usage.example"]["labs"] == 1
     assert rows["ada@usage.example"]["events"] == 2  # sign-in and invite
     assert rows["bob@usage.example"]["events"] == 3  # sign-in, connect, chat message
-    assert rows["founder@usage.example"]["last_active"] is None
     assert rows["cy@usage.example"]["last_active"] == str(timezone.now().date())
-    assert len(data["retention"]) == 8 and data["retention"][-1]["users"] == 4
+    assert len(data["retention"]) == 8 and data["retention"][-1]["users"] == 3
     assert data["retention"][-1]["weeks"] == []
     body = str(data)
     for secret in ("Secret Lab Name", "Secret Project Title", "secret chat", "seed chat"):
@@ -136,7 +134,7 @@ def test_window_and_came_back(world):
     ada = world["ada"]
     User.objects.filter(pk=ada.pk).update(date_joined=timezone.now() - timedelta(days=10))
     data = get(world["staff"], "?days=7").json()
-    assert data["headline"]["new_users"] == 3  # ada joined before the window
+    assert data["headline"]["new_users"] == 2  # ada joined before the window
     data = get(world["staff"], "?days=30").json()
     funnel = {s["key"]: s["count"] for s in data["funnel"]}
     assert funnel["came_back"] == 1  # ada joined 10 days ago and signed in today
@@ -161,3 +159,29 @@ def test_me_says_who_is_staff_and_cannot_be_changed(world):
 
 def test_url_is_named():
     assert reverse("core:usage") == URL
+
+
+@pytest.mark.django_db
+def test_include_test_counts_staff_too(world):
+    rows = {r["email"] for r in get(world["staff"], "?include_test=1").json()["recent_signups"]}
+    assert {"founder@usage.example", "pi@example.test"} <= rows
+
+
+@pytest.mark.django_db
+def test_other_methods_stay_hidden_from_non_staff(world):
+    client = APIClient()
+    client.force_authenticate(world["ada"])
+    for method in ("head", "options", "post"):
+        assert getattr(client, method)(URL).status_code == 404, method
+
+
+@pytest.mark.django_db
+def test_every_look_is_audited(world):
+    from audit.models import AuditEvent
+
+    get(world["staff"], "?days=7")
+    event = AuditEvent.objects.get(action=AuditAction.SITE_USAGE_VIEWED)
+    assert event.actor == world["staff"] and event.lab is None
+    assert event.metadata == {"days": 7, "include_test": False}
+    get(world["ada"])  # refused: nothing recorded
+    assert AuditEvent.objects.filter(action=AuditAction.SITE_USAGE_VIEWED).count() == 1

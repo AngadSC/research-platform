@@ -1155,6 +1155,7 @@ paths:
           - auth.login
           - auth.login_failed
           - auth.logout
+          - site.usage_viewed
           - auth.password_changed
           - auth.mfa_enabled
           - auth.mfa_disabled
@@ -1347,6 +1348,7 @@ paths:
           * `auth.login` - Auth Login
           * `auth.login_failed` - Auth Login Failed
           * `auth.logout` - Auth Logout
+          * `site.usage_viewed` - Site Usage Viewed
           * `auth.password_changed` - Auth Password Changed
           * `auth.mfa_enabled` - Auth Mfa Enabled
           * `auth.mfa_disabled` - Auth Mfa Disabled
@@ -13301,6 +13303,7 @@ components:
       - auth.login
       - auth.login_failed
       - auth.logout
+      - site.usage_viewed
       - auth.password_changed
       - auth.mfa_enabled
       - auth.mfa_disabled
@@ -13492,6 +13495,7 @@ components:
         * `auth.login` - Auth Login
         * `auth.login_failed` - Auth Login Failed
         * `auth.logout` - Auth Logout
+        * `site.usage_viewed` - Site Usage Viewed
         * `auth.password_changed` - Auth Password Changed
         * `auth.mfa_enabled` - Auth Mfa Enabled
         * `auth.mfa_disabled` - Auth Mfa Disabled

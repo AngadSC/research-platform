@@ -13,6 +13,7 @@ class AuditAction(models.TextChoices):
     AUTH_LOGIN = "auth.login"
     AUTH_LOGIN_FAILED = "auth.login_failed"
     AUTH_LOGOUT = "auth.logout"
+    SITE_USAGE_VIEWED = "site.usage_viewed"  # D379: staff opened the site-wide Usage page
     AUTH_PASSWORD_CHANGED = "auth.password_changed"
     AUTH_MFA_ENABLED = "auth.mfa_enabled"
     AUTH_MFA_DISABLED = "auth.mfa_disabled"

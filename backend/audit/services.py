@@ -35,8 +35,8 @@ def record(
 ) -> AuditEvent:
     """Write one audit event. Call inside the caller's transaction (ARCHITECTURE §4)."""
     action = AuditAction(action)  # unknown action raises ValueError
-    if lab is None and not action.value.startswith("auth."):
-        raise ValueError("lab may be None only for auth.* actions")
+    if lab is None and not action.value.startswith(("auth.", "site.")):
+        raise ValueError("lab may be None only for auth.* and site.* actions")
     fields = {}
     if target is not None:
         project = project_of(target)

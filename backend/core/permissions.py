@@ -482,6 +482,13 @@ class HasPerm(BasePermission):
 
     def has_permission(self, request, view):
         perm = self._perm(request, view)
+        # D379: a staff-only view stays hidden for every method, not only the ones it declares.
+        if (
+            Perm.SITE_STAFF in (getattr(view, "perms", None) or {}).values()
+            and request.user.is_authenticated
+            and not can(request.user, Perm.SITE_STAFF)
+        ):
+            raise Http404
         if perm is None:
             return False
         if perm == Perm.SITE_STAFF:  # D379: signed in but not staff gets 404, so it stays hidden

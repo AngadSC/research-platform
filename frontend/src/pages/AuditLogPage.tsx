@@ -26,6 +26,7 @@ const ACTIONS: Record<AuditEvent["action"], string> = {
   "auth.login": "Signed in",
   "auth.login_failed": "Failed sign-in attempt",
   "auth.logout": "Signed out",
+  "site.usage_viewed": "Opened the site Usage page",
   "auth.password_changed": "Changed a password",
   "auth.mfa_enabled": "Turned on two-step verification",
   "auth.mfa_disabled": "Turned off two-step verification",

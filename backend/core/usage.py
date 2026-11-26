@@ -23,6 +23,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from assistant.models import Message, Role
+from audit import services as audit
 from audit.models import AuditAction, AuditEvent
 from core.models import User
 from core.permissions import Perm, all_labs
@@ -441,4 +442,12 @@ class UsageView(APIView):
             raise serializers.ValidationError({"days": "Choose 7, 30 or 90 days."})
         include_test = request.query_params.get("include_test", "") in ("1", "true")
         data = Usage(request.user, int(days), include_test).build()
+        # It shows people's names and emails across labs, so every look is on record.
+        audit.record(
+            AuditAction.SITE_USAGE_VIEWED,
+            actor=request.user,
+            lab=None,
+            request=request,
+            metadata={"days": int(days), "include_test": include_test},
+        )
         return Response(SiteUsageSerializer(data).data)
