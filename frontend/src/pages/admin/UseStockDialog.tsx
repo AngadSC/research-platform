@@ -178,6 +178,7 @@ export function UseStockDialog({
                     {u.used_by.display_name || u.used_by.email}
                     {u.project_name && ` · ${u.project_name}`}
                     {u.protocol_name && ` · ${u.protocol_name}`}
+                    {u.lot_number && ` · Lot ${u.lot_number}`}
                     {u.note && ` · ${u.note}`} · <RelativeTime value={u.created_at} />
                   </span>
                   {u.can_reverse && (

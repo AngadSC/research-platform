@@ -83,8 +83,9 @@ export function ImportInventory({ labId }: { labId: string }) {
           <div className="grid gap-1 text-sm">
             <p>
               <span className="font-medium">Columns:</span> name, category, location, quantity,
-              unit, low_stock_at (the alert level), serial_number, purchase_date, due_date, status,
-              notes. Only name and category are required.
+              unit, low_stock_at (the alert level), serial_number, purchase_date, due_date, lot (or
+              lot_number), expiry (or expiry_date), status, notes. Only name and category are
+              required.
             </p>
             <p className="text-muted-foreground">
               Category is one of equipment, reagent, consumable, software_licence or other. Dates

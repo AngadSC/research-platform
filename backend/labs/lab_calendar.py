@@ -5,6 +5,7 @@ approval never appear. Lab events are the only rows owned here; the rest link ba
 """
 
 import re
+import uuid
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlsplit
 
@@ -366,6 +367,20 @@ def _lab_wide_items(user, lab, start, end) -> list[dict]:
                 status__in=(InventoryStatus.ACTIVE, InventoryStatus.IN_REPAIR),
             )
         ]
+        for i in InventoryItem.objects.visible_to(user, lab).filter(
+            expiry_date__range=window,
+            status__in=(InventoryStatus.ACTIVE, InventoryStatus.IN_REPAIR),
+        ):
+            # own id, so one item's due date and expiry never share a key
+            items.append(
+                _item(
+                    "inventory",
+                    i,
+                    f"{i.name}{f' lot {i.lot_number}' if i.lot_number else ''} (expires)",
+                    i.expiry_date,
+                )
+                | {"id": uuid.uuid5(i.pk, "expiry")}
+            )
     items += [
         _item("ethics", a, f"{a.title} (ethics expires)", a.expiry_date)
         for a in EthicsApproval.objects.visible_to(user, lab)

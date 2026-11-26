@@ -7298,6 +7298,9 @@ export interface components {
             readonly purchase_date: string | null;
             /** Format: date */
             readonly due_date: string | null;
+            readonly lot_number: string;
+            /** Format: date */
+            readonly expiry_date: string | null;
             readonly status: components["schemas"]["StatusA7dEnum"];
             readonly notes: string;
             /** Format: date-time */
@@ -7348,6 +7351,9 @@ export interface components {
             purchase_date?: string | null;
             /** Format: date */
             due_date?: string | null;
+            lot_number?: string;
+            /** Format: date */
+            expiry_date?: string | null;
             status?: components["schemas"]["StatusA7dEnum"];
             notes?: string;
         };
@@ -7395,6 +7401,7 @@ export interface components {
             /** Format: uuid */
             readonly protocol: string | null;
             readonly protocol_name: string;
+            readonly lot_number: string;
             /** Format: uuid */
             readonly project: string | null;
             readonly project_name: string;
@@ -8569,6 +8576,9 @@ export interface components {
             purchase_date?: string | null;
             /** Format: date */
             due_date?: string | null;
+            lot_number?: string;
+            /** Format: date */
+            expiry_date?: string | null;
             status?: components["schemas"]["StatusA7dEnum"];
             notes?: string;
         };

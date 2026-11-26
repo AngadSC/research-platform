@@ -1582,8 +1582,8 @@ def _inventory_lab(ctx, lab_id):
     "list_low_stock",
     "List inventory running low",
     "Inventory items whose stock is at or below the alert level someone set on them, with what is "
-    "left, the level, the unit and any open order request. Use it to see what the lab should "
-    "reorder. Needs no write access.",
+    "left, the level, the unit, the lot and expiry date and any open order request. Use it to see "
+    "what the lab should reorder. Needs no write access.",
     required=("lab_id",),
     lab_id=LAB,
 )
@@ -1611,6 +1611,8 @@ def list_low_stock(ctx, lab_id):
                 "alert_at": str(i.low_stock_at.normalize()),
                 "unit": i.unit,
                 "location": i.location,
+                "lot_number": i.lot_number,
+                "expiry_date": i.expiry_date,
                 "open_order": (
                     {"id": o.pk, "status": o.status, "quantity": str(o.quantity.normalize())}
                     if (o := open_orders.get(i.pk))
