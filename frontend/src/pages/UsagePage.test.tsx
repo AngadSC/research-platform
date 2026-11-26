@@ -94,7 +94,9 @@ describe("usage page", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "7 days" }));
     expect(await screen.findByText("New sign-ups (7 days)")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("checkbox", { name: "Include test and staff accounts" }));
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: "Include test and staff accounts" }),
+    );
     await screen.findByText("New sign-ups (7 days)");
     expect(calls.some((c) => c.path === "/api/usage/?days=7&include_test=1")).toBe(true);
 
