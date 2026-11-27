@@ -280,7 +280,8 @@ function SetupSection({ labId, sensor: s }: { labId: string; sensor: SensorDetai
       <form onSubmit={test} className="grid gap-2">
         <h3 className="text-sm font-semibold">3. Check it works</h3>
         <p className="text-sm text-muted-foreground">
-          Send a reading by hand. Outside the limits twice in a row, it alerts like a real one.
+          Send a reading by hand to check the connection. It is not saved to the chart and never
+          raises an alert.
         </p>
         <div className="flex flex-wrap items-end gap-2">
           <div className="w-40">

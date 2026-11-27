@@ -54,7 +54,7 @@ describe("handover report", () => {
     expect(
       screen.getByRole("heading", { name: "Unassigned after access change (1)" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("No datasets")).toBeInTheDocument(); // empty section
+    expect(screen.getByText(/Nothing to pass on for:.*datasets/)).toBeInTheDocument(); // empty ones
     expect(screen.getByRole("button", { name: /Print or save as PDF/ })).toBeInTheDocument();
   });
 
@@ -250,7 +250,7 @@ describe("reassign from the list", () => {
     await pick(/Reassign all open tasks/, "Alex");
     set(rep([]));
     await userEvent.click(screen.getByRole("button", { name: "Reassign all to…" }));
-    expect(await screen.findByRole("heading", { name: "Open tasks (0)" })).toBeInTheDocument();
+    expect(await screen.findByText(/Nothing to pass on for:.*open tasks/)).toBeInTheDocument();
     const patches = calls.filter((c) => c.method === "PATCH");
     expect(patches.map((c) => [c.path, c.body])).toEqual([
       ["/api/labs/lab1/tasks/A/", { assignee: "u3" }],

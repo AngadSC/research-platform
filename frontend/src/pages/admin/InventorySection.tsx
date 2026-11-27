@@ -385,7 +385,10 @@ function expiryState(date: string | null) {
   const days = Math.round((Date.parse(date) - Date.parse(localDateISO())) / 86_400_000);
   if (days < 0) return { text: "Expired", bad: true };
   return days <= EXPIRY_WARN_DAYS
-    ? { text: days === 0 ? "Expires today" : `Expires in ${days} days`, bad: false }
+    ? {
+        text: days === 0 ? "Expires today" : `${days} ${days === 1 ? "day" : "days"} left`,
+        bad: false,
+      }
     : null;
 }
 
@@ -394,7 +397,7 @@ function ExpiryBadge({ date }: { date: string | null }) {
   if (!s) return null;
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${
         s.bad ? "bg-destructive/15 text-destructive" : "bg-warning/25 text-warning-text"
       }`}
     >

@@ -16,12 +16,27 @@ function when(iso: string): string {
     : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
+/** Short curve names from a chromatography run, spelled out ("Cond" -> "Conductivity"). */
+const CURVES: Record<string, string> = {
+  uv: "UV absorbance",
+  cond: "Conductivity",
+  conc: "Concentration B",
+  ph: "pH",
+  pressure: "Pressure",
+  press: "Pressure",
+  temp: "Temperature",
+};
+const curve = (name: string) => CURVES[name.trim().toLowerCase()] ?? name;
+
+/** A value that only fills a blank in the instrument's own form. */
+const PLACEHOLDER = /^(default|none|n\/a|na|-+)$/i;
+
 function Heading({ children }: { children: React.ReactNode }) {
   return <h3 className="mb-2 text-sm font-medium">{children}</h3>;
 }
 
 function Fields({ summary }: { summary: InstrumentSummary }) {
-  const fields = [...(summary.fields ?? [])];
+  const fields = (summary.fields ?? []).filter((f) => !PLACEHOLDER.test(String(f.value).trim()));
   const has = (label: string) => fields.some((f) => f.label.toLowerCase() === label.toLowerCase());
   if (summary.measured_at && !has("Measured")) {
     fields.unshift({ label: "Measured", value: when(summary.measured_at) });
@@ -329,7 +344,7 @@ function TraceChart({ traces, title }: { traces: InstrumentTrace[]; title: strin
                 className="inline-block h-0.5 w-4"
                 style={{ background: BASE_COLOURS[t.name] ?? "var(--primary)" }}
               />
-              {t.name}
+              {curve(t.name)}
             </span>
           ))}
         </figcaption>
@@ -351,8 +366,8 @@ function Traces({ traces, together }: { traces: InstrumentTrace[]; together: boo
     <section className="space-y-4">
       {traces.map((t, i) => (
         <div key={i}>
-          <Heading>{t.name}</Heading>
-          <TraceChart traces={[t]} title={t.name} />
+          <Heading>{curve(t.name)}</Heading>
+          <TraceChart traces={[t]} title={curve(t.name)} />
         </div>
       ))}
     </section>

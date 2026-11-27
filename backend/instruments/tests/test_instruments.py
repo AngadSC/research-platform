@@ -505,7 +505,8 @@ def test_i1_parsing_has_its_own_queue_and_a_worker():
     prod = Path("/deploy/docker-compose.prod.yml")  # bind-mounted in the test container
     if prod.exists():
         text = prod.read_text(encoding="utf-8")
-        assert '"-Q", "parsing"' in text and '"--concurrency=2"' in text
+        assert '"-Q", "parsing"' in text and '"--concurrency=1"' in text
+        assert "mem_limit: 1536m" in text
 
 
 def test_i2_nul_in_a_summary_is_stripped_and_a_db_error_never_leaves_pending(

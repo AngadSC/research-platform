@@ -7,6 +7,16 @@ export const showValue = (v: number | null | undefined, symbol: string) =>
 
 const HOUR = 3_600_000;
 
+/** Each local midnight inside the window (ms), newest first: the tick for that day sits where it starts. */
+export function dayTicks(start: number, end: number): number[] {
+  const out: number[] = [];
+  for (const d = new Date(end); ; d.setDate(d.getDate() - 1)) {
+    d.setHours(0, 0, 0, 0);
+    if (d.getTime() <= start) return out;
+    out.push(d.getTime());
+  }
+}
+
 /**
  * Readings over a window ending now, hand-drawn in SVG: the average as a line, the low and high
  * of each step as a faint band, and the limits as dashed lines. A gap in the readings stays a gap.
@@ -67,9 +77,7 @@ export function SensorChart({
         symbol,
       )} to ${showValue(Math.max(...vals), symbol)}`
     : "No readings in this time";
-  const days = compact
-    ? []
-    : Array.from({ length: Math.floor(hours / 24) }, (_, i) => end - (i + 1) * 24 * HOUR);
+  const days = compact ? [] : dayTicks(start, end);
 
   return (
     <svg

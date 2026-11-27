@@ -27,6 +27,7 @@ import { useReauth } from "@/hooks/reauth";
 import { useLab } from "@/hooks/workspace";
 import { personName, type DropLinkCreated, type InventoryItem } from "@/lib/api-types";
 import { formErrors, type FormErrors } from "@/lib/forms";
+import { shortDate } from "@/lib/format";
 import { CATEGORIES, ItemDialog, STATUSES } from "@/pages/admin/InventorySection";
 import { NativeSelect, formValue } from "@/pages/admin/common";
 
@@ -132,6 +133,10 @@ function Links({ labId, item }: { labId: string; item: InventoryItem }) {
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
   const [made, setMade] = useState<DropLinkCreated | null>(null);
   const [stopping, setStopping] = useState<string | null>(null);
+  // One choice: take it. Otherwise the project of the newest link, if the person can still use it.
+  const recent = list.data?.[0]?.project.id;
+  const preset =
+    projects.length === 1 ? projects[0]!.id : projects.some((p) => p.id === recent) ? recent : "";
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -175,7 +180,7 @@ function Links({ labId, item }: { labId: string; item: InventoryItem }) {
       >
         <FormField label="Project" error={errors.fields.project}>
           {(p) => (
-            <NativeSelect {...p} name="project" defaultValue="">
+            <NativeSelect {...p} key={preset} name="project" defaultValue={preset}>
               <option value="">Choose a project</option>
               {projects.map((pr) => (
                 <option key={pr.id} value={pr.id}>
@@ -254,7 +259,7 @@ function Links({ labId, item }: { labId: string; item: InventoryItem }) {
                     l.expired
                       ? "Expired"
                       : l.expires_at
-                        ? `Stops ${new Date(l.expires_at).toLocaleDateString()}`
+                        ? `Stops ${shortDate(l.expires_at)}`
                         : "No end date",
                     l.last_used_at
                       ? `Last used ${new Date(l.last_used_at).toLocaleString()}`

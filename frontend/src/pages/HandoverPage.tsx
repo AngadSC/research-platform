@@ -33,20 +33,6 @@ import { ApiError } from "@/lib/api";
 import { formErrors } from "@/lib/forms";
 import { shortDate } from "@/lib/format";
 
-const EMPTY: Record<string, string> = {
-  open_tasks: "No open tasks are assigned to them.",
-  unassigned_tasks: "No tasks were unassigned from them after an access change.",
-  documents: "They have not created or last edited any documents.",
-  analyses: "They have not run any analyses.",
-  results: "None of their analyses have results.",
-  datasets: "They do not control any datasets.",
-  decisions: "They have not recorded any decisions.",
-  ethics_approvals: "No ethics approvals are linked to projects they lead.",
-  projects_led: "They do not lead any projects.",
-  external_links: "They have not linked any outside files.",
-  samples: "They do not own any samples or tubes.",
-};
-
 type Person = { id: string; name: string };
 type Errors = Record<string, string>;
 
@@ -338,56 +324,62 @@ export function HandoverPage() {
           <Items items={data.no_other_owner} action={rowAction} errors={errors} />
         </section>
       )}
-      {data.sections.map((s) => {
-        const isTasks = s.key === "open_tasks" || s.key === "unassigned_tasks";
-        const movable =
-          isTasks || s.key === "samples"
-            ? s.items
-            : s.key === "documents"
-              ? s.items.filter(canChange)
-              : [];
-        const shown = s.items.filter((i) => !above.has(rowKey(i)));
-        const moved = s.items.length - shown.length;
-        const movedNote = moved > 0 && (
-          <p className="text-sm text-muted-foreground">
-            {shown.length ? `${moved} more ${moved === 1 ? "is" : "are"}` : "All are"} listed under
-            &ldquo;No other owner&rdquo; above.
-          </p>
-        );
-        return (
-          <section key={s.key} aria-labelledby={`h-${s.key}`} className="grid gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 id={`h-${s.key}`} className="text-base font-semibold">
-                {s.label} ({s.items.length})
-              </h2>
-              {canAct && movable.length > 0 && (
-                <PickAndGo
-                  label={`Reassign all ${s.label.toLowerCase()} to`}
-                  button="Reassign all to…"
-                  progress="Reassigning…"
-                  people={people}
-                  run={(userId) =>
-                    bulk(
-                      movable,
-                      userId,
-                      isTasks ? "task" : s.key === "samples" ? "item" : "document",
-                    )
-                  }
-                />
-              )}
-            </div>
-            {shown.length > 0 && <Items items={shown} action={rowAction} errors={errors} />}
-            {movedNote}
-            {!s.items.length && (
-              <EmptyState
-                className="py-6"
-                title={`No ${s.label.toLowerCase()}`}
-                description={EMPTY[s.key] ?? "Nothing to hand over."}
-              />
-            )}
-          </section>
-        );
-      })}
+      {[...data.sections]
+        .sort((a, b) => +!a.items.length - +!b.items.length)
+        .map((s) => {
+          if (!s.items.length) return null;
+          const isTasks = s.key === "open_tasks" || s.key === "unassigned_tasks";
+          const movable =
+            isTasks || s.key === "samples"
+              ? s.items
+              : s.key === "documents"
+                ? s.items.filter(canChange)
+                : [];
+          const shown = s.items.filter((i) => !above.has(rowKey(i)));
+          const moved = s.items.length - shown.length;
+          const movedNote = moved > 0 && (
+            <p className="text-sm text-muted-foreground">
+              {shown.length ? `${moved} more ${moved === 1 ? "is" : "are"}` : "All are"} listed
+              under &ldquo;No other owner&rdquo; above.
+            </p>
+          );
+          return (
+            <section key={s.key} aria-labelledby={`h-${s.key}`} className="grid gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 id={`h-${s.key}`} className="text-base font-semibold">
+                  {s.label} ({s.items.length})
+                </h2>
+                {canAct && movable.length > 0 && (
+                  <PickAndGo
+                    label={`Reassign all ${s.label.toLowerCase()} to`}
+                    button="Reassign all to…"
+                    progress="Reassigning…"
+                    people={people}
+                    run={(userId) =>
+                      bulk(
+                        movable,
+                        userId,
+                        isTasks ? "task" : s.key === "samples" ? "item" : "document",
+                      )
+                    }
+                  />
+                )}
+              </div>
+              {shown.length > 0 && <Items items={shown} action={rowAction} errors={errors} />}
+              {movedNote}
+            </section>
+          );
+        })}
+      {data.sections.some((s) => !s.items.length) && (
+        <p className="text-sm text-muted-foreground">
+          Nothing to pass on for:{" "}
+          {data.sections
+            .filter((s) => !s.items.length)
+            .map((s) => s.label.toLowerCase())
+            .join(", ")}
+          .
+        </p>
+      )}
     </div>
   );
 }

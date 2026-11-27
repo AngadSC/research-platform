@@ -100,12 +100,29 @@ describe("InstrumentFilePreview", () => {
     const { container } = render(<InstrumentFilePreview summary={summary} />);
     expect(
       screen.getByRole("img", {
-        name: /UV\. Volume \(mL\) from 0 to 100; Absorbance \(mAU\) from 5 to 800/,
+        name: /UV absorbance\. Volume \(mL\) from 0 to 100; Absorbance \(mAU\) from 5 to 800/,
       }),
     ).toBeInTheDocument();
     expect(container.querySelectorAll("svg")).toHaveLength(2);
     expect(container.querySelectorAll("polyline")).toHaveLength(2);
-    expect(screen.getByRole("heading", { name: "Cond" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Conductivity" })).toBeInTheDocument();
+  });
+
+  it("hides fields that only hold a placeholder", () => {
+    render(
+      <InstrumentFilePreview
+        summary={{
+          status: "ok",
+          kind: "table",
+          fields: [
+            { label: "Operator", value: "Default" },
+            { label: "Readings", value: "8" },
+          ],
+        }}
+      />,
+    );
+    expect(screen.queryByText("Operator")).not.toBeInTheDocument();
+    expect(screen.getByText("Readings")).toBeInTheDocument();
   });
 
   it("overlays sequencing channels with a text legend", () => {

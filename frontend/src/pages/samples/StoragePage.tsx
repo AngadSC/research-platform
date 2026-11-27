@@ -686,7 +686,7 @@ function FindSample({ labId }: { labId: string }) {
   const { data = [], isLoading } = useSamples(labId, { q }, q.length > 0);
   return (
     <section className="grid gap-2">
-      <FormField label="Find a sample" hint="Where is P0012?">
+      <FormField label="Find a sample" hint="Type a sample code, for example P0001.">
         {(p) => (
           <div className="relative max-w-md">
             <Search
@@ -871,7 +871,7 @@ export function StoragePage() {
                             {b.name}
                             {b.shelf && (
                               <span className="ml-2 text-xs text-muted-foreground">
-                                Shelf {b.shelf}
+                                {/^shelf\b/i.test(b.shelf) ? b.shelf : `Shelf ${b.shelf}`}
                               </span>
                             )}
                           </span>

@@ -27,6 +27,7 @@ from monitoring import demo as monitoring_demo
 from projects import services as project_services
 from projects.models import Project, ProjectMembership, ProjectRole
 from samples import demo as samples_demo
+from samples import services as sample_services
 from samples.models import Sample
 
 LAB_NAME = "Glycoenzyme Demo Lab"
@@ -58,6 +59,20 @@ FILES = {
 }
 
 
+# A made-up, very short GenBank record: not a real sequence.
+PLASMID_MAP = """LOCUS       pCW-MalE-CST06          60 bp    DNA     circular SYN 24-NOV-2026
+DEFINITION  Fake demo plasmid: MBP-tagged CST-06 sialyltransferase (not a real map).
+FEATURES             Location/Qualifiers
+     CDS             1..30
+                     /label="MalE (MBP)"
+     CDS             31..54
+                     /label="CST-06"
+ORIGIN
+        1 atgaaaatcg aagaaggtaa actggtaatc tgggctgaca acaccgcatt ctaaggatcc
+//
+"""
+
+
 class Command(BaseCommand):
     help = "Seed a fake glycobiology lab for the wet-lab demo (only when DEBUG is on)."
 
@@ -77,6 +92,7 @@ class Command(BaseCommand):
             samples_demo.seed(lab, users)
         self.drop_files(lab, project, users["lead"])
         self.link_batch(lab, project)
+        self.link_plasmid(lab, project, users["lead"])
         self.summary(lab)
 
     def user(self, email, name):
@@ -151,6 +167,21 @@ class Command(BaseCommand):
             )
             parse_instrument_file(str(item.pk), str(lab.pk))
 
+    def link_plasmid(self, lab, project, user):
+        """P0001 (the CST-06 plasmid) joins the demo project and gets a small fake map."""
+        plasmid = Sample.objects.for_lab(lab).filter(name="pCW-MalE-CST06 (FAKE)").first()
+        if plasmid is None:
+            return
+        plasmid.projects.add(project)
+        if not plasmid.attachments.filter(deleted_at__isnull=True).exists():
+            sample_services.upload_file(
+                plasmid,
+                user=user,
+                file=SimpleUploadedFile(
+                    "pCW-MalE-CST06_map.gb", PLASMID_MAP.encode(), content_type="text/plain"
+                ),
+            )
+
     def link_batch(self, lab, project):
         """The purified enzyme batch points at its NanoDrop reading and its ÄKTA run."""
         batch = Sample.objects.for_lab(lab).filter(name="MBP-CST06 batch 2 (FAKE)").first()
@@ -168,6 +199,13 @@ class Command(BaseCommand):
             self.stdout.write(
                 f"  {f.instrument.name}: {f.attachment.original_filename} -> {f.status}"
             )
+        self.stdout.write(
+            "Live sensor demo: open Monitoring, pick a sensor, make a device token under "
+            "Connect, then run:\n"
+            "  python manage.py simulate_sensor <token> --count 40 --every 15\n"
+            "(a door opens at reading 10 and raises an alert). Sensor readings are set to "
+            "now each time this command runs, and go quiet after a week."
+        )
         shown = PASSWORD if self.password == PASSWORD else "the QA_PASSWORD setting"
         self.stdout.write(f"Password: {shown}")
         self.stdout.write("Logins (all share the password above):")

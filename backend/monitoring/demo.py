@@ -42,8 +42,20 @@ def _history(sensor, base, noise, rng, now, excursion=None):
     return rows
 
 
+def _freshen(lab):
+    """A re-run moves each sensor's last reading to now, so the demo never shows "quiet"."""
+    now = timezone.now().replace(second=0, microsecond=0)
+    for sensor in Sensor.objects.for_lab(lab).exclude(last_value=None):
+        Reading.objects.update_or_create(
+            sensor=sensor, at=now, defaults={"value": sensor.last_value}
+        )
+        sensor.last_at = now
+        sensor.save(update_fields=["last_at"])
+
+
 def seed(lab, users: dict) -> None:
     if Sensor.objects.for_lab(lab).filter(name="-80 Freezer B").exists():  # safe to run twice
+        _freshen(lab)
         return
     pi = users.get("pi") or next(iter(users.values()))
     keeper = users.get("admin") or users.get("lead") or pi  # looks after the freezers
