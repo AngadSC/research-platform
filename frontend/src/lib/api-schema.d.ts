@@ -612,7 +612,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description D380: a 5-minute link to one .tex or .zip file, for the browser to hand to Overleaf. */
+        /** @description D388: a 5-minute link to one .tex or .zip file, for the browser to hand to Overleaf. */
         post: operations["labs_attachments_open_in_overleaf_create"];
         delete?: never;
         options?: never;

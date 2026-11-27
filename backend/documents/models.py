@@ -246,7 +246,7 @@ class Attachment(LabScopedModel):
 
     @property
     def office_copy(self) -> bool:
-        """A copy made by "Edit in Word, Excel or PowerPoint": the bytes are in its maker's OneDrive."""
+        """Made by "Edit in Word, Excel or PowerPoint": the bytes are in its maker's OneDrive."""
         return bool(self.external_url and not self.drive_file_id)
 
     def can_see_external_url(self, user) -> bool:

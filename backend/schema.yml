@@ -1236,7 +1236,7 @@ paths:
   /api/labs/{lab_id}/attachments/{attachment_id}/open-in-overleaf/:
     post:
       operationId: labs_attachments_open_in_overleaf_create
-      description: 'D380: a 5-minute link to one .tex or .zip file, for the browser
+      description: 'D388: a 5-minute link to one .tex or .zip file, for the browser
         to hand to Overleaf.'
       parameters:
       - in: path
